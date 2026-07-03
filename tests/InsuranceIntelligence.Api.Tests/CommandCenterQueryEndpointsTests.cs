@@ -1,6 +1,7 @@
 using System.Text.Json;
 using InsuranceIntelligence.Api.CommandCenter;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.LocalTestDoubles;
@@ -144,6 +145,54 @@ public sealed class CommandCenterQueryEndpointsTests
         var (statusCode, _) = await harness.RunAsync("What needs my attention today?");
 
         Assert.Equal(StatusCodes.Status403Forbidden, statusCode);
+    }
+
+    [Fact]
+    public async Task AiOutputValidatorRemovesDecisionAndCustomerUnsafeLanguage()
+    {
+        var validator = new DeterministicAiOutputValidator();
+        var context = new TenantContext("tenant-demo", "workspace-claims", "user-claims-1", ["ClaimsSupervisor"]);
+
+        var output = await validator.ValidateCustomerSafeDraftAsync(
+            "The claim is denied. Internal note: fraud flag and reserve are visible.",
+            context);
+
+        Assert.True(output.RequiresHumanReview);
+        Assert.Contains("requires human review", output.Preview);
+        Assert.DoesNotContain("claim is denied", output.Preview, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fraud flag", output.Preview, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("reserve", output.Preview, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("consequential_decision_language_removed", output.GuardrailsApplied);
+        Assert.Contains("customer_unsafe_internal_detail_removed", output.GuardrailsApplied);
+    }
+
+    [Fact]
+    public async Task NotificationDraftServicePersistsCustomerUpdateDraft()
+    {
+        var repository = new InMemoryCustomerUpdateRepository();
+        var service = new CustomerUpdateNotificationDraftService(repository);
+        var caseId = Guid.NewGuid();
+
+        var result = await service.CreateDraftAsync(
+            new NotificationDraftCreateRequest(
+                "tenant-demo",
+                "workspace-claims",
+                "claim",
+                caseId.ToString(),
+                "Email",
+                "Please review the missing documents for your claim.",
+                RequiresApproval: true,
+                "user-claims-1",
+                "corr-draft-001"));
+
+        var saved = await repository.GetAsync(Guid.Parse(result.DraftId), Scope);
+
+        Assert.NotNull(saved);
+        Assert.Equal(CustomerUpdateStatus.PendingApproval, saved!.Status);
+        Assert.True(saved.RequiresApproval);
+        Assert.True(saved.Sensitive);
+        Assert.Equal(caseId, saved.CaseId);
+        Assert.Equal("Please review the missing documents for your claim.", saved.MessageBody);
     }
 
     private static IReadOnlyList<string> BlockTypes(JsonElement body) =>

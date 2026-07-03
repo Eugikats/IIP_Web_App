@@ -6,6 +6,7 @@ using InsuranceIntelligence.Api.Assistant;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Api.Claims;
 using InsuranceIntelligence.Api.ClientPortal;
+using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.Claims;
 using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Core;
@@ -215,8 +216,10 @@ builder.Services.AddScoped<ITenantContextSetter>(serviceProvider => serviceProvi
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
 builder.Services.AddScoped<IClaimsQueryService, ClaimsQueryService>();
+builder.Services.AddSingleton<IAiOutputValidator, DeterministicAiOutputValidator>();
 builder.Services.AddSingleton<IIntentClassifier, DeterministicThenAiIntentClassifier>();
 builder.Services.AddSingleton<IProviderRequirementResolver, ProviderRequirementResolver>();
+builder.Services.AddScoped<INotificationDraftService, CustomerUpdateNotificationDraftService>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
 builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.CommandCenter.ISystemCapabilityStatusService, InsuranceIntelligence.Api.CommandCenter.SystemCapabilityStatusService>();
