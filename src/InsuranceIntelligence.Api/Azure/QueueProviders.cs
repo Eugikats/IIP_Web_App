@@ -1,0 +1,50 @@
+using System.Text.Json;
+using Azure.Messaging.ServiceBus;
+using InsuranceIntelligence.Domain.Queue;
+using InsuranceIntelligence.Infrastructure.Configuration;
+
+namespace InsuranceIntelligence.Api.Azure;
+
+public sealed class MockMessageQueueDispatcher(ILogger<MockMessageQueueDispatcher> logger) : IMessageQueueDispatcher
+{
+    public Task DispatchAsync(QueueMessageEnvelope envelope, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("Mock queue dispatch accepted. Queue={QueueName} MessageType={MessageType} Tenant={TenantId} Workspace={WorkspaceId}",
+            envelope.QueueName, envelope.MessageType, envelope.TenantId, envelope.WorkspaceId);
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class AzureServiceBusQueueDispatcher(InfrastructureOptions options, ILogger<AzureServiceBusQueueDispatcher> logger) : IMessageQueueDispatcher
+{
+    public async Task DispatchAsync(QueueMessageEnvelope envelope, CancellationToken cancellationToken = default)
+    {
+        if (AzureProviderSupport.Missing(options.ServiceBus.FullyQualifiedNamespace))
+        {
+            throw new InvalidOperationException("Azure Service Bus is selected but ServiceBus:FullyQualifiedNamespace is not configured.");
+        }
+
+        await using var client = new ServiceBusClient(options.ServiceBus.FullyQualifiedNamespace, AzureProviderSupport.Credential());
+        var sender = client.CreateSender(envelope.QueueName);
+        var body = JsonSerializer.Serialize(new
+        {
+            envelope.MessageType,
+            envelope.TenantId,
+            envelope.WorkspaceId,
+            envelope.CorrelationId,
+            envelope.Payload
+        });
+        var message = new ServiceBusMessage(body)
+        {
+            ContentType = "application/json",
+            CorrelationId = envelope.CorrelationId,
+            Subject = envelope.MessageType
+        };
+        message.ApplicationProperties["tenantId"] = envelope.TenantId;
+        message.ApplicationProperties["workspaceId"] = envelope.WorkspaceId;
+
+        logger.LogInformation("Dispatching Azure Service Bus message. Queue={QueueName} MessageType={MessageType} CorrelationId={CorrelationId}",
+            envelope.QueueName, envelope.MessageType, envelope.CorrelationId);
+        await sender.SendMessageAsync(message, cancellationToken);
+    }
+}

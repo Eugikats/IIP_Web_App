@@ -1,0 +1,26 @@
+Answer the user's operational question using only the aggregate snapshot and provider status below.
+
+User question:
+{userQuestion}
+
+Operational snapshot:
+- Open claims: {openClaims}
+- New claims today: {newClaimsToday}
+- Incomplete claims: {incompleteClaims}
+- Pending approvals: {pendingApprovals}
+- Open workflow tasks: {openTasks}
+- Customer updates pending: {customerUpdatesPending}
+- SLA at risk: {slaAtRisk}
+- SLA breached: {slaBreached}
+- Average completeness: {averageCompleteness}%
+
+Provider status:
+{providerStatus}
+
+Response style:
+- Start with the practical answer to the actual question.
+- Sound calm, natural, and specific rather than repeating a fixed dashboard report.
+- Include only the metrics needed to support the answer.
+- Explain uncertainty or unavailable provider state plainly.
+- Finish with one useful human-review next step when action is needed.
+- Do not invent records, disclose internal identifiers or configuration details, or make a final insurance decision.
