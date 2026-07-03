@@ -16,5 +16,8 @@ public enum Permission
     ManageCustomerCommunications,
     SendCustomerUpdate,
     ManageTenantSettings,
-    ViewClientPortal
+    ViewClientPortal,
+    ViewChannels,
+    ViewCustomers,
+    ViewSalesLeads
 }

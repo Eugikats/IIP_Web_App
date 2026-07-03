@@ -21,7 +21,9 @@ public static class RolePermissionMap
                 Permission.ViewAssignedClaims,
                 Permission.ViewAiOutputs,
                 Permission.ManageCustomerCommunications,
-                Permission.SendCustomerUpdate
+                Permission.SendCustomerUpdate,
+                Permission.ViewChannels,
+                Permission.ViewCustomers
             ],
             [PlatformRole.ClaimsSupervisor] =
             [
@@ -35,7 +37,9 @@ public static class RolePermissionMap
                 Permission.ViewAiOutputs,
                 Permission.OverrideAiRecommendation,
                 Permission.ManageCustomerCommunications,
-                Permission.SendCustomerUpdate
+                Permission.SendCustomerUpdate,
+                Permission.ViewChannels,
+                Permission.ViewCustomers
             ],
             [PlatformRole.CustomerService] =
             [
@@ -45,7 +49,10 @@ public static class RolePermissionMap
                 Permission.ViewAssignedClaims,
                 Permission.ViewAiOutputs,
                 Permission.ManageCustomerCommunications,
-                Permission.SendCustomerUpdate
+                Permission.SendCustomerUpdate,
+                Permission.ViewChannels,
+                Permission.ViewCustomers,
+                Permission.ViewSalesLeads
             ],
             [PlatformRole.Broker] =
             [
@@ -62,7 +69,8 @@ public static class RolePermissionMap
                 Permission.ManageKnowledgeBase,
                 Permission.ViewAiOutputs,
                 Permission.ApproveSettlementWorkflowStep,
-                Permission.OverrideAiRecommendation
+                Permission.OverrideAiRecommendation,
+                Permission.ViewCustomers
             ],
             [PlatformRole.Client] =
             [
