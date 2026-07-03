@@ -195,6 +195,47 @@ public sealed class CommandCenterQueryEndpointsTests
         Assert.Equal("Please review the missing documents for your claim.", saved.MessageBody);
     }
 
+    [Fact]
+    public async Task CustomerUpdateDraftIntentPersistsDraftBeforeReturningBlock()
+    {
+        var harness = new Harness(
+            providerHealthCheck: new ReadyProviderHealthCheck(),
+            chatCompletionProvider: new CapturingChatCompletionProvider(
+                "The claim is denied. Internal note: fraud flag and reserve are visible."));
+        var claimCase = await harness.SeedIncompleteCaseAsync("Evelyn Nansubuga", SlaState.OnTrack);
+
+        var (statusCode, body) = await harness.RunAsync($"Draft customer update for claim {claimCase.CaseId}");
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.False(body.GetProperty("canTriggerDecision").GetBoolean());
+
+        var draftBlock = Block(body, "draft_communication");
+        Assert.True(draftBlock.GetProperty("requiresApproval").GetBoolean());
+        var draftId = Guid.Parse(draftBlock.GetProperty("draftId").GetString()!);
+        var preview = draftBlock.GetProperty("preview").GetString()!;
+        Assert.Contains("requires human review", preview);
+        Assert.DoesNotContain("fraud flag", preview, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("reserve", preview, StringComparison.OrdinalIgnoreCase);
+
+        var saved = await harness.CustomerUpdateRepository.GetAsync(draftId, Scope);
+        Assert.NotNull(saved);
+        Assert.Equal(preview, saved!.MessageBody);
+        Assert.Equal(CustomerUpdateStatus.PendingApproval, saved.Status);
+        Assert.True(saved.RequiresApproval);
+
+        var actionLogId = body.GetProperty("agentActionLogId").GetGuid();
+        var actionLogs = await harness.ActionLogRepository.ListAsync(Scope);
+        var actionLog = Assert.Single(actionLogs, log => log.AgentActionLogId == actionLogId);
+        Assert.Equal(claimCase.CaseId, actionLog.CaseId);
+        Assert.Equal("AzureOpenAI", actionLog.ModelProvider);
+        Assert.False(actionLog.CanTriggerDecision);
+        Assert.DoesNotContain(preview, actionLog.ModelOutput, StringComparison.Ordinal);
+        Assert.Contains(draftId.ToString(), actionLog.ModelOutput, StringComparison.Ordinal);
+
+        var actions = Block(body, "action_proposal").GetProperty("actions").EnumerateArray();
+        Assert.All(actions, action => Assert.True(action.GetProperty("requiresHumanApproval").GetBoolean()));
+    }
+
     private static IReadOnlyList<string> BlockTypes(JsonElement body) =>
         body.GetProperty("blocks").EnumerateArray()
             .Select(block => block.GetProperty("type").GetString()!)
@@ -216,11 +257,19 @@ public sealed class CommandCenterQueryEndpointsTests
     {
         private readonly InfrastructureOptions _options;
         private readonly string _role;
+        private readonly IProviderHealthCheck _providerHealthCheck;
+        private readonly IChatCompletionProvider _chatCompletionProvider;
 
-        public Harness(InfrastructureOptions? options = null, string role = "ClaimsSupervisor")
+        public Harness(
+            InfrastructureOptions? options = null,
+            string role = "ClaimsSupervisor",
+            IProviderHealthCheck? providerHealthCheck = null,
+            IChatCompletionProvider? chatCompletionProvider = null)
         {
             _options = options ?? new InfrastructureOptions { AuthMode = "Development" };
             _role = role;
+            _providerHealthCheck = providerHealthCheck ?? new LocalTestProviderHealthCheck();
+            _chatCompletionProvider = chatCompletionProvider ?? new CapturingChatCompletionProvider("Configured chat provider was not invoked.");
         }
 
         public InMemoryCaseRepository CaseRepository { get; } = new();
@@ -302,7 +351,10 @@ public sealed class CommandCenterQueryEndpointsTests
                 SlaCalculator,
                 new DeterministicThenAiIntentClassifier(),
                 new ProviderRequirementResolver(),
-                new LocalTestProviderHealthCheck());
+                _providerHealthCheck,
+                _chatCompletionProvider,
+                new DeterministicAiOutputValidator(),
+                new CustomerUpdateNotificationDraftService(CustomerUpdateRepository));
 
             var result = await CommandCenterQueryEndpoints.RunQuery(
                 new CommandCenterQueryRequest(question),
@@ -347,5 +399,23 @@ public sealed class CommandCenterQueryEndpointsTests
 
             return (httpContext.Response.StatusCode, body);
         }
+    }
+
+    private sealed class ReadyProviderHealthCheck : IProviderHealthCheck
+    {
+        public Task<ProviderStatus> CheckAsync(string providerCode, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ProviderStatus(providerCode, "ready", "Provider is configured for this local test.", DateTimeOffset.UtcNow));
+    }
+
+    private sealed class CapturingChatCompletionProvider(string content) : IChatCompletionProvider
+    {
+        public Task<ChatCompletionResult> CompleteAsync(
+            ChatCompletionRequest request,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ChatCompletionResult(
+                content,
+                "AzureOpenAI",
+                "chat-test",
+                DateTimeOffset.UtcNow));
     }
 }

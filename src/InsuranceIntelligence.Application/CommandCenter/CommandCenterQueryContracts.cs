@@ -38,6 +38,7 @@ public sealed record CommandCenterQueryResponse(
 [JsonDerivedType(typeof(SlaSummaryBlock), "sla_summary")]
 [JsonDerivedType(typeof(DocumentGapSummaryBlock), "document_gap_summary")]
 [JsonDerivedType(typeof(ApprovalQueueBlock), "approval_queue")]
+[JsonDerivedType(typeof(DraftCommunicationBlock), "draft_communication")]
 [JsonDerivedType(typeof(ActionProposalBlock), "action_proposal")]
 [JsonDerivedType(typeof(EvidenceListBlock), "evidence_list")]
 [JsonDerivedType(typeof(NotConfiguredBlock), "not_configured")]
@@ -56,6 +57,12 @@ public sealed record SlaSummaryBlock(IReadOnlyList<SlaItem> Items) : CommandCent
 public sealed record DocumentGapSummaryBlock(IReadOnlyList<DocGapItem> Items) : CommandCenterResponseBlock;
 
 public sealed record ApprovalQueueBlock(IReadOnlyList<ApprovalItem> Items) : CommandCenterResponseBlock;
+
+/// <summary>Persisted customer-communication draft. Human review is required before send.</summary>
+public sealed record DraftCommunicationBlock(
+    string DraftId,
+    string Preview,
+    bool RequiresApproval) : CommandCenterResponseBlock;
 
 /// <summary>Draft-only suggested next steps. Every action requires human approval; never executable.</summary>
 public sealed record ActionProposalBlock(IReadOnlyList<ProposedAction> Actions) : CommandCenterResponseBlock;

@@ -159,10 +159,12 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
 {
     builder.Services.AddSingleton<IAiAssistantProvider, AzureOpenAiAssistantProvider>();
     builder.Services.AddSingleton<IEmbeddingProvider, AzureOpenAiEmbeddingProvider>();
+    builder.Services.AddSingleton<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
 }
 else
 {
     builder.Services.AddSingleton<IAiAssistantProvider, NotConfiguredAiAssistantProvider>();
+    builder.Services.AddSingleton<IChatCompletionProvider, NotConfiguredChatCompletionProvider>();
 }
 
 if (infrastructureOptions.QueueProvider.Equals("AzureServiceBus", StringComparison.OrdinalIgnoreCase))

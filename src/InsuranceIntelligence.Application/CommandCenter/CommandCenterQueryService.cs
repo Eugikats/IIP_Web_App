@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
@@ -31,7 +32,10 @@ public sealed class CommandCenterQueryService(
     ISlaCalculator slaCalculator,
     IIntentClassifier intentClassifier,
     IProviderRequirementResolver providerRequirementResolver,
-    IProviderHealthCheck providerHealthCheck) : ICommandCenterQueryService
+    IProviderHealthCheck providerHealthCheck,
+    IChatCompletionProvider chatCompletionProvider,
+    IAiOutputValidator aiOutputValidator,
+    INotificationDraftService notificationDraftService) : ICommandCenterQueryService
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
@@ -72,6 +76,17 @@ public sealed class CommandCenterQueryService(
                 question,
                 context,
                 providerGate,
+                correlationId,
+                now,
+                cancellationToken);
+        }
+
+        if (intent.Intent == IntentType.PrepareCustomerUpdateDraft)
+        {
+            return await BuildCustomerUpdateDraftResponseAsync(
+                question,
+                context,
+                intent.Parameters,
                 correlationId,
                 now,
                 cancellationToken);
@@ -285,6 +300,187 @@ public sealed class CommandCenterQueryService(
 
         return new CommandCenterQueryResponse(
             [block],
+            actionLog.AgentActionLogId,
+            correlationId,
+            ModelProvider,
+            PromptVersion,
+            Visibility,
+            CanTriggerDecision: false,
+            generatedAt);
+    }
+
+    private async Task<CommandCenterQueryResponse> BuildCustomerUpdateDraftResponseAsync(
+        string question,
+        TenantContext context,
+        IntentParameters parameters,
+        string correlationId,
+        DateTimeOffset generatedAt,
+        CancellationToken cancellationToken)
+    {
+        if (!parameters.TryGetString("claimId", out var rawCaseId) || !Guid.TryParse(rawCaseId, out var caseId))
+        {
+            return await BuildErrorResponseAsync(
+                question,
+                context,
+                "missing_claim_id",
+                "I need a specific claim ID before I can prepare a customer update draft.",
+                correlationId,
+                generatedAt,
+                cancellationToken);
+        }
+
+        var scope = context.Scope;
+        var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
+        if (claimCase is null || claimCase.Scope != scope)
+        {
+            return await BuildErrorResponseAsync(
+                question,
+                context,
+                "claim_not_found",
+                "The claim was not found or is not visible in this tenant workspace.",
+                correlationId,
+                generatedAt,
+                cancellationToken);
+        }
+
+        var documents = await caseDocumentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        var checklist = await checklistProvider.BuildChecklistAsync(claimCase, documents, cancellationToken);
+        var missingDocuments = checklist.MissingRequiredDocuments.Count == 0
+            ? "none"
+            : string.Join(", ", checklist.MissingRequiredDocuments.Select(document => document.Label));
+        var receivedDocuments = checklist.ReceivedDocuments.Count == 0
+            ? "none"
+            : string.Join(", ", checklist.ReceivedDocuments.Select(document => document.ToString()));
+
+        var prompt = string.Join('\n', [
+            "Draft a concise customer-safe insurance claim update for human review.",
+            $"Customer: {claimCase.CustomerName}",
+            $"Policy number: {claimCase.PolicyNumber}",
+            $"Product line: {claimCase.ProductLine}",
+            $"Claim type: {claimCase.ClaimType}",
+            $"Claim status: {claimCase.Status}",
+            $"Missing required documents: {missingDocuments}",
+            $"Received documents: {receivedDocuments}",
+            "Rules: do not deny or approve the claim, promise payment, admit liability, accuse fraud, disclose reserves, disclose internal notes, or present this as sent."
+        ]);
+
+        var chatResult = await chatCompletionProvider.CompleteAsync(
+            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId),
+            cancellationToken);
+        var validated = await aiOutputValidator.ValidateCustomerSafeDraftAsync(
+            chatResult.Content,
+            context,
+            cancellationToken);
+
+        var draft = await notificationDraftService.CreateDraftAsync(
+            new NotificationDraftCreateRequest(
+                context.TenantId,
+                context.WorkspaceId,
+                "claim",
+                claimCase.CaseId.ToString(),
+                "Email",
+                validated.Preview,
+                RequiresApproval: true,
+                context.UserId,
+                correlationId),
+            cancellationToken);
+
+        var blocks = new CommandCenterResponseBlock[]
+        {
+            new TextBlock("Draft customer update prepared. Human review is required before any message is sent."),
+            new DraftCommunicationBlock(draft.DraftId, validated.Preview, RequiresApproval: true),
+            new ActionProposalBlock([
+                new ProposedAction(
+                    "Review draft",
+                    "Open the persisted customer update draft for staff review.",
+                    $"/customer-updates/{draft.DraftId}"),
+                new ProposedAction(
+                    "Submit for approval",
+                    "Send the draft into the governed approval workflow before delivery.",
+                    $"/customer-updates/{draft.DraftId}/approval")
+            ]),
+            new EvidenceListBlock([
+                new EvidenceSource(
+                    $"Claim {claimCase.CaseId}",
+                    claimCase.CustomerName,
+                    $"/claims/{claimCase.CaseId}")
+            ])
+        };
+
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = claimCase.CaseId,
+            UserId = context.UserId,
+            AgentName = "CommandCenterQuery",
+            AssistantMode = AssistantMode.CustomerUpdateDrafting,
+            InputSummary = SummarizeInput(question),
+            RetrievedSources = Array.Empty<SourceCitation>(),
+            ModelOutput = $"Customer update draft {draft.DraftId} persisted for human review.",
+            ConfidenceScore = AiConfidenceScore.Create(0.75m),
+            RiskFlag = validated.GuardrailsApplied.Count == 0 ? "needs_review" : string.Join(",", validated.GuardrailsApplied),
+            HumanOverride = false,
+            CreatedAt = generatedAt,
+            CorrelationId = correlationId,
+            ModelProvider = chatResult.Provider,
+            ModelDeployment = chatResult.Deployment,
+            PromptVersion = PromptVersion,
+            Visibility = Visibility,
+            CanTriggerDecision = false,
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+
+        return new CommandCenterQueryResponse(
+            blocks,
+            actionLog.AgentActionLogId,
+            correlationId,
+            chatResult.Provider,
+            PromptVersion,
+            Visibility,
+            CanTriggerDecision: false,
+            generatedAt);
+    }
+
+    private async Task<CommandCenterQueryResponse> BuildErrorResponseAsync(
+        string question,
+        TenantContext context,
+        string code,
+        string safeMessage,
+        string correlationId,
+        DateTimeOffset generatedAt,
+        CancellationToken cancellationToken)
+    {
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = context.Scope,
+            CaseId = null,
+            UserId = context.UserId,
+            AgentName = "CommandCenterQuery",
+            AssistantMode = AssistantMode.OperationalSummary,
+            InputSummary = SummarizeInput(question),
+            RetrievedSources = Array.Empty<SourceCitation>(),
+            ModelOutput = $"Command Center query returned safe error {code}.",
+            ConfidenceScore = AiConfidenceScore.Create(0m),
+            RiskFlag = code,
+            HumanOverride = false,
+            CreatedAt = generatedAt,
+            CorrelationId = correlationId,
+            ModelProvider = ModelProvider,
+            ModelDeployment = null,
+            PromptVersion = PromptVersion,
+            Visibility = Visibility,
+            CanTriggerDecision = false,
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+
+        return new CommandCenterQueryResponse(
+            [new ErrorBlock(code, safeMessage, correlationId)],
             actionLog.AgentActionLogId,
             correlationId,
             ModelProvider,

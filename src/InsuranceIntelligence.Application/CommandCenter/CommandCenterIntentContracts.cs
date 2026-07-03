@@ -57,7 +57,7 @@ public sealed class DeterministicThenAiIntentClassifier : IIntentClassifier
 
         if (Mentions(normalized, "customer update", "customer communication", "draft update", "draft email", "draft message"))
         {
-            return Result(IntentType.PrepareCustomerUpdateDraft, 0.88m);
+            return Result(IntentType.PrepareCustomerUpdateDraft, 0.88m, ExtractGuidParameter(message));
         }
 
         if (Mentions(normalized, "management summary", "executive summary", "management report", "operations summary"))
@@ -88,9 +88,26 @@ public sealed class DeterministicThenAiIntentClassifier : IIntentClassifier
         return Result(IntentType.Unsupported, 0m);
     }
 
-    private static IntentClassificationResult Result(IntentType intent, decimal confidence) =>
-        new(intent, new IntentParameters(), confidence, UsedAiClassifier: false);
+    private static IntentClassificationResult Result(
+        IntentType intent,
+        decimal confidence,
+        IReadOnlyDictionary<string, string?>? parameters = null) =>
+        new(intent, new IntentParameters(parameters), confidence, UsedAiClassifier: false);
 
     private static bool Mentions(string haystack, params string[] needles) =>
         needles.Any(needle => haystack.Contains(needle, StringComparison.Ordinal));
+
+    private static IReadOnlyDictionary<string, string?> ExtractGuidParameter(string? message)
+    {
+        foreach (var token in (message ?? string.Empty)
+            .Split([' ', '\r', '\n', '\t', ',', '.', ';', ':', '(', ')', '[', ']'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (Guid.TryParse(token, out var value))
+            {
+                return new Dictionary<string, string?> { ["claimId"] = value.ToString() };
+            }
+        }
+
+        return new Dictionary<string, string?>();
+    }
 }
