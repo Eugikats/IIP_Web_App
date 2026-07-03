@@ -25,7 +25,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Prompts\azure-openai-command-center.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Prompts\azure-openai-policy-answer.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

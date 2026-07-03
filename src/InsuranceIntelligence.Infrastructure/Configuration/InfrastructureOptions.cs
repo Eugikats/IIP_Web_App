@@ -67,7 +67,6 @@ public sealed record AzureOpenAiOptions
     public string? ChatDeployment { get; init; }
     public string? EmbeddingDeployment { get; init; }
     public string? PolicyAnswerPromptTemplatePath { get; init; }
-    public string? CommandCenterPromptTemplatePath { get; init; }
     public string ApiVersion { get; init; } = "2024-10-21";
     public bool UseManagedIdentity { get; init; } = true;
     public int MaxTokens { get; init; } = 800;
