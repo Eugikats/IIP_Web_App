@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Knowledge;
 
-namespace InsuranceIntelligence.Api.Local;
+namespace InsuranceIntelligence.LocalTestDoubles;
 
 public sealed class InMemoryKnowledgeIndexProvider : IKnowledgeIndexProvider
 {

@@ -3,7 +3,7 @@ using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 
-namespace InsuranceIntelligence.Api.Local;
+namespace InsuranceIntelligence.LocalTestDoubles;
 
 public sealed class InMemoryAuditRepository : IAuditRepository
 {

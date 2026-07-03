@@ -2,7 +2,7 @@ using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Workflow;
 
-namespace InsuranceIntelligence.Api.Local;
+namespace InsuranceIntelligence.LocalTestDoubles;
 
 public sealed class MockCustomerUpdateDraftingProvider(IWorkflowRuleProvider workflowRuleProvider) : ICustomerUpdateDraftingProvider
 {

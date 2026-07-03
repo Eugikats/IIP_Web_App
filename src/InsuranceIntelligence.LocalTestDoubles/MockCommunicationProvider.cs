@@ -1,6 +1,6 @@
 using InsuranceIntelligence.Domain.Workflow;
 
-namespace InsuranceIntelligence.Api.Local;
+namespace InsuranceIntelligence.LocalTestDoubles;
 
 public sealed class MockCommunicationProvider : ICommunicationProvider
 {

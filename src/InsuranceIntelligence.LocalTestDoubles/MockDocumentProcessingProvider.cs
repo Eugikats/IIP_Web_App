@@ -1,6 +1,6 @@
 using InsuranceIntelligence.Domain.Documents;
 
-namespace InsuranceIntelligence.Api.Local;
+namespace InsuranceIntelligence.LocalTestDoubles;
 
 public sealed class MockDocumentProcessingProvider : IDocumentProcessingProvider
 {

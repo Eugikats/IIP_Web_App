@@ -1,6 +1,6 @@
 using InsuranceIntelligence.Domain.Knowledge;
 
-namespace InsuranceIntelligence.Api.Local;
+namespace InsuranceIntelligence.LocalTestDoubles;
 
 public sealed class MockAiAssistantProvider : IAiAssistantProvider
 {

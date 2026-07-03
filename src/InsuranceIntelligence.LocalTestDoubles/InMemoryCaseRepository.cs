@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 
-namespace InsuranceIntelligence.Api.Local;
+namespace InsuranceIntelligence.LocalTestDoubles;
 
 public sealed class InMemoryCaseRepository : ICaseRepository
 {
