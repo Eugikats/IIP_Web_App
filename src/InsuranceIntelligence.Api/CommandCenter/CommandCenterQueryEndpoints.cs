@@ -1,10 +1,7 @@
-using InsuranceIntelligence.Api.Admin;
 using InsuranceIntelligence.Api.Auth;
-using InsuranceIntelligence.Domain.Audit;
-using InsuranceIntelligence.Domain.Cases;
-using InsuranceIntelligence.Domain.Documents;
-using InsuranceIntelligence.Domain.Knowledge;
-using InsuranceIntelligence.Domain.Workflow;
+using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.CommandCenter;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
 namespace InsuranceIntelligence.Api.CommandCenter;
@@ -17,146 +14,66 @@ namespace InsuranceIntelligence.Api.CommandCenter;
 /// </summary>
 public static class CommandCenterQueryEndpoints
 {
-    private const string ModelProvider = "Deterministic";
-    private const string PromptVersion = "command-center-query-v1";
-    private const string Visibility = "Internal";
-
     public static async Task<IResult> RunQuery(
         CommandCenterQueryRequest request,
+        ICommandCenterQueryService queryService,
+        ITenantContextSetter tenantContextSetter,
         InfrastructureOptions options,
-        ICaseRepository caseRepository,
-        ICaseDocumentRepository caseDocumentRepository,
-        IDocumentChecklistProvider checklistProvider,
-        IKnowledgeDocumentRepository knowledgeRepository,
-        IAgentActionLogRepository actionLogRepository,
-        IApprovalRepository approvalRepository,
-        IWorkflowTaskRepository taskRepository,
-        ICustomerUpdateRepository updateRepository,
-        IAuditRepository auditRepository,
-        ISlaCalculator slaCalculator,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Question))
+        if (!TrySetTenantContext(httpContext, tenantContextSetter, options, out var tenantContextError))
+        {
+            return tenantContextError;
+        }
+
+        try
+        {
+            return Results.Ok(await queryService.QueryAsync(request, GetCorrelationId(httpContext), cancellationToken));
+        }
+        catch (CommandCenterValidationException ex)
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
-                ["question"] = ["A Command Center question is required."],
+                [ex.Field] = [ex.Message],
             });
         }
-
-        var question = request.Question.Trim();
-        if (question.Length > 2000)
+        catch (PermissionDeniedException)
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["question"] = ["A Command Center question must be 2,000 characters or fewer."],
-            });
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
-
-        // Reuse the single-sourced metric math + tenant-scope resolution.
-        var loaded = await CommandCenterMetricsLoader.LoadMetricsAsync(
-            caseRepository,
-            caseDocumentRepository,
-            knowledgeRepository,
-            actionLogRepository,
-            approvalRepository,
-            taskRepository,
-            updateRepository,
-            slaCalculator,
-            httpContext,
-            cancellationToken);
-
-        if (loaded.Error is not null)
-        {
-            return loaded.Error;
-        }
-
-        var scope = loaded.Scope!;
-        var metrics = loaded.Metrics!;
-        var now = DateTimeOffset.UtcNow;
-
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
-        var caseViews = new List<CommandCenterCaseView>(cases.Count);
-        foreach (var claimCase in cases)
-        {
-            var documents = await caseDocumentRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken);
-            var checklist = await checklistProvider.BuildChecklistAsync(claimCase, documents, cancellationToken);
-            var missing = checklist.MissingRequiredDocuments.Select(item => item.Label).ToList();
-            var slaStatus = slaCalculator.Calculate(claimCase, now);
-            var (token, dueLabel) = CommandCenterQueryPlanner.ResolveSla(claimCase, slaStatus, now);
-
-            caseViews.Add(new CommandCenterCaseView(
-                claimCase.CaseId,
-                claimCase.CustomerName,
-                claimCase.ProductLine,
-                claimCase.Status.ToString(),
-                slaStatus,
-                token,
-                dueLabel,
-                claimCase.CompletenessScore,
-                claimCase.AssignedUserId ?? claimCase.AssignedTeam ?? "Unassigned",
-                missing));
-        }
-
-        var approvals = await approvalRepository.ListAsync(scope, cancellationToken);
-        var pendingApprovals = approvals
-            .Where(approval => approval.Status == ApprovalStatus.Pending)
-            .Select(approval => new CommandCenterApprovalView(
-                approval.ApprovalId,
-                approval.CaseId,
-                approval.ApprovalType,
-                "Pending"))
-            .ToList();
-
-        var providerHealth = AdminEndpoints.BuildProviderHealth(options);
-        var missingProviders = providerHealth.Providers
-            .Where(provider => provider.Status == "missing")
-            .ToList();
-
-        var data = new CommandCenterQueryData(metrics, caseViews, pendingApprovals, missingProviders);
-        var blocks = CommandCenterQueryPlanner.Plan(question, data);
-
-        var correlationId = GetCorrelationId(httpContext);
-        var actionLog = new AgentActionLog
-        {
-            AgentActionLogId = Guid.NewGuid(),
-            Scope = scope,
-            CaseId = null,
-            UserId = DemoAuthorization.GetUserId(httpContext, "runtime-user"),
-            AgentName = "CommandCenterQuery",
-            AssistantMode = AssistantMode.OperationalSummary,
-            InputSummary = SummarizeInput(question),
-            RetrievedSources = Array.Empty<SourceCitation>(),
-            ModelOutput = $"Command Center briefing: {blocks.Count} block(s) over {caseViews.Count} claim(s).",
-            ConfidenceScore = AiConfidenceScore.Create(1.0m),
-            RiskFlag = "none",
-            HumanOverride = false,
-            CreatedAt = now,
-            CorrelationId = correlationId,
-            ModelProvider = ModelProvider,
-            ModelDeployment = null,
-            PromptVersion = PromptVersion,
-            Visibility = Visibility,
-            CanTriggerDecision = false,
-        };
-
-        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
-        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
-
-        return Results.Ok(new CommandCenterQueryResponse(
-            blocks,
-            actionLog.AgentActionLogId,
-            correlationId,
-            ModelProvider,
-            PromptVersion,
-            Visibility,
-            CanTriggerDecision: false,
-            now));
     }
 
-    private static string SummarizeInput(string question) =>
-        question.Length <= 180 ? question : $"{question[..180]}...";
+    private static bool TrySetTenantContext(
+        HttpContext httpContext,
+        ITenantContextSetter tenantContextSetter,
+        InfrastructureOptions options,
+        out IResult error)
+    {
+        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        {
+            error = Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["tenantScope"] = [validationError],
+            });
+            return false;
+        }
+
+        var role = DemoAuthorization.GetEffectiveRole(httpContext, options).ToString();
+        var userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            error = Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["userId"] = ["Authenticated user context is required."],
+            });
+            return false;
+        }
+
+        tenantContextSetter.SetCurrent(new TenantContext(scope.TenantId, scope.WorkspaceId, userId, [role]));
+        error = Results.Empty;
+        return true;
+    }
 
     private static string GetCorrelationId(HttpContext httpContext)
     {

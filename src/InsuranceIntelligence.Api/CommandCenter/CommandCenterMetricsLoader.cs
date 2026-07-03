@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;

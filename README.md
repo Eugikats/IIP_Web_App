@@ -14,6 +14,9 @@ these documents as the source of truth.
   `/api/v1` routes, multitenant/runtime guardrails, LocalTestDoubles namespace usage, and
   no restoration of the dropped code-only agent framework or superseded prose Command Center
   assistant path.
+- Command Center `/api/v1/command-center/query` delegates to an Application-layer
+  `CommandCenterQueryService` for deterministic, tenant-scoped orchestration, permission
+  checks, and audit/action-log writing. The API endpoint remains a thin request adapter.
 - The obsolete-provider warnings in test/build output are intentional guard warnings for
   isolated test doubles and legacy simulation classes; do not silence them without replacing
   the underlying production provider path.

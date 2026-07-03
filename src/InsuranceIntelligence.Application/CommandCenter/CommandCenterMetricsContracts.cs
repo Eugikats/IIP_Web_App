@@ -1,4 +1,4 @@
-namespace InsuranceIntelligence.Api.CommandCenter;
+namespace InsuranceIntelligence.Application.CommandCenter;
 
 // Metric snapshot DTO consumed by the chat-first query planner to build metric_pills
 // blocks. The superseded prose command-center DTOs (CommandCenterQuestionRequest /

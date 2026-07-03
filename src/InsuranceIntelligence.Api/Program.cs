@@ -7,6 +7,7 @@ using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Api.Claims;
 using InsuranceIntelligence.Api.ClientPortal;
 using InsuranceIntelligence.Application.Claims;
+using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Api.CommandCenter;
@@ -219,6 +220,7 @@ builder.Services.AddScoped<ITenantContextSetter>(serviceProvider => serviceProvi
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
 builder.Services.AddScoped<IClaimsQueryService, ClaimsQueryService>();
+builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
 if (storageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddSingleton<IPermissionReadRepository, LocalTestPermissionReadRepository>();

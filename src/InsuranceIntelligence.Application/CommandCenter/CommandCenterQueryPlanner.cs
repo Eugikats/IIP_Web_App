@@ -1,9 +1,8 @@
-using InsuranceIntelligence.Api.Admin;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Workflow;
-using Vocab = InsuranceIntelligence.Api.CommandCenter.CommandCenterBlockVocabulary;
+using Vocab = InsuranceIntelligence.Application.CommandCenter.CommandCenterBlockVocabulary;
 
-namespace InsuranceIntelligence.Api.CommandCenter;
+namespace InsuranceIntelligence.Application.CommandCenter;
 
 /// <summary>
 /// Presentation-boundary view of one claim, already resolved to the contract's SLA vocabulary and
@@ -27,9 +26,11 @@ public sealed record CommandCenterQueryData(
     CommandCenterMetricsResponse Metrics,
     IReadOnlyList<CommandCenterCaseView> Cases,
     IReadOnlyList<CommandCenterApprovalView> PendingApprovals,
-    IReadOnlyList<ProviderHealthItem> MissingProviders);
+    IReadOnlyList<CommandCenterProviderStatusItem> MissingProviders);
 
 public sealed record CommandCenterApprovalView(Guid ApprovalId, Guid CaseId, string Title, string Status);
+
+public sealed record CommandCenterProviderStatusItem(string Name, string Status, string Detail);
 
 /// <summary>
 /// Deterministic (NOT LLM) Command Center planner. Maps a natural-language question to a set of

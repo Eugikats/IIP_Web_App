@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace InsuranceIntelligence.Api.CommandCenter;
+namespace InsuranceIntelligence.Application.CommandCenter;
 
 /// <summary>
 /// Request body for <c>POST /api/v1/command-center/query</c>. Tenant, workspace, and role are

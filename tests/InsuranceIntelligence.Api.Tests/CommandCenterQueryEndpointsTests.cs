@@ -1,6 +1,8 @@
 using System.Text.Json;
 using InsuranceIntelligence.Api.CommandCenter;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.CommandCenter;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -79,18 +81,15 @@ public sealed class CommandCenterQueryEndpointsTests
     }
 
     [Fact]
-    public async Task MissingProviderRendersNotConfiguredBlock()
+    public async Task ReadOnlyBriefingDoesNotRequireAiProviderBlocks()
     {
-        var harness = new Harness(new InfrastructureOptions { AuthMode = "Entra" });
+        var harness = new Harness();
         await harness.SeedIncompleteCaseAsync("Carol Nabirye", SlaState.OnTrack);
 
         var (statusCode, body) = await harness.RunAsync("What needs my attention today?");
 
         Assert.Equal(StatusCodes.Status200OK, statusCode);
-        var notConfigured = Blocks(body, "not_configured").ToList();
-        Assert.NotEmpty(notConfigured);
-        Assert.All(notConfigured, block =>
-            Assert.False(string.IsNullOrWhiteSpace(block.GetProperty("provider").GetString())));
+        Assert.Empty(Blocks(body, "not_configured"));
     }
 
     [Fact]
@@ -101,6 +100,26 @@ public sealed class CommandCenterQueryEndpointsTests
         var (statusCode, _) = await harness.RunAsync("   ");
 
         Assert.Equal(StatusCodes.Status400BadRequest, statusCode);
+    }
+
+    [Fact]
+    public async Task QueryRequiresCommandCenterPermission()
+    {
+        var harness = new Harness(role: "Broker");
+
+        var (statusCode, _) = await harness.RunAsync("What needs my attention today?");
+
+        Assert.Equal(StatusCodes.Status403Forbidden, statusCode);
+    }
+
+    [Fact]
+    public async Task BriefingRequiresClaimsReadPermission()
+    {
+        var harness = new Harness(role: "PublisherSupport");
+
+        var (statusCode, _) = await harness.RunAsync("What needs my attention today?");
+
+        Assert.Equal(StatusCodes.Status403Forbidden, statusCode);
     }
 
     private static IReadOnlyList<string> BlockTypes(JsonElement body) =>
@@ -123,10 +142,12 @@ public sealed class CommandCenterQueryEndpointsTests
     private sealed class Harness
     {
         private readonly InfrastructureOptions _options;
+        private readonly string _role;
 
-        public Harness(InfrastructureOptions? options = null)
+        public Harness(InfrastructureOptions? options = null, string role = "ClaimsSupervisor")
         {
             _options = options ?? new InfrastructureOptions { AuthMode = "Development" };
+            _role = role;
         }
 
         public InMemoryCaseRepository CaseRepository { get; } = new();
@@ -139,6 +160,7 @@ public sealed class CommandCenterQueryEndpointsTests
         public InMemoryAuditRepository AuditRepository { get; } = new();
         public StaticDocumentChecklistProvider ChecklistProvider { get; } = new(new CompletenessScoringService());
         public BasicSlaCalculator SlaCalculator { get; } = new();
+        private TenantContextAccessor TenantContextAccessor { get; } = new();
 
         public async Task<ClaimCase> SeedIncompleteCaseAsync(string customer, SlaState slaState)
         {
@@ -191,9 +213,10 @@ public sealed class CommandCenterQueryEndpointsTests
 
         public async Task<(int? StatusCode, JsonElement Body)> RunAsync(string question)
         {
-            var result = await CommandCenterQueryEndpoints.RunQuery(
-                new CommandCenterQueryRequest(question),
-                _options,
+            var permissionService = new PermissionService(TenantContextAccessor, new LocalTestPermissionReadRepository());
+            var queryService = new CommandCenterQueryService(
+                TenantContextAccessor,
+                permissionService,
                 CaseRepository,
                 DocumentRepository,
                 ChecklistProvider,
@@ -203,21 +226,27 @@ public sealed class CommandCenterQueryEndpointsTests
                 WorkflowTaskRepository,
                 CustomerUpdateRepository,
                 AuditRepository,
-                SlaCalculator,
+                SlaCalculator);
+
+            var result = await CommandCenterQueryEndpoints.RunQuery(
+                new CommandCenterQueryRequest(question),
+                queryService,
+                TenantContextAccessor,
+                _options,
                 ScopedContext(),
                 CancellationToken.None);
 
             return await ExecuteAsync(result);
         }
 
-        private static DefaultHttpContext ScopedContext()
+        private DefaultHttpContext ScopedContext()
         {
             var context = new DefaultHttpContext { TraceIdentifier = "trace-query-001" };
             context.Request.Headers["X-Tenant-Id"] = "tenant-demo";
             context.Request.Headers["X-Workspace-Id"] = "workspace-claims";
             context.Request.Headers["X-User-Id"] = "user-claims-1";
             context.Request.Headers["x-demo-user-id"] = "user-claims-1";
-            context.Request.Headers["x-demo-role"] = "ClaimsSupervisor";
+            context.Request.Headers["x-demo-role"] = _role;
             context.Request.Headers["X-Correlation-ID"] = "corr-query-001";
             return context;
         }
