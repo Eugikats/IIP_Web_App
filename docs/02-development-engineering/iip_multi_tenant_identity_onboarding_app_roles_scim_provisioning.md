@@ -490,7 +490,7 @@ Then the API does not require token tid to equal InfrastructureOptions.EntraTena
 ```text
 Given a valid token with tid for Insurer A
 And no matching IIP membership exists
-When the user calls /api/claims
+When the user calls /api/v1/claims
 Then the request fails before any tenant data is returned.
 ```
 
@@ -508,7 +508,7 @@ And does not use email, preferred_username, unique_name, or upn.
 ```text
 Given a token with roles = [IIP.Access]
 And IIP membership lacks claims.read
-When the user calls GET /api/claims
+When the user calls GET /api/v1/claims
 Then the request returns 403.
 ```
 
@@ -517,7 +517,7 @@ Then the request returns 403.
 ```text
 Given a token without groups due to group overage
 And IIP membership grants claims.read
-When the user calls GET /api/claims
+When the user calls GET /api/v1/claims
 Then access is based on IPermissionReadRepository, not group claims.
 ```
 

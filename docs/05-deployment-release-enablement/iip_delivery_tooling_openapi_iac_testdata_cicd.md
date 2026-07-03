@@ -225,7 +225,7 @@ public async Task<ActionResult<IReadOnlyList<ExtractedFieldDto>>> ExtractAsync(
 }
 ```
 
-Workflow examples such as `POST /api/approvals/{approvalId}/decisions` must also include `409`.
+Workflow examples such as `POST /api/v1/approvals/{approvalId}/decisions` must also include `409`.
 
 ### 1.6 OpenAPI generation scripts
 
