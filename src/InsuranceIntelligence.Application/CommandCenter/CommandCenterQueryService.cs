@@ -24,6 +24,7 @@ public sealed class CommandCenterQueryService(
     ICaseDocumentRepository caseDocumentRepository,
     IDocumentChecklistProvider checklistProvider,
     IKnowledgeDocumentRepository knowledgeRepository,
+    IRetrievalProvider retrievalProvider,
     IAgentActionLogRepository actionLogRepository,
     IApprovalRepository approvalRepository,
     IWorkflowTaskRepository taskRepository,
@@ -93,6 +94,63 @@ public sealed class CommandCenterQueryService(
         }
 
         var scope = context.Scope;
+        var data = await LoadQueryDataAsync(scope, now, cancellationToken);
+
+        if (intent.Intent == IntentType.GenerateManagementSummary)
+        {
+            return await BuildManagementSummaryResponseAsync(
+                question,
+                context,
+                intent.Parameters,
+                data,
+                correlationId,
+                now,
+                cancellationToken);
+        }
+
+        var blocks = CommandCenterQueryPlanner.Plan(question, data);
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = null,
+            UserId = context.UserId,
+            AgentName = "CommandCenterQuery",
+            AssistantMode = AssistantMode.OperationalSummary,
+            InputSummary = SummarizeInput(question),
+            RetrievedSources = Array.Empty<SourceCitation>(),
+            ModelOutput = $"Command Center briefing: {blocks.Count} block(s) over {data.Cases.Count} claim(s).",
+            ConfidenceScore = AiConfidenceScore.Create(1.0m),
+            RiskFlag = "none",
+            HumanOverride = false,
+            CreatedAt = now,
+            CorrelationId = correlationId,
+            ModelProvider = ModelProvider,
+            ModelDeployment = null,
+            PromptVersion = PromptVersion,
+            Visibility = Visibility,
+            CanTriggerDecision = false,
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+
+        return new CommandCenterQueryResponse(
+            blocks,
+            actionLog.AgentActionLogId,
+            correlationId,
+            ModelProvider,
+            PromptVersion,
+            Visibility,
+            CanTriggerDecision: false,
+            now);
+    }
+
+    private async Task<CommandCenterQueryData> LoadQueryDataAsync(
+        Domain.Common.TenantScope scope,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         var metrics = await LoadMetricsAsync(scope, now, cancellationToken);
         var cases = await caseRepository.ListAsync(scope, cancellationToken);
 
@@ -128,48 +186,11 @@ public sealed class CommandCenterQueryService(
                 "Pending"))
             .ToList();
 
-        var data = new CommandCenterQueryData(
+        return new CommandCenterQueryData(
             metrics,
             caseViews,
             pendingApprovals,
             Array.Empty<CommandCenterProviderStatusItem>());
-
-        var blocks = CommandCenterQueryPlanner.Plan(question, data);
-        var actionLog = new AgentActionLog
-        {
-            AgentActionLogId = Guid.NewGuid(),
-            Scope = scope,
-            CaseId = null,
-            UserId = context.UserId,
-            AgentName = "CommandCenterQuery",
-            AssistantMode = AssistantMode.OperationalSummary,
-            InputSummary = SummarizeInput(question),
-            RetrievedSources = Array.Empty<SourceCitation>(),
-            ModelOutput = $"Command Center briefing: {blocks.Count} block(s) over {caseViews.Count} claim(s).",
-            ConfidenceScore = AiConfidenceScore.Create(1.0m),
-            RiskFlag = "none",
-            HumanOverride = false,
-            CreatedAt = now,
-            CorrelationId = correlationId,
-            ModelProvider = ModelProvider,
-            ModelDeployment = null,
-            PromptVersion = PromptVersion,
-            Visibility = Visibility,
-            CanTriggerDecision = false,
-        };
-
-        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
-        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
-
-        return new CommandCenterQueryResponse(
-            blocks,
-            actionLog.AgentActionLogId,
-            correlationId,
-            ModelProvider,
-            PromptVersion,
-            Visibility,
-            CanTriggerDecision: false,
-            now);
     }
 
     private async Task<CommandCenterMetricsResponse> LoadMetricsAsync(
@@ -442,6 +463,148 @@ public sealed class CommandCenterQueryService(
             Visibility,
             CanTriggerDecision: false,
             generatedAt);
+    }
+
+    private async Task<CommandCenterQueryResponse> BuildManagementSummaryResponseAsync(
+        string question,
+        TenantContext context,
+        IntentParameters parameters,
+        CommandCenterQueryData data,
+        string correlationId,
+        DateTimeOffset generatedAt,
+        CancellationToken cancellationToken)
+    {
+        var retrievalResult = await retrievalProvider.RetrieveAsync(
+            new AssistantQuestion(
+                context.Scope,
+                CaseId: null,
+                "Claims operations management summary guidance",
+                ProductLine: null,
+                Audience: "Internal",
+                context.UserId,
+                correlationId),
+            cancellationToken);
+
+        var sourceContext = retrievalResult.Citations.Count == 0
+            ? "No approved management-summary guidance was retrieved."
+            : string.Join("\n", retrievalResult.Citations.Take(5).Select(citation =>
+                $"- {citation.DocumentName} {citation.Version}: {citation.Excerpt}"));
+        var topCases = data.Cases
+            .OrderBy(view => view.SlaToken)
+            .ThenBy(view => view.Completeness)
+            .Take(5)
+            .Select(view => $"- {view.Customer}: {view.Status}, SLA {view.SlaToken}, completeness {view.Completeness:0.##}%, missing {string.Join(", ", view.MissingDocuments.DefaultIfEmpty("none"))}");
+        var metrics = data.Metrics;
+
+        var prompt = string.Join('\n', [
+            "Generate a concise management summary for today's insurance claims operations.",
+            "Use only the operational figures and approved source context supplied here. Do not invent numbers.",
+            "Do not make final claim, settlement, payment, underwriting, complaint, or fraud decisions.",
+            $"Open claims: {metrics.OpenClaims}",
+            $"New claims today: {metrics.NewClaimsToday}",
+            $"Incomplete claims: {metrics.IncompleteClaims}",
+            $"Pending approvals: {metrics.PendingApprovals}",
+            $"SLA at risk: {metrics.SlaAtRisk}",
+            $"SLA breached: {metrics.SlaBreached}",
+            $"Customer updates pending: {metrics.CustomerUpdatesPending}",
+            "Top operational cases:",
+            string.Join('\n', topCases),
+            "Approved source context:",
+            sourceContext,
+            $"Additional user context: {parameters.GetStringOrDefault("additionalContext") ?? "None"}"
+        ]);
+
+        var chatResult = await chatCompletionProvider.CompleteAsync(
+            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId),
+            cancellationToken);
+        var validated = await aiOutputValidator.ValidateManagementSummaryAsync(
+            chatResult.Content,
+            context,
+            cancellationToken);
+
+        var sections = ToSummarySections(validated.Preview);
+        var blocks = new List<CommandCenterResponseBlock>
+        {
+            new TextBlock("AI-generated management summary prepared for human review from current operational data."),
+            new ManagementSummaryBlock("Daily claims operations summary", sections),
+            new MetricPillsBlock([
+                new MetricPill("Open claims", metrics.OpenClaims.ToString(), CommandCenterBlockVocabulary.ToneInfo),
+                new MetricPill("New today", metrics.NewClaimsToday.ToString(), CommandCenterBlockVocabulary.ToneInfo),
+                new MetricPill("SLA at risk", metrics.SlaAtRisk.ToString(), metrics.SlaAtRisk > 0 ? CommandCenterBlockVocabulary.ToneWarning : CommandCenterBlockVocabulary.ToneNeutral),
+                new MetricPill("SLA breached", metrics.SlaBreached.ToString(), metrics.SlaBreached > 0 ? CommandCenterBlockVocabulary.ToneDanger : CommandCenterBlockVocabulary.ToneNeutral),
+                new MetricPill("Pending approvals", metrics.PendingApprovals.ToString(), CommandCenterBlockVocabulary.ToneInfo)
+            ])
+        };
+
+        if (retrievalResult.Citations.Count > 0)
+        {
+            blocks.Add(new EvidenceListBlock(retrievalResult.Citations
+                .Take(5)
+                .Select(citation => new EvidenceSource(
+                    citation.Label,
+                    citation.DocumentName,
+                    $"/knowledge-documents/{citation.KnowledgeDocumentId}#{citation.ChunkId}"))
+                .ToList()));
+        }
+
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = context.Scope,
+            CaseId = null,
+            UserId = context.UserId,
+            AgentName = "CommandCenterQuery",
+            AssistantMode = AssistantMode.OperationalSummary,
+            InputSummary = SummarizeInput(question),
+            RetrievedSources = retrievalResult.Citations.ToArray(),
+            ModelOutput = $"Management summary generated from {data.Cases.Count} claim(s), {retrievalResult.Citations.Count} citation(s), and {sections.Count} section(s).",
+            ConfidenceScore = AiConfidenceScore.Create(retrievalResult.Citations.Count > 0 ? 0.78m : 0.62m),
+            RiskFlag = validated.GuardrailsApplied.Count == 0 ? "needs_review" : string.Join(",", validated.GuardrailsApplied),
+            HumanOverride = false,
+            CreatedAt = generatedAt,
+            CorrelationId = correlationId,
+            ModelProvider = chatResult.Provider,
+            ModelDeployment = chatResult.Deployment,
+            PromptVersion = PromptVersion,
+            Visibility = Visibility,
+            CanTriggerDecision = false,
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+
+        return new CommandCenterQueryResponse(
+            blocks,
+            actionLog.AgentActionLogId,
+            correlationId,
+            chatResult.Provider,
+            PromptVersion,
+            Visibility,
+            CanTriggerDecision: false,
+            generatedAt);
+    }
+
+    private static IReadOnlyList<SummarySection> ToSummarySections(string preview)
+    {
+        var sentences = (preview ?? string.Empty)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+
+        if (sentences.Length == 0)
+        {
+            return [new SummarySection("Summary", "No summary content was produced after validation. Human review is required.")];
+        }
+
+        if (sentences.Length == 1)
+        {
+            return [new SummarySection("Summary", sentences[0])];
+        }
+
+        return sentences
+            .Take(4)
+            .Select((line, index) => new SummarySection(index == 0 ? "Overview" : $"Point {index + 1}", line))
+            .ToArray();
     }
 
     private async Task<CommandCenterQueryResponse> BuildErrorResponseAsync(

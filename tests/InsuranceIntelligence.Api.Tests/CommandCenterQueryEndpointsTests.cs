@@ -7,6 +7,7 @@ using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http;
@@ -236,6 +237,43 @@ public sealed class CommandCenterQueryEndpointsTests
         Assert.All(actions, action => Assert.True(action.GetProperty("requiresHumanApproval").GetBoolean()));
     }
 
+    [Fact]
+    public async Task ManagementSummaryIntentUsesAiValidatorAndDoesNotStoreRawSummary()
+    {
+        var harness = new Harness(
+            providerHealthCheck: new ReadyProviderHealthCheck(),
+            chatCompletionProvider: new CapturingChatCompletionProvider(
+                "Overview: 3 claims need review.\nThe claim is denied.\nNext: keep supervisors focused on SLA breaches."),
+            retrievalProvider: new StaticRetrievalProvider());
+        await harness.SeedIncompleteCaseAsync("Faridah Ssemanda", SlaState.Breached);
+        await harness.SeedPendingApprovalAsync();
+
+        var (statusCode, body) = await harness.RunAsync("Prepare a management summary for today's claims.");
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.False(body.GetProperty("canTriggerDecision").GetBoolean());
+        Assert.Contains("management_summary", BlockTypes(body));
+        Assert.Contains("metric_pills", BlockTypes(body));
+        Assert.Contains("evidence_list", BlockTypes(body));
+        Assert.Equal("AzureOpenAI", body.GetProperty("modelProvider").GetString());
+
+        var summaryBlock = Block(body, "management_summary");
+        var sectionBodies = summaryBlock.GetProperty("sections").EnumerateArray()
+            .Select(section => section.GetProperty("body").GetString()!)
+            .ToArray();
+        Assert.Contains(sectionBodies, bodyText => bodyText.Contains("requires human review", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(sectionBodies, bodyText => bodyText.Contains("claim is denied", StringComparison.OrdinalIgnoreCase));
+
+        var actionLogId = body.GetProperty("agentActionLogId").GetGuid();
+        var actionLogs = await harness.ActionLogRepository.ListAsync(Scope);
+        var actionLog = Assert.Single(actionLogs, log => log.AgentActionLogId == actionLogId);
+        Assert.Equal("AzureOpenAI", actionLog.ModelProvider);
+        Assert.False(actionLog.CanTriggerDecision);
+        Assert.Contains("citation(s)", actionLog.ModelOutput, StringComparison.Ordinal);
+        Assert.DoesNotContain("Overview: 3 claims need review", actionLog.ModelOutput, StringComparison.Ordinal);
+        Assert.NotEmpty(actionLog.RetrievedSources);
+    }
+
     private static IReadOnlyList<string> BlockTypes(JsonElement body) =>
         body.GetProperty("blocks").EnumerateArray()
             .Select(block => block.GetProperty("type").GetString()!)
@@ -259,17 +297,20 @@ public sealed class CommandCenterQueryEndpointsTests
         private readonly string _role;
         private readonly IProviderHealthCheck _providerHealthCheck;
         private readonly IChatCompletionProvider _chatCompletionProvider;
+        private readonly IRetrievalProvider _retrievalProvider;
 
         public Harness(
             InfrastructureOptions? options = null,
             string role = "ClaimsSupervisor",
             IProviderHealthCheck? providerHealthCheck = null,
-            IChatCompletionProvider? chatCompletionProvider = null)
+            IChatCompletionProvider? chatCompletionProvider = null,
+            IRetrievalProvider? retrievalProvider = null)
         {
             _options = options ?? new InfrastructureOptions { AuthMode = "Development" };
             _role = role;
             _providerHealthCheck = providerHealthCheck ?? new LocalTestProviderHealthCheck();
             _chatCompletionProvider = chatCompletionProvider ?? new CapturingChatCompletionProvider("Configured chat provider was not invoked.");
+            _retrievalProvider = retrievalProvider ?? new EmptyRetrievalProvider();
         }
 
         public InMemoryCaseRepository CaseRepository { get; } = new();
@@ -343,6 +384,7 @@ public sealed class CommandCenterQueryEndpointsTests
                 DocumentRepository,
                 ChecklistProvider,
                 KnowledgeRepository,
+                _retrievalProvider,
                 ActionLogRepository,
                 ApprovalRepository,
                 WorkflowTaskRepository,
@@ -417,5 +459,59 @@ public sealed class CommandCenterQueryEndpointsTests
                 "AzureOpenAI",
                 "chat-test",
                 DateTimeOffset.UtcNow));
+    }
+
+    private sealed class EmptyRetrievalProvider : IRetrievalProvider
+    {
+        public Task<RetrievalResult> RetrieveAsync(
+            AssistantQuestion question,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new RetrievalResult(
+                question.Question,
+                question.ProductLine,
+                Array.Empty<KnowledgeChunk>(),
+                Array.Empty<SourceCitation>()));
+    }
+
+    private sealed class StaticRetrievalProvider : IRetrievalProvider
+    {
+        public Task<RetrievalResult> RetrieveAsync(
+            AssistantQuestion question,
+            CancellationToken cancellationToken = default)
+        {
+            var documentId = Guid.NewGuid();
+            var citation = new SourceCitation(
+                documentId,
+                "chunk-001",
+                "Claims Operations Playbook",
+                "Motor",
+                "v1",
+                "Escalate SLA-breached claims and keep customer communications human-reviewed.",
+                "Claims Operations Playbook v1");
+            var chunk = new KnowledgeChunk
+            {
+                KnowledgeDocumentId = documentId,
+                Scope = Scope,
+                ChunkId = "chunk-001",
+                DocumentName = "Claims Operations Playbook",
+                ProductLine = "Motor",
+                Version = "v1",
+                ChunkIndex = 0,
+                Content = citation.Excerpt,
+                SourceReference = new KnowledgeSourceReference(
+                    documentId,
+                    "chunk-001",
+                    "Claims Operations Playbook",
+                    "Motor",
+                    "v1",
+                    "knowledge/claims-operations-playbook.pdf")
+            };
+
+            return Task.FromResult(new RetrievalResult(
+                question.Question,
+                question.ProductLine,
+                [chunk],
+                [citation]));
+        }
     }
 }

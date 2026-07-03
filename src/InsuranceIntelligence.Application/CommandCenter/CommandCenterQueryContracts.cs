@@ -39,6 +39,7 @@ public sealed record CommandCenterQueryResponse(
 [JsonDerivedType(typeof(DocumentGapSummaryBlock), "document_gap_summary")]
 [JsonDerivedType(typeof(ApprovalQueueBlock), "approval_queue")]
 [JsonDerivedType(typeof(DraftCommunicationBlock), "draft_communication")]
+[JsonDerivedType(typeof(ManagementSummaryBlock), "management_summary")]
 [JsonDerivedType(typeof(ActionProposalBlock), "action_proposal")]
 [JsonDerivedType(typeof(EvidenceListBlock), "evidence_list")]
 [JsonDerivedType(typeof(NotConfiguredBlock), "not_configured")]
@@ -63,6 +64,12 @@ public sealed record DraftCommunicationBlock(
     string DraftId,
     string Preview,
     bool RequiresApproval) : CommandCenterResponseBlock;
+
+public sealed record ManagementSummaryBlock(
+    string Title,
+    IReadOnlyList<SummarySection> Sections) : CommandCenterResponseBlock;
+
+public sealed record SummarySection(string Heading, string Body);
 
 /// <summary>Draft-only suggested next steps. Every action requires human approval; never executable.</summary>
 public sealed record ActionProposalBlock(IReadOnlyList<ProposedAction> Actions) : CommandCenterResponseBlock;
