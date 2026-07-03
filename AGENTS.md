@@ -1072,10 +1072,6 @@ The current implementation priority is:
 ```text
 1. Foundation layer: Application project, core ports, DbContext, InfrastructureOptions, AzureProviderStartupValidator.
 2. ClaimsQueryService vertical slice.
-
-
-
-
 3. SLA risk service.
 4. Approvals.
 5. Documents and completeness.
