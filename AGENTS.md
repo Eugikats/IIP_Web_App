@@ -822,37 +822,55 @@ Frontend must use real API contracts and real bearer-token auth. If token refres
 
 ## 20. API and backend route rules
 
-The canonical route map for the current backend wiring pass uses the `/api` prefix. Do not silently mix `/api` and `/api/v1` in the same implementation. If versioning is approved later, introduce it through a single ADR and one coordinated route-map update.
+The canonical route prefix is `/api/v1`. All product API routes are versioned; do not add new unversioned `/api/...` routes and do not reintroduce an unversioned form of an existing `/api/v1/...` route. Health endpoints (`/health`, `/health/live`, `/health/ready`) are the exception and remain outside `/api`.
 
-Health endpoints are the exception and may remain outside `/api`.
-
-Current wiring-pass routes include:
+Current routes include:
 
 ```text
-POST /api/command-center/query
-GET /api/claims
-GET /api/claims/{claimId}
-GET /api/claims/attention
-GET /api/claims/daily-summary
-GET /api/claims/{claimId}/draft-context
-GET /api/claims/sla-risks
-GET /api/claims/{claimId}/sla-status
-GET /api/approvals/queue
-POST /api/approvals/{approvalId}/decisions
-POST /api/documents/uploads
-POST /api/documents/{documentId}/extraction
-GET /api/documents/{documentId}/fields
-PATCH /api/documents/{documentId}/fields/{fieldId}/correction
-PATCH /api/documents/{documentId}/fields/{fieldId}/status
-GET /api/documents/missing
-POST /api/claims/{claimId}/documents/completeness-check
-GET /api/channels/overview
-GET /api/customers/{customerId}
-GET /api/sales-leads/{leadId}
-GET /api/audit/events
+POST /api/v1/command-center/query
+GET /api/v1/command-center/metrics
+GET /api/v1/system/capabilities
+GET /api/v1/claims
+GET /api/v1/claims/{claimId}
+GET /api/v1/claims/attention
+GET /api/v1/claims/daily-summary
+GET /api/v1/claims/{claimId}/draft-context
+GET /api/v1/approvals
+GET /api/v1/approvals/{approvalId}
+POST /api/v1/approvals/{approvalId}/approve
+POST /api/v1/approvals/{approvalId}/reject
+POST /api/v1/approvals/{approvalId}/escalate
+POST /api/v1/approvals/{approvalId}/override
+GET /api/v1/cases
+POST /api/v1/cases
+GET /api/v1/cases/{caseId}
+GET /api/v1/cases/{caseId}/documents
+POST /api/v1/cases/{caseId}/documents
+GET /api/v1/cases/{caseId}/document-checklist
+POST /api/v1/cases/{caseId}/documents/{documentId}/correct-field
+POST /api/v1/cases/{caseId}/documents/{documentId}/reclassify
+POST /api/v1/cases/{caseId}/documents/{documentId}/approve-extraction
+GET /api/v1/cases/{caseId}/timeline
+GET /api/v1/cases/{caseId}/recommended-actions
+POST /api/v1/cases/{caseId}/workflow/evaluate
+GET /api/v1/knowledge-documents
+POST /api/v1/knowledge-documents
+POST /api/v1/knowledge-documents/{knowledgeDocId}/approve
+GET /api/v1/customers
+GET /api/v1/customers/{customerId}/360
+GET /api/v1/distribution/branches
+GET /api/v1/distribution/producers
+GET /api/v1/policies
+GET /api/v1/policies/{policyId}/coverage
+GET /api/v1/compliance/audit-events
+GET /api/v1/compliance/cases/{caseId}/audit-pack
+GET /api/v1/assistant/actions
+POST /api/v1/assistant/policy-questions
 ```
 
-Earlier `/api/v1/*` references are legacy or future-version candidates unless a maintainer explicitly approves API versioning.
+There is no backend Channels or Sales & Leads API yet. The Track B portal pages for those areas (`/channels`, `/sales-leads`) are UI scaffolding without a corresponding backend endpoint — do not reference `/api/v1/channels/...` or `/api/v1/sales-leads/...` as if they exist until those services are built.
+
+The prose Command Center assistant path (`POST .../command-center/assistant`) and the multi-agent query path (`POST /api/v1/assistant/query`) were removed in the v2 migration; the chat-first `POST /api/v1/command-center/query` and the grounded `POST /api/v1/assistant/policy-questions` are the current AI-answer endpoints. Do not reintroduce the removed paths.
 
 Controllers are thin adapters. Business rules stay in Application services.
 
