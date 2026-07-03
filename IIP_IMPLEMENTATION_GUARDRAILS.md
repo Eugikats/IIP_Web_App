@@ -2,7 +2,7 @@
 
 > **Updated:** July 2026  
 > **Product:** Insurance Intelligence Platform (IIP)  
-> **Staff application name:** IIP Operations  
+> **Staff application:** IIP Operations  
 > **Status:** Supporting engineering guardrail document  
 > **Higher-authority production contract:** `AGENTS.md`
 
@@ -24,15 +24,15 @@ The product principle is simple:
 
 Before making implementation changes, read the following documents where relevant:
 
-1. `AGENTS.md` — production build and release contract.
+1. `AGENTS.md` — production build and release contract, highest repository authority.
 2. `README.md` — repository setup and current implementation status.
 3. `IIP_IMPLEMENTATION_GUARDRAILS.md` — this supporting guardrail document.
 4. `CLAUDE.md` or other agent-specific instructions, if present.
-5. Relevant files in the IIP documentation library.
+5. The relevant IIP specification documents under `docs/`.
 
 ### 0.1 Documentation library alignment
 
-The repository documentation should align with the generated IIP documentation packs:
+The repository documentation must align with the generated IIP documentation packs and implementation-ready specs:
 
 - Strategy, Requirements & Roadmap Pack.
 - Development & Engineering Execution Pack.
@@ -43,8 +43,11 @@ The repository documentation should align with the generated IIP documentation p
 - Client Support Pack.
 - Continuous Improvement Pack.
 - Commercial & Executive Pack.
+- Core Ports implementation spec.
+- Backend Wiring / Controllers / Composition Root / Request Pipeline spec.
+- Application-layer service specs for Command Center, Claims, SLA, Approvals, Documents, Channels, Customers, Sales Leads, Audit, Claim Intake, Write-Back, Notifications, Knowledge, Reporting, Email Ingestion, Tenant Agent Policy, Session/Context, and Multi-Agent Orchestration.
 
-Use those documents as implementation context. Do not create architecture, workflows, permissions, UI behavior, or release practices that contradict them.
+Use those documents as implementation context. Do not create architecture, workflows, permissions, UI behavior, service contracts, data models, or release practices that contradict them.
 
 ### 0.2 Naming standard
 
@@ -63,6 +66,9 @@ Keep code-level identifiers unchanged unless there is an explicit refactor task.
 
 - `InsuranceIntelligence.sln`
 - `src/InsuranceIntelligence.Api`
+- `src/InsuranceIntelligence.Application`
+- `src/InsuranceIntelligence.Domain`
+- `src/InsuranceIntelligence.Infrastructure`
 - `INSURANCEINTELLIGENCE_*` environment variables
 - existing namespaces and package identifiers
 
@@ -75,15 +81,17 @@ Always preserve these principles:
 1. IIP is Azure-first and Microsoft-native where appropriate.
 2. IIP is document-first, workflow-first, and audit-first.
 3. IIP is tenant-aware and workspace-aware from the beginning.
-4. IIP must be secure by default.
-5. IIP must support human review and human approval for consequential decisions.
-6. AI must use approved, normalized, indexed, tenant-filtered data.
-7. AI must not directly query production databases.
-8. High-risk insurance decisions must not be automated.
-9. Every write-back action must be controlled, reviewable, and auditable.
+4. IIP is secure by default.
+5. IIP supports human review and human approval for consequential decisions.
+6. AI uses approved, normalized, indexed, tenant-filtered data.
+7. AI does not directly query production databases.
+8. High-risk insurance decisions are not automated.
+9. Every write-back action is controlled, reviewable, and auditable.
 10. Deployed environments must not contain mock, simulated, fake, fallback, or placeholder operational behavior.
 11. A feature that is not configured must show `Not configured` or be unavailable; it must not appear to work through simulation.
-12. IIP Operations must feel like an enterprise insurance operations workspace with embedded AI assistance, not a generic chatbot-first app.
+12. IIP Operations must feel like an enterprise insurance operations workspace with embedded AI assistance, not a generic chatbot app.
+13. The Command Center is chat-first and structured, but every answer must be grounded, evidence-backed, and rendered as operational blocks, not free-form unverified chat.
+14. Foundry, Azure OpenAI, Claude, or any model provider is an inference/tooling layer only; IIP remains the source of truth for tenant context, evidence, approvals, audit, and authorization.
 
 ---
 
@@ -95,18 +103,19 @@ This section is mandatory and must stay aligned with `AGENTS.md`.
 
 No mock, simulated, fake, seeded-demo, placeholder, in-memory, SQLite, DevelopmentAuth, demo-header, hardcoded-insurer, hardcoded-user, fake-ingestion, fake-send, fake-dashboard, or fallback-to-mock behavior is permitted in:
 
-- Azure staging environments.
-- Production-candidate environments.
-- Production environments.
-- Customer-deployed Azure Managed Application instances.
-- Partner Center reviewer or private-plan deployments.
-- Any publicly reachable or insurer-facing environment.
+- Azure staging environments;
+- production-candidate environments;
+- production environments;
+- customer-deployed Azure Managed Application instances;
+- Partner Center reviewer or private-plan deployments;
+- any publicly reachable or insurer-facing environment.
 
 Test doubles may exist only inside:
 
 - automated test projects;
 - isolated local test harnesses;
-- clearly non-deployable `LocalTest` execution.
+- clearly non-deployable `LocalTest` execution;
+- `InsuranceIntelligence.LocalTestDoubles`, which must never be referenced by deployable API, Infrastructure, Application, Functions, or portal runtime projects.
 
 ### 2.2 Runtime profiles
 
@@ -139,14 +148,14 @@ FallbackToMock
 | Capability | Required deployed implementation | Forbidden deployed alternatives |
 |---|---|---|
 | Authentication | Microsoft Entra ID | Development Auth, demo headers, browser-selected roles |
-| Authorization | Server-validated roles/claims/groups and tenant/workspace enforcement | UI-only checks |
+| Authorization | Server-side IIP membership and permission resolution | UI-only checks, token-only tenant authority |
 | Persistence | Azure SQL Database | SQLite, in-memory repositories |
 | Files/documents | Azure Blob Storage | Local/mock storage |
 | Document extraction | Azure AI Document Intelligence | Mock extraction, placeholder results |
 | Knowledge retrieval/indexing | Azure AI Search | In-memory/mock retrieval |
-| AI generation/embeddings | Azure OpenAI or approved Microsoft Foundry deployment | Mock assistant, canned responses |
+| AI generation/embeddings | Azure OpenAI, Azure AI Foundry, or approved Foundry-hosted model deployment | Mock assistant, canned responses |
 | Workflow queues/events | Azure Service Bus | In-process/mock queues |
-| Outlook/email | Microsoft Graph with tenant-configurable insurer mailboxes | Simulated email, fixed global mailbox |
+| Email ingestion/outbound | Real configured provider through provider-agnostic email ports | Simulated email, fixed global mailbox |
 | Secrets | Key Vault references and managed identities where possible | Secrets in source, frontend, docs, or appsettings |
 | Monitoring | Application Insights and Log Analytics | Placeholder-only telemetry |
 | Customer communications | Real configured provider or `Not configured` | Simulated send |
@@ -162,9 +171,9 @@ Preferred Azure services:
 - Microsoft Entra ID for authentication.
 - Managed Identity for service-to-service access.
 - Azure Key Vault for secrets.
-- Azure App Service or Azure Container Apps for APIs and backend services.
+- Azure Container Apps or Azure App Service for APIs and backend services.
 - Azure Functions or Container Apps Jobs for ingestion and background work.
-- Azure API Management for external integration APIs.
+- Azure API Management for external integration APIs where needed.
 - Azure Service Bus for asynchronous events, workflow messages, retries, and DLQs.
 - Azure Blob Storage or Data Lake-style containers for documents and file landing zones.
 - Azure SQL Database for normalized application data.
@@ -173,29 +182,103 @@ Preferred Azure services:
 - Azure OpenAI or approved Azure AI Foundry deployments for AI capabilities.
 - Application Insights and Log Analytics for monitoring.
 
-Do not hardcode Azure secrets, connection strings, tenant IDs, client secrets, API keys, storage keys, SAS tokens, or model credentials into source code.
+Do not hardcode Azure secrets, connection strings, tenant IDs, client secrets, API keys, storage keys, SAS tokens, model credentials, or provider keys into source code.
 
 Use environment variables, managed identity, Key Vault references, secure app configuration, or secure CI/CD variables.
 
 ---
 
-## 4. Authentication and Authorization Guardrails
+## 4. Authentication, Identity, and Authorization Guardrails
 
 All authenticated application access must use Microsoft Entra ID unless explicitly isolated to `LocalTest` or internal non-customer development.
 
+### 4.1 Multitenant Entra model
+
+IIP's default identity model is:
+
+```text
+One multitenant Microsoft Entra app registration
+Supported account type: Accounts in any organizational directory
+Authority mode: organizations
+Runtime authorization: AuthenticatedTenantResolver + IPermissionReadRepository
+```
+
 Rules:
 
-- Do not bypass authentication in staging, production, or reviewer environments.
-- Do not add fake users, fake roles, mock JWTs, mock claims, or demo headers to deployed runtime paths.
-- Do not silently fall back to anonymous access.
-- Do not disable JWT validation to make a screen load.
-- Do not weaken issuer, audience, tenant, expiry, or signature validation.
-- Keep frontend MSAL configuration aligned with backend JWT validation.
-- Validate the `/api/v1/me` or current authenticated identity endpoint before relying on authenticated UI behavior.
-- Enforce RBAC server-side, not only in the browser.
-- UI role checks may hide navigation, but APIs must enforce permissions.
-- Every tenant-scoped API request must validate tenant access on the server.
-- Demo-role headers must never grant access outside isolated local/test execution.
+- `InfrastructureOptions.EntraTenantId` represents IIP's publisher/home tenant for the app registration, not an insurer/customer tenant.
+- `EntraClientId` and `EntraAudience` represent IIP's app/API registration and remain stable across insurer tenants.
+- JWT validation must accept valid organizational tokens from insurer workforce tenants through the approved multitenant configuration.
+- The token `tid` claim is an identity namespace hint only, never IIP business authority.
+- Prefer `tid + oid` as the immutable external identity key for Entra workforce users, for example `entra:{tid}:{oid}`.
+- Use `sub` only as a last-resort compatibility fallback where `tid + oid` is not available.
+- Do not use `email`, `preferred_username`, `unique_name`, or `upn` as authorization keys.
+
+### 4.2 AuthenticatedTenantResolver remains authoritative
+
+Do not weaken the existing server-side authorization design:
+
+```text
+Validated JWT identity
+-> AuthenticatedTenantResolver
+-> IPermissionReadRepository.GetEffectiveMembershipAsync(userId, entraTenantHint, requestedWorkspaceId, ct)
+-> internal TenantContext
+-> controller/service permission checks
+```
+
+The internal `TenantContext` is IIP's authority for:
+
+- `TenantId`
+- `WorkspaceId`
+- `UserId`
+- roles
+- permissions
+- correlation context
+
+Never treat the Entra token's `tid`, app role, group claim, browser-selected workspace, route parameter, query string, request body, or client header as final business authority.
+
+### 4.3 App roles and groups
+
+App roles may be used only as coarse entry gates, for example:
+
+```text
+IIP.Access
+IIP.Admin
+IIP.ReadOnly
+```
+
+They answer: **who may enter IIP at all?**
+
+They do not answer: **what can the user do inside IIP?**
+
+Fine-grained permissions such as `claims.read`, `documents.review`, `approvals.review`, `agent_policy.manage`, or `writeback.execute` remain owned by IIP's role/permission store and resolved through `IPermissionReadRepository`.
+
+Do not use raw Entra group claims as the primary permission mechanism. Enterprise group overage and cross-tenant group portability make raw group claims unreliable for IIP's fine-grained authorization model.
+
+### 4.4 SCIM provisioning
+
+SCIM is a phase-two identity lifecycle capability unless explicitly prioritized for a launch customer.
+
+SCIM may provision or deprovision users/groups into IIP's own membership tables, but runtime authorization still always goes through:
+
+```text
+AuthenticatedTenantResolver -> IPermissionReadRepository -> TenantContext
+```
+
+SCIM data is not a request-time authorization shortcut.
+
+### 4.5 Authentication anti-patterns
+
+Do not:
+
+- bypass authentication in staging, production, or reviewer environments;
+- add fake users, fake roles, mock JWTs, mock claims, or demo headers to deployed runtime paths;
+- silently fall back to anonymous access;
+- disable JWT validation to make a screen load;
+- weaken issuer, audience, expiry, or signature validation;
+- make frontend MSAL or role checks the source of truth;
+- grant access because a tenant ID appears in a token;
+- grant access because an Entra group claim appears in a token;
+- grant access because a browser-selected role says the user is Admin.
 
 If authentication fails, diagnose the real cause. Do not patch around it.
 
@@ -203,9 +286,9 @@ If authentication fails, diagnose the real cause. Do not patch around it.
 
 ## 5. Tenant and Workspace Isolation Guardrails
 
-Treat tenant and workspace isolation as a foundational requirement.
+Tenant and workspace isolation is a foundational requirement.
 
-Every tenant-scoped table, document, index record, workflow, integration event, audit event, communication, AI action, and usage meter must include tenant/workspace context.
+Every tenant-scoped table, document, index record, workflow, integration event, audit event, communication, AI action, session-state record, mailbox mapping, report snapshot, and usage meter must include tenant/workspace context where applicable.
 
 Rules:
 
@@ -214,15 +297,50 @@ Rules:
 - Never allow cross-tenant search results.
 - Never allow cross-tenant document access.
 - Never allow cross-tenant workflow actions.
-- Never allow one tenant's configuration, connectors, documents, prompts, mailboxes, audit logs, or AI outputs to leak into another tenant.
-- Enforce tenant/workspace context in repositories, services, queries, policies, search filters, blob paths, and audit events.
+- Never allow one tenant's configuration, connectors, documents, prompts, mailboxes, audit logs, reports, or AI outputs to leak into another tenant.
+- Enforce tenant/workspace context in repositories, services, queries, policies, search filters, blob paths, session-state records, and audit events.
 - When uncertain, fail closed.
 
 For Azure Managed Application deployments, the default commercial model is one insurer per managed application instance, with logical workspaces inside the insurer deployment where needed.
 
 ---
 
-## 6. Data Architecture Guardrails
+## 6. Solution and Layering Guardrails
+
+The repository should preserve the agreed layered structure:
+
+```text
+src/
+  InsuranceIntelligence.Api/
+  InsuranceIntelligence.Application/
+  InsuranceIntelligence.Domain/
+  InsuranceIntelligence.Infrastructure/
+  InsuranceIntelligence.Functions/
+  InsuranceIntelligence.LocalTestDoubles/
+  InsuranceIntelligence.Api.LocalTestHost/   # optional isolated host
+
+tests/
+  InsuranceIntelligence.Tests/
+```
+
+Project-reference rules:
+
+```text
+Api -> Application, Infrastructure, Domain
+Infrastructure -> Application, Domain
+Application -> Domain
+Domain -> no Application/API/Infrastructure dependency
+LocalTestDoubles -> Application, Domain only where needed
+Api.LocalTestHost -> Api, Application, Infrastructure, LocalTestDoubles
+```
+
+Deployable projects must not reference `InsuranceIntelligence.LocalTestDoubles`.
+
+Keep Azure SDK usage in Infrastructure/adapters. Application services depend on ports and contracts, not Azure SDK concrete types.
+
+---
+
+## 7. Data Architecture and Database Guardrails
 
 IIP must use a clean canonical data model.
 
@@ -230,25 +348,36 @@ Initial canonical entities include:
 
 - Tenant
 - Workspace
-- User
+- User / external identity mapping
 - Role
+- Permission
+- UserTenantMembership
+- RoleAssignment
 - Customer
 - Policy
 - Claim / Case
-- CaseParty
+- Claim intake record
+- Claim workflow transition history
+- Claim number sequence
 - Document
-- DocumentExtraction
+- Document upload record
+- Document extraction record
+- Extracted field correction/status history
+- Required document rule
 - CompletenessCheck
-- Interaction / Communication
-- Task
-- Approval / HumanReview
-- ConsentRecord
+- ChannelConversation / Interaction / Communication
+- SalesLead
+- Approval / ApprovalDecision
+- NotificationDraft / NotificationSend
 - AuditEvent
 - IntegrationEvent
-- AgentRun / AgentActionLog
-- KnowledgeDocument
-- KnowledgeChunk
-- WriteBackRequest
+- WriteBackRequest / WriteBackHistory
+- KnowledgeDocument / KnowledgeChunk / KnowledgeIndexStatus
+- ReportSnapshot / ReportExportRecord
+- MailboxToTenantMapping / EmailCheckpoint
+- TenantAgentCapabilityPolicy
+- CommandCenterSessionState
+- AgentRun / AIInteraction where implemented
 - UsageMeter
 
 Incoming source data should move through this pattern:
@@ -265,21 +394,28 @@ Source systems / channels
 Rules:
 
 - Do not let AI agents operate directly on uncontrolled raw data.
-- Do not let every customer integration create custom chaos.
+- Do not let every customer integration create custom schema chaos.
 - Map external fields into canonical IIP entities.
 - Use additive migrations where possible.
 - Do not drop production data without explicit approval.
 - Store large files in Blob Storage and store references in relational records.
+- SQL Server / Azure SQL is the deployable persistence target. SQLite is not allowed in deployable runtimes.
+- Tenant-scoped entities must include `TenantId` and `WorkspaceId` where applicable, with indexes.
+- Command Center session state must store operational continuity only, never raw retrieved evidence, document text, claim text, OCR text, policy wording, or other large evidence payloads.
 
 ---
 
-## 7. Integration Fabric Guardrails
+## 8. Integration Fabric Guardrails
 
 The MVP should be integration-complete without depending on custom deep connectors for every vendor on day one.
 
 Preferred connector types:
 
-- Microsoft Graph mailbox connector.
+- Provider-agnostic email connector.
+- Microsoft Graph mailbox adapter.
+- Gmail adapter, deferred until provider-specific implementation.
+- Zoho Mail adapter, deferred until provider-specific implementation.
+- Generic IMAP/SMTP adapter, polling-baseline and deferred until provider-specific implementation.
 - Generic API connector.
 - Webhook/event connector.
 - File/SFTP connector.
@@ -302,55 +438,73 @@ Rules:
 
 ---
 
-## 8. Microsoft Graph / Outlook Guardrails
+## 9. Email Ingestion and Dispatch Guardrails
 
 IIP must not assume a fixed platform-wide claims mailbox.
 
-Each insurer deployment must connect one or more of that insurer's approved Microsoft 365 mailboxes through Microsoft Graph, for example:
+Each insurer deployment may connect one or more approved mailboxes through the provider-agnostic email ports:
 
 ```text
-claims@insurer.co.ug
-complaints@insurer.co.ug
-brokers@insurer.co.ug
-motorclaims@insurer.co.ug
-medicalclaims@insurer.co.ug
+IEmailInboundProvider
+IEmailOutboundProvider
 ```
 
-Support:
+Microsoft Graph is a real adapter, not the only possible implementation. Future adapters may include Gmail, Zoho Mail, and generic IMAP/SMTP.
 
-- multiple mailboxes per tenant;
-- mailbox-to-workspace mapping;
-- mailbox-to-product-line or case-type mapping;
-- restricted mailbox access using Exchange Online RBAC for Applications or an approved mailbox-scoping alternative;
-- inbound email-to-case creation or linking;
-- attachment-to-document processing;
-- approved outbound customer email;
-- idempotency using Graph message IDs and attachment IDs;
-- complete audit trails.
+### 9.1 Delivery model
 
-Rules:
+Design email ingestion around polling as the baseline guarantee.
 
-- Do not process real mail unless Graph configuration and mailbox scoping are confirmed.
-- Do not expose internal notes in outbound replies.
-- Do not simulate email send in deployed environments.
-- If Graph is not configured, show `Not configured`.
+- Microsoft Graph and Gmail APIs may support webhook/push-based notification.
+- Generic IMAP typically supports polling, with IMAP IDLE treated only as an optimization where reliable.
+- Dispatcher correctness must not depend on push availability.
+
+### 9.2 Mailbox-to-tenant mapping
+
+Every inbound mailbox must map to:
+
+- internal tenant;
+- workspace;
+- product line or case type where configured;
+- processing status;
+- provider type;
+- checkpoint/cursor.
+
+Inbound asynchronous email processing must still resolve tenant/workspace server-side and write audit events. It must not bypass `IPermissionService`, `IAuditWriter`, tenant context, or repository scoping merely because the request came from a mailbox rather than an authenticated browser session.
+
+### 9.3 Attachment handling
+
+Attachments that become claim documents must go through the existing document upload pipeline, especially `IDocumentUploadService`. Do not invent a parallel upload path for email attachments.
+
+### 9.4 Email anti-patterns
+
+Do not:
+
+- process real mail unless provider configuration and mailbox scoping are confirmed;
+- expose internal notes in outbound replies;
+- simulate email send in deployed environments;
+- assume Microsoft Graph-specific message IDs or delta tokens are Application-layer concepts;
+- use a fixed global claims mailbox;
+- treat provider webhooks as required for correctness.
+
+If email is not configured, show `Not configured`.
 
 ---
 
-## 9. AI and Agent Guardrails
+## 10. AI, Agent, and Grounding Guardrails
 
 AI agents must be grounded, constrained, and auditable.
 
 Rules:
 
-- AI should use approved, normalized, indexed data.
-- AI should retrieve from Azure AI Search or approved context stores.
-- AI must not directly query production databases.
+- AI uses approved, normalized, indexed data.
+- AI retrieves from Azure AI Search or approved context stores.
+- AI does not directly query production databases.
 - AI must not fabricate claim facts, policy details, customer data, payments, limits, exclusions, obligations, or compliance conclusions.
 - AI must distinguish between source-backed facts, assumptions, and recommendations.
 - AI responses that affect insurance operations must include traceability for review.
 - AI-generated summaries, recommendations, drafts, and actions must be logged.
-- AI should assist claims handlers, underwriters, service agents, compliance users, and operations teams, not replace required human judgment.
+- AI assists claims handlers, underwriters, service agents, compliance users, and operations teams; it does not replace required human judgment.
 
 For MVP and production workflows, AI must not automatically:
 
@@ -367,7 +521,47 @@ For MVP and production workflows, AI must not automatically:
 
 ---
 
-## 10. Grounding, RAG, and Policy Q&A Guardrails
+## 11. Canonical Agent Architecture Guardrails
+
+The current canonical IIP agent model is 10 agents:
+
+| # | Agent | Boundary |
+|---:|---|---|
+| 1 | Command Center Agent | Conversational operational interface; never final decision-maker. |
+| 2 | Claims Summary Agent | Summarizes claim facts, timeline, open issues, and evidence. |
+| 3 | Document Checker Agent | Checks required documents and extraction quality. |
+| 4 | Policy Intelligence Agent | Explains clauses and coverage context from approved knowledge. |
+| 5 | Risk & Fraud Signal Agent | Flags risk/fraud indicators for review; never accuses or decides. |
+| 6 | Customer Update Drafting Agent | Drafts customer-safe messages; human approval where required. |
+| 7 | Routing Agent | Recommends assignment/escalation; deterministic rules or human confirmation decide. |
+| 8 | Knowledge Assistant | Answers staff questions from approved KB with citations. |
+| 9 | Report Insight Agent | Summarizes operational metrics and management reports. |
+| 10 | Underwriting Intelligence Agent | Assists underwriting review; never binds, prices, accepts, or declines cover. |
+
+This agent model is advisory and tool-scoped. Agents must operate through typed, audited tools and service ports. Do not create an agent that bypasses the existing Application service permissions, repositories, approval guards, or audit trail.
+
+If fraud becomes a separate standalone specialist agent later, that requires an explicit architecture revision. Until then, keep fraud signals under **Risk & Fraud Signal Agent**.
+
+---
+
+## 12. Conversational Context and Session Guardrails
+
+IIP uses retrieval-on-demand as the standing rule for grounded Command Center turns.
+
+Rules:
+
+- Every consequential conversational turn re-retrieves authoritative data through existing repositories, Application services, or `IRetrievalProvider`.
+- Session state may remember operational continuity, such as current claim, active filters, unresolved questions, or pending task references.
+- Session state must not store raw retrieved evidence, claim text, document content, OCR text, policy wording, or large model context payloads.
+- Foundry native conversations, `previous_response_id`, or context compaction may be used only as short-horizon model continuity conveniences.
+- Foundry compacted state is not an audit record and not an evidence source.
+- Audit integrity comes from `IAuditWriter`, `AgentRun`/`AIInteraction` records where implemented, and live source references, not from opaque model memory.
+
+When a user says “the claim we were discussing,” resolve that reference through `ICommandCenterSessionStateService`, then re-retrieve the claim fresh. Do not depend on model memory.
+
+---
+
+## 13. Grounding, RAG, and Policy Q&A Guardrails
 
 All AI answers that affect claims, policies, customers, complaints, underwriting, compliance, or broker workflows must:
 
@@ -385,7 +579,7 @@ Never answer policy coverage questions from model memory.
 
 ---
 
-## 11. Human Approval Guardrails
+## 14. Human Approval and Decision Boundary Guardrails
 
 For high-risk insurance workflows, use this pattern:
 
@@ -397,6 +591,51 @@ AI suggests or prepares action
 -> external system or communication provider performs the action where configured
 -> audit log records everything
 ```
+
+`ApprovalDecisionGuard.EnsureHumanForConsequentialDecision` is a platform ceiling. Do not bypass it.
+
+No tenant configuration, feature flag, app role, workflow setting, agent policy, model output, or admin UI may allow AI to become the final actor for:
+
+- claim approval;
+- claim rejection;
+- denial or repudiation;
+- settlement approval;
+- payment release;
+- policy binding;
+- premium setting;
+- underwriting acceptance/rejection;
+- final fraud determination;
+- complaint final response;
+- regulatory filing submission.
+
+---
+
+## 15. Tenant Agent Capability Policy Guardrails
+
+Tenants may configure structured AI capability policies, but only to narrow capability, never to expand beyond platform rules.
+
+Examples of allowed tenant-policy restrictions:
+
+- disable automatic customer-update drafting;
+- require approval above lower thresholds;
+- require two-person approval above a configured amount;
+- restrict knowledge retrieval by sensitivity label;
+- disable document auto-extraction;
+- disable management summary generation.
+
+Rules:
+
+- Tenant policy must be structured fields, not free-text AI-interpreted policy.
+- Every policy write must validate through a platform-ceiling guard such as `TenantAgentCapabilityPolicyValidator.EnsureDoesNotExceedPlatformCeiling`.
+- Tenant policy cannot disable audit writing.
+- Tenant policy cannot bypass `ApprovalDecisionGuard`.
+- Tenant policy cannot authorize final AI decisions.
+- Policy reads/writes must be tenant/workspace scoped and audited.
+- Policy update requires `Permissions.AgentPolicyManage` or the current canonical equivalent.
+
+---
+
+## 16. Write-Back, Notifications, and Communications Guardrails
 
 Approved write-back examples:
 
@@ -421,9 +660,17 @@ Every write-back request must record:
 - result;
 - failure reason, if any.
 
+Notification and communication rules:
+
+- `INotificationDraftService` drafts.
+- `INotificationSendService` sends only approved drafts or explicitly allowed low-risk configurations.
+- `ICommunicationSendingProvider` / outbound provider adapters perform real sends.
+- Graph/ACS/other providers must be real or `Not configured` in deployed environments.
+- No simulated send path is allowed in staging, production, reviewer, or customer environments.
+
 ---
 
-## 12. Audit and Compliance Guardrails
+## 17. Audit and Compliance Guardrails
 
 Every important action must be auditable.
 
@@ -439,10 +686,14 @@ Log at minimum:
 - workflow transitions;
 - human approvals;
 - write-back requests;
+- notification drafts and sends;
 - permission failures;
 - security-sensitive configuration changes;
 - provider configuration and health status changes;
-- customer communication approvals and sends.
+- customer communication approvals and sends;
+- tenant agent policy changes;
+- email ingestion processing;
+- report export requests.
 
 Do not log:
 
@@ -460,7 +711,7 @@ Audit logs should be append-oriented. Do not casually update or delete audit his
 
 ---
 
-## 13. Privacy and Sensitive Data Guardrails
+## 18. Privacy and Sensitive Data Guardrails
 
 IIP handles customer data, insurance documents, claims, medical details, payment information, police reports, legal information, and potentially regulatory evidence.
 
@@ -477,7 +728,7 @@ Rules:
 
 ---
 
-## 14. Secrets and Configuration Guardrails
+## 19. Secrets and Configuration Guardrails
 
 Never commit secrets.
 
@@ -498,7 +749,7 @@ Do not print secrets in logs, tests, CLI output, error messages, screenshots, do
 
 ---
 
-## 15. API and Backend Guardrails
+## 20. API and Backend Guardrails
 
 Backend APIs must be secure, validated, tenant-aware, and auditable.
 
@@ -516,26 +767,50 @@ Rules:
 - Use structured logging and correlation IDs.
 - Add tests for authorization, tenant filtering, validation, and safe error output.
 - Maintain OpenAPI documentation for externally relevant endpoints.
+- Keep controller logic thin; business rules belong in Application services.
+- Every repository query must be tenant/workspace scoped where applicable.
 
 Do not implement business-critical checks only in the frontend.
 
 ---
 
-## 16. Frontend and IIP Operations UI Guardrails
+## 21. Frontend and IIP Operations UI Guardrails
 
 IIP Operations is an enterprise insurance operations workspace with embedded AI assistance. It is not a generic chatbot-first app.
 
+### 21.1 Command Center UI direction
+
+The Command Center is the primary interface and landing route:
+
+```text
+/command-center
+```
+
+`/dashboard` may exist as a legacy alias only if required by existing routing.
+
+Command Center behavior:
+
+- chat-first but structured;
+- grounded in real API responses;
+- renders typed blocks such as text, metric pills, SLA summary, evidence list, errors, and `Not configured` states;
+- uses the real `POST /api/command-center/query` endpoint;
+- never renders fake dashboard metrics or hardcoded insurer data;
+- uses bearer-token/MSAL authentication, not hardcoded fake tokens;
+- shows loading, empty, error, unauthorized, and `Not configured` states clearly.
+
+### 21.2 UI principles
+
 Core UI principles:
 
-- Modern enterprise look.
-- Operations-first workflows.
-- Embedded AI assistance where useful.
-- Clear operational dashboards.
-- Role-aware navigation.
-- Consistent left navigation, top bar, work area, and contextual insight/action rail where applicable.
-- Clear loading, empty, error, unauthorized, and `Not configured` states.
-- Real backend API contracts.
-- Customer-safe boundaries for customer-facing surfaces.
+- modern enterprise look;
+- operations-first workflows;
+- embedded AI assistance where useful;
+- clear operational dashboards;
+- role-aware navigation;
+- consistent left navigation, top bar, work area, and contextual insight/action rail;
+- clear loading, empty, error, unauthorized, and `Not configured` states;
+- real backend API contracts;
+- customer-safe boundaries for customer-facing surfaces.
 
 Rules:
 
@@ -550,12 +825,13 @@ Rules:
 - Do not expose internal AI confidence, fraud/risk indicators, reserves, prompts, internal notes, or detailed audit data to customer-facing views.
 - Do not use unsafe HTML insertion for email bodies, document text, communications, customer text, or AI answers.
 
-### 16.1 Approved UI authority
+### 21.3 Approved UI authority
 
 Before changing major frontend page structure, styling tokens, role-aware navigation, AI surfaces, customer-safe surfaces, integration states, approval workflows, or API-to-UI mapping, read the approved UI documentation where present:
 
 - `docs/ui/IIP_Operations_UI_Design_Specification_MVP.md`
 - `docs/ui/reference/IIP_Global_Theme_Approved.png`
+- `docs/ui/backend-contract-map.md`
 - UI/UX Handoff Document
 - Design System & UX Behavior Specification
 - Component Architecture Document
@@ -565,13 +841,14 @@ If the approved UI spec conflicts with implementation reality, report the confli
 
 ---
 
-## 17. Testing Guardrails
+## 22. Testing Guardrails
 
 Every meaningful implementation should include tests or a clear reason why tests were not added.
 
 Prioritize tests for:
 
 - authentication;
+- multitenant token acceptance and rejection paths;
 - authorization;
 - tenant/workspace isolation;
 - cross-tenant denial;
@@ -581,13 +858,17 @@ Prioritize tests for:
 - document processing;
 - AI grounding boundaries;
 - prompt-injection resistance where applicable;
+- session-state no-raw-evidence constraints;
 - human approval workflows;
 - write-back requests;
 - audit logging;
 - error states;
 - API contract stability;
 - production profile rejection of mock/simulated providers;
-- frontend no-fake-data and no-unsafe-rendering checks.
+- frontend no-fake-data and no-unsafe-rendering checks;
+- ManagedApplicationReviewer fail-closed startup;
+- mailbox-to-tenant mapping;
+- tenant agent policy cannot widen platform capability.
 
 Before completing work, run relevant test suites, linters, type checkers, builds, security scans, and infrastructure validation commands where available.
 
@@ -595,7 +876,7 @@ If tests cannot be run, state exactly why.
 
 ---
 
-## 18. Migration and Database Guardrails
+## 23. Migration and Database Guardrails
 
 Be careful with database changes.
 
@@ -611,10 +892,14 @@ Rules:
 - Avoid storing large documents directly in relational tables.
 - Production mode must use explicit migration/deployment steps.
 - Do not auto-migrate production databases unless the release process explicitly allows it.
+- SQL Server/Azure SQL is the deployable database target.
+- Do not introduce SQLite into deployable runtime paths.
+
+Where business decisions are still open, model fields conservatively and mark them as TODOs. Do not invent permanent enums or FKs for unresolved product decisions.
 
 ---
 
-## 19. Observability Guardrails
+## 24. Observability Guardrails
 
 Production-quality IIP must be diagnosable.
 
@@ -629,12 +914,13 @@ Track:
 - document extraction failures;
 - authentication and authorization failures;
 - write-back failures;
-- Graph mailbox ingestion failures;
+- email ingestion failures;
 - provider health;
 - latency for critical workflows;
 - background job status;
 - cost and usage signals;
-- customer communication failures.
+- customer communication failures;
+- managed application deployment health where applicable.
 
 Do not swallow exceptions silently.
 
@@ -642,76 +928,92 @@ Do not replace real error handling with console logs only.
 
 ---
 
-## 20. Development Workflow Guardrails
+## 25. Azure Managed Application and Partner Center Guardrails
 
-Work incrementally.
+Release work must follow `AGENTS.md` production gates.
 
-Before changing code:
+### 25.1 Packaging model
 
-1. Inspect the existing architecture.
-2. Identify relevant files.
-3. Understand existing patterns.
-4. Make the smallest safe change.
-5. Preserve existing behavior unless changing it is required.
-6. Add or update tests.
-7. Run validation commands.
-8. Summarize exactly what changed.
+For Azure Managed Application / Partner Center private-plan packaging:
 
-Do not rewrite large areas unnecessarily.
+- Bicep is the authoring language.
+- Partner Center package submission uses compiled ARM JSON, not raw Bicep.
+- The managed app package must include `mainTemplate.json` and `createUiDefinition.json` at the root of the ZIP.
+- `createUiDefinition.json` is a first-class JSON artifact; there is no Bicep equivalent.
+- Validate the compiled ARM template compatibility required by the current Managed Application toolchain, including the current `languageVersion` constraint at implementation time.
+- Use `ManagedApplicationReviewer` runtime profile for reviewer deployment.
+- No managed app parameter or UI option may expose mock provider choices for reviewer/customer deployment.
 
-Do not introduce new frameworks, libraries, cloud services, or architectural patterns without a clear reason.
+### 25.2 Managed application access and data-plane rule
 
-Do not make speculative changes unrelated to the task.
+Managed Application RBAC and deny assignments are control-plane controls. They do not automatically secure data-plane access to:
+
+- Azure SQL;
+- Blob Storage;
+- Key Vault;
+- Azure AI Search;
+- Azure OpenAI / Foundry;
+- Document Intelligence;
+- Service Bus.
+
+Data-plane access must still use managed identity, least-privilege roles, and provider-specific configuration.
+
+### 25.3 Publisher and customer access
+
+Managed Application publisher/customer access posture must be explicit:
+
+- publisher management access parameters;
+- publisher tenant and principal IDs;
+- customer access restrictions/deny assignments;
+- JIT access settings;
+- immutable managed-application plan settings documented before go-live.
+
+Do not assume a setting can be changed later after the plan is live unless Microsoft documentation and the current Partner Center workflow confirm it.
+
+### 25.4 Onboarding identifiers
+
+The onboarding flow must capture both:
+
+| Identifier | Purpose |
+|---|---|
+| Entra tenant ID | Authentication/sign-in and external identity namespace. |
+| Azure subscription ID(s) | Partner Center private-plan targeting and Managed Application deployment audience. |
+
+Do not overload one identifier for the other.
+
+If a supplied subscription is a CSP-reseller subscription and the current marketplace private-plan rules do not support it, surface this as a blocker before deployment.
+
+### 25.5 Readiness claims
+
+Do not claim that IIP is:
+
+- production-ready;
+- deployment-ready;
+- Managed Application-ready;
+- Partner Center-ready;
+- private-plan-ready;
+
+unless the required gate evidence exists.
 
 ---
 
-## 21. Dependency Guardrails
-
-Before adding a dependency:
-
-- Check if the project already has an approved library.
-- Confirm the package is maintained.
-- Avoid unnecessary dependencies.
-- Avoid packages with known security issues.
-- Prefer official Azure SDKs for Azure integrations.
-- Keep dependency changes minimal.
-
-Do not add packages just to avoid writing simple logic.
-
----
-
-## 22. Environment Guardrails
-
-Keep local test, development, staging, production, and reviewer environments clearly separated.
-
-Rules:
-
-- Do not point local development accidentally at production resources.
-- Do not use production secrets in local development.
-- Do not use mock auth in staging, production, or reviewer environments.
-- Do not mix staging and production storage, databases, queues, Key Vaults, AI indexes, or mailboxes.
-- Environment-specific configuration must be explicit.
-- Dangerous operations must require explicit confirmation or separate permissions.
-- Non-configured live features must show `Not configured`; they must not simulate success.
-
----
-
-## 23. Staging Debugging Guardrails
+## 26. Staging Debugging Guardrails
 
 When diagnosing staging issues:
 
 - Validate authenticated identity with a real Entra token.
-- Confirm API audience and issuer.
+- Confirm API audience and issuer/multitenant authority configuration.
 - Confirm frontend MSAL configuration matches backend JWT validation.
 - Separate authentication failures from API route failures, CORS failures, and backend exceptions.
 - Check all failing HTTP endpoints, not only the visible screen.
-- Configure Graph/Outlook only after core authentication is stable.
+- Configure Graph/email only after core authentication is stable.
 - Do not introduce mock authentication bypasses.
 - Do not enable mock providers to make staging appear healthy.
+- Do not patch over tenant resolution failures by trusting browser tenant/workspace values.
 
 ---
 
-## 24. Insurance Domain Guardrails
+## 27. Insurance Domain Guardrails
 
 Treat insurance workflows as high-impact business processes.
 
@@ -742,35 +1044,75 @@ When building claims intelligence, focus on:
 
 ---
 
-## 25. Release and Azure Managed Application Guardrails
+## 28. Recommended Build Order
 
-Release work must follow `AGENTS.md` production gates.
+When building implementation passes, follow the established dependency order unless a maintainer explicitly changes it:
 
-Do not claim that IIP is:
+```text
+1. Foundation: Application project, InfrastructureOptions, startup validator, DbContext, core ports.
+2. Claims query service and EF claims repository.
+3. SLA risk service.
+4. Approvals query and decision services.
+5. Document upload, extraction, and review services.
+6. Completeness check service.
+7. Channels, Customers, and Sales Leads query services.
+8. Audit query service.
+9. Claim Intake and Workflow Transition services.
+10. Integration Write-Back service.
+11. Notification Draft/Send pipeline.
+12. Knowledge ingestion/indexing service.
+13. Reporting service.
+14. Provider-agnostic Email Ingestion and Dispatch.
+15. Tenant Agent Capability Policy.
+16. Command Center Session State.
+17. Multi-Agent orchestration scaffold only when cross-agent handoff is truly needed.
+```
 
-- production-ready;
-- deployment-ready;
-- Managed Application-ready;
-- Partner Center-ready;
-- private-plan-ready;
-
-unless the required gate evidence exists.
-
-Azure Managed Application readiness must include:
-
-- validated `mainTemplate.json`;
-- validated `createUiDefinition.json`;
-- `viewDefinition.json` where used;
-- reproducible managed app ZIP package;
-- real-provider-only staging/production/reviewer defaults;
-- no mock provider selection for deployed customer/reviewer runtime;
-- reviewer instructions;
-- support/operations documentation;
-- readiness report.
+Do not jump to advanced multi-agent orchestration before the core services, repositories, permissions, audit, provider health, and Command Center endpoint are real and tested.
 
 ---
 
-## 26. Required Completion Report
+## 29. Development Workflow Guardrails
+
+Work incrementally.
+
+Before changing code:
+
+1. Inspect the existing architecture.
+2. Identify relevant files.
+3. Understand existing patterns.
+4. Make the smallest safe change.
+5. Preserve existing behavior unless changing it is required.
+6. Add or update tests.
+7. Run validation commands.
+8. Summarize exactly what changed.
+
+Do not rewrite large areas unnecessarily.
+
+Do not introduce new frameworks, libraries, cloud services, or architectural patterns without a clear reason.
+
+Do not make speculative changes unrelated to the task.
+
+---
+
+## 30. Dependency Guardrails
+
+Before adding a dependency:
+
+- Check if the project already has an approved library.
+- Confirm the package is maintained.
+- Avoid unnecessary dependencies.
+- Avoid packages with known security issues.
+- Prefer official Azure SDKs for Azure integrations.
+- Keep dependency changes minimal.
+
+Do not add packages just to avoid writing simple logic.
+
+PDF/report rendering library selection is an explicit open decision. Do not silently add a PDF renderer without approval.
+
+---
+
+## 31. Required Completion Report
 
 At the end of every implementation task, provide a concise report with:
 
@@ -791,7 +1133,7 @@ Do not claim success unless validation was actually run or the limitation is cle
 
 ---
 
-## 27. Absolute Do-Not-Do List
+## 32. Absolute Do-Not-Do List
 
 Do not:
 
@@ -800,11 +1142,15 @@ Do not:
 - bypass authorization;
 - trust browser-only permissions;
 - remove tenant/workspace filtering;
+- trust Entra `tid` as business authority;
+- use raw group claims as the fine-grained permission source;
 - let AI directly query production databases;
 - allow automatic claim approval, rejection, denial, repudiation, settlement, or payment release;
 - allow unapproved write-back;
 - skip audit logging for important actions;
 - mix tenant data;
+- store raw evidence in Command Center session state;
+- treat Foundry compaction as evidence or audit trail;
 - hide real errors with fake success states;
 - introduce mock auth into staging, production, or reviewer runtime;
 - deploy mock/simulated/fallback providers to staging, production, or reviewer runtime;
@@ -819,7 +1165,7 @@ Do not:
 
 ---
 
-## 28. Default Implementation Standard
+## 33. Default Implementation Standard
 
 When in doubt, choose the safer option:
 
@@ -829,6 +1175,9 @@ When in doubt, choose the safer option:
 - Tenant-isolated over shared.
 - Human-approved over automated.
 - Source-grounded over model-memory.
+- Retrieval-on-demand over accumulated stale context.
+- Structured policy over free-text policy.
+- Provider-agnostic ports over hardwired vendor logic.
 - Azure-native over improvised.
 - Incremental over large rewrite.
 - Tested over assumed.
