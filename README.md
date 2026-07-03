@@ -1,9 +1,22 @@
 # Insurance Intelligence Platform (IIP) — v2
 
 Clean v2 repository for the **Insurance Intelligence Platform (IIP)**. This repository
-currently holds the authoritative **documentation pack** that defines the product,
-architecture, backend/API, security, deployment, and UI direction. Implementation code is
-added against these documents as the source of truth.
+holds the authoritative **documentation pack** that defines the product, architecture,
+backend/API, security, deployment, and UI direction. Implementation code is added against
+these documents as the source of truth.
+
+## Current implementation status
+
+- Domain, Application, Infrastructure, API, LocalTestDoubles, Functions, Domain.Tests, and
+  Api.Tests projects are present and target .NET 8.
+- API and Functions build successfully in the v2 repository.
+- Domain.Tests and Api.Tests pass locally. Api.Tests were migrated to v2 contracts:
+  `/api/v1` routes, multitenant/runtime guardrails, LocalTestDoubles namespace usage, and
+  no restoration of the dropped code-only agent framework or superseded prose Command Center
+  assistant path.
+- The obsolete-provider warnings in test/build output are intentional guard warnings for
+  isolated test doubles and legacy simulation classes; do not silence them without replacing
+  the underlying production provider path.
 
 ## Read first (authority order)
 
