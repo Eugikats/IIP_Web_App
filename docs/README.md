@@ -1,6 +1,6 @@
 # IIP Documentation Index
 
-Full file listing per documentation pack. Total: 141 documents.
+Full file listing per documentation pack. Total: 142 documents.
 
 ## 01-strategy-requirements-roadmap (14)
 
@@ -96,7 +96,7 @@ Full file listing per documentation pack. Total: 141 documents.
 - [`iip_security_compliance_document.md`](04-testing-security-quality/iip_security_compliance_document.md)
 - [`iip_security_test_checklist_validation_plan.md`](04-testing-security-quality/iip_security_test_checklist_validation_plan.md)
 
-## 05-deployment-release-enablement (20)
+## 05-deployment-release-enablement (21)
 
 - [`iip_azure_managed_application_packaging_guide.md`](05-deployment-release-enablement/iip_azure_managed_application_packaging_guide.md)
 - [`iip_backend_managed_application_implementation_guide.md`](05-deployment-release-enablement/iip_backend_managed_application_implementation_guide.md)
@@ -118,6 +118,7 @@ Full file listing per documentation pack. Total: 141 documents.
 - [`iip_requirements_change_control_template.md`](05-deployment-release-enablement/iip_requirements_change_control_template.md)
 - [`iip_rollback_disaster_recovery_runbook.md`](05-deployment-release-enablement/iip_rollback_disaster_recovery_runbook.md)
 - [`iip_saas_tenant_provisioning_guide.md`](05-deployment-release-enablement/iip_saas_tenant_provisioning_guide.md)
+- [`offer-metadata.md`](05-deployment-release-enablement/offer-metadata.md)
 
 ## 06-client-pilot (15)
 
