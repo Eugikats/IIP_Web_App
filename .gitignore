@@ -7,6 +7,11 @@ dist/
 output/
 *.user
 
+# Keep the infra build-output dir tracked (via .gitkeep) but ignore its generated contents
+!infra/dist/
+infra/dist/*
+!infra/dist/.gitkeep
+
 # OS / editor
 .DS_Store
 Thumbs.db

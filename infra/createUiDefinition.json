@@ -1,0 +1,272 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "basics": [
+      {
+        "name": "insurerDisplayName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Insurer display name",
+        "defaultValue": "",
+        "constraints": {
+          "required": true
+        }
+      },
+      {
+        "name": "environmentName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Environment name",
+            "defaultValue": "stg",
+        "constraints": {
+          "required": true
+        }
+      }
+    ],
+    "steps": [
+      {
+        "name": "configuration",
+        "label": "Configuration",
+        "elements": [
+          {
+            "name": "skuSizeProfile",
+            "type": "Microsoft.Common.DropDown",
+            "label": "SKU size profile",
+            "defaultValue": "production",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Dev", "value": "dev" },
+                { "label": "Pilot", "value": "pilot" },
+                { "label": "Production", "value": "production" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "runtimeProfile",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Runtime profile",
+            "defaultValue": "ManagedApplicationReviewer",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Staging", "value": "Staging" },
+                { "label": "Production", "value": "Production" },
+                { "label": "Managed Application Reviewer", "value": "ManagedApplicationReviewer" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "supportAccessMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Support access mode",
+            "defaultValue": "none",
+            "constraints": {
+              "allowedValues": [
+                { "label": "None", "value": "none" },
+                { "label": "Read only", "value": "read_only" },
+                { "label": "Delegated", "value": "delegated" },
+                { "label": "JIT", "value": "jit" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "aiProviderMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "AI provider mode",
+            "defaultValue": "azure_openai",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Azure OpenAI", "value": "azure_openai" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "documentStorageMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Document storage mode",
+            "defaultValue": "azure_blob",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Azure Blob Storage", "value": "azure_blob" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "documentIntelligenceMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Document Intelligence mode",
+            "defaultValue": "azure_document_intelligence",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Azure Document Intelligence", "value": "azure_document_intelligence" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "knowledgeSearchMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Knowledge search mode",
+            "defaultValue": "azure_ai_search",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Azure AI Search", "value": "azure_ai_search" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "assistantAiProviderMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Assistant AI provider",
+            "defaultValue": "azure_openai",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Azure OpenAI", "value": "azure_openai" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "communicationServicesMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Customer notification provider",
+            "defaultValue": "disabled",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Disabled until configured", "value": "disabled" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "graphMailMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Microsoft Graph mail mode",
+            "defaultValue": "microsoft_graph_mail",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Microsoft Graph mail", "value": "microsoft_graph_mail" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "graphMailboxAccessScoped",
+            "type": "Microsoft.Common.CheckBox",
+            "label": "Graph mailbox access is restricted to approved insurer mailboxes",
+            "defaultValue": false
+          },
+          {
+            "name": "teamsNotificationMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Teams notification mode",
+            "defaultValue": "disabled",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Disabled until configured", "value": "disabled" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "workflowApprovalQueueMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Workflow and approval queue",
+            "defaultValue": "service_bus",
+            "constraints": {
+              "allowedValues": [
+                { "label": "Azure Service Bus", "value": "service_bus" }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "privateNetworkingEnabled",
+            "type": "Microsoft.Common.CheckBox",
+            "label": "Enable private networking",
+            "defaultValue": false
+          }
+        ]
+      },
+      {
+        "name": "retentionAndIntegrations",
+        "label": "Retention and integrations",
+        "elements": [
+          {
+            "name": "documentRetentionDays",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Document retention days",
+            "defaultValue": "365",
+            "constraints": {
+              "required": true,
+              "regex": "^[0-9]+$",
+              "validationMessage": "Enter a whole number."
+            }
+          },
+          {
+            "name": "auditRetentionDays",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Audit retention days",
+            "defaultValue": "2555",
+            "constraints": {
+              "required": true,
+              "regex": "^[0-9]+$",
+              "validationMessage": "Enter a whole number."
+            }
+          },
+          {
+            "name": "alertEmailOrGroup",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Alert email or group",
+            "defaultValue": "ops@example.test",
+            "constraints": {
+              "required": true
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "location": "[location()]",
+      "environmentName": "[basics('environmentName')]",
+      "insurerDisplayName": "[basics('insurerDisplayName')]",
+      "deploymentSize": "[steps('configuration').skuSizeProfile]",
+      "skuSizeProfile": "[steps('configuration').skuSizeProfile]",
+      "runtimeProfile": "[steps('configuration').runtimeProfile]",
+      "supportAccessMode": "[steps('configuration').supportAccessMode]",
+      "privateNetworkingEnabled": "[steps('configuration').privateNetworkingEnabled]",
+      "aiProviderMode": "[steps('configuration').aiProviderMode]",
+      "documentStorageMode": "[steps('configuration').documentStorageMode]",
+      "documentIntelligenceMode": "[steps('configuration').documentIntelligenceMode]",
+      "existingDocumentIntelligenceEndpoint": "",
+      "knowledgeSearchMode": "[steps('configuration').knowledgeSearchMode]",
+      "azureSearchIndexName": "insuranceintelligence-knowledge",
+      "assistantAiProviderMode": "[steps('configuration').assistantAiProviderMode]",
+      "communicationServicesMode": "[steps('configuration').communicationServicesMode]",
+      "graphMailMode": "[steps('configuration').graphMailMode]",
+      "graphMailboxAccessScoped": "[steps('configuration').graphMailboxAccessScoped]",
+      "teamsNotificationMode": "[steps('configuration').teamsNotificationMode]",
+      "workflowApprovalQueueMode": "[steps('configuration').workflowApprovalQueueMode]",
+      "storageProviderMode": "SqlServer",
+      "authMode": "entra",
+      "knowledgeDocumentsContainerName": "knowledge-documents",
+      "knowledgeIndexArtifactsContainerName": "knowledge-index-artifacts",
+      "businessLinesEnabled": ["motor"],
+      "dataResidencyMode": "regional",
+      "documentRetentionDays": "[int(steps('retentionAndIntegrations').documentRetentionDays)]",
+      "auditRetentionDays": "[int(steps('retentionAndIntegrations').auditRetentionDays)]",
+      "alertEmailOrGroup": "[steps('retentionAndIntegrations').alertEmailOrGroup]",
+      "outlookSharedMailboxEnabled": false,
+      "smsEmailModuleEnabled": false,
+      "teamsNotificationsEnabled": false,
+      "sharePointSyncEnabled": false,
+      "voiceModuleEnabled": false,
+      "whatsAppModuleEnabled": false
+    }
+  }
+}

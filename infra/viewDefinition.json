@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/viewdefinition/0.0.1-preview/ViewDefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "views": [
+    {
+      "kind": "Overview",
+      "properties": {
+        "header": "InsuranceIntelligence Platform",
+        "description": "Claims-first, document-first insurance operations platform with explicit provider modes, managed identity, operational monitoring, and human-supervised AI workflows. Production deployments must use approved identity, storage, backup, alerting, and rollback settings."
+      }
+    }
+  ]
+}
