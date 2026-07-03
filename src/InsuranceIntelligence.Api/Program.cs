@@ -215,6 +215,8 @@ builder.Services.AddScoped<ITenantContextSetter>(serviceProvider => serviceProvi
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
 builder.Services.AddScoped<IClaimsQueryService, ClaimsQueryService>();
+builder.Services.AddSingleton<IIntentClassifier, DeterministicThenAiIntentClassifier>();
+builder.Services.AddSingleton<IProviderRequirementResolver, ProviderRequirementResolver>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
 builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.CommandCenter.ISystemCapabilityStatusService, InsuranceIntelligence.Api.CommandCenter.SystemCapabilityStatusService>();

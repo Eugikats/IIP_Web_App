@@ -93,6 +93,30 @@ public sealed class CommandCenterQueryEndpointsTests
     }
 
     [Fact]
+    public async Task AiDependentIntentReturnsNotConfiguredAndWritesAudit()
+    {
+        var harness = new Harness();
+        await harness.SeedIncompleteCaseAsync("Doreen Akello", SlaState.OnTrack);
+
+        var (statusCode, body) = await harness.RunAsync("Prepare a management summary for today's claims.");
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+
+        var block = Block(body, "not_configured");
+        Assert.Equal("Azure OpenAI", block.GetProperty("provider").GetString());
+        Assert.False(body.GetProperty("canTriggerDecision").GetBoolean());
+
+        var actionLogId = body.GetProperty("agentActionLogId").GetGuid();
+        var actionLogs = await harness.ActionLogRepository.ListAsync(Scope);
+        var auditEvents = await harness.AuditRepository.ListAsync(Scope);
+        Assert.Contains(actionLogs, log =>
+            log.AgentActionLogId == actionLogId
+            && log.RiskFlag == "provider_not_configured"
+            && !log.CanTriggerDecision);
+        Assert.Contains(auditEvents, evt => evt.ActionName == "assistant.command_center.answered");
+    }
+
+    [Fact]
     public async Task EmptyQuestionIsRejected()
     {
         var harness = new Harness();
@@ -226,7 +250,10 @@ public sealed class CommandCenterQueryEndpointsTests
                 WorkflowTaskRepository,
                 CustomerUpdateRepository,
                 AuditRepository,
-                SlaCalculator);
+                SlaCalculator,
+                new DeterministicThenAiIntentClassifier(),
+                new ProviderRequirementResolver(),
+                new LocalTestProviderHealthCheck());
 
             var result = await CommandCenterQueryEndpoints.RunQuery(
                 new CommandCenterQueryRequest(question),

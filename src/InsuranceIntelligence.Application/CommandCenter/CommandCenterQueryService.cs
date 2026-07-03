@@ -28,7 +28,10 @@ public sealed class CommandCenterQueryService(
     IWorkflowTaskRepository taskRepository,
     ICustomerUpdateRepository updateRepository,
     IAuditRepository auditRepository,
-    ISlaCalculator slaCalculator) : ICommandCenterQueryService
+    ISlaCalculator slaCalculator,
+    IIntentClassifier intentClassifier,
+    IProviderRequirementResolver providerRequirementResolver,
+    IProviderHealthCheck providerHealthCheck) : ICommandCenterQueryService
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
@@ -53,10 +56,27 @@ public sealed class CommandCenterQueryService(
         await permissionService.RequirePermissionAsync(Permission.ViewCommandCenter, cancellationToken);
 
         var context = tenantContextAccessor.Current;
-        var intent = ResolveIntent(question);
+        var intent = await intentClassifier.ClassifyAsync(
+            question,
+            context.TenantId,
+            context.WorkspaceId,
+            cancellationToken);
+
         await RequireIntentPermissionAsync(intent, cancellationToken);
 
         var now = DateTimeOffset.UtcNow;
+        var providerGate = await EnsureRequiredProvidersAsync(intent.Intent, cancellationToken);
+        if (providerGate is not null)
+        {
+            return await BuildNotConfiguredResponseAsync(
+                question,
+                context,
+                providerGate,
+                correlationId,
+                now,
+                cancellationToken);
+        }
+
         var scope = context.Scope;
         var metrics = await LoadMetricsAsync(scope, now, cancellationToken);
         var cases = await caseRepository.ListAsync(scope, cancellationToken);
@@ -178,17 +198,19 @@ public sealed class CommandCenterQueryService(
             slaStatuses.Count(status => status == SlaStatus.Breached));
     }
 
-    private async Task RequireIntentPermissionAsync(CommandCenterIntent intent, CancellationToken cancellationToken)
+    private async Task RequireIntentPermissionAsync(IntentClassificationResult intent, CancellationToken cancellationToken)
     {
-        switch (intent)
+        switch (intent.Intent)
         {
-            case CommandCenterIntent.Approvals:
+            case IntentType.ShowPendingApprovals:
                 await permissionService.RequirePermissionAsync(Permission.ApproveSettlementWorkflowStep, cancellationToken);
                 break;
-            case CommandCenterIntent.Claims:
-            case CommandCenterIntent.Documents:
-            case CommandCenterIntent.Sla:
-            case CommandCenterIntent.Default:
+            case IntentType.ShowAttentionClaims:
+            case IntentType.ShowMissingDocuments:
+            case IntentType.ShowSlaBreaches:
+            case IntentType.GenerateManagementSummary:
+            case IntentType.PrepareCustomerUpdateDraft:
+            case IntentType.Unsupported:
                 await RequireClaimsReadPermissionAsync(cancellationToken);
                 break;
             default:
@@ -207,50 +229,78 @@ public sealed class CommandCenterQueryService(
         throw new PermissionDeniedException(Permission.ViewAssignedClaims);
     }
 
-    private static CommandCenterIntent ResolveIntent(string question)
+    private async Task<ProviderGateResult?> EnsureRequiredProvidersAsync(
+        IntentType intent,
+        CancellationToken cancellationToken)
     {
-        var normalized = question.Trim().ToLowerInvariant();
-
-        if (Mentions(normalized, "approval", "approve", "sign off", "sign-off"))
+        foreach (var provider in providerRequirementResolver.GetRequiredProviders(intent))
         {
-            return CommandCenterIntent.Approvals;
+            var health = await providerHealthCheck.CheckAsync(provider.ProviderCode, cancellationToken);
+            if (!health.Status.Equals("ready", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ProviderGateResult(
+                    provider.DisplayName,
+                    $"{provider.DisplayName} is not configured or not ready.",
+                    string.IsNullOrWhiteSpace(health.Detail) ? "Configure the provider in Admin > Integrations." : health.Detail);
+            }
         }
 
-        if (Mentions(normalized, "document", "missing", "incomplete", "checklist", "evidence pack"))
-        {
-            return CommandCenterIntent.Documents;
-        }
-
-        if (Mentions(normalized, "sla", "breach", "overdue", "at risk", "at-risk", "due", "deadline"))
-        {
-            return CommandCenterIntent.Sla;
-        }
-
-        if (Mentions(normalized, "claim", "case", "workload", "queue"))
-        {
-            return CommandCenterIntent.Claims;
-        }
-
-        return CommandCenterIntent.Default;
+        return null;
     }
 
-    private static bool Mentions(string haystack, params string[] needles) =>
-        needles.Any(needle => haystack.Contains(needle, StringComparison.Ordinal));
+    private async Task<CommandCenterQueryResponse> BuildNotConfiguredResponseAsync(
+        string question,
+        TenantContext context,
+        ProviderGateResult providerGate,
+        string correlationId,
+        DateTimeOffset generatedAt,
+        CancellationToken cancellationToken)
+    {
+        var block = new NotConfiguredBlock(providerGate.Provider, providerGate.AdminAction);
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = context.Scope,
+            CaseId = null,
+            UserId = context.UserId,
+            AgentName = "CommandCenterQuery",
+            AssistantMode = AssistantMode.OperationalSummary,
+            InputSummary = SummarizeInput(question),
+            RetrievedSources = Array.Empty<SourceCitation>(),
+            ModelOutput = $"Command Center query returned not_configured for {providerGate.Provider}.",
+            ConfidenceScore = AiConfidenceScore.Create(0m),
+            RiskFlag = "provider_not_configured",
+            HumanOverride = false,
+            CreatedAt = generatedAt,
+            CorrelationId = correlationId,
+            ModelProvider = ModelProvider,
+            ModelDeployment = null,
+            PromptVersion = PromptVersion,
+            Visibility = Visibility,
+            CanTriggerDecision = false,
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+
+        return new CommandCenterQueryResponse(
+            [block],
+            actionLog.AgentActionLogId,
+            correlationId,
+            ModelProvider,
+            PromptVersion,
+            Visibility,
+            CanTriggerDecision: false,
+            generatedAt);
+    }
 
     private static string SummarizeInput(string question) =>
         question.Length <= 180 ? question : $"{question[..180]}...";
-
-    private enum CommandCenterIntent
-    {
-        Default,
-        Claims,
-        Documents,
-        Sla,
-        Approvals
-    }
 }
 
 public sealed class CommandCenterValidationException(string field, string message) : InvalidOperationException(message)
 {
     public string Field { get; } = field;
 }
+
+public sealed record ProviderGateResult(string Provider, string Message, string AdminAction);
