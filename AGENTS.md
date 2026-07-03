@@ -1,6 +1,6 @@
 # AGENTS.md — Insurance Intelligence Platform (IIP) Repository Contract
 
-> **Canonical update — July 2026:** This file is aligned with the current IIP documentation set created for the Insurance Intelligence Platform: Core Ports, Backend Wiring, AI Agent Architecture, Conversational Session/Context, Email Ingestion, Tenant Agent Capability Policy, Delivery Tooling, Managed Application packaging, Entra multitenant identity onboarding, database/repository build-out roadmap, UI design authority, and the no-simulation production program.
+> **Canonical update — July 2026:** This file is aligned with the current IIP documentation set produced for the Insurance Intelligence Platform: Core Ports, Backend Wiring, InfrastructureOptions/Startup Validation, Application Services, Database/Repository Build-Out, Command Center Frontend Slice, AI Agent Architecture, Conversational Session/Context, Email Ingestion, Tenant Agent Capability Policy, Delivery Tooling, Managed Application Packaging, Entra multitenant identity onboarding, UI authority, and the zero-simulation production program.
 
 ---
 
@@ -8,7 +8,7 @@
 
 You are an implementation agent working inside the repository for **Insurance Intelligence Platform (IIP)**.
 
-This file is the repository-level build contract. Read it before making changes. Follow it unless a human maintainer explicitly updates it.
+This file is the repository-level build and release contract. Read it before making changes. Follow it unless a human maintainer explicitly updates it.
 
 Before implementing anything, also read:
 
@@ -19,7 +19,9 @@ README.md
 Relevant files under docs/
 ```
 
-IIP is not a generic chatbot and not a system that makes insurance decisions. It is a **chat-first, Azure-native, human-reviewed insurance operations platform** where AI prepares work, retrieves evidence, summarizes, drafts, routes, and flags issues, while humans remain accountable for all consequential insurance decisions.
+`AGENTS.md` is the highest-authority product, architecture, security, UI, deployment, and production release contract in the repository. If older prompts, older plans, mock-first MVP notes, legacy UI directions, or stale documents conflict with this file, follow this file and update the stale material.
+
+IIP is not a generic chatbot and not a system that makes insurance decisions. It is a **chat-first, Azure-native, human-reviewed insurance operations platform** where AI prepares insurance work, retrieves evidence, summarizes, drafts, routes, flags issues, and prepares audit material, while humans remain accountable for all consequential insurance decisions.
 
 ---
 
@@ -38,7 +40,7 @@ Do not use `ACIP`, `AIIP`, placeholder brand names, mock insurer names, or refer
 
 ---
 
-## 2. Non-negotiable production rules
+## 2. Non-negotiable deployed-runtime rules
 
 ### 2.1 Zero simulation in deployed runtimes
 
@@ -71,7 +73,7 @@ Use exactly these runtime profiles:
 |---|---|---:|---:|
 | `LocalTest` | Unit/integration tests and isolated local verification | Yes | No |
 | `Development` | Internal development only | Only if explicitly isolated | No |
-| `Staging` | Production-candidate validation using synthetic records with real providers | No | Yes, internal validation only |
+| `Staging` | Production-candidate validation using synthetic records with real providers | No | Internal validation only |
 | `Production` | Live insurer/customer operation | No | Yes |
 | `ManagedApplicationReviewer` | Partner Center/private-plan review deployment | No | Yes |
 
@@ -95,14 +97,14 @@ Never fabricate operational records, dashboard metrics, provider health, claims,
 
 ---
 
-## 3. Product definition
+## 3. Product definition and deployment model
 
-IIP is an Azure-native, multi-tenant insurance operations platform for insurers, brokers, TPAs, HMOs, bancassurance teams, and related insurance operations teams.
+IIP is an Azure-native insurance operations platform for insurers, brokers, TPAs, HMOs, bancassurance teams, and related insurance operations teams.
 
 It sits above existing core insurance systems and provides:
 
 ```text
-Operational command center
+Operational Command Center
 Claims intelligence
 Document intelligence
 Policy and knowledge retrieval
@@ -115,6 +117,17 @@ Agent-assisted insurance workflows
 ```
 
 IIP does **not** replace core policy/claims administration systems. It orchestrates, enriches, retrieves, drafts, audits, and prepares actions that are reviewed by humans.
+
+Commercial deployment priority is:
+
+```text
+Azure Managed Application
+Partner Center private plan
+Customer deploys into insurer Azure subscription/tenant
+Publisher retains controlled managed-resource-group support/operations access
+```
+
+Default customer deployment is **one insurer per Managed Application instance**, with logical workspaces inside that insurer deployment for branches, departments, product lines, countries, or operational teams. The codebase must still preserve tenant/workspace scoping because it is required for SaaS readiness, internal isolation, auditability, and future deployment modes.
 
 ---
 
@@ -136,7 +149,7 @@ Adverse underwriting outcome
 Fraud determination or accusation
 Complaint final response
 Regulatory filing submission
-Write-back execution without approval where approval is required
+Write-back execution without required approval
 ```
 
 AI may:
@@ -161,7 +174,7 @@ Use `ApprovalDecisionGuard.EnsureHumanForConsequentialDecision` wherever applica
 
 ### 5.1 Retrieval-on-demand is the standing rule
 
-AI must answer only from authoritative, tenant/workspace-scoped data retrieved for the current turn:
+AI must answer from authoritative, tenant/workspace-scoped data retrieved for the current turn:
 
 ```text
 Claims records
@@ -177,7 +190,7 @@ Do not answer policy, claims, coverage, compliance, payment, underwriting, or cu
 
 ### 5.2 Session state is operational continuity only
 
-The `ICommandCenterSessionStateService` stores bounded operational continuity such as:
+`ICommandCenterSessionStateService` stores bounded operational continuity such as:
 
 ```text
 Current claim/customer/document in focus
@@ -809,37 +822,37 @@ Frontend must use real API contracts and real bearer-token auth. If token refres
 
 ## 20. API and backend route rules
 
-Current product API prefix is `/api/v1`. Health endpoints are the exception.
+The canonical route map for the current backend wiring pass uses the `/api` prefix. Do not silently mix `/api` and `/api/v1` in the same implementation. If versioning is approved later, introduce it through a single ADR and one coordinated route-map update.
 
-Important current routes include:
+Health endpoints are the exception and may remain outside `/api`.
+
+Current wiring-pass routes include:
 
 ```text
-POST /api/v1/command-center/query
-GET /api/v1/command-center/metrics
-GET /api/v1/cases
-POST /api/v1/cases
-GET /api/v1/cases/{caseId}
-GET /api/v1/cases/{caseId}/documents
-POST /api/v1/cases/{caseId}/documents
-GET /api/v1/cases/{caseId}/document-checklist
-GET /api/v1/claims
-GET /api/v1/claims/{claimId}
-GET /api/v1/claims/attention
-GET /api/v1/claims/daily-summary
-GET /api/v1/claims/{claimId}/draft-context
-GET /api/v1/approvals
-POST /api/v1/cases/{caseId}/approvals
-POST /api/v1/approvals/{approvalId}/approve
-POST /api/v1/approvals/{approvalId}/reject
-POST /api/v1/assistant/policy-questions
-GET /api/v1/provider-status
-GET /api/v1/system/capabilities
-GET /api/v1/admin/provider-health
-GET /api/v1/admin/users
-GET /api/v1/integrations/email/health
-GET /api/v1/communications/history
-GET /api/v1/compliance/audit-events
+POST /api/command-center/query
+GET /api/claims
+GET /api/claims/{claimId}
+GET /api/claims/attention
+GET /api/claims/daily-summary
+GET /api/claims/{claimId}/draft-context
+GET /api/claims/sla-risks
+GET /api/claims/{claimId}/sla-status
+GET /api/approvals/queue
+POST /api/approvals/{approvalId}/decisions
+POST /api/documents/uploads
+POST /api/documents/{documentId}/extraction
+GET /api/documents/{documentId}/fields
+PATCH /api/documents/{documentId}/fields/{fieldId}/correction
+PATCH /api/documents/{documentId}/fields/{fieldId}/status
+GET /api/documents/missing
+POST /api/claims/{claimId}/documents/completeness-check
+GET /api/channels/overview
+GET /api/customers/{customerId}
+GET /api/sales-leads/{leadId}
+GET /api/audit/events
 ```
+
+Earlier `/api/v1/*` references are legacy or future-version candidates unless a maintainer explicitly approves API versioning.
 
 Controllers are thin adapters. Business rules stay in Application services.
 
@@ -896,6 +909,8 @@ Customer Access / deny-assignment posture is deliberate.
 JIT access principals are individually included where required.
 No mock provider choices are exposed in createUiDefinition.
 ```
+
+Publisher Management Access and customer access/deny-assignment posture are treated as plan-level one-way-door decisions once the plan goes live. Verify them with current Microsoft/Partner Center documentation before committing a submission date.
 
 Managed Application RBAC/deny assignments are control-plane controls. Data-plane access to Azure SQL, Blob, Key Vault, AI Search, Azure OpenAI, Document Intelligence, and Service Bus must still use managed identity/RBAC/credentials as designed.
 
@@ -1024,6 +1039,7 @@ Multitenant Entra identity model
 Conversational session/context strategy
 Tenant agent capability policy
 Multi-agent orchestration boundary
+API route versioning, if /api/v1 is introduced later
 ```
 
 Do not bury architecture changes in code without documentation.
