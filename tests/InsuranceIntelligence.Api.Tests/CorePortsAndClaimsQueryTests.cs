@@ -125,6 +125,81 @@ public sealed class CorePortsAndClaimsQueryTests
         Assert.Contains("missing", status.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task ProviderHealthCheck_ReportsReadyAzureOpenAiConfiguration()
+    {
+        var check = new AzureProviderHealthCheck(new InfrastructureOptions
+        {
+            AiProvider = "AzureOpenAI",
+            AzureOpenAI = new AzureOpenAiOptions
+            {
+                Endpoint = "https://iip-openai.openai.azure.com",
+                ChatDeployment = "gpt-4o-mini",
+                EmbeddingDeployment = "text-embedding-3-small"
+            }
+        });
+
+        var status = await check.CheckAsync("azure_openai");
+
+        Assert.Equal("ready", status.Status);
+        Assert.DoesNotContain("not configured", status.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ProviderHealthCheck_ReportsMissingAzureOpenAiConfiguration()
+    {
+        var check = new AzureProviderHealthCheck(new InfrastructureOptions
+        {
+            AiProvider = "AzureOpenAI",
+            AzureOpenAI = new AzureOpenAiOptions
+            {
+                Endpoint = "https://iip-openai.openai.azure.com"
+            }
+        });
+
+        var status = await check.CheckAsync("azure_openai");
+
+        Assert.Equal("missing", status.Status);
+        Assert.Contains("AzureOpenAI:ChatDeployment", status.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProviderHealthCheck_ReportsReadyAzureAiSearchConfiguration()
+    {
+        var check = new AzureProviderHealthCheck(new InfrastructureOptions
+        {
+            RetrievalProvider = "AzureAiSearch",
+            AzureAiSearch = new AzureAiSearchOptions
+            {
+                Endpoint = "https://iip-search.search.windows.net",
+                IndexName = "knowledge"
+            }
+        });
+
+        var status = await check.CheckAsync("azure_ai_search");
+
+        Assert.Equal("ready", status.Status);
+        Assert.DoesNotContain("not configured", status.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ProviderHealthCheck_ReportsMissingAzureAiSearchConfiguration()
+    {
+        var check = new AzureProviderHealthCheck(new InfrastructureOptions
+        {
+            RetrievalProvider = "AzureAiSearch",
+            AzureAiSearch = new AzureAiSearchOptions
+            {
+                Endpoint = "https://iip-search.search.windows.net"
+            }
+        });
+
+        var status = await check.CheckAsync("azure_ai_search");
+
+        Assert.Equal("missing", status.Status);
+        Assert.Contains("AzureAiSearch:IndexName", status.Detail, StringComparison.Ordinal);
+    }
+
     private static InsuranceIntelligenceDbContext Db()
     {
         var options = new DbContextOptionsBuilder<InsuranceIntelligenceDbContext>()

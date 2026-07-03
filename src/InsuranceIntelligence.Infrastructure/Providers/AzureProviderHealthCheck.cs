@@ -9,12 +9,29 @@ public sealed class AzureProviderHealthCheck(InfrastructureOptions options) : IP
     public async Task<ProviderStatus> CheckAsync(string providerCode, CancellationToken cancellationToken = default)
     {
         var checkedAt = DateTimeOffset.UtcNow;
-        if (!providerCode.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase)
-            && !providerCode.Equals("BlobStorage", StringComparison.OrdinalIgnoreCase))
+        if (IsAzureOpenAi(providerCode))
         {
-            return new ProviderStatus(providerCode, "not_configured", "No real connectivity check is registered for this provider.", checkedAt);
+            return CheckAzureOpenAi(providerCode, checkedAt);
         }
 
+        if (IsAzureAiSearch(providerCode))
+        {
+            return CheckAzureAiSearch(providerCode, checkedAt);
+        }
+
+        if (IsAzureBlob(providerCode))
+        {
+            return await CheckAzureBlobAsync(providerCode, checkedAt, cancellationToken);
+        }
+
+        return new ProviderStatus(providerCode, "not_configured", "No real connectivity check is registered for this provider.", checkedAt);
+    }
+
+    private async Task<ProviderStatus> CheckAzureBlobAsync(
+        string providerCode,
+        DateTimeOffset checkedAt,
+        CancellationToken cancellationToken)
+    {
         if (!options.BlobProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase))
         {
             return new ProviderStatus(providerCode, "not_configured", "Azure Blob Storage provider is not configured.", checkedAt);
@@ -45,6 +62,74 @@ public sealed class AzureProviderHealthCheck(InfrastructureOptions options) : IP
             return new ProviderStatus(providerCode, "unhealthy", $"Azure Blob Storage health check failed: {ex.GetType().Name}.", checkedAt);
         }
     }
+
+    private ProviderStatus CheckAzureOpenAi(string providerCode, DateTimeOffset checkedAt)
+    {
+        if (!options.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ProviderStatus(providerCode, "not_configured", "Azure OpenAI provider is not configured.", checkedAt);
+        }
+
+        var missing = Missing(
+            ("AzureOpenAI:Endpoint", options.AzureOpenAI.Endpoint),
+            ("AzureOpenAI:ChatDeployment", options.AzureOpenAI.ChatDeployment));
+
+        if (missing.Count > 0)
+        {
+            return new ProviderStatus(
+                providerCode,
+                "missing",
+                $"{string.Join(" and ", missing)} must be configured.",
+                checkedAt);
+        }
+
+        return new ProviderStatus(providerCode, "ready", "Azure OpenAI provider configuration is present.", checkedAt);
+    }
+
+    private ProviderStatus CheckAzureAiSearch(string providerCode, DateTimeOffset checkedAt)
+    {
+        if (!options.RetrievalProvider.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ProviderStatus(providerCode, "not_configured", "Azure AI Search provider is not configured.", checkedAt);
+        }
+
+        var missing = Missing(
+            ("AzureAiSearch:Endpoint", options.AzureAiSearch.Endpoint),
+            ("AzureAiSearch:IndexName", options.AzureAiSearch.IndexName));
+
+        if (missing.Count > 0)
+        {
+            return new ProviderStatus(
+                providerCode,
+                "missing",
+                $"{string.Join(" and ", missing)} must be configured.",
+                checkedAt);
+        }
+
+        return new ProviderStatus(providerCode, "ready", "Azure AI Search provider configuration is present.", checkedAt);
+    }
+
+    private static bool IsAzureBlob(string providerCode) =>
+        providerCode.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase)
+        || providerCode.Equals("BlobStorage", StringComparison.OrdinalIgnoreCase)
+        || providerCode.Equals("azure_blob", StringComparison.OrdinalIgnoreCase)
+        || providerCode.Equals("blob_storage", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAzureOpenAi(string providerCode) =>
+        providerCode.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase)
+        || providerCode.Equals("AzureOpenAi", StringComparison.OrdinalIgnoreCase)
+        || providerCode.Equals("azure_openai", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAzureAiSearch(string providerCode) =>
+        providerCode.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase)
+        || providerCode.Equals("AzureAISearch", StringComparison.OrdinalIgnoreCase)
+        || providerCode.Equals("azure_ai_search", StringComparison.OrdinalIgnoreCase);
+
+    private static IReadOnlyList<string> Missing(params (string Name, string? Value)[] settings) =>
+        settings
+            .Where(setting => string.IsNullOrWhiteSpace(setting.Value))
+            .Select(setting => setting.Name)
+            .ToArray();
 
     private static BlobContainerClient CreateContainerClient(AzureBlobOptions options)
     {
