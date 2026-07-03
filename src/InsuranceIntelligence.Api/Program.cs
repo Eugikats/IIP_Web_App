@@ -33,6 +33,7 @@ using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.LocalTestDoubles;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -62,35 +63,46 @@ AzureProviderStartupValidator.ThrowIfProductionInvalid(
 builder.Services.AddAuthorization();
 if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnoreCase))
 {
-    var tenantId = RequireSetting(infrastructureOptions.EntraTenantId, "INSURANCEINTELLIGENCE_ENTRA_TENANT_ID");
+    // Multitenant Entra authentication for IIP's single app registration configured for
+    // "Accounts in any organizational directory". Per the reconciled backend-wiring spec:
+    // - EntraTenantId is IIP's publisher/home tenant, NOT a customer insurer tenant, and must
+    //   NOT restrict the JWT issuer.
+    // - Issuer validation is delegated to Microsoft.Identity.Web's multitenant-aware path
+    //   (TenantId = "organizations"); do NOT hardcode a single ValidIssuer.
+    RequireSetting(infrastructureOptions.EntraTenantId, "INSURANCEINTELLIGENCE_ENTRA_TENANT_ID");
     var clientId = RequireSetting(infrastructureOptions.EntraClientId, "INSURANCEINTELLIGENCE_ENTRA_CLIENT_ID");
-    var configuredAudience = string.IsNullOrWhiteSpace(infrastructureOptions.EntraAudience)
+    var audience = string.IsNullOrWhiteSpace(infrastructureOptions.EntraAudience)
         ? $"api://{clientId}"
         : infrastructureOptions.EntraAudience;
-    var authority = $"https://login.microsoftonline.com/{tenantId}/v2.0";
-    var validAudiences = new[] { configuredAudience, clientId, $"api://{clientId}" }
-        .Where(value => !string.IsNullOrWhiteSpace(value))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .ToArray();
 
     builder.Services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options =>
-        {
-            options.Authority = authority;
-            options.RequireHttpsMetadata = true;
-            options.TokenValidationParameters = new TokenValidationParameters
+        .AddMicrosoftIdentityWebApi(
+            jwt =>
             {
-                ValidateIssuer = true,
-                ValidIssuer = infrastructureOptions.EntraIssuer ?? authority,
-                ValidateAudience = true,
-                ValidAudiences = validAudiences,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                NameClaimType = "preferred_username",
-                RoleClaimType = "roles"
-            };
-        });
+                jwt.Authority = "https://login.microsoftonline.com/organizations/v2.0";
+                jwt.Audience = audience;
+                jwt.RequireHttpsMetadata = true;
+
+                jwt.TokenValidationParameters ??= new TokenValidationParameters();
+                jwt.TokenValidationParameters.ValidateIssuer = true;
+                jwt.TokenValidationParameters.ValidateAudience = true;
+                jwt.TokenValidationParameters.ValidAudience = audience;
+                jwt.TokenValidationParameters.ValidateLifetime = true;
+                jwt.TokenValidationParameters.ValidateIssuerSigningKey = true;
+                jwt.TokenValidationParameters.ClockSkew = TimeSpan.FromMinutes(2);
+                jwt.TokenValidationParameters.NameClaimType = "preferred_username";
+                jwt.TokenValidationParameters.RoleClaimType = "roles";
+                // Do NOT set ValidIssuer/ValidIssuers: multitenant issuer validation is dynamic.
+            },
+            identity =>
+            {
+                identity.Instance = "https://login.microsoftonline.com/";
+                identity.TenantId = "organizations";
+                identity.ClientId = clientId;
+                // Audience is validated on the JwtBearer options above; MicrosoftIdentityOptions
+                // (Microsoft.Identity.Web 4.x) exposes no Audience property.
+            });
 }
 else
 {
