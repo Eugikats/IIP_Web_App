@@ -17,3 +17,7 @@ infra/dist/*
 Thumbs.db
 .vs/
 .idea/
+
+# Local runtime storage artifacts (LocalMock providers write here)
+.local/
+**/.local/
