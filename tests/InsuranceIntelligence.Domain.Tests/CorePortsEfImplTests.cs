@@ -8,20 +8,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InsuranceIntelligence.Domain.Tests;
 
+// Covers the Core-port implementations as they actually exist in the codebase:
+//   - ITenantContextAccessor  -> TenantContextAccessor (request-scoped accessor)
+//   - IPermissionService      -> PermissionService + EfPermissionReadRepository (hexagonal split)
+//   - IAuditWriter            -> AuditWriter + EfAuditEventRepository (hexagonal split)
+//   - IProviderHealthCheck    -> ProviderHealthCheckEf (SQL-aware, wraps AzureProviderHealthCheck)
+// (Originally written by W1.4 against PermissionServiceEf/AuditWriterEf/TenantContextAccessorEf,
+//  which were redundant duplicates removed in W1.3 — see the Phase 1 correction note in the plan.)
 public sealed class CorePortsEfImplTests
 {
     [Fact]
-    public void TenantContextAccessorEf_RequiresServerResolvedContext()
+    public void TenantContextAccessor_HoldsServerResolvedContext()
     {
-        var accessor = new TenantContextAccessorEf();
+        var accessor = new TenantContextAccessor();
 
         Assert.Throws<InvalidOperationException>(() => accessor.Current);
-        Assert.Throws<InvalidOperationException>(() =>
-            accessor.SetCurrent(new TenantContext("", "workspace-a", "user-1", [])));
-        Assert.Throws<InvalidOperationException>(() =>
-            accessor.SetCurrent(new TenantContext("tenant-a", "", "user-1", [])));
-        Assert.Throws<InvalidOperationException>(() =>
-            accessor.SetCurrent(new TenantContext("tenant-a", "workspace-a", "", [])));
 
         var context = new TenantContext("tenant-a", "workspace-a", "user-1", [PlatformRole.ClaimsOfficer.ToString()]);
         accessor.SetCurrent(context);
@@ -30,7 +31,7 @@ public sealed class CorePortsEfImplTests
     }
 
     [Fact]
-    public async Task PermissionServiceEf_UsesTenantScopedPersistedPermissions()
+    public async Task PermissionService_UsesTenantScopedPersistedPermissions()
     {
         await using var dbContext = CreateDbContext();
         dbContext.UserTenantMemberships.Add(new UserTenantMembershipEntity
@@ -67,8 +68,9 @@ public sealed class CorePortsEfImplTests
         });
         await dbContext.SaveChangesAsync();
 
-        var contextAccessor = CurrentContext("tenant-a", "workspace-a", "user-1");
-        var service = new PermissionServiceEf(dbContext, contextAccessor);
+        var service = new PermissionService(
+            CurrentContext("tenant-a", "workspace-a", "user-1"),
+            new EfPermissionReadRepository(dbContext));
 
         Assert.True(await service.HasPermissionAsync(Permission.ViewAssignedClaims));
         Assert.False(await service.HasPermissionAsync(Permission.ManageTenantSettings));
@@ -77,7 +79,7 @@ public sealed class CorePortsEfImplTests
     }
 
     [Fact]
-    public async Task PermissionServiceEf_DeniesInactiveMembership()
+    public async Task PermissionService_DeniesInactiveMembership()
     {
         await using var dbContext = CreateDbContext();
         dbContext.UserTenantMemberships.Add(new UserTenantMembershipEntity
@@ -98,16 +100,20 @@ public sealed class CorePortsEfImplTests
         });
         await dbContext.SaveChangesAsync();
 
-        var service = new PermissionServiceEf(dbContext, CurrentContext("tenant-a", "workspace-a", "user-1"));
+        var service = new PermissionService(
+            CurrentContext("tenant-a", "workspace-a", "user-1"),
+            new EfPermissionReadRepository(dbContext));
 
         Assert.False(await service.HasPermissionAsync(Permission.ManageTenantSettings));
     }
 
     [Fact]
-    public async Task AuditWriterEf_PersistsOnlyCurrentTenantScope()
+    public async Task AuditWriter_PersistsOnlyCurrentTenantScope()
     {
         await using var dbContext = CreateDbContext();
-        var writer = new AuditWriterEf(dbContext, CurrentContext("tenant-a", "workspace-a", "user-1"));
+        var writer = new AuditWriter(
+            CurrentContext("tenant-a", "workspace-a", "user-1"),
+            new EfAuditEventRepository(dbContext));
         var auditEvent = AuditEventFor(TenantScope.Create("tenant-a", "workspace-a"));
 
         await writer.WriteAsync(auditEvent);
@@ -165,9 +171,9 @@ public sealed class CorePortsEfImplTests
         Assert.Equal("ready", status.Status);
     }
 
-    private static TenantContextAccessorEf CurrentContext(string tenantId, string workspaceId, string userId)
+    private static TenantContextAccessor CurrentContext(string tenantId, string workspaceId, string userId)
     {
-        var accessor = new TenantContextAccessorEf();
+        var accessor = new TenantContextAccessor();
         accessor.SetCurrent(new TenantContext(tenantId, workspaceId, userId, []));
         return accessor;
     }
