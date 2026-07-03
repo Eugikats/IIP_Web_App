@@ -558,13 +558,14 @@ text
 metric_pills
 sla_summary
 claims_table
+document_gap_summary
 evidence_list
 action_proposal
 not_configured
 error
 approval_queue
-customer_update_draft
-report_draft
+draft_communication
+management_summary
 ```
 
 The frontend must render backend DTO camelCase shapes exactly. Do not invent frontend-only block schemas.
