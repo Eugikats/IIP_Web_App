@@ -3,13 +3,21 @@ using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Azure;
 using InsuranceIntelligence.Api.Admin;
 using InsuranceIntelligence.Api.Assistant;
+using InsuranceIntelligence.Api.Audit;
 using InsuranceIntelligence.Api.Cases;
+using InsuranceIntelligence.Api.Channels;
 using InsuranceIntelligence.Api.Claims;
 using InsuranceIntelligence.Api.ClientPortal;
+using InsuranceIntelligence.Api.Customer;
+using InsuranceIntelligence.Api.SalesLeads;
 using InsuranceIntelligence.Application.Ai;
+using InsuranceIntelligence.Application.Audit;
+using InsuranceIntelligence.Application.Channels;
 using InsuranceIntelligence.Application.Claims;
 using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Customers;
+using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Api.CommandCenter;
 using InsuranceIntelligence.Api.Communications;
@@ -223,6 +231,11 @@ builder.Services.AddSingleton<IIntentClassifier, DeterministicThenAiIntentClassi
 builder.Services.AddSingleton<IProviderRequirementResolver, ProviderRequirementResolver>();
 builder.Services.AddScoped<INotificationDraftService, CustomerUpdateNotificationDraftService>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
+// W2.5: Phase 2 core-workspace query services.
+builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
+builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
+builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
+builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.CommandCenter.ISystemCapabilityStatusService, InsuranceIntelligence.Api.CommandCenter.SystemCapabilityStatusService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Workflow.ICaseTimelineProvider, InsuranceIntelligence.Api.Local.CaseTimelineProvider>();
@@ -411,6 +424,16 @@ app.MapPut("/api/v1/admin/users/{userId}/role", AdminEndpoints.UpdateUserRole)
 
 app.MapPost("/api/v1/admin/debug-teams-notification", DebugEndpoints.TriggerTeamsNotification)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+
+// W2.5: Phase 2 core-workspace read routes (see docs/02-development-engineering/iip_api_specification.md).
+app.MapGet("/api/v1/channels/overview", ChannelEndpoints.GetOverview)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustomerProfile)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapGet("/api/v1/audit/events", AuditEndpoints.ListEvents)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 
 app.MapGet("/api/v1/compliance/audit-events", ComplianceEndpoints.ListAuditEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));

@@ -1,6 +1,10 @@
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Application.Audit;
+using InsuranceIntelligence.Application.Channels;
 using InsuranceIntelligence.Application.Claims;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Customers;
+using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Documents;
@@ -167,6 +171,12 @@ public static class InfrastructureRegistration
         services.AddScoped<IPermissionReadRepository, EfPermissionReadRepository>();
         services.AddScoped<IAuditEventRepository, EfAuditEventRepository>();
         services.AddScoped<IClaimsReadRepository, EfClaimsReadRepository>();
+        // W2.5: read-side adapters backing the Phase 2 query services. Channels and Sales Leads
+        // have no ingested data source yet, so their adapters return empty/null honestly.
+        services.AddScoped<IAuditReadRepository, EfAuditReadRepository>();
+        services.AddScoped<ICustomerReadRepository, EfCustomerReadRepository>();
+        services.AddScoped<IChannelReadRepository, EfChannelReadRepository>();
+        services.AddScoped<ISalesLeadReadRepository, EfSalesLeadReadRepository>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
         // Azure SQL connectivity probe). The other three Core ports (ITenantContextAccessor,
         // IPermissionService, IAuditWriter) are already correctly implemented via the hexagonal
