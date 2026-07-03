@@ -167,7 +167,13 @@ public static class InfrastructureRegistration
         services.AddScoped<IPermissionReadRepository, EfPermissionReadRepository>();
         services.AddScoped<IAuditEventRepository, EfAuditEventRepository>();
         services.AddScoped<IClaimsReadRepository, EfClaimsReadRepository>();
-        services.AddScoped<IProviderHealthCheck, AzureProviderHealthCheck>();
+        // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
+        // Azure SQL connectivity probe). The other three Core ports (ITenantContextAccessor,
+        // IPermissionService, IAuditWriter) are already correctly implemented via the hexagonal
+        // service + EF-repository pattern above (PermissionService/AuditWriter delegate to the
+        // registered EfPermissionReadRepository/EfAuditEventRepository), so no *Ef service
+        // duplicates are registered for them.
+        services.AddScoped<IProviderHealthCheck, ProviderHealthCheckEf>();
     }
 
     private static void AddSupportRepositories(IServiceCollection services)
