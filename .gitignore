@@ -1,0 +1,14 @@
+# Build / dependency artifacts
+bin/
+obj/
+node_modules/
+.next/
+dist/
+output/
+*.user
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vs/
+.idea/
