@@ -14,7 +14,7 @@ test.describe("Policy Intelligence visual acceptance", () => {
 
     await page.getByLabel("Policy question").fill("Is windscreen damage covered?");
     await page.getByLabel("Product line").fill("Motor");
-    const requestPromise = page.waitForRequest("**/api/assistant/policy-questions");
+    const requestPromise = page.waitForRequest("**/api/v1/assistant/policy-questions");
     await page.getByRole("button", { name: "Check policy evidence" }).click();
     const request = await requestPromise;
     const body = request.postDataJSON() as Record<string, unknown>;
@@ -39,7 +39,7 @@ test.describe("Policy Intelligence visual acceptance", () => {
   });
 
   test("refuses a policy conclusion when approved evidence is unavailable", async ({ page }) => {
-    await page.route("**/api/assistant/policy-questions", async (route) => {
+    await page.route("**/api/v1/assistant/policy-questions", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -73,7 +73,7 @@ test.describe("Policy Intelligence visual acceptance", () => {
   });
 
   test("fails closed when backend grounding state is incomplete", async ({ page }) => {
-    await page.route("**/api/assistant/policy-questions", async (route) => {
+    await page.route("**/api/v1/assistant/policy-questions", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

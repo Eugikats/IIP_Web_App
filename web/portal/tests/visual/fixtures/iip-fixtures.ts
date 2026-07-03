@@ -426,22 +426,6 @@ const responses: Record<string, unknown> = {
       source: "Development"
     }
   },
-  "/api/command-center/metrics": {
-    totalCases: 532,
-    openClaims: 124,
-    newClaimsToday: 18,
-    incompleteClaims: 32,
-    pendingApprovals: 16,
-    openTasks: 41,
-    customerUpdatesPending: 9,
-    slaAtRisk: 28,
-    slaBreached: 7,
-    assistantQuestionsAnswered: 82,
-    escalationsRequired: 9,
-    averageCompletenessScore: 78,
-    knowledgeDocumentsApproved: 14,
-    totalDocuments: 221
-  },
   "/api/v1/command-center/metrics": {
     totalCases: 532,
     openClaims: 124,
@@ -458,11 +442,11 @@ const responses: Record<string, unknown> = {
     knowledgeDocumentsApproved: 14,
     totalDocuments: 221
   },
-  "/api/cases": [claim, readyClaim, breachedClaim],
-  [`/api/cases/${caseId}`]: claim,
-  [`/api/cases/${caseId}/documents`]: documents,
-  [`/api/cases/${caseId}/document-checklist`]: checklist,
-  [`/api/cases/${caseId}/recommended-actions`]: [
+  "/api/v1/cases": [claim, readyClaim, breachedClaim],
+  [`/api/v1/cases/${caseId}`]: claim,
+  [`/api/v1/cases/${caseId}/documents`]: documents,
+  [`/api/v1/cases/${caseId}/document-checklist`]: checklist,
+  [`/api/v1/cases/${caseId}/recommended-actions`]: [
     {
       actionId: "ACT-2026-00012",
       caseId,
@@ -473,11 +457,11 @@ const responses: Record<string, unknown> = {
       createdAt: now
     }
   ],
-  [`/api/cases/${caseId}/timeline`]: [
+  [`/api/v1/cases/${caseId}/timeline`]: [
     { eventId: "TIM-001", eventType: "ClaimCreated", title: "Claim created", description: "Synthetic claim submitted.", occurredAt: now, actorName: "Sarah N." },
     { eventId: "TIM-002", eventType: "DocumentUploaded", title: "Repair estimate uploaded", description: "Document requires verification.", occurredAt: now, actorName: "Jane Namusoke" }
   ],
-  [`/api/cases/${caseId}/customer-updates`]: [
+  [`/api/v1/cases/${caseId}/customer-updates`]: [
     {
       updateId: "UPD-2026-00009",
       caseId,
@@ -499,8 +483,8 @@ const responses: Record<string, unknown> = {
       ]
     }
   ],
-  [`/api/cases/${caseId}/communications`]: [],
-  [`/api/assistant/actions/${caseId}`]: [
+  [`/api/v1/cases/${caseId}/communications`]: [],
+  [`/api/v1/assistant/actions/${caseId}`]: [
     {
       actionLogId: "AI-2026-00091",
       caseId,
@@ -510,8 +494,8 @@ const responses: Record<string, unknown> = {
       createdAt: now
     }
   ],
-  "/api/assistant/actions": assistantActions,
-  "/api/workflow/tasks": [
+  "/api/v1/assistant/actions": assistantActions,
+  "/api/v1/workflow/tasks": [
     {
       taskId: "TSK-2026-00071",
       caseId,
@@ -522,8 +506,8 @@ const responses: Record<string, unknown> = {
       assignedTo: "Jane Namusoke"
     }
   ],
-  "/api/approvals": approvals,
-  "/api/reports/operations-summary": {
+  "/api/v1/approvals": approvals,
+  "/api/v1/reports/operations-summary": {
     openClaims: 124,
     newClaimsToday: 18,
     incompleteClaims: 32,
@@ -544,14 +528,14 @@ const responses: Record<string, unknown> = {
       { label: "Document verification", queueName: "Document Verification", count: 32 }
     ]
   },
-  "/api/admin/provider-modes": providerModes,
-  "/api/admin/provider-health": providerHealth,
+  "/api/v1/admin/provider-modes": providerModes,
+  "/api/v1/admin/provider-health": providerHealth,
   "/api/v1/provider-status": providerStatus,
   "/api/v1/system/capabilities": systemCapabilities,
   "/api/v1/integrations/email/health": emailIntegrationHealth,
-  "/api/knowledge-documents": [knowledgeDocument],
-  [`/api/knowledge-documents/${knowledgeDocument.knowledgeDocumentId}`]: knowledgeDetail,
-  "/api/admin/tenant-configuration": {
+  "/api/v1/knowledge-documents": [knowledgeDocument],
+  [`/api/v1/knowledge-documents/${knowledgeDocument.knowledgeDocumentId}`]: knowledgeDetail,
+  "/api/v1/admin/tenant-configuration": {
     tenantName: "Uganda Insurer Ltd.",
     insurerName: "Uganda Insurer Ltd.",
     country: "Uganda",
@@ -562,7 +546,7 @@ const responses: Record<string, unknown> = {
     currency: "UGX",
     auditRetentionDays: 365
   },
-  "/api/admin/users": [
+  "/api/v1/admin/users": [
     {
       userId: "usr-visual-supervisor",
       name: "Jane Namusoke",
@@ -578,13 +562,13 @@ const responses: Record<string, unknown> = {
       blockedActions: []
     }
   ],
-  "/api/admin/roles": [
+  "/api/v1/admin/roles": [
     { role: "ClaimsSupervisor", permissions: ["ViewCommandCenter", "ViewAllClaims", "ApproveSettlementWorkflowStep"] }
   ],
-  "/api/integrations/email/mailboxes": [],
-  "/api/integrations/email/messages": [],
-  "/api/communications/history": [],
-  "/api/compliance/audit-events": [
+  "/api/v1/integrations/email/mailboxes": [],
+  "/api/v1/integrations/email/messages": [],
+  "/api/v1/communications/history": [],
+  "/api/v1/compliance/audit-events": [
     {
       eventId: "AUD-2026-11903",
       caseId,
@@ -633,7 +617,7 @@ export async function installVisualApiFixtures(page: Page) {
       }
     }
 
-    if (route.request().method() === "POST" && path === "/api/assistant/policy-questions") {
+    if (route.request().method() === "POST" && path === "/api/v1/assistant/policy-questions") {
       const body = route.request().postDataJSON?.() as { question?: string } | undefined;
       const answer = body?.question?.toLowerCase().includes("no approved source")
         || body?.question?.toLowerCase().includes("unlisted")
@@ -654,15 +638,15 @@ export async function installVisualApiFixtures(page: Page) {
       return;
     }
 
-    if (path.startsWith("/api/compliance/cases/") && path.endsWith("/audit-pack")) {
+    if (path.startsWith("/api/v1/compliance/cases/") && path.endsWith("/audit-pack")) {
       await fulfillJson(route, {
         caseId,
         status: "ReadyForReview",
-        auditEvents: responses["/api/compliance/audit-events"],
+        auditEvents: responses["/api/v1/compliance/audit-events"],
         documents,
         assistantActions,
         approvals,
-        customerUpdates: responses[`${"/api/cases/"}${caseId}/customer-updates`]
+        customerUpdates: responses[`${"/api/v1/cases/"}${caseId}/customer-updates`]
       });
       return;
     }

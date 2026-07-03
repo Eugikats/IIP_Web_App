@@ -14,7 +14,7 @@ test.describe("AI Conversations visual acceptance", () => {
     await expect(page.getByRole("heading", { name: "Grounded insurance assistant" })).toBeVisible();
     await expect(page.getByLabel("Audience")).toHaveCount(0);
 
-    const requestPromise = page.waitForRequest("**/api/assistant/policy-questions");
+    const requestPromise = page.waitForRequest("**/api/v1/assistant/policy-questions");
     const composer = page.getByPlaceholder("Ask IIP AI a policy question...");
     await composer.fill("What does the approved motor policy say about windscreen damage?");
     await composer.press("Enter");
@@ -42,7 +42,7 @@ test.describe("AI Conversations visual acceptance", () => {
   });
 
   test("fails closed when the backend response can trigger a decision", async ({ page }) => {
-    await page.route("**/api/assistant/policy-questions", async (route) => {
+    await page.route("**/api/v1/assistant/policy-questions", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

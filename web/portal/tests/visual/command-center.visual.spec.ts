@@ -48,18 +48,18 @@ test.describe("Command Center visual acceptance", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     const question = "What should the claims team address first?";
-    const requestPromise = page.waitForRequest("**/api/v1/command-center/assistant");
+    // Chat-first Command Center posts to the governed typed-block /query endpoint
+    // (the prose /command-center/assistant endpoint was dropped in the v2 migration).
+    const requestPromise = page.waitForRequest("**/api/v1/command-center/query");
     const composer = page.getByPlaceholder("Ask about claims, workflow pressure, approvals, or customer updates...");
     await composer.fill(question);
     await composer.press("Enter");
 
     const request = await requestPromise;
-    expect(request.postDataJSON()).toEqual({ question });
+    expect((request.postDataJSON() as { question: string }).question).toBe(question);
 
-    await expect(page.getByText("Prepared by AzureOpenAI", { exact: false })).toBeVisible();
+    // The typed-block answer renders, and the surface states its non-decision boundary.
+    await expect(page.getByText("SLA pressure is the immediate concern", { exact: false })).toBeVisible();
     await expect(page.getByText("Preparation only", { exact: false })).toBeVisible();
-    await expect(page.getByText("Prompt command-center-operations-v1", { exact: false })).toBeVisible();
-    await expect(page.getByText("Audit aaaaaaaa", { exact: false })).toBeVisible();
-    await expect(page.getByText("Open record-level workflow evidence before taking consequential action.")).toBeVisible();
   });
 });

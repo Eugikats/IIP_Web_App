@@ -27,7 +27,7 @@ test.describe("Tenant onboarding visual acceptance", () => {
 
     let requestBody: Record<string, unknown> | null = null;
     let auditReason: string | null = null;
-    await page.route("**/api/admin/tenant-configuration", async (route) => {
+    await page.route("**/api/v1/admin/tenant-configuration", async (route) => {
       if (route.request().method() === "GET") {
         await route.fallback();
         return;
@@ -64,7 +64,7 @@ test.describe("Tenant onboarding visual acceptance", () => {
 
   test("fails closed when tenant configuration contract is malformed", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name.includes("mobile"), "Tenant onboarding is not rendered on mobile.");
-    await page.route("**/api/admin/tenant-configuration", async (route) => {
+    await page.route("**/api/v1/admin/tenant-configuration", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ insurerName: "Incomplete" }) });
     });
 

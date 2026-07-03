@@ -57,7 +57,7 @@ test.describe("Workflow route visual acceptance", () => {
   });
 
   test("claims inbox fails closed when backend action state is missing", async ({ page }) => {
-    await page.route("**/api/cases", async (route) => {
+    await page.route("**/api/v1/cases", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -77,7 +77,7 @@ test.describe("Workflow route visual acceptance", () => {
   });
 
   test("approval decisions fail closed when backend action state is missing", async ({ page }) => {
-    await page.route("**/api/approvals", async (route) => {
+    await page.route("**/api/v1/approvals", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -98,7 +98,7 @@ test.describe("Workflow route visual acceptance", () => {
   });
 
   test("customer update controls fail closed when backend action state is missing", async ({ page }) => {
-    await page.route(`**/api/cases/${visualCaseId}/customer-updates`, async (route) => {
+    await page.route(`**/api/v1/cases/${visualCaseId}/customer-updates`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -120,7 +120,7 @@ test.describe("Workflow route visual acceptance", () => {
   });
 
   test("case review fails closed when backend action state is missing", async ({ page }) => {
-    await page.route(`**/api/cases/${visualCaseId}`, async (route) => {
+    await page.route(`**/api/v1/cases/${visualCaseId}`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -139,7 +139,7 @@ test.describe("Workflow route visual acceptance", () => {
 
   test("new claim sends case facts without browser-owned authority fields", async ({ page }) => {
     let requestBody: Record<string, unknown> | null = null;
-    await page.route("**/api/cases", async (route) => {
+    await page.route("**/api/v1/cases", async (route) => {
       requestBody = route.request().postDataJSON() as Record<string, unknown>;
       await route.fulfill({
         status: 201,
@@ -178,7 +178,7 @@ test.describe("Workflow route visual acceptance", () => {
   });
 
   test("knowledge hub fails closed when lifecycle action state is missing", async ({ page }) => {
-    await page.route("**/api/knowledge-documents", async (route) => {
+    await page.route("**/api/v1/knowledge-documents", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -198,7 +198,7 @@ test.describe("Workflow route visual acceptance", () => {
   });
 
   test("admin role controls fail closed when role-change action state is missing", async ({ page }, testInfo) => {
-    await page.route("**/api/admin/provider-modes", async (route) => {
+    await page.route("**/api/v1/admin/provider-modes", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -215,7 +215,7 @@ test.describe("Workflow route visual acceptance", () => {
         })
       });
     });
-    await page.route("**/api/admin/tenant-configuration", async (route) => {
+    await page.route("**/api/v1/admin/tenant-configuration", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -229,7 +229,7 @@ test.describe("Workflow route visual acceptance", () => {
         })
       });
     });
-    await page.route("**/api/admin/users", async (route) => {
+    await page.route("**/api/v1/admin/users", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

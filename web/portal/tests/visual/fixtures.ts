@@ -27,7 +27,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     window.localStorage.setItem("iip-demo-role", selectedRole);
   }, role);
 
-  await page.route("**/api/**", async (route) => {
+  await page.route("**/api/v1/**", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) });
   });
 
@@ -120,31 +120,60 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/v1/command-center/assistant", async (route) => {
+  // Chat-first Command Center: the prose /command-center/assistant endpoint was
+  // dropped in the v2 migration. Mock the typed-block /command-center/query response
+  // (shapes match lib/commandCenterBlocks.ts; canTriggerDecision is always false).
+  await page.route("**/api/v1/command-center/query", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        answer: "SLA pressure is the immediate concern. Review the breached claims first, then the at-risk cases with pending approvals.",
-        confidenceScore: 0.9,
-        escalationRequired: true,
-        guardrailMessage: "Open record-level workflow evidence before taking consequential action.",
-        riskFlag: "needs_review",
-        sources: [],
+        blocks: [
+          {
+            type: "text",
+            markdown:
+              "SLA pressure is the immediate concern. Review the breached claims first, then the at-risk cases with pending approvals."
+          },
+          {
+            type: "metric_pills",
+            items: [
+              { label: "SLA breached", value: "2", tone: "danger" },
+              { label: "At risk", value: "5", tone: "warning" },
+              { label: "Pending approvals", value: "8", tone: "info" }
+            ]
+          },
+          {
+            type: "sla_summary",
+            items: [
+              { caseId: "CLM-1001", customer: "A. Mercer", slaStatus: "breached", dueLabel: "Overdue 6h" },
+              { caseId: "CLM-1002", customer: "T. Okafor", slaStatus: "at_risk", dueLabel: "Due in 3h" }
+            ]
+          },
+          {
+            type: "approval_queue",
+            items: [
+              {
+                approvalId: "APR-1",
+                caseId: "CLM-1001",
+                title: "Settlement step review",
+                status: "Pending",
+                href: "/approvals"
+              }
+            ]
+          }
+        ],
         agentActionLogId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        insightType: "OperationalSummary",
-        modelProvider: "AzureOpenAI",
-        modelDeployment: "visual-chat",
-        promptVersion: "command-center-operations-v1",
+        correlationId: "visual-command-center-correlation",
+        modelProvider: "Deterministic",
+        promptVersion: "command-center-query-v1",
         visibility: "Internal",
         canTriggerDecision: false,
-        generatedAt: "2026-06-20T09:15:00Z",
-        correlationId: "visual-command-center-correlation"
+        generatedAt: "2026-06-20T09:15:00Z"
       })
     });
   });
 
-  await page.route("**/api/assistant/policy-questions", async (route) => {
+  await page.route("**/api/v1/assistant/policy-questions", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -178,7 +207,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/cases", async (route) => {
+  await page.route("**/api/v1/cases", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -235,7 +264,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route(`**/api/cases/${visualCaseId}`, async (route) => {
+  await page.route(`**/api/v1/cases/${visualCaseId}`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -258,7 +287,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route(`**/api/cases/${visualCaseId}/documents`, async (route) => {
+  await page.route(`**/api/v1/cases/${visualCaseId}/documents`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -312,7 +341,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
           uploadedAt: "2026-06-20T09:00:00Z",
           processedAt: "2026-06-20T09:01:00Z",
           correlationId: "visual-document-correlation",
-          previewUrl: `/api/cases/${visualCaseId}/documents/22222222-2222-4222-8222-222222222222/content`,
+          previewUrl: `/api/v1/cases/${visualCaseId}/documents/22222222-2222-4222-8222-222222222222/content`,
           allowedActions: [
             { action: "reclassifyDocument", label: "Reclassify document", requiredPermission: "UploadDocument", reason: null },
             { action: "approveDocumentExtraction", label: "Approve extraction", requiredPermission: "UploadDocument", reason: null },
@@ -324,7 +353,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route(`**/api/cases/${visualCaseId}/document-checklist`, async (route) => {
+  await page.route(`**/api/v1/cases/${visualCaseId}/document-checklist`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -351,7 +380,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/approvals", async (route) => {
+  await page.route("**/api/v1/approvals", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -380,7 +409,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/reports/operations-summary", async (route) => {
+  await page.route("**/api/v1/reports/operations-summary", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -410,7 +439,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/admin/provider-health", async (route) => {
+  await page.route("**/api/v1/admin/provider-health", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -428,7 +457,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/admin/tenant-configuration", async (route) => {
+  await page.route("**/api/v1/admin/tenant-configuration", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -457,7 +486,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/admin/users", async (route) => {
+  await page.route("**/api/v1/admin/users", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -475,7 +504,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/integrations/email/mailboxes", async (route) => {
+  await page.route("**/api/v1/integrations/email/mailboxes", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -493,7 +522,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/integrations/email/messages", async (route) => {
+  await page.route("**/api/v1/integrations/email/messages", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -511,7 +540,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/compliance/audit-events**", async (route) => {
+  await page.route("**/api/v1/compliance/audit-events**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -530,7 +559,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/knowledge-documents", async (route) => {
+  await page.route("**/api/v1/knowledge-documents", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -556,7 +585,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/client-portal/claims/**", async (route) => {
+  await page.route("**/api/v1/client-portal/claims/**", async (route) => {
     if (route.request().method() === "POST") {
       await fulfillClientClaim(route, "Documents uploaded and sent for review.");
       return;
@@ -568,7 +597,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
 }
 
 export async function prepareDeployedProfileApi(page: Page, role: RuntimeRole) {
-  await page.route("**/api/**", async (route) => {
+  await page.route("**/api/v1/**", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) });
   });
 
@@ -631,7 +660,7 @@ export async function prepareDeployedProfileApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/approvals", async (route) => {
+  await page.route("**/api/v1/approvals", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -660,7 +689,7 @@ export async function prepareDeployedProfileApi(page: Page, role: RuntimeRole) {
     });
   });
 
-  await page.route("**/api/client-portal/claims/**", async (route) => {
+  await page.route("**/api/v1/client-portal/claims/**", async (route) => {
     await fulfillClientClaim(route);
   });
 }
