@@ -324,6 +324,21 @@ public sealed class SecurityAuthorizationTests
     }
 
     [Fact]
+    public void ProductionApiRuntime_DoesNotReferenceLocalTestDoubles()
+    {
+        var program = ReadProgramSource();
+        var apiProject = ReadApiProjectSource();
+
+        Assert.DoesNotContain("InsuranceIntelligence.LocalTestDoubles", program);
+        Assert.DoesNotContain("LocalTestPermissionReadRepository", program);
+        Assert.DoesNotContain("LocalTestAuditEventRepository", program);
+        Assert.DoesNotContain("LocalTestClaimsReadRepository", program);
+        Assert.DoesNotContain("LocalTestProviderHealthCheck", program);
+        Assert.DoesNotContain("InsuranceIntelligence.LocalTestDoubles", apiProject);
+        Assert.Contains("InsuranceIntelligence.Api cannot run with INSURANCEINTELLIGENCE_STORAGE_PROVIDER=InMemory", program);
+    }
+
+    [Fact]
     public async Task RuntimeContext_ReturnsDevelopmentRolePermissionsAndScope()
     {
         var context = new DefaultHttpContext();
@@ -694,6 +709,18 @@ public sealed class SecurityAuthorizationTests
 
     private static string ReadProgramSource([CallerFilePath] string sourceFilePath = "")
     {
+        return ReadRepositoryFile(Path.Combine("src", "InsuranceIntelligence.Api", "Program.cs"), sourceFilePath);
+    }
+
+    private static string ReadApiProjectSource([CallerFilePath] string sourceFilePath = "")
+    {
+        return ReadRepositoryFile(
+            Path.Combine("src", "InsuranceIntelligence.Api", "InsuranceIntelligence.Api.csproj"),
+            sourceFilePath);
+    }
+
+    private static string ReadRepositoryFile(string relativePath, string sourceFilePath)
+    {
         foreach (var startPath in new[]
                  {
                      Path.GetDirectoryName(sourceFilePath) ?? string.Empty,
@@ -709,7 +736,7 @@ public sealed class SecurityAuthorizationTests
             var directory = new DirectoryInfo(startPath);
             while (directory is not null)
             {
-                var candidate = Path.Combine(directory.FullName, "src", "InsuranceIntelligence.Api", "Program.cs");
+                var candidate = Path.Combine(directory.FullName, relativePath);
                 if (File.Exists(candidate))
                 {
                     return File.ReadAllText(candidate);
@@ -719,7 +746,7 @@ public sealed class SecurityAuthorizationTests
             }
         }
 
-        throw new FileNotFoundException("Could not locate src/InsuranceIntelligence.Api/Program.cs from the test runtime paths.");
+        throw new FileNotFoundException($"Could not locate {relativePath} from the test runtime paths.");
     }
 
     private static void AssertRouteHasPermission(string program, string route, string permissionExpression)

@@ -31,7 +31,6 @@ using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Infrastructure.Notifications;
 using InsuranceIntelligence.Infrastructure.DependencyInjection;
 using InsuranceIntelligence.Infrastructure.Configuration;
-using InsuranceIntelligence.LocalTestDoubles;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Identity.Web;
@@ -111,18 +110,14 @@ else
 }
 
 var storageProvider = infrastructureOptions.StorageProvider;
-builder.Services.AddInsuranceIntelligenceInfrastructure(builder.Configuration, builder.Environment);
 if (storageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<ICaseRepository, InMemoryCaseRepository>();
-    builder.Services.AddSingleton<IAuditRepository, InMemoryAuditRepository>();
-    builder.Services.AddSingleton<ICaseDocumentRepository, InMemoryCaseDocumentRepository>();
-    builder.Services.AddSingleton<IKnowledgeDocumentRepository, InMemoryKnowledgeDocumentRepository>();
-    builder.Services.AddSingleton<IAgentActionLogRepository, InMemoryAgentActionLogRepository>();
-    builder.Services.AddSingleton<IWorkflowTaskRepository, InMemoryWorkflowTaskRepository>();
-    builder.Services.AddSingleton<IApprovalRepository, InMemoryApprovalRepository>();
-    builder.Services.AddSingleton<ICustomerUpdateRepository, InMemoryCustomerUpdateRepository>();
+    throw new InvalidOperationException(
+        "InsuranceIntelligence.Api cannot run with INSURANCEINTELLIGENCE_STORAGE_PROVIDER=InMemory. " +
+        "Use InsuranceIntelligence.Api.LocalTestHost or test projects for LocalTest execution.");
 }
+
+builder.Services.AddInsuranceIntelligenceInfrastructure(builder.Configuration, builder.Environment);
 
 if (infrastructureOptions.BlobProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase))
 {
@@ -142,7 +137,7 @@ if (infrastructureOptions.DocumentProvider.Equals("AzureDocumentIntelligence", S
 }
 else
 {
-    builder.Services.AddSingleton<IDocumentProcessingProvider, MockDocumentProcessingProvider>();
+    builder.Services.AddSingleton<IDocumentProcessingProvider, NotConfiguredDocumentProcessingProvider>();
 }
 
 builder.Services.AddSingleton<ICompletenessScoringService, CompletenessScoringService>();
@@ -155,8 +150,8 @@ if (infrastructureOptions.RetrievalProvider.Equals("AzureAiSearch", StringCompar
 }
 else
 {
-    builder.Services.AddSingleton<IKnowledgeIndexProvider, InMemoryKnowledgeIndexProvider>();
-    builder.Services.AddSingleton<IRetrievalProvider, MockRetrievalProvider>();
+    builder.Services.AddSingleton<IKnowledgeIndexProvider, NotConfiguredKnowledgeIndexProvider>();
+    builder.Services.AddSingleton<IRetrievalProvider, NotConfiguredRetrievalProvider>();
 }
 
 if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
@@ -166,7 +161,7 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
 }
 else
 {
-    builder.Services.AddSingleton<IAiAssistantProvider, MockAiAssistantProvider>();
+    builder.Services.AddSingleton<IAiAssistantProvider, NotConfiguredAiAssistantProvider>();
 }
 
 if (infrastructureOptions.QueueProvider.Equals("AzureServiceBus", StringComparison.OrdinalIgnoreCase))
@@ -185,11 +180,11 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
 }
 else
 {
-    builder.Services.AddSingleton<ICustomerUpdateDraftingProvider, MockCustomerUpdateDraftingProvider>();
+    builder.Services.AddSingleton<ICustomerUpdateDraftingProvider, NotConfiguredCustomerUpdateDraftingProvider>();
 }
 if (infrastructureOptions.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<ICommunicationProvider, MockCommunicationProvider>();
+    builder.Services.AddSingleton<ICommunicationProvider, NotConfiguredCommunicationProvider>();
 }
 else
 {
@@ -221,13 +216,6 @@ builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
 builder.Services.AddScoped<IClaimsQueryService, ClaimsQueryService>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
-if (storageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase))
-{
-    builder.Services.AddSingleton<IPermissionReadRepository, LocalTestPermissionReadRepository>();
-    builder.Services.AddSingleton<IAuditEventRepository, LocalTestAuditEventRepository>();
-    builder.Services.AddScoped<IClaimsReadRepository, LocalTestClaimsReadRepository>();
-    builder.Services.AddSingleton<IProviderHealthCheck, LocalTestProviderHealthCheck>();
-}
 builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.CommandCenter.ISystemCapabilityStatusService, InsuranceIntelligence.Api.CommandCenter.SystemCapabilityStatusService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Workflow.ICaseTimelineProvider, InsuranceIntelligence.Api.Local.CaseTimelineProvider>();
@@ -245,20 +233,7 @@ builder.Configuration["INSURANCEINTELLIGENCE_LOCAL_KNOWLEDGE_MAX_BYTES"] ??= Kno
 
 var app = builder.Build();
 
-if (!storageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase))
-{
-    await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Environment);
-}
-else
-{
-    // LocalTest/InMemory ONLY: seed a believable motor-claim spread so the Command
-    // Center demo renders every block type with real-looking data. This branch is
-    // unreachable for any Azure/real provider (guarded by storageProvider above), so
-    // no simulated data can ever reach a deployed staging/production/reviewer runtime.
-#pragma warning disable CS0618 // DemoDataSeeder is intentionally obsolete; LocalTest-only.
-    await InsuranceIntelligence.Infrastructure.Simulated.DemoDataSeeder.SeedAsync(app.Services);
-#pragma warning restore CS0618
-}
+await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Environment);
 
 app.UseCors();
 app.UseAuthentication();
