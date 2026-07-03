@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const port = Number(process.env.IIP_VISUAL_PORT ?? 3101);
+const baseURL = process.env.IIP_VISUAL_BASE_URL ?? `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: "./tests/visual",
   outputDir: "./test-results/visual",
@@ -14,7 +17,7 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL,
     trace: "on-first-retry"
   },
   projects: [
@@ -32,8 +35,8 @@ export default defineConfig({
     }
   ],
   webServer: {
-    command: "powershell -NoProfile -Command \"$env:NEXT_PUBLIC_API_BASE_URL='http://127.0.0.1:5167'; $env:NEXT_PUBLIC_AUTH_MODE='Development'; $env:NEXT_PUBLIC_RUNTIME_PROFILE='Development'; $env:NEXT_PUBLIC_TENANT_ID='tenant-visual'; $env:NEXT_PUBLIC_WORKSPACE_ID='workspace-visual'; $env:NEXT_PUBLIC_LOCAL_USER_ID='visual-user'; pnpm.cmd dev --hostname 127.0.0.1 --port 3000\"",
-    url: "http://127.0.0.1:3000",
+    command: `node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port ${port}`,
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {

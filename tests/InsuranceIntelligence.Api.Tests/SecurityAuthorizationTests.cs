@@ -525,7 +525,7 @@ public sealed class SecurityAuthorizationTests
     public async Task RuntimeHeaderGuard_RejectsUnauthenticatedApiOutsideDevelopment()
     {
         var context = new DefaultHttpContext();
-        context.Request.Path = "/api/cases";
+        context.Request.Path = "/api/v1/cases";
 
         var result = RuntimeHeaderGuard.RejectUnauthenticatedApiOutsideDevelopment(context, ProductionOptions);
 
@@ -537,7 +537,7 @@ public sealed class SecurityAuthorizationTests
     public void RuntimeHeaderGuard_AllowsAuthenticatedApiOutsideDevelopment()
     {
         var context = new DefaultHttpContext();
-        context.Request.Path = "/api/cases";
+        context.Request.Path = "/api/v1/cases";
         context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "user-a")], "Entra"));
 
         var result = RuntimeHeaderGuard.RejectUnauthenticatedApiOutsideDevelopment(context, ProductionOptions);
@@ -549,7 +549,7 @@ public sealed class SecurityAuthorizationTests
     public void RuntimeHeaderGuard_AllowsGraphWebhookOutsideDevelopment()
     {
         var context = new DefaultHttpContext();
-        context.Request.Path = "/api/integrations/email/graph/webhook";
+        context.Request.Path = "/api/v1/integrations/email/graph/webhook";
 
         var result = RuntimeHeaderGuard.RejectUnauthenticatedApiOutsideDevelopment(context, ProductionOptions);
 

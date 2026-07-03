@@ -1,7 +1,6 @@
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Workflow;
-using InsuranceIntelligence.Api.Common;
 
 namespace InsuranceIntelligence.Api.Workflow;
 

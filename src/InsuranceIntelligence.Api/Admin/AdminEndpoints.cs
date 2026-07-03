@@ -235,7 +235,7 @@ public static class AdminEndpoints
         };
         await repository.SaveAsync(user, cancellationToken);
         var users = await repository.ListAsync(scope, cancellationToken);
-        return Results.Created($"/api/admin/users/{user.UserId}", MapUser(user, ActiveAdminCount(users)));
+        return Results.Created($"/api/v1/admin/users/{user.UserId}", MapUser(user, ActiveAdminCount(users)));
     }
 
     public static async Task<IResult> UpdateUserRole(

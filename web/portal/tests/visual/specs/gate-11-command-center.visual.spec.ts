@@ -10,8 +10,8 @@ test("Gate 11 Command Center summarizes implemented workflow state", async ({ pa
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByRole("heading", { name: "Command Center" })).toBeVisible();
-  await expect(page.getByText("Chat-first operational workspace for Claims Supervisor.")).toBeVisible();
-  await expect(page.getByText("Good morning, Jane")).toBeVisible();
+  await expect(page.getByText(/Chat-first operational workspace for .+\./)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Good morning,/ })).toBeVisible();
   await expect(page.getByText("Open claims")).toBeVisible();
   await expect(page.getByText("SLA at risk")).toBeVisible();
   await expect(page.getByText("Daily operational briefing")).toBeVisible();

@@ -809,32 +809,36 @@ Frontend must use real API contracts and real bearer-token auth. If token refres
 
 ## 20. API and backend route rules
 
-Current API prefix is `/api` unless an approved API versioning change is made.
+Current product API prefix is `/api/v1`. Health endpoints are the exception.
 
 Important current routes include:
 
 ```text
-POST /api/command-center/query
-GET /api/claims
-GET /api/claims/{claimId}
-GET /api/claims/attention
-GET /api/claims/daily-summary
-GET /api/claims/{claimId}/draft-context
-GET /api/claims/sla-risks
-GET /api/claims/{claimId}/sla-status
-GET /api/approvals/queue
-POST /api/approvals/{approvalId}/decisions
-POST /api/documents/uploads
-POST /api/documents/{documentId}/extraction
-GET /api/documents/{documentId}/fields
-PATCH /api/documents/{documentId}/fields/{fieldId}/correction
-PATCH /api/documents/{documentId}/fields/{fieldId}/status
-GET /api/documents/missing
-POST /api/claims/{claimId}/documents/completeness-check
-GET /api/channels/overview
-GET /api/customers/{customerId}
-GET /api/sales-leads/{leadId}
-GET /api/audit/events
+POST /api/v1/command-center/query
+GET /api/v1/command-center/metrics
+GET /api/v1/cases
+POST /api/v1/cases
+GET /api/v1/cases/{caseId}
+GET /api/v1/cases/{caseId}/documents
+POST /api/v1/cases/{caseId}/documents
+GET /api/v1/cases/{caseId}/document-checklist
+GET /api/v1/claims
+GET /api/v1/claims/{claimId}
+GET /api/v1/claims/attention
+GET /api/v1/claims/daily-summary
+GET /api/v1/claims/{claimId}/draft-context
+GET /api/v1/approvals
+POST /api/v1/cases/{caseId}/approvals
+POST /api/v1/approvals/{approvalId}/approve
+POST /api/v1/approvals/{approvalId}/reject
+POST /api/v1/assistant/policy-questions
+GET /api/v1/provider-status
+GET /api/v1/system/capabilities
+GET /api/v1/admin/provider-health
+GET /api/v1/admin/users
+GET /api/v1/integrations/email/health
+GET /api/v1/communications/history
+GET /api/v1/compliance/audit-events
 ```
 
 Controllers are thin adapters. Business rules stay in Application services.

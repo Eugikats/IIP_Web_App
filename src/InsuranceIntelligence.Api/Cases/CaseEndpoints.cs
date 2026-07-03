@@ -55,7 +55,7 @@ public static class CaseEndpoints
             var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);
             var response = CaseMapper.ToResponse(claimCase, auditEvents);
 
-            return Results.Created($"/api/cases/{claimCase.CaseId}", response);
+            return Results.Created($"/api/v1/cases/{claimCase.CaseId}", response);
         }
         catch (ArgumentException ex)
         {

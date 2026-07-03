@@ -793,7 +793,7 @@ Command Center behavior:
 - chat-first but structured;
 - grounded in real API responses;
 - renders typed blocks such as text, metric pills, SLA summary, evidence list, errors, and `Not configured` states;
-- uses the real `POST /api/command-center/query` endpoint;
+- uses the real `POST /api/v1/command-center/query` endpoint;
 - never renders fake dashboard metrics or hardcoded insurer data;
 - uses bearer-token/MSAL authentication, not hardcoded fake tokens;
 - shows loading, empty, error, unauthorized, and `Not configured` states clearly.

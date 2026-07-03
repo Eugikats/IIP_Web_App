@@ -112,7 +112,7 @@ public static class ApprovalEndpoints
             })
         }, cancellationToken);
 
-        return Results.Created($"/api/approvals/{approval.ApprovalId}", WorkflowMapper.ToResponse(approval));
+        return Results.Created($"/api/v1/approvals/{approval.ApprovalId}", WorkflowMapper.ToResponse(approval));
     }
 
     public static Task<IResult> ApproveApproval(

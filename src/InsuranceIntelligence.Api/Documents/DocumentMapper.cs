@@ -59,7 +59,7 @@ public static class DocumentMapper
             document.UploadedAt,
             document.ProcessedAt,
             document.CorrelationId,
-            $"/api/cases/{document.CaseId}/documents/{document.DocumentId}/content",
+            $"/api/v1/cases/{document.CaseId}/documents/{document.DocumentId}/content",
             Allowed(document),
             Blocked(document));
 

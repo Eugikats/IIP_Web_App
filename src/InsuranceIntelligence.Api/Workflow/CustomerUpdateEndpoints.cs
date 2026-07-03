@@ -86,7 +86,7 @@ public static class CustomerUpdateEndpoints
         await actionLogRepository.SaveAsync(actionLog, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.CustomerUpdateDrafted(update), cancellationToken);
 
-        return Results.Created($"/api/customer-updates/{update.UpdateId}", WorkflowMapper.ToResponse(update));
+        return Results.Created($"/api/v1/customer-updates/{update.UpdateId}", WorkflowMapper.ToResponse(update));
     }
 
     public static async Task<IResult> ListCustomerUpdates(

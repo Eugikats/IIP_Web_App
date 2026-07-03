@@ -104,7 +104,7 @@ public static class KnowledgeEndpoints
         await repository.SaveAsync(document, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.KnowledgeUploaded(document, userId, correlationId), cancellationToken);
 
-        return Results.Created($"/api/knowledge-documents/{document.KnowledgeDocumentId}", KnowledgeMapper.ToResponse(document));
+        return Results.Created($"/api/v1/knowledge-documents/{document.KnowledgeDocumentId}", KnowledgeMapper.ToResponse(document));
     }
 
     public static async Task<IResult> ListKnowledgeDocuments(

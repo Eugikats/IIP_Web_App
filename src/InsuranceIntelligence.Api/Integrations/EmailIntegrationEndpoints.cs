@@ -165,7 +165,7 @@ public static class EmailIntegrationEndpoints
                 ActorType.User),
             cancellationToken);
 
-        return Results.Created($"/api/integrations/email/mailboxes/{mailbox.MailboxConnectionId}", mailbox);
+        return Results.Created($"/api/v1/integrations/email/mailboxes/{mailbox.MailboxConnectionId}", mailbox);
     }
 
     public static async Task<IResult> TestIngestion(
@@ -275,7 +275,7 @@ public static class EmailIntegrationEndpoints
                 options.EmailProvider,
                 auditReason),
             cancellationToken);
-        return Results.Created($"/api/integrations/email/messages/{message.MessageId}", message);
+        return Results.Created($"/api/v1/integrations/email/messages/{message.MessageId}", message);
     }
 
     public static async Task<IResult> ProcessMessage(

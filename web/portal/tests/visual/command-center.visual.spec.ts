@@ -15,7 +15,8 @@ test.describe("Command Center visual acceptance", () => {
     await expect(page.getByRole("heading", { name: "Command Center" })).toBeVisible();
     await expect(page.getByLabel("Provider status")).toBeVisible();
     await expect(page.getByLabel("Azure OpenAI: Connected")).toBeVisible();
-    await expect(page.getByRole("main")).toContainText("How can I help with your operations?");
+    await expect(page.getByRole("main")).toContainText("Operational context");
+    await expect(page.getByRole("main")).toContainText("Daily operational briefing");
 
     if (testInfo.project.name.includes("mobile")) {
       await expect(page.getByLabel("Primary mobile navigation")).toBeVisible();
@@ -33,7 +34,8 @@ test.describe("Command Center visual acceptance", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Command Center" })).toBeVisible();
-    await expect(page.getByRole("main")).toContainText("How can I help with your operations?");
+    await expect(page.getByRole("main")).toContainText("Operational context");
+    await expect(page.getByRole("main")).toContainText("Daily operational briefing");
 
     const results = await new AxeBuilder({ page })
       .disableRules(["color-contrast"])

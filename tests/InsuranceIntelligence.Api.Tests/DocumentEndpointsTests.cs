@@ -65,7 +65,7 @@ public sealed class DocumentEndpointsTests
         Assert.Contains(document.AllowedActions, action => action.Action == "approveDocumentExtraction");
         Assert.Contains(document.AllowedActions, action => action.Action == "reclassifyDocument");
         Assert.Contains(document.AllowedActions, action => action.Action == "correctDocumentExtraction");
-        Assert.StartsWith($"/api/cases/{claimCase.CaseId}/documents/{document.DocumentId}/content", document.PreviewUrl, StringComparison.Ordinal);
+        Assert.StartsWith($"/api/v1/cases/{claimCase.CaseId}/documents/{document.DocumentId}/content", document.PreviewUrl, StringComparison.Ordinal);
         Assert.NotEmpty(document.Fields);
         Assert.DoesNotContain(document.Fields, field => field.Name.Equals("objectKey", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain("objectKey", JsonSerializer.Serialize(document), StringComparison.OrdinalIgnoreCase);

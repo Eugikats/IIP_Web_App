@@ -87,7 +87,8 @@ public sealed record AgentPromptBundle(
 // ─── Query contracts ─────────────────────────────────────────────────────────
 
 /// <summary>
-/// Inbound request posted to POST /api/v1/assistant/query.
+/// Legacy module-agent request shape retained as domain contracts for future orchestration work.
+/// The deployed v2 API does not expose the superseded prose assistant query endpoint.
 /// Module is optional; if omitted the router derives it from the message.
 /// </summary>
 public sealed record AgentQueryRequest(

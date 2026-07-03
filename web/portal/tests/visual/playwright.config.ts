@@ -20,7 +20,8 @@ export default defineConfig({
     screenshot: "only-on-failure"
   },
   webServer: {
-    command: `pnpm.cmd --dir ../.. exec next dev --hostname 127.0.0.1 --port ${port}`,
+    command: `node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port ${port}`,
+    cwd: "../..",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

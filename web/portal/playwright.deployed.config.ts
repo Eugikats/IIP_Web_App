@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const port = Number(process.env.IIP_DEPLOYED_PROFILE_PORT ?? 3102);
+const baseURL = process.env.IIP_DEPLOYED_PROFILE_BASE_URL ?? `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: "./tests/deployed-profile",
   outputDir: "./test-results/deployed-profile",
@@ -11,7 +14,7 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"], ["html", { outputFolder: "playwright-report/deployed-profile", open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:3001",
+    baseURL,
     trace: "on-first-retry"
   },
   projects: [
@@ -25,8 +28,8 @@ export default defineConfig({
     }
   ],
   webServer: {
-    command: "powershell -NoProfile -Command \"$env:NEXT_PUBLIC_API_BASE_URL='http://127.0.0.1:5167'; $env:NEXT_PUBLIC_AUTH_MODE='EntraId'; $env:NEXT_PUBLIC_RUNTIME_PROFILE='Staging'; $env:NEXT_PUBLIC_TENANT_ID='tenant-deployed'; $env:NEXT_PUBLIC_WORKSPACE_ID='workspace-deployed'; $env:NEXT_PUBLIC_LOCAL_USER_ID=''; pnpm.cmd dev --hostname 127.0.0.1 --port 3001\"",
-    url: "http://127.0.0.1:3001",
+    command: `node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port ${port}`,
+    url: baseURL,
     reuseExistingServer: false,
     timeout: 120_000,
     env: {

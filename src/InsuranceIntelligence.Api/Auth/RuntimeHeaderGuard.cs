@@ -4,7 +4,7 @@ namespace InsuranceIntelligence.Api.Auth;
 
 public static class RuntimeHeaderGuard
 {
-    private const string GraphWebhookPath = "/api/integrations/email/graph/webhook";
+    private const string GraphWebhookPath = "/api/v1/integrations/email/graph/webhook";
 
     private static readonly string[] DevelopmentOnlyHeaders =
     [

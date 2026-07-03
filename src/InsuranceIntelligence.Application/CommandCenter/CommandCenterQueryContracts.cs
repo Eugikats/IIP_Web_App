@@ -9,8 +9,7 @@ namespace InsuranceIntelligence.Application.CommandCenter;
 public sealed record CommandCenterQueryRequest(string? Question);
 
 /// <summary>
-/// Governed response envelope for the chat-first Command Center. Reuses the same provenance
-/// fields already returned by <c>POST /api/v1/command-center/assistant</c>.
+/// Governed response envelope for the chat-first Command Center query endpoint.
 /// <para>
 /// Invariant: <see cref="CanTriggerDecision"/> is ALWAYS <c>false</c>. No block conveys a final
 /// insurance decision — the Command Center prepares work for a human to decide.
