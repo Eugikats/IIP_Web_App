@@ -16,6 +16,7 @@
 - **Item 3 — Dangling permission resolver removed:** Removed the undefined third permission-resolver abstraction from Document B; permission resolution is handled by Document A's `IPermissionReadRepository` and `PermissionService`.
 - **Item 4 — InfrastructureOptions field drift fixed:** Replaced undefined nested references such as `options.Entra.Authority`, `options.Entra.Audience`, `options.Entra.Issuer`, `options.SqlServer.ConnectionString`, and `options.AzureOpenAi` with Document A / benchmark-compatible fields: `EntraTenantId`, `EntraAudience`, `EntraIssuer`, `SqlServerConnectionString`, and `AzureOpenAI`.
 - **Item 5 — LocalTest project naming fixed:** Standardized isolated test-double references on `InsuranceIntelligence.LocalTestDoubles`; `InsuranceIntelligence.Api.LocalTestHost` remains a separate standalone host that may reference `LocalTestDoubles` and must never be referenced by the real API project.
+- **Item 6 — Multitenant Entra authentication corrected:** Replaced single-insurer-tenant JWT validation with Microsoft Entra `organizations` authority mode for IIP's single multitenant app registration. `EntraTenantId` is now documented as IIP's publisher/home tenant, not a customer insurer tenant, and issuer validation is delegated to the multitenant-aware Microsoft.Identity.Web / IdentityModel path instead of hardcoding `ValidIssuer`.
 
 ---
 
@@ -806,11 +807,27 @@ In protected runtimes, `AuthMode = Development` must fail startup through `Azure
 
 ### 6.2 Entra JWT registration
 
-`InfrastructureOptions` uses flat Entra fields. Do not introduce a nested `options.Entra` object. The JWT bearer authority is derived from `EntraTenantId`.
+`InfrastructureOptions` uses flat Entra fields. Do not introduce a nested `options.Entra` object.
+
+IIP's default identity model is a **single multitenant Microsoft Entra app registration** configured for **Accounts in any organizational directory**. The API must therefore validate tokens from organizational tenants through the `organizations` authority, not through a single insurer tenant issuer.
+
+Field interpretation in the corrected model:
+
+```text
+EntraTenantId   IIP publisher/home Entra tenant where the single app registration is owned.
+                This is not the insurer/customer tenant and must not be used to restrict JWT issuers.
+
+EntraClientId   Client/application ID of IIP's own API/app registration. No model change needed.
+EntraAudience   Audience/App ID URI for IIP's own API. No model change needed.
+EntraIssuer     Legacy/single-tenant compatibility field only. Do not set TokenValidationParameters.ValidIssuer from this field in the multitenant model.
+```
+
+The preferred ASP.NET Core implementation uses `Microsoft.Identity.Web` because it has the multitenant-aware issuer-validation behavior required for non-single-tenant APIs. At implementation time, verify the exact overload and option names against the target `Microsoft.Identity.Web` package version. The architectural rule is fixed even if the exact overload changes: **do not hardcode one `ValidIssuer`; use the Microsoft identity middleware's multitenant issuer validation with `TenantId = organizations`.**
 
 ```csharp
 using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Tokens;
 
 public static class AuthenticationRegistration
@@ -829,7 +846,13 @@ public static class AuthenticationRegistration
         {
             if (string.IsNullOrWhiteSpace(options.EntraTenantId))
             {
-                throw new InvalidOperationException("EntraTenantId is required when AuthMode is Entra.");
+                throw new InvalidOperationException(
+                    "EntraTenantId is required when AuthMode is Entra. It must be IIP's publisher/home tenant, not an insurer tenant.");
+            }
+
+            if (string.IsNullOrWhiteSpace(options.EntraClientId))
+            {
+                throw new InvalidOperationException("EntraClientId is required when AuthMode is Entra.");
             }
 
             if (string.IsNullOrWhiteSpace(options.EntraAudience))
@@ -837,29 +860,36 @@ public static class AuthenticationRegistration
                 throw new InvalidOperationException("EntraAudience is required when AuthMode is Entra.");
             }
 
-            if (string.IsNullOrWhiteSpace(options.EntraIssuer))
-            {
-                throw new InvalidOperationException("EntraIssuer is required when AuthMode is Entra.");
-            }
-
             services
                 .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(jwt =>
-                {
-                    jwt.Authority = $"https://login.microsoftonline.com/{options.EntraTenantId}/v2.0";
-                    jwt.Audience = options.EntraAudience;
-                    jwt.RequireHttpsMetadata = true;
-                    jwt.TokenValidationParameters = new TokenValidationParameters
+                .AddMicrosoftIdentityWebApi(
+                    jwt =>
                     {
-                        ValidateIssuer = true,
-                        ValidIssuer = options.EntraIssuer,
-                        ValidateAudience = true,
-                        ValidAudience = options.EntraAudience,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ClockSkew = TimeSpan.FromMinutes(2)
-                    };
-                });
+                        // Multitenant workforce mode for IIP's single app registration.
+                        // Do not derive Authority from options.EntraTenantId; that value is IIP's publisher/home tenant.
+                        jwt.Authority = "https://login.microsoftonline.com/organizations/v2.0";
+                        jwt.Audience = options.EntraAudience;
+                        jwt.RequireHttpsMetadata = true;
+
+                        jwt.TokenValidationParameters ??= new TokenValidationParameters();
+                        jwt.TokenValidationParameters.ValidateIssuer = true;
+                        jwt.TokenValidationParameters.ValidateAudience = true;
+                        jwt.TokenValidationParameters.ValidAudience = options.EntraAudience;
+                        jwt.TokenValidationParameters.ValidateLifetime = true;
+                        jwt.TokenValidationParameters.ValidateIssuerSigningKey = true;
+                        jwt.TokenValidationParameters.ClockSkew = TimeSpan.FromMinutes(2);
+
+                        // Do not set ValidIssuer or ValidIssuers here. In non-single-tenant APIs,
+                        // Microsoft.Identity.Web / IdentityModel must validate issuer dynamically
+                        // against the organizational tenant metadata.
+                    },
+                    identity =>
+                    {
+                        identity.Instance = "https://login.microsoftonline.com/";
+                        identity.TenantId = "organizations";
+                        identity.ClientId = options.EntraClientId;
+                        identity.Audience = options.EntraAudience;
+                    });
         }
         else if (options.AuthMode == "Development")
         {
@@ -916,6 +946,49 @@ Authenticated principal
 ```
 
 The Entra `tid` claim is only a hint used during membership lookup. It is **not** the IIP application tenant authority. The final `TenantContext.TenantId`, `WorkspaceId`, `Roles`, and `Permissions` must come from the validated membership record returned by `IPermissionReadRepository.GetEffectiveMembershipAsync(...)`.
+
+#### 6.3.1 External identity key strategy
+
+`AuthenticatedTenantResolver` must preserve the existing server-side membership check but tighten the external user identifier strategy used before calling `IPermissionReadRepository.GetEffectiveMembershipAsync(...)`.
+
+Preferred key order:
+
+```text
+1. If both oid and tid exist: externalUserId = $"entra:{tid}:{oid}".
+2. Else if oid exists without tid: externalUserId = $"entra:unknown-tenant:{oid}" and audit the degraded identity shape.
+3. Else if sub exists: externalUserId = $"entra-sub:{sub}" as a last-resort compatibility fallback only.
+4. Never use email, preferred_username, unique_name, or upn for authorization or membership keys.
+```
+
+Implementation shape:
+
+```csharp
+private static string ResolveExternalUserId(ClaimsPrincipal principal)
+{
+    var oid = principal.FindFirstValue("oid");
+    var tid = principal.FindFirstValue("tid");
+    var sub = principal.FindFirstValue("sub");
+
+    if (!string.IsNullOrWhiteSpace(oid) && !string.IsNullOrWhiteSpace(tid))
+    {
+        return $"entra:{tid}:{oid}";
+    }
+
+    if (!string.IsNullOrWhiteSpace(oid))
+    {
+        return $"entra:unknown-tenant:{oid}";
+    }
+
+    if (!string.IsNullOrWhiteSpace(sub))
+    {
+        return $"entra-sub:{sub}";
+    }
+
+    throw new UnauthorizedAccessException("Authenticated principal does not contain a usable immutable subject identifier.");
+}
+```
+
+The `tid` value in the external identity key is still not business authority. It is an identity namespace used to find the matching IIP membership record. Tenant, workspace, role, and permission authority still comes only from the validated membership returned by `IPermissionReadRepository`.
 
 ### 6.4 Middleware ordering
 
@@ -1577,16 +1650,21 @@ public async Task GlobalExceptionMiddleware_ReturnsCorrelationIdWithoutStackTrac
 Before protected-runtime execution:
 
 ```text
-1. Create or confirm Microsoft Entra app registration for IIP API.
-2. Configure valid API audience/application ID URI.
-3. Configure issuer/tenant authority.
-4. Assign app roles or group claims mapped to IIP permissions in the role/permission store.
-5. Configure Azure SQL connection through managed identity or secure connection settings.
-6. Configure Azure Blob Storage, Azure AI Document Intelligence, Azure AI Search, Azure OpenAI, Azure Service Bus, and Microsoft Graph options.
-7. Confirm ProviderHealthOptions.TimeoutSeconds is set to a safe low timeout.
-8. Confirm Application Insights / Log Analytics connection.
-9. Confirm Swagger UI is disabled in protected runtimes.
-10. Confirm LocalTest assemblies are absent from protected publish output.
+1. Create or confirm the single multitenant Microsoft Entra app registration for IIP API, configured for Accounts in any organizational directory.
+2. Configure valid API audience/application ID URI for the one IIP API registration.
+3. Configure accessTokenAcceptedVersion for the API to issue/accept the intended token version for the multitenant app.
+4. Configure JWT validation in the API for organizations authority mode, not a single insurer tenant issuer.
+5. Treat EntraTenantId as IIP's publisher/home tenant where the app registration is owned; do not set it to the insurer/customer tenant.
+6. Complete publisher verification before broad insurer rollout.
+7. Configure tenant onboarding/admin-consent flow for each insurer tenant.
+8. Optionally define coarse app roles such as IIP.Access, IIP.Admin, and IIP.ReadOnly for insurer-side entry gating; do not map raw group claims directly to fine-grained IIP permissions.
+9. Configure IIP's own role/permission store through IPermissionReadRepository records for fine-grained permissions.
+10. Configure Azure SQL connection through managed identity or secure connection settings.
+11. Configure Azure Blob Storage, Azure AI Document Intelligence, Azure AI Search, Azure OpenAI, Azure Service Bus, and Microsoft Graph options.
+12. Confirm ProviderHealthOptions.TimeoutSeconds is set to a safe low timeout.
+13. Confirm Application Insights / Log Analytics connection.
+14. Confirm Swagger UI is disabled in protected runtimes.
+15. Confirm LocalTest assemblies are absent from protected publish output.
 ```
 
 ---
@@ -1609,6 +1687,7 @@ Files to create or modify:
 - src/InsuranceIntelligence.Api/Middleware/CorrelationIdMiddleware.cs
 - - src/InsuranceIntelligence.Api/Middleware/SafeExceptionHandlingMiddleware.cs
 - src/InsuranceIntelligence.Api/Extensions/AuthenticationRegistration.cs
+- docs/identity/IIP_Multi_Tenant_Identity_Onboarding_App_Roles_and_SCIM_Provisioning.md
 - src/InsuranceIntelligence.Api/Program.cs
 - src/InsuranceIntelligence.Api.LocalTestHost/Program.cs
 - src/InsuranceIntelligence.LocalTestDoubles/Extensions/LocalTestRegistration.cs
@@ -1655,6 +1734,12 @@ Tenant isolation impact:
 
 Authentication/authorization impact:
 - AuthMode=Development is rejected in protected runtimes.
+- JWT bearer validation is corrected to the single multitenant IIP Entra app model using organizations authority mode.
+- EntraTenantId is explicitly treated as IIP's publisher/home tenant, not as an insurer tenant issuer restriction.
+- EntraClientId and EntraAudience remain the single IIP app/API identifiers and do not change between insurer tenants.
+- ValidIssuer/options.EntraIssuer is no longer used as a hardcoded single-tenant issuer in the multitenant model.
+- AuthenticatedTenantResolver continues to treat tid as an identity hint only and validates real tenant/workspace membership through IPermissionReadRepository.
+- External user identity keys prefer tid+oid, with sub only as a last-resort fallback.
 - Missing bearer token is rejected before service invocation.
 - Missing permission returns 403 before repository invocation.
 
@@ -1668,14 +1753,19 @@ Tests to add/run:
 - GlobalExceptionMiddleware_ReturnsCorrelationIdWithoutStackTrace
 
 Manual Azure/Entra actions required:
-- Configure Entra API registration, issuer, audience, and tenant.
+- Configure one multitenant IIP Entra API registration for Accounts in any organizational directory.
+- Configure organizations authority mode in the API, not a fixed insurer tenant issuer.
+- Configure publisher verification before broad insurer rollout.
+- Build the insurer admin-consent onboarding flow and bootstrap internal IIP membership after consent.
+- Configure optional coarse app roles only as entry gates; keep fine-grained permissions in IIP's role/permission store.
 - Configure real Azure providers and managed identity access.
 - Configure Application Insights / Log Analytics.
 - Confirm protected-runtime provider health and startup gates.
 
 Remaining blockers:
+- Confirm exact .NET 8 / Microsoft.Identity.Web multitenant configuration syntax for the target package version before implementation.
 - Confirm final route versioning policy: this pass standardizes `/api`; use one approved versioning change if `/api/v1` is required.
-- Confirm exact Entra claim names for workspace and roles.
+- Confirm whether insurer enterprise-app assignment is required from day one or optional per tenant.
 - Confirm role-to-permission store schema used by `IPermissionReadRepository`.
 - Confirm OpenAPI JSON exposure rules for internal tooling in protected profiles.
 

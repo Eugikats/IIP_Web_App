@@ -39,6 +39,7 @@ This document does not redesign IIP's tenant/workspace model, permission model, 
 8. App roles are optional coarse entry gates only.
 9. Raw group claims are not the primary authorization mechanism.
 10. SCIM provisioning, when added, writes membership/user lifecycle data into IIP tables but never replaces runtime authorization checks.
+11. Entra tenant ID and Azure subscription ID are different onboarding identifiers; both must be captured when the customer will deploy IIP through a Managed Application private plan.
 ```
 
 ---
@@ -93,7 +94,7 @@ The portal should support this sequence:
 
 ```text
 1. IIP operator creates an internal pending Tenant record for the insurer.
-2. IIP captures the insurer's legal/customer name, expected Entra tenant ID or verified domain, initial admin contact, and target workspaces.
+2. IIP captures the insurer's legal/customer name, expected Entra tenant ID or verified domain, initial admin contact, target workspaces, and target Azure subscription ID(s) for Managed Application private-plan deployment.
 3. Insurer admin opens the IIP onboarding portal.
 4. Insurer admin signs in with a work or school Microsoft account from the insurer's own Entra tenant.
 5. IIP redirects the admin to the Microsoft admin-consent endpoint.
@@ -101,8 +102,56 @@ The portal should support this sequence:
 7. Microsoft redirects back to IIP with admin_consent=True, tenant, scope, and state.
 8. IIP validates state against the onboarding session.
 9. IIP stores the returned external tenant identifier against the internal Tenant record as an external identity lookup key.
-10. IIP creates a bootstrap membership for the consenting admin user in its own membership tables.
-11. Runtime access still goes through AuthenticatedTenantResolver and IPermissionReadRepository.
+10. The Managed-Application-deploying admin, who may or may not be the same person as the Entra consent admin, supplies target Azure subscription ID(s) for the customer environment.
+11. IIP stores the Azure subscription ID(s) against the same internal Tenant record as a separate field from ExternalEntraTenantId.
+12. IIP flags CSP-reseller subscriptions as private-plan blockers before Partner Center targeting.
+13. IIP creates a bootstrap membership for the consenting admin user in its own membership tables.
+14. Runtime access still goes through AuthenticatedTenantResolver and IPermissionReadRepository.
+```
+
+### 4.1.1 Entra tenant ID versus Azure subscription ID
+
+The onboarding portal must capture two separate identifiers when the customer will receive IIP through a Managed Application private plan.
+
+| Identifier | Used for | Stored in IIP? | Used by Partner Center? | Runtime authority? |
+|---|---|---:|---:|---:|
+| Entra tenant ID / directory ID | Workforce authentication, admin consent, and external identity namespace. | Yes, as `ExternalEntraTenantId`. | Not for Azure Application private-plan audience targeting. | No. Runtime authority remains `AuthenticatedTenantResolver` + `IPermissionReadRepository`. |
+| Azure subscription ID | Partner Center private-plan audience targeting and Managed Application deployment into the customer's Azure subscription. | Yes, as separate deployment-target metadata. | Yes, for Azure Application / Managed Application private-plan audience lists. | No. Subscription targeting does not grant application data access. |
+
+Do not infer one from the other. A customer may have multiple subscriptions under one Entra tenant, and the person who completes Entra admin consent may be different from the person who owns Marketplace deployment into the target subscription.
+
+### 4.1.2 Azure subscription capture for Managed Application private plans
+
+The onboarding intake must include a Managed Application deployment-target step.
+
+Rules:
+
+```text
+- Capture up to 10 Azure subscription IDs manually.
+- Support CSV import for larger cases where the Partner Center audience list will exceed 10 subscriptions.
+- Store the subscription IDs against the internal Tenant record as deployment-target metadata, not as identity authority.
+- Validate GUID shape and normalize letters to lowercase before use in Partner Center configuration.
+- Flag known CSP-reseller subscriptions as blockers because private plans are not supported for subscriptions established through a CSP reseller.
+- Surface CSP/private-plan targeting blockers during onboarding, not at deployment time.
+```
+
+This step feeds the Managed Application private-plan audience list in Partner Center. It is a business/platform-operations configuration action that runs in parallel with, not inside, the application's request-time authorization pipeline.
+
+### 4.1.3 Parallel dependency model
+
+The onboarding portal should present the Entra tenant ID and Azure subscription ID(s) together in the same customer intake flow:
+
+```text
+ExternalEntraTenantId -> IIP authentication and membership resolution.
+AzureSubscriptionIds -> Partner Center private-plan targeting and Managed Application deployment.
+```
+
+They are parallel dependencies:
+
+```text
+- Entra consent can succeed even before the private plan is targeted to the right subscription.
+- Private-plan targeting can be configured for a subscription before staff users are fully mapped in IIP.
+- Neither dependency bypasses AuthenticatedTenantResolver or IPermissionReadRepository.
 ```
 
 ### 4.2 Admin consent endpoint
@@ -139,6 +188,9 @@ ConsentedScopes
 ConsentedByExternalUserId = entra:{tid}:{oid} when tid and oid are available
 ConsentCorrelationId
 PublisherAppClientId
+AzureSubscriptionIdsForManagedApplicationTargeting
+ManagedApplicationPrivatePlanAudienceStatus
+CspResellerSubscriptionBlockers
 BootstrapMembershipCreatedBy
 ```
 
@@ -151,6 +203,8 @@ Raw ID/access token payloads
 Admin passwords
 Tenant-wide secrets
 Fine-grained IIP permissions from Entra claims
+Partner Center credentials or publisher secrets
+Azure subscription IDs overloaded into ExternalEntraTenantId
 ```
 
 ### 4.4 Bootstrap membership
@@ -407,6 +461,8 @@ This document does not implement:
 | OQ-ID-004 | Should SCIM be first production wave or phase two? | SCIM helps enterprise lifecycle management but adds a separate standards-compliance workstream. | Product + customer success |
 | OQ-ID-005 | Which exact app roles should be exposed in the app registration at launch? | App roles are visible to insurer admins and should be stable. | Product + security |
 | OQ-ID-006 | Whether each Managed Application deployment needs customer-specific identity callback/redirect URI handling. | Managed Application packaging and multitenant app registration are separate concerns, but deployment-specific URLs may affect app registration configuration. | Platform lead |
+| OQ-ID-007 | How the onboarding portal will verify whether supplied Azure subscription IDs are CSP-reseller subscriptions. | Private plans are not supported for CSP-reseller subscriptions, so this must be surfaced before Partner Center targeting. | Platform + business operations |
+| OQ-ID-008 | Whether the first customer requires more than 10 subscription IDs and therefore CSV-based private-plan audience import. | Partner Center supports manual entry only up to the documented limit; larger audiences need CSV handling. | Business operations |
 
 ---
 
@@ -465,7 +521,25 @@ When the user calls GET /api/claims
 Then access is based on IPermissionReadRepository, not group claims.
 ```
 
-### 11.7 SCIM provisioning is not runtime authorization
+### 11.7 Managed Application subscription ID is not tenant authority
+
+```text
+Given an internal Tenant record has Azure subscription IDs for Managed Application targeting
+When a user signs in with a valid Entra token
+Then request-time TenantContext is still resolved only by AuthenticatedTenantResolver and IPermissionReadRepository
+And Azure subscription IDs are not used as authorization authority.
+```
+
+### 11.8 CSP-reseller subscription blocker is surfaced
+
+```text
+Given onboarding receives an Azure subscription ID identified as CSP-reseller-backed
+When the customer attempts to proceed to private-plan targeting
+Then the portal surfaces a blocking status before deployment
+And does not mark the Partner Center private-plan audience step as ready.
+```
+
+### 11.9 SCIM provisioning is not runtime authorization
 
 ```text
 Given SCIM has created a user record but no active role assignment exists in IIP
@@ -490,6 +564,8 @@ Reference areas to verify live:
 - SCIM endpoint requirements for Microsoft Entra provisioning.
 - Publisher verification requirements.
 - Microsoft Entra External ID product boundaries.
+- Partner Center private-plan Azure subscription ID targeting and CSP-reseller limitation.
+- Azure Managed Application publisher/customer access, deny assignment, and JIT behavior.
 ```
 
 ---
@@ -534,6 +610,32 @@ TODOs:
 - Decide SCIM timing: first production wave or phase two.
 - Confirm final launch app roles and role display names before publisher verification/customer consent testing.
 
+Managed Application onboarding extension added:
+- Section 2 Fixed architectural rules: added explicit separation of Entra tenant ID and Azure subscription ID.
+- Section 4.1 Required onboarding portal: added Azure subscription ID capture, CSP-reseller blocker, and separation from identity consent.
+- Section 4.1.1: added Entra tenant ID versus Azure subscription ID comparison.
+- Section 4.1.2: added Managed Application private-plan subscription capture rules, manual/CSV handling, and CSP-reseller blocker.
+- Section 4.1.3: clarified Entra consent and Partner Center private-plan targeting as parallel dependencies.
+- Section 4.3: added AzureSubscriptionIdsForManagedApplicationTargeting, ManagedApplicationPrivatePlanAudienceStatus, and CspResellerSubscriptionBlockers to stored onboarding metadata.
+- Section 10: added live-verification questions for CSP-reseller detection and private-plan audience import scale.
+- Section 11: added tests proving Azure subscription IDs do not become runtime tenant authority and that CSP blockers surface before deployment.
+
+Managed Application research source basis:
+- Completed Azure Managed Application / Partner Center research.
+- Microsoft Learn private-plan targeting guidance.
+- Microsoft Learn Azure managed application plan guidance.
+
+Managed Application security impact:
+- Strengthens onboarding by preventing Entra tenant ID and Azure subscription ID from being conflated.
+- Preserves AuthenticatedTenantResolver and IPermissionReadRepository as the only request-time tenant/workspace authorization authority.
+- Prevents Marketplace private-plan targeting from being mistaken for application authorization.
+
+Managed Application tenant isolation impact:
+- No weakening of tenant/workspace isolation.
+- Azure subscription IDs are deployment-target metadata only.
+- Internal TenantContext remains controlled by IIP membership lookup.
+
 Recommended next step:
 - Update the real AuthenticationRegistration.cs implementation to organizations-mode Microsoft.Identity.Web configuration, then add tests proving tokens from non-publisher organizational tenants are accepted by JWT validation but still denied without a matching IPermissionReadRepository membership.
+- Extend the onboarding portal backlog with fields for ExternalEntraTenantId and AzureSubscriptionIdsForManagedApplicationTargeting, including CSP/private-plan targeting validation.
 ```

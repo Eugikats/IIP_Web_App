@@ -1,6 +1,6 @@
 # IIP Documentation Index
 
-Full file listing per documentation pack. Total: 143 documents.
+Full file listing per documentation pack. Total: 141 documents.
 
 ## 01-strategy-requirements-roadmap (14)
 
@@ -19,7 +19,7 @@ Full file listing per documentation pack. Total: 143 documents.
 - [`iip_stakeholder_alignment_brief.md`](01-strategy-requirements-roadmap/iip_stakeholder_alignment_brief.md)
 - [`iip_strategy_addendum.md`](01-strategy-requirements-roadmap/iip_strategy_addendum.md)
 
-## 02-development-engineering (42)
+## 02-development-engineering (40)
 
 - [`iip_api_specification.md`](02-development-engineering/iip_api_specification.md)
 - [`iip_approval_decision_service_implementation_output.md`](02-development-engineering/iip_approval_decision_service_implementation_output.md)
@@ -28,7 +28,6 @@ Full file listing per documentation pack. Total: 143 documents.
 - [`iip_backend_code_implementation_specification.md`](02-development-engineering/iip_backend_code_implementation_specification.md)
 - [`iip_backend_saas_implementation_guide.md`](02-development-engineering/iip_backend_saas_implementation_guide.md)
 - [`iip_backend_wiring_controllers_composition_root_request_pipeline.md`](02-development-engineering/iip_backend_wiring_controllers_composition_root_request_pipeline.md)
-- [`iip_backend_wiring_controllers_composition_root_request_pipeline_multitenant_identity_reconciled.md`](02-development-engineering/iip_backend_wiring_controllers_composition_root_request_pipeline_multitenant_identity_reconciled.md)
 - [`iip_channels_query_service_implementation_output.md`](02-development-engineering/iip_channels_query_service_implementation_output.md)
 - [`iip_claim_intake_workflow_transition_service.md`](02-development-engineering/iip_claim_intake_workflow_transition_service.md)
 - [`iip_claims_query_service_implementation_output.md`](02-development-engineering/iip_claims_query_service_implementation_output.md)
@@ -52,7 +51,6 @@ Full file listing per documentation pack. Total: 143 documents.
 - [`iip_knowledge_base_indexing_ingestion_service.md`](02-development-engineering/iip_knowledge_base_indexing_ingestion_service.md)
 - [`iip_multi_agent_orchestration_document_to_decision_pipeline_implementation.md`](02-development-engineering/iip_multi_agent_orchestration_document_to_decision_pipeline_implementation.md)
 - [`iip_multi_tenant_identity_onboarding_app_roles_scim_provisioning.md`](02-development-engineering/iip_multi_tenant_identity_onboarding_app_roles_scim_provisioning.md)
-- [`iip_multi_tenant_identity_onboarding_app_roles_scim_provisioning_managedapp_reconciled.md`](02-development-engineering/iip_multi_tenant_identity_onboarding_app_roles_scim_provisioning_managedapp_reconciled.md)
 - [`iip_notification_send_execution_service.md`](02-development-engineering/iip_notification_send_execution_service.md)
 - [`iip_reporting_service.md`](02-development-engineering/iip_reporting_service.md)
 - [`iip_sales_leads_query_service_implementation_output.md`](02-development-engineering/iip_sales_leads_query_service_implementation_output.md)
