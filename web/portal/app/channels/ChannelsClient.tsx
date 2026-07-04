@@ -4,26 +4,28 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Mail, MessageSquare, RefreshCw, Send, Users } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  FilePlus2,
+  Inbox,
+  Mail,
+  MessageSquare,
+  PenLine,
+  RefreshCw,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { StatusBadge } from "@/components/Badges";
 import { DataTable } from "@/components/DataTable";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
+import { GovernedButton } from "@/components/GovernedUi";
 import { PageHeader } from "@/components/PageHeader";
 import { useRole } from "@/components/RoleContext";
 import { SectionCard } from "@/components/SectionCard";
 import { EmptyState, ErrorState, LoadingState } from "@/components/States";
 import { apiBaseUrl, canUseLocalTestDoubles, scopedHeaders } from "@/lib/config";
 import { integrationActionAvailability, type IntegrationHealth, type ProviderHealthItem } from "@/lib/providerHealth";
-
-type Mailbox = {
-  mailboxConnectionId: string;
-  displayName: string;
-  mailboxAddress: string;
-  ingestionEnabled: boolean;
-  defaultChannel: string;
-  productLine?: string | null;
-  createdAt?: string;
-};
 
 type InboundMessage = {
   messageId: string;
@@ -47,22 +49,47 @@ type Communication = {
   createdAt: string;
 };
 
+type ChannelConversation = {
+  id: string;
+  customerName: string;
+  channel: string;
+  detectedIntent: string;
+  suggestedRouting: string;
+  aiConfidence: number;
+  status: string;
+  assignedTo?: string | null;
+  lastMessage: string;
+  lastActivityAt: string;
+};
+
 type PendingAction = { message: InboundMessage };
 
+function humanize(value: string): string {
+  if (!value) return "—";
+  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatWhen(value: string): string {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return value || "—";
+  return new Date(parsed).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 const channelCards = [
-  { type: "Email", title: "Outlook / Email", provider: "graphMail", detail: "Inbound claims mailbox and attachment intake." },
-  { type: "Teams", title: "Teams", provider: "notifications", detail: "Operational notifications and approval alerts." },
-  { type: "WhatsApp", title: "WhatsApp", provider: null, detail: "Pending BSP selection and tenant configuration." },
-  { type: "SMS", title: "SMS", provider: "communications", detail: "Customer-update delivery when configured." },
+  { type: "Email", title: "Outlook / Email", provider: "graphMail" },
+  { type: "Teams", title: "Teams", provider: "notifications" },
+  { type: "WhatsApp", title: "WhatsApp", provider: null },
+  { type: "SMS", title: "SMS", provider: "communications" },
 ] as const;
 
 export function ChannelsClient() {
   const { role, userId } = useRole();
   const router = useRouter();
   const [health, setHealth] = useState<IntegrationHealth | null>(null);
-  const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [messages, setMessages] = useState<InboundMessage[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
+  const [conversations, setConversations] = useState<ChannelConversation[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,17 +99,17 @@ export function ChannelsClient() {
     setError(null);
     const headers = scopedHeaders(role, userId);
     try {
-      const [healthResponse, mailboxResponse, messageResponse, communicationResponse] = await Promise.all([
+      const [healthResponse, messageResponse, communicationResponse, conversationResponse] = await Promise.all([
         fetch(`${apiBaseUrl}/api/v1/integrations/email/health`, { headers }),
-        fetch(`${apiBaseUrl}/api/v1/integrations/email/mailboxes`, { headers }),
         fetch(`${apiBaseUrl}/api/v1/integrations/email/messages`, { headers }),
         fetch(`${apiBaseUrl}/api/v1/communications/history`, { headers }),
+        fetch(`${apiBaseUrl}/api/v1/channels/overview`, { headers }),
       ]);
 
       if (healthResponse.ok) setHealth((await healthResponse.json()) as IntegrationHealth);
-      if (mailboxResponse.ok) setMailboxes((await mailboxResponse.json()) as Mailbox[]);
       if (messageResponse.ok) setMessages((await messageResponse.json()) as InboundMessage[]);
       if (communicationResponse.ok) setCommunications((await communicationResponse.json()) as Communication[]);
+      if (conversationResponse.ok) setConversations((await conversationResponse.json()) as ChannelConversation[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Channels failed to load.");
     } finally {
@@ -99,13 +126,18 @@ export function ChannelsClient() {
     [health]
   );
 
+  const selected = useMemo(
+    () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
+    [conversations, selectedId]
+  );
+
   function channelStatus(provider: ProviderHealthItem | null, type: string) {
-    if (type === "WhatsApp") return { status: "Pending", health: "Warning", detail: "Configure a WhatsApp BSP before enabling this channel." };
-    if (!provider) return { status: "Pending", health: "Warning", detail: "Provider health is not available." };
+    if (type === "WhatsApp") return { status: "Pending", detail: "Configure a WhatsApp BSP before enabling this channel." };
+    if (!provider) return { status: "Pending", detail: "Provider health is not available." };
     if (provider.status.toLowerCase() === "missing") {
-      return { status: "Pending", health: "Warning", detail: provider.detail || "Provider is not configured." };
+      return { status: "Pending", detail: provider.detail || "Provider is not configured." };
     }
-    return { status: "Active", health: "Operational", detail: provider.detail || provider.mode };
+    return { status: "Active", detail: provider.detail || provider.mode };
   }
 
   function openProcess(message: InboundMessage) {
@@ -144,9 +176,9 @@ export function ChannelsClient() {
       <PageHeader
         eyebrow="Channel-led intake"
         title="Channels"
-        description="Operational view of how insurer work enters and leaves IIP. Unconfigured channels stay pending instead of pretending to work."
+        description="Unified inbox across configured channels. AI triages and routes; a human takes every next action. Unconfigured channels stay pending instead of pretending to work."
         actions={
-          <button className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink hover:bg-surface-soft" onClick={load}>
+          <button className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink hover-lift" onClick={load}>
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         }
@@ -154,24 +186,88 @@ export function ChannelsClient() {
 
       {error ? <div className="mb-4"><ErrorState message={error} /></div> : null}
 
-      <div className="grid gap-4 xl:grid-cols-4">
+      {/* Channel health strip */}
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {channelCards.map((card) => {
           const provider = card.provider ? providerMap.get(card.provider) ?? null : null;
           const status = channelStatus(provider, card.type);
           return (
-            <SectionCard key={card.type} title={card.title} description={card.detail}>
-              <div className="space-y-3">
+            <div key={card.type} className="glass-subtle rounded-xl px-4 py-3 hover-lift">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-ink">{card.title}</p>
                 <StatusBadge label={status.status} />
-                <p className="text-xs leading-5 text-muted">{status.detail}</p>
-                <p className="font-mono text-xs text-muted-soft">{status.health}</p>
               </div>
-            </SectionCard>
+              <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-muted">{status.detail}</p>
+            </div>
           );
         })}
       </div>
 
+      {/* Threaded inbox: conversation list + thread detail */}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <SectionCard
+          eyebrow="Inbox"
+          title="Conversations"
+          description="AI-triaged across configured channels. Nothing is auto-actioned."
+        >
+          {conversations.length === 0 ? (
+            <EmptyState
+              title="No channel conversations"
+              description="Conversation intake activates when a WhatsApp / web-chat provider is configured and ingesting. Until then this inbox stays empty rather than showing sample conversations."
+            />
+          ) : (
+            <ul className="space-y-2" aria-label="Channel conversations">
+              {conversations.map((conversation) => {
+                const active = conversation.id === selectedId;
+                return (
+                  <li key={conversation.id}>
+                    <button
+                      onClick={() => setSelectedId(conversation.id)}
+                      aria-current={active ? "true" : undefined}
+                      className={`w-full rounded-xl border px-3 py-3 text-left transition-colors hover-lift ${
+                        active ? "border-primary-border bg-primary-soft" : "border-line bg-surface hover:bg-surface-soft"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-ink">{conversation.customerName}</p>
+                        <span className="shrink-0 text-[11px] text-muted-soft">{formatWhen(conversation.lastActivityAt)}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-1 text-xs text-muted">{conversation.lastMessage || humanize(conversation.detectedIntent)}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <StatusBadge label={humanize(conversation.channel)} />
+                        <StatusBadge label={humanize(conversation.status)} />
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </SectionCard>
+
+        <SectionCard
+          eyebrow="Conversation"
+          title={selected ? selected.customerName : "Thread"}
+          description={selected ? undefined : "Select a conversation to view its timeline and take a governed next action."}
+        >
+          {!selected ? (
+            <EmptyState
+              title="No conversation selected"
+              description="Pick a conversation on the left to see its detected intent, AI confidence, suggested routing, and the human actions available."
+            />
+          ) : (
+            <ConversationThread
+              conversation={selected}
+              onCreateClaim={() => router.push("/cases/new")}
+              onDraftResponse={() => router.push("/customer-service")}
+            />
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Secondary: inbound email intake (real, governed) */}
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
-        <SectionCard eyebrow="Inbound" title="Messages to process" description="Email intake can create or attach a governed case; processing writes audit evidence server-side.">
+        <SectionCard eyebrow="Inbound email" title="Messages to process" description="Email intake can create or attach a governed case; processing writes audit evidence server-side.">
           {messages.length === 0 ? (
             <EmptyState title="No inbound messages" description="Run LocalTest ingestion from Integrations or connect a real Graph mailbox." />
           ) : (
@@ -181,7 +277,6 @@ export function ChannelsClient() {
                   <th className="px-4 py-3">Sender</th>
                   <th className="px-4 py-3">Subject</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Attachments</th>
                   <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
@@ -194,7 +289,6 @@ export function ChannelsClient() {
                       {message.bodyPreview ? <p className="mt-1 line-clamp-1 text-xs text-muted">{message.bodyPreview}</p> : null}
                     </td>
                     <td className="px-4 py-3"><StatusBadge label={String(message.processingStatus)} /></td>
-                    <td className="px-4 py-3 text-sm text-muted">{message.attachments?.length ?? 0}</td>
                     <td className="px-4 py-3">
                       {message.linkedCaseId ? (
                         <Link className="inline-flex items-center gap-1 text-sm font-semibold text-ai" href={`/cases/${message.linkedCaseId}`}>
@@ -235,10 +329,11 @@ export function ChannelsClient() {
         </SectionCard>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <MiniStat icon={<Mail className="h-4 w-4" />} label="Configured mailboxes" value={`${mailboxes.length}`} />
-        <MiniStat icon={<MessageSquare className="h-4 w-4" />} label="Inbound messages" value={`${messages.length}`} />
-        <MiniStat icon={<Send className="h-4 w-4" />} label="Customer updates" value={`${communications.length}`} />
+      <div className="mt-5 grid gap-4 md:grid-cols-4">
+        <MiniStat icon={<Users className="h-4 w-4" />} label="Conversations" value={`${conversations.length}`} />
+        <MiniStat icon={<Inbox className="h-4 w-4" />} label="Inbound messages" value={`${messages.length}`} />
+        <MiniStat icon={<Mail className="h-4 w-4" />} label="Configured mailboxes" value={`${providerMap.size}`} />
+        <MiniStat icon={<MessageSquare className="h-4 w-4" />} label="Customer updates" value={`${communications.length}`} />
       </div>
 
       <GovernedActionDialog
@@ -261,9 +356,86 @@ export function ChannelsClient() {
   );
 }
 
+function ConversationThread({
+  conversation,
+  onCreateClaim,
+  onDraftResponse,
+}: {
+  conversation: ChannelConversation;
+  onCreateClaim: () => void;
+  onDraftResponse: () => void;
+}) {
+  const confidencePct = Math.round(conversation.aiConfidence * 100);
+  return (
+    <div className="space-y-4">
+      {/* Metadata */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Meta label="Channel" value={humanize(conversation.channel)} />
+        <Meta label="Detected intent" value={humanize(conversation.detectedIntent)} />
+        <Meta label="AI confidence" value={`${confidencePct}%`} />
+        <Meta label="Assigned" value={conversation.assignedTo ? conversation.assignedTo : "Unassigned"} />
+      </div>
+
+      {/* Suggested routing (advisory) */}
+      <div className="rounded-xl border border-ai-border bg-ai-soft p-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-ai">AI suggested routing — for human review</p>
+        <p className="mt-1 text-sm text-ink">{humanize(conversation.suggestedRouting)}</p>
+      </div>
+
+      {/* Latest message */}
+      <div>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted">Latest message</p>
+        <div className="rounded-xl border border-line bg-surface p-3">
+          <p className="text-sm leading-6 text-ink">{conversation.lastMessage || "No message content available."}</p>
+          <p className="mt-2 text-[11px] text-muted-soft">{formatWhen(conversation.lastActivityAt)}</p>
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          Full conversation timeline appears here once the channel thread API is connected. Until then, only the latest triaged message is shown.
+        </p>
+      </div>
+
+      {/* Governed action bar */}
+      <div>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted">Next action — human decides</p>
+        <div className="flex flex-wrap gap-2">
+          <GovernedButton variant="primary" icon={<FilePlus2 className="h-4 w-4" />} onClick={onCreateClaim}>
+            Create claim
+          </GovernedButton>
+          <GovernedButton variant="secondary" icon={<PenLine className="h-4 w-4" />} onClick={onDraftResponse}>
+            Draft response
+          </GovernedButton>
+          <GovernedButton
+            variant="secondary"
+            icon={<UserPlus className="h-4 w-4" />}
+            disabledReason="Lead creation from a conversation is not configured yet — the sales-leads write endpoint is pending."
+          >
+            Create lead
+          </GovernedButton>
+          <GovernedButton
+            variant="secondary"
+            icon={<ArrowUpRight className="h-4 w-4" />}
+            disabledReason="Conversation escalation is not configured yet — the escalation endpoint is pending."
+          >
+            Escalate
+          </GovernedButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-surface px-3 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-soft">{label}</p>
+      <p className="mt-0.5 truncate text-sm font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
 function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 shadow-panel">
+    <div className="flex items-center gap-3 glass-subtle rounded-xl px-4 py-3 hover-lift">
       <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-ai-border bg-ai-soft text-ai">{icon}</div>
       <div>
         <p className="text-xs font-medium text-muted">{label}</p>
