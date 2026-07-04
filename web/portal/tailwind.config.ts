@@ -74,6 +74,24 @@ const config: Config = {
           border: token("--color-info-border"),
           text: token("--color-info-text"),
         },
+        // Brand accent family. These names are referenced widely across the
+        // component set (text-accent, border-accent, bg-accent, bg-brand-gradient,
+        // text-violet, bg-mist). They map onto the Ambient Intelligence palette:
+        // `accent` = primary blue action, `violet` = AI accent, `mist` = soft surface.
+        accent: {
+          DEFAULT: token("--color-primary"),
+          soft: token("--color-primary-soft"),
+          border: token("--color-primary-border"),
+        },
+        brand: {
+          600: token("--color-primary-hover"),
+        },
+        violet: {
+          DEFAULT: token("--color-ai"),
+          soft: token("--color-ai-soft"),
+          border: token("--color-ai-border"),
+        },
+        mist: token("--color-surface-soft"),
       },
       boxShadow: {
         xs: "var(--shadow-xs)",
@@ -88,12 +106,17 @@ const config: Config = {
         l3: "var(--shadow-l3)",
         l4: "var(--shadow-l4)",
         glass: "var(--shadow-glass)",
+        "glow-cyan": "0 8px 24px rgba(37, 99, 255, 0.14)",
+        "glow-danger": "0 8px 24px rgba(220, 38, 38, 0.12)",
+        "glow-success": "0 8px 24px rgba(5, 150, 105, 0.12)",
+        "glow-warning": "0 8px 24px rgba(217, 119, 6, 0.12)",
       },
       backgroundImage: {
         "gradient-primary": "var(--gradient-primary)",
         "gradient-secondary": "var(--gradient-secondary)",
         "gradient-tertiary": "var(--gradient-tertiary)",
         "gradient-ambient": "var(--gradient-ambient)",
+        "brand-gradient": "var(--gradient-primary)",
       },
       borderRadius: {
         xs: "var(--radius-xs)",
