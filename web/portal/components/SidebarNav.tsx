@@ -40,7 +40,7 @@ export function SidebarNav() {
   return (
     <aside
       aria-label="Primary sidebar"
-      className={`hidden h-screen flex-shrink-0 flex-col border-r border-line bg-surface transition-all duration-300 ease-in-out lg:flex ${
+      className={`hidden h-screen flex-shrink-0 flex-col border-r border-line bg-surface/70 backdrop-blur-xl transition-all duration-300 ease-in-out lg:flex ${
         collapsed ? "w-[72px]" : "w-[280px]"
       }`}
     >

@@ -47,7 +47,7 @@ export function RightCopilotPanel() {
   return (
     <aside
       aria-label="Command center context and evidence"
-      className={`hidden h-screen flex-shrink-0 flex-col border-l border-line bg-surface transition-all duration-300 xl:flex ${
+      className={`hidden h-screen flex-shrink-0 flex-col border-l border-line bg-surface/70 backdrop-blur-xl transition-all duration-300 xl:flex ${
         collapsed ? "xl:w-[56px]" : "xl:w-[360px]"
       }`}
     >

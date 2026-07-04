@@ -28,22 +28,22 @@
   --color-line-focus: 99 102 241;       /* #6366F1 - focus/AI accent border */
 
   /* Typography Colors */
-  --color-ink: 15 23 42;                /* #0F172A - primary text */
+  --color-ink: 11 15 59;                /* #0B0F3B - Ambient Intelligence base ink (DEC-011) */
   --color-ink-soft: 30 41 59;           /* #1E293B - secondary strong text */
   --color-muted: 100 116 139;           /* #64748B - supporting text */
   --color-muted-soft: 148 163 184;      /* #94A3B8 - metadata / placeholders */
   --color-disabled: 203 213 225;        /* #CBD5E1 - disabled text */
   --color-inverse: 255 255 255;         /* #FFFFFF - text on dark/brand */
 
-  /* Brand / Accents */
-  --color-primary: 30 64 175;           /* #1E40AF - navy/azure primary action */
+  /* Brand / Accents — Ambient Intelligence gradient family (DEC-011) */
+  --color-primary: 37 99 255;           /* #2563FF - info blue primary action */
   --color-primary-hover: 29 78 216;     /* #1D4ED8 */
   --color-primary-soft: 239 246 255;    /* #EFF6FF */
   --color-primary-border: 191 219 254;  /* #BFDBFE */
 
-  /* AI accent */
-  --color-ai: 109 40 217;               /* #6D28D9 */
-  --color-ai-hover: 124 58 237;         /* #7C3AED */
+  /* AI accent — violet */
+  --color-ai: 124 77 255;               /* #7C4DFF */
+  --color-ai-hover: 140 107 255;        /* #8C6BFF */
   --color-ai-soft: 245 243 255;         /* #F5F3FF */
   --color-ai-border: 221 214 254;       /* #DDD6FE */
 
@@ -93,7 +93,23 @@
   --shadow-card: 0 10px 30px rgba(15, 23, 42, 0.08);
   --shadow-popover: 0 18px 50px rgba(15, 23, 42, 0.16);
   --shadow-drawer: -18px 0 50px rgba(15, 23, 42, 0.16);
-  --shadow-focus: 0 0 0 4px rgba(99, 102, 241, 0.18);
+  --shadow-focus: 0 0 0 4px rgba(124, 77, 255, 0.20);
+
+  /* Ambient Intelligence — depth scale + glass elevation (DEC-011) */
+  --shadow-l1: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-l2: 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-l3: 0 12px 24px rgba(31, 38, 135, 0.10);
+  --shadow-l4: 0 20px 40px rgba(31, 38, 135, 0.16);
+  --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.10);
+
+  /* Ambient Intelligence — gradients (DEC-011) */
+  --gradient-primary: linear-gradient(135deg, #2563FF 0%, #7C4DFF 100%);
+  --gradient-secondary: linear-gradient(135deg, #4D8DFF 0%, #C058FF 100%);
+  --gradient-tertiary: linear-gradient(135deg, #8C6BFF 0%, #FF66E0 100%);
+  --gradient-ambient:
+    radial-gradient(1200px 600px at 10% -10%, #EEF2FF 0%, transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, #F3E8FF 0%, transparent 55%),
+    radial-gradient(800px 500px at 50% 120%, #ECFDF5 0%, transparent 60%);
 
   /* Radii */
   --radius-xs: 0.375rem;   /* 6px */
@@ -187,4 +203,68 @@ select:focus-visible,
 textarea:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus);
+}
+
+/* ─── Ambient Intelligence theme utilities (DEC-011) ────────── */
+/* Additive: existing tokens/classes are unchanged. Surfaces use a soft
+   translucent glass treatment over the ambient gradient background. */
+
+.ambient-bg {
+  background-color: #FBFAFF;
+  background-image: var(--gradient-ambient);
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--radius-2xl);
+}
+
+.glass-subtle {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-xl);
+}
+
+.glass-elevated {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: var(--shadow-l4);
+  border-radius: var(--radius-2xl);
+}
+
+.gradient-primary {
+  background: var(--gradient-primary);
+}
+
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hover-lift {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.hover-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-l3);
+}
+
+/* Respect reduced-motion preferences for the lift interaction. */
+@media (prefers-reduced-motion: reduce) {
+  .hover-lift {
+    transition: none;
+  }
+  .hover-lift:hover {
+    transform: none;
+  }
 }

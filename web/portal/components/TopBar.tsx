@@ -11,7 +11,7 @@ export function TopBar() {
   const tenantLabel = tenantId || "Tenant not configured";
 
   return (
-    <header className="sticky top-0 z-20 h-16 border-b border-line bg-surface/95 backdrop-blur-md">
+    <header className="sticky top-0 z-20 h-16 border-b border-line bg-surface/70 backdrop-blur-xl">
       <div className="flex h-full items-center gap-3 px-4 lg:px-6">
         {/* Left — workspace identity + active agent */}
         <div className="flex min-w-0 items-center divide-x divide-line">

@@ -83,6 +83,17 @@ const config: Config = {
         popover: "var(--shadow-popover)",
         drawer: "var(--shadow-drawer)",
         focus: "var(--shadow-focus)",
+        l1: "var(--shadow-l1)",
+        l2: "var(--shadow-l2)",
+        l3: "var(--shadow-l3)",
+        l4: "var(--shadow-l4)",
+        glass: "var(--shadow-glass)",
+      },
+      backgroundImage: {
+        "gradient-primary": "var(--gradient-primary)",
+        "gradient-secondary": "var(--gradient-secondary)",
+        "gradient-tertiary": "var(--gradient-tertiary)",
+        "gradient-ambient": "var(--gradient-ambient)",
       },
       borderRadius: {
         xs: "var(--radius-xs)",
@@ -96,6 +107,25 @@ const config: Config = {
       spacing: {
         "density-p": "var(--density-default-p)",
         "density-gap": "var(--density-default-gap)",
+      },
+      keyframes: {
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(4px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "pulse-soft": {
+          "0%,100%": { opacity: "1" },
+          "50%": { opacity: ".6" },
+        },
+      },
+      animation: {
+        "fade-in": "fade-in .3s ease-out",
+        shimmer: "shimmer 2.4s linear infinite",
+        "pulse-soft": "pulse-soft 2s ease-in-out infinite",
       },
     },
   },
