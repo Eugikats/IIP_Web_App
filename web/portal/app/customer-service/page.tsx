@@ -1,5 +1,5 @@
-import { CustomerServiceClient } from "@/app/customer-service/CustomerServiceClient";
+import { redirect } from "next/navigation";
 
-export default function CustomerServicePage() {
-  return <CustomerServiceClient />;
+export default function RedirectPage() {
+  redirect("/app/communications");
 }

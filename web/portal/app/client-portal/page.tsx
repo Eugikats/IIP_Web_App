@@ -1,5 +1,5 @@
-import { ClientPortalClient } from "./ClientPortalClient";
+import { redirect } from "next/navigation";
 
-export default function ClientPortalPage() {
-  return <ClientPortalClient />;
+export default function RedirectPage() {
+  redirect("/app/portal");
 }

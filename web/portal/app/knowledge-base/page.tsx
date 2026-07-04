@@ -1,5 +1,5 @@
-import { KnowledgeBaseClient } from "@/app/knowledge-base/KnowledgeBaseClient";
+import { redirect } from "next/navigation";
 
-export default function KnowledgeBasePage() {
-  return <KnowledgeBaseClient />;
+export default function RedirectPage() {
+  redirect("/app/knowledge");
 }

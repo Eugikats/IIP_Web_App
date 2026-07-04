@@ -1,5 +1,5 @@
-import { DocumentCheckerClient } from "@/app/document-checker/DocumentCheckerClient";
+import { redirect } from "next/navigation";
 
-export default function DocumentCheckerPage() {
-  return <DocumentCheckerClient />;
+export default function RedirectPage() {
+  redirect("/app/documents");
 }

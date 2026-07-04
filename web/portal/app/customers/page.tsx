@@ -1,5 +1,5 @@
-import { CustomersClient } from "./CustomersClient";
+import { redirect } from "next/navigation";
 
-export default function CustomersPage() {
-  return <CustomersClient />;
+export default function RedirectPage() {
+  redirect("/app/customers");
 }

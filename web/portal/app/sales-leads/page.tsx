@@ -1,5 +1,5 @@
-import { SalesLeadsClient } from "./SalesLeadsClient";
+import { redirect } from "next/navigation";
 
-export default function SalesLeadsPage() {
-  return <SalesLeadsClient />;
+export default function RedirectPage() {
+  redirect("/app/acquisition");
 }

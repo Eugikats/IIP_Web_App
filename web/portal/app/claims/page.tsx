@@ -1,5 +1,5 @@
-import { ClaimsInboxClient } from "@/app/claims/ClaimsInboxClient";
+import { redirect } from "next/navigation";
 
-export default function ClaimsInboxPage() {
-  return <ClaimsInboxClient />;
+export default function RedirectPage() {
+  redirect("/app/claims");
 }

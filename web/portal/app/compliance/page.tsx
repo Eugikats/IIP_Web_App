@@ -1,5 +1,5 @@
-import { ComplianceClient } from "@/app/compliance/ComplianceClient";
+import { redirect } from "next/navigation";
 
-export default function CompliancePage() {
-  return <ComplianceClient />;
+export default function RedirectPage() {
+  redirect("/app/audit");
 }

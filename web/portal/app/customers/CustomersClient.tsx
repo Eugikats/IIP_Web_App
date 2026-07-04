@@ -26,6 +26,13 @@ type CaseDto = {
   updatedAt?: string;
 };
 
+type CustomerDto = {
+  customerId: string;
+  fullName: string;
+  email?: string | null;
+  phone?: string | null;
+};
+
 type Communication = {
   communicationId: string;
   caseId?: string | null;
@@ -36,6 +43,7 @@ type Communication = {
 };
 
 type CustomerView = {
+  customerId: string;
   name: string;
   email: string;
   phone: string;
@@ -45,6 +53,7 @@ type CustomerView = {
 
 export function CustomersClient() {
   const { role, userId } = useRole();
+  const [customersSource, setCustomersSource] = useState<CustomerDto[]>([]);
   const [cases, setCases] = useState<CaseDto[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
   const [query, setQuery] = useState("");
@@ -56,11 +65,14 @@ export function CustomersClient() {
     setError(null);
     const headers = scopedHeaders(role, userId);
     try {
-      const [caseResponse, communicationResponse] = await Promise.all([
+      const [customerResponse, caseResponse, communicationResponse] = await Promise.all([
+        fetch(`${apiBaseUrl}/api/v1/customers`, { headers }),
         fetch(`${apiBaseUrl}/api/v1/cases`, { headers }),
         fetch(`${apiBaseUrl}/api/v1/communications/history`, { headers }),
       ]);
+      if (!customerResponse.ok) throw new Error(`Customers failed with HTTP ${customerResponse.status}.`);
       if (!caseResponse.ok) throw new Error(`Cases failed with HTTP ${caseResponse.status}.`);
+      setCustomersSource((await customerResponse.json()) as CustomerDto[]);
       setCases((await caseResponse.json()) as CaseDto[]);
       if (communicationResponse.ok) setCommunications((await communicationResponse.json()) as Communication[]);
     } catch (err) {
@@ -75,28 +87,28 @@ export function CustomersClient() {
   }, [load]);
 
   const customers = useMemo(() => {
-    const byName = new Map<string, CustomerView>();
-    for (const claim of cases) {
-      const key = claim.customerName || "Unknown customer";
-      const current = byName.get(key) ?? {
-        name: key,
-        email: claim.customerEmail ?? "",
-        phone: claim.customerPhone ?? "",
-        cases: [],
+    const byId = new Map<string, CustomerView>();
+    for (const customer of customersSource) {
+      const matchingCases = cases.filter((claim) => matchesCustomer(claim, customer));
+      byId.set(customer.customerId, {
+        customerId: customer.customerId,
+        name: customer.fullName || "Unknown customer",
+        email: customer.email ?? "",
+        phone: customer.phone ?? "",
+        cases: matchingCases,
         communications: [],
-      };
-      current.email ||= claim.customerEmail ?? "";
-      current.phone ||= claim.customerPhone ?? "";
-      current.cases.push(claim);
-      byName.set(key, current);
+      });
     }
+
     for (const communication of communications) {
       const claim = cases.find((item) => item.caseId === communication.caseId);
       if (!claim) continue;
-      byName.get(claim.customerName)?.communications.push(communication);
+      const customer = customersSource.find((item) => matchesCustomer(claim, item));
+      if (!customer) continue;
+      byId.get(customer.customerId)?.communications.push(communication);
     }
-    return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [cases, communications]);
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [cases, communications, customersSource]);
 
   const filtered = customers.filter((customer) => {
     const needle = query.trim().toLowerCase();
@@ -148,7 +160,7 @@ export function CustomersClient() {
                 const latest = customer.cases[0];
                 const channels = Array.from(new Set(customer.cases.map((item) => item.channel).filter(Boolean)));
                 return (
-                  <tr key={customer.name}>
+                  <tr key={customer.customerId}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-ai-border bg-ai-soft text-ai">
@@ -164,7 +176,7 @@ export function CustomersClient() {
                     <td className="px-4 py-3"><StatusBadge label={latest?.status ?? "Not configured"} /></td>
                     <td className="px-4 py-3 text-sm text-muted">{channels.join(", ") || "Not configured"}</td>
                     <td className="px-4 py-3">
-                      {latest ? <Link className="inline-flex items-center gap-1 text-sm font-semibold text-ai" href={`/cases/${latest.caseId}`}>Case workspace <ArrowRight className="h-3.5 w-3.5" /></Link> : null}
+                      <Link className="inline-flex items-center gap-1 text-sm font-semibold text-ai" href={`/customers/${encodeURIComponent(customer.customerId)}`}>View 360 <ArrowRight className="h-3.5 w-3.5" /></Link>
                     </td>
                   </tr>
                 );
@@ -175,4 +187,18 @@ export function CustomersClient() {
       </div>
     </motion.div>
   );
+}
+
+function matchesCustomer(claim: CaseDto, customer: CustomerDto) {
+  const emailMatches = customer.email && claim.customerEmail && customer.email.toLowerCase() === claim.customerEmail.toLowerCase();
+  if (emailMatches) return true;
+
+  const phoneMatches = customer.phone && claim.customerPhone && normalizePhone(customer.phone) === normalizePhone(claim.customerPhone);
+  if (phoneMatches) return true;
+
+  return !customer.email && !customer.phone && customer.fullName.toLowerCase() === (claim.customerName || "").toLowerCase();
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, "");
 }

@@ -1,5 +1,5 @@
-import { ReportsClient } from "@/app/reports/ReportsClient";
+import { redirect } from "next/navigation";
 
-export default function ReportsPage() {
-  return <ReportsClient />;
+export default function RedirectPage() {
+  redirect("/app/executive");
 }

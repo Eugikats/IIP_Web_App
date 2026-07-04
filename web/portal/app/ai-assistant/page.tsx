@@ -1,5 +1,5 @@
-import { AiAssistantClient } from "@/app/ai-assistant/AiAssistantClient";
+import { redirect } from "next/navigation";
 
-export default function AiAssistantPage() {
-  return <AiAssistantClient />;
+export default function RedirectPage() {
+  redirect("/app");
 }

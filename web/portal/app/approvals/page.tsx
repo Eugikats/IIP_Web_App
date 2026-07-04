@@ -1,5 +1,5 @@
-import { ApprovalsClient } from "@/app/approvals/ApprovalsClient";
+import { redirect } from "next/navigation";
 
-export default function ApprovalsPage() {
-  return <ApprovalsClient />;
+export default function RedirectPage() {
+  redirect("/app/workflows");
 }

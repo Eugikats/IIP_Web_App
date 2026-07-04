@@ -1,17 +1,35 @@
 import type { Config } from "tailwindcss";
 
 const token = (name: string) => `rgb(var(${name}) / <alpha-value>)`;
+const hslToken = (name: string) => `hsl(var(${name}) / <alpha-value>)`;
 
 const config: Config = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lovable-pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./context/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
         bg: token("--color-bg"),
+        background: hslToken("--background"),
+        foreground: hslToken("--foreground"),
+        border: hslToken("--border"),
+        input: hslToken("--input"),
+        ring: hslToken("--ring"),
+        navy: hslToken("--navy"),
+        slate2: hslToken("--slate"),
+        graphite: hslToken("--graphite"),
+        stone: hslToken("--stone"),
+        pearl: hslToken("--pearl"),
+        cloud: hslToken("--cloud"),
+        "cool-gray": hslToken("--cool-gray"),
+        "light-gray": hslToken("--light-gray"),
+        error: hslToken("--error"),
+        violet2: hslToken("--violet"),
         shell: token("--color-shell"),
         surface: {
           DEFAULT: token("--color-surface"),

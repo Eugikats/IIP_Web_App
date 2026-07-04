@@ -1,5 +1,5 @@
-import { CustomerPortalClient } from "@/app/customer-portal/CustomerPortalClient";
+import { redirect } from "next/navigation";
 
-export default function MessagesPage() {
-  return <CustomerPortalClient view="messages" />;
+export default function RedirectPage() {
+  redirect("/app/portal");
 }

@@ -1,5 +1,5 @@
-import { ChannelsClient } from "./ChannelsClient";
+import { redirect } from "next/navigation";
 
-export default function ChannelsPage() {
-  return <ChannelsClient />;
+export default function RedirectPage() {
+  redirect("/app/channels");
 }

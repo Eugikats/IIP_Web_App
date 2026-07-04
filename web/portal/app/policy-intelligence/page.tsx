@@ -1,5 +1,5 @@
-import { PolicyIntelligenceClient } from "@/app/policy-intelligence/PolicyIntelligenceClient";
+import { redirect } from "next/navigation";
 
-export default function PolicyIntelligencePage() {
-  return <PolicyIntelligenceClient />;
+export default function RedirectPage() {
+  redirect("/app/policy");
 }
