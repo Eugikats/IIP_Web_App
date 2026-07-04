@@ -1,13 +1,24 @@
 ---
 Product: Insurance Intelligence Platform (IIP)
 Document Name: Design System & UX Behavior Specification
-Version: 1.1 - Chat-First Command Center Update
-Status: Draft - updated for chat-first Command Center
+Version: 1.2 - Ambient Intelligence Theme Update
+Status: Draft - updated for Ambient Intelligence visual theme
 Audience: Product, UX, Frontend Engineering, QA, Implementation Agents
-Date: 2026-06-30
+Date: 2026-07-04
 ---
 
 ---
+
+## July 2026 Update - Ambient Intelligence Visual Theme
+
+This version supersedes the flat "Light Intelligence Workspace" palette below with an **Ambient Intelligence** theme, adopted to bring IIP Operations to full visual parity with the approved Lovable-designed reference (`docs/06-decisions/open-questions-tracker.md`, decision log). This is a **skin update only**:
+
+- The chat-first Command Center architecture, block-rendering contract, evidence rail, and every governance/microcopy rule in this document remain unchanged.
+- Surfaces move from flat white/bordered panels to a soft glass treatment (translucent, blurred, subtly elevated) over an ambient gradient page background.
+- The primary/accent hues shift to a blue-to-violet gradient family; semantic status colors (success/warning/danger/info) keep their meaning and text-labels, only their exact hues are remapped.
+- Token **names** already in `web/portal/app/globals.css` (`--color-*`, `--shadow-*`, `--radius-*`) are preserved and extended, not renamed, so no consuming component needs a class-name change for the base pass.
+
+The token tables below have also been corrected to match the token names actually implemented in `web/portal/app/globals.css` / `tailwind.config.ts` (the previous `--iip-*` naming in this doc never matched the shipped code — this update closes that gap as well as updating the values).
 
 ## July 2026 Update - Chat-First Command Center Direction
 
@@ -23,7 +34,7 @@ The implementation must preserve the IIP production rules:
 - all operational answers must be tenant-scoped, role-aware, source-grounded, and auditable;
 - the AI may prepare, summarize, classify, recommend, route, and draft, but humans remain responsible for consequential insurance decisions;
 - unavailable or unconfigured capabilities must show **`Not configured`** rather than simulated success;
-- the approved Light Intelligence Workspace visual system remains in force.
+- the approved **Ambient Intelligence** visual system (see July 2026 theme update above) remains in force.
 
 ---
 
@@ -52,19 +63,21 @@ Metric cards must not dominate the first viewport. Use compact metric pills insi
 
 ### Tailwind patterns for chat-first Command Center
 
+Class names below use the tokens actually implemented in `web/portal/app/globals.css`/`tailwind.config.ts` (`bg`, `surface`, `line`, `ink`, `primary`, `ai`, `shadow-panel`, `rounded-xl`, etc.), plus the new glass/ambient utilities added for the Ambient Intelligence theme (`.glass`, `.glass-subtle`, `.ambient-bg`, `.hover-lift`).
+
 | Pattern | Recommended classes |
 |---|---|
-| Command page shell | `flex min-h-0 flex-1 overflow-hidden bg-[var(--iip-bg-app)]` |
+| Command page shell | `flex min-h-0 flex-1 overflow-hidden ambient-bg` |
 | Chat workspace | `flex min-h-0 flex-1 flex-col` |
 | Chat scroll area | `custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8` |
 | Chat content width | `mx-auto w-full max-w-[var(--iip-command-chat-max-width)] space-y-4` |
-| Assistant message card | `rounded-[var(--iip-radius-lg)] border border-[var(--iip-border-soft)] bg-white p-5 shadow-sm` |
-| User message bubble | `ml-auto max-w-[720px] rounded-2xl bg-indigo-50 px-4 py-3 text-sm text-[var(--iip-text-primary)]` |
+| Assistant message card | `glass-subtle rounded-xl p-5 hover-lift` |
+| User message bubble | `ml-auto max-w-[720px] rounded-2xl bg-primary-soft px-4 py-3 text-sm text-ink` |
 | Metric pill strip | `grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6` |
-| Metric pill | `rounded-[var(--iip-radius-md)] border border-[var(--iip-border-soft)] bg-white px-3 py-3 shadow-sm hover:bg-slate-50` |
-| Embedded result block | `rounded-[var(--iip-radius-lg)] border border-[var(--iip-border-soft)] bg-white shadow-sm` |
-| Sticky composer | `border-t border-[var(--iip-border-soft)] bg-white/95 p-4 backdrop-blur` |
-| Evidence rail | `hidden w-[var(--iip-evidence-rail-width)] shrink-0 border-l border-[var(--iip-border-soft)] bg-white xl:block` |
+| Metric pill | `glass-subtle rounded-lg px-3 py-3 hover-lift` |
+| Embedded result block | `glass-subtle rounded-xl` |
+| Sticky composer | `border-t border-line bg-surface/95 p-4 backdrop-blur` |
+| Evidence rail | `hidden w-[var(--iip-evidence-rail-width)] shrink-0 border-l border-line glass xl:block` |
 
 ### Chat-first visual behavior
 
@@ -92,35 +105,68 @@ This document defines the detailed design system and UX behavior rules for IIP. 
 | Role-aware presentation | Users see actions and navigation appropriate to their role; permissions must still be enforced server-side. |
 | No fake certainty | Empty, error, loading, unauthorized, and Not configured states must be explicit. |
 
-## Confirmed Core Design Tokens
+## Confirmed Core Design Tokens — Ambient Intelligence Theme
 
-The following values are confirmed from the existing UI/UX handoff.
+These are the real token names in `web/portal/app/globals.css`, with values remapped to the Lovable-derived Ambient Intelligence palette. Token **names** are unchanged from the prior flat theme; only hues move to the blue→violet gradient family. Values are RGB triplets (matching the file's `R G B` convention, consumed via `rgb(var(--x) / <alpha-value>)`).
 
 ```css
 :root {
-  --iip-navy-950: #040458;
-  --iip-navy-900: #101056;
-  --iip-orange-500: #FAA51A;
-  --iip-bg-app: #F8FAFC;
-  --iip-bg-panel: #FFFFFF;
-  --iip-bg-soft: #F1F5F9;
-  --iip-border-soft: #DBE3EF;
-  --iip-border-strong: #CBD5E1;
-  --iip-text-primary: #0F172A;
-  --iip-text-muted: #475569;
-  --iip-text-disabled: #94A3B8;
-  --iip-blue-600: #2563EB;
-  --iip-cyan-600: #0891B2;
-  --iip-success-bg: #ECFDF5;
-  --iip-success-text: #047857;
-  --iip-warning-bg: #FFFBEB;
-  --iip-warning-text: #B45309;
-  --iip-danger-bg: #FEF2F2;
-  --iip-danger-text: #B91C1C;
-  --iip-info-bg: #EFF6FF;
-  --iip-info-text: #1D4ED8;
+  /* App shell */
+  --color-bg: 248 250 252;              /* #F8FAFC */
+  --color-shell: 249 250 251;           /* #F9FAFB */
+
+  /* Primary surfaces (glass-treated, see Glass & Gradient Surface Tokens below) */
+  --color-surface: 255 255 255;         /* #FFFFFF */
+  --color-surface-soft: 248 250 252;    /* #F8FAFC */
+  --color-surface-muted: 241 245 249;   /* #F1F5F9 */
+  --color-surface-raised: 255 255 255;  /* #FFFFFF */
+
+  /* AI-specific surfaces */
+  --color-surface-ai: 245 243 255;      /* #F5F3FF - soft violet AI surface */
+  --color-surface-ai-strong: 237 233 254; /* #EDE9FE */
+  --color-surface-ai-border: 221 214 254; /* #DDD6FE */
+
+  /* Typography */
+  --color-ink: 11 15 59;                /* #0B0F3B - Ambient Intelligence base ink (was #0F172A) */
+  --color-ink-soft: 30 41 59;           /* #1E293B */
+  --color-muted: 100 116 139;           /* #64748B */
+  --color-muted-soft: 148 163 184;      /* #94A3B8 */
+
+  /* Brand / Accents — Ambient Intelligence gradient family */
+  --color-primary: 37 99 255;           /* #2563FF - info blue (was #1E40AF navy/azure) */
+  --color-primary-hover: 29 78 216;     /* #1D4ED8 */
+  --color-primary-soft: 239 246 255;    /* #EFF6FF */
+  --color-primary-border: 191 219 254;  /* #BFDBFE */
+
+  --color-ai: 124 77 255;               /* #7C4DFF - violet accent (was #6D28D9) */
+  --color-ai-hover: 140 107 255;        /* #8C6BFF */
+  --color-ai-soft: 245 243 255;         /* #F5F3FF */
+  --color-ai-border: 221 214 254;       /* #DDD6FE */
+
+  /* Semantic status colors — hues unchanged, carried forward as-is */
+  --color-success: 5 150 105;           /* #059669 */
+  --color-warning: 217 119 6;           /* #D97706 */
+  --color-danger: 220 38 38;            /* #DC2626 */
+  --color-info: 37 99 235;              /* #2563EB */
 }
 ```
+
+## Glass & Gradient Surface Tokens
+
+New tokens/utility classes added for the Ambient Intelligence theme, defined in `web/portal/app/globals.css` and `tailwind.config.ts`. Additive — existing tokens above are untouched by these.
+
+| Token / Class | Value | Use |
+|---|---|---|
+| `--gradient-primary` | `linear-gradient(135deg, #2563FF 0%, #7C4DFF 100%)` | Primary CTAs, active nav indicators, key accents. |
+| `--gradient-ambient` | Radial multi-stop wash (indigo/violet/mint tints) | Page-level background behind the app shell. |
+| `--shadow-glass` | `0 8px 32px rgba(31,38,135,0.10)` | Default glass panel elevation. |
+| `--shadow-l1`…`--shadow-l4` | Depth scale, `rgba(0,0,0,...)` increasing | General-purpose elevation scale for non-glass cards. |
+| `.glass` | 72% white, 24px blur, 1px translucent border, `--shadow-glass`, `rounded-2xl` | Primary panel/card surface. |
+| `.glass-subtle` | 55% white, 18px blur | Lower-emphasis embedded blocks (chat message cards, metric pills). |
+| `.glass-elevated` | 85% white, 30px blur, stronger shadow | Modals, drawers, popovers. |
+| `.ambient-bg` | `background-color: #FBFAFF` + `--gradient-ambient` | App shell background. |
+| `.gradient-text` | `--gradient-primary` clipped to text | Rare emphasis headings only — not body text. |
+| `.hover-lift` | `translateY(-1px)` + shadow on hover, 180ms | Default micro-interaction for interactive cards/rows. |
 
 ## Recommended Implementation Tokens
 
@@ -128,11 +174,11 @@ These tokens should be implemented as CSS variables or Tailwind theme extensions
 
 | Token | Value | Use |
 |---|---:|---|
-| `--iip-radius-sm` | `6px` | Tags, small buttons, small inputs. |
-| `--iip-radius-md` | `10px` | Cards, drawers, inputs, compact panels. |
-| `--iip-radius-lg` | `14px` | Main panels, modals, large cards. |
-| `--iip-shadow-card` | `0 1px 2px rgba(15, 23, 42, 0.06)` | Normal cards and panels. |
-| `--iip-shadow-float` | `0 12px 30px rgba(15, 23, 42, 0.12)` | Modals, popovers, floating Copilot elements. |
+| `--radius-sm` | `8px` | Tags, small buttons, small inputs. |
+| `--radius-md` | `12px` | Cards, drawers, inputs, compact panels. |
+| `--radius-xl` | `20px` | Main panels, modals, large cards (glass surfaces default here). |
+| `--shadow-panel` | `0 8px 24px rgba(15, 23, 42, 0.06)` | Normal cards and panels not using glass. |
+| `--shadow-popover` | `0 18px 50px rgba(15, 23, 42, 0.16)` | Modals, popovers, floating Copilot elements. |
 | `--iip-transition-fast` | `120ms ease-out` | Button hover, row hover, badge transitions. |
 | `--iip-transition-standard` | `180ms ease-out` | Drawer, modal, tab, state changes. |
 | `--iip-shell-sidebar-width` | `280px` | Persistent left navigation on desktop. |
@@ -151,15 +197,15 @@ These tokens should be implemented as CSS variables or Tailwind theme extensions
 
 | Pattern | Recommended Classes |
 |---|---|
-| App shell | `min-h-screen bg-[var(--iip-bg-app)] text-[var(--iip-text-primary)]` |
-| Main card | `rounded-[var(--iip-radius-lg)] border border-[var(--iip-border-soft)] bg-white shadow-sm` |
-| Dense table row | `h-12 border-b border-[var(--iip-border-soft)] hover:bg-slate-50` |
-| Primary button | `rounded-md bg-[var(--iip-navy-950)] px-4 py-2 text-white hover:bg-[var(--iip-navy-900)]` |
-| Accent action | `rounded-md bg-[var(--iip-orange-500)] px-4 py-2 text-slate-950` |
-| Muted text | `text-sm text-[var(--iip-text-muted)]` |
-| Danger badge | `rounded-full bg-[var(--iip-danger-bg)] px-2 py-0.5 text-xs text-[var(--iip-danger-text)]` |
-| Warning badge | `rounded-full bg-[var(--iip-warning-bg)] px-2 py-0.5 text-xs text-[var(--iip-warning-text)]` |
-| Info badge | `rounded-full bg-[var(--iip-info-bg)] px-2 py-0.5 text-xs text-[var(--iip-info-text)]` |
+| App shell | `min-h-screen ambient-bg text-ink` |
+| Main card | `glass rounded-xl hover-lift` |
+| Dense table row | `h-12 border-b border-line hover:bg-surface-soft` |
+| Primary button | `rounded-md bg-gradient-primary px-4 py-2 text-inverse hover:opacity-90` |
+| Accent action | `rounded-md bg-ai px-4 py-2 text-inverse hover:bg-ai-hover` |
+| Muted text | `text-sm text-muted` |
+| Danger badge | `rounded-pill bg-danger-soft px-2 py-0.5 text-xs text-danger-text` |
+| Warning badge | `rounded-pill bg-warning-soft px-2 py-0.5 text-xs text-warning-text` |
+| Info badge | `rounded-pill bg-info-soft px-2 py-0.5 text-xs text-info-text` |
 
 ## Component Behavior Rules
 

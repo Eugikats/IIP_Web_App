@@ -42,6 +42,10 @@ Confirmed project baseline:
 | DEC-008 | No mock data in staging/production | Confirmed | Trustworthy implementation requires truthful states. | Use real data, empty states, error states, or Not configured states. |
 | DEC-009 | Role-aware navigation must not be frontend-only security | Confirmed | Browser-owned permission checks are insufficient. | Backend authorization and audit logging must enforce permissions. |
 | DEC-010 | Start with controlled integrations | Confirmed direction | Integration risk can derail MVP if uncontrolled. | Prioritize WhatsApp/email/Graph, Blob, AI, SQL, and optional read-only policy lookup. |
+| DEC-011 | Adopt the Lovable-designed "Ambient Intelligence" visual theme, superseding the flat Light Intelligence Workspace palette | Confirmed | Owner-designed reference prototype (Lovable) is the desired visual direction; skin-only change, chat-first architecture unchanged. | Update `iip_design_system_ux_behavior_specification.md` tokens/patterns; re-skin shell and shared card primitives in `web/portal`; no IA/route changes required by this decision alone. |
+| DEC-012 | Bring Channels, Customer 360, Communications, Documents, Support, and Workspaces to full workflow/logic parity with the Lovable reference — real backend logic, not mock, wherever the current implementation is partial | Confirmed | Owner wants everything designed in Lovable to be genuinely functional in IIP, not a demo; where the current stack differs from Lovable's, the pattern is ported, the library is not. | New/extended backend endpoints (Channels actions, Documents/Communications status enums, Customer 360 summary), new Customer 360 detail route, new cross-case Documents/Communications views, Workspace switcher. |
+| DEC-013 | Add four previously out-of-scope modules — AI Agent Registry (+ kill switch), Fraud Intelligence, Underwriting Intelligence, Billing/entitlements — as full, real features, not deferred | Confirmed | These exist in the Lovable reference with no backend/doc/UI equivalent in IIP today; owner wants full parity, not a trimmed MVP. | New Domain entities, query/command services, endpoints, and UI routes for each, following the existing Phase 2 query-service pattern; new doc screen specs; ADR for the multi-agent orchestration/kill-switch boundary. |
+| DEC-014 | Fraud Intelligence and Underwriting Intelligence use deterministic rule engines for v1, not an LLM | Confirmed | Rule output is auditable/defensible if disputed, requires no live Azure OpenAI dependency (pre-Gate-1 at time of decision), is unit-testable, and structurally keeps AI out of the fraud/underwriting decision seat. | Build rule engines against real case/customer data now; revisit layering Azure OpenAI narration on top once Gate 3 activates real providers (tracked separately for follow-up, do not silently upgrade). |
 
 
 
@@ -55,6 +59,8 @@ Confirmed project baseline:
 | Architecture/deployment | DEC-006, DEC-007 |
 | Engineering guardrails | DEC-008, DEC-009 |
 | Integration sequencing | DEC-010 |
+| Visual/UX parity (Lovable reference) | DEC-011, DEC-012 |
+| Feature scope expansion (Agent Registry, Fraud, Underwriting, Billing) | DEC-013, DEC-014 |
 
 
 
