@@ -35,15 +35,27 @@ Every `/app/*` screen now either fetches real `/api/v1` data or shows an honest 
 - **Reconciled to real endpoints (14):** Channels, Fraud, Underwriting, Audit, Support + provider-health (shared → Integrations), Claims, Customers list, Customer 360 detail, Communications, Knowledge, Workflows, Executive, Command Center (metric pills + priority claims).
 - **Honest-gated in live (fixtures dev-only) pending their backend/feature (6):** Documents (cross-case list endpoint), Agents (registry backend), Billing (usage backend), Acquisition (leads persistence), Command Center chat + activity, ClaimReview full workspace.
 
-## Remaining feature backlog (each a real, scoped follow-on)
+## Update (2026-07-05, later) — steps 3 & 4 completed
 
-- Agent Registry backend (persistence + kill switch) → un-gate `/app/admin/agents`.
-- Billing backend (usage counters/entitlements) → un-gate `/app/admin/billing`.
-- Documents cross-case list endpoint + status enums → un-gate `/app/documents`.
-- Command Center grounded chat (`/api/v1/command-center/query`) + activity feed.
-- ClaimReview full review workspace (`/api/v1/claims/{id}` detail wiring).
-- Policy Intelligence grounded Q&A POST flow; Sales-Leads persistence + list.
-- Token consolidation (`globals.css` + `lovable.css`); remove dead `components/blocks/*`.
+**Backend batch (step 3) — done:**
+- ✅ Agent Registry backend (catalog + persisted kill switch, ADR-0002) + tests → `/app/admin/agents` un-gated & wired to real kill switch.
+- ✅ Billing backend (default entitlements + real usage meters, ADR-0003) + tests → `/app/admin/billing` un-gated & wired.
+- ✅ Fraud + Underwriting rule-engine backends (earlier) + `/api/v1/customers` list → Customer 360 wired.
+- ✅ Documents cross-case endpoint (`GET /api/v1/documents`) + `DocumentProcessingStatus` extended (ReviewRequired/Reviewed/Rejected) → `/app/documents` un-gated & wired.
+
+**Token consolidation (step 4) — done:** documented as a deliberate two-layer split by surface (lovable.css HSL for `/app`; globals.css RGB for customer-portal + shared governed primitives; disjoint, verified). Removed dead `components/blocks/*`, `lib/commandCenterBlocks.ts`, `lib/commandCenterFixtures.ts`.
+
+**Test totals:** 95 Domain + 229 API pass; portal build + lint green.
+
+### Genuinely blocked on a data source that doesn't exist yet (honest states in live)
+- **Command Center grounded chat** — needs the `/api/v1/command-center/query` chat surface built (metric pills + priority claims are already live).
+- **ClaimReview full workspace** — `/api/v1/claims/{id}` detail exists; the rich extraction/timeline/governed-action workspace is a feature build.
+- **Policy Intelligence grounded Q&A** — needs the RAG question POST flow.
+- **Channels write-actions** (create-claim/lead/draft/escalate) — no conversation ingestion source yet (read repo returns empty); actions honest-disabled.
+- **Sales-Leads list + Acquisition** — sales-leads read repo is a stub (no persistence); honest empty in live.
+- **Multi-workspace switcher** — no workspaces catalog (one-insurer-per-instance default); `/me` resolves a single scope.
+
+These are new-feature / data-source work, not fixture cleanup — every screen already shows real data or an honest state in live.
 
 **Validation:** `dotnet build` 0 errors; `dotnet test` 85 Domain + 229 API pass; `pnpm build` + `pnpm lint` green.
 
