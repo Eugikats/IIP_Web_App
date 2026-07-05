@@ -18,9 +18,15 @@
 8. **Audit reconciled** — `/app/audit` → `/api/v1/audit/events` with a real client-side CSV export.
 9. **Provider health reconciled (shared)** — `ProviderHealthGrid` (used by Support & Integrations) → `/api/v1/admin/provider-health`; Support's unbacked queue/failed-jobs/diagnostics stats gated behind parity mode (`Not configured` in live, no fabricated stats).
 
-**Reconciled screens so far:** Channels, Fraud, Underwriting, Audit, Support, Claims (+ shared provider-health used by Integrations).
+**Reconciled screens (12):** Channels, Fraud, Underwriting, Audit (real CSV export), Support, Claims, Customers list, Customer 360 detail, Communications, Knowledge, Workflows/approvals, Executive (real KPIs + live claims-by-status chart + CSV) — plus the shared provider-health grid used by Support & Integrations.
 
-**Remaining screens are backend-blocked or complex** (documented in the audit): Customer 360 needs a `/api/v1/customers` **list** endpoint + `customerId` on claims; Documents/Communications need cross-case list endpoints + status enums; Policy Intelligence needs the grounded Q&A POST flow; Command Center needs the chat/query wiring; Agents/Billing need their backends first. These are the correct next work items and should not be faked.
+**Backend deltas shipped:** `GET /api/v1/customers` list endpoint (unblocked Customer 360).
+
+**Remaining screens** (harder / backend-heavy, documented in the audit): Command Center (chat/query wiring), Documents (needs cross-case list endpoint + status enums), Sales-Leads/Acquisition (needs a sales-leads **list** endpoint like customers), Policy Intelligence (grounded Q&A POST flow), FNOL / Claim detail / Document extraction (case-scoped flows), Admin / Settings / Client Portal (config surfaces), plus the Agent Registry and Billing screens (need their backends first).
+
+**Remaining backend:** Agent Registry (+ kill switch, persistence), Billing (usage counters), Documents/Communications status enums + cross-case list endpoints, Sales-Leads list, Channels write-actions, `/me` workspaces.
+
+**Remaining non-screen:** token consolidation (`globals.css` + `lovable.css`), prod parity-gate resolution, dead-code cleanup (`components/blocks/*`).
 
 **Validation:** `dotnet build` 0 errors; `dotnet test` 85 Domain + 229 API pass; `pnpm build` + `pnpm lint` green.
 
