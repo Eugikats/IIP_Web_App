@@ -178,6 +178,7 @@ public static class InfrastructureRegistration
         services.AddScoped<IChannelReadRepository, EfChannelReadRepository>();
         services.AddScoped<ISalesLeadReadRepository, EfSalesLeadReadRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentStateRepository, EfAgentStateRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
         // Azure SQL connectivity probe). The other three Core ports (ITenantContextAccessor,
         // IPermissionService, IAuditWriter) are already correctly implemented via the hexagonal
