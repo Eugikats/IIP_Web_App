@@ -20,6 +20,14 @@ these documents as the source of truth.
 - The obsolete-provider warnings in test/build output are intentional guard warnings for
   isolated test doubles and legacy simulation classes; do not silence them without replacing
   the underlying production provider path.
+- **Portal (`web/portal`)** — the operator app is served under the `/app/*` route tree
+  (`web/portal/lovable-pages/*` in the `components/iip/AppShell` shell); `/` is the Login
+  screen. This is the **Ambient Intelligence** theme delivered via the Lovable-parity
+  migration. Screens are being reconciled off dev-only `LovableVisualParity` fixtures
+  (`NEXT_PUBLIC_VISUAL_PARITY_MODE=true`) onto real `/api/v1` data. Run locally with
+  `cd web/portal && pnpm install && pnpm dev` (add `NEXT_PUBLIC_VISUAL_PARITY_MODE=true` to
+  preview the fixture screens). Current backlog and the pre-migration route tree slated for
+  removal: [`docs/06-decisions/lovable-parity-migration-audit.md`](docs/06-decisions/lovable-parity-migration-audit.md).
 
 ## Read first (authority order)
 

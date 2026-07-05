@@ -20,6 +20,8 @@ This version supersedes the flat "Light Intelligence Workspace" palette below wi
 
 The token tables below have also been corrected to match the token names actually implemented in `web/portal/app/globals.css` / `tailwind.config.ts` (the previous `--iip-*` naming in this doc never matched the shipped code — this update closes that gap as well as updating the values).
 
+> **Delivery note (2026-07-05).** This theme is delivered through the canonical `/app/*` route tree (Lovable-parity migration, ADR-2026-07-04). Two token layers currently coexist — `web/portal/app/globals.css` (RGB `--color-*`) and `web/portal/app/lovable.css` (HSL `--navy`/`--radius`/shadcn set); consolidating them into one is a tracked task (`docs/06-decisions/lovable-parity-migration-audit.md` §2.3). The Ambient Intelligence *values* here are authoritative regardless of which file holds them.
+
 ## July 2026 Update - Chat-First Command Center Direction
 
 This version updates the document to align with the approved **chat-first Command Center** direction for **IIP Operations**.

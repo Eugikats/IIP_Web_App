@@ -46,6 +46,7 @@ Confirmed project baseline:
 | DEC-012 | Bring Channels, Customer 360, Communications, Documents, Support, and Workspaces to full workflow/logic parity with the Lovable reference — real backend logic, not mock, wherever the current implementation is partial | Confirmed | Owner wants everything designed in Lovable to be genuinely functional in IIP, not a demo; where the current stack differs from Lovable's, the pattern is ported, the library is not. | New/extended backend endpoints (Channels actions, Documents/Communications status enums, Customer 360 summary), new Customer 360 detail route, new cross-case Documents/Communications views, Workspace switcher. |
 | DEC-013 | Add four previously out-of-scope modules — AI Agent Registry (+ kill switch), Fraud Intelligence, Underwriting Intelligence, Billing/entitlements — as full, real features, not deferred | Confirmed | These exist in the Lovable reference with no backend/doc/UI equivalent in IIP today; owner wants full parity, not a trimmed MVP. | New Domain entities, query/command services, endpoints, and UI routes for each, following the existing Phase 2 query-service pattern; new doc screen specs; ADR for the multi-agent orchestration/kill-switch boundary. |
 | DEC-014 | Fraud Intelligence and Underwriting Intelligence use deterministic rule engines for v1, not an LLM | Confirmed | Rule output is auditable/defensible if disputed, requires no live Azure OpenAI dependency (pre-Gate-1 at time of decision), is unit-testable, and structurally keeps AI out of the fraud/underwriting decision seat. | Build rule engines against real case/customer data now; revisit layering Azure OpenAI narration on top once Gate 3 activates real providers (tracked separately for follow-up, do not silently upgrade). |
+| DEC-015 | The Lovable-parity implementation is delivered as the canonical `/app/*` route tree (LovableVisualParity mode), superseding DEC-012's incremental real-route rework | Confirmed | The migration (`47ed7a8`, ADR-2026-07-04) mounted the full Lovable prototype under `/app/*` with dev-only fixtures, which the owner adopted as canonical; reconciling each screen to real `/api/v1` data is cleaner than reworking each legacy route in place. | Reconcile `/app/*` screens off fixtures onto real APIs (per-screen `lib/lovable-parity/data/*` hooks); the 20 pre-migration top-level routes + the IIP `AppShell`/`roleUiConfig`/`RoleContext` become dead and are removed once nav fully covers `/app/*`; consolidate the `globals.css`+`lovable.css` token systems; resolve the prod parity-gate. Backlog: `docs/06-decisions/lovable-parity-migration-audit.md`. |
 
 
 
@@ -59,7 +60,7 @@ Confirmed project baseline:
 | Architecture/deployment | DEC-006, DEC-007 |
 | Engineering guardrails | DEC-008, DEC-009 |
 | Integration sequencing | DEC-010 |
-| Visual/UX parity (Lovable reference) | DEC-011, DEC-012 |
+| Visual/UX parity (Lovable reference) | DEC-011, DEC-012, DEC-015 |
 | Feature scope expansion (Agent Registry, Fraud, Underwriting, Billing) | DEC-013, DEC-014 |
 
 

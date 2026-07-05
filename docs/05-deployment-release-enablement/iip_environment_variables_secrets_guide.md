@@ -87,6 +87,9 @@ Confirmed project baseline:
 | NEXT_PUBLIC_AUTH_CLIENT_ID | MSAL client id | No | Public app registration id. |
 | NEXT_PUBLIC_AUTH_AUTHORITY | MSAL authority | No | Public config. |
 | NEXT_PUBLIC_ENABLE_DEMO_MODE | Local/demo flag | No | Must be false in production. |
+| NEXT_PUBLIC_VISUAL_PARITY_MODE | LovableVisualParity dev fixtures flag | No | **Development migration only.** When `true`, `/app/*` screens render static prototype fixtures from `web/portal/lib/lovable-parity/`. MUST be unset/`false` in Staging, Production, ManagedApplicationReviewer, and customer environments — deployed builds must render reconciled real-API screens, never fixtures. See `docs/06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md`. |
+
+> **Prod-gate follow-up:** `components/iip/LovableVisualParityGate` currently blocks the entire app in a production build when the flag is off (a migration artifact). Before any deploy, resolve it so production renders the reconciled real screens rather than a "disabled" page (`docs/06-decisions/lovable-parity-migration-audit.md` §2.4).
 
 ## Environment Matrix
 

@@ -790,32 +790,32 @@ Command Center session-state tables must not contain large raw text/evidence col
 
 ## 19. Frontend/UI authority
 
-Before changing frontend page, layout, tokens, navigation, role behavior, Command Center, AI surface, customer-safe surface, approval flow, or backend mapping, read:
+Before changing frontend page, layout, tokens, navigation, role behavior, Command Center, AI surface, customer-safe surface, approval flow, or backend mapping, read the authoritative UI doc set (the `docs/ui/*` paths referenced in earlier drafts were never created — use these real docs instead):
 
 ```text
-docs/ui/IIP_Operations_UI_Design_Specification_MVP.md
-docs/ui/reference/IIP_Global_Theme_Approved.png
-docs/ui/backend-contract-map.md
-Design System & UX Behavior Specification
-UI/UX Handoff Document
-Frontend Implementation Guide
-Component Architecture Document
+docs/03-design-architecture/iip_design_system_ux_behavior_specification.md
+docs/02-development-engineering/iip_ui_ux_handoff_document.md
+docs/02-development-engineering/iip_frontend_implementation_guide.md
+docs/02-development-engineering/IIP_FRONTEND_ARCHITECTURE_AND_AGENT_HANDOFF.md
+docs/03-design-architecture/iip_component_architecture_document.md
+docs/06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md
+docs/06-decisions/lovable-parity-migration-audit.md
 ```
 
-Approved visual direction:
+Approved visual direction — **Ambient Intelligence theme** (DEC-011, design-system spec v1.2), which supersedes the earlier flat "Light Intelligence Workspace" palette:
 
 ```text
-Light Intelligence Workspace theme
-White/off-white/soft-lavender surfaces
-Deep ink-navy typography
-Subtle indigo/violet brand and AI accents
-Light sidebar and light header
+Ambient Intelligence theme (blue→violet gradient family)
+Base ink navy #0B0F3B, primary #2563FF, AI accent violet #7C4DFF
+Soft translucent glass surfaces over an ambient gradient background
 Structured right evidence/context rail
 Compact operational tables
-Subtle borders/shadows/radii
-No heavy dark sidebar in MVP
+Depth scale + glass shadows, generous radii
+Chat-first Command Center (unchanged), block-rendered AI output
 No fake dashboard stats
 ```
+
+**Canonical app structure (post Lovable-parity migration):** the operator app lives under the `/app/*` route tree (rendered from `web/portal/lovable-pages/*` inside the `components/iip/AppShell` shell); `/` is the Login screen. Screens are being reconciled off `LovableVisualParity` fixtures onto real `/api/v1` data via per-screen hooks in `web/portal/lib/lovable-parity/data/*` (see the migration audit for the reconciliation backlog and the pre-migration route tree slated for removal). `LovableVisualParity` fixtures are development-only (`NEXT_PUBLIC_VISUAL_PARITY_MODE=true`) and never run in deployed environments.
 
 Frontend must use real API contracts and real bearer-token auth. If token refresh is not complete, state it as a blocker; do not hardcode fake tokens.
 
@@ -869,7 +869,7 @@ GET /api/v1/assistant/actions
 POST /api/v1/assistant/policy-questions
 ```
 
-There is no backend Channels or Sales & Leads API yet. The Track B portal pages for those areas (`/channels`, `/sales-leads`) are UI scaffolding without a corresponding backend endpoint — do not reference `/api/v1/channels/...` or `/api/v1/sales-leads/...` as if they exist until those services are built.
+Channels and Sales & Leads now have backing query services (added in Phase 2, W2.1/W2.3): `GET /api/v1/channels/overview` and the sales-leads read routes are live and tenant-scoped. Their read repositories currently return empty until a channel-ingestion source is configured, so the screens render honest empty states rather than sample data. Write-side actions for Channels (create-claim/create-lead/draft-response/escalate) are not yet implemented — do not reference those action endpoints as if they exist until built.
 
 The prose Command Center assistant path (`POST .../command-center/assistant`) and the multi-agent query path (`POST /api/v1/assistant/query`) were removed in the v2 migration; the chat-first `POST /api/v1/command-center/query` and the grounded `POST /api/v1/assistant/policy-questions` are the current AI-answer endpoints. Do not reintroduce the removed paths.
 

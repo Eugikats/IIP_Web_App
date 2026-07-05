@@ -1407,6 +1407,8 @@ Support & Health provides operational visibility for engineering, platform admin
 
 ---
 
+> **Delivery note (2026-07-05).** Screen specs 9.17–9.25 below were written for an incremental rework of the pre-migration real routes. The canonical delivery is now the `/app/*` route tree (Lovable-parity migration, ADR-2026-07-04): each screen is the prototype component in `web/portal/lovable-pages/*`, reconciled off dev-only fixtures onto real `/api/v1` data via `web/portal/lib/lovable-parity/data/*` hooks (Channels is the completed template). The *requirements* in these specs still hold; only the route/file location changed. Reconciliation backlog + old-route removal: `docs/06-decisions/lovable-parity-migration-audit.md`.
+
 ## 9.17 Channels Inbox — Threaded + Actions (parity amendment)
 
 > Amends 9.3. Brings Channels to full workflow parity with the Lovable reference. DEC-012 / Initiative LP.2.

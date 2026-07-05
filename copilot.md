@@ -116,22 +116,24 @@ Follow the coding principles in `AGENTS.md` Section 14.
 
 ## UI fidelity and IIP Operations authority
 
-Before changing any frontend page, layout, component, styling token, navigation, AI surface, customer portal surface, integration state, approval workflow, or API-to-UI mapping, read in full:
+Before changing any frontend page, layout, component, styling token, navigation, AI surface, customer portal surface, integration state, approval workflow, or API-to-UI mapping, read in full (the `docs/ui/*` paths in earlier drafts were never created — use these real docs):
 
-- `docs/ui/IIP_Operations_UI_Design_Specification_MVP.md`
-- `docs/ui/reference/IIP_Global_Theme_Approved.png`
+- `docs/03-design-architecture/iip_design_system_ux_behavior_specification.md` (Ambient Intelligence theme, v1.2)
+- `docs/02-development-engineering/iip_ui_ux_handoff_document.md`
+- `docs/06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md`
+- `docs/06-decisions/lovable-parity-migration-audit.md`
 
-Match the approved **Light Intelligence Workspace Theme**:
+The operator app is the `/app/*` route tree (`web/portal/lovable-pages/*`); `/` is Login. Screens reconcile off dev-only `LovableVisualParity` fixtures onto real `/api/v1` data via `web/portal/lib/lovable-parity/data/*` hooks.
 
-- bright white and soft-lavender workspace surfaces;
+Match the approved **Ambient Intelligence theme** (DEC-011):
+
+- blue→violet gradient family; base ink navy `#0B0F3B`, primary `#2563FF`, AI accent violet `#7C4DFF`;
+- soft translucent glass surfaces over an ambient gradient background;
 - deep ink-navy typography;
-- restrained indigo-to-violet brand and AI accents;
-- light sidebar and light header;
 - structured right-side execution or AI insight rail;
 - compact operational tables;
-- subtle borders, shadows, and rounded cards;
-- no dark sidebar in MVP;
-- no unapproved color palette changes;
+- glass/depth shadows and generous rounded cards;
+- no unapproved color palette changes outside the Ambient Intelligence tokens;
 - no improvised styling direction.
 
 Do not reinterpret, modernize, simplify, or restyle the approved theme without an explicit user-approved specification update.

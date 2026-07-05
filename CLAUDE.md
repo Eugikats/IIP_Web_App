@@ -58,12 +58,16 @@ Do not claim production readiness unless the live-provider, security, operationa
 
 ## UI implementation authority
 
-Before changing any frontend page, layout, component, style token, navigation behavior, AI surface, approval workflow, customer-safe surface, integration state, or API-to-UI mapping, read the approved IIP Operations UI authority documents in full, including where present:
+Before changing any frontend page, layout, component, style token, navigation behavior, AI surface, approval workflow, customer-safe surface, integration state, or API-to-UI mapping, read the authoritative IIP Operations UI docs in full (the `docs/ui/*` and `docs/security/ui-backend-security-review.md` paths in earlier drafts were never created — use these real docs; security guidance lives in `AGENTS.md` §22 and guardrails §§4/18–19):
 
-- `docs/ui/IIP_Operations_UI_Design_Specification_MVP.md`
-- `docs/ui/reference/IIP_Global_Theme_Approved.png`
-- `docs/ui/backend-contract-map.md`
-- `docs/security/ui-backend-security-review.md`
+- `docs/03-design-architecture/iip_design_system_ux_behavior_specification.md` (Ambient Intelligence theme, v1.2 — supersedes the flat theme)
+- `docs/02-development-engineering/iip_ui_ux_handoff_document.md`
+- `docs/02-development-engineering/iip_frontend_implementation_guide.md`
+- `docs/02-development-engineering/IIP_FRONTEND_ARCHITECTURE_AND_AGENT_HANDOFF.md`
+- `docs/06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md`
+- `docs/06-decisions/lovable-parity-migration-audit.md`
+
+Current app structure: the operator app is the `/app/*` route tree (`web/portal/lovable-pages/*` in the `components/iip/AppShell` shell); `/` is Login. Screens are being reconciled off `LovableVisualParity` dev-only fixtures (`NEXT_PUBLIC_VISUAL_PARITY_MODE=true`) onto real `/api/v1` data via `web/portal/lib/lovable-parity/data/*` hooks — see the migration audit for the backlog and the old route tree slated for removal.
 
 The IIP Operations UI must be a premium, calm, enterprise insurance operations workspace with embedded AI assistance. It must not become a generic chatbot-first app.
 
