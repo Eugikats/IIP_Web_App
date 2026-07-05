@@ -18,7 +18,9 @@
 8. **Audit reconciled** — `/app/audit` → `/api/v1/audit/events` with a real client-side CSV export.
 9. **Provider health reconciled (shared)** — `ProviderHealthGrid` (used by Support & Integrations) → `/api/v1/admin/provider-health`; Support's unbacked queue/failed-jobs/diagnostics stats gated behind parity mode (`Not configured` in live, no fabricated stats).
 
-**Reconciled screens so far:** Channels, Fraud, Underwriting, Audit, Support (+ shared provider-health used by Integrations).
+**Reconciled screens so far:** Channels, Fraud, Underwriting, Audit, Support, Claims (+ shared provider-health used by Integrations).
+
+**Remaining screens are backend-blocked or complex** (documented in the audit): Customer 360 needs a `/api/v1/customers` **list** endpoint + `customerId` on claims; Documents/Communications need cross-case list endpoints + status enums; Policy Intelligence needs the grounded Q&A POST flow; Command Center needs the chat/query wiring; Agents/Billing need their backends first. These are the correct next work items and should not be faked.
 
 **Validation:** `dotnet build` 0 errors; `dotnet test` 85 Domain + 229 API pass; `pnpm build` + `pnpm lint` green.
 
