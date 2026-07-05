@@ -217,8 +217,8 @@ else
     builder.Services.AddSingleton<ITeamsNotificationProvider, MockTeamsNotificationProvider>();
 }
 
-builder.Services.AddSingleton<ITeamsNotificationQueue, DefaultTeamsNotificationQueue>();
-builder.Services.AddSingleton<CaseIntakeService>();
+builder.Services.AddScoped<ITeamsNotificationQueue, DefaultTeamsNotificationQueue>();
+builder.Services.AddScoped<CaseIntakeService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<TenantContextAccessor>();
 builder.Services.AddScoped<ITenantContextAccessor>(serviceProvider => serviceProvider.GetRequiredService<TenantContextAccessor>());
@@ -290,6 +290,28 @@ app.Use(async (context, next) =>
     {
         await rejection.ExecuteAsync(context);
         return;
+    }
+
+    await next();
+});
+
+// Populate the per-request tenant context for query-service endpoints (Channels,
+// Customers, Audit, Fraud, Underwriting, Agents, Billing, Documents). These read
+// ITenantContextAccessor.Current via their permission/query services; only
+// ClaimsController set it explicitly before, so the standalone query endpoints
+// otherwise fail with "Tenant context has not been initialized".
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/v1")
+        && TenantScopeReader.TryGetFromHeadersOrQuery(context, out var tenantScope, out _))
+    {
+        var userId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            var roleCode = DemoAuthorization.GetEffectiveRole(context, infrastructureOptions).ToString();
+            context.RequestServices.GetRequiredService<ITenantContextSetter>()
+                .SetCurrent(new TenantContext(tenantScope.TenantId, tenantScope.WorkspaceId, userId, [roleCode]));
+        }
     }
 
     await next();
