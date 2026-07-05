@@ -5,6 +5,7 @@ import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { agents, killSwitchLevels, type AgentDef } from "@/lib/lovable-parity/mock";
 import { toast } from "sonner";
+import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 
 function StatusPill({ s }: { s: AgentDef["status"] }) {
   const tone = s === "Active" ? "success" : s === "Testing" ? "info" : s === "Disabled" ? "warning" : "neutral";
@@ -17,6 +18,21 @@ function RiskPill({ r }: { r: AgentDef["risk"] }) {
 
 export default function Agents() {
   const [open, setOpen] = useState<AgentDef | null>(null);
+
+  if (!LOVABLE_VISUAL_PARITY_MODE) {
+    return (
+      <>
+        <SectionHeader eyebrow="Admin · AI & Agent Management" title="Agent registry" sub="Every agent is versioned, permissioned, and auditable. Human approval remains required for regulated actions." />
+        <GlassCard>
+          <div className="p-10 text-center flex flex-col items-center gap-2">
+            <div className="text-navy font-medium">Agent registry backend pending</div>
+            <div className="text-[12.5px] text-stone max-w-md">The AI Agent Registry (definitions, prompt versions, tool/knowledge policies, kill switch, run logs) requires its backend and persistence before it can display real data. It shows nothing here rather than sample agents.</div>
+          </div>
+        </GlassCard>
+      </>
+    );
+  }
+
   return (
     <>
       <SectionHeader

@@ -2,6 +2,7 @@
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
 import { usage } from "@/lib/lovable-parity/mock";
 import { toast } from "sonner";
+import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 
 function Meter({ label, used, limit, unit }: { label: string; used: number; limit: number; unit: string }) {
   const pct = Math.min(100, Math.round((used / limit) * 100));
@@ -19,6 +20,19 @@ function Meter({ label, used, limit, unit }: { label: string; used: number; limi
 }
 
 export default function Billing() {
+  if (!LOVABLE_VISUAL_PARITY_MODE) {
+    return (
+      <>
+        <SectionHeader eyebrow="Admin · Billing & Usage" title="Package & entitlements" sub="AI is metered — human-in-loop and auditability are the core platform value. Usage controls protect provider costs." />
+        <GlassCard>
+          <div className="p-10 text-center flex flex-col items-center gap-2">
+            <div className="text-navy font-medium">Billing & usage backend pending</div>
+            <div className="text-[12.5px] text-stone max-w-md">Entitlements and usage meters are computed from real platform counters, which require their backend before display. Usage numbers are never fabricated — this shows nothing until wired.</div>
+          </div>
+        </GlassCard>
+      </>
+    );
+  }
   return (
     <>
       <SectionHeader
