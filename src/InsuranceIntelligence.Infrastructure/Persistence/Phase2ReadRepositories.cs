@@ -195,6 +195,44 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
             auditHistory);
     }
 
+    public async Task<IReadOnlyList<CustomerListItemDto>> ListCustomersAsync(
+        string tenantId,
+        string workspaceId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = TenantScope.Create(tenantId, workspaceId);
+
+        var customers = (await Scoped(DbContext.Customers.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<Customer>)
+            .ToArray();
+
+        if (customers.Length == 0)
+        {
+            return Array.Empty<CustomerListItemDto>();
+        }
+
+        var claims = (await Scoped(DbContext.Cases.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<ClaimCase>)
+            .ToArray();
+
+        return customers
+            .OrderBy(customer => customer.FullName, StringComparer.OrdinalIgnoreCase)
+            .Select(customer => new CustomerListItemDto(
+                customer.CustomerId,
+                customer.FullName,
+                customer.Email,
+                customer.Phone,
+                claims.Count(claim => MatchesCustomer(claim, customer) && IsOpenClaim(claim))))
+            .ToArray();
+    }
+
+    private static bool IsOpenClaim(ClaimCase claim) =>
+        claim.Status is not (CaseStatus.Settled or CaseStatus.Closed);
+
     // ClaimCase stores denormalized customer contact fields (no CustomerId FK). Correlate on
     // email/phone when the customer has them; only fall back to name when no contact info exists,
     // so one customer's claims never leak onto another with the same name.

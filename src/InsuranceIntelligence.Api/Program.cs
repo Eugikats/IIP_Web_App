@@ -432,6 +432,8 @@ app.MapPost("/api/v1/admin/debug-teams-notification", DebugEndpoints.TriggerTeam
 // W2.5: Phase 2 core-workspace read routes (see docs/02-development-engineering/iip_api_specification.md).
 app.MapGet("/api/v1/channels/overview", ChannelEndpoints.GetOverview)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapGet("/api/v1/customers", CustomerProfileEndpoints.ListCustomers)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustomerProfile)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)

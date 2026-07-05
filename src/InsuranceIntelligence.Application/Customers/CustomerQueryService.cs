@@ -79,6 +79,15 @@ public sealed class CustomerQueryService(
             profile.AuditHistory);
     }
 
+    public async Task<IReadOnlyList<CustomerListItemDto>> ListCustomersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await permissionService.RequirePermissionAsync(Permission.ViewCustomers, cancellationToken);
+
+        var context = tenantContextAccessor.Current;
+        return await repository.ListCustomersAsync(context.TenantId, context.WorkspaceId, cancellationToken);
+    }
+
     private static IReadOnlyDictionary<string, string> SanitizeDictionary(
         IReadOnlyDictionary<string, string> values)
     {
