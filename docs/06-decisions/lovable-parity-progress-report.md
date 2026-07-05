@@ -26,7 +26,24 @@
 
 **Remaining backend:** Agent Registry (+ kill switch, persistence), Billing (usage counters), Documents/Communications status enums + cross-case list endpoints, Sales-Leads list, Channels write-actions, `/me` workspaces.
 
-**Remaining non-screen:** token consolidation (`globals.css` + `lovable.css`), prod parity-gate resolution, dead-code cleanup (`components/blocks/*`).
+**Remaining non-screen:** token consolidation (`globals.css` + `lovable.css`), dead-code cleanup (`components/blocks/*`).
+
+## Milestone (2026-07-05): no fabricated data in live, across the whole app
+
+Every `/app/*` screen now either fetches real `/api/v1` data or shows an honest empty / `Not configured` state. Prototype fixtures render **only** per-screen when `NEXT_PUBLIC_VISUAL_PARITY_MODE=true` (dev). Consequently the `LovableVisualParityGate` whole-app prod block was removed (A7 resolved) — per-screen honesty is now the protection.
+
+- **Reconciled to real endpoints (14):** Channels, Fraud, Underwriting, Audit, Support + provider-health (shared → Integrations), Claims, Customers list, Customer 360 detail, Communications, Knowledge, Workflows, Executive, Command Center (metric pills + priority claims).
+- **Honest-gated in live (fixtures dev-only) pending their backend/feature (6):** Documents (cross-case list endpoint), Agents (registry backend), Billing (usage backend), Acquisition (leads persistence), Command Center chat + activity, ClaimReview full workspace.
+
+## Remaining feature backlog (each a real, scoped follow-on)
+
+- Agent Registry backend (persistence + kill switch) → un-gate `/app/admin/agents`.
+- Billing backend (usage counters/entitlements) → un-gate `/app/admin/billing`.
+- Documents cross-case list endpoint + status enums → un-gate `/app/documents`.
+- Command Center grounded chat (`/api/v1/command-center/query`) + activity feed.
+- ClaimReview full review workspace (`/api/v1/claims/{id}` detail wiring).
+- Policy Intelligence grounded Q&A POST flow; Sales-Leads persistence + list.
+- Token consolidation (`globals.css` + `lovable.css`); remove dead `components/blocks/*`.
 
 **Validation:** `dotnet build` 0 errors; `dotnet test` 85 Domain + 229 API pass; `pnpm build` + `pnpm lint` green.
 
