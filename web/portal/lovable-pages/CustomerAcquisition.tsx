@@ -1,10 +1,13 @@
 "use client";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
 import { leads } from "@/lib/lovable-parity/mock";
-import { MessageSquare, Mail, Globe, Building2, Sparkles } from "lucide-react";
+import { MessageSquare, Mail, Globe, Building2, Sparkles, Inbox } from "lucide-react";
 import { toast } from "sonner";
+import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 
 const sourceIcon = { WhatsApp: MessageSquare, Email: Mail, Web: Globe, Broker: Building2 } as const;
+const parity = LOVABLE_VISUAL_PARITY_MODE;
+const rows = parity ? leads : [];
 
 export default function CustomerAcquisition() {
   return (
@@ -13,10 +16,10 @@ export default function CustomerAcquisition() {
 
       <div className="grid md:grid-cols-4 gap-3 mb-6">
         {[
-          { l: "New leads today", v: 34, t: "info" as const },
-          { l: "In conversation", v: 27, t: "violet" as const },
-          { l: "Awaiting KYC", v: 9, t: "warning" as const },
-          { l: "Converted (7d)", v: 41, t: "success" as const },
+          { l: "New leads today", t: "info" as const, v: parity ? 34 : "—" },
+          { l: "In conversation", t: "violet" as const, v: parity ? 27 : "—" },
+          { l: "Awaiting KYC", t: "warning" as const, v: parity ? 9 : "—" },
+          { l: "Converted (7d)", t: "success" as const, v: parity ? 41 : "—" },
         ].map(k => (
           <div key={k.l} className="glass-subtle p-4">
             <div className="text-[11.5px] text-stone">{k.l}</div>
@@ -26,9 +29,17 @@ export default function CustomerAcquisition() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-3">
-          {leads.map(l => {
+      {rows.length === 0 ? (
+        <GlassCard>
+          <div className="p-10 text-center flex flex-col items-center gap-2">
+            <Inbox className="h-6 w-6 text-stone" />
+            <div className="text-navy font-medium">Lead intake not configured</div>
+            <div className="text-[12.5px] text-stone max-w-md">Qualified leads appear here once a channel/campaign lead source is connected. No sample leads are shown.</div>
+          </div>
+        </GlassCard>
+      ) : (
+        <div className="space-y-3">
+          {rows.map(l => {
             const Icon = sourceIcon[l.source as keyof typeof sourceIcon] ?? Globe;
             return (
               <GlassCard key={l.id} className="hover-lift">
@@ -57,21 +68,7 @@ export default function CustomerAcquisition() {
             );
           })}
         </div>
-
-        <GlassCard>
-          <div className="flex items-center gap-2 mb-3"><Sparkles className="h-3.5 w-3.5 text-info" /><div className="text-[11px] uppercase tracking-[0.14em] text-stone">Copilot suggested draft</div></div>
-          <div className="text-[12.5px] text-slate2 mb-2">To: Brian Ssemakula · WhatsApp</div>
-          <div className="rounded-2xl border border-cloud bg-white/80 p-3 text-[13px] text-slate2 leading-relaxed">
-            Hello Brian, thank you for your interest in <b>Motor Comprehensive cover</b>. Based on the vehicle details you shared, an indicative annual premium is <b>UGX 1,850,000</b>.
-            To move forward, please share a copy of your <b>National ID</b> and <b>logbook</b>. Standard cover includes third-party liability, own damage, and theft.
-            <div className="mt-2 text-[11px] text-stone">Draft — human review required before sending.</div>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button className="flex-1 text-[12.5px] rounded-xl gradient-primary text-white py-2">Approve & send</button>
-            <button className="text-[12.5px] rounded-xl border border-cloud bg-white px-3 py-2 text-navy">Edit</button>
-          </div>
-        </GlassCard>
-      </div>
+      )}
     </>
   );
 }
