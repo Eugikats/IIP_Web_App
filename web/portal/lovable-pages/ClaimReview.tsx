@@ -7,9 +7,30 @@ import MotorLifecycle from "@/components/iip/MotorLifecycle";
 import CompletenessCard from "@/components/iip/CompletenessCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { claims } from "@/lib/lovable-parity/mock";
+import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 
 export default function ClaimReview() {
   const { id } = useParams();
+
+  if (!LOVABLE_VISUAL_PARITY_MODE) {
+    return (
+      <>
+        <div className="flex items-center gap-2 text-[12px] text-stone mb-4">
+          <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-navy"><ArrowLeft className="h-3.5 w-3.5" /> Claims</Link>
+          <span>/</span><span className="text-navy">{String(id ?? "")}</span>
+        </div>
+        <SectionHeader eyebrow="Claims Intelligence" title={`Claim ${String(id ?? "")}`} sub="Human-reviewed claim workspace." />
+        <GlassCard>
+          <div className="p-10 text-center flex flex-col items-center gap-2">
+            <FileText className="h-6 w-6 text-stone" />
+            <div className="text-navy font-medium">Full claim review workspace pending wiring</div>
+            <div className="text-[12.5px] text-stone max-w-md">Claim summary is available via <span className="font-mono">/api/v1/claims/{"{id}"}</span>; the detailed review workspace (extraction, timeline, evidence, governed actions) is wired in a follow-on. No sample claim data is shown here.</div>
+          </div>
+        </GlassCard>
+      </>
+    );
+  }
+
   const c = claims.find(x => x.id === id) ?? claims[0];
 
   const timeline = [
