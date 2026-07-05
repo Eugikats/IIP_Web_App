@@ -240,6 +240,7 @@ builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQueryService, InsuranceIntelligence.Application.Fraud.FraudQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingQueryService, InsuranceIntelligence.Application.Underwriting.UnderwritingQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingSubmissionSource, InsuranceIntelligence.Api.Underwriting.NotConfiguredUnderwritingSubmissionSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentRegistryService, InsuranceIntelligence.Application.Agents.AgentRegistryService>();
 builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.CommandCenter.ISystemCapabilityStatusService, InsuranceIntelligence.Api.CommandCenter.SystemCapabilityStatusService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Workflow.ICaseTimelineProvider, InsuranceIntelligence.Api.Local.CaseTimelineProvider>();
@@ -446,6 +447,11 @@ app.MapGet("/api/v1/fraud/signals", InsuranceIntelligence.Api.Fraud.FraudEndpoin
 // Initiative LP: rule-based underwriting advisory reviews (deterministic, advisory-only).
 app.MapGet("/api/v1/underwriting/reviews", InsuranceIntelligence.Api.Underwriting.UnderwritingEndpoints.GetReviews)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewUnderwriting));
+// Initiative LP: AI Agent Registry — catalog + tenant-scoped persisted kill switch (ADR-0002).
+app.MapGet("/api/v1/admin/agents", InsuranceIntelligence.Api.Admin.Agents.AgentRegistryEndpoints.ListAgents)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapPost("/api/v1/admin/agents/{agentKey}/kill-switch", InsuranceIntelligence.Api.Admin.Agents.AgentRegistryEndpoints.SetKillSwitch)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 
 app.MapGet("/api/v1/compliance/audit-events", ComplianceEndpoints.ListAuditEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));

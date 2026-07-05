@@ -25,6 +25,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PermissionEntity> Permissions => Set<PermissionEntity>();
 
     public DbSet<PersistedCustomer> Customers => Set<PersistedCustomer>();
+    public DbSet<PersistedAgentState> AgentStates => Set<PersistedAgentState>();
     public DbSet<PersistedPolicy> Policies => Set<PersistedPolicy>();
     public DbSet<PersistedCoverage> Coverages => Set<PersistedCoverage>();
     public DbSet<PersistedBranch> Branches => Set<PersistedBranch>();
@@ -57,6 +58,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigurePermissionModel(modelBuilder);
 
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomer>(), "Customers", "CustomerId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedAgentState>(), "AgentStates", "AgentStateId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedPolicy>(), "Policies", "PolicyId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedCoverage>(), "Coverages", "CoverageId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedBranch>(), "Branches", "BranchId");
@@ -157,6 +159,7 @@ public sealed class PersistedMailboxConnection : PersistedScopedJson;
 public sealed class PersistedInboundEmail : PersistedScopedJson;
 public sealed class PersistedTeamsNotification : PersistedScopedJson { public Guid? CaseId { get; set; } }
 public sealed class PersistedCustomer : PersistedScopedJson;
+public sealed class PersistedAgentState : PersistedScopedJson;
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;
 public sealed class PersistedBranch : PersistedScopedJson;
