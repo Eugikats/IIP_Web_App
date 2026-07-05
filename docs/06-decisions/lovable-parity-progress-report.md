@@ -15,6 +15,10 @@
 5. **Fraud Intelligence vertical (new domain, DEC-013/014)** — real deterministic rule engine (`Domain/Fraud/FraudRuleEngine`, 9 unit tests), `Application/Fraud` query service (tenant-scoped, `ViewFraudSignals`), `GET /api/v1/fraud/signals`, and reconciled `/app/fraud` screen with derived counts + honest states. Advisory-only, never a verdict.
 6. **Underwriting Intelligence vertical (new domain, DEC-013/014)** — real rule engine (`Domain/Underwriting/UnderwritingRuleEngine`, 5 unit tests), query service + `IUnderwritingSubmissionSource` port with honest `NotConfigured` implementation, `GET /api/v1/underwriting/reviews`, reconciled `/app/underwriting` screen. Advisory-only, never accepts/rejects/prices.
 7. **Permissions** — added `ViewFraudSignals`, `ViewUnderwriting`, `ManageAgents`, `ViewBilling` to the enum + `RolePermissionMap`.
+8. **Audit reconciled** — `/app/audit` → `/api/v1/audit/events` with a real client-side CSV export.
+9. **Provider health reconciled (shared)** — `ProviderHealthGrid` (used by Support & Integrations) → `/api/v1/admin/provider-health`; Support's unbacked queue/failed-jobs/diagnostics stats gated behind parity mode (`Not configured` in live, no fabricated stats).
+
+**Reconciled screens so far:** Channels, Fraud, Underwriting, Audit, Support (+ shared provider-health used by Integrations).
 
 **Validation:** `dotnet build` 0 errors; `dotnet test` 85 Domain + 229 API pass; `pnpm build` + `pnpm lint` green.
 
