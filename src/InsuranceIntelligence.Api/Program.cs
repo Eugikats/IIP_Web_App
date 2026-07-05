@@ -236,6 +236,8 @@ builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
+// Initiative LP: rule-based advisory domains + admin domains (Fraud/Underwriting/Agents/Billing).
+builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQueryService, InsuranceIntelligence.Application.Fraud.FraudQueryService>();
 builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.CommandCenter.ISystemCapabilityStatusService, InsuranceIntelligence.Api.CommandCenter.SystemCapabilityStatusService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Workflow.ICaseTimelineProvider, InsuranceIntelligence.Api.Local.CaseTimelineProvider>();
@@ -434,6 +436,9 @@ app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/audit/events", AuditEndpoints.ListEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
+// Initiative LP: rule-based fraud advisory signals (deterministic, tenant-scoped, advisory-only).
+app.MapGet("/api/v1/fraud/signals", InsuranceIntelligence.Api.Fraud.FraudEndpoints.GetSignals)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
 
 app.MapGet("/api/v1/compliance/audit-events", ComplianceEndpoints.ListAuditEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));

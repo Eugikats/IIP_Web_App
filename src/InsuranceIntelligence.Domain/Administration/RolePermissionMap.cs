@@ -11,7 +11,9 @@ public static class RolePermissionMap
                 Permission.ViewCommandCenter,
                 Permission.ViewAuditLog,
                 Permission.ConfigureIntegrations,
-                Permission.ManageTenantSettings
+                Permission.ManageTenantSettings,
+                Permission.ManageAgents,
+                Permission.ViewBilling
             ],
             [PlatformRole.ClaimsOfficer] =
             [
@@ -39,7 +41,9 @@ public static class RolePermissionMap
                 Permission.ManageCustomerCommunications,
                 Permission.SendCustomerUpdate,
                 Permission.ViewChannels,
-                Permission.ViewCustomers
+                Permission.ViewCustomers,
+                Permission.ViewFraudSignals,
+                Permission.ViewUnderwriting
             ],
             [PlatformRole.CustomerService] =
             [
@@ -70,7 +74,9 @@ public static class RolePermissionMap
                 Permission.ViewAiOutputs,
                 Permission.ApproveSettlementWorkflowStep,
                 Permission.OverrideAiRecommendation,
-                Permission.ViewCustomers
+                Permission.ViewCustomers,
+                Permission.ViewFraudSignals,
+                Permission.ViewUnderwriting
             ],
             [PlatformRole.Client] =
             [
