@@ -1,19 +1,15 @@
 import type { ReactNode } from "react";
-import { LOVABLE_VISUAL_PARITY_MODE, LOVABLE_VISUAL_PARITY_MODE_NAME } from "@/lib/lovable-parity/mode";
 
+/**
+ * Historically this gate blocked the entire app in production unless the
+ * LovableVisualParity dev flag was set — a safety net while `/app/*` screens
+ * still rendered prototype fixtures. That prerequisite is now met: every screen
+ * either fetches real `/api/v1` data or shows an honest empty/"Not configured"
+ * state, and prototype fixtures render only when NEXT_PUBLIC_VISUAL_PARITY_MODE
+ * is true (per-screen). So the whole-app block is no longer needed; per-screen
+ * honesty is the protection. Kept as a thin pass-through so the layout wiring is
+ * unchanged and a future global gate has a home if ever needed.
+ */
 export default function LovableVisualParityGate({ children }: { children: ReactNode }) {
-  if (process.env.NODE_ENV === "production" && !LOVABLE_VISUAL_PARITY_MODE) {
-    return (
-      <main className="min-h-screen bg-white px-6 py-10 text-slate-950">
-        <div className="mx-auto max-w-2xl rounded-lg border border-slate-200 bg-slate-50 p-6">
-          <p className="text-sm font-semibold">{LOVABLE_VISUAL_PARITY_MODE_NAME} disabled</p>
-          <p className="mt-2 text-sm text-slate-600">
-            Set NEXT_PUBLIC_VISUAL_PARITY_MODE=true only for the approved development visual-parity migration.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
   return children;
 }
