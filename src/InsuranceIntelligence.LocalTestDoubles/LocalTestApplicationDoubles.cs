@@ -16,6 +16,13 @@ public sealed class LocalTestPermissionReadRepository : IPermissionReadRepositor
         string userId,
         CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyCollection<Permission>>(Array.Empty<Permission>());
+
+    public Task<EffectiveMembership?> GetEffectiveMembershipAsync(
+        string userId,
+        string? tenantHint,
+        string? workspaceHint,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<EffectiveMembership?>(null);
 }
 
 public sealed class LocalTestAuditEventRepository : IAuditEventRepository

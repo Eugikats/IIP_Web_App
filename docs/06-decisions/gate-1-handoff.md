@@ -29,7 +29,7 @@ Key rules: token `tid` is a hint only; runtime authority = IIP membership store 
 | ID | Item | Status | Notes |
 |---|---|---|---|
 | G1.4 | ADR-0005 multitenant Entra identity model | ✅ done | Formalizes the spec decision. |
-| G1.2 | `AuthenticatedTenantResolver` + `GetEffectiveMembershipAsync` | ⏳ next | DB-authoritative membership (tenant/workspace/roles/permissions) from authenticated `oid` + tenant hint. |
+| G1.2 | `GetEffectiveMembershipAsync` (DB-authoritative membership resolver) | ✅ done | `IPermissionReadRepository.GetEffectiveMembershipAsync(oid, tenantHint, workspaceHint)` + EF impl + `EffectiveMembership` record. Fails closed on no/ambiguous membership; hint disambiguates. 2 tests. AuthenticatedTenantResolver (HttpContext wiring) folds into G1.3. |
 | G1.3 | Reconcile API-layer authz to the store; `IIP.Access` entry gate | ⏳ | Security-critical — claim before editing. Stop trusting token `tid`/`roles` in deployed mode. |
 | G1.5 | Tests (resolver, DB-authoritative authz, entry gate, fail-closed) | ⏳ | |
 | G1.6 | Key Vault config provider (deployed-only) + config/identity readiness validator | ⏳ | `Azure__KeyVaultUri` + `DefaultAzureCredential`. |

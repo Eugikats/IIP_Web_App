@@ -9,7 +9,33 @@ public interface IPermissionReadRepository
         string workspaceId,
         string userId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves the authenticated user's effective IIP membership from the runtime authority
+    /// (membership/role/permission store), keyed by the user's stable id (Entra <c>oid</c>). The
+    /// tenant/workspace hints (from the token's <c>tid</c> / an IIP-issued claim) are only used to
+    /// disambiguate when a user belongs to more than one tenant/workspace — they never grant access.
+    /// Returns <c>null</c> when the user has no active membership for the resolved scope (fail closed).
+    /// See ADR-0005.
+    /// </summary>
+    Task<EffectiveMembership?> GetEffectiveMembershipAsync(
+        string userId,
+        string? tenantHint,
+        string? workspaceHint,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// The server-resolved authority for a request: which tenant/workspace the authenticated user
+/// actually belongs to, and the fine-grained permissions they hold there. Never derived from the
+/// token's role/tid claims (ADR-0005).
+/// </summary>
+public sealed record EffectiveMembership(
+    string TenantId,
+    string WorkspaceId,
+    string UserId,
+    IReadOnlyCollection<string> Roles,
+    IReadOnlyCollection<Permission> Permissions);
 
 public interface IPermissionService
 {

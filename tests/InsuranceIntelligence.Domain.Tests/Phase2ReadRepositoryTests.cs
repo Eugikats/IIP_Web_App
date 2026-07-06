@@ -180,6 +180,53 @@ public sealed class Phase2ReadRepositoryTests
         Assert.DoesNotContain(workspaces, w => w.DisplayName == "Other Tenant");
     }
 
+    [Fact]
+    public async Task EffectiveMembership_ResolvesFromStore_AndFailsClosed()
+    {
+        await using var dbContext = CreateDbContext();
+        // tenant-a/workspace-a: user-1 is an active member with role "ClaimsOfficer" granting ViewAssignedClaims.
+        dbContext.UserTenantMemberships.Add(new InsuranceIntelligence.Infrastructure.Persistence.UserTenantMembershipEntity
+        { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = "workspace-a", UserId = "oid-user-1", IsActive = true });
+        dbContext.RoleAssignments.Add(new InsuranceIntelligence.Infrastructure.Persistence.RoleAssignmentEntity
+        { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = "workspace-a", UserId = "oid-user-1", RoleCode = "ClaimsOfficer" });
+        dbContext.RolePermissions.Add(new InsuranceIntelligence.Infrastructure.Persistence.RolePermissionEntity
+        { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = "workspace-a", RoleCode = "ClaimsOfficer", PermissionCode = "ViewAssignedClaims" });
+        // Inactive membership in another tenant — must never resolve.
+        dbContext.UserTenantMemberships.Add(new InsuranceIntelligence.Infrastructure.Persistence.UserTenantMembershipEntity
+        { Id = Guid.NewGuid(), TenantId = "tenant-b", WorkspaceId = "workspace-a", UserId = "oid-user-1", IsActive = false });
+        await dbContext.SaveChangesAsync();
+
+        var repo = new EfPermissionReadRepository(dbContext);
+
+        var resolved = await repo.GetEffectiveMembershipAsync("oid-user-1", tenantHint: null, workspaceHint: null);
+        Assert.NotNull(resolved);
+        Assert.Equal("tenant-a", resolved!.TenantId);
+        Assert.Equal("workspace-a", resolved.WorkspaceId);
+        Assert.Contains(InsuranceIntelligence.Domain.Administration.Permission.ViewAssignedClaims, resolved.Permissions);
+
+        // Fail closed: unknown user, and inactive-only membership.
+        Assert.Null(await repo.GetEffectiveMembershipAsync("oid-unknown", null, null));
+        Assert.Null(await repo.GetEffectiveMembershipAsync("oid-user-1", tenantHint: "tenant-b", workspaceHint: null));
+    }
+
+    [Fact]
+    public async Task EffectiveMembership_MultipleMembershipsWithoutHint_FailsClosed_ButHintDisambiguates()
+    {
+        await using var dbContext = CreateDbContext();
+        foreach (var t in new[] { "tenant-a", "tenant-b" })
+        {
+            dbContext.UserTenantMemberships.Add(new InsuranceIntelligence.Infrastructure.Persistence.UserTenantMembershipEntity
+            { Id = Guid.NewGuid(), TenantId = t, WorkspaceId = "workspace-a", UserId = "oid-user-2", IsActive = true });
+        }
+        await dbContext.SaveChangesAsync();
+        var repo = new EfPermissionReadRepository(dbContext);
+
+        Assert.Null(await repo.GetEffectiveMembershipAsync("oid-user-2", null, null)); // ambiguous -> fail closed
+        var resolved = await repo.GetEffectiveMembershipAsync("oid-user-2", tenantHint: "tenant-b", workspaceHint: null);
+        Assert.NotNull(resolved);
+        Assert.Equal("tenant-b", resolved!.TenantId);
+    }
+
     private static PersistedWorkspace ScopedJson(string tenantId, string workspaceId, InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto payload) =>
         new()
         {

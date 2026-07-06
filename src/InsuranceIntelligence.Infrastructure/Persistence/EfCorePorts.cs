@@ -52,6 +52,51 @@ public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext db
             .OfType<Permission>()
             .ToArray();
     }
+
+    public async Task<EffectiveMembership?> GetEffectiveMembershipAsync(
+        string userId,
+        string? tenantHint,
+        string? workspaceHint,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return null;
+        }
+
+        // Candidate active memberships for this authenticated user, narrowed by the hints when present.
+        var query = dbContext.UserTenantMemberships.AsNoTracking()
+            .Where(m => m.UserId == userId && m.IsActive);
+        if (!string.IsNullOrWhiteSpace(tenantHint))
+        {
+            query = query.Where(m => m.TenantId == tenantHint);
+        }
+        if (!string.IsNullOrWhiteSpace(workspaceHint))
+        {
+            query = query.Where(m => m.WorkspaceId == workspaceHint);
+        }
+
+        var memberships = await query
+            .Select(m => new { m.TenantId, m.WorkspaceId })
+            .ToArrayAsync(cancellationToken);
+
+        // Fail closed: no membership, or ambiguous (multiple) without a hint to disambiguate.
+        if (memberships.Length != 1)
+        {
+            return null;
+        }
+
+        var scope = memberships[0];
+        var roles = await dbContext.RoleAssignments.AsNoTracking()
+            .Where(r => r.TenantId == scope.TenantId && r.WorkspaceId == scope.WorkspaceId && r.UserId == userId)
+            .Select(r => r.RoleCode)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+
+        var permissions = await GetPermissionsAsync(scope.TenantId, scope.WorkspaceId, userId, cancellationToken);
+
+        return new EffectiveMembership(scope.TenantId, scope.WorkspaceId, userId, roles, permissions);
+    }
 }
 
 public sealed class EfAuditEventRepository(InsuranceIntelligenceDbContext dbContext)
