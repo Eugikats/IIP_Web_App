@@ -1,0 +1,117 @@
+name: Deploy Staging (existing Azure resources)
+
+# Publishes the v2 API + portal to the EXISTING staging App Services that were
+# provisioned for the original repo. This workflow deploys application code only — it
+# NEVER creates/modifies Azure infrastructure and NEVER touches Partner Center or the
+# published Marketplace managed-application package (infra/mainTemplate.bicep). Runtime
+# configuration (INSURANCEINTELLIGENCE_* app settings pointing at the existing resources)
+# is applied out-of-band via infra/scripts/set-staging-appsettings.sh — see
+# docs/05-deployment-release-enablement/iip_gate2_staging_deploy_reuse_existing_resources.md.
+#
+# Trigger is manual only (workflow_dispatch): deploys are an explicit, approved action.
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_api:
+        description: "Deploy the API App Service"
+        type: boolean
+        default: true
+      deploy_portal:
+        description: "Deploy the Portal App Service"
+        type: boolean
+        default: true
+
+# Identifiers (not secrets) for the EXISTING staging resources being reused.
+env:
+  API_APP_NAME: app-api-stg-cus-vyhhymwydvai2
+  PORTAL_APP_NAME: app-portal-stg-cus-vyhhymwydvai2
+  DOTNET_VERSION: "8.0.x"
+  NODE_VERSION: "20"
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy-api:
+    if: ${{ inputs.deploy_api }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Publish API
+        run: dotnet publish src/InsuranceIntelligence.Api/InsuranceIntelligence.Api.csproj -c Release -o ${{ github.workspace }}/api-publish
+
+      # Deploys to the EXISTING API App Service using its publish profile
+      # (GitHub secret AZURE_API_PUBLISH_PROFILE). The profile encodes the target app.
+      - name: Deploy API to existing App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.API_APP_NAME }}
+          publish-profile: ${{ secrets.AZURE_API_PUBLISH_PROFILE }}
+          package: ${{ github.workspace }}/api-publish
+
+  deploy-portal:
+    if: ${{ inputs.deploy_portal }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/portal
+    # NEXT_PUBLIC_* values are baked at build time. Supply them as repository/environment
+    # VARIABLES (non-secret identifiers) so the portal points at the existing resources.
+    env:
+      NEXT_PUBLIC_API_BASE_URL: ${{ vars.IIP_PORTAL_API_BASE_URL }}
+      NEXT_PUBLIC_AUTH_MODE: Entra
+      NEXT_PUBLIC_RUNTIME_PROFILE: Staging
+      NEXT_PUBLIC_ENTRA_TENANT_ID: ${{ vars.IIP_ENTRA_TENANT_ID }}
+      NEXT_PUBLIC_ENTRA_CLIENT_ID: ${{ vars.IIP_PORTAL_ENTRA_CLIENT_ID }}
+      NEXT_PUBLIC_ENTRA_API_SCOPE: ${{ vars.IIP_ENTRA_API_SCOPE }}
+      NEXT_PUBLIC_ENTRA_REDIRECT_URI: ${{ vars.IIP_ENTRA_REDIRECT_URI }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/portal/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (standalone)
+        run: pnpm build
+
+      # Assemble the Next.js standalone bundle: server.js + traced node_modules live in
+      # .next/standalone; static assets and /public must be copied alongside them.
+      - name: Assemble standalone bundle
+        run: |
+          set -e
+          rm -rf deploy && mkdir -p deploy
+          cp -r .next/standalone/. deploy/
+          # server.js may be at the standalone root or nested (monorepo tracing). Locate it.
+          SERVER_DIR=$(dirname "$(find deploy -maxdepth 3 -name server.js | head -1)")
+          echo "standalone server dir: $SERVER_DIR"
+          mkdir -p "$SERVER_DIR/.next"
+          cp -r .next/static "$SERVER_DIR/.next/static"
+          if [ -d public ]; then cp -r public "$SERVER_DIR/public"; fi
+          # Normalize so the deployed root always has server.js (App Service runs `node server.js`).
+          if [ "$SERVER_DIR" != "deploy" ]; then cp -r "$SERVER_DIR"/. deploy/; fi
+
+      # Deploys to the EXISTING Portal App Service. Its startup command must be
+      # `node server.js` (set once — see the deploy runbook).
+      - name: Deploy Portal to existing App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.PORTAL_APP_NAME }}
+          publish-profile: ${{ secrets.AZURE_PORTAL_PUBLISH_PROFILE }}
+          package: web/portal/deploy
