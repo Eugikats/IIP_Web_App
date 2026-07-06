@@ -51,11 +51,15 @@ provider-dependent surfaces.
 |---|---|---|
 | Prior parity work (Fraud, Underwriting, Agents, Billing, Audit, Executive, Claims list, Customers, Documents, Channels read, Knowledge, Workflows) | ✅ | Reconciled to real `/api/v1` in earlier commits |
 | Two review modes (Demo/Production) + environment banner | ✅ | Committed earlier this branch |
-| **B2** Command Center → real `/command-center/query` | ✅ done | AI command bar POSTs to the real planner; `CommandCenterAnswer` renders all 12 governed block types + safe unknown fallback |
+| **B2** Command Center → real `/command-center/query` | ✅ done (corrected) | **Correction:** the real `/app` page is `AIConversations.tsx`, not the orphaned `CommandCenter.tsx` (deleted). `AIConversations` was a **fully simulated chat** (hardcoded 148/12/9/4 metrics + canned responses). Rewired: hero metrics from the operations-summary service (verified live: 8/2/3/0 for the 8 seeded claims); composer POSTs to `/command-center/query` and renders real governed blocks (verified: `text`/`claims_table`/`evidence_list`, `canTriggerDecision:false`). |
 | **B3** Sales-Leads manual create + list + persist | ✅ done | `ManageSalesLeads` permission, `ISalesLeadCommandService` (audited), real scoped-JSON store, GET/POST `/api/v1/sales-leads`, Acquisition capture form. Ingestion/import honest-gated (Gate 3) |
 | **B4** Multi-workspace data model + `/me` available-workspaces | ✅ done | `IWorkspaceCatalogService` + persisted per-tenant catalog; `/me` returns `availableWorkspaces` (honest single-workspace fallback); demo seeds 2 workspaces. No switcher UI (per decision) |
 | **B1** ClaimReview full governed workspace | ✅ done | Real `/api/v1/claims/{id}` + `/cases/{id}/timeline`; governed "Draft customer update" → real audited endpoint; honest empty/error states |
 | **B5** Remove customer login portal from deployed surface | 🔴 blocked (environment) | Code change ready, but `web/portal/lib/roles.ts` and the `app/customer-portal` / `app/app/portal` folders are held by an exclusive OS file lock (OneDrive/IDE) that blocks writes/deletes from this session. Needs the lock released (close the file in the IDE / let OneDrive finish syncing), then a ~30-min verified role-model change. **This is the only remaining Gate 0 item.** |
+
+### Discovered during live verification (new honesty gaps — follow-up)
+- **Right Copilot panel** (`components/iip/CopilotPanel.tsx`) still renders **fixture content** on every `/app` screen — hardcoded "Execution snapshot" priorities and provider-health latencies (e.g. "GPT-4o Healthy · 412ms", "Microsoft Graph Degraded · 2.4s"). Not in the original B-scope; needs wiring to `/api/v1/admin/provider-health` + real signals, or honest-gating. **New item, tracked here.**
+- The bottom status bar ("Providers healthy · GPT-4o · Azure OCR", "Queue 14", "6 active workflows") is likewise static — same follow-up.
 
 ### Genuinely honest-gated for Gate 0 (correct end-state until Gate 3)
 - Policy Intelligence grounded Q&A (RAG) — needs Azure AI Search + OpenAI (Gate 3).
