@@ -14,6 +14,10 @@ public sealed record TenantContext(
 public interface ITenantContextAccessor
 {
     TenantContext Current { get; }
+
+    /// <summary>True when a tenant context has been resolved for this request (e.g. by the
+    /// per-request middleware). Lets callers fail closed without triggering the throw on Current.</summary>
+    bool HasCurrent { get; }
 }
 
 public interface ITenantContextSetter
@@ -27,6 +31,8 @@ public sealed class TenantContextAccessor : ITenantContextAccessor, ITenantConte
 
     public TenantContext Current =>
         _current ?? throw new InvalidOperationException("Tenant context has not been initialized for this request.");
+
+    public bool HasCurrent => _current is not null;
 
     public void SetCurrent(TenantContext context)
     {

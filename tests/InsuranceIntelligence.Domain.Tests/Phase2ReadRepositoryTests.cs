@@ -228,6 +228,19 @@ public sealed class Phase2ReadRepositoryTests
     }
 
     [Fact]
+    public void TenantContextAccessor_HasCurrent_ReflectsResolution_AndCurrentThrowsWhenUnset()
+    {
+        var accessor = new InsuranceIntelligence.Application.Core.TenantContextAccessor();
+        Assert.False(accessor.HasCurrent);
+        Assert.Throws<InvalidOperationException>(() => accessor.Current);
+
+        ((InsuranceIntelligence.Application.Core.ITenantContextSetter)accessor)
+            .SetCurrent(new InsuranceIntelligence.Application.Core.TenantContext("tenant-a", "workspace-a", "user-1", ["Admin"]));
+        Assert.True(accessor.HasCurrent);
+        Assert.Equal("tenant-a", accessor.Current.TenantId);
+    }
+
+    [Fact]
     public async Task Onboarding_UpsertGet_And_ConsentBootstrap_MakesAdminResolvable()
     {
         await using var dbContext = CreateDbContext();

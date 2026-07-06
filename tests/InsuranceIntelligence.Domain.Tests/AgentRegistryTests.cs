@@ -73,6 +73,7 @@ public sealed class AgentRegistryTests
     private sealed class FixedContext : ITenantContextAccessor
     {
         public TenantContext Current => new("tenant-a", "workspace-a", "user-1", ["Admin"]);
+        public bool HasCurrent => true;
     }
 
     private sealed class AllowPermissionService : IPermissionService
