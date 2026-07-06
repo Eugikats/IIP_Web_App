@@ -5,7 +5,7 @@
 | Gate | 0 — Secure baseline, UI/backend alignment, real API contract map (AGENTS.md §25) |
 | Branch | `feature/lovable-design-parity` (PR #1 → `main`) |
 | Date | 2026-07-06 |
-| Status | **In progress** — Pillars A (secure baseline) and C (contract map) complete; Pillar B (alignment builds) partially complete |
+| Status | **Nearly complete** — Pillars A (secure baseline) and C (contract map) complete; Pillar B (alignment builds) done except **B5**, which is blocked by an environment file lock (not a design issue) |
 
 This is the living sign-off document for Gate 0. It states, per pillar, what is real vs
 honest-gated (with reasons), the evidence, and the conservative readiness position. Gate 0 is
@@ -51,11 +51,11 @@ provider-dependent surfaces.
 |---|---|---|
 | Prior parity work (Fraud, Underwriting, Agents, Billing, Audit, Executive, Claims list, Customers, Documents, Channels read, Knowledge, Workflows) | ✅ | Reconciled to real `/api/v1` in earlier commits |
 | Two review modes (Demo/Production) + environment banner | ✅ | Committed earlier this branch |
-| **B2** Command Center → real `/command-center/query` | ✅ done | AI command bar POSTs to the real planner; `CommandCenterAnswer` renders all 12 governed block types + safe unknown fallback (commit after `b75f862`) |
-| **B3** Sales-Leads manual create + list + persist | ⏳ pending | Manual origination now; channel ingestion + fabric import honest-gated (Gate 3) |
-| **B4** Multi-workspace data model + `/me` available-workspaces | ⏳ pending | Data model now; switcher UI deferred |
-| **B1** ClaimReview full governed workspace | ⏳ pending | Wire existing detail/extraction/timeline/approval endpoints |
-| **B5** Remove customer login portal from deployed surface | ⏳ pending | Out of scope per PRD. Entangled with `Client` role + `/app/portal` + visual specs — needs a focused, verified role-model change (not rushed). |
+| **B2** Command Center → real `/command-center/query` | ✅ done | AI command bar POSTs to the real planner; `CommandCenterAnswer` renders all 12 governed block types + safe unknown fallback |
+| **B3** Sales-Leads manual create + list + persist | ✅ done | `ManageSalesLeads` permission, `ISalesLeadCommandService` (audited), real scoped-JSON store, GET/POST `/api/v1/sales-leads`, Acquisition capture form. Ingestion/import honest-gated (Gate 3) |
+| **B4** Multi-workspace data model + `/me` available-workspaces | ✅ done | `IWorkspaceCatalogService` + persisted per-tenant catalog; `/me` returns `availableWorkspaces` (honest single-workspace fallback); demo seeds 2 workspaces. No switcher UI (per decision) |
+| **B1** ClaimReview full governed workspace | ✅ done | Real `/api/v1/claims/{id}` + `/cases/{id}/timeline`; governed "Draft customer update" → real audited endpoint; honest empty/error states |
+| **B5** Remove customer login portal from deployed surface | 🔴 blocked (environment) | Code change ready, but `web/portal/lib/roles.ts` and the `app/customer-portal` / `app/app/portal` folders are held by an exclusive OS file lock (OneDrive/IDE) that blocks writes/deletes from this session. Needs the lock released (close the file in the IDE / let OneDrive finish syncing), then a ~30-min verified role-model change. **This is the only remaining Gate 0 item.** |
 
 ### Genuinely honest-gated for Gate 0 (correct end-state until Gate 3)
 - Policy Intelligence grounded Q&A (RAG) — needs Azure AI Search + OpenAI (Gate 3).

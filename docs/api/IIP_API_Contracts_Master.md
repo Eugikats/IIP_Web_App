@@ -158,7 +158,9 @@ health probes, the self-scoped `/me`, and the payload-validated Graph webhook.
 | GET | `/api/v1/channels/overview` | ViewChannels |
 | GET | `/api/v1/customers` | ViewCustomers |
 | GET | `/api/v1/customers/{customerId}` | ViewCustomers |
+| GET | `/api/v1/sales-leads` | ViewSalesLeads |
 | GET | `/api/v1/sales-leads/{leadId}` | ViewSalesLeads |
+| POST | `/api/v1/sales-leads` | ManageSalesLeads |
 | GET | `/api/v1/audit/events` | ViewAuditLog |
 | GET | `/api/v1/fraud/signals` | ViewFraudSignals |
 | GET | `/api/v1/underwriting/reviews` | ViewUnderwriting |
