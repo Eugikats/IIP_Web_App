@@ -33,8 +33,15 @@ package (`infra/mainTemplate.bicep` remains build-only, for the already-publishe
 | Parameterized `infra/parameters/stg.bicepparam` (`readEnvironmentVariable('IIP_*')`) | Already present — no change needed |
 | Hosting model | Azure App Service (ADR-0001) — matches the existing resources |
 | **Deploy CI/CD workflow** | **Added** → `.github/workflows/deploy-staging.yml` (was missing) |
-| **App Service runtime settings script** | **Added** → `infra/scripts/set-staging-appsettings.sh` |
+| **App Service runtime settings scripts** | **Added** → `verify-` (read-only), `add-v2-` (safe additive), `set-` (full/fresh) under `infra/scripts/` |
 | This runbook | **Added** |
+
+> **The existing App Services already carry live runtime settings** from the prior deployment
+> (Azure Resource Inventory: *"No action needed unless you rotate a secret"*). Because the App
+> Service URLs are unchanged, the Entra app registration — client id, redirect URIs, API scope, and
+> already-consented Graph mailbox permissions — is reused as-is with **no redirect-URI change**. So
+> for this reuse deploy you only **add the v2-new settings** and verify the rest; you do not
+> reconfigure everything from scratch.
 
 ## Manual steps you must perform
 
@@ -60,8 +67,21 @@ credentials — the workflow can be switched to `azure/login` if you prefer no p
 | `IIP_ENTRA_API_SCOPE` | `api://<client-id>/access_as_user` (existing) |
 | `IIP_ENTRA_REDIRECT_URI` | existing portal callback, e.g. `https://app-portal-stg-cus-vyhhymwydvai2.azurewebsites.net/auth/callback` |
 
-### 3. API/Portal app settings — run `infra/scripts/set-staging-appsettings.sh`
-Export these first (values you hold), then run the script (it uses your `az` login; sets settings only):
+### 3. API/Portal app settings — reuse-safe path (verify → add only what's new)
+The existing App Services are already configured. Do **not** blindly overwrite them. Run, in order:
+```
+# a) see what's already live and which v2-required keys (if any) are missing — changes nothing
+bash infra/scripts/verify-staging-appsettings.sh
+
+# b) add ONLY the v2-new keys (Key Vault config URI + onboarding consent redirect); leaves the
+#    existing provider/Entra/SQL settings untouched
+bash infra/scripts/add-v2-appsettings.sh
+
+# c) ensure the portal startup command is the Next.js standalone entrypoint (idempotent)
+az webapp config set -g rg-iip-stg -n app-portal-stg-cus-vyhhymwydvai2 --startup-file "node server.js"
+```
+Only if `verify` shows the API app is **not** configured (a fresh App Service, or major drift) do a
+full reconcile with `set-staging-appsettings.sh` (read its header warning first — it overwrites):
 ```
 export IIP_PORTAL_ENTRA_CLIENT_ID=<existing app registration client id>
 export IIP_AZURE_OPENAI_CHAT_DEPLOYMENT=<e.g. gpt-4o>

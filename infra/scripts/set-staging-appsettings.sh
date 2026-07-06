@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 #
-# set-staging-appsettings.sh — configure the EXISTING staging App Services to run v2 against
-# the EXISTING Azure resources. Run this ONCE (and after any config change) as an authenticated
-# `az` user with rights on rg-iip-stg. It sets application settings only — it does NOT create or
-# modify any Azure resource, and never touches Partner Center or the Marketplace package.
+# set-staging-appsettings.sh — FULL / FRESH-SETUP reconciliation of the staging App Services'
+# application settings for v2 against the EXISTING Azure resources.
+#
+# ⚠ IMPORTANT: the existing staging App Services ALREADY carry working runtime settings from the
+# prior deployment (Azure Resource Inventory: "No action needed unless you rotate a secret"). This
+# script OVERWRITES every key it lists with the values below — including endpoint defaults that are
+# best-guesses. On an already-configured App Service that can clobber a good live value (e.g. a real
+# DI endpoint, or an email provider you deliberately enabled). Prefer this order:
+#     1. bash infra/scripts/verify-staging-appsettings.sh   (see what's already live)
+#     2. bash infra/scripts/add-v2-appsettings.sh           (add ONLY the v2-new keys, safe)
+#   Use THIS full script only for a brand-new App Service or a deliberate full drift reconcile.
+#
+# Run as an authenticated `az` user with rights on rg-iip-stg. It sets application settings only — it
+# does NOT create or modify any Azure resource, and never touches Partner Center or the Marketplace package.
 #
 # NO SECRETS ARE STORED IN THIS FILE. Secrets come from Key Vault references (@Microsoft.KeyVault)
 # or from your shell environment at run time. Provider auth uses the App Services' managed identity.
