@@ -38,7 +38,7 @@ export const ALL_MODULES = [
   "/app/audit",
   "/app/support",
 ];
-export const ALL_ADMIN = ["/app/admin", "/app/admin/agents", "/app/admin/billing", "/app/admin/tenant-policy", "/app/settings"];
+export const ALL_ADMIN = ["/app/admin", "/app/admin/agents", "/app/admin/billing", "/app/admin/tenant-policy", "/app/admin/onboarding", "/app/settings"];
 
 export const ROLES: Record<Role, RoleDef> = {
   Admin: {
@@ -75,7 +75,7 @@ export const ROLES: Record<Role, RoleDef> = {
   },
   PublisherSupport: {
     key: "PublisherSupport", label: "Publisher Support", title: "Otic Support Engineer", name: "Peter Kagwa", initials: "PK",
-    modules: ["/app", "/app/integrations", "/app/support", "/app/audit", "/app/executive"], admin: ["/app/admin", "/app/admin/agents"], landing: "/app/support",
+    modules: ["/app", "/app/integrations", "/app/support", "/app/audit", "/app/executive"], admin: ["/app/admin", "/app/admin/agents", "/app/admin/onboarding"], landing: "/app/support",
   },
 };
 
