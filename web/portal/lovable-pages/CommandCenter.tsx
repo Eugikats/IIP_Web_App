@@ -1,17 +1,23 @@
 "use client";
-import { ArrowRight, Sparkles, MessagesSquare, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, Sparkles, MessagesSquare, ShieldCheck, Loader2 } from "lucide-react";
 import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge } from "@/components/iip/Primitives";
 import { activityStream } from "@/lib/lovable-parity/mock";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { useOperationsSummary } from "@/lib/lovable-parity/data/reports";
 import { useClaims } from "@/lib/lovable-parity/data/claims";
+import { useCommandCenterQuery } from "@/lib/lovable-parity/data/commandCenterQuery";
+import CommandCenterAnswerView from "@/components/iip/CommandCenterAnswer";
 
 const parity = LOVABLE_VISUAL_PARITY_MODE;
 
 export default function CommandCenter() {
   const { summary } = useOperationsSummary();
   const { claims } = useClaims();
+  const { ask, answer, loading, error } = useCommandCenterQuery();
+  const [question, setQuestion] = useState("");
+  const submit = () => ask(question);
 
   const pills = summary ? [
     { label: "Open claims", value: summary.openClaims },
@@ -32,15 +38,32 @@ export default function CommandCenter() {
         sub="What needs attention across Motor Claims and Customer Operations. AI prepares work — humans decide."
       />
 
-      {/* AI Command Bar (chat wiring is a follow-on; input is presentational until then) */}
+      {/* AI Command Bar — wired to POST /api/v1/command-center/query (governed, human decides) */}
       <div className="glass-elevated p-5 mb-8">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl gradient-primary grid place-items-center shadow-l2"><Sparkles className="h-4 w-4 text-white" /></div>
-          <input placeholder="Ask IIP about claims, documents, customers, policies, or workflows…" className="flex-1 bg-transparent outline-none text-[14.5px] placeholder:text-stone text-navy" />
-          <button className="inline-flex items-center gap-2 rounded-2xl gradient-primary text-white text-[13px] font-medium px-4 py-2.5 shadow-l2 hover-lift">Ask <ArrowRight className="h-4 w-4" /></button>
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            placeholder="Ask IIP about claims, documents, SLA, approvals, or missing information…"
+            className="flex-1 bg-transparent outline-none text-[14.5px] placeholder:text-stone text-navy"
+          />
+          <button
+            onClick={submit}
+            disabled={loading || !question.trim()}
+            className="inline-flex items-center gap-2 rounded-2xl gradient-primary text-white text-[13px] font-medium px-4 py-2.5 shadow-l2 hover-lift disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Ask <ArrowRight className="h-4 w-4" /></>}
+          </button>
         </div>
-        <div className="mt-3 text-[11px] text-stone">The grounded chat assistant is wired via <span className="font-mono">/api/v1/command-center/query</span> in a follow-on; metric pills and priority claims below are live.</div>
+        <div className="mt-3 text-[11px] text-stone">Grounded on this workspace's real data via <span className="font-mono">/api/v1/command-center/query</span>. AI prepares — humans decide.</div>
       </div>
+
+      {error && (
+        <div className="mb-8 rounded-xl border border-red-200 bg-red-50 p-3 text-[12.5px] text-red-800">{error}</div>
+      )}
+      {answer && <CommandCenterAnswerView answer={answer} />}
 
       {/* Metrics — real operations summary */}
       {pills.length > 0 ? (
