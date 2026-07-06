@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import StatusBar from "./StatusBar";
 import CopilotPanel from "./CopilotPanel";
+import EnvironmentBanner from "./EnvironmentBanner";
 import { UIStateProvider, useUI } from "@/context/UIStateContext";
 import { canAccess } from "@/lib/roles";
 import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
@@ -22,6 +23,7 @@ function ShellInner({ children }: { children: ReactNode }) {
 
   return (
     <div className="h-screen w-full ambient-bg flex flex-col overflow-hidden">
+      <EnvironmentBanner />
       <div className="flex-1 flex overflow-hidden relative">
         {!roleDef.customerSafeOnly && (
           <div

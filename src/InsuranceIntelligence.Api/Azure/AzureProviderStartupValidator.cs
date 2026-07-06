@@ -89,7 +89,15 @@ public static class AzureProviderStartupValidator
     public static IReadOnlyCollection<string> ValidateProduction(InfrastructureOptions options, string environmentName)
     {
         var runtimeProfile = ResolveRuntimeProfile(options, environmentName);
-        if (!IsProtectedRuntime(runtimeProfile))
+        var isProtected = IsProtectedRuntime(runtimeProfile);
+        var isDemo = IsDemoRuntime(runtimeProfile);
+
+        // The Demo profile is a deployed, reviewer-safe sandbox: it runs on the same
+        // real providers / real identity / real Azure SQL as Production, and differs
+        // only in that it is permitted to seed a clearly-labelled synthetic tenant.
+        // Every other guardrail applies exactly as in Production so a demo environment
+        // can never fall back to simulation or fabricate a success path.
+        if (!isProtected && !isDemo)
         {
             return Array.Empty<string>();
         }
@@ -111,7 +119,10 @@ public static class AzureProviderStartupValidator
             errors.Add($"{runtimeProfile} requires Azure SQL durable storage; INSURANCEINTELLIGENCE_SQLSERVER_CONNECTION_STRING or ConnectionStrings:InsuranceIntelligenceSql must be configured.");
         }
 
-        if (options.SeedDemoData)
+        // Synthetic seed data is the entire point of the Demo profile, so it is allowed
+        // there (and only there among deployed profiles). Production/Staging/Reviewer
+        // remain hard-blocked from ever booting with seeded demo data.
+        if (options.SeedDemoData && !isDemo)
         {
             errors.Add($"{runtimeProfile} cannot start with INSURANCEINTELLIGENCE_SEED_DEMO_DATA=true.");
         }
@@ -133,6 +144,38 @@ public static class AzureProviderStartupValidator
         return errors;
     }
 
+    /// <summary>
+    /// Classifies the deployment into one of the review modes surfaced to operators:
+    /// <c>Production</c> (live customer data), <c>Demo</c> (deployed synthetic sandbox),
+    /// or <c>LocalDevelopment</c> (developer machine / LocalTest). This is what drives
+    /// the portal's environment banner so synthetic data can never be mistaken for live.
+    /// </summary>
+    public static string ResolveReviewMode(InfrastructureOptions options, string environmentName)
+    {
+        var runtimeProfile = ResolveRuntimeProfile(options, environmentName);
+
+        if (IsProtectedRuntime(runtimeProfile))
+        {
+            return "Production";
+        }
+
+        if (IsDemoRuntime(runtimeProfile))
+        {
+            return "Demo";
+        }
+
+        return "LocalDevelopment";
+    }
+
+    /// <summary>
+    /// True when the environment renders synthetic, non-customer data. Production is
+    /// structurally prevented from seeding, so this is effectively "seed enabled and
+    /// not Production" — the signal the portal banner uses to warn reviewers.
+    /// </summary>
+    public static bool UsesSyntheticData(InfrastructureOptions options, string environmentName) =>
+        options.SeedDemoData
+        && !ResolveReviewMode(options, environmentName).Equals("Production", StringComparison.Ordinal);
+
     public static string ResolveRuntimeProfile(InfrastructureOptions options, string environmentName)
     {
         if (!string.IsNullOrWhiteSpace(options.RuntimeProfile))
@@ -148,6 +191,7 @@ public static class AzureProviderStartupValidator
         if (environmentName.Equals("Staging", StringComparison.OrdinalIgnoreCase)
             || environmentName.Equals("Production", StringComparison.OrdinalIgnoreCase)
             || environmentName.Equals("ManagedApplicationReviewer", StringComparison.OrdinalIgnoreCase)
+            || environmentName.Equals("Demo", StringComparison.OrdinalIgnoreCase)
             || environmentName.Equals("LocalTest", StringComparison.OrdinalIgnoreCase))
         {
             return environmentName;
@@ -162,6 +206,9 @@ public static class AzureProviderStartupValidator
         environmentName.Equals("Staging", StringComparison.OrdinalIgnoreCase)
         || environmentName.Equals("Production", StringComparison.OrdinalIgnoreCase)
         || environmentName.Equals("ManagedApplicationReviewer", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDemoRuntime(string environmentName) =>
+        environmentName.Equals("Demo", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsForbiddenProvider(string value, bool includeSqlite) =>
         value.Equals("Mock", StringComparison.OrdinalIgnoreCase)

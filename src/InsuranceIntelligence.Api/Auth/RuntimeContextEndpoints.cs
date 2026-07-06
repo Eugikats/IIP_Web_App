@@ -8,8 +8,9 @@ namespace InsuranceIntelligence.Api.Auth;
 
 public static class RuntimeContextEndpoints
 {
-    public static IResult GetMe(HttpContext httpContext, InfrastructureOptions options)
+    public static IResult GetMe(HttpContext httpContext, InfrastructureOptions options, IHostEnvironment hostEnvironment)
     {
+        var environment = EnvironmentContextFactory.Build(options, hostEnvironment.EnvironmentName, source: "Runtime");
         if (options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
         {
             if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var developmentScope, out var validationError))
@@ -28,7 +29,8 @@ public static class RuntimeContextEndpoints
                 role: developmentRole,
                 scope: developmentScope,
                 authMode: options.AuthMode,
-                source: "DevelopmentHeaders"));
+                source: "DevelopmentHeaders",
+                environment: environment));
         }
 
         if (HasDemoIdentityHeaders(httpContext))
@@ -69,7 +71,8 @@ public static class RuntimeContextEndpoints
             role: role,
             scope: authenticatedScope,
             authMode: options.AuthMode,
-            source: scopeSource));
+            source: scopeSource,
+            environment: environment));
     }
 
     private static RuntimeContextResponse BuildResponse(
@@ -78,7 +81,8 @@ public static class RuntimeContextEndpoints
         PlatformRole role,
         TenantScope scope,
         string authMode,
-        string source) =>
+        string source,
+        UiEnvironmentContext environment) =>
         new(
             UserId: userId,
             DisplayName: displayName,
@@ -88,7 +92,8 @@ public static class RuntimeContextEndpoints
             TenantId: scope.TenantId,
             WorkspaceId: scope.WorkspaceId,
             AuthMode: authMode,
-            Source: source);
+            Source: source,
+            Environment: environment);
 
     private static bool HasDemoIdentityHeaders(HttpContext httpContext) =>
         httpContext.Request.Headers.ContainsKey("x-demo-role")
@@ -138,4 +143,5 @@ public sealed record RuntimeContextResponse(
     string TenantId,
     string WorkspaceId,
     string AuthMode,
-    string Source);
+    string Source,
+    UiEnvironmentContext Environment);
