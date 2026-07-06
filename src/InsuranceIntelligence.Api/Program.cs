@@ -47,6 +47,18 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Gate 1 (G1.6): load deployment secrets from Azure Key Vault when configured. The vault URI is a
+// non-secret pointer (Azure:KeyVaultUri / Azure__KeyVaultUri); secrets are read via managed identity
+// (DefaultAzureCredential) — no secrets in config files or env. Only activates when a URI is set, so
+// local/dev is unaffected. Key Vault secret names map to config keys ("--" for nested sections).
+var keyVaultUri = builder.Configuration["Azure:KeyVaultUri"] ?? builder.Configuration["Azure__KeyVaultUri"];
+if (!string.IsNullOrWhiteSpace(keyVaultUri))
+{
+    builder.Configuration.AddAzureKeyVault(
+        new Uri(keyVaultUri),
+        new Azure.Identity.DefaultAzureCredential());
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
