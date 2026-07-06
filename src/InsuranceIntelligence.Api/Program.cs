@@ -277,6 +277,8 @@ builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingService, InsuranceIntelligence.Application.Onboarding.TenantOnboardingService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 // Initiative LP: rule-based advisory domains + admin domains (Fraud/Underwriting/Agents/Billing).
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQueryService, InsuranceIntelligence.Application.Fraud.FraudQueryService>();
@@ -555,6 +557,20 @@ app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapPost("/api/v1/sales-leads", SalesLeadEndpoints.CreateLead)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+
+// Gate 1 (G1.7): platform-operator tenant onboarding + Entra admin-consent flow (ADR-0005).
+app.MapPost("/api/v1/onboarding", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.Create)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapGet("/api/v1/onboarding", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapGet("/api/v1/onboarding/{onboardingId}", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapGet("/api/v1/onboarding/{onboardingId}/consent-url", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.GetConsentUrl)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+// Admin-consent redirect target — authorized by the opaque state value, not a permission.
+// Deliberately OFF /api/v1: the insurer admin returns here from Microsoft UNAUTHENTICATED to IIP,
+// so it must bypass the /api/v1 authenticated-request guard (like /health).
+app.MapGet("/onboarding/consent-callback", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.ConsentCallback);
 app.MapGet("/api/v1/audit/events", AuditEndpoints.ListEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 // Initiative LP: rule-based fraud advisory signals (deterministic, tenant-scoped, advisory-only).

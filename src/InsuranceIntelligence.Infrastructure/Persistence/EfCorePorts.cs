@@ -93,7 +93,17 @@ public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext db
             .Distinct()
             .ToArrayAsync(cancellationToken);
 
-        var permissions = await GetPermissionsAsync(scope.TenantId, scope.WorkspaceId, userId, cancellationToken);
+        // Effective permissions = the code-defined role→permission map for the assigned roles
+        // (IIP's canonical source, as PermissionService also uses) UNION any per-tenant overrides
+        // in the RolePermissions table. This means an assigned role (e.g. Admin) is authoritative
+        // without every tenant having to re-seed the standard permission set.
+        var mapPermissions = roles
+            .Select(code => Enum.TryParse<PlatformRole>(code, ignoreCase: true, out var role) ? role : (PlatformRole?)null)
+            .OfType<PlatformRole>()
+            .SelectMany(RolePermissionMap.ForRole);
+        var overridePermissions = await GetPermissionsAsync(scope.TenantId, scope.WorkspaceId, userId, cancellationToken);
+
+        var permissions = mapPermissions.Concat(overridePermissions).Distinct().ToArray();
 
         return new EffectiveMembership(scope.TenantId, scope.WorkspaceId, userId, roles, permissions);
     }

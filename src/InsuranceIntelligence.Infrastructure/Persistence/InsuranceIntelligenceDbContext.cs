@@ -32,6 +32,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedProducer> Producers => Set<PersistedProducer>();
     public DbSet<PersistedSalesLead> SalesLeads => Set<PersistedSalesLead>();
     public DbSet<PersistedWorkspace> Workspaces => Set<PersistedWorkspace>();
+    public DbSet<PersistedTenantOnboarding> TenantOnboardings => Set<PersistedTenantOnboarding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +68,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedProducer>(), "Producers", "ProducerId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedSalesLead>(), "SalesLeads", "SalesLeadId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedWorkspace>(), "Workspaces", "WorkspaceRecordId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedTenantOnboarding>(), "TenantOnboardings", "OnboardingRecordId");
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)
@@ -168,6 +170,8 @@ public sealed class PersistedAgentState : PersistedScopedJson;
 public sealed class PersistedSalesLead : PersistedScopedJson;
 
 public sealed class PersistedWorkspace : PersistedScopedJson;
+
+public sealed class PersistedTenantOnboarding : PersistedScopedJson;
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;
 public sealed class PersistedBranch : PersistedScopedJson;

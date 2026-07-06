@@ -227,6 +227,35 @@ public sealed class Phase2ReadRepositoryTests
         Assert.Equal("tenant-b", resolved!.TenantId);
     }
 
+    [Fact]
+    public async Task Onboarding_UpsertGet_And_ConsentBootstrap_MakesAdminResolvable()
+    {
+        await using var dbContext = CreateDbContext();
+        var onboarding = new EfTenantOnboardingRepository(dbContext);
+        var record = new InsuranceIntelligence.Application.Onboarding.TenantOnboardingRecord(
+            "ONB-1", "Insurer X", "contoso.onmicrosoft.com", "admin@contoso.test",
+            ["workspace-claims"], ["sub-123"], "tenant-x", "state-1",
+            InsuranceIntelligence.Application.Onboarding.TenantOnboardingStatus.Pending,
+            null, null, "operator-1", DateTimeOffset.UtcNow, null);
+        await onboarding.UpsertAsync(record);
+
+        Assert.Equal("ONB-1", (await onboarding.GetAsync("ONB-1"))!.OnboardingId);
+        Assert.Equal("ONB-1", (await onboarding.GetByStateAsync("state-1"))!.OnboardingId);
+        Assert.Single(await onboarding.ListAsync());
+
+        // Bootstrap the consenting admin's membership, then confirm the runtime resolver resolves it
+        // with Admin permissions from the code-defined map (no per-tenant RolePermissions seeding).
+        var writer = new EfTenantMembershipWriter(dbContext);
+        await writer.CreateAdminMembershipAsync("tenant-x", "workspace-claims", "admin@contoso.test");
+        await writer.CreateAdminMembershipAsync("tenant-x", "workspace-claims", "admin@contoso.test"); // idempotent
+
+        var membership = await new EfPermissionReadRepository(dbContext)
+            .GetEffectiveMembershipAsync("admin@contoso.test", "tenant-x", "workspace-claims");
+        Assert.NotNull(membership);
+        Assert.Equal("tenant-x", membership!.TenantId);
+        Assert.Contains(InsuranceIntelligence.Domain.Administration.Permission.ManageTenantSettings, membership.Permissions);
+    }
+
     private static PersistedWorkspace ScopedJson(string tenantId, string workspaceId, InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto payload) =>
         new()
         {

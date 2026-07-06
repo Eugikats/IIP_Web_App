@@ -180,6 +180,8 @@ public static class InfrastructureRegistration
         services.AddScoped<ISalesLeadReadRepository>(sp => sp.GetRequiredService<EfSalesLeadRepository>());
         services.AddScoped<ISalesLeadWriteRepository>(sp => sp.GetRequiredService<EfSalesLeadRepository>());
         services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogRepository, EfWorkspaceCatalogRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingRepository, EfTenantOnboardingRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantMembershipWriter, EfTenantMembershipWriter>();
         services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentStateRepository, EfAgentStateRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real

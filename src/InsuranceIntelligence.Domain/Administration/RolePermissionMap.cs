@@ -91,7 +91,8 @@ public static class RolePermissionMap
             [PlatformRole.PublisherSupport] =
             [
                 Permission.ViewCommandCenter,
-                Permission.ViewAuditLog
+                Permission.ViewAuditLog,
+                Permission.ManageTenantOnboarding
             ]
         };
 

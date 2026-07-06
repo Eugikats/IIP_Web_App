@@ -24,5 +24,6 @@ public enum Permission
     ViewFraudSignals,
     ViewUnderwriting,
     ManageAgents,
-    ViewBilling
+    ViewBilling,
+    ManageTenantOnboarding
 }
