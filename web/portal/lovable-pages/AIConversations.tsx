@@ -2,8 +2,8 @@
 import { useRef, useState, useEffect } from "react";
 import { Sparkles, MessagesSquare, ShieldCheck, TrendingUp, AlertTriangle } from "lucide-react";
 import { AIMessageBubble, UserMessageBubble, Composer } from "@/components/iip/ChatPrimitives";
-import { CommandCenterBlocks, type CommandCenterAnswer } from "@/components/iip/CommandCenterAnswer";
-import { useCommandCenterQuery } from "@/lib/lovable-parity/data/commandCenterQuery";
+import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
+import { useCommandCenterQuery, type CommandCenterAnswer } from "@/lib/lovable-parity/data/commandCenterQuery";
 import { useOperationsSummary } from "@/lib/lovable-parity/data/reports";
 import { useUI } from "@/context/UIStateContext";
 
