@@ -513,6 +513,100 @@ public sealed class Phase7ProviderTests
     }
 
     [Fact]
+    public void DemoRuntimeStartupValidation_AllowsSyntheticSeedButStillRequiresRealProviders()
+    {
+        var errors = AzureProviderStartupValidator.ValidateProduction(
+            new InfrastructureOptions
+            {
+                RuntimeProfile = "Demo",
+                AuthMode = "Development",
+                StorageProvider = "InMemory",
+                SeedDemoData = true,
+                AllowProductionMockProviders = true,
+                BlobProvider = "Mock",
+                DocumentProvider = "Mock",
+                RetrievalProvider = "Mock",
+                AiProvider = "Mock",
+                QueueProvider = "Mock",
+                EmailProvider = "Mock",
+                CommunicationProvider = "Mock",
+                NotificationProvider = "Mock"
+            },
+            "Development");
+
+        // Demo is a real deployed sandbox: it must still use real identity, Azure SQL,
+        // real providers, and must not allow the production-mock escape hatch...
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_AUTH_MODE", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_STORAGE_PROVIDER", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_ALLOW_PRODUCTION_MOCKS", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_AI_PROVIDER", StringComparison.Ordinal));
+        // ...but seeding synthetic demo data is the whole point of Demo, so it is NOT rejected.
+        Assert.DoesNotContain(errors, error => error.Contains("INSURANCEINTELLIGENCE_SEED_DEMO_DATA", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DemoRuntimeStartupValidation_AcceptsRealProvidersWithSyntheticSeed()
+    {
+        var errors = AzureProviderStartupValidator.ValidateProduction(
+            new InfrastructureOptions
+            {
+                RuntimeProfile = "Demo",
+                AuthMode = "Entra",
+                StorageProvider = "SqlServer",
+                SqlServerConnectionString = "Server=demo;Database=iip;Authentication=Active Directory Managed Identity;",
+                SeedDemoData = true,
+                BlobProvider = "AzureBlob",
+                DocumentProvider = "AzureDocumentIntelligence",
+                RetrievalProvider = "AzureAiSearch",
+                AiProvider = "AzureOpenAI",
+                QueueProvider = "AzureServiceBus",
+                EmailProvider = "Disabled",
+                CommunicationProvider = "Disabled",
+                NotificationProvider = "Disabled"
+            },
+            "Development");
+
+        Assert.Empty(errors);
+    }
+
+    [Theory]
+    [InlineData("Production", null, false, "Production")]
+    [InlineData("Staging", null, true, "Production")]
+    [InlineData("ManagedApplicationReviewer", null, true, "Production")]
+    [InlineData("Demo", null, true, "Demo")]
+    [InlineData(null, "Development", true, "LocalDevelopment")]
+    public void ResolveReviewMode_ClassifiesEnvironmentsForTheBanner(
+        string? runtimeProfile,
+        string? environmentName,
+        bool seedDemoData,
+        string expectedReviewMode)
+    {
+        var options = new InfrastructureOptions
+        {
+            RuntimeProfile = runtimeProfile,
+            SeedDemoData = seedDemoData
+        };
+
+        var reviewMode = AzureProviderStartupValidator.ResolveReviewMode(options, environmentName ?? "Development");
+
+        Assert.Equal(expectedReviewMode, reviewMode);
+    }
+
+    [Fact]
+    public void UsesSyntheticData_IsTrueForSeededDemoButNeverForProduction()
+    {
+        var demo = new InfrastructureOptions { RuntimeProfile = "Demo", SeedDemoData = true };
+        var localSeeded = new InfrastructureOptions { SeedDemoData = true };
+        var production = new InfrastructureOptions { RuntimeProfile = "Production", SeedDemoData = true };
+
+        Assert.True(AzureProviderStartupValidator.UsesSyntheticData(demo, "Development"));
+        Assert.True(AzureProviderStartupValidator.UsesSyntheticData(localSeeded, "Development"));
+        // Production can never boot with seed data, and even if the flag is set the banner
+        // classification refuses to mark it synthetic.
+        Assert.False(AzureProviderStartupValidator.UsesSyntheticData(production, "Production"));
+    }
+
+    [Fact]
     public async Task AzureOpenAiAssistant_UsesConfiguredPromptTemplateForGroundedAnswers()
     {
         var templatePath = Path.Combine(Path.GetTempPath(), $"insuranceintelligence-prompt-{Guid.NewGuid():N}.txt");

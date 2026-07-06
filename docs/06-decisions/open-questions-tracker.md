@@ -46,6 +46,17 @@ Source: `docs/05-deployment-release-enablement/iip_deployment_plan.md` §34.
 | D9 | Confirm support access model in customer tenant | Security / Customer | High | Open | No engineering dependency for MVP build; support-access model is a Managed Application packaging input (Phase 9). |
 | D10 | Confirm Managed Application timeline | Leadership / Cloud | Medium | Open | Marketplace/Partner Center track deliberately frozen until Phase 9 (W0.3); does not gate Phases 1–8. |
 
+## Recorded decisions affecting scope (not open questions)
+
+These are **confirmed** decisions (recorded in the Product Decision Log), noted here because they change the build's scope and any reader of this tracker should be aware of them. They are not awaiting an answer.
+
+| Ref | Decision | Recorded in |
+|---|---|---|
+| DEC-011 | Adopt the Lovable-designed "Ambient Intelligence" visual theme, superseding the flat Light Intelligence Workspace palette (skin-only; chat-first architecture unchanged). | `iip_product_decision_log.md`; `iip_design_system_ux_behavior_specification.md` v1.2 |
+| DEC-012 | Bring Channels, Customer 360, Communications, Documents, Support, Workspaces to full workflow/logic parity with the Lovable reference — real backend, not mock. | `iip_product_decision_log.md`; program plan Initiative LP |
+| DEC-013 | Add AI Agent Registry (+ kill switch), Fraud Intelligence, Underwriting Intelligence, Billing/entitlements as full real features. | `iip_product_decision_log.md`; program plan Initiative LP |
+| DEC-014 | Fraud & Underwriting use deterministic rule engines for v1 (not an LLM); revisit Azure OpenAI narration at Gate 3 when real providers activate. | `iip_product_decision_log.md` |
+
 ## Closure workflow
 
 1. Human provides an answer for an item.

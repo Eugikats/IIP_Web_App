@@ -19,5 +19,9 @@ public enum Permission
     ViewClientPortal,
     ViewChannels,
     ViewCustomers,
-    ViewSalesLeads
+    ViewSalesLeads,
+    ViewFraudSignals,
+    ViewUnderwriting,
+    ManageAgents,
+    ViewBilling
 }

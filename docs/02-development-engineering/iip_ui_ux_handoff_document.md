@@ -397,6 +397,8 @@ Connected | Last sync: 09:47 | Active agents: 4 | Queue: 23 items | Providers he
 
 ## 6. Visual Design System
 
+> **Ambient Intelligence theme update (2026-07-04, DEC-011).** Section 6 below is superseded by the Ambient Intelligence theme defined in `docs/03-design-architecture/iip_design_system_ux_behavior_specification.md` v1.2. The authoritative token names/values live there and in `web/portal/app/globals.css`; this section is kept for narrative context and updated to match. The change is skin-only — brand *feel* (premium, calm, enterprise, boardroom-ready) is unchanged.
+
 ### 6.1 Brand Direction
 
 The visual language should feel:
@@ -405,68 +407,63 @@ The visual language should feel:
 - Enterprise-grade
 - Microsoft-native
 - Calm
-- Clean
-- Light
+- Clean, with soft translucent (glass) surfaces over an ambient gradient background
 - Boardroom-ready
 - Operationally serious
 - AI-enabled but not gimmicky
 
 ### 6.2 Core Color Tokens
 
-Use Otic-aligned restraint while keeping IIP suitable for white-labeled insurer deployments.
+Ambient Intelligence palette (blue→violet gradient family). Authoritative token names are the `--color-*` set in `web/portal/app/globals.css`; the reference hexes below are the design source values from the approved Lovable prototype.
 
 ```css
 :root {
-  --iip-navy-950: #040458;
-  --iip-navy-900: #101056;
-  --iip-orange-500: #FAA51A;
-  --iip-bg-app: #F8FAFC;
-  --iip-bg-panel: #FFFFFF;
-  --iip-bg-soft: #F1F5F9;
-  --iip-border-soft: #DBE3EF;
-  --iip-border-strong: #CBD5E1;
-  --iip-text-primary: #0F172A;
-  --iip-text-muted: #475569;
-  --iip-text-disabled: #94A3B8;
-  --iip-blue-600: #2563EB;
-  --iip-cyan-600: #0891B2;
-  --iip-success-bg: #ECFDF5;
-  --iip-success-text: #047857;
-  --iip-warning-bg: #FFFBEB;
-  --iip-warning-text: #B45309;
-  --iip-danger-bg: #FEF2F2;
-  --iip-danger-text: #B91C1C;
-  --iip-info-bg: #EFF6FF;
-  --iip-info-text: #1D4ED8;
-  --iip-shadow-card: 0 12px 30px rgba(15, 23, 42, 0.06);
+  /* Base ink & surfaces */
+  --iip-ink: #0B0F3B;           /* base ink (was navy #040458/#0F172A) */
+  --iip-bg-app: #FBFAFF;        /* ambient page background base */
+  --iip-bg-panel: #FFFFFF;      /* glass panels layer over the ambient bg */
+  --iip-border-soft: #E2E8F0;
+  --iip-text-primary: #0B0F3B;
+  --iip-text-muted: #64748B;
+
+  /* Brand / accent gradient family */
+  --iip-primary: #2563FF;       /* info blue — primary action */
+  --iip-accent: #7C4DFF;        /* violet — AI accent */
+  --iip-gradient-primary: linear-gradient(135deg, #2563FF 0%, #7C4DFF 100%);
+  --iip-gradient-ambient:
+    radial-gradient(1200px 600px at 10% -10%, #EEF2FF 0%, transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, #F3E8FF 0%, transparent 55%),
+    radial-gradient(800px 500px at 50% 120%, #ECFDF5 0%, transparent 60%);
+
+  /* Semantic status (meanings unchanged) */
+  --iip-success: #059669;
+  --iip-warning: #D97706;
+  --iip-danger:  #DC2626;
+  --iip-info:    #2563EB;
+
+  /* Glass & depth */
+  --iip-shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.10);
 }
 ```
 
-### 6.3 Use of Orange
+### 6.3 Gradient and Accent Use
 
-Orange `#FAA51A` should be used sparingly for:
-
-- Critical accent lines
-- Important callouts
-- Active highlights
-- Approval attention
-- Premium Otic/IIP brand emphasis
-
-Do not use orange as a dominant background color.
+The blue→violet primary gradient (`--iip-gradient-primary`) is reserved for: primary CTAs, active navigation indicators, and key AI-accent moments. It must not be used as a dominant fill behind body content or dense tables (use plain glass surfaces there). The prior orange brand accent (`#FAA51A`) is retired from the default theme; white-labeled insurer deployments may re-introduce a single brand accent through tokens without changing layout.
 
 ### 6.4 Component Style
 
 | Element | Style |
 |---|---|
-| Cards | White background, soft border, 16-20 px radius, subtle shadow |
-| Tables | Dense but readable, sticky header where useful, row hover states |
+| Cards | Glass surface (`.glass`/`.glass-subtle`), 16–24 px radius, `--iip-shadow-glass`, `hover-lift` on interactive cards |
+| Tables | Dense but readable on a glass panel, sticky header where useful, row hover states |
 | Badges | Soft backgrounds, clear text, semantic color coding |
-| Buttons | Primary navy, secondary white/outline, destructive red |
+| Buttons | Primary = gradient (`--iip-gradient-primary`) with white text; secondary = translucent/outline; destructive red |
 | Inputs | Rounded 12 px, light border, clear focus ring |
 | Alerts | Semantic colors with concise actionable copy |
-| AI cards | Light blue/cyan tint, evidence and confidence visible |
-| Approval cards | Yellow/amber attention state until reviewed |
+| AI cards | Soft violet tint (`--color-surface-ai`), evidence and confidence visible |
+| Approval cards | Amber attention state until reviewed |
 | Audit cards | Neutral, immutable, chronological |
+| Page background | `.ambient-bg` (ambient gradient wash) behind the app shell |
 
 ---
 
@@ -1407,6 +1404,259 @@ Support & Health provides operational visibility for engineering, platform admin
 - Health data is not exposed to unauthorized users.
 - Platform admins can diagnose integration/provider failures.
 - Support engineers can trace failed workflows by correlation ID.
+
+---
+
+> **Delivery note (2026-07-05).** Screen specs 9.17–9.25 below were written for an incremental rework of the pre-migration real routes. The canonical delivery is now the `/app/*` route tree (Lovable-parity migration, ADR-2026-07-04): each screen is the prototype component in `web/portal/lovable-pages/*`, reconciled off dev-only fixtures onto real `/api/v1` data via `web/portal/lib/lovable-parity/data/*` hooks (Channels is the completed template). The *requirements* in these specs still hold; only the route/file location changed. Reconciliation backlog + old-route removal: `docs/06-decisions/lovable-parity-migration-audit.md`.
+
+## 9.17 Channels Inbox — Threaded + Actions (parity amendment)
+
+> Amends 9.3. Brings Channels to full workflow parity with the Lovable reference. DEC-012 / Initiative LP.2.
+
+### Purpose
+
+A unified, **threaded** inbox across configured channels (WhatsApp, Email/Outlook, Web chat, SMS, Broker) where a staff user reads a full conversation timeline and takes governed next actions — not just a flat conversation list.
+
+### Required UI
+
+- Two-pane layout: conversation list (left) + selected conversation thread (right), plus the existing channel-health panel.
+- Thread view shows the ordered message timeline, detected intent, AI confidence (text + visual), matched customer (or "no match"), and suggested routing.
+- Governed action bar on the thread: **Create claim**, **Create lead**, **Draft response**, **Escalate** — each opens the shared `GovernedActionDialog` (reason capture + audit), never executes silently. Create-claim reuses the FNOL/new-case intake; Draft response reuses the Customer Update draft→approve→send flow.
+
+### Important Rule
+
+Nothing is auto-actioned. Every action produces a human-reviewable artifact (a draft, a new case in intake state, an escalation record). Conversation ingestion is live-provider dependent: until a channel provider is configured and ingesting, the inbox shows an empty state, never sample conversations.
+
+### Expected Endpoints
+
+- `GET /api/v1/channels/overview` (existing) — conversation list.
+- `GET /api/v1/channels/conversations/{id}` — thread detail (new).
+- `POST /api/v1/channels/conversations/{id}/create-claim | create-lead | draft-response | escalate` (new, governed, audited).
+
+### Acceptance Criteria
+
+- Actions are gated by backend `ActionStateContract`; blocked actions show a reason.
+- All four actions write audit events with correlation IDs.
+- Tenant/workspace scoping enforced server-side; no cross-tenant conversations.
+
+---
+
+## 9.18 Customer 360 Detail
+
+> Extends 9.5 (list/profile) with a dedicated detail route. DEC-012 / Initiative LP.2.
+
+### Purpose
+
+A single customer profile page (`/customers/{customerId}`) aggregating everything known about a customer for human review.
+
+### Required Sections
+
+- Header: name, key identifiers, consent status, workspace.
+- Tabs / sections: Policies, Claims, Documents, Interactions (channel history), Consent log.
+- **AI summary panel**: a grounded, cited summary of the customer's current situation — must show source citations (reuse Policy Intelligence's `SourceCitation`) and the "prepared for human review" disclaimer; renders `Not configured` if grounding sources are unavailable rather than summarizing from model memory.
+- **Next best action**: a suggested (non-executing) next step, presented as a proposal reusing the Command Center action-proposal pattern.
+
+### Expected Endpoint
+
+- `GET /api/v1/customers/{customerId}` (existing) — extended with an AI-summary (cited) field and a next-best-action field.
+
+### Acceptance Criteria
+
+- No fabricated policy/claim/consent data; unmodeled sections show empty/`Not configured`.
+- AI summary never appears as a decision; citations required or the panel degrades honestly.
+- Server-side tenant scoping; viewing a customer writes an audit event.
+
+---
+
+## 9.19 Communications Hub
+
+> New. Generalizes the per-case Customer Update queue into a cross-case queue. DEC-012 / Initiative LP.2.
+
+### Purpose
+
+A single queue of outbound customer communications across all cases, filterable by delivery status, for review/approval/tracking.
+
+### Required Data Fields
+
+- Customer, case reference, channel, drafted-by (AI/human), created time, last status change.
+- Delivery status (enum): **Pending Approval**, **Approved**, **Sent**, **Send Failed**, **Rejected**.
+
+### Required Actions
+
+- Approve, Reject, Send (governed via existing Customer Update dialog); Send is provider-dependent and shows `Not configured` where the sending channel isn't wired.
+
+### Expected Endpoint
+
+- `GET /api/v1/communications` — cross-case list with status filter (new); existing per-case customer-update approve/reject/send endpoints reused for actions.
+
+### Acceptance Criteria
+
+- Status is a real enum end-to-end (no free-text status).
+- Every state change audited; customer-safe content only in previews.
+
+---
+
+## 9.20 Documents Hub
+
+> New cross-case hub; complements 9.9 (per-case Document Checker). DEC-012 / Initiative LP.2.
+
+### Purpose
+
+A cross-case view of all documents and their processing lifecycle, with retry.
+
+### Required Data Fields
+
+- Document type, source channel, case reference, uploaded time, reviewer.
+- Processing status (enum): Uploaded, Extraction Pending (Processing), Extracted (Processed), **Review Required**, **Reviewed**, Extraction Approved, **Rejected**, Failed.
+- Evidence ID, extraction confidence.
+
+### Required Actions
+
+- Open per-case Document Checker (drill-in), **Retry extraction** (governed), Reject.
+
+### Expected Endpoints
+
+- `GET /api/v1/documents` — cross-case list (new).
+- `POST /api/v1/cases/{caseId}/documents/{docId}/retry-extraction` (new).
+
+### Acceptance Criteria
+
+- Status enum extended with ReviewRequired/Reviewed/Rejected end-to-end.
+- Retry is idempotent and audited; provider-dependent extraction shows `Not configured` when Document Intelligence isn't wired.
+
+---
+
+## 9.21 Fraud Intelligence
+
+> New. Rule-based v1. DEC-013 / DEC-014 / Initiative LP.4.
+
+### Purpose
+
+Surface **advisory** fraud signals computed deterministically from real case/customer data, each linked to evidence, for human investigation.
+
+### Important Rule
+
+The platform never states "fraud confirmed." Output is limited to advisory signals ("Advisory signal", "Requires investigation", "Potential anomaly") with the evidence that triggered them. No accusation of any customer, provider, broker, or staff member. This enforces `AGENTS.md` §4.
+
+### Required UI
+
+- Signal list with: signal type, linked case/customer, triggering rule, evidence links, advisory severity (text + visual), status (Open / Under investigation / Dismissed).
+- Signal detail showing the exact rule and the data that matched (auditable).
+
+### Expected Endpoint
+
+- `GET /api/v1/fraud/signals` (new) — tenant-scoped advisory signals.
+
+### Acceptance Criteria
+
+- Wording never reads as a verdict anywhere.
+- Each signal traces to a deterministic rule + evidence (no black-box score presented as truth).
+- Rule-based v1; a future Azure OpenAI narration layer (Gate 3, DEC-014) may explain signals but not replace the rule engine.
+
+---
+
+## 9.22 Underwriting Intelligence
+
+> New. Rule-based v1. DEC-013 / DEC-014 / Initiative LP.5.
+
+### Purpose
+
+Assist underwriting review by surfacing rule-based checks and drafting clarifying questions — never deciding acceptance/rejection or setting premium.
+
+### Important Rule
+
+Persistent banner: "AI prepares underwriting work; it does not decide acceptance, rejection, or premium." Action labels limited to: Draft questions, Summarize, Escalate.
+
+### Required UI
+
+- Per-submission checklist of product-line/coverage/limit rule results (pass / attention / missing information).
+- Missing-information panel; drafted clarifying questions (human-editable, non-sent).
+
+### Expected Endpoint
+
+- `GET /api/v1/underwriting/reviews/{id}` (new) — rule results + drafted questions.
+
+### Acceptance Criteria
+
+- No accept/reject/bind/premium action exists in the UI.
+- All checks are deterministic and traceable; missing data shows honestly.
+
+---
+
+## 9.23 AI Agent Registry
+
+> New. Admin control plane. DEC-013 / ADR-0002 / Initiative LP.3.
+
+### Purpose
+
+Admin surface (`/admin/agents`) to view and govern the AI agents the platform runs.
+
+### Required UI
+
+- Registry table: agent name, purpose, current prompt version, enabled/disabled (kill switch) state, confidence threshold, human-approval requirement, last run.
+- Agent detail drawer: prompt/version history, tool + knowledge policy, confidence threshold, human-approval rules, run logs (real runs only), usage/cost.
+- **Kill switch panel**: per-agent and tenant-wide disable, via `GovernedActionDialog` (reason + audit). Disabling fails the agent closed at invocation (`Disabled by administrator`), never a fabricated fallback.
+
+### Expected Endpoints
+
+- `GET /api/v1/admin/agents`, `GET /api/v1/admin/agents/{id}` (new).
+- `POST /api/v1/admin/agents/{id}/kill-switch` (new, governed, audited).
+
+### Acceptance Criteria
+
+- Kill switch enforced at agent-invocation time; unit-tested to fail closed.
+- No registry setting can bypass the human-supervised decision boundary (ADR-0002).
+- All state tenant-scoped; run logs never fabricated.
+
+---
+
+## 9.24 Billing & Entitlements
+
+> New. Admin surface. DEC-013 / ADR-0003 / Initiative LP.6.
+
+### Purpose
+
+Admin surface (`/admin/billing`) showing what the tenant is entitled to and its real usage.
+
+### Required UI
+
+- Package / module entitlements, seat count vs. seats used.
+- Usage meters (real, computed): AI calls, documents processed, active channels, storage — each vs. its entitlement limit, with an overage indicator.
+- **Upgrade request** (governed, audited internal request — does not transact).
+
+### Expected Endpoint
+
+- `GET /api/v1/admin/billing` (new) — entitlements + computed usage.
+
+### Acceptance Criteria
+
+- All usage numbers computed from real internal counters; unmetered dimensions show `Not configured`, never fabricated zeros/samples.
+- Tenant-scoped; entitlements gate feature availability but never replace role/permission checks.
+- No external billing/payment integration in v1 (ADR-0003).
+
+---
+
+## 9.25 Workspaces
+
+> New. Workspace switching. DEC-012 / Initiative LP.2.
+
+### Purpose
+
+Let a user with access to multiple workspaces switch the active workspace context.
+
+### Required UI
+
+- Workspace switcher in the Top Bar, listing the workspaces the authenticated user can access (from `/api/v1/me`).
+- Switching updates the active workspace scope used by all subsequent tenant-scoped requests.
+
+### Expected Endpoint
+
+- `GET /api/v1/me` (existing) — must expose the user's available workspaces (add the field if absent).
+
+### Acceptance Criteria
+
+- Only workspaces the user is authorized for appear; selection never trusted client-side without server validation.
+- Switching re-scopes data correctly; no cross-workspace leakage.
 
 ---
 

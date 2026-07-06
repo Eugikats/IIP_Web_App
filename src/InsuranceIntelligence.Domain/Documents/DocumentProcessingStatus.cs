@@ -6,5 +6,8 @@ public enum DocumentProcessingStatus
     Processing,
     Processed,
     Failed,
-    ExtractionApproved
+    ExtractionApproved,
+    ReviewRequired,
+    Reviewed,
+    Rejected
 }

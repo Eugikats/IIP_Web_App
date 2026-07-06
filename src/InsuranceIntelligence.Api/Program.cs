@@ -217,8 +217,8 @@ else
     builder.Services.AddSingleton<ITeamsNotificationProvider, MockTeamsNotificationProvider>();
 }
 
-builder.Services.AddSingleton<ITeamsNotificationQueue, DefaultTeamsNotificationQueue>();
-builder.Services.AddSingleton<CaseIntakeService>();
+builder.Services.AddScoped<ITeamsNotificationQueue, DefaultTeamsNotificationQueue>();
+builder.Services.AddScoped<CaseIntakeService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<TenantContextAccessor>();
 builder.Services.AddScoped<ITenantContextAccessor>(serviceProvider => serviceProvider.GetRequiredService<TenantContextAccessor>());
@@ -236,6 +236,14 @@ builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
+// Initiative LP: rule-based advisory domains + admin domains (Fraud/Underwriting/Agents/Billing).
+builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQueryService, InsuranceIntelligence.Application.Fraud.FraudQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingQueryService, InsuranceIntelligence.Application.Underwriting.UnderwritingQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingSubmissionSource, InsuranceIntelligence.Api.Underwriting.NotConfiguredUnderwritingSubmissionSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentRegistryService, InsuranceIntelligence.Application.Agents.AgentRegistryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingQueryService, InsuranceIntelligence.Application.Billing.BillingQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingUsageSource, InsuranceIntelligence.Api.Admin.Billing.RecordBackedBillingUsageSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentQueryService, InsuranceIntelligence.Application.Documents.DocumentQueryService>();
 builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.CommandCenter.ISystemCapabilityStatusService, InsuranceIntelligence.Api.CommandCenter.SystemCapabilityStatusService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Workflow.ICaseTimelineProvider, InsuranceIntelligence.Api.Local.CaseTimelineProvider>();
@@ -282,6 +290,28 @@ app.Use(async (context, next) =>
     {
         await rejection.ExecuteAsync(context);
         return;
+    }
+
+    await next();
+});
+
+// Populate the per-request tenant context for query-service endpoints (Channels,
+// Customers, Audit, Fraud, Underwriting, Agents, Billing, Documents). These read
+// ITenantContextAccessor.Current via their permission/query services; only
+// ClaimsController set it explicitly before, so the standalone query endpoints
+// otherwise fail with "Tenant context has not been initialized".
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/v1")
+        && TenantScopeReader.TryGetFromHeadersOrQuery(context, out var tenantScope, out _))
+    {
+        var userId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            var roleCode = DemoAuthorization.GetEffectiveRole(context, infrastructureOptions).ToString();
+            context.RequestServices.GetRequiredService<ITenantContextSetter>()
+                .SetCurrent(new TenantContext(tenantScope.TenantId, tenantScope.WorkspaceId, userId, [roleCode]));
+        }
     }
 
     await next();
@@ -428,12 +458,31 @@ app.MapPost("/api/v1/admin/debug-teams-notification", DebugEndpoints.TriggerTeam
 // W2.5: Phase 2 core-workspace read routes (see docs/02-development-engineering/iip_api_specification.md).
 app.MapGet("/api/v1/channels/overview", ChannelEndpoints.GetOverview)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapGet("/api/v1/customers", CustomerProfileEndpoints.ListCustomers)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustomerProfile)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/audit/events", AuditEndpoints.ListEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
+// Initiative LP: rule-based fraud advisory signals (deterministic, tenant-scoped, advisory-only).
+app.MapGet("/api/v1/fraud/signals", InsuranceIntelligence.Api.Fraud.FraudEndpoints.GetSignals)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
+// Initiative LP: rule-based underwriting advisory reviews (deterministic, advisory-only).
+app.MapGet("/api/v1/underwriting/reviews", InsuranceIntelligence.Api.Underwriting.UnderwritingEndpoints.GetReviews)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewUnderwriting));
+// Initiative LP: AI Agent Registry — catalog + tenant-scoped persisted kill switch (ADR-0002).
+app.MapGet("/api/v1/admin/agents", InsuranceIntelligence.Api.Admin.Agents.AgentRegistryEndpoints.ListAgents)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapPost("/api/v1/admin/agents/{agentKey}/kill-switch", InsuranceIntelligence.Api.Admin.Agents.AgentRegistryEndpoints.SetKillSwitch)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+// Initiative LP: Billing & entitlements — default package + real usage meters (ADR-0003).
+app.MapGet("/api/v1/admin/billing", InsuranceIntelligence.Api.Admin.Billing.BillingEndpoints.GetSummary)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
+// Initiative LP: cross-case document library.
+app.MapGet("/api/v1/documents", InsuranceIntelligence.Api.Documents.DocumentLibraryEndpoints.ListDocuments)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAllClaims));
 
 app.MapGet("/api/v1/compliance/audit-events", ComplianceEndpoints.ListAuditEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));

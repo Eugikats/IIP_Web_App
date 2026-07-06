@@ -1,5 +1,5 @@
-import { CommandCenterClient } from "@/app/CommandCenterClient";
+import Component from "@/lovable-pages/Login";
 
-export default function HomePage() {
-  return <CommandCenterClient />;
+export default function Page() {
+  return <Component />;
 }

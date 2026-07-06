@@ -1,5 +1,5 @@
-import { CustomerPortalClient } from "@/app/customer-portal/CustomerPortalClient";
+import { redirect } from "next/navigation";
 
-export default function MyClaimsPage() {
-  return <CustomerPortalClient view="claims" />;
+export default function RedirectPage() {
+  redirect("/app/portal");
 }

@@ -7,7 +7,7 @@ The Insurance Intelligence Platform v2 repo (`C:\Users\Nic Kings\OneDrive\Deskto
 **Why this matters now:** two agents have already worked on this repo in the same session window and produced two near-miss conflicts already found and fixed (an `AGENTS.md` §20 route-prefix conflict, a §12 block-naming conflict). Without an explicit file-ownership plan, that pattern will repeat at much larger scale once 16 backend services and ~19 frontend screens are being built concurrently.
 
 **Ground truth used to build this plan** (verified by reading the actual repo, not assumed):
-- **Built today:** Domain/Application/Infrastructure/Api/Functions/LocalTestDoubles projects; only `Application/Core` (4 port *interfaces*, no EF impl), `Application/Claims`, `Application/CommandCenter` are real. Auth is multitenant Entra (correct, don't touch). All routes are `/api/v1` (correct, don't touch). Command Center emits 12 typed blocks, portal parser matches exactly (verified). 217 API tests + 30 Domain tests pass. Portal has ~19 screens; **Channels and Sales & Leads are UI-only — no backend exists for them yet.**
+- **Built today:** Domain/Application/Infrastructure/Api/Functions/LocalTestDoubles projects. Auth is multitenant Entra (correct, don't touch). All routes are `/api/v1` (correct, don't touch). Command Center emits typed blocks, portal parser matches. **Update (2026-07): Phase 2 landed** — Channels, Customers, Sales & Leads, and Audit now have real tenant-scoped query services + read repositories + routes (their read repos return empty until an ingestion source is configured). The portal has since undergone the **Lovable-parity migration** — see the amendment on Initiative LP below and `docs/06-decisions/lovable-parity-migration-audit.md` for the current `/app/*` route reality.
 - **Spec-only (documented, not built):** 16 backend services, each with its own `iip_*_service_implementation_output.md` doc in `docs/02-development-engineering/`. EF implementations of the 4 Core ports. The multi-agent orchestrator. Several frontend screens' real-data wiring.
 - **A live, unresolved doc conflict:** `infra/AZURE_TARGET_ARCHITECTURE.md` (matches the actual working `infra/mainTemplate.bicep`, App Service-based) vs `docs/05-deployment-release-enablement/iip_delivery_tooling_openapi_iac_testdata_cicd.md` (specifies a different, newer Container Apps-based IaC layout). Not reconciled — this plan resolves it once, up front (Phase 0), rather than letting different phases pick different answers.
 - **A missing doc set:** `AGENTS.md` §19 points to `docs/ui/IIP_Operations_UI_Design_Specification_MVP.md`, `docs/ui/reference/IIP_Global_Theme_Approved.png`, `docs/ui/backend-contract-map.md` — **none exist**. This plan uses the real authoritative set instead: `IIP_FRONTEND_ARCHITECTURE_AND_AGENT_HANDOFF.md`, `iip_ui_ux_handoff_document.md`, `iip_frontend_implementation_guide.md`, `iip_design_system_ux_behavior_specification.md`, `iip_component_architecture_document.md`.
@@ -372,6 +372,61 @@ Four independent read-only services. Each owns its own top-level folder — full
 > Read `offer-metadata.md`, `createUiDefinition.json`, `viewDefinition.json` — these are already shaped for Azure Managed Application submission. Validate `createUiDefinition.json` against the current `infra/mainTemplate.bicep` parameters (they may have drifted since Phase 0–8 added new params). Complete the "Release Candidate Evidence" checklist in `offer-metadata.md` (package name+commit SHA, `az bicep build` result, parameter-validation result, secret scan, build/test results, clean test-deployment result, smoke test, rollback package). This is the only phase where these three files are in scope for editing.
 
 **Gate:** Partner Center submission checklist fully green; `az bicep build` + createUiDefinition validation both pass.
+
+---
+
+## INITIATIVE LP — Lovable Design & Workflow Parity
+
+> **AMENDMENT (2026-07-05) — approach superseded.** LP.0–LP.7 below were written for an *incremental rework of the existing real routes*. The actual migration (`47ed7a8`, ADR-2026-07-04) took a different, now-canonical approach: the full Lovable prototype is mounted under a new **`/app/*` route tree** (`web/portal/lovable-pages/*` in the `components/iip/AppShell` shell) behind the dev-only `LovableVisualParity` mode (`NEXT_PUBLIC_VISUAL_PARITY_MODE=true`), and each screen is **reconciled off fixtures onto real `/api/v1` data** via per-screen hooks in `web/portal/lib/lovable-parity/data/*` (Channels is the completed template). The remaining work is therefore: (1) reconcile each `/app/*` screen to real APIs; (2) build the four net-new backend domains those screens need (Agent Registry, Fraud, Underwriting, Billing) + Documents/Communications status enums, Customer 360 detail, Channels write-actions, `/me` workspaces; (3) consolidate the two token systems (`globals.css` + `lovable.css`) and resolve the prod parity-gate; (4) remove the orphaned pre-migration route tree; (5) validate. The authoritative, current backlog and file-by-file list is **`docs/06-decisions/lovable-parity-migration-audit.md`** — follow that over the LP.1–LP.7 route-rework wording below, which is retained only for history. LP.0 (docs foundation) and the DEC-011..014 decisions still stand.
+
+> **Numbering note:** this is a **cross-cutting initiative**, not a sequential phase — its work items use the `LP.*` prefix (not `W#.#`) precisely so it does not collide with the existing PHASE 0–9 numbering (in particular the pre-existing PHASE 3 = Claims Workflow MVP). It can run against the current codebase state and interleaves with the phases above by the same file-ownership rules.
+
+**Context.** The product owner designed a full reference prototype in Lovable (`Intelligent Operations Hub`) that is the desired UI/UX, workflow, and logic direction for IIP Operations. This initiative brings the real repo to full parity with that reference on IIP's own stack (Next.js/.NET, not Vite/shadcn — port the pattern, not the library). Governing decisions: `docs/01-strategy-requirements-roadmap/iip_product_decision_log.md` DEC-011…DEC-014. Nothing from the reference is mocked-and-left — where a feature was mock in Lovable, the real backend logic is implemented so it is genuinely functional. Full plan of record: the approved plan file for this initiative (`twinkly-hatching-hippo`).
+
+**Gate mapping (AGENTS.md Production Release Program).** All LP work sits inside **Gate 0** (secure baseline, UI/backend alignment, real API contract map). Everything built is real and needs no live external provider to function; the only provider-dependent seams (live WhatsApp/SMS ingestion, any future Azure OpenAI narration for Fraud/Underwriting) are built up to the provider boundary and gated behind the existing `Not configured` honesty pattern until **Gate 3** activates real providers. New config/secret needs are forward-referenced into the Gate-1/Gate-3 env-vars and packaging guides as they arise.
+
+### LP.0 — Branch + documentation foundation [Claude, solo, first]
+**Governing docs:** `iip_design_system_ux_behavior_specification.md`, `iip_ui_ux_handoff_document.md`, `iip_product_decision_log.md`, `docs/06-decisions/open-questions-tracker.md`
+**Owns:** those doc files + new ADR(s) under `infra/` or `docs/06-decisions/`; branch `feature/lovable-design-parity`
+**Prompt:**
+> On branch `feature/lovable-design-parity`: bump the design-system spec to the Ambient Intelligence theme (Lovable-derived tokens), add new Section-9 screen specs to the UI/UX handoff doc for Channels Inbox (threaded + actions), Customer 360 detail, Communications hub, Documents hub, Fraud Intelligence, Underwriting Intelligence, AI Agent Registry, Billing, and Workspaces, log DEC-011…DEC-014 in the product decision log, and add an ADR for the multi-agent orchestration / kill-switch boundary. Docs land before code.
+
+### LP.1 — Design tokens & shell skin [Claude]
+**Owns:** `web/portal/app/globals.css`, `web/portal/tailwind.config.ts`, `web/portal/components/{AppShell,SidebarNav,TopBar,RightCopilotPanel}.tsx`, shared card primitives (`States`, `Badges`, `SectionCard`, `PageHeader`)
+**Prompt:**
+> Port the Ambient Intelligence tokens/utilities (`.glass*`, `.ambient-bg`, `.hover-lift`, gradient/shadow scales) into `globals.css`/`tailwind.config.ts` additively (extend, don't rename existing tokens), then apply the glass/ambient treatment to shell chrome and shared card primitives keeping all prop APIs and permission/collapse logic unchanged. Visual-approval checkpoint required before proceeding.
+
+### LP.2 — Existing-page parity [Claude, one screen folder at a time]
+**Owns (sequence, never concurrent within this list):** `web/portal/app/channels/*`, `web/portal/app/customers/*` (+ new `customers/[customerId]/`), `web/portal/app/customer-service/*` (Communications), new `web/portal/app/documents/*`, `web/portal/app/support-health/*`, plus `TopBar` workspace switcher
+**Backend it depends on:** LP.6 status-enum/endpoint additions (Channels actions, Documents status + retry, Communications delivery-status enum, Customer 360 summary field)
+**Prompt (per screen):**
+> Bring `<screen>` to workflow+logic parity with the Lovable reference, reusing the existing governance primitives (`GovernedActionDialog`, `ActionStateContract`, `States`). For Channels, first fix the tenant-context gap (route group never calls `ITenantContextSetter.SetCurrent`) before adding create-claim/create-lead/draft-response/escalate actions. Visual-approval checkpoint per screen.
+
+### LP.3 — AI Agent Registry + kill switch [Codex backend, Claude UI + DI]
+**Owns:** new `Application/Agents/`, `Api/Admin/Agents/`, EF read/write repos; new `web/portal/app/admin/agents/*`
+**Prompt:**
+> Investigate reusing `Domain/Agents/AgentContracts.cs` (legacy, unwired) first. Build real agent-definition/run-log/kill-switch entities + query/command services following the Phase-2 pattern; kill switch is a governed, audited admin control enforced at agent-invocation time — never an autonomous AI action. New `/admin/agents` UI (registry table + detail drawer + kill-switch panel).
+
+### LP.4 — Fraud Intelligence (rule-based v1) [Codex backend, Claude UI + DI]
+**Owns:** new `Domain/Fraud/`, `Application/Fraud/`, `Api/Fraud/`; new `web/portal/app/fraud-intelligence/*`
+**Prompt:**
+> Build a deterministic rule engine over real case/customer data (duplicate-claimant/policy patterns, claim velocity, missing-doc-to-payout ratio) producing `AdvisorySignal` records with linked evidence — never a "confirmed fraud" verdict (AGENTS.md AI-behavior boundary). Unit-test each rule (fixed input → expected signal). UI reuses Command Center signal-card patterns. Note the rule-based-v1 / LLM-narration-later decision (DEC-014) in the doc.
+
+### LP.5 — Underwriting Intelligence (rule-based v1) [Codex backend, Claude UI + DI]
+**Owns:** new `Domain/Underwriting/`, `Application/Underwriting/`, `Api/Underwriting/`; new `web/portal/app/underwriting/*`
+**Prompt:**
+> Build a deterministic rule engine (product-line/coverage/limit checks, missing-information detection, drafts clarifying questions) — never approves/rejects/binds. Same pattern, tests, and UI approach as LP.4.
+
+### LP.6 — Billing & entitlements + supporting backend deltas [Codex backend, Claude DI]
+**Owns:** new `Domain/Billing/`, `Application/Billing/`, `Api/Billing/`; status-enum/endpoint deltas for Documents (`ReviewRequired`/`Reviewed`/`Rejected` + retry-extraction), Communications (`DeliveryStatus` enum), Channels (write actions), Customer 360 (AI-summary field); new `web/portal/app/admin/billing/*`
+**Prompt:**
+> Build real entitlement/seat/usage-meter domain wired to actual internal counters the app already emits (AI calls, docs processed, channels active, storage) — computed, never fabricated; overage = real usage vs. real limit. Any external metering provider is gated behind `Not configured`. Add the Documents/Communications/Channels/Customer-360 backend deltas that LP.2 depends on, following the Phase-2 query-service pattern.
+
+### LP.7 — Composition-root wiring + validation [Claude, SOLO, last]
+**Prompt:**
+> Register all new LP services/repos in DI + map routes in `Program.cs` (solo task, nothing else active). Run `dotnet build`/`dotnet test` (new fixed-input rule-engine + kill-switch-enforcement tests) and `pnpm lint`/`build`; update Playwright visual baselines (`test:visual:update`) as an intentional diff. Completion report per CLAUDE.md; release-readiness stays NO on all three flags (this initiative doesn't touch identity/staging/packaging).
+
+**Gate:** `dotnet test` + `pnpm build`/`lint` green; every new `Not configured` seam fails safely; Fraud/Underwriting language never reads as a verdict across a two-role manual walkthrough.
 
 ---
 

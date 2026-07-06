@@ -4,6 +4,14 @@ namespace InsuranceIntelligence.Api.Customer;
 
 public static class CustomerProfileEndpoints
 {
+    public static async Task<IResult> ListCustomers(
+        ICustomerQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        var customers = await queryService.ListCustomersAsync(cancellationToken);
+        return Results.Ok(customers);
+    }
+
     public static async Task<IResult> GetCustomerProfile(
         string customerId,
         ICustomerQueryService queryService,

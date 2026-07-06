@@ -1,17 +1,35 @@
 import type { Config } from "tailwindcss";
 
 const token = (name: string) => `rgb(var(${name}) / <alpha-value>)`;
+const hslToken = (name: string) => `hsl(var(${name}) / <alpha-value>)`;
 
 const config: Config = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lovable-pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./context/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
         bg: token("--color-bg"),
+        background: hslToken("--background"),
+        foreground: hslToken("--foreground"),
+        border: hslToken("--border"),
+        input: hslToken("--input"),
+        ring: hslToken("--ring"),
+        navy: hslToken("--navy"),
+        slate2: hslToken("--slate"),
+        graphite: hslToken("--graphite"),
+        stone: hslToken("--stone"),
+        pearl: hslToken("--pearl"),
+        cloud: hslToken("--cloud"),
+        "cool-gray": hslToken("--cool-gray"),
+        "light-gray": hslToken("--light-gray"),
+        error: hslToken("--error"),
+        violet2: hslToken("--violet"),
         shell: token("--color-shell"),
         surface: {
           DEFAULT: token("--color-surface"),
@@ -74,6 +92,24 @@ const config: Config = {
           border: token("--color-info-border"),
           text: token("--color-info-text"),
         },
+        // Brand accent family. These names are referenced widely across the
+        // component set (text-accent, border-accent, bg-accent, bg-brand-gradient,
+        // text-violet, bg-mist). They map onto the Ambient Intelligence palette:
+        // `accent` = primary blue action, `violet` = AI accent, `mist` = soft surface.
+        accent: {
+          DEFAULT: token("--color-primary"),
+          soft: token("--color-primary-soft"),
+          border: token("--color-primary-border"),
+        },
+        brand: {
+          600: token("--color-primary-hover"),
+        },
+        violet: {
+          DEFAULT: token("--color-ai"),
+          soft: token("--color-ai-soft"),
+          border: token("--color-ai-border"),
+        },
+        mist: token("--color-surface-soft"),
       },
       boxShadow: {
         xs: "var(--shadow-xs)",
@@ -83,6 +119,22 @@ const config: Config = {
         popover: "var(--shadow-popover)",
         drawer: "var(--shadow-drawer)",
         focus: "var(--shadow-focus)",
+        l1: "var(--shadow-l1)",
+        l2: "var(--shadow-l2)",
+        l3: "var(--shadow-l3)",
+        l4: "var(--shadow-l4)",
+        glass: "var(--shadow-glass)",
+        "glow-cyan": "0 8px 24px rgba(37, 99, 255, 0.14)",
+        "glow-danger": "0 8px 24px rgba(220, 38, 38, 0.12)",
+        "glow-success": "0 8px 24px rgba(5, 150, 105, 0.12)",
+        "glow-warning": "0 8px 24px rgba(217, 119, 6, 0.12)",
+      },
+      backgroundImage: {
+        "gradient-primary": "var(--gradient-primary)",
+        "gradient-secondary": "var(--gradient-secondary)",
+        "gradient-tertiary": "var(--gradient-tertiary)",
+        "gradient-ambient": "var(--gradient-ambient)",
+        "brand-gradient": "var(--gradient-primary)",
       },
       borderRadius: {
         xs: "var(--radius-xs)",
@@ -96,6 +148,25 @@ const config: Config = {
       spacing: {
         "density-p": "var(--density-default-p)",
         "density-gap": "var(--density-default-gap)",
+      },
+      keyframes: {
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(4px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "pulse-soft": {
+          "0%,100%": { opacity: "1" },
+          "50%": { opacity: ".6" },
+        },
+      },
+      animation: {
+        "fade-in": "fade-in .3s ease-out",
+        shimmer: "shimmer 2.4s linear infinite",
+        "pulse-soft": "pulse-soft 2s ease-in-out infinite",
       },
     },
   },

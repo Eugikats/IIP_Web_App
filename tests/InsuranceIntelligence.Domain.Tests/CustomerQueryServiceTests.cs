@@ -241,6 +241,16 @@ public sealed class CustomerQueryServiceTests
             LastCustomerId = customerId;
             return Task.FromResult(profile);
         }
+
+        public Task<IReadOnlyList<CustomerListItemDto>> ListCustomersAsync(
+            string tenantId,
+            string workspaceId,
+            CancellationToken cancellationToken = default)
+        {
+            LastTenantId = tenantId;
+            LastWorkspaceId = workspaceId;
+            return Task.FromResult<IReadOnlyList<CustomerListItemDto>>([]);
+        }
     }
 
     private sealed class RecordingAuditWriter : IAuditWriter

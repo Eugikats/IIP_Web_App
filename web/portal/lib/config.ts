@@ -47,9 +47,14 @@ export function scopedHeaders(role = "Client", userId = ""): Record<string, stri
     }
 
     headers["x-demo-role"] = role;
-    if (userId) {
-      headers["x-demo-user-id"] = userId;
-      headers["X-User-Id"] = userId;
+    // Fall back to the configured local development user so a caller that omits
+    // the userId (e.g. the /app parity-data hooks) still supplies an identity —
+    // the API's tenant-context middleware needs one. No effect in deployed
+    // runtimes, where localDevelopmentUserId is empty and bearer auth is used.
+    const effectiveUserId = userId || localDevelopmentUserId;
+    if (effectiveUserId) {
+      headers["x-demo-user-id"] = effectiveUserId;
+      headers["X-User-Id"] = effectiveUserId;
     }
   } else if (apiAccessToken) {
     headers.Authorization = `Bearer ${apiAccessToken}`;

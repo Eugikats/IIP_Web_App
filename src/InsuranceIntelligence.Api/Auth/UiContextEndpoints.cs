@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using InsuranceIntelligence.Api.Azure;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Common;
@@ -8,8 +9,9 @@ namespace InsuranceIntelligence.Api.Auth;
 
 public static class UiContextEndpoints
 {
-    public static IResult GetMe(HttpContext httpContext, InfrastructureOptions options)
+    public static IResult GetMe(HttpContext httpContext, InfrastructureOptions options, IHostEnvironment hostEnvironment)
     {
+        var environmentName = hostEnvironment.EnvironmentName;
         if (options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
         {
             if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
@@ -29,6 +31,7 @@ public static class UiContextEndpoints
                 scope,
                 [role],
                 options,
+                environmentName,
                 source: "Development"));
         }
 
@@ -56,6 +59,7 @@ public static class UiContextEndpoints
             scopeResult.Scope,
             roles.Count == 0 ? [PlatformRole.Client] : roles,
             options,
+            environmentName,
             source: "Entra"));
     }
 
@@ -66,6 +70,7 @@ public static class UiContextEndpoints
         TenantScope scope,
         IReadOnlyCollection<PlatformRole> roles,
         InfrastructureOptions options,
+        string environmentName,
         string source)
     {
         var permissions = roles
@@ -97,7 +102,7 @@ public static class UiContextEndpoints
                 Claims: permissions.Contains(Permission.ViewAllClaims.ToString(), StringComparer.Ordinal) ? "team" : "assigned",
                 Policies: "business_line",
                 Audit: permissions.Contains(Permission.ViewAuditLog.ToString(), StringComparer.Ordinal) ? "read_only_if_authorised" : "unavailable"),
-            new UiEnvironmentContext("Development".Equals(options.AuthMode, StringComparison.OrdinalIgnoreCase) ? "Local Development" : "Authenticated Runtime", RuntimeMode(options), source));
+            EnvironmentContextFactory.Build(options, environmentName, source));
     }
 
     private static UiAuthority AuthorityFor(IReadOnlyCollection<PlatformRole> roles)
@@ -153,9 +158,6 @@ public static class UiContextEndpoints
 
         return null;
     }
-
-    private static string RuntimeMode(InfrastructureOptions options) =>
-        options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? "LocalTest" : "Authenticated";
 
     private static string UserIdForRole(PlatformRole role) => role switch
     {
@@ -231,4 +233,7 @@ public sealed record UiDataScope(
 public sealed record UiEnvironmentContext(
     string Name,
     string Mode,
-    string Source);
+    string Source,
+    string ReviewMode,
+    bool SyntheticData,
+    string DataClassification);

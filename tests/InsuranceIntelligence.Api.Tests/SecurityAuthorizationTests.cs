@@ -24,6 +24,17 @@ public sealed class SecurityAuthorizationTests
         TenantId = "configured-tenant",
         WorkspaceId = "configured-workspace"
     };
+    private static readonly Microsoft.Extensions.Hosting.IHostEnvironment DevelopmentHost = new TestHostEnvironment("Development");
+    private static readonly Microsoft.Extensions.Hosting.IHostEnvironment ProductionHost = new TestHostEnvironment("Production");
+
+    private sealed class TestHostEnvironment(string environmentName) : Microsoft.Extensions.Hosting.IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ApplicationName { get; set; } = "InsuranceIntelligence.Api.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } =
+            new Microsoft.Extensions.FileProviders.NullFileProvider();
+    }
 
     [Fact]
     public void GetRole_DefaultsToLeastPrivilegeClient_WhenHeaderMissing()
@@ -347,7 +358,7 @@ public sealed class SecurityAuthorizationTests
         context.Request.Headers["X-Tenant-Id"] = "tenant-a";
         context.Request.Headers["X-Workspace-Id"] = "workspace-a";
 
-        var result = RuntimeContextEndpoints.GetMe(context, DevelopmentOptions);
+        var result = RuntimeContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost);
 
         var (status, json) = await ExecuteJsonAsync(result);
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -366,7 +377,7 @@ public sealed class SecurityAuthorizationTests
         var context = new DefaultHttpContext();
         context.Request.Headers["x-demo-role"] = "Admin";
 
-        var result = RuntimeContextEndpoints.GetMe(context, ProductionOptions);
+        var result = RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost);
 
         Assert.Equal(StatusCodes.Status403Forbidden, await ExecuteStatusAsync(result));
     }
@@ -385,7 +396,7 @@ public sealed class SecurityAuthorizationTests
             new Claim("workspace_id", "workspace-a")
         ], "Entra"));
 
-        var result = RuntimeContextEndpoints.GetMe(context, ProductionOptions);
+        var result = RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost);
 
         var (status, json) = await ExecuteJsonAsync(result);
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -411,7 +422,7 @@ public sealed class SecurityAuthorizationTests
             new Claim(ClaimTypes.Role, "ITAdmin")
         ], "Entra"));
 
-        var result = RuntimeContextEndpoints.GetMe(context, ProductionDeploymentOptions);
+        var result = RuntimeContextEndpoints.GetMe(context, ProductionDeploymentOptions, ProductionHost);
 
         var (status, json) = await ExecuteJsonAsync(result);
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -565,7 +576,7 @@ public sealed class SecurityAuthorizationTests
         context.Request.Headers["x-demo-role"] = "ClaimsSupervisor";
         context.Request.Headers["x-demo-user-id"] = "local-supervisor";
 
-        var result = UiContextEndpoints.GetMe(context, DevelopmentOptions);
+        var result = UiContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost);
         var (status, body) = await ExecuteJsonAsync(result);
 
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -586,7 +597,7 @@ public sealed class SecurityAuthorizationTests
         context.Request.Headers["X-Workspace-Id"] = "workspace-claims";
         context.Request.Headers["x-demo-role"] = "Admin";
 
-        var result = UiContextEndpoints.GetMe(context, DevelopmentOptions);
+        var result = UiContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost);
         var (status, body) = await ExecuteJsonAsync(result);
 
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -604,7 +615,7 @@ public sealed class SecurityAuthorizationTests
         context.Request.Headers["X-Workspace-Id"] = "workspace-claims";
         context.Request.Headers["x-demo-role"] = "Admin";
 
-        var result = UiContextEndpoints.GetMe(context, ProductionOptions);
+        var result = UiContextEndpoints.GetMe(context, ProductionOptions, ProductionHost);
 
         Assert.Equal(StatusCodes.Status501NotImplemented, await ExecuteStatusAsync(result));
     }

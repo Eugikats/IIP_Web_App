@@ -780,13 +780,7 @@ IIP Operations is an enterprise insurance operations workspace with embedded AI 
 
 ### 21.1 Command Center UI direction
 
-The Command Center is the primary interface and landing route:
-
-```text
-/command-center
-```
-
-`/dashboard` may exist as a legacy alias only if required by existing routing.
+The Command Center is the primary interface of IIP Operations. Post the Lovable-parity migration the operator app is served under the `/app/*` route tree (the Command Center screen is `/app`), with `/` as the Login screen. Earlier drafts referenced `/command-center`; that is superseded by the `/app` structure. See `docs/06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md` and `docs/06-decisions/lovable-parity-migration-audit.md`.
 
 Command Center behavior:
 
@@ -827,15 +821,16 @@ Rules:
 
 ### 21.3 Approved UI authority
 
-Before changing major frontend page structure, styling tokens, role-aware navigation, AI surfaces, customer-safe surfaces, integration states, approval workflows, or API-to-UI mapping, read the approved UI documentation where present:
+Before changing major frontend page structure, styling tokens, role-aware navigation, AI surfaces, customer-safe surfaces, integration states, approval workflows, or API-to-UI mapping, read the authoritative UI documentation (the `docs/ui/*` paths in earlier drafts were never created — use these real docs):
 
-- `docs/ui/IIP_Operations_UI_Design_Specification_MVP.md`
-- `docs/ui/reference/IIP_Global_Theme_Approved.png`
-- `docs/ui/backend-contract-map.md`
-- UI/UX Handoff Document
-- Design System & UX Behavior Specification
-- Component Architecture Document
-- Workflow Architecture Document
+- `docs/03-design-architecture/iip_design_system_ux_behavior_specification.md` (Ambient Intelligence theme, v1.2)
+- `docs/02-development-engineering/iip_ui_ux_handoff_document.md`
+- `docs/02-development-engineering/iip_frontend_implementation_guide.md`
+- `docs/02-development-engineering/IIP_FRONTEND_ARCHITECTURE_AND_AGENT_HANDOFF.md`
+- `docs/03-design-architecture/iip_component_architecture_document.md`
+- `docs/03-design-architecture/iip_workflow_architecture_document.md`
+- `docs/06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md`
+- `docs/06-decisions/lovable-parity-migration-audit.md`
 
 If the approved UI spec conflicts with implementation reality, report the conflict before inventing a new design direction.
 

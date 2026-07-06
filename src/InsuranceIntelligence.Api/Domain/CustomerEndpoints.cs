@@ -1,4 +1,6 @@
+using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
@@ -14,7 +16,8 @@ public static class CustomerEndpoints
     {
         var group = routes.MapGroup("/api/v1/customers")
             .WithTags("Customers")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 
         group.MapGet("/", async ([FromServices] ICustomerRepository repository, [FromServices] ITenantContext context, CancellationToken ct) =>
         {

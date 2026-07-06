@@ -349,23 +349,23 @@ For MVP and production workflows, AI must not automatically:
 
 IIP Operations is an enterprise insurance operations workspace with embedded AI assistance. It is not a generic chatbot-first application.
 
-Before changing frontend pages, routes, components, layout, styling, role-aware navigation, AI surfaces, customer-safe surfaces, integration states, approvals, or API-to-UI mappings, read:
+Before changing frontend pages, routes, components, layout, styling, role-aware navigation, AI surfaces, customer-safe surfaces, integration states, approvals, or API-to-UI mappings, read (the `docs/ui/*` paths in earlier drafts were never created — use these real docs):
 
-- `docs/ui/IIP_Operations_UI_Design_Specification_MVP.md`
-- `docs/ui/reference/IIP_Global_Theme_Approved.png`
+- `docs/03-design-architecture/iip_design_system_ux_behavior_specification.md` (Ambient Intelligence theme, v1.2)
+- `docs/02-development-engineering/iip_ui_ux_handoff_document.md`
+- `docs/06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md`
+- `docs/06-decisions/lovable-parity-migration-audit.md`
+
+The operator app is the `/app/*` route tree (`web/portal/lovable-pages/*`); `/` is Login. Screens are reconciled off dev-only `LovableVisualParity` fixtures onto real `/api/v1` data via `web/portal/lib/lovable-parity/data/*` hooks.
 
 Frontend rules:
 
-- Follow the approved Light Intelligence Workspace Theme.
-- Use bright white and soft-lavender workspace surfaces.
+- Follow the approved **Ambient Intelligence theme** (DEC-011): blue→violet gradient family, base ink navy `#0B0F3B`, primary `#2563FF`, AI accent violet `#7C4DFF`, soft translucent glass surfaces over an ambient gradient background.
 - Use deep ink-navy typography.
-- Use restrained indigo-to-violet brand and AI accents.
-- Use a light sidebar and light header for MVP.
 - Use structured right-side execution or AI insight rails.
 - Use compact operational tables.
-- Use subtle borders, shadows, and rounded cards.
-- Do not introduce a dark sidebar in MVP unless an approved spec update allows it.
-- Do not improvise a new color palette.
+- Use glass surfaces, depth/glass shadows, and generous rounded cards.
+- Do not improvise a new color palette outside the Ambient Intelligence tokens.
 - Do not hide backend failures behind fake data.
 - Do not show unavailable integrations as connected.
 - Use `Not configured` for unconfigured real capabilities.

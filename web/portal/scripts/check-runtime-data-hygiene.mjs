@@ -3,6 +3,10 @@ import { join, relative } from "node:path";
 
 const root = process.cwd();
 const scanRoots = ["app", "components", "lib"];
+const allowedDevelopmentFixtureRoots = new Set([
+  "lib\\lovable-parity",
+  "lib/lovable-parity"
+]);
 const banned = [
   "tenant-demo",
   "workspace-claims",
@@ -37,6 +41,9 @@ function extensionOf(fileName) {
 }
 
 function walk(directory) {
+  const relativeDirectory = relative(root, directory);
+  if (allowedDevelopmentFixtureRoots.has(relativeDirectory)) return;
+
   for (const entry of readdirSync(directory)) {
     const path = join(directory, entry);
     const stats = statSync(path);

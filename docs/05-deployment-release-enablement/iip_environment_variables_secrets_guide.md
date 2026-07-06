@@ -87,6 +87,9 @@ Confirmed project baseline:
 | NEXT_PUBLIC_AUTH_CLIENT_ID | MSAL client id | No | Public app registration id. |
 | NEXT_PUBLIC_AUTH_AUTHORITY | MSAL authority | No | Public config. |
 | NEXT_PUBLIC_ENABLE_DEMO_MODE | Local/demo flag | No | Must be false in production. |
+| NEXT_PUBLIC_VISUAL_PARITY_MODE | LovableVisualParity dev fixtures flag | No | **Development migration only.** When `true`, `/app/*` screens render static prototype fixtures from `web/portal/lib/lovable-parity/`. MUST be unset/`false` in Staging, Production, ManagedApplicationReviewer, and customer environments — deployed builds must render reconciled real-API screens, never fixtures. See `docs/06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md`. |
+
+> **Prod-gate follow-up — RESOLVED (2026-07-05):** `components/iip/LovableVisualParityGate` no longer blocks the app in production. Every `/app/*` screen now renders real `/api/v1` data or an honest empty/"Not configured" state, with prototype fixtures shown only per-screen when `NEXT_PUBLIC_VISUAL_PARITY_MODE=true`. The gate is now a thin pass-through; per-screen honesty is the protection.
 
 ## Environment Matrix
 
@@ -97,6 +100,28 @@ Confirmed project baseline:
 | Staging | Key Vault/pipeline | No production bypass | Only controlled UAT data | Real auth preferred. |
 | Pilot | Key Vault/pipeline | No | No fake operational data | Audit, monitoring, support enabled. |
 | Production | Key Vault/managed identity | No | No | Full security controls. |
+
+## Review modes: Demo (synthetic) vs Production (live)
+
+The platform supports two **deployed** review modes so a customer/reviewer can walk through a fully-populated system without ever touching live customer data, and can then see the same code path running against real data. Both modes run the **same real providers, real Microsoft Entra identity, and real Azure SQL** — they differ only in which tenant's data is loaded and in a mandatory environment banner. There is no mock runtime provider and no fake success path in either mode.
+
+The mode is selected by the backend runtime profile and is classified server-side (`AzureProviderStartupValidator.ResolveReviewMode`) — the browser cannot spoof it. It is surfaced on `GET /api/v1/me` under `environment` (`reviewMode`, `syntheticData`, `dataClassification`) and drives `components/iip/EnvironmentBanner`.
+
+| Review mode | `INSURANCEINTELLIGENCE_RUNTIME_PROFILE` | Data | Providers / identity / storage | Banner |
+| --- | --- | --- | --- | --- |
+| **Demo / Review sandbox** | `Demo` | Synthetic, seeded into the isolated `tenant-demo` tenant | Real (same as Production) | Amber "Synthetic demo data — not production" (always shown) |
+| **Production** | `Production` (or `Staging` / `ManagedApplicationReviewer`) | Real onboarded customer data | Real | None (a calm, unbadged workspace is the signal) |
+| Local development | unset (or `Development` / `LocalTest`) | Optional synthetic seed | InMemory/LocalTest doubles allowed | Slate "Local development" / amber if synthetic |
+
+Backend keys governing review mode (prefix `INSURANCEINTELLIGENCE_`):
+
+| Key | Purpose | Notes |
+| --- | --- | --- |
+| INSURANCEINTELLIGENCE_RUNTIME_PROFILE | Selects the review mode / protected runtime | `Demo` for the synthetic sandbox; `Production`/`Staging`/`ManagedApplicationReviewer` for live. |
+| INSURANCEINTELLIGENCE_SEED_DEMO_DATA | Seeds the isolated synthetic tenant | Permitted **only** in `Demo` and local; the startup validator hard-blocks it in `Production`/`Staging`/`ManagedApplicationReviewer`. |
+| INSURANCEINTELLIGENCE_ALLOW_PRODUCTION_MOCKS | Escape hatch for mock providers | Forbidden in `Demo` and all protected runtimes — the app refuses to boot. |
+
+**Guardrail enforced in code:** the `Demo` profile is validated with the *same* strictness as Production for identity (Entra required), storage (Azure SQL required), providers (no mock/simulated/placeholder), and the mock escape hatch — the *only* carve-out is that `SEED_DEMO_DATA=true` is allowed. A `Production`/`Staging`/`ManagedApplicationReviewer` boot with seeded synthetic data is impossible by construction (`AzureProviderStartupValidator.ValidateProduction`).
 
 ## Acceptance Criteria
 

@@ -7,6 +7,9 @@ public interface ICustomerQueryService
     Task<CustomerProfileDto?> GetCustomerProfileAsync(
         string customerId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CustomerListItemDto>> ListCustomersAsync(
+        CancellationToken cancellationToken = default);
 }
 
 public interface ICustomerReadRepository
@@ -16,7 +19,19 @@ public interface ICustomerReadRepository
         string workspaceId,
         string customerId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CustomerListItemDto>> ListCustomersAsync(
+        string tenantId,
+        string workspaceId,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record CustomerListItemDto(
+    string CustomerId,
+    string FullName,
+    string? Email,
+    string? Phone,
+    int ActiveClaims);
 
 public sealed record CustomerProfileReadModel(
     string CustomerId,

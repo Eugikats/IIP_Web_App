@@ -16,7 +16,7 @@ export function SectionCard({
   eyebrow?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-line bg-surface shadow-panel ${className}`}>
+    <section className={`glass rounded-xl ${className}`}>
       {(title || description || actions) && (
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4">
           <div>

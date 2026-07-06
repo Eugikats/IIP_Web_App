@@ -1,0 +1,80 @@
+"use client";
+import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
+import { toast } from "sonner";
+import { useBilling, type UsageMeterView } from "@/lib/lovable-parity/data/billing";
+
+function Meter({ m }: { m: UsageMeterView }) {
+  if (!m.metered) {
+    return (
+      <div className="glass-subtle p-4">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-stone">{m.label}</div>
+        <div className="mt-2"><Badge tone="warning">Not configured</Badge></div>
+        <div className="mt-2 text-[11px] text-stone">No counter wired for this dimension yet.</div>
+      </div>
+    );
+  }
+  const tone = m.overLimit ? "error" : m.percentUsed >= 85 ? "warning" : "info";
+  return (
+    <div className="glass-subtle p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-stone">{m.label}</div>
+        <Badge tone={tone as any}>{m.percentUsed}%</Badge>
+      </div>
+      <div className="text-[20px] font-semibold text-navy">{m.used.toLocaleString()} <span className="text-[12px] text-stone font-normal">/ {m.limit.toLocaleString()} {m.unit}</span></div>
+      <div className="mt-2 h-1.5 rounded-full bg-cloud overflow-hidden"><div className="h-full gradient-primary" style={{ width: `${m.percentUsed}%` }} /></div>
+    </div>
+  );
+}
+
+export default function Billing() {
+  const { summary, loading, error } = useBilling();
+
+  return (
+    <>
+      <SectionHeader
+        eyebrow="Admin · Billing & Usage"
+        title="Package & entitlements"
+        sub="AI is metered — human-in-loop and auditability are the core platform value. Usage controls protect provider costs."
+        action={<button onClick={() => toast("Upgrade request recorded — routed to publisher (no charge is made here).")} className="rounded-2xl gradient-primary text-white text-[13px] px-4 py-2 shadow-l2 hover-lift">Request upgrade</button>}
+      />
+
+      {loading ? (
+        <GlassCard><div className="p-6 text-center text-[13px] text-stone">Loading billing & usage…</div></GlassCard>
+      ) : !summary ? (
+        <GlassCard><div className="p-10 text-center text-stone"><div className="text-navy font-medium">Billing unavailable</div><div className="text-[12.5px] mt-1">{error ?? "No billing data for this workspace."}</div></div></GlassCard>
+      ) : (
+        <>
+          <GlassCard className="mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Current package</div>
+                <div className="text-[18px] font-semibold text-navy">{summary.packageName}</div>
+                <div className="text-[12px] text-stone">Seat limit · {summary.seatLimit}</div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <Badge tone="info">Human-in-loop enforced</Badge>
+                <Badge tone="violet">Auditability included</Badge>
+              </div>
+            </div>
+          </GlassCard>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            {summary.meters.map((m) => <Meter key={m.key} m={m} />)}
+          </div>
+
+          <GlassCard>
+            <div className="text-[14px] font-semibold text-navy mb-3">Module entitlements</div>
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2 text-[13px]">
+              {summary.modules.map((m) => (
+                <div key={m} className="flex items-center justify-between rounded-xl border border-cloud bg-white/70 px-3 py-2">
+                  <span className="text-slate2">{m}</span>
+                  <Badge tone="success">Enabled</Badge>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        </>
+      )}
+    </>
+  );
+}

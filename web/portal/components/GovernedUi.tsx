@@ -23,7 +23,7 @@ type ButtonProps = {
 } & ButtonHTMLAttributes<HTMLButtonElement>;
 
 const buttonClass: Record<ButtonVariant, string> = {
-  primary: "border-accent bg-accent text-white hover:bg-brand-600",
+  primary: "border-transparent bg-gradient-primary text-white shadow-glow-cyan hover:opacity-90",
   secondary: "border-line bg-surface text-ink hover:border-violet/40 hover:bg-surface-soft",
   tertiary: "border-transparent bg-transparent text-muted hover:bg-surface-soft hover:text-ink",
   ai: "border-violet/30 bg-violet/10 text-violet hover:bg-violet hover:text-white",
