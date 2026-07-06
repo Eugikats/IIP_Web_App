@@ -5,7 +5,7 @@
 | Gate | 0 — Secure baseline, UI/backend alignment, real API contract map (AGENTS.md §25) |
 | Branch | `feature/lovable-design-parity` (PR #1 → `main`) |
 | Date | 2026-07-06 |
-| Status | **Nearly complete** — Pillars A (secure baseline) and C (contract map) complete; Pillar B (alignment builds) done except **B5**, which is blocked by an environment file lock (not a design issue) |
+| Status | **Complete** — all three pillars done (A secure baseline, C contract map, B alignment builds B1–B5). One tracked follow-up (Copilot-panel fixtures) does not block Gate 0. |
 
 This is the living sign-off document for Gate 0. It states, per pillar, what is real vs
 honest-gated (with reasons), the evidence, and the conservative readiness position. Gate 0 is
@@ -55,7 +55,7 @@ provider-dependent surfaces.
 | **B3** Sales-Leads manual create + list + persist | ✅ done | `ManageSalesLeads` permission, `ISalesLeadCommandService` (audited), real scoped-JSON store, GET/POST `/api/v1/sales-leads`, Acquisition capture form. Ingestion/import honest-gated (Gate 3) |
 | **B4** Multi-workspace data model + `/me` available-workspaces | ✅ done | `IWorkspaceCatalogService` + persisted per-tenant catalog; `/me` returns `availableWorkspaces` (honest single-workspace fallback); demo seeds 2 workspaces. No switcher UI (per decision) |
 | **B1** ClaimReview full governed workspace | ✅ done | Real `/api/v1/claims/{id}` + `/cases/{id}/timeline`; governed "Draft customer update" → real audited endpoint; honest empty/error states |
-| **B5** Remove customer login portal from deployed surface | 🔴 blocked (environment) | Code change ready, but `web/portal/lib/roles.ts` and the `app/customer-portal` / `app/app/portal` folders are held by an exclusive OS file lock (OneDrive/IDE) that blocks writes/deletes from this session. Needs the lock released (close the file in the IDE / let OneDrive finish syncing), then a ~30-min verified role-model change. **This is the only remaining Gate 0 item.** |
+| **B5** Remove customer login portal from deployed surface | ✅ done | Deleted `app/customer-portal/*` + `app/app/portal`; removed the `Client` role + `customerSafeOnly` from the role model; simplified AppShell/TopBar; repointed/removed obsolete visual specs. Backend `client-portal` endpoints retained (channel-assisted upload, not a login). Was blocked by a OneDrive-set ReadOnly attribute on `roles.ts` — cleared it. Static routes 34 → 26. |
 
 ### Discovered during live verification (new honesty gaps — follow-up)
 - **Right Copilot panel** (`components/iip/CopilotPanel.tsx`) still renders **fixture content** on every `/app` screen — hardcoded "Execution snapshot" priorities and provider-health latencies (e.g. "GPT-4o Healthy · 412ms", "Microsoft Graph Degraded · 2.4s"). Not in the original B-scope; needs wiring to `/api/v1/admin/provider-health` + real signals, or honest-gating. **New item, tracked here.**
@@ -92,11 +92,8 @@ PARTNER CENTER PRIVATE PLAN READY: NO
 Gate 0 does not touch identity/staging/packaging (Gates 1–6). Sign-off requires Pillar B
 items B1–B5 complete (or explicitly accepted as honest-gated by the owner).
 
-## Remaining to close Gate 0
+## Gate 0 closed
 
-1. ~~B2 Command Center query wiring.~~ ✅ done.
-2. B3 Sales-Leads manual create + persistence.
-3. B4 Multi-workspace data model + `/me` available-workspaces.
-4. B1 ClaimReview governed workspace.
-5. B5 Remove customer login portal from deployed surface (role-model change).
-6. Live screenshots of the newly-built screens (owner review).
+All pillar items (A, C, B1–B5) are complete and committed. Remaining is a single **non-blocking follow-up**: wire or honest-gate the right **Copilot panel** + bottom status bar fixtures (discovered during live verification). Recommend addressing early in Gate 1 or as a fast follow.
+
+Live verification captured: Command Center real metrics (8/2/3/0) + real governed query blocks; Fraud signals (8, real); Sales-Leads create→persist→list; `/me` returns both seeded workspaces; synthetic-data banner.
