@@ -1,34 +1,20 @@
 "use client";
 import { useParams, Link } from "@/components/iip/NextRouterCompat";
 import { toast } from "sonner";
-import { ArrowLeft, FileText, Sparkles, CheckCircle2, AlertTriangle, ShieldCheck, Download, Send, MessageSquareText } from "lucide-react";
+import { ArrowLeft, FileText, Sparkles, CheckCircle2, AlertTriangle, ShieldCheck, Download, Send, MessageSquareText, Loader2 } from "lucide-react";
 import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge, ConfidenceBadge } from "@/components/iip/Primitives";
 import MotorLifecycle from "@/components/iip/MotorLifecycle";
 import CompletenessCard from "@/components/iip/CompletenessCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { claims } from "@/lib/lovable-parity/mock";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
+import { useClaimReview } from "@/lib/lovable-parity/data/claimReview";
 
 export default function ClaimReview() {
   const { id } = useParams();
 
   if (!LOVABLE_VISUAL_PARITY_MODE) {
-    return (
-      <>
-        <div className="flex items-center gap-2 text-[12px] text-stone mb-4">
-          <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-navy"><ArrowLeft className="h-3.5 w-3.5" /> Claims</Link>
-          <span>/</span><span className="text-navy">{String(id ?? "")}</span>
-        </div>
-        <SectionHeader eyebrow="Claims Intelligence" title={`Claim ${String(id ?? "")}`} sub="Human-reviewed claim workspace." />
-        <GlassCard>
-          <div className="p-10 text-center flex flex-col items-center gap-2">
-            <FileText className="h-6 w-6 text-stone" />
-            <div className="text-navy font-medium">Full claim review workspace pending wiring</div>
-            <div className="text-[12.5px] text-stone max-w-md">Claim summary is available via <span className="font-mono">/api/v1/claims/{"{id}"}</span>; the detailed review workspace (extraction, timeline, evidence, governed actions) is wired in a follow-on. No sample claim data is shown here.</div>
-          </div>
-        </GlassCard>
-      </>
-    );
+    return <ClaimReviewLive claimId={String(id ?? "")} />;
   }
 
   const c = claims.find(x => x.id === id) ?? claims[0];
@@ -224,4 +210,130 @@ export default function ClaimReview() {
 }
 function Row({ k, v }: { k: string; v: string }) {
   return <div className="flex items-baseline justify-between gap-2"><span className="text-stone text-[11.5px]">{k}</span><span className="text-navy text-right">{v}</span></div>;
+}
+
+function ClaimReviewLive({ claimId }: { claimId: string }) {
+  const { detail, timeline, loading, error, drafting, draftCustomerUpdate } = useClaimReview(claimId);
+
+  const gov = async (label: string) => {
+    if (label === "Draft customer update") {
+      const res = await draftCustomerUpdate();
+      if (res.ok) toast.success("Customer update drafted — pending human approval before send.");
+      else toast.error(res.message ?? "Could not draft update");
+      return;
+    }
+    toast("Recorded — governed action is audited. Human decision required.");
+  };
+
+  const crumb = (
+    <div className="flex items-center gap-2 text-[12px] text-stone mb-4">
+      <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-navy"><ArrowLeft className="h-3.5 w-3.5" /> Claims</Link>
+      <span>/</span><span className="text-navy">{claimId}</span>
+    </div>
+  );
+
+  if (loading) {
+    return <>{crumb}<GlassCard><div className="p-10 text-center text-[13px] text-stone inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading claim workspace…</div></GlassCard></>;
+  }
+  if (error || !detail) {
+    return <>{crumb}<GlassCard><div className="p-10 text-center flex flex-col items-center gap-2"><FileText className="h-6 w-6 text-stone" /><div className="text-navy font-medium">Claim unavailable</div><div className="text-[12.5px] text-stone max-w-md">{error ?? "No claim found for this id in the current workspace."}</div></div></GlassCard></>;
+  }
+
+  const completeness = detail.completenessScore > 1 ? detail.completenessScore / 100 : detail.completenessScore;
+  const sla = detail.slaDueAt ? (new Date(detail.slaDueAt).getTime() < Date.now() ? "Breached" : "On Track") : "On Track";
+
+  return (
+    <>
+      {crumb}
+      <SectionHeader
+        eyebrow={`Case Review · ${detail.policyNumber}`}
+        title={`${detail.claimId.slice(0, 8)} · ${detail.customerName}`}
+        sub={detail.incidentDescription}
+        action={<div className="flex items-center gap-2"><StatusBadge status={detail.status} /><SLABadge sla={sla} /><RiskBadge risk={detail.riskLevel} /></div>}
+      />
+
+      <div className="mb-4"><GuardrailBanner text="AI prepares this claim's work — extractions, summaries, drafts, and advisory signals. Settlement, denial, repudiation, payment, and fraud determination remain with the reviewing officer." /></div>
+
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          <GlassCard>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[14px] font-semibold text-navy">Human review actions</div>
+              <div className="text-[11.5px] text-stone">AI prepares work. You make the decision.</div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2.5">
+              {[
+                { label: "Draft customer update", icon: MessageSquareText },
+                { label: "Request supervisor review", icon: ShieldCheck },
+                { label: "Mark evidence reviewed", icon: CheckCircle2 },
+                { label: "Send document follow-up", icon: Send },
+                { label: "Export claim pack", icon: Download },
+              ].map((a) => (
+                <button key={a.label} onClick={() => gov(a.label)} disabled={drafting && a.label === "Draft customer update"}
+                  className="inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-[13px] font-medium hover-lift bg-white border border-cloud text-navy disabled:opacity-50">
+                  {drafting && a.label === "Draft customer update" ? <Loader2 className="h-4 w-4 animate-spin" /> : <a.icon className="h-4 w-4" />} {a.label}
+                </button>
+              ))}
+            </div>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="text-[14px] font-semibold text-navy mb-3">Documents received</div>
+            {detail.documents.length === 0 ? (
+              <div className="text-[12.5px] text-stone">No documents uploaded to this claim yet.</div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-2">
+                {detail.documents.map((d) => (
+                  <div key={d.documentId} className="rounded-xl border border-cloud bg-white/80 p-3 flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-[hsl(var(--info)/0.08)] grid place-items-center text-info"><FileText className="h-4 w-4" /></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-medium text-navy truncate">{d.documentType}</div>
+                      <div className="text-[11px] text-stone">{d.processingStatus}</div>
+                    </div>
+                    {d.classificationConfidence > 0 ? <ConfidenceBadge value={d.classificationConfidence > 1 ? d.classificationConfidence / 100 : d.classificationConfidence} /> : <Badge tone="neutral">—</Badge>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+
+          <GlassCard>
+            <div className="text-[14px] font-semibold text-navy mb-4">Activity timeline</div>
+            {timeline.length === 0 ? (
+              <div className="text-[12.5px] text-stone">No recorded activity yet. Governed actions and AI runs appear here as they happen.</div>
+            ) : (
+              <div className="relative pl-5">
+                <div className="absolute left-1.5 top-1 bottom-1 w-px bg-cloud" />
+                {timeline.map((t) => (
+                  <div key={t.eventId} className="relative pb-4">
+                    <div className="absolute -left-[9px] top-1 h-2 w-2 rounded-full bg-info ring-2 ring-white" />
+                    <div className="text-[12px] text-stone">{new Date(t.timestamp).toLocaleString()} · {t.actor}</div>
+                    <div className="text-[13px] text-navy mt-0.5">{t.summary || t.eventType}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+        </div>
+
+        <div className="space-y-4">
+          <GlassCard>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Policy &amp; customer</div>
+            <div className="mt-2 space-y-2 text-[13px]">
+              <Row k="Customer" v={detail.customerName} />
+              <Row k="Policy" v={`${detail.policyNumber} · ${detail.productLine}`} />
+              <Row k="Claim type" v={detail.claimType} />
+              <Row k="Channel" v={detail.channel} />
+              <Row k="Incident date" v={detail.incidentDate} />
+              {detail.assignedUserId ? <Row k="Assigned" v={detail.assignedUserId} /> : null}
+              {detail.customerEmail ? <Row k="Email" v={detail.customerEmail} /> : null}
+              {detail.customerPhone ? <Row k="Phone" v={detail.customerPhone} /> : null}
+            </div>
+          </GlassCard>
+
+          <CompletenessCard score={completeness} items={detail.documents.map((d) => ({ label: d.documentType, present: d.processingStatus !== "Missing" && d.processingStatus !== "MissingDocuments" }))} />
+        </div>
+      </div>
+    </>
+  );
 }
