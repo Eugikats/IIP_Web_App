@@ -5,7 +5,7 @@
 | Gate | 0 — Secure baseline, UI/backend alignment, real API contract map (AGENTS.md §25) |
 | Branch | `feature/lovable-design-parity` (PR #1 → `main`) |
 | Date | 2026-07-06 |
-| Status | **Complete** — all three pillars done (A secure baseline, C contract map, B alignment builds B1–B5). One tracked follow-up (Copilot-panel fixtures) does not block Gate 0. |
+| Status | **Complete** — all three pillars done (A secure baseline, C contract map, B alignment builds B1–B5), plus the Copilot-panel/status-bar fixture follow-up resolved. No known fabricated surfaces remain in the `/app` tree. |
 
 This is the living sign-off document for Gate 0. It states, per pillar, what is real vs
 honest-gated (with reasons), the evidence, and the conservative readiness position. Gate 0 is
@@ -57,9 +57,9 @@ provider-dependent surfaces.
 | **B1** ClaimReview full governed workspace | ✅ done | Real `/api/v1/claims/{id}` + `/cases/{id}/timeline`; governed "Draft customer update" → real audited endpoint; honest empty/error states |
 | **B5** Remove customer login portal from deployed surface | ✅ done | Deleted `app/customer-portal/*` + `app/app/portal`; removed the `Client` role + `customerSafeOnly` from the role model; simplified AppShell/TopBar; repointed/removed obsolete visual specs. Backend `client-portal` endpoints retained (channel-assisted upload, not a login). Was blocked by a OneDrive-set ReadOnly attribute on `roles.ts` — cleared it. Static routes 34 → 26. |
 
-### Discovered during live verification (new honesty gaps — follow-up)
-- **Right Copilot panel** (`components/iip/CopilotPanel.tsx`) still renders **fixture content** on every `/app` screen — hardcoded "Execution snapshot" priorities and provider-health latencies (e.g. "GPT-4o Healthy · 412ms", "Microsoft Graph Degraded · 2.4s"). Not in the original B-scope; needs wiring to `/api/v1/admin/provider-health` + real signals, or honest-gating. **New item, tracked here.**
-- The bottom status bar ("Providers healthy · GPT-4o · Azure OCR", "Queue 14", "6 active workflows") is likewise static — same follow-up.
+### Discovered during live verification — ✅ RESOLVED
+- **Right Copilot panel** (`components/iip/CopilotPanel.tsx`) rendered fixture content on every `/app` screen (hardcoded "Execution snapshot" priorities + provider-health latencies). **Fixed:** provider-health block now lists real `/api/v1/admin/provider-health` entries; per-route guidance stripped of fabricated counts/IDs (honest governance microcopy only). Verified live.
+- **Bottom status bar** ("Queue 14 / GPT-4o / EA-North") was static. **Fixed:** real provider-health summary via `useProviderHealth()` ("All 10 providers healthy"); honest "Not configured" when none reported. Verified live.
 
 ### Genuinely honest-gated for Gate 0 (correct end-state until Gate 3)
 - Policy Intelligence grounded Q&A (RAG) — needs Azure AI Search + OpenAI (Gate 3).
