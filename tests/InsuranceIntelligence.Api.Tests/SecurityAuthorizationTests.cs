@@ -26,6 +26,14 @@ public sealed class SecurityAuthorizationTests
     };
     private static readonly Microsoft.Extensions.Hosting.IHostEnvironment DevelopmentHost = new TestHostEnvironment("Development");
     private static readonly Microsoft.Extensions.Hosting.IHostEnvironment ProductionHost = new TestHostEnvironment("Production");
+    private static readonly InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService EmptyWorkspaceCatalog = new StubWorkspaceCatalog();
+
+    private sealed class StubWorkspaceCatalog : InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService
+    {
+        public Task<IReadOnlyList<InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto>> ListForTenantAsync(
+            string tenantId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto>>([]);
+    }
 
     private sealed class TestHostEnvironment(string environmentName) : Microsoft.Extensions.Hosting.IHostEnvironment
     {
@@ -358,7 +366,7 @@ public sealed class SecurityAuthorizationTests
         context.Request.Headers["X-Tenant-Id"] = "tenant-a";
         context.Request.Headers["X-Workspace-Id"] = "workspace-a";
 
-        var result = RuntimeContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost);
+        var result = await RuntimeContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost, EmptyWorkspaceCatalog, CancellationToken.None);
 
         var (status, json) = await ExecuteJsonAsync(result);
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -377,7 +385,7 @@ public sealed class SecurityAuthorizationTests
         var context = new DefaultHttpContext();
         context.Request.Headers["x-demo-role"] = "Admin";
 
-        var result = RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost);
+        var result = await RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost, EmptyWorkspaceCatalog, CancellationToken.None);
 
         Assert.Equal(StatusCodes.Status403Forbidden, await ExecuteStatusAsync(result));
     }
@@ -396,7 +404,7 @@ public sealed class SecurityAuthorizationTests
             new Claim("workspace_id", "workspace-a")
         ], "Entra"));
 
-        var result = RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost);
+        var result = await RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost, EmptyWorkspaceCatalog, CancellationToken.None);
 
         var (status, json) = await ExecuteJsonAsync(result);
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -422,7 +430,7 @@ public sealed class SecurityAuthorizationTests
             new Claim(ClaimTypes.Role, "ITAdmin")
         ], "Entra"));
 
-        var result = RuntimeContextEndpoints.GetMe(context, ProductionDeploymentOptions, ProductionHost);
+        var result = await RuntimeContextEndpoints.GetMe(context, ProductionDeploymentOptions, ProductionHost, EmptyWorkspaceCatalog, CancellationToken.None);
 
         var (status, json) = await ExecuteJsonAsync(result);
         Assert.Equal(StatusCodes.Status200OK, status);

@@ -161,6 +161,34 @@ public sealed class Phase2ReadRepositoryTests
         Assert.Equal("LEAD-1", list[0].LeadId);
     }
 
+    [Fact]
+    public async Task WorkspaceCatalog_ListsPerTenant_AndIsTenantIsolated()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Workspaces.Add(ScopedJson("tenant-a", "workspace-claims",
+            new InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto("workspace-claims", "Motor Claims", "af-east")));
+        dbContext.Workspaces.Add(ScopedJson("tenant-a", "workspace-life",
+            new InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto("workspace-life", "Life Claims", "af-east")));
+        dbContext.Workspaces.Add(ScopedJson("tenant-b", "workspace-claims",
+            new InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto("workspace-claims", "Other Tenant", "af-east")));
+        await dbContext.SaveChangesAsync();
+
+        var repository = new EfWorkspaceCatalogRepository(dbContext);
+        var workspaces = await repository.ListForTenantAsync("tenant-a");
+
+        Assert.Equal(2, workspaces.Count);
+        Assert.DoesNotContain(workspaces, w => w.DisplayName == "Other Tenant");
+    }
+
+    private static PersistedWorkspace ScopedJson(string tenantId, string workspaceId, InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto payload) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            WorkspaceId = workspaceId,
+            PayloadJson = JsonSerializer.Serialize(payload, Json)
+        };
+
     private static ClaimCase Claim(Guid caseId, string customerName, string customerEmail) =>
         new()
         {

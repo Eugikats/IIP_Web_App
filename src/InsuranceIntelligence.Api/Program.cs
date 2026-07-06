@@ -264,6 +264,7 @@ builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 // Initiative LP: rule-based advisory domains + admin domains (Fraud/Underwriting/Agents/Billing).
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQueryService, InsuranceIntelligence.Application.Fraud.FraudQueryService>();
