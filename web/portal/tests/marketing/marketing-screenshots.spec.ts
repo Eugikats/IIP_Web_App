@@ -35,7 +35,7 @@ test.describe("marketing screenshot pack", () => {
   }
 
   test("10-client-portal.png /client-portal", async ({ page }, testInfo) => {
-    await prepareVisualApi(page, "Client");
+    await prepareVisualApi(page, "CustomerService");
     await page.goto("/client-portal", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "My Claims" })).toBeVisible();

@@ -14,10 +14,7 @@ function ShellInner({ children }: { children: ReactNode }) {
   const { sidebarOpen, copilotOpen, toggleSidebar, toggleCopilot, roleDef } = useUI();
   const loc = useLocation();
 
-  // Client role: force portal only
-  if (roleDef.customerSafeOnly) {
-    if (loc.pathname !== roleDef.landing) return <Navigate to={roleDef.landing} replace />;
-  } else if (!canAccess(roleDef.key, loc.pathname)) {
+  if (!canAccess(roleDef.key, loc.pathname)) {
     return <Navigate to={roleDef.landing} replace />;
   }
 
@@ -25,22 +22,20 @@ function ShellInner({ children }: { children: ReactNode }) {
     <div className="h-screen w-full ambient-bg flex flex-col overflow-hidden">
       <EnvironmentBanner />
       <div className="flex-1 flex overflow-hidden relative">
-        {!roleDef.customerSafeOnly && (
-          <div
-            className={
-              "transition-all duration-300 ease-out overflow-hidden shrink-0 " +
-              (sidebarOpen ? "w-[264px]" : "w-0")
-            }
-          >
-            <div className="w-[264px] h-full">
-              <Sidebar />
-            </div>
+        <div
+          className={
+            "transition-all duration-300 ease-out overflow-hidden shrink-0 " +
+            (sidebarOpen ? "w-[264px]" : "w-0")
+          }
+        >
+          <div className="w-[264px] h-full">
+            <Sidebar />
           </div>
-        )}
+        </div>
 
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
           <TopBar />
-          {!sidebarOpen && !roleDef.customerSafeOnly && (
+          {!sidebarOpen && (
             <button
               onClick={toggleSidebar}
               aria-label="Open sidebar"
@@ -49,7 +44,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               <PanelLeftOpen className="h-4 w-4" />
             </button>
           )}
-          {!copilotOpen && !roleDef.customerSafeOnly && (
+          {!copilotOpen && (
             <button
               onClick={toggleCopilot}
               aria-label="Open Copilot"
@@ -65,18 +60,16 @@ function ShellInner({ children }: { children: ReactNode }) {
           </main>
         </div>
 
-        {!roleDef.customerSafeOnly && (
-          <div
-            className={
-              "hidden xl:block transition-all duration-300 ease-out overflow-hidden shrink-0 " +
-              (copilotOpen ? "w-[340px]" : "w-0")
-            }
-          >
-            <div className="w-[340px] h-full">
-              <CopilotPanel />
-            </div>
+        <div
+          className={
+            "hidden xl:block transition-all duration-300 ease-out overflow-hidden shrink-0 " +
+            (copilotOpen ? "w-[340px]" : "w-0")
+          }
+        >
+          <div className="w-[340px] h-full">
+            <CopilotPanel />
           </div>
-        )}
+        </div>
       </div>
       <StatusBar />
     </div>

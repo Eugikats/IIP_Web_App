@@ -5,7 +5,6 @@ export type Role =
   | "CustomerService"
   | "Broker"
   | "Compliance"
-  | "Client"
   | "KnowledgeManager"
   | "ITAdmin"
   | "PublisherSupport";
@@ -19,7 +18,6 @@ export interface RoleDef {
   modules: string[];
   admin: string[];
   landing: string;
-  customerSafeOnly?: boolean;
 }
 
 export const ALL_MODULES = [
@@ -67,10 +65,6 @@ export const ROLES: Record<Role, RoleDef> = {
     key: "Compliance", label: "Compliance", title: "Compliance Officer", name: "Lydia Byaruhanga", initials: "LB",
     modules: ["/app", "/app/audit", "/app/communications", "/app/executive", "/app/policy"], admin: [], landing: "/app/audit",
   },
-  Client: {
-    key: "Client", label: "Client", title: "Policyholder", name: "Aisha Nakato", initials: "AN",
-    modules: [], admin: [], landing: "/app/portal", customerSafeOnly: true,
-  },
   KnowledgeManager: {
     key: "KnowledgeManager", label: "Knowledge Manager", title: "Knowledge Manager", name: "Grace Wanjiku", initials: "GW",
     modules: ["/app", "/app/knowledge", "/app/documents", "/app/policy"], admin: [], landing: "/app/knowledge",
@@ -87,7 +81,6 @@ export const ROLES: Record<Role, RoleDef> = {
 
 export function canAccess(role: Role, path: string): boolean {
   const def = ROLES[role];
-  if (def.customerSafeOnly) return path === def.landing;
   const all = [...def.modules, ...def.admin];
   return all.some((m) => path === m || path.startsWith(m + "/"));
 }
