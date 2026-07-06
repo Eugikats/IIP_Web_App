@@ -64,10 +64,17 @@ builder.Services.AddCors(options =>
 });
 
 var infrastructureOptions = InfrastructureRegistration.BindOptions(builder.Configuration);
+var runtimeProfile = AzureProviderStartupValidator.ResolveRuntimeProfile(
+    infrastructureOptions, builder.Environment.EnvironmentName);
 AzureProviderStartupValidator.ThrowIfInvalid(infrastructureOptions);
-AzureProviderStartupValidator.ThrowIfProductionInvalid(
-    infrastructureOptions,
-    AzureProviderStartupValidator.ResolveRuntimeProfile(infrastructureOptions, builder.Environment.EnvironmentName));
+AzureProviderStartupValidator.ThrowIfProductionInvalid(infrastructureOptions, runtimeProfile);
+
+// Development diagnostics endpoints (debug notification trigger, email test-ingestion)
+// are mapped ONLY in local Development/LocalTest. They must never exist as a deployed
+// surface in Demo/Staging/Production/Reviewer, per the Gate 0 secure-baseline rule.
+var developmentDiagnosticsEnabled =
+    runtimeProfile.Equals("Development", StringComparison.OrdinalIgnoreCase)
+    || runtimeProfile.Equals("LocalTest", StringComparison.OrdinalIgnoreCase);
 
 builder.Services.AddAuthorization();
 if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnoreCase))
@@ -452,8 +459,11 @@ app.MapPut("/api/v1/admin/users/{userId}", AdminEndpoints.UpdateUserRole)
 app.MapPut("/api/v1/admin/users/{userId}/role", AdminEndpoints.UpdateUserRole)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 
-app.MapPost("/api/v1/admin/debug-teams-notification", DebugEndpoints.TriggerTeamsNotification)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+if (developmentDiagnosticsEnabled)
+{
+    app.MapPost("/api/v1/admin/debug-teams-notification", DebugEndpoints.TriggerTeamsNotification)
+        .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+}
 
 // W2.5: Phase 2 core-workspace read routes (see docs/02-development-engineering/iip_api_specification.md).
 app.MapGet("/api/v1/channels/overview", ChannelEndpoints.GetOverview)
@@ -494,8 +504,11 @@ app.MapGet("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.Lis
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.CreateMailbox)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
-app.MapPost("/api/v1/integrations/email/test-ingestion", EmailIntegrationEndpoints.TestIngestion)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+if (developmentDiagnosticsEnabled)
+{
+    app.MapPost("/api/v1/integrations/email/test-ingestion", EmailIntegrationEndpoints.TestIngestion)
+        .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+}
 app.MapPost("/api/v1/integrations/email/process-message", EmailIntegrationEndpoints.ProcessMessage)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/email/messages", EmailIntegrationEndpoints.ListMessages)
