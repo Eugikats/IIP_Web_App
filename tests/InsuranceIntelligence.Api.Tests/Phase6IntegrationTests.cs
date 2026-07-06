@@ -880,6 +880,13 @@ public sealed class Phase6IntegrationTests
             new Claim("tenant_id", "tenant-demo"),
             new Claim("workspace_id", "workspace-claims")
         ], "Entra"));
+        // ADR-0005: deployed-mode authz reads store-resolved permissions the middleware stashes.
+        // Simulate that here so these provider tests exercise handler behaviour, not the auth gate.
+        context.Items[InsuranceIntelligence.Api.Auth.DemoAuthorization.EffectivePermissionsItemKey] =
+            (IReadOnlyCollection<InsuranceIntelligence.Domain.Administration.Permission>)(
+                Enum.TryParse<InsuranceIntelligence.Domain.Administration.PlatformRole>(role, true, out var pr)
+                    ? InsuranceIntelligence.Domain.Administration.RolePermissionMap.ForRole(pr).ToArray()
+                    : Array.Empty<InsuranceIntelligence.Domain.Administration.Permission>());
         context.RequestServices = new ServiceCollection().AddLogging().AddProblemDetails().BuildServiceProvider();
         return context;
     }

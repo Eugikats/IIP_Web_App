@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
@@ -5,6 +6,13 @@ namespace InsuranceIntelligence.Api.Auth;
 
 public static class DemoAuthorization
 {
+    /// <summary>
+    /// HttpContext.Items key under which the per-request middleware stashes the authenticated
+    /// user's effective permissions, resolved from IIP's membership store (ADR-0005). Deployed-mode
+    /// authorization reads these — never the token role claim.
+    /// </summary>
+    public const string EffectivePermissionsItemKey = "iip.effective-permissions";
+
     public static IResult? Require(HttpContext httpContext, InfrastructureOptions options, Permission permission)
     {
         return RequireAny(httpContext, options, [permission]);
@@ -29,8 +37,20 @@ public static class DemoAuthorization
                 return Results.Unauthorized();
             }
 
-            var authenticatedRole = GetAuthenticatedRole(httpContext);
-            return permissions.Any(permission => RolePermissionMap.HasPermission(authenticatedRole, permission))
+            // ADR-0005: fine-grained permissions come ONLY from IIP's membership store (resolved and
+            // stashed by the per-request middleware, keyed by the authenticated oid) — never from the
+            // token's role claim. No resolved membership => fail closed.
+            var effectivePermissions = httpContext.Items.TryGetValue(EffectivePermissionsItemKey, out var stashed)
+                && stashed is IReadOnlyCollection<Permission> resolved
+                    ? resolved
+                    : null;
+
+            if (effectivePermissions is null)
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
+            return permissions.Any(effectivePermissions.Contains)
                 ? null
                 : Results.StatusCode(StatusCodes.Status403Forbidden);
         }

@@ -128,9 +128,11 @@ public sealed class SecurityAuthorizationTests
     }
 
     [Fact]
-    public void Require_AllowsAuthenticatedRoleWithPermission_OutsideDevelopmentMode()
+    public void Require_AllowsWhenStoreGrantsPermission_OutsideDevelopmentMode()
     {
-        var context = AuthenticatedContext("ITAdmin");
+        // ADR-0005: deployed-mode authz reads the store-resolved permissions the middleware stashes,
+        // NOT the token role. A stash granting ConfigureIntegrations allows the request.
+        var context = AuthenticatedContextWithStore(Permission.ConfigureIntegrations, Permission.ManageTenantSettings);
 
         var result = DemoAuthorization.Require(context, ProductionOptions, Permission.ConfigureIntegrations);
 
@@ -138,11 +140,31 @@ public sealed class SecurityAuthorizationTests
     }
 
     [Fact]
-    public async Task Require_ForbidsAuthenticatedRoleWithoutPermission_OutsideDevelopmentMode()
+    public async Task Require_FailsClosedWhenNoMembershipStashed_OutsideDevelopmentMode()
     {
-        var context = AuthenticatedContext("Client");
+        // Authenticated but the middleware resolved no active membership -> no stash -> fail closed.
+        var context = AuthenticatedContext("ITAdmin");
 
         var result = DemoAuthorization.Require(context, ProductionOptions, Permission.ConfigureIntegrations);
+
+        Assert.NotNull(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, await ExecuteStatusAsync(result!));
+    }
+
+    [Fact]
+    public async Task Require_ForbidsWhenStoreLacksPermission_OutsideDevelopmentMode()
+    {
+        // A token role claim must never grant a permission the store does not hold: even an "Admin"
+        // role claim is ignored; only the stashed store permissions count.
+        var context = AuthenticatedContextWithStore(Permission.ViewAssignedClaims);
+        context.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+        [
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "entra-user"),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, "Admin")
+        ], "Entra"));
+        context.Items[DemoAuthorization.EffectivePermissionsItemKey] = (IReadOnlyCollection<Permission>)[Permission.ViewAssignedClaims];
+
+        var result = DemoAuthorization.Require(context, ProductionOptions, Permission.ManageTenantSettings);
 
         Assert.NotNull(result);
         Assert.Equal(StatusCodes.Status403Forbidden, await ExecuteStatusAsync(result!));
@@ -700,6 +722,15 @@ public sealed class SecurityAuthorizationTests
             new Claim("tenant_id", "tenant-a"),
             new Claim("workspace_id", "workspace-a")
         ], "Entra"));
+        return context;
+    }
+
+    // Simulates the per-request middleware having resolved the user's effective membership from the
+    // store and stashed the resulting permissions (ADR-0005).
+    private static DefaultHttpContext AuthenticatedContextWithStore(params Permission[] permissions)
+    {
+        var context = AuthenticatedContext("ITAdmin");
+        context.Items[DemoAuthorization.EffectivePermissionsItemKey] = (IReadOnlyCollection<Permission>)permissions;
         return context;
     }
 

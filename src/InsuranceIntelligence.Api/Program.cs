@@ -340,15 +340,49 @@ app.Use(async (context, next) =>
 // otherwise fail with "Tenant context has not been initialized".
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/api/v1")
-        && TenantScopeReader.TryGetFromHeadersOrQuery(context, out var tenantScope, out _))
+    if (context.Request.Path.StartsWithSegments("/api/v1"))
     {
-        var userId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
-        if (!string.IsNullOrWhiteSpace(userId))
+        if (infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
         {
-            var roleCode = DemoAuthorization.GetEffectiveRole(context, infrastructureOptions).ToString();
-            context.RequestServices.GetRequiredService<ITenantContextSetter>()
-                .SetCurrent(new TenantContext(tenantScope.TenantId, tenantScope.WorkspaceId, userId, [roleCode]));
+            // Development ONLY: demo/header scope + role (rejected in deployed profiles by RuntimeHeaderGuard).
+            if (TenantScopeReader.TryGetFromHeadersOrQuery(context, out var tenantScope, out _))
+            {
+                var devUserId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
+                if (!string.IsNullOrWhiteSpace(devUserId))
+                {
+                    var roleCode = DemoAuthorization.GetEffectiveRole(context, infrastructureOptions).ToString();
+                    context.RequestServices.GetRequiredService<ITenantContextSetter>()
+                        .SetCurrent(new TenantContext(tenantScope.TenantId, tenantScope.WorkspaceId, devUserId, [roleCode]));
+                }
+            }
+        }
+        else if (context.User.Identity?.IsAuthenticated == true)
+        {
+            // Deployed (Entra) — ADR-0005: runtime authority is IIP's membership store, keyed by the
+            // authenticated user's stable id (oid). The token tid/workspace claims are ONLY
+            // disambiguation hints, never authority. Fine-grained permissions come from the store and
+            // are stashed for the synchronous permission checks. No membership => fail closed.
+            var userId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                var tenantHint = RuntimeClaimTypes.TenantScope
+                    .Select(t => context.User.FindFirst(t)?.Value)
+                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+                var workspaceHint = RuntimeClaimTypes.WorkspaceScope
+                    .Select(t => context.User.FindFirst(t)?.Value)
+                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+                var membership = await context.RequestServices
+                    .GetRequiredService<IPermissionReadRepository>()
+                    .GetEffectiveMembershipAsync(userId, tenantHint, workspaceHint, context.RequestAborted);
+
+                if (membership is not null)
+                {
+                    context.Items[DemoAuthorization.EffectivePermissionsItemKey] = membership.Permissions;
+                    context.RequestServices.GetRequiredService<ITenantContextSetter>()
+                        .SetCurrent(new TenantContext(membership.TenantId, membership.WorkspaceId, membership.UserId, membership.Roles));
+                }
+            }
         }
     }
 

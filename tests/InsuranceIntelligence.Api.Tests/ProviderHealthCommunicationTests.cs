@@ -68,6 +68,11 @@ public sealed class ProviderHealthCommunicationTests
             new Claim("tenant_id", "tenant-demo"),
             new Claim("workspace_id", "workspace-claims")
         ], "Entra"));
+        // ADR-0005: deployed-mode authz reads the store-resolved permissions the middleware stashes.
+        context.Items[InsuranceIntelligence.Api.Auth.DemoAuthorization.EffectivePermissionsItemKey] =
+            (IReadOnlyCollection<InsuranceIntelligence.Domain.Administration.Permission>)
+                InsuranceIntelligence.Domain.Administration.RolePermissionMap.ForRole(
+                    InsuranceIntelligence.Domain.Administration.PlatformRole.Admin).ToArray();
         context.RequestServices = new ServiceCollection().AddLogging().AddProblemDetails().BuildServiceProvider();
         return context;
     }
