@@ -135,11 +135,30 @@ public sealed class Phase2ReadRepositoryTests
     }
 
     [Fact]
-    public async Task SalesLead_Detail_IsNullUntilPipelineConfigured()
+    public async Task SalesLead_Create_Then_Get_And_List_RoundTripsTenantScoped()
     {
-        var repository = new EfSalesLeadReadRepository();
+        await using var dbContext = CreateDbContext();
+        var repository = new EfSalesLeadRepository(dbContext);
 
-        Assert.Null(await repository.GetLeadDetailAsync("tenant-a", "workspace-a", "lead-1"));
+        // Unknown lead is null (no fabrication).
+        Assert.Null(await repository.GetLeadDetailAsync("tenant-a", "workspace-a", "lead-x"));
+
+        var lead = new InsuranceIntelligence.Application.SalesLeads.SalesLeadDetailReadModel(
+            "LEAD-1", "Manual capture", "Motor cover", "Captured by staff", "Motor comprehensive", "New",
+            ["Confirm details"], ["Contact customer"], "officer-1", null, "Jane Doe", "jane@example.test",
+            DateTimeOffset.UtcNow, "user-1");
+        await repository.CreateAsync("tenant-a", "workspace-a", lead);
+        // Different tenant workspace — must never see it.
+        await repository.CreateAsync("tenant-b", "workspace-a",
+            lead with { LeadId = "LEAD-2", CustomerName = "Other Tenant" });
+
+        var fetched = await repository.GetLeadDetailAsync("tenant-a", "workspace-a", "LEAD-1");
+        Assert.NotNull(fetched);
+        Assert.Equal("Jane Doe", fetched!.CustomerName);
+
+        var list = await repository.ListLeadsAsync("tenant-a", "workspace-a");
+        Assert.Single(list);
+        Assert.Equal("LEAD-1", list[0].LeadId);
     }
 
     private static ClaimCase Claim(Guid caseId, string customerName, string customerEmail) =>

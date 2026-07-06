@@ -20,6 +20,7 @@ public enum Permission
     ViewChannels,
     ViewCustomers,
     ViewSalesLeads,
+    ManageSalesLeads,
     ViewFraudSignals,
     ViewUnderwriting,
     ManageAgents,

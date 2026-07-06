@@ -170,5 +170,16 @@ public sealed class SalesLeadQueryServiceTests
             LastLeadId = leadId;
             return Task.FromResult(lead);
         }
+
+        public Task<IReadOnlyList<SalesLeadDetailReadModel>> ListLeadsAsync(
+            string tenantId,
+            string workspaceId,
+            CancellationToken cancellationToken = default)
+        {
+            LastTenantId = tenantId;
+            LastWorkspaceId = workspaceId;
+            IReadOnlyList<SalesLeadDetailReadModel> result = lead is null ? [] : [lead];
+            return Task.FromResult(result);
+        }
     }
 }

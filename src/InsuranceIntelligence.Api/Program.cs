@@ -263,6 +263,7 @@ builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
+builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 // Initiative LP: rule-based advisory domains + admin domains (Fraud/Underwriting/Agents/Billing).
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQueryService, InsuranceIntelligence.Application.Fraud.FraudQueryService>();
@@ -501,8 +502,12 @@ app.MapGet("/api/v1/customers", CustomerProfileEndpoints.ListCustomers)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustomerProfile)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapPost("/api/v1/sales-leads", SalesLeadEndpoints.CreateLead)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapGet("/api/v1/audit/events", AuditEndpoints.ListEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 // Initiative LP: rule-based fraud advisory signals (deterministic, tenant-scoped, advisory-only).

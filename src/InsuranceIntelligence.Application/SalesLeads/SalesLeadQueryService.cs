@@ -26,18 +26,44 @@ public sealed class SalesLeadQueryService(
             leadId.Trim(),
             cancellationToken);
 
-        return lead is null
-            ? null
-            : new SalesLeadDetailDto(
+        return lead is null ? null : ToDetailDto(lead);
+    }
+
+    public async Task<IReadOnlyList<SalesLeadListItemDto>> ListLeadsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await permissionService.RequirePermissionAsync(Permission.ViewSalesLeads, cancellationToken);
+
+        var context = tenantContextAccessor.Current;
+        var leads = await repository.ListLeadsAsync(context.TenantId, context.WorkspaceId, cancellationToken);
+
+        return leads
+            .OrderByDescending(lead => lead.CreatedAt ?? DateTimeOffset.MinValue)
+            .Select(lead => new SalesLeadListItemDto(
                 lead.LeadId,
+                lead.CustomerName,
                 lead.LeadSource,
-                lead.CustomerNeed,
-                lead.ConversationSummary,
                 lead.ProductFit,
                 lead.QuoteStatus,
-                lead.RequiredInformation,
-                lead.FollowUpActions,
                 lead.AssignedSalesOfficer,
-                lead.ConversionProbability);
+                lead.CreatedAt))
+            .ToArray();
     }
+
+    internal static SalesLeadDetailDto ToDetailDto(SalesLeadDetailReadModel lead) =>
+        new(
+            lead.LeadId,
+            lead.LeadSource,
+            lead.CustomerNeed,
+            lead.ConversationSummary,
+            lead.ProductFit,
+            lead.QuoteStatus,
+            lead.RequiredInformation,
+            lead.FollowUpActions,
+            lead.AssignedSalesOfficer,
+            lead.ConversionProbability,
+            lead.CustomerName,
+            lead.ContactInfo,
+            lead.CreatedAt,
+            lead.CreatedBy);
 }

@@ -24,4 +24,31 @@ public static class SalesLeadEndpoints
             });
         }
     }
+
+    public static async Task<IResult> ListLeads(
+        ISalesLeadQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        var leads = await queryService.ListLeadsAsync(cancellationToken);
+        return Results.Ok(leads);
+    }
+
+    public static async Task<IResult> CreateLead(
+        CreateSalesLeadRequest request,
+        ISalesLeadCommandService commandService,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var lead = await commandService.CreateLeadAsync(request, cancellationToken);
+            return Results.Created($"/api/v1/sales-leads/{lead.LeadId}", lead);
+        }
+        catch (SalesLeadQueryValidationException ex)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [ex.Field] = [ex.Message]
+            });
+        }
+    }
 }

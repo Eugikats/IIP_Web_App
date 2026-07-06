@@ -176,7 +176,9 @@ public static class InfrastructureRegistration
         services.AddScoped<IAuditReadRepository, EfAuditReadRepository>();
         services.AddScoped<ICustomerReadRepository, EfCustomerReadRepository>();
         services.AddScoped<IChannelReadRepository, EfChannelReadRepository>();
-        services.AddScoped<ISalesLeadReadRepository, EfSalesLeadReadRepository>();
+        services.AddScoped<EfSalesLeadRepository>();
+        services.AddScoped<ISalesLeadReadRepository>(sp => sp.GetRequiredService<EfSalesLeadRepository>());
+        services.AddScoped<ISalesLeadWriteRepository>(sp => sp.GetRequiredService<EfSalesLeadRepository>());
         services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentStateRepository, EfAgentStateRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
