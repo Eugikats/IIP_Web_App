@@ -34,7 +34,7 @@ Key rules: token `tid` is a hint only; runtime authority = IIP membership store 
 | G1.5 | Tests (resolver, DB-authoritative authz, entry gate, fail-closed) | ⏳ | |
 | G1.6 | Key Vault config provider (deployed-only) + config/identity readiness validator | ⏳ | `Azure__KeyVaultUri` + `DefaultAzureCredential`. |
 | G1.7 | Full onboarding portal + admin-consent flow (model, endpoints, bootstrap membership, UI) | ⏳ | Per identity spec §4. |
-| G1.8 | Azure/Entra provisioning runbook | ⏳ | So owner can provision + we prove live. |
+| G1.8 | Azure/Entra provisioning runbook | ✅ done | `docs/05-deployment-release-enablement/iip_gate1_azure_entra_provisioning_runbook.md`. Owner provisions app registration + `IIP.Access` app role + admin consent + Key Vault + managed identity from this. |
 
 ## Commit discipline
 Every implementation is committed separately with a descriptive message. Handoff state lives in this
