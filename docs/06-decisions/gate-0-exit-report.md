@@ -51,7 +51,7 @@ provider-dependent surfaces.
 |---|---|---|
 | Prior parity work (Fraud, Underwriting, Agents, Billing, Audit, Executive, Claims list, Customers, Documents, Channels read, Knowledge, Workflows) | ✅ | Reconciled to real `/api/v1` in earlier commits |
 | Two review modes (Demo/Production) + environment banner | ✅ | Committed earlier this branch |
-| **B2** Command Center → real `/command-center/query` | ⏳ pending | Backend planner is real & deterministic; needs frontend wiring |
+| **B2** Command Center → real `/command-center/query` | ✅ done | AI command bar POSTs to the real planner; `CommandCenterAnswer` renders all 12 governed block types + safe unknown fallback (commit after `b75f862`) |
 | **B3** Sales-Leads manual create + list + persist | ⏳ pending | Manual origination now; channel ingestion + fabric import honest-gated (Gate 3) |
 | **B4** Multi-workspace data model + `/me` available-workspaces | ⏳ pending | Data model now; switcher UI deferred |
 | **B1** ClaimReview full governed workspace | ⏳ pending | Wire existing detail/extraction/timeline/approval endpoints |
@@ -90,7 +90,7 @@ items B1–B5 complete (or explicitly accepted as honest-gated by the owner).
 
 ## Remaining to close Gate 0
 
-1. B2 Command Center query wiring.
+1. ~~B2 Command Center query wiring.~~ ✅ done.
 2. B3 Sales-Leads manual create + persistence.
 3. B4 Multi-workspace data model + `/me` available-workspaces.
 4. B1 ClaimReview governed workspace.
