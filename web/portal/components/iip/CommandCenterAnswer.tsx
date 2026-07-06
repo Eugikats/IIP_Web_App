@@ -126,6 +126,11 @@ function Block({ block }: { block: CommandCenterBlock }) {
   }
 }
 
+// Renders just the governed answer blocks (no outer card) — used inside chat bubbles.
+export function CommandCenterBlocks({ blocks }: { blocks: CommandCenterBlock[] }) {
+  return <div className="space-y-4">{blocks.map((b, i) => <Block key={i} block={b} />)}</div>;
+}
+
 export default function CommandCenterAnswerView({ answer }: { answer: CommandCenterAnswer }) {
   return (
     <div className="glass-elevated p-5 mb-8 space-y-4">

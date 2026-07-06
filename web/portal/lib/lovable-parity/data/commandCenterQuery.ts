@@ -56,15 +56,16 @@ export function useCommandCenterQuery() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ask = useCallback(async (question: string) => {
+  const ask = useCallback(async (question: string): Promise<CommandCenterAnswer | null> => {
     const q = question.trim();
-    if (!q) return;
+    if (!q) return null;
     setLoading(true);
     setError(null);
     if (LOVABLE_VISUAL_PARITY_MODE) {
-      setAnswer(PARITY_ANSWER(q));
+      const parity = PARITY_ANSWER(q);
+      setAnswer(parity);
       setLoading(false);
-      return;
+      return parity;
     }
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/command-center/query`, {
@@ -75,10 +76,13 @@ export function useCommandCenterQuery() {
       if (response.status === 403) throw new Error("You do not have permission to query the Command Center.");
       if (!response.ok) throw new Error(`Command Center query failed with HTTP ${response.status}.`);
       const dto = (await response.json()) as QueryResponseDto;
-      setAnswer({ question: q, blocks: dto.blocks ?? [], canTriggerDecision: Boolean(dto.canTriggerDecision), generatedAt: dto.generatedAt });
+      const result: CommandCenterAnswer = { question: q, blocks: dto.blocks ?? [], canTriggerDecision: Boolean(dto.canTriggerDecision), generatedAt: dto.generatedAt };
+      setAnswer(result);
+      return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Command Center query failed.");
       setAnswer(null);
+      return null;
     } finally {
       setLoading(false);
     }
