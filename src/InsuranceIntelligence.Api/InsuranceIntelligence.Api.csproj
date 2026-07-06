@@ -19,6 +19,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Identity.Web" Version="4.12.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
     <ProjectReference Include="..\InsuranceIntelligence.Application\InsuranceIntelligence.Application.csproj" />
     <ProjectReference Include="..\InsuranceIntelligence.Domain\InsuranceIntelligence.Domain.csproj" />
     <ProjectReference Include="..\InsuranceIntelligence.Infrastructure\InsuranceIntelligence.Infrastructure.csproj" />

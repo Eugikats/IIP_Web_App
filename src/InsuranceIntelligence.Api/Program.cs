@@ -77,6 +77,27 @@ var developmentDiagnosticsEnabled =
     || runtimeProfile.Equals("LocalTest", StringComparison.OrdinalIgnoreCase);
 
 builder.Services.AddAuthorization();
+
+// OpenAPI/Swagger. The generated document is the machine-checkable API contract map
+// (see docs/api/IIP_API_Contracts_Master.md, ADR-0004). The interactive Swagger UI and
+// the JSON document are exposed ONLY in Development/LocalTest (see developmentDiagnosticsEnabled
+// below) so no schema/endpoint enumeration surface is published in deployed environments.
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(swagger =>
+{
+    swagger.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "IIP Operations API",
+        Version = "v1",
+        Description = "Insurance Intelligence Platform (IIP) — canonical /api/v1 contract. "
+            + "Human-reviewed insurance intelligence; AI prepares, humans decide.",
+    });
+    // Minimal-API route params without a type constraint (e.g. {customerId}) can collide
+    // on the same normalized path; pick the first deterministically so the document always
+    // generates. Enrichment (operationIds, permission metadata) is layered on in the
+    // hand-written contract map (docs/api/IIP_API_Contracts_Master.md).
+    swagger.ResolveConflictingActions(descriptions => descriptions.First());
+});
 if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnoreCase))
 {
     // Multitenant Entra authentication for IIP's single app registration configured for
@@ -271,6 +292,14 @@ var app = builder.Build();
 await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Environment);
 
 app.UseCors();
+
+// Swagger UI + JSON contract document — Development/LocalTest only (secure baseline).
+if (developmentDiagnosticsEnabled)
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(ui => ui.SwaggerEndpoint("/swagger/v1/swagger.json", "IIP Operations API v1"));
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 
