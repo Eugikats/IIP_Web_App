@@ -1763,6 +1763,94 @@
         }
       }
     },
+    "/api/v1/onboarding": {
+      "post": {
+        "tags": [
+          "OnboardingEndpoints"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantOnboardingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "OnboardingEndpoints"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/onboarding/{onboardingId}": {
+      "get": {
+        "tags": [
+          "OnboardingEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "onboardingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/onboarding/{onboardingId}/consent-url": {
+      "get": {
+        "tags": [
+          "OnboardingEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "onboardingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/onboarding/consent-callback": {
+      "get": {
+        "tags": [
+          "OnboardingEndpoints"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/policies": {
       "get": {
         "tags": [
@@ -2335,6 +2423,38 @@
           },
           "contactInfo": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateTenantOnboardingRequest": {
+        "type": "object",
+        "properties": {
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "expectedEntraTenantOrDomain": {
+            "type": "string",
+            "nullable": true
+          },
+          "adminContactEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "targetWorkspaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "azureSubscriptionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           }
         },

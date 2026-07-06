@@ -161,6 +161,11 @@ health probes, the self-scoped `/me`, and the payload-validated Graph webhook.
 | GET | `/api/v1/sales-leads` | ViewSalesLeads |
 | GET | `/api/v1/sales-leads/{leadId}` | ViewSalesLeads |
 | POST | `/api/v1/sales-leads` | ManageSalesLeads |
+| POST | `/api/v1/onboarding` | ManageTenantOnboarding |
+| GET | `/api/v1/onboarding` | ManageTenantOnboarding |
+| GET | `/api/v1/onboarding/{onboardingId}` | ManageTenantOnboarding |
+| GET | `/api/v1/onboarding/{onboardingId}/consent-url` | ManageTenantOnboarding |
+| GET | `/onboarding/consent-callback` | _admin-consent redirect: state-validated_ |
 | GET | `/api/v1/audit/events` | ViewAuditLog |
 | GET | `/api/v1/fraud/signals` | ViewFraudSignals |
 | GET | `/api/v1/underwriting/reviews` | ViewUnderwriting |
