@@ -35,6 +35,19 @@ public sealed class SecurityAuthorizationTests
             Task.FromResult<IReadOnlyList<InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto>>([]);
     }
 
+    // Simulates the per-request middleware having resolved (or not) the effective membership context.
+    private static readonly InsuranceIntelligence.Application.Core.ITenantContextAccessor NoTenantContext = new StubTenantContext(null);
+    private static InsuranceIntelligence.Application.Core.ITenantContextAccessor TenantContextWith(string tenant, string workspace, string user, params string[] roles) =>
+        new StubTenantContext(new InsuranceIntelligence.Application.Core.TenantContext(tenant, workspace, user, roles));
+
+    private sealed class StubTenantContext(InsuranceIntelligence.Application.Core.TenantContext? current)
+        : InsuranceIntelligence.Application.Core.ITenantContextAccessor
+    {
+        public bool HasCurrent => current is not null;
+        public InsuranceIntelligence.Application.Core.TenantContext Current =>
+            current ?? throw new InvalidOperationException("No tenant context resolved.");
+    }
+
     private sealed class TestHostEnvironment(string environmentName) : Microsoft.Extensions.Hosting.IHostEnvironment
     {
         public string EnvironmentName { get; set; } = environmentName;
@@ -388,7 +401,7 @@ public sealed class SecurityAuthorizationTests
         context.Request.Headers["X-Tenant-Id"] = "tenant-a";
         context.Request.Headers["X-Workspace-Id"] = "workspace-a";
 
-        var result = await RuntimeContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost, EmptyWorkspaceCatalog, CancellationToken.None);
+        var result = await RuntimeContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost, EmptyWorkspaceCatalog, NoTenantContext, CancellationToken.None);
 
         var (status, json) = await ExecuteJsonAsync(result);
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -407,59 +420,54 @@ public sealed class SecurityAuthorizationTests
         var context = new DefaultHttpContext();
         context.Request.Headers["x-demo-role"] = "Admin";
 
-        var result = await RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost, EmptyWorkspaceCatalog, CancellationToken.None);
+        var result = await RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost, EmptyWorkspaceCatalog, NoTenantContext, CancellationToken.None);
 
         Assert.Equal(StatusCodes.Status403Forbidden, await ExecuteStatusAsync(result));
     }
 
     [Fact]
-    public async Task RuntimeContext_UsesAuthenticatedClaimsOutsideDevelopment()
+    public async Task RuntimeContext_UsesMembershipStoreScopeOutsideDevelopment()
     {
+        // ADR-0005: /me reflects the store-resolved membership (set by the per-request middleware),
+        // NOT the token's tid/roles claims — even a token carrying different claims is ignored.
         var context = new DefaultHttpContext();
         context.RequestServices = ServicesWithOptions(ProductionDeploymentOptions);
         context.User = new ClaimsPrincipal(new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, "entra-user"),
             new Claim(ClaimTypes.Name, "Maya Morgan"),
-            new Claim(ClaimTypes.Role, "ITAdmin"),
-            new Claim("tenant_id", "tenant-a"),
-            new Claim("workspace_id", "workspace-a")
+            new Claim(ClaimTypes.Role, "Admin"),          // token claim — must be IGNORED
+            new Claim("tenant_id", "attacker-tenant")      // token tid — must be IGNORED
         ], "Entra"));
+        var resolved = TenantContextWith("tenant-a", "workspace-a", "entra-user", "ITAdmin");
 
-        var result = await RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost, EmptyWorkspaceCatalog, CancellationToken.None);
+        var result = await RuntimeContextEndpoints.GetMe(context, ProductionOptions, ProductionHost, EmptyWorkspaceCatalog, resolved, CancellationToken.None);
 
         var (status, json) = await ExecuteJsonAsync(result);
         Assert.Equal(StatusCodes.Status200OK, status);
         var root = json.RootElement;
         Assert.Equal("entra-user", root.GetProperty("userId").GetString());
-        Assert.Equal("Maya Morgan", root.GetProperty("displayName").GetString());
-        Assert.Equal("ITAdmin", root.GetProperty("role").GetString());
-        Assert.Equal("Integration Admin", root.GetProperty("roleLabel").GetString());
-        Assert.Equal("tenant-a", root.GetProperty("tenantId").GetString());
+        Assert.Equal("ITAdmin", root.GetProperty("role").GetString());          // from the store, not the "Admin" claim
+        Assert.Equal("tenant-a", root.GetProperty("tenantId").GetString());     // not "attacker-tenant"
         Assert.Equal("workspace-a", root.GetProperty("workspaceId").GetString());
-        Assert.Equal("AuthenticatedClaims", root.GetProperty("source").GetString());
+        Assert.Equal("MembershipStore", root.GetProperty("source").GetString());
     }
 
     [Fact]
-    public async Task RuntimeContext_UsesDeploymentScopeOutsideDevelopment_WhenClaimsDoNotCarryScope()
+    public async Task RuntimeContext_FailsClosedWhenNoMembership_OutsideDevelopment()
     {
+        // Authenticated, but the middleware resolved no active IIP membership -> fail closed.
         var context = new DefaultHttpContext();
         context.RequestServices = ServicesWithOptions(ProductionDeploymentOptions);
         context.User = new ClaimsPrincipal(new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, "entra-user"),
-            new Claim(ClaimTypes.Name, "Maya Morgan"),
             new Claim(ClaimTypes.Role, "ITAdmin")
         ], "Entra"));
 
-        var result = await RuntimeContextEndpoints.GetMe(context, ProductionDeploymentOptions, ProductionHost, EmptyWorkspaceCatalog, CancellationToken.None);
+        var result = await RuntimeContextEndpoints.GetMe(context, ProductionDeploymentOptions, ProductionHost, EmptyWorkspaceCatalog, NoTenantContext, CancellationToken.None);
 
-        var (status, json) = await ExecuteJsonAsync(result);
-        Assert.Equal(StatusCodes.Status200OK, status);
-        var root = json.RootElement;
-        Assert.Equal("configured-tenant", root.GetProperty("tenantId").GetString());
-        Assert.Equal("configured-workspace", root.GetProperty("workspaceId").GetString());
-        Assert.Equal("DeploymentConfiguration", root.GetProperty("source").GetString());
+        Assert.Equal(StatusCodes.Status403Forbidden, await ExecuteStatusAsync(result));
     }
 
     [Fact]
