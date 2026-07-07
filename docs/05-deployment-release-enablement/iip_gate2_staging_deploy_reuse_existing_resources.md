@@ -1,5 +1,37 @@
 # Gate 2 — Staging deploy to the EXISTING Azure resources (reuse, do not recreate)
 
+> ## ⛔ STATUS (2026-07-07): DEPLOY BLOCKED — the "existing resources" no longer exist
+> The `rg-iip-stg` resource group in subscription `5f5765ae` was **deleted out-of-band** (~2026-07-03;
+> not by any repo — the old repo's decommission was CI-only and delete-safe). Confirmed via live Azure
+> query from both `OticGroup@oticgroupug.onmicrosoft.com` and `harrygafa0@gmail.com`.
+>
+> **Rebuild in this subscription is not possible.** `5f5765ae` is a **Sponsored** subscription
+> (`quotaId=Sponsored_2016-01-01`, spendingLimit Off) that **cannot create App Service Plans**
+> (`ServerFarmCreationNotAllowed`) **or Azure OpenAI** (`SpecialFeatureOrQuotaIdRequired`, kind
+> OpenAI S0) — in any region (eastus + westus2 both fail at preflight).
+>
+> **What survived / current state:**
+> - Entra app registrations **intact & reusable**: `iip-portal-stg` (`3b3522e4-13fd-4bd9-8f08-a1cedf428d0d`),
+>   `iip-api-stg` (`d55fe46b-1fba-4c5b-81e1-4ee1918ecf73`, scope `api://…/access_as_user`).
+> - Key Vault `kv-stg-vyhhymwydvai2` was soft-deleted; recovered, inspected (held only
+>   `graph-client-secret`, unused by this staging config), then **purged** — regenerate that secret
+>   when Graph/email is enabled (Gate 3).
+> - `rg-iip-stg` re-created and **left empty on purpose** (owner's instruction) as a placeholder; no
+>   billable resources exist.
+>
+> **Naming note for any future rebuild:** v2's `mainTemplate.bicep` names everything
+> `{type}-${environmentName}-${uniqueSuffix}` (no region token). The deleted resources carried a
+> `cus` token on App Services/Function/SQL only (a *different* old template). With `environmentName=stg`,
+> v2 regenerates `kv-stg-vyhhymwydvai2` + `app-…-stg-vyhhymwydvai2` (no `cus`) **only if deployed into
+> `rg-iip-stg` in the same subscription** (suffix = `uniqueString(rg.id, env)`). A different
+> subscription/RG changes the suffix → different names → update the app names + Entra redirect URIs below.
+>
+> **Unblock options (owner decision):** (1) a capable subscription — pay-as-you-go with App Service +
+> an approved Azure OpenAI access request; (2) an Azure support request to lift the App Service/OpenAI
+> restriction on `5f5765ae` (may not be grantable on Sponsored); (3) reduced scope (App Service without
+> OpenAI, AI shown *Not configured*). The wiring below (workflow + scripts) is ready and correct for
+> whichever capable target is chosen.
+
 v2 owns deployment to the same staging resources originally provisioned for the old repo. This
 deploys **application code only** to the existing App Services. It never creates/modifies Azure
 infrastructure, never touches Partner Center, and never republishes the Marketplace managed-app
