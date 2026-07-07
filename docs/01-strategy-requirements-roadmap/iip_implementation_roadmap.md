@@ -1,5 +1,7 @@
 # Insurance Intelligence Platform (IIP) - Implementation Roadmap
 
+> **⚠️ For execution ORDER and current status, defer to [`../08-program-plan/IIP-CONSOLIDATED-ROADMAP.md`](../08-program-plan/IIP-CONSOLIDATED-ROADMAP.md)** — the single authoritative sequence (2026-07-07). This document remains the source for strategic scope, requirements, and phase *detail*; the consolidated roadmap governs *what order to build/deploy in* and *what is already done*.
+
 **Document type:** Implementation Roadmap / Delivery Plan  
 **Product name:** Insurance Intelligence Platform  
 **Acronym:** IIP  
