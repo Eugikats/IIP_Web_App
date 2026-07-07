@@ -35,7 +35,7 @@ public sealed class Phase2RouteWiringTests
     [InlineData("services.AddScoped<IAuditReadRepository, EfAuditReadRepository>();")]
     [InlineData("services.AddScoped<ICustomerReadRepository, EfCustomerReadRepository>();")]
     [InlineData("services.AddScoped<IChannelReadRepository, EfChannelReadRepository>();")]
-    [InlineData("services.AddScoped<ISalesLeadReadRepository, EfSalesLeadReadRepository>();")]
+    [InlineData("services.AddScoped<ISalesLeadReadRepository>(sp => sp.GetRequiredService<EfSalesLeadRepository>());")]
     public void Phase2ReadRepositories_AreRegistered(string registration)
     {
         Assert.Contains(registration, ReadInfrastructureRegistrationSource());

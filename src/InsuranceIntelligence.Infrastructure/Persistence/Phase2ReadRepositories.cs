@@ -378,17 +378,5 @@ public sealed class EfChannelReadRepository : IChannelReadRepository
         Task.FromResult<IReadOnlyList<ChannelConversationReadModel>>(Array.Empty<ChannelConversationReadModel>());
 }
 
-/// <summary>
-/// Sales leads originate from the not-yet-built lead pipeline. Until that data source exists this
-/// returns no lead (null) honestly rather than fabricating a lead. The service surfaces this as a
-/// 404 for any lead id.
-/// </summary>
-public sealed class EfSalesLeadReadRepository : ISalesLeadReadRepository
-{
-    public Task<SalesLeadDetailReadModel?> GetLeadDetailAsync(
-        string tenantId,
-        string workspaceId,
-        string leadId,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult<SalesLeadDetailReadModel?>(null);
-}
+// Sales-lead persistence moved to EfSalesLeadRepository (real scoped-JSON store) — the manual
+// create path (Gate 0) writes real leads; channel ingestion / fabric import feed the same store later.

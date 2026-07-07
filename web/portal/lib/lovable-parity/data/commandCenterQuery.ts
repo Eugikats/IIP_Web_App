@@ -1,0 +1,94 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import { useUI } from "@/context/UIStateContext";
+import { apiBaseUrl, scopedHeaders } from "@/lib/config";
+import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
+
+// Mirrors src/InsuranceIntelligence.Application/CommandCenter/CommandCenterQueryContracts.cs.
+// Blocks are a discriminated union keyed by `type` (frozen snake_case contract). Unknown
+// block types must render a safe fallback, never crash or dump raw JSON.
+export type CommandCenterBlock =
+  | { type: "text"; markdown: string }
+  | { type: "metric_pills"; items: { label: string; value: string; tone: string; detail?: string }[] }
+  | { type: "claims_table"; rows: { caseId: string; customer: string; productLine: string; status: string; slaStatus: string; completeness: number; assignedTo: string; href: string }[] }
+  | { type: "sla_summary"; items: { caseId: string; customer: string; slaStatus: string; dueLabel: string }[] }
+  | { type: "document_gap_summary"; items: { caseId: string; customer: string; missing: string[] }[] }
+  | { type: "approval_queue"; items: { approvalId: string; caseId: string; title: string; status: string; href: string }[] }
+  | { type: "draft_communication"; draftId: string; preview: string; requiresApproval: boolean }
+  | { type: "management_summary"; title: string; sections: { heading: string; body: string }[] }
+  | { type: "action_proposal"; actions: { label: string; description: string; targetHref: string; requiresHumanApproval: boolean }[] }
+  | { type: "evidence_list"; sources: { label: string; documentName: string; ref: string }[] }
+  | { type: "not_configured"; provider: string; adminAction: string }
+  | { type: "error"; code: string; safeMessage: string; correlationId: string }
+  | { type: string; [k: string]: unknown };
+
+export type CommandCenterAnswer = {
+  question: string;
+  blocks: CommandCenterBlock[];
+  canTriggerDecision: boolean;
+  generatedAt: string;
+};
+
+type QueryResponseDto = {
+  blocks: CommandCenterBlock[];
+  canTriggerDecision: boolean;
+  generatedAt: string;
+};
+
+const PARITY_ANSWER = (question: string): CommandCenterAnswer => ({
+  question,
+  canTriggerDecision: false,
+  generatedAt: new Date().toISOString(),
+  blocks: [
+    { type: "text", markdown: "Prototype answer — grounded query runs against `/api/v1/command-center/query` in real-data mode." },
+    { type: "metric_pills", items: [
+      { label: "Open claims", value: "24", tone: "info" },
+      { label: "SLA at risk", value: "5", tone: "warning" },
+    ] },
+  ],
+});
+
+export function useCommandCenterQuery() {
+  const { roleDef } = useUI();
+  const role = roleDef.key;
+  const [answer, setAnswer] = useState<CommandCenterAnswer | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const ask = useCallback(async (question: string): Promise<CommandCenterAnswer | null> => {
+    const q = question.trim();
+    if (!q) return null;
+    setLoading(true);
+    setError(null);
+    if (LOVABLE_VISUAL_PARITY_MODE) {
+      const parity = PARITY_ANSWER(q);
+      setAnswer(parity);
+      setLoading(false);
+      return parity;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/command-center/query`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q }),
+      });
+      if (response.status === 403) throw new Error("You do not have permission to query the Command Center.");
+      if (!response.ok) throw new Error(`Command Center query failed with HTTP ${response.status}.`);
+      const dto = (await response.json()) as QueryResponseDto;
+      const result: CommandCenterAnswer = { question: q, blocks: dto.blocks ?? [], canTriggerDecision: Boolean(dto.canTriggerDecision), generatedAt: dto.generatedAt };
+      setAnswer(result);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Command Center query failed.");
+      setAnswer(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [role]);
+
+  const reset = useCallback(() => { setAnswer(null); setError(null); }, []);
+
+  return { ask, reset, answer, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+}

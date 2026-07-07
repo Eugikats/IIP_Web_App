@@ -135,12 +135,148 @@ public sealed class Phase2ReadRepositoryTests
     }
 
     [Fact]
-    public async Task SalesLead_Detail_IsNullUntilPipelineConfigured()
+    public async Task SalesLead_Create_Then_Get_And_List_RoundTripsTenantScoped()
     {
-        var repository = new EfSalesLeadReadRepository();
+        await using var dbContext = CreateDbContext();
+        var repository = new EfSalesLeadRepository(dbContext);
 
-        Assert.Null(await repository.GetLeadDetailAsync("tenant-a", "workspace-a", "lead-1"));
+        // Unknown lead is null (no fabrication).
+        Assert.Null(await repository.GetLeadDetailAsync("tenant-a", "workspace-a", "lead-x"));
+
+        var lead = new InsuranceIntelligence.Application.SalesLeads.SalesLeadDetailReadModel(
+            "LEAD-1", "Manual capture", "Motor cover", "Captured by staff", "Motor comprehensive", "New",
+            ["Confirm details"], ["Contact customer"], "officer-1", null, "Jane Doe", "jane@example.test",
+            DateTimeOffset.UtcNow, "user-1");
+        await repository.CreateAsync("tenant-a", "workspace-a", lead);
+        // Different tenant workspace — must never see it.
+        await repository.CreateAsync("tenant-b", "workspace-a",
+            lead with { LeadId = "LEAD-2", CustomerName = "Other Tenant" });
+
+        var fetched = await repository.GetLeadDetailAsync("tenant-a", "workspace-a", "LEAD-1");
+        Assert.NotNull(fetched);
+        Assert.Equal("Jane Doe", fetched!.CustomerName);
+
+        var list = await repository.ListLeadsAsync("tenant-a", "workspace-a");
+        Assert.Single(list);
+        Assert.Equal("LEAD-1", list[0].LeadId);
     }
+
+    [Fact]
+    public async Task WorkspaceCatalog_ListsPerTenant_AndIsTenantIsolated()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Workspaces.Add(ScopedJson("tenant-a", "workspace-claims",
+            new InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto("workspace-claims", "Motor Claims", "af-east")));
+        dbContext.Workspaces.Add(ScopedJson("tenant-a", "workspace-life",
+            new InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto("workspace-life", "Life Claims", "af-east")));
+        dbContext.Workspaces.Add(ScopedJson("tenant-b", "workspace-claims",
+            new InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto("workspace-claims", "Other Tenant", "af-east")));
+        await dbContext.SaveChangesAsync();
+
+        var repository = new EfWorkspaceCatalogRepository(dbContext);
+        var workspaces = await repository.ListForTenantAsync("tenant-a");
+
+        Assert.Equal(2, workspaces.Count);
+        Assert.DoesNotContain(workspaces, w => w.DisplayName == "Other Tenant");
+    }
+
+    [Fact]
+    public async Task EffectiveMembership_ResolvesFromStore_AndFailsClosed()
+    {
+        await using var dbContext = CreateDbContext();
+        // tenant-a/workspace-a: user-1 is an active member with role "ClaimsOfficer" granting ViewAssignedClaims.
+        dbContext.UserTenantMemberships.Add(new InsuranceIntelligence.Infrastructure.Persistence.UserTenantMembershipEntity
+        { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = "workspace-a", UserId = "oid-user-1", IsActive = true });
+        dbContext.RoleAssignments.Add(new InsuranceIntelligence.Infrastructure.Persistence.RoleAssignmentEntity
+        { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = "workspace-a", UserId = "oid-user-1", RoleCode = "ClaimsOfficer" });
+        dbContext.RolePermissions.Add(new InsuranceIntelligence.Infrastructure.Persistence.RolePermissionEntity
+        { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = "workspace-a", RoleCode = "ClaimsOfficer", PermissionCode = "ViewAssignedClaims" });
+        // Inactive membership in another tenant — must never resolve.
+        dbContext.UserTenantMemberships.Add(new InsuranceIntelligence.Infrastructure.Persistence.UserTenantMembershipEntity
+        { Id = Guid.NewGuid(), TenantId = "tenant-b", WorkspaceId = "workspace-a", UserId = "oid-user-1", IsActive = false });
+        await dbContext.SaveChangesAsync();
+
+        var repo = new EfPermissionReadRepository(dbContext);
+
+        var resolved = await repo.GetEffectiveMembershipAsync("oid-user-1", tenantHint: null, workspaceHint: null);
+        Assert.NotNull(resolved);
+        Assert.Equal("tenant-a", resolved!.TenantId);
+        Assert.Equal("workspace-a", resolved.WorkspaceId);
+        Assert.Contains(InsuranceIntelligence.Domain.Administration.Permission.ViewAssignedClaims, resolved.Permissions);
+
+        // Fail closed: unknown user, and inactive-only membership.
+        Assert.Null(await repo.GetEffectiveMembershipAsync("oid-unknown", null, null));
+        Assert.Null(await repo.GetEffectiveMembershipAsync("oid-user-1", tenantHint: "tenant-b", workspaceHint: null));
+    }
+
+    [Fact]
+    public async Task EffectiveMembership_MultipleMembershipsWithoutHint_FailsClosed_ButHintDisambiguates()
+    {
+        await using var dbContext = CreateDbContext();
+        foreach (var t in new[] { "tenant-a", "tenant-b" })
+        {
+            dbContext.UserTenantMemberships.Add(new InsuranceIntelligence.Infrastructure.Persistence.UserTenantMembershipEntity
+            { Id = Guid.NewGuid(), TenantId = t, WorkspaceId = "workspace-a", UserId = "oid-user-2", IsActive = true });
+        }
+        await dbContext.SaveChangesAsync();
+        var repo = new EfPermissionReadRepository(dbContext);
+
+        Assert.Null(await repo.GetEffectiveMembershipAsync("oid-user-2", null, null)); // ambiguous -> fail closed
+        var resolved = await repo.GetEffectiveMembershipAsync("oid-user-2", tenantHint: "tenant-b", workspaceHint: null);
+        Assert.NotNull(resolved);
+        Assert.Equal("tenant-b", resolved!.TenantId);
+    }
+
+    [Fact]
+    public void TenantContextAccessor_HasCurrent_ReflectsResolution_AndCurrentThrowsWhenUnset()
+    {
+        var accessor = new InsuranceIntelligence.Application.Core.TenantContextAccessor();
+        Assert.False(accessor.HasCurrent);
+        Assert.Throws<InvalidOperationException>(() => accessor.Current);
+
+        ((InsuranceIntelligence.Application.Core.ITenantContextSetter)accessor)
+            .SetCurrent(new InsuranceIntelligence.Application.Core.TenantContext("tenant-a", "workspace-a", "user-1", ["Admin"]));
+        Assert.True(accessor.HasCurrent);
+        Assert.Equal("tenant-a", accessor.Current.TenantId);
+    }
+
+    [Fact]
+    public async Task Onboarding_UpsertGet_And_ConsentBootstrap_MakesAdminResolvable()
+    {
+        await using var dbContext = CreateDbContext();
+        var onboarding = new EfTenantOnboardingRepository(dbContext);
+        var record = new InsuranceIntelligence.Application.Onboarding.TenantOnboardingRecord(
+            "ONB-1", "Insurer X", "contoso.onmicrosoft.com", "admin@contoso.test",
+            ["workspace-claims"], ["sub-123"], "tenant-x", "state-1",
+            InsuranceIntelligence.Application.Onboarding.TenantOnboardingStatus.Pending,
+            null, null, "operator-1", DateTimeOffset.UtcNow, null);
+        await onboarding.UpsertAsync(record);
+
+        Assert.Equal("ONB-1", (await onboarding.GetAsync("ONB-1"))!.OnboardingId);
+        Assert.Equal("ONB-1", (await onboarding.GetByStateAsync("state-1"))!.OnboardingId);
+        Assert.Single(await onboarding.ListAsync());
+
+        // Bootstrap the consenting admin's membership, then confirm the runtime resolver resolves it
+        // with Admin permissions from the code-defined map (no per-tenant RolePermissions seeding).
+        var writer = new EfTenantMembershipWriter(dbContext);
+        await writer.CreateAdminMembershipAsync("tenant-x", "workspace-claims", "admin@contoso.test");
+        await writer.CreateAdminMembershipAsync("tenant-x", "workspace-claims", "admin@contoso.test"); // idempotent
+
+        var membership = await new EfPermissionReadRepository(dbContext)
+            .GetEffectiveMembershipAsync("admin@contoso.test", "tenant-x", "workspace-claims");
+        Assert.NotNull(membership);
+        Assert.Equal("tenant-x", membership!.TenantId);
+        Assert.Contains(InsuranceIntelligence.Domain.Administration.Permission.ManageTenantSettings, membership.Permissions);
+    }
+
+    private static PersistedWorkspace ScopedJson(string tenantId, string workspaceId, InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto payload) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            WorkspaceId = workspaceId,
+            PayloadJson = JsonSerializer.Serialize(payload, Json)
+        };
 
     private static ClaimCase Claim(Guid caseId, string customerName, string customerEmail) =>
         new()

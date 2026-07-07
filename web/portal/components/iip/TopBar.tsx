@@ -7,7 +7,7 @@ export default function TopBar() {
   return (
     <header className="h-16 shrink-0 border-b border-cloud/70 bg-white/60 backdrop-blur-xl px-4 flex items-center gap-3">
       <div className="flex items-center gap-1">
-        {sidebarOpen && !roleDef.customerSafeOnly && (
+        {sidebarOpen && (
           <button
             onClick={toggleSidebar}
             aria-label="Collapse sidebar"
@@ -36,7 +36,7 @@ export default function TopBar() {
           <Bell className="h-4 w-4" />
           <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-error" />
         </button>
-        {copilotOpen && !roleDef.customerSafeOnly && (
+        {copilotOpen && (
           <button
             onClick={toggleCopilot}
             aria-label="Collapse Copilot"

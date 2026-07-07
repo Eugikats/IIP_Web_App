@@ -50,6 +50,20 @@ public static class CommandCenterQueryEndpoints
         InfrastructureOptions options,
         out IResult error)
     {
+        // Deployed (Entra) mode: defer to the middleware-resolved store context (ADR-0005); never
+        // re-derive scope from the token tid/headers. Fail closed if no membership was resolved.
+        if (!options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+        {
+            if (tenantContextSetter is ITenantContextAccessor accessor && accessor.HasCurrent)
+            {
+                error = Results.Empty;
+                return true;
+            }
+
+            error = Results.StatusCode(StatusCodes.Status403Forbidden);
+            return false;
+        }
+
         if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
         {
             error = Results.ValidationProblem(new Dictionary<string, string[]>

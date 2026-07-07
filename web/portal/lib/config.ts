@@ -34,7 +34,7 @@ export function setApiAccessToken(token: string | null) {
  * from authenticated claims; the API rejects demo identity headers outside
  * Development mode.
  */
-export function scopedHeaders(role = "Client", userId = ""): Record<string, string> {
+export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<string, string> {
   const headers: Record<string, string> = {};
 
   if (canUseLocalTestDoubles) {

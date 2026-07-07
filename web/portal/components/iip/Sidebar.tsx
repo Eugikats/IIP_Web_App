@@ -3,7 +3,7 @@ import iipLogo from "@/assets/iip-logo";
 import {
   MessagesSquare, FileSearch, Users, ShieldCheck, AlertTriangle, ClipboardList,
   Workflow, BookOpen, LineChart, Plug, ScrollText, Settings2, Cog, Plus, Search,
-  Circle, PanelLeftClose, Inbox, UserSquare2, MessageSquareText, FileText, LifeBuoy, Bot, CreditCard, Gavel,
+  Circle, PanelLeftClose, Inbox, UserSquare2, MessageSquareText, FileText, LifeBuoy, Bot, CreditCard, Gavel, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
@@ -30,6 +30,7 @@ const ALL_ADMIN = [
   { to: "/app/admin", label: "Admin Console", icon: Cog },
   { to: "/app/admin/agents", label: "AI & Agent Management", icon: Bot },
   { to: "/app/admin/tenant-policy", label: "Tenant Agent Policy", icon: Gavel },
+  { to: "/app/admin/onboarding", label: "Tenant Onboarding", icon: Building2 },
   { to: "/app/admin/billing", label: "Billing & Usage", icon: CreditCard },
   { to: "/app/settings", label: "Settings", icon: Settings2 },
 ];

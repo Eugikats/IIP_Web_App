@@ -47,6 +47,18 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Gate 1 (G1.6): load deployment secrets from Azure Key Vault when configured. The vault URI is a
+// non-secret pointer (Azure:KeyVaultUri / Azure__KeyVaultUri); secrets are read via managed identity
+// (DefaultAzureCredential) — no secrets in config files or env. Only activates when a URI is set, so
+// local/dev is unaffected. Key Vault secret names map to config keys ("--" for nested sections).
+var keyVaultUri = builder.Configuration["Azure:KeyVaultUri"] ?? builder.Configuration["Azure__KeyVaultUri"];
+if (!string.IsNullOrWhiteSpace(keyVaultUri))
+{
+    builder.Configuration.AddAzureKeyVault(
+        new Uri(keyVaultUri),
+        new Azure.Identity.DefaultAzureCredential());
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -64,12 +76,40 @@ builder.Services.AddCors(options =>
 });
 
 var infrastructureOptions = InfrastructureRegistration.BindOptions(builder.Configuration);
+var runtimeProfile = AzureProviderStartupValidator.ResolveRuntimeProfile(
+    infrastructureOptions, builder.Environment.EnvironmentName);
 AzureProviderStartupValidator.ThrowIfInvalid(infrastructureOptions);
-AzureProviderStartupValidator.ThrowIfProductionInvalid(
-    infrastructureOptions,
-    AzureProviderStartupValidator.ResolveRuntimeProfile(infrastructureOptions, builder.Environment.EnvironmentName));
+AzureProviderStartupValidator.ThrowIfProductionInvalid(infrastructureOptions, runtimeProfile);
+
+// Development diagnostics endpoints (debug notification trigger, email test-ingestion)
+// are mapped ONLY in local Development/LocalTest. They must never exist as a deployed
+// surface in Demo/Staging/Production/Reviewer, per the Gate 0 secure-baseline rule.
+var developmentDiagnosticsEnabled =
+    runtimeProfile.Equals("Development", StringComparison.OrdinalIgnoreCase)
+    || runtimeProfile.Equals("LocalTest", StringComparison.OrdinalIgnoreCase);
 
 builder.Services.AddAuthorization();
+
+// OpenAPI/Swagger. The generated document is the machine-checkable API contract map
+// (see docs/api/IIP_API_Contracts_Master.md, ADR-0004). The interactive Swagger UI and
+// the JSON document are exposed ONLY in Development/LocalTest (see developmentDiagnosticsEnabled
+// below) so no schema/endpoint enumeration surface is published in deployed environments.
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(swagger =>
+{
+    swagger.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "IIP Operations API",
+        Version = "v1",
+        Description = "Insurance Intelligence Platform (IIP) — canonical /api/v1 contract. "
+            + "Human-reviewed insurance intelligence; AI prepares, humans decide.",
+    });
+    // Minimal-API route params without a type constraint (e.g. {customerId}) can collide
+    // on the same normalized path; pick the first deterministically so the document always
+    // generates. Enrichment (operationIds, permission metadata) is layered on in the
+    // hand-written contract map (docs/api/IIP_API_Contracts_Master.md).
+    swagger.ResolveConflictingActions(descriptions => descriptions.First());
+});
 if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnoreCase))
 {
     // Multitenant Entra authentication for IIP's single app registration configured for
@@ -235,6 +275,10 @@ builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
+builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingService, InsuranceIntelligence.Application.Onboarding.TenantOnboardingService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 // Initiative LP: rule-based advisory domains + admin domains (Fraud/Underwriting/Agents/Billing).
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQueryService, InsuranceIntelligence.Application.Fraud.FraudQueryService>();
@@ -264,6 +308,14 @@ var app = builder.Build();
 await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Environment);
 
 app.UseCors();
+
+// Swagger UI + JSON contract document — Development/LocalTest only (secure baseline).
+if (developmentDiagnosticsEnabled)
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(ui => ui.SwaggerEndpoint("/swagger/v1/swagger.json", "IIP Operations API v1"));
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -302,15 +354,49 @@ app.Use(async (context, next) =>
 // otherwise fail with "Tenant context has not been initialized".
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/api/v1")
-        && TenantScopeReader.TryGetFromHeadersOrQuery(context, out var tenantScope, out _))
+    if (context.Request.Path.StartsWithSegments("/api/v1"))
     {
-        var userId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
-        if (!string.IsNullOrWhiteSpace(userId))
+        if (infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
         {
-            var roleCode = DemoAuthorization.GetEffectiveRole(context, infrastructureOptions).ToString();
-            context.RequestServices.GetRequiredService<ITenantContextSetter>()
-                .SetCurrent(new TenantContext(tenantScope.TenantId, tenantScope.WorkspaceId, userId, [roleCode]));
+            // Development ONLY: demo/header scope + role (rejected in deployed profiles by RuntimeHeaderGuard).
+            if (TenantScopeReader.TryGetFromHeadersOrQuery(context, out var tenantScope, out _))
+            {
+                var devUserId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
+                if (!string.IsNullOrWhiteSpace(devUserId))
+                {
+                    var roleCode = DemoAuthorization.GetEffectiveRole(context, infrastructureOptions).ToString();
+                    context.RequestServices.GetRequiredService<ITenantContextSetter>()
+                        .SetCurrent(new TenantContext(tenantScope.TenantId, tenantScope.WorkspaceId, devUserId, [roleCode]));
+                }
+            }
+        }
+        else if (context.User.Identity?.IsAuthenticated == true)
+        {
+            // Deployed (Entra) — ADR-0005: runtime authority is IIP's membership store, keyed by the
+            // authenticated user's stable id (oid). The token tid/workspace claims are ONLY
+            // disambiguation hints, never authority. Fine-grained permissions come from the store and
+            // are stashed for the synchronous permission checks. No membership => fail closed.
+            var userId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                var tenantHint = RuntimeClaimTypes.TenantScope
+                    .Select(t => context.User.FindFirst(t)?.Value)
+                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+                var workspaceHint = RuntimeClaimTypes.WorkspaceScope
+                    .Select(t => context.User.FindFirst(t)?.Value)
+                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+                var membership = await context.RequestServices
+                    .GetRequiredService<IPermissionReadRepository>()
+                    .GetEffectiveMembershipAsync(userId, tenantHint, workspaceHint, context.RequestAborted);
+
+                if (membership is not null)
+                {
+                    context.Items[DemoAuthorization.EffectivePermissionsItemKey] = membership.Permissions;
+                    context.RequestServices.GetRequiredService<ITenantContextSetter>()
+                        .SetCurrent(new TenantContext(membership.TenantId, membership.WorkspaceId, membership.UserId, membership.Roles));
+                }
+            }
         }
     }
 
@@ -452,8 +538,11 @@ app.MapPut("/api/v1/admin/users/{userId}", AdminEndpoints.UpdateUserRole)
 app.MapPut("/api/v1/admin/users/{userId}/role", AdminEndpoints.UpdateUserRole)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 
-app.MapPost("/api/v1/admin/debug-teams-notification", DebugEndpoints.TriggerTeamsNotification)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+if (developmentDiagnosticsEnabled)
+{
+    app.MapPost("/api/v1/admin/debug-teams-notification", DebugEndpoints.TriggerTeamsNotification)
+        .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+}
 
 // W2.5: Phase 2 core-workspace read routes (see docs/02-development-engineering/iip_api_specification.md).
 app.MapGet("/api/v1/channels/overview", ChannelEndpoints.GetOverview)
@@ -462,8 +551,26 @@ app.MapGet("/api/v1/customers", CustomerProfileEndpoints.ListCustomers)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustomerProfile)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapPost("/api/v1/sales-leads", SalesLeadEndpoints.CreateLead)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+
+// Gate 1 (G1.7): platform-operator tenant onboarding + Entra admin-consent flow (ADR-0005).
+app.MapPost("/api/v1/onboarding", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.Create)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapGet("/api/v1/onboarding", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapGet("/api/v1/onboarding/{onboardingId}", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapGet("/api/v1/onboarding/{onboardingId}/consent-url", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.GetConsentUrl)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+// Admin-consent redirect target — authorized by the opaque state value, not a permission.
+// Deliberately OFF /api/v1: the insurer admin returns here from Microsoft UNAUTHENTICATED to IIP,
+// so it must bypass the /api/v1 authenticated-request guard (like /health).
+app.MapGet("/onboarding/consent-callback", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.ConsentCallback);
 app.MapGet("/api/v1/audit/events", AuditEndpoints.ListEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 // Initiative LP: rule-based fraud advisory signals (deterministic, tenant-scoped, advisory-only).
@@ -494,8 +601,11 @@ app.MapGet("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.Lis
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.CreateMailbox)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
-app.MapPost("/api/v1/integrations/email/test-ingestion", EmailIntegrationEndpoints.TestIngestion)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+if (developmentDiagnosticsEnabled)
+{
+    app.MapPost("/api/v1/integrations/email/test-ingestion", EmailIntegrationEndpoints.TestIngestion)
+        .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+}
 app.MapPost("/api/v1/integrations/email/process-message", EmailIntegrationEndpoints.ProcessMessage)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/email/messages", EmailIntegrationEndpoints.ListMessages)

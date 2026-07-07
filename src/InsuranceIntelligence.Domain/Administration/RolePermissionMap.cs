@@ -56,7 +56,8 @@ public static class RolePermissionMap
                 Permission.SendCustomerUpdate,
                 Permission.ViewChannels,
                 Permission.ViewCustomers,
-                Permission.ViewSalesLeads
+                Permission.ViewSalesLeads,
+                Permission.ManageSalesLeads
             ],
             [PlatformRole.Broker] =
             [
@@ -90,7 +91,8 @@ public static class RolePermissionMap
             [PlatformRole.PublisherSupport] =
             [
                 Permission.ViewCommandCenter,
-                Permission.ViewAuditLog
+                Permission.ViewAuditLog,
+                Permission.ManageTenantOnboarding
             ]
         };
 

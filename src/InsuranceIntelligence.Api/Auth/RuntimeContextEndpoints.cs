@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.Tenants;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Infrastructure.Configuration;
@@ -8,7 +9,12 @@ namespace InsuranceIntelligence.Api.Auth;
 
 public static class RuntimeContextEndpoints
 {
-    public static IResult GetMe(HttpContext httpContext, InfrastructureOptions options, IHostEnvironment hostEnvironment)
+    public static async Task<IResult> GetMe(
+        HttpContext httpContext,
+        InfrastructureOptions options,
+        IHostEnvironment hostEnvironment,
+        IWorkspaceCatalogService workspaceCatalog,
+        CancellationToken cancellationToken)
     {
         var environment = EnvironmentContextFactory.Build(options, hostEnvironment.EnvironmentName, source: "Runtime");
         if (options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
@@ -30,7 +36,8 @@ public static class RuntimeContextEndpoints
                 scope: developmentScope,
                 authMode: options.AuthMode,
                 source: "DevelopmentHeaders",
-                environment: environment));
+                environment: environment,
+                availableWorkspaces: await ResolveWorkspacesAsync(workspaceCatalog, developmentScope, cancellationToken)));
         }
 
         if (HasDemoIdentityHeaders(httpContext))
@@ -72,7 +79,8 @@ public static class RuntimeContextEndpoints
             scope: authenticatedScope,
             authMode: options.AuthMode,
             source: scopeSource,
-            environment: environment));
+            environment: environment,
+            availableWorkspaces: await ResolveWorkspacesAsync(workspaceCatalog, authenticatedScope, cancellationToken)));
     }
 
     private static RuntimeContextResponse BuildResponse(
@@ -82,7 +90,8 @@ public static class RuntimeContextEndpoints
         TenantScope scope,
         string authMode,
         string source,
-        UiEnvironmentContext environment) =>
+        UiEnvironmentContext environment,
+        IReadOnlyList<WorkspaceSummaryDto> availableWorkspaces) =>
         new(
             UserId: userId,
             DisplayName: displayName,
@@ -93,7 +102,26 @@ public static class RuntimeContextEndpoints
             WorkspaceId: scope.WorkspaceId,
             AuthMode: authMode,
             Source: source,
-            Environment: environment);
+            Environment: environment,
+            AvailableWorkspaces: availableWorkspaces);
+
+    // Multi-workspace data model: return the tenant's catalog if any workspaces are registered;
+    // otherwise fall back honestly to the caller's single resolved workspace (one-per-instance).
+    private static async Task<IReadOnlyList<WorkspaceSummaryDto>> ResolveWorkspacesAsync(
+        IWorkspaceCatalogService catalog,
+        TenantScope scope,
+        CancellationToken cancellationToken)
+    {
+        var catalogued = await catalog.ListForTenantAsync(scope.TenantId, cancellationToken);
+        if (catalogued.Count > 0)
+        {
+            return catalogued;
+        }
+
+        return string.IsNullOrWhiteSpace(scope.WorkspaceId)
+            ? []
+            : [new WorkspaceSummaryDto(scope.WorkspaceId, scope.WorkspaceId, "default")];
+    }
 
     private static bool HasDemoIdentityHeaders(HttpContext httpContext) =>
         httpContext.Request.Headers.ContainsKey("x-demo-role")
@@ -144,4 +172,5 @@ public sealed record RuntimeContextResponse(
     string WorkspaceId,
     string AuthMode,
     string Source,
-    UiEnvironmentContext Environment);
+    UiEnvironmentContext Environment,
+    IReadOnlyList<WorkspaceSummaryDto> AvailableWorkspaces);

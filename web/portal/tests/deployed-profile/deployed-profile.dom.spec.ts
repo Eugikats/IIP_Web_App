@@ -18,7 +18,7 @@ test.describe("Deployed-profile DOM guardrails", () => {
   });
 
   test("customer route remains customer-safe in a deployed profile", async ({ page }) => {
-    await prepareDeployedProfileApi(page, "Client");
+    await prepareDeployedProfileApi(page, "CustomerService");
     await page.goto("/client-portal", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "My Claims" })).toBeVisible();

@@ -52,6 +52,61 @@ public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext db
             .OfType<Permission>()
             .ToArray();
     }
+
+    public async Task<EffectiveMembership?> GetEffectiveMembershipAsync(
+        string userId,
+        string? tenantHint,
+        string? workspaceHint,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return null;
+        }
+
+        // Candidate active memberships for this authenticated user, narrowed by the hints when present.
+        var query = dbContext.UserTenantMemberships.AsNoTracking()
+            .Where(m => m.UserId == userId && m.IsActive);
+        if (!string.IsNullOrWhiteSpace(tenantHint))
+        {
+            query = query.Where(m => m.TenantId == tenantHint);
+        }
+        if (!string.IsNullOrWhiteSpace(workspaceHint))
+        {
+            query = query.Where(m => m.WorkspaceId == workspaceHint);
+        }
+
+        var memberships = await query
+            .Select(m => new { m.TenantId, m.WorkspaceId })
+            .ToArrayAsync(cancellationToken);
+
+        // Fail closed: no membership, or ambiguous (multiple) without a hint to disambiguate.
+        if (memberships.Length != 1)
+        {
+            return null;
+        }
+
+        var scope = memberships[0];
+        var roles = await dbContext.RoleAssignments.AsNoTracking()
+            .Where(r => r.TenantId == scope.TenantId && r.WorkspaceId == scope.WorkspaceId && r.UserId == userId)
+            .Select(r => r.RoleCode)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+
+        // Effective permissions = the code-defined role→permission map for the assigned roles
+        // (IIP's canonical source, as PermissionService also uses) UNION any per-tenant overrides
+        // in the RolePermissions table. This means an assigned role (e.g. Admin) is authoritative
+        // without every tenant having to re-seed the standard permission set.
+        var mapPermissions = roles
+            .Select(code => Enum.TryParse<PlatformRole>(code, ignoreCase: true, out var role) ? role : (PlatformRole?)null)
+            .OfType<PlatformRole>()
+            .SelectMany(RolePermissionMap.ForRole);
+        var overridePermissions = await GetPermissionsAsync(scope.TenantId, scope.WorkspaceId, userId, cancellationToken);
+
+        var permissions = mapPermissions.Concat(overridePermissions).Distinct().ToArray();
+
+        return new EffectiveMembership(scope.TenantId, scope.WorkspaceId, userId, roles, permissions);
+    }
 }
 
 public sealed class EfAuditEventRepository(InsuranceIntelligenceDbContext dbContext)

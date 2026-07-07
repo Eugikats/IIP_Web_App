@@ -1,9 +1,13 @@
+using System.Text.Json;
+using InsuranceIntelligence.Application.Tenants;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Workflow;
+using InsuranceIntelligence.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace InsuranceIntelligence.Infrastructure.Simulated;
@@ -23,6 +27,18 @@ public static class DemoDataSeeder
 
         var tenantRepository = serviceProvider.GetRequiredService<ITenantConfigurationRepository>();
         await tenantRepository.SaveAsync(TenantConfiguration.Demo(), cancellationToken);
+
+        // Multi-workspace data model (B4): seed two workspaces for the demo tenant so the
+        // /me available-workspaces list is exercised. EF-backed storage only.
+        var workspaceDb = serviceProvider.GetService<InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext>();
+        if (workspaceDb is not null
+            && !await workspaceDb.Workspaces.AnyAsync(w => w.TenantId == scope.TenantId, cancellationToken))
+        {
+            workspaceDb.Workspaces.AddRange(
+                DemoWorkspace(scope.TenantId, "workspace-claims", "Kampala Motor Claims"),
+                DemoWorkspace(scope.TenantId, "workspace-life", "Kampala Life Claims"));
+            await workspaceDb.SaveChangesAsync(cancellationToken);
+        }
 
         var userRepository = serviceProvider.GetRequiredService<IUserAccountRepository>();
         foreach (var user in DemoUsers(scope))
@@ -262,6 +278,18 @@ public static class DemoDataSeeder
             CorrelationId = "seed-demo"
         };
     }
+
+    private static PersistedWorkspace DemoWorkspace(string tenantId, string workspaceId, string displayName) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            WorkspaceId = workspaceId,
+            PayloadJson = JsonSerializer.Serialize(
+                new WorkspaceSummaryDto(workspaceId, displayName, "af-east"),
+                JsonSerializerSettings.Options),
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
 
     private static IReadOnlyCollection<InsuranceUserAccount> DemoUsers(TenantScope scope) =>
     [
