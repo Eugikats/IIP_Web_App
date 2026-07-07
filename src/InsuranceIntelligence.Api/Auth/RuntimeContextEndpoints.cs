@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Tenants;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Common;
@@ -14,6 +15,7 @@ public static class RuntimeContextEndpoints
         InfrastructureOptions options,
         IHostEnvironment hostEnvironment,
         IWorkspaceCatalogService workspaceCatalog,
+        ITenantContextAccessor tenantContext,
         CancellationToken cancellationToken)
     {
         var environment = EnvironmentContextFactory.Build(options, hostEnvironment.EnvironmentName, source: "Runtime");
@@ -52,35 +54,33 @@ public static class RuntimeContextEndpoints
             return Results.Unauthorized();
         }
 
-        var scopeSource = TenantScopeReader.TryGetFromClaims(httpContext.User, out _, out _)
-            ? "AuthenticatedClaims"
-            : "DeploymentConfiguration";
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var authenticatedScope, out _))
+        // ADR-0005: outside Development, the runtime authority is IIP's membership store — resolved by
+        // the per-request middleware into the TenantContext. Never derive tenant/workspace/role from
+        // the token's tid/roles claims here. No active membership => fail closed.
+        if (!tenantContext.HasCurrent)
         {
             return Results.Problem(
-                "Authenticated identity is missing a valid tenant/workspace scope and no deployment scope is configured.",
+                "Authenticated identity has no active IIP membership for this request.",
                 statusCode: StatusCodes.Status403Forbidden);
         }
 
-        var userId = FirstClaimValue(httpContext.User, RuntimeClaimTypes.UserIds);
-        if (string.IsNullOrWhiteSpace(userId))
-        {
-            return Results.Problem(
-                "Authenticated identity is missing a stable user identifier.",
-                statusCode: StatusCodes.Status403Forbidden);
-        }
-
-        var role = GetRoleFromClaims(httpContext.User);
-        var displayName = FirstClaimValue(httpContext.User, RuntimeClaimTypes.DisplayNames) ?? userId;
+        var current = tenantContext.Current;
+        var scope = TenantScope.Create(current.TenantId, current.WorkspaceId);
+        var role = current.RoleCodes
+            .Select(code => Enum.TryParse<PlatformRole>(code, ignoreCase: true, out var parsed) ? parsed : (PlatformRole?)null)
+            .OfType<PlatformRole>()
+            .DefaultIfEmpty(PlatformRole.Client)
+            .First();
+        var displayName = FirstClaimValue(httpContext.User, RuntimeClaimTypes.DisplayNames) ?? current.UserId;
         return Results.Ok(BuildResponse(
-            userId: userId,
+            userId: current.UserId,
             displayName: displayName,
             role: role,
-            scope: authenticatedScope,
+            scope: scope,
             authMode: options.AuthMode,
-            source: scopeSource,
+            source: "MembershipStore",
             environment: environment,
-            availableWorkspaces: await ResolveWorkspacesAsync(workspaceCatalog, authenticatedScope, cancellationToken)));
+            availableWorkspaces: await ResolveWorkspacesAsync(workspaceCatalog, scope, cancellationToken)));
     }
 
     private static RuntimeContextResponse BuildResponse(
