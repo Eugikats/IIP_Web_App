@@ -188,6 +188,17 @@ health probes, the self-scoped `/me`, and the payload-validated Graph webhook.
 | POST | `/api/v1/communications/send-teams-notification` | ConfigureIntegrations |
 | GET | `/api/v1/communications/history` | ViewAssignedClaims / ViewAllClaims |
 | GET | `/api/v1/cases/{caseId:guid}/communications` | ViewAssignedClaims / ViewAllClaims |
+| GET | `/api/v1/agent-workflows` | ViewAgentWorkflows |
+| POST | `/api/v1/agent-workflows` | ManageAgentWorkflows |
+| GET | `/api/v1/agent-workflows/{workflowKey}` | ViewAgentWorkflows |
+| POST | `/api/v1/agent-workflows/{workflowKey}/publish` | ManageAgentWorkflows |
+| POST | `/api/v1/agent-workflows/{workflowKey}/runs` | RunAgentWorkflows |
+| GET | `/api/v1/agent-workflow-runs` | ViewAgentWorkflows |
+| GET | `/api/v1/agent-workflow-runs/{runId:guid}` | ViewAgentWorkflows |
+| POST | `/api/v1/agent-workflow-runs/{runId:guid}/nodes/{nodeKey}/complete` | ManageAgentWorkflows |
+| GET | `/api/v1/agent-work-items` | ReviewAgentWorkItems |
+| GET | `/api/v1/agent-work-items/{workItemId:guid}` | ReviewAgentWorkItems |
+| POST | `/api/v1/agent-work-items/{workItemId:guid}/decision` | ReviewAgentWorkItems |
 <!-- END GENERATED ROUTE TABLE -->
 
 ## 8. Screen → API map (IIP Operations `/app/*`)
@@ -197,24 +208,32 @@ Reconciliation hooks live in `web/portal/lib/lovable-parity/data/*`.
 
 | Screen | UI route | Primary endpoint(s) | Permission | Status |
 |---|---|---|---|---|
-| Command Center | `/app` | `GET /api/v1/command-center/metrics`, `POST /api/v1/command-center/query` | `ViewCommandCenter` | metrics real; query real (deterministic planner); chat wiring pending (B2) |
+| Command Center | `/app` | `GET /api/v1/command-center/metrics`, `POST /api/v1/command-center/query` | `ViewCommandCenter` | real chat-first structured workspace; honest provider/empty states |
 | Claims Inbox | `/app/claims` | `GET /api/v1/claims`, `/claims/attention` | `ViewAssignedClaims`/`ViewAllClaims` | real |
-| Claim detail / review | `/app/claims/[id]` | `GET /api/v1/claims/{id}`, `/cases/{id}/timeline`, `/documents`, `/approvals` | as per route | detail real; full governed workspace pending (B1) |
+| Claim detail / review | `/app/claims/[id]` | `GET /api/v1/claims/{id}`, `/cases/{id}/timeline`, `/documents`, `/approvals` | as per route | real governed claim workspace |
 | Documents | `/app/documents` | `GET /api/v1/documents` | `ViewAllClaims` | real |
-| Workflows / Approvals | `/app/workflows` | `GET /api/v1/approvals` | `ApproveSettlementWorkflowStep` | real |
+| Document extraction review | `/app/claims/[id]/extraction` | `GET /api/v1/cases/{id}/documents`, tenant-scoped content, correct-field, approve-extraction | `ViewAssignedClaims`/`ViewAllClaims`, `UploadDocument` for changes | real source preview, field verification, audit reason, and human approval |
+| Review & Approvals | `/app/work-items` | `GET /api/v1/agent-work-items`, decision endpoint; `GET /api/v1/approvals`, approve/reject/escalate/override/execute endpoints | `ReviewAgentWorkItems`, `ApproveSettlementWorkflowStep`, `OverrideAiRecommendation` | one human review workspace; prepared artifacts and consequential approvals remain explicitly separated |
 | Channels | `/app/channels` | `GET /api/v1/channels/overview` | `ViewChannels` | real read; write-actions honest-gated (no ingestion source yet) |
 | Customers / Customer 360 | `/app/customers`, `/app/customers/[id]` | `GET /api/v1/customers`, `/customers/{id}` | `ViewCustomers` | real |
 | Acquisition / Sales-Leads | `/app/acquisition` | `GET /api/v1/sales-leads/{leadId}` | `ViewSalesLeads` | honest-empty; manual create pending (B3) |
+| Communications ledger | `/app/communications` | `GET /api/v1/communications` | `ManageCustomerCommunications` | read-only operational ledger; governed claim/channel workflows own actions |
 | Audit | `/app/audit` | `GET /api/v1/audit/events` | `ViewAuditLog` | real |
-| Executive | `/app/executive` | `GET /api/v1/reports/operations-summary` | `ViewCommandCenter` | real |
-| Fraud | `/app/fraud` | `GET /api/v1/fraud/signals` | `ViewFraudSignals` | real (rule engine) |
-| Underwriting | `/app/underwriting` | `GET /api/v1/underwriting/reviews` | `ViewUnderwriting` | real (rule engine); honest-empty submission source |
-| Knowledge | `/app/knowledge` | `GET /api/v1/knowledge-documents` | `ManageKnowledgeBase` | real |
+| Operations Intelligence | `/app/executive` | `GET /api/v1/reports/operations-summary` | `ViewCommandCenter` | real management operations aggregates; unavailable financial measures are omitted |
+| Risk & Fraud Signals | `/app/fraud` | `GET /api/v1/fraud/signals` | `ViewFraudSignals` | advisory signals only; no autonomous accusation |
+| Underwriting Intelligence | `/app/underwriting` | `GET /api/v1/underwriting/reviews` | `ViewUnderwriting` | advisory/read-only until governed submission actions exist |
+| Knowledge Hub | `/app/knowledge` | `GET /api/v1/knowledge-documents` | `ManageKnowledgeBase` | real read surface; write controls remain hidden until sensitivity and governance reason are persisted |
 | Policy Intelligence | `/app/policy` | `POST /api/v1/assistant/policy-questions` | `ViewAiOutputs` | grounded Q&A pending Gate 3 providers (honest-gated) |
-| Integrations / Support | `/app/integrations`, `/app/support` | `GET /api/v1/admin/provider-health` | `ManageTenantSettings` | real health; unbacked stats honest-gated |
+| Integrations & Health | `/app/integrations` | `GET /api/v1/admin/provider-health`, `/api/v1/integrations/email/health`, `/api/v1/system/capabilities` | `ManageTenantSettings`/`ConfigureIntegrations` | one real provider/capability control plane; no fake connection tests, queue metrics, or support tickets |
+| Admin console | `/app/admin` | tenant configuration, users, agents, onboarding, billing endpoints | per admin route | role-filtered platform administration launchpad |
 | Admin · Agents | `/app/admin/agents` | `GET /api/v1/admin/agents`, kill-switch `POST` | `ManageAgents` | real (persisted kill switch) |
 | Admin · Billing | `/app/admin/billing` | `GET /api/v1/admin/billing` | `ViewBilling` | real usage meters |
-| Admin · Tenant policy | `/app/admin`, `/app/settings` | `GET/PUT /api/v1/admin/tenant-configuration`, `/admin/users` | `ManageTenantSettings` | real |
+| Admin · Tenant policy | `/app/admin/tenant-policy` | tenant agent capability policy endpoints | `ManageTenantSettings` | real structured policy bounded by the platform ceiling |
+| Admin · Tenant onboarding | `/app/admin/onboarding` | `/api/v1/onboarding`, consent-url endpoint | `ManageTenantSettings` | real Entra/subscription onboarding boundary |
+| Automation Studio | `/app/flows`, `/app/flows/new`, `/app/flows/{key}` | `GET/POST /api/v1/agent-workflows`, publish/start endpoints | View/Manage/RunAgentWorkflows | real definition catalog and durable control plane; production execution worker not yet enabled |
+| Agent Run Debugger | `/app/runs/{id}` | `GET /api/v1/agent-workflow-runs/{id}` | ViewAgentWorkflows | bounded run trace and evidence references; raw prompts/OCR are intentionally excluded |
+
+Compatibility routes are not separate product surfaces: `/app/workflows` opens the approval tab inside Review & Approvals, `/app/support` redirects to Integrations & Health, and `/app/settings` redirects to the Admin console. They are retained only to avoid breaking existing bookmarks.
 
 > **Out of scope (PRD):** a customer login portal. Per `iip_product_requirements_document.md`
 > ("not customer portal login") and `iip_mvp_scope_control_register.md` ("Customer login portal …

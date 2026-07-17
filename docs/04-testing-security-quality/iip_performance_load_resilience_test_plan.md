@@ -29,18 +29,23 @@ Non-negotiable AI boundary:
 - AI may summarize, classify, extract, flag, draft, route, and recommend.
 - AI must not approve or reject claims, bind policies, set final premiums, accuse customers of fraud, release payments, promise settlement, or make final regulated decisions.
 
-Known local/demo request headers:
+## Runtime authorization boundary
 
-| Header | Known Demo Value | Purpose |
-|---|---|---|
-| X-Tenant-Id | tenant-demo | Tenant context. |
-| X-Workspace-Id | workspace-claims | Workspace context. |
-| x-demo-role | Admin | Demo role context only. |
-| x-demo-user-id | local-admin | Demo user context only. |
-| X-User-Id | local-admin | User context. |
-| X-Correlation-ID | UUID | Traceability across logs and requests. |
+Authenticated performance tests require a real bearer token for the target runtime. Tenant, workspace, role, and user authority must remain server-resolved from the validated token and membership store.
 
-Known initial endpoints include health checks, admin provider health, and cases APIs. Additional overview endpoints discussed include `/api/v1/channels/overview`, `/api/v1/customers/overview`, and `/api/v1/sales-leads/overview`.
+Rules:
+
+- Do not send `X-Tenant-Id`, `X-Workspace-Id`, `X-User-Id`, `x-demo-role`, or other browser-owned authority headers.
+- Generate a unique `X-Correlation-ID` for traceability without treating it as identity.
+- Public readiness checks may run without a token; protected claims/document/AI scenarios must fail closed when a token is absent.
+- Remote load execution requires explicit operator approval and must use synthetic or approved masked records only.
+The repository owner approved and executed a bounded internal-dev readiness run on 2026-07-13: two runs of 50 requests at concurrency 5 against `GET /health/ready`. This approval does not extend to staging, production, authenticated routes, mutation routes, provider load, stress, or soak testing. See `docs/07-qa/live-performance-test-approval-2026-07-13.md`.
+
+Later on 2026-07-13, after Entra token acquisition and server-resolved membership passed live UAT, the approved envelope was extended to one bounded authenticated `GET /api/v1/claims` run at 50 requests and concurrency 5. All requests succeeded, but client p95 was `1,277 ms` and Application Insights server p95 was `961.8373 ms`, both above the provisional `800 ms` target. This is execution evidence, not a staging or pilot performance pass.
+
+A follow-up optimization reduced observed SQL calls from about seven to exactly four per claims request and deployed successfully to dev after `376/376` backend tests. The immediate warm repeat remained error-free but measured client claims p95 `1,336 ms`; sampled server p95 was `321.0767 ms` with a `5,525.1093 ms` outlier. The latency gate therefore remains failed despite lower database round trips and a better server median.
+
+The executable smoke harness currently covers `/health/ready`, `/api/v1/claims`, and optional `/api/v1/claims/{id}`. Provider, document, queue, webhook, and audit-load scenarios remain environment/provider gated.
 
 ## Purpose
 
@@ -59,6 +64,27 @@ Final targets must be confirmed with the pilot client. The values below are impl
 | Document processing completion | Under 5 minutes for standard documents | Assumption |
 | AI summary response | Under 20 seconds where provider is healthy | Assumption |
 | Health endpoint | Under 300 ms | Assumption |
+
+## Executable Smoke Harness
+
+`tools/qa/Invoke-IipPerformanceSmoke.mjs` is the dependency-free pre-pilot smoke runner. It reports p50/p95/p99, error rate, request rate, status counts, and threshold pass/fail per scenario.
+
+Validate the runner without contacting Azure:
+
+```powershell
+node tools/qa/Invoke-IipPerformanceSmoke.mjs --self-test --requests 20 --concurrency 5
+```
+
+Run against an approved remote runtime only after authorization:
+
+```powershell
+$env:IIP_UAT_ACCESS_TOKEN = "<real bearer token>"
+node tools/qa/Invoke-IipPerformanceSmoke.mjs --base-url "https://<approved-api-host>" --allow-remote --include-authenticated --claim-id "<synthetic-claim-id>" --requests 50 --concurrency 5
+```
+
+The token is read only from `IIP_UAT_ACCESS_TOKEN` and is never printed or written to the report. The runner refuses non-loopback targets unless `--allow-remote` is supplied.
+
+Passing the built-in self-test proves the harness and threshold calculations work. It is not evidence that the dev, staging, or customer runtime meets performance targets.
 
 ## Load Test Scenarios
 

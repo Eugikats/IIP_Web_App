@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-07-13T16:37:00.039Z",
+  "baseUrl": "https://app-api-dev-h5girbnzrayqe.azurewebsites.net",
+  "mode": "runtime",
+  "results": [
+    {
+      "id": "PERF-HEALTH-001",
+      "path": "/health/ready",
+      "requests": 50,
+      "concurrency": 5,
+      "elapsedMs": 5888,
+      "requestsPerSecond": 8.49,
+      "errorRate": 0,
+      "p50Ms": 319,
+      "p95Ms": 1781,
+      "p99Ms": 1793,
+      "targetP95Ms": 300,
+      "statusCounts": {
+        "200": 50
+      },
+      "passed": false,
+      "errors": []
+    }
+  ],
+  "passed": false
+}

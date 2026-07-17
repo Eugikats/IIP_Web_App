@@ -25,6 +25,7 @@ The migration introduced a **second, parallel frontend** (`app/app/*`, 26 routes
 | A5 | **Two token systems** | `app/globals.css` (RGB `--color-*` scale) + `app/lovable.css` (HSL `--navy`/`--radius`/shadcn set); both imported in `layout.tsx`; `tailwind.config.ts` maps both (`token()` + `hslToken()`). | Redundant/overlapping tokens; must consolidate to one. |
 | A6 | **Root `/` is now the prototype Login** | `app/page.tsx` → `@/lovable-pages/Login`; the app lives at `/app/*`. | Contradicts AGENTS.md ("Command Center is the landing route at `/`"). |
 | A7 | **Whole app gated by parity flag in prod** | `LovableVisualParityGate` (in root layout) blocks **all** routes in `NODE_ENV=production` unless `NEXT_PUBLIC_VISUAL_PARITY_MODE=true`. | A real production build currently shows a "disabled" page for everything — a migration artifact that must be resolved before any deploy. |
+| A8 | ✅ **Resolved — auth shell now driven by Entra + `/api/v1/me`** | Root login starts the MSAL token flow, deployed-mode prototype literals were removed from login/shell chrome, and sidebar/topbar render runtime context from `/api/v1/me` or honest resolving/not-configured states. | Phase 3.7 live proof accepted on dev: Entra login returned to `/app`, `/api/v1/me` resolved from `MembershipStore`, and the shell rendered `workspace-operations`, `harrygafa0`, and `Tenant Admin` without prototype insurer residue. |
 
 ---
 
@@ -35,7 +36,8 @@ The migration introduced a **second, parallel frontend** (`app/app/*`, 26 routes
 Pattern established on Channels: a per-screen hook in `web/portal/lib/lovable-parity/data/*.ts` that serves fixtures in parity mode and real tenant-scoped API data otherwise (role via `useUI()`), with honest empty/error states and honest actions. Apply to every prototype screen:
 
 - **Done:** `lovable-pages/Channels.tsx` (+ `lib/lovable-parity/data/channels.ts`).
-- **API-backed, reconcile now** (real endpoints already exist): `Customers.tsx`, `CustomerDetail.tsx`, `Communications.tsx`, `Documents.tsx`, `ClaimsQueue.tsx`, `ClaimReview.tsx`, `DocumentExtraction.tsx` (FNOL), `FNOL.tsx`, `Workflows.tsx` (approvals), `Audit.tsx`, `Knowledge.tsx`, `PolicyIntelligence.tsx`, `Integrations.tsx`, `Support.tsx`, `Executive.tsx` (reports), `CustomerAcquisition.tsx` (sales-leads), `AIConversations.tsx`/`CommandCenter.tsx` (command center), `ClientPortal.tsx`, `Admin.tsx`, `Settings.tsx`.
+- **Done:** `FNOL.tsx` now posts real Motor FNOL intake to `POST /api/v1/cases` and routes to the created case; `ClaimReview.tsx` now renders live claim detail/timeline data with no mock import or hardcoded prototype narrative.
+- **API-backed, reconcile now** (real endpoints already exist): `Customers.tsx`, `CustomerDetail.tsx`, `Communications.tsx`, `Documents.tsx`, `ClaimsQueue.tsx`, `DocumentExtraction.tsx`, `Workflows.tsx` (approvals), `Audit.tsx`, `Knowledge.tsx`, `PolicyIntelligence.tsx`, `Integrations.tsx`, `Support.tsx`, `Executive.tsx` (reports), `CustomerAcquisition.tsx` (sales-leads), `AIConversations.tsx`/`CommandCenter.tsx` (command center), `ClientPortal.tsx`, `Admin.tsx`, `Settings.tsx`.
 - **Blocked on new backend** (see §3): `FraudIntelligence.tsx`, `Underwriting.tsx`, `admin/Agents.tsx`, `admin/Billing.tsx`.
 - All still contain prototype fakes to remove: hardcoded sample threads, `toast.success("… created")` fake-success actions, and `lib/lovable-parity/mock` imports (15 files still import it).
 
@@ -48,6 +50,17 @@ Pattern established on Channels: a per-screen hook in `web/portal/lib/lovable-pa
 ### 2.3 Consolidate tokens (A5)
 
 - Fold `app/lovable.css` values into `app/globals.css` as the single source, or vice-versa; drop the duplicate. Reconcile the RGB (`token()`) vs HSL (`hslToken()`) split in `tailwind.config.ts` to one convention. Keep the Ambient Intelligence values (DEC-011).
+
+### 2.3a Auth shell cleanup (A6/A8) — complete on dev
+
+- Replaced the root prototype login with an Entra-aware entry screen:
+  - The Microsoft sign-in control must call the real MSAL token acquisition flow.
+  - Successful auth routes into `/app`.
+  - Failed or missing auth stays on a safe sign-in state.
+- Removed hardcoded deployed-mode tenant/workspace/domain/user labels from `lovable-pages/Login.tsx` and `components/iip/Sidebar.tsx`.
+- Preserved sample insurer labels only inside explicit `LovableVisualParity` fixtures, never as live deployed UI defaults.
+- Shell chrome renders product name, resolved environment, current user, role, active workspace, and available workspace state from `/api/v1/me` or an honest `Not configured`/single-workspace state.
+- Completion evidence captured on dev: Entra login -> `/api/v1/me` from `MembershipStore` -> shell rendered `workspace-operations`, `harrygafa0`, and `Tenant Admin` with no prototype insurer residue.
 
 ### 2.4 Resolve the prod gate (A7)
 
@@ -104,6 +117,6 @@ Also needed by existing screens being reconciled:
 1. **Docs alignment first** (§4) — so both clones build against the `/app/*` reality (doc-first discipline). Especially the program plan + AGENTS.md route/landing facts.
 2. **Reconcile API-backed `/app/*` screens** (§2.1) — batch by shared data source; Channels is the template.
 3. **Backend domains** (§3) — Agents, Fraud, Underwriting, Billing + the status-enum/endpoint deltas; then reconcile their screens.
-4. **Token consolidation** (§2.3) and **prod-gate resolution** (§2.4).
+4. **Token consolidation** (§2.3) and **prod-gate resolution** (§2.4). Auth shell cleanup (§2.3a) is complete on dev.
 5. **Remove the orphaned old tree** (§2.2) — last, once nav + reconciliation fully cover `/app/*`.
 6. **Validation + completion report.**
