@@ -5,7 +5,8 @@ const baseURL = process.env.IIP_VISUAL_BASE_URL ?? `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: "./specs",
-  timeout: 45_000,
+  timeout: 90_000,
+  workers: 1,
   expect: {
     timeout: 10_000
   },

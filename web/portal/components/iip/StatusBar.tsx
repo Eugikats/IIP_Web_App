@@ -1,12 +1,11 @@
 "use client";
 import { Activity, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useProviderHealth } from "@/lib/lovable-parity/data/providerHealth";
-
-const HEALTHY = /oper|health|config|ready|ok/i;
+import { isProviderHealthy } from "@/lib/providerHealth";
 
 export default function StatusBar() {
   const { providers, loading } = useProviderHealth();
-  const degraded = providers.filter((p) => !HEALTHY.test(p.status));
+  const degraded = providers.filter((p) => !isProviderHealthy(p.status));
   const ok = providers.length > 0 && degraded.length === 0;
 
   const summary = loading

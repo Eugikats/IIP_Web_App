@@ -16,6 +16,9 @@ export type ApprovalView = {
   ageHrs: number;
   summary: string;
   status: string;
+  executedAt: string | null;
+  allowedActions: { action: string; label: string; requiredPermission: string; reason?: string | null }[];
+  blockedActions: { action: string; label: string; requiredPermission: string; reason?: string | null }[];
 };
 
 type ApprovalDto = {
@@ -28,11 +31,17 @@ type ApprovalDto = {
   requestedByUserId: string;
   reviewerUserId?: string | null;
   createdAt: string;
+  executedAt?: string | null;
+  allowedActions?: { action: string; label: string; requiredPermission: string; reason?: string | null }[];
+  blockedActions?: { action: string; label: string; requiredPermission: string; reason?: string | null }[];
 };
 
 const PARITY: ApprovalView[] = fixtureApprovals.map((a) => ({
   id: a.id, title: a.title, claim: a.claim, requester: a.requester, reviewer: a.reviewer,
   risk: a.risk, ageHrs: a.ageHrs, summary: a.summary, status: a.status,
+  executedAt: null,
+  allowedActions: [],
+  blockedActions: [],
 }));
 
 function ageHours(iso: string): number {
@@ -52,6 +61,9 @@ function mapDto(dto: ApprovalDto): ApprovalView {
     ageHrs: ageHours(dto.createdAt),
     summary: dto.evidenceSummary,
     status: dto.status,
+    executedAt: dto.executedAt ?? null,
+    allowedActions: dto.allowedActions ?? [],
+    blockedActions: dto.blockedActions ?? [],
   };
 }
 
@@ -83,5 +95,53 @@ export function useApprovals() {
     void load();
   }, [load]);
 
-  return { approvals, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  const decide = useCallback(
+    async (approvalId: string, decision: "approve" | "reject" | "escalate" | "override", auditReason: string) => {
+      if (LOVABLE_VISUAL_PARITY_MODE) return { ok: true };
+      const response = await fetch(`${apiBaseUrl}/api/v1/approvals/${approvalId}/${decision}`, {
+        method: "POST",
+        headers: {
+          ...scopedHeaders(role, ""),
+          "Content-Type": "application/json",
+          "X-Audit-Reason": auditReason,
+        },
+        body: JSON.stringify({ comments: auditReason }),
+      });
+      if (!response.ok) return { ok: false, message: `${decision} failed with HTTP ${response.status}.` };
+      await load();
+      return { ok: true };
+    },
+    [load, role],
+  );
+
+  const executeNextStep = useCallback(
+    async (approvalId: string, auditReason: string) => {
+      if (LOVABLE_VISUAL_PARITY_MODE) return { ok: true };
+      const response = await fetch(`${apiBaseUrl}/api/v1/approvals/${approvalId}/execute-next-step`, {
+        method: "POST",
+        headers: {
+          ...scopedHeaders(role, ""),
+          "Content-Type": "application/json",
+          "X-Audit-Reason": auditReason,
+        },
+        body: JSON.stringify({ comments: auditReason }),
+      });
+      if (!response.ok) return { ok: false, message: `Execute failed with HTTP ${response.status}.` };
+      await load();
+      return { ok: true };
+    },
+    [load, role],
+  );
+
+  return {
+    approvals,
+    loading,
+    error,
+    parityMode: LOVABLE_VISUAL_PARITY_MODE,
+    approve: (id: string, reason: string) => decide(id, "approve", reason),
+    reject: (id: string, reason: string) => decide(id, "reject", reason),
+    escalate: (id: string, reason: string) => decide(id, "escalate", reason),
+    override: (id: string, reason: string) => decide(id, "override", reason),
+    executeNextStep,
+  };
 }

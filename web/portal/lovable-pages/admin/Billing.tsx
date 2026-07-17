@@ -1,6 +1,5 @@
 "use client";
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
-import { toast } from "sonner";
 import { useBilling, type UsageMeterView } from "@/lib/lovable-parity/data/billing";
 
 function Meter({ m }: { m: UsageMeterView }) {
@@ -35,7 +34,6 @@ export default function Billing() {
         eyebrow="Admin · Billing & Usage"
         title="Package & entitlements"
         sub="AI is metered — human-in-loop and auditability are the core platform value. Usage controls protect provider costs."
-        action={<button onClick={() => toast("Upgrade request recorded — routed to publisher (no charge is made here).")} className="rounded-2xl gradient-primary text-white text-[13px] px-4 py-2 shadow-l2 hover-lift">Request upgrade</button>}
       />
 
       {loading ? (
@@ -72,6 +70,7 @@ export default function Billing() {
                 </div>
               ))}
             </div>
+            <div className="mt-4 text-[11.5px] text-stone">Commercial plan changes are intentionally not simulated in the portal. A publisher-backed upgrade workflow must be configured before an upgrade action is exposed.</div>
           </GlassCard>
         </>
       )}

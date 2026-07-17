@@ -83,16 +83,17 @@ export default function Onboarding() {
         <div className="space-y-3">
           {records.map((r) => (
             <GlassCard key={r.onboardingId} className="hover-lift">
-              <div className="flex items-start gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                 <div className="h-11 w-11 rounded-2xl bg-gradient-secondary grid place-items-center text-white"><Building2 className="h-5 w-5" /></div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="text-[14px] font-semibold text-navy">{r.customerName}</div>
-                    <div className="text-[11.5px] text-stone">· {r.onboardingId}</div>
+                    <div className="break-all text-[11.5px] text-stone">· {r.onboardingId}</div>
                     <Badge tone={r.status === "Consented" || r.status === "Active" ? "success" : r.status === "Blocked" ? "error" : "warning"}>{r.status}</Badge>
                   </div>
-                  <div className="text-[12.5px] text-slate2 mt-0.5">{r.adminContactEmail} · {r.expectedEntraTenantOrDomain || "tenant TBD"}</div>
-                  <div className="text-[11.5px] text-stone mt-1">Internal tenant: <span className="font-mono">{r.internalTenantId}</span> · Workspaces: {r.targetWorkspaces.join(", ") || "—"}{r.externalEntraTenantId ? <> · External Entra: <span className="font-mono">{r.externalEntraTenantId}</span></> : null}</div>
+                  <div className="break-words text-[12.5px] text-slate2 mt-0.5">{r.adminContactEmail} · {r.expectedEntraTenantOrDomain || "tenant TBD"}</div>
+                  <div className="break-words text-[11.5px] text-stone mt-1">Internal tenant: <span className="font-mono break-all">{r.internalTenantId}</span> · Workspaces: {r.targetWorkspaces.join(", ") || "—"}{r.externalEntraTenantId ? <> · External Entra: <span className="font-mono break-all">{r.externalEntraTenantId}</span></> : null}</div>
+                  <div className="break-words text-[11.5px] text-stone mt-1">Azure subscriptions: <span className="font-mono break-all">{r.azureSubscriptionIds.join(", ") || "not provided"}</span></div>
                   {consent[r.onboardingId] && (
                     <div className="mt-2 text-[12px]">
                       {consent[r.onboardingId].configured && consent[r.onboardingId].url ? (
@@ -104,7 +105,7 @@ export default function Onboarding() {
                   )}
                 </div>
                 {r.status === "Pending" && (
-                  <button onClick={() => loadConsent(r.onboardingId)} className="shrink-0 text-[12.5px] rounded-xl border border-cloud bg-white px-3 py-1.5 text-navy inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Get consent link</button>
+                  <button onClick={() => loadConsent(r.onboardingId)} className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl border border-cloud bg-white px-3 py-1.5 text-[12.5px] text-navy sm:w-auto"><ShieldCheck className="h-3.5 w-3.5" /> Get consent link</button>
                 )}
               </div>
             </GlassCard>

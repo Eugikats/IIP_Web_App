@@ -1,8 +1,8 @@
 "use client";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
-import { Download, Sparkles, User, Cog, FileClock } from "lucide-react";
+import { Download, Sparkles, User, Cog, FileClock, ShieldCheck, Timer, MapPin, Database } from "lucide-react";
 import { toast } from "sonner";
-import { useAuditEvents, toCsv } from "@/lib/lovable-parity/data/audit";
+import { useAuditEvents, useCompliancePosture, toCsv } from "@/lib/lovable-parity/data/audit";
 
 const icon = { "AI Copilot": Sparkles, "System": Cog } as Record<string, any>;
 
@@ -14,6 +14,7 @@ const TYPE_TONE: Record<string, "info" | "violet" | "warning" | "success" | "neu
 
 export default function Audit() {
   const { rows, loading, error } = useAuditEvents();
+  const { posture, loading: postureLoading, error: postureError } = useCompliancePosture();
 
   function exportCsv() {
     if (rows.length === 0) {
@@ -42,6 +43,84 @@ export default function Audit() {
           </button>
         }
       />
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 mb-5">
+        <GlassCard className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-stone">Retention</div>
+              <div className="mt-2 text-xl font-semibold text-navy">
+                {postureLoading ? "..." : posture ? `${posture.retention.auditRetentionDays} days` : "Not configured"}
+              </div>
+            </div>
+            <ShieldCheck className="h-4 w-4 text-info" />
+          </div>
+          <div className="mt-3">
+            <Badge tone={posture?.retention.meetsMinimum ? "success" : "warning"}>
+              {posture?.retention.meetsMinimum ? "Minimum met" : "Needs review"}
+            </Badge>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-stone">Consent</div>
+              <div className="mt-2 text-xl font-semibold text-navy">
+                {postureLoading ? "..." : posture ? `${posture.consent.consentedRecords}/${posture.consent.onboardingRecords}` : "Not configured"}
+              </div>
+            </div>
+            <Database className="h-4 w-4 text-violet2" />
+          </div>
+          <div className="mt-3">
+            <Badge tone={posture?.consent.blockedConsent ? "error" : posture?.consent.pendingConsent ? "warning" : "success"}>
+              {posture?.consent.blockedConsent ? "Blocked" : posture?.consent.pendingConsent ? "Pending" : "Consented"}
+            </Badge>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-stone">SLA posture</div>
+              <div className="mt-2 text-xl font-semibold text-navy">
+                {postureLoading ? "..." : posture ? `${posture.sla.atRisk + posture.sla.breached} attention` : "Not configured"}
+              </div>
+            </div>
+            <Timer className="h-4 w-4 text-warning" />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge tone={posture?.sla.breached ? "error" : "neutral"}>{posture?.sla.breached ?? 0} breached</Badge>
+            <Badge tone={posture?.sla.atRisk ? "warning" : "neutral"}>{posture?.sla.atRisk ?? 0} at risk</Badge>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase tracking-[0.12em] text-stone">Data residency</div>
+              <div className="mt-2 text-xl font-semibold text-navy">
+                {postureLoading ? "..." : posture?.dataResidency.azureRegion ?? "Not configured"}
+              </div>
+            </div>
+            <MapPin className={"h-4 w-4 " + (posture?.dataResidency.status === "Compliant" ? "text-success" : posture?.dataResidency.status === "Mismatch" ? "text-error" : "text-stone")} />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Badge tone={posture?.dataResidency.status === "Compliant" ? "success" : posture?.dataResidency.status === "Mismatch" ? "error" : "neutral"}>
+              {posture?.dataResidency.status ?? "Not configured"}
+            </Badge>
+            <span className="text-[12px] text-stone">
+              {posture ? posture.dataResidency.residencyCountry + " / " + posture.dataResidency.azureGeography : postureError ?? "Residency policy not configured"}
+            </span>
+          </div>
+          <div className="mt-2 break-words text-[11.5px] text-stone">
+            AI processing: {posture ? posture.dataResidency.azureOpenAiDeploymentType + " (" + posture.dataResidency.mode + ")" : "Not configured"}
+          </div>
+          <div className="mt-2 break-words text-[11.5px] text-stone">
+            Approval: {posture?.dataResidency.approvalReference ?? "Not configured"}
+          </div>
+        </GlassCard>
+      </div>
 
       {loading ? (
         <GlassCard><div className="p-6 text-center text-[13px] text-stone">Loading audit trail…</div></GlassCard>

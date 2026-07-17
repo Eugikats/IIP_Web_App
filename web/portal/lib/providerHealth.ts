@@ -30,6 +30,45 @@ export type ChannelSendAvailability = {
   recipientField: "email" | "phone" | null;
 };
 
+export type ProviderStatusTone = "success" | "warning" | "error";
+
+const ERROR_PROVIDER_STATUSES = new Set(["error", "failed", "offline", "unhealthy"]);
+const WARNING_PROVIDER_STATUSES = new Set([
+  "degraded",
+  "disabled",
+  "missing",
+  "not configured",
+  "pending",
+  "unavailable",
+  "unconfigured"
+]);
+const HEALTHY_PROVIDER_STATUSES = new Set([
+  "configured",
+  "connected",
+  "healthy",
+  "ok",
+  "operational",
+  "ready"
+]);
+
+function normalizeProviderStatus(status: string) {
+  return status.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+}
+
+export function providerStatusTone(status: string): ProviderStatusTone {
+  const normalized = normalizeProviderStatus(status);
+
+  if (ERROR_PROVIDER_STATUSES.has(normalized)) return "error";
+  if (HEALTHY_PROVIDER_STATUSES.has(normalized)) return "success";
+  if (WARNING_PROVIDER_STATUSES.has(normalized)) return "warning";
+
+  return "warning";
+}
+
+export function isProviderHealthy(status: string) {
+  return providerStatusTone(status) === "success";
+}
+
 export function providerByName(health: ProviderHealth | null, name: string) {
   return health?.providers.find((provider) => provider.name === name) ?? null;
 }

@@ -1,30 +1,43 @@
 import { NavLink, useLocation } from "@/components/iip/NextRouterCompat";
+import Image from "next/image";
 import iipLogo from "@/assets/iip-logo";
 import {
   MessagesSquare, FileSearch, Users, ShieldCheck, AlertTriangle, ClipboardList,
-  Workflow, BookOpen, LineChart, Plug, ScrollText, Settings2, Cog, Plus, Search,
-  Circle, PanelLeftClose, Inbox, UserSquare2, MessageSquareText, FileText, LifeBuoy, Bot, CreditCard, Gavel, Building2,
+  BookOpen, LineChart, Plug, ScrollText, Cog, Plus, Search,
+  Circle, PanelLeftClose, Inbox, UserSquare2, MessageSquareText, FileText, Bot, CreditCard, Gavel, Building2,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
+import { runtimeInitials, useRuntimeContext } from "@/lib/runtimeContext";
 
-const ALL_MODULES = [
-  { to: "/app", label: "AI Conversations", icon: MessagesSquare },
-  { to: "/app/claims", label: "Claims Intelligence", icon: FileSearch },
-  { to: "/app/channels", label: "Channels Inbox", icon: Inbox },
-  { to: "/app/customers", label: "Customer 360", icon: UserSquare2 },
-  { to: "/app/documents", label: "Documents", icon: FileText },
-  { to: "/app/communications", label: "Communications", icon: MessageSquareText },
-  { to: "/app/acquisition", label: "Customer Acquisition", icon: Users },
-  { to: "/app/policy", label: "Policy Intelligence", icon: ShieldCheck },
-  { to: "/app/fraud", label: "Fraud Intelligence", icon: AlertTriangle },
-  { to: "/app/underwriting", label: "Underwriting", icon: ClipboardList },
-  { to: "/app/workflows", label: "Workflow & Approvals", icon: Workflow },
-  { to: "/app/knowledge", label: "Knowledge Hub", icon: BookOpen },
-  { to: "/app/executive", label: "Executive Intelligence", icon: LineChart },
-  { to: "/app/integrations", label: "Integrations & Channels", icon: Plug },
-  { to: "/app/support", label: "Support & Health", icon: LifeBuoy },
-  { to: "/app/audit", label: "Reports & Audit", icon: ScrollText },
+const NAV_GROUPS = [
+  { label: "Command", items: [
+    { to: "/app", label: "Command Center", icon: MessagesSquare },
+    { to: "/app/claims", label: "Claims Intelligence", icon: FileSearch },
+    { to: "/app/channels", label: "Channels Inbox", icon: Inbox },
+    { to: "/app/customers", label: "Customer 360", icon: UserSquare2 },
+  ]},
+  { label: "Operations", items: [
+    { to: "/app/work-items", label: "Review & Approvals", icon: ListChecks },
+    { to: "/app/documents", label: "Documents", icon: FileText },
+    { to: "/app/communications", label: "Communications", icon: MessageSquareText },
+    { to: "/app/acquisition", label: "Customer Acquisition", icon: Users },
+  ]},
+  { label: "Intelligence", items: [
+    { to: "/app/policy", label: "Policy Intelligence", icon: ShieldCheck },
+    { to: "/app/fraud", label: "Risk & Fraud Signals", icon: AlertTriangle },
+    { to: "/app/underwriting", label: "Underwriting", icon: ClipboardList },
+    { to: "/app/knowledge", label: "Knowledge Hub", icon: BookOpen },
+    { to: "/app/executive", label: "Operations Intelligence", icon: LineChart },
+  ]},
+  { label: "Automation", items: [
+    { to: "/app/flows", label: "Automation Studio", icon: Bot },
+  ]},
+  { label: "Governance", items: [
+    { to: "/app/integrations", label: "Integrations & Health", icon: Plug },
+    { to: "/app/audit", label: "Audit & Compliance", icon: ScrollText },
+  ]},
 ];
 const ALL_ADMIN = [
   { to: "/app/admin", label: "Admin Console", icon: Cog },
@@ -32,7 +45,6 @@ const ALL_ADMIN = [
   { to: "/app/admin/tenant-policy", label: "Tenant Agent Policy", icon: Gavel },
   { to: "/app/admin/onboarding", label: "Tenant Onboarding", icon: Building2 },
   { to: "/app/admin/billing", label: "Billing & Usage", icon: CreditCard },
-  { to: "/app/settings", label: "Settings", icon: Settings2 },
 ];
 
 function Item({ to, label, icon: Icon }: { to: string; label: string; icon: any }) {
@@ -60,19 +72,31 @@ function Item({ to, label, icon: Icon }: { to: string; label: string; icon: any 
 
 export default function Sidebar() {
   const { roleDef, toggleSidebar } = useUI();
-  const modules = ALL_MODULES.filter((m) => roleDef.modules.includes(m.to));
+  const { runtimeContext, loading } = useRuntimeContext();
+  const groups = NAV_GROUPS
+    .map((group) => ({ ...group, items: group.items.filter((item) => roleDef.modules.includes(item.to)) }))
+    .filter((group) => group.items.length > 0);
   const admin = ALL_ADMIN.filter((m) => roleDef.admin.includes(m.to));
+  const activeWorkspace = runtimeContext?.availableWorkspaces.find(
+    (workspace) => workspace.workspaceId === runtimeContext.workspaceId,
+  );
+  const workspaceName = activeWorkspace?.name ?? runtimeContext?.workspaceId ?? (loading ? "Resolving workspace" : "Workspace not configured");
+  const workspaceKind = activeWorkspace?.kind ?? runtimeContext?.source ?? "Not configured";
+  const environmentLabel = runtimeContext?.environment.name ?? (loading ? "Checking" : "Unverified");
+  const displayName = runtimeContext?.displayName ?? (loading ? "Resolving user" : "User unavailable");
+  const roleLabel = runtimeContext?.roleLabel ?? roleDef.title;
+  const userInitials = runtimeInitials(displayName);
 
   return (
     <aside className="h-full flex flex-col border-r border-cloud/70 bg-white/60 backdrop-blur-xl">
       <div className="px-5 pt-5 pb-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="relative h-9 w-9 rounded-xl bg-white grid place-items-center shadow-l2 ring-1 ring-cloud/70 overflow-hidden">
-            <img src={iipLogo.url} alt="IIP logo" className="h-7 w-7 object-contain" />
+            <Image src={iipLogo.url} alt="IIP logo" width={28} height={28} className="h-7 w-7 object-contain" priority />
             <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-success ring-2 ring-white" />
           </div>
           <div className="leading-tight">
-            <div className="text-[13px] font-semibold tracking-tight text-navy">Otic Intelligence</div>
+            <div className="text-[13px] font-semibold tracking-tight text-navy">Insurance Intelligence Platform</div>
             <div className="text-[10.5px] uppercase tracking-[0.14em] text-stone">Platform · IIP</div>
           </div>
         </div>
@@ -84,11 +108,13 @@ export default function Sidebar() {
       <div className="mx-4 mb-3 rounded-2xl border border-cloud/80 bg-white/70 p-3">
         <div className="text-[10.5px] uppercase tracking-[0.14em] text-stone">Workspace</div>
         <div className="mt-1 flex items-center justify-between">
-          <div>
-            <div className="text-[13px] font-medium text-navy">Global Insurance Co.</div>
-            <div className="text-[11px] text-stone">Enterprise Workspace</div>
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium text-navy truncate">{workspaceName}</div>
+            <div className="text-[11px] text-stone truncate">{workspaceKind}</div>
           </div>
-          <span className="text-[10px] font-medium rounded-full px-2 py-0.5 text-success ring-1 ring-[hsl(var(--success)/0.2)]" style={{background:'#ECFDF5'}}>PROD</span>
+          <span className="text-[10px] font-medium rounded-full px-2 py-0.5 text-info ring-1 ring-[hsl(var(--info)/0.2)] bg-[hsl(var(--info)/0.08)]">
+            {environmentLabel}
+          </span>
         </div>
       </div>
 
@@ -107,17 +133,15 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pt-5 pb-4">
-        {modules.length > 0 && (
-          <>
-            <div className="px-2 text-[10.5px] uppercase tracking-[0.14em] text-stone mb-2">Core Modules</div>
-            <div className="space-y-0.5">
-              {modules.map(m => <Item key={m.to} {...m} />)}
-            </div>
-          </>
-        )}
+        {groups.map((group, index) => (
+          <div key={group.label} className={index === 0 ? "" : "mt-5"}>
+            <div className="px-2 text-[10.5px] uppercase tracking-[0.14em] text-stone mb-2">{group.label}</div>
+            <div className="space-y-0.5">{group.items.map((item) => <Item key={item.to} {...item} />)}</div>
+          </div>
+        ))}
         {admin.length > 0 && (
           <>
-            <div className="px-2 mt-6 text-[10.5px] uppercase tracking-[0.14em] text-stone mb-2">Admin</div>
+            <div className="px-2 mt-6 text-[10.5px] uppercase tracking-[0.14em] text-stone mb-2">Platform administration</div>
             <div className="space-y-0.5">
               {admin.map(m => <Item key={m.to} {...m} />)}
             </div>
@@ -127,12 +151,12 @@ export default function Sidebar() {
 
       <div className="border-t border-cloud/80 p-3 mx-2 mb-2 rounded-2xl">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-gradient-secondary grid place-items-center text-white text-[12px] font-semibold">{roleDef.initials}</div>
+          <div className="h-9 w-9 rounded-full bg-gradient-secondary grid place-items-center text-white text-[12px] font-semibold">{userInitials}</div>
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-navy truncate">{roleDef.name}</div>
-            <div className="text-[11px] text-stone truncate">{roleDef.title}</div>
+            <div className="text-[13px] font-medium text-navy truncate">{displayName}</div>
+            <div className="text-[11px] text-stone truncate">{roleLabel}</div>
           </div>
-          <div className="flex items-center gap-1 text-[11px] text-success"><Circle className="h-2 w-2 fill-current" /> On</div>
+          <div className="flex items-center gap-1 text-[11px] text-success"><Circle className="h-2 w-2 fill-current" /> Auth</div>
         </div>
       </div>
     </aside>

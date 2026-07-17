@@ -1,4 +1,6 @@
 import { useUI } from "@/context/UIStateContext";
+import { canUseLocalTestDoubles } from "@/lib/config";
+import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { ROLES, type Role } from "@/lib/roles";
 import { UserCog } from "lucide-react";
 import { useNavigate } from "@/components/iip/NextRouterCompat";
@@ -6,6 +8,10 @@ import { useNavigate } from "@/components/iip/NextRouterCompat";
 export default function RoleSwitcher() {
   const { role, setRole, roleDef } = useUI();
   const nav = useNavigate();
+  if (!canUseLocalTestDoubles && !LOVABLE_VISUAL_PARITY_MODE) {
+    return null;
+  }
+
   return (
     <label className="hidden md:flex items-center gap-2 text-[12px] text-slate2 rounded-xl border border-cloud bg-white/70 px-2.5 py-1.5 hover-lift cursor-pointer">
       <UserCog className="h-3.5 w-3.5 text-violet2" />

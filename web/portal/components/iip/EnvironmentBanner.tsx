@@ -9,7 +9,7 @@ import { useEnvironment } from "@/lib/lovable-parity/data/environment";
  * fails closed to a cautious "unverified" state if it cannot confirm the environment.
  */
 export default function EnvironmentBanner() {
-  const { environment } = useEnvironment();
+  const { environment, error } = useEnvironment();
 
   // Production with live data: no banner — a calm, unbadged workspace is the signal.
   if (environment && environment.reviewMode === "Production" && !environment.syntheticData) {
@@ -47,7 +47,10 @@ export default function EnvironmentBanner() {
       className="flex items-center justify-center gap-2 px-4 py-1.5 text-[12px] font-medium bg-amber-50 text-amber-800 border-b border-amber-200"
     >
       <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-      <span>Environment unverified — treat all data with caution until the runtime confirms its mode.</span>
+      <span>
+        Environment unverified — treat all data with caution until the runtime confirms its mode.
+        {error ? ` Runtime context error: ${error}` : ""}
+      </span>
     </div>
   );
 }

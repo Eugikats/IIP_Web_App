@@ -1,21 +1,16 @@
 "use client";
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { SectionHeader, GlassCard, Badge, StatusBadge } from "@/components/iip/Primitives";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
-import { CheckCircle2, XCircle, Send, MessageSquareText } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { useCommunications, type CommStatus } from "@/lib/lovable-parity/data/communications";
 
 export default function Communications() {
-  const { items, loading, error, parityMode } = useCommunications();
+  const { items, loading, error } = useCommunications();
   const [tab, setTab] = useState<"All" | CommStatus>("Pending Approval");
   const tabs: (CommStatus | "All")[] = ["Pending Approval", "Approved", "Sent", "Send Failed", "Rejected", "All"];
   const filtered = useMemo(() => (tab === "All" ? items : items.filter((c) => c.status === tab)), [items, tab]);
-
-  // In live mode consequential send/approve happen through the governed case
-  // workflow; do not fake a dispatch here.
-  const govAction = (label: string) =>
-    parityMode ? toast.success(label) : toast("Open the claim to approve or send — no message is dispatched from here.");
 
   return (
     <>
@@ -62,18 +57,7 @@ export default function Communications() {
                   <td className="p-3 text-stone">{c.drafted}</td>
                   <td className="p-3 text-slate2">{c.reviewer ?? "—"}</td>
                   <td className="p-3">
-                    <div className="flex items-center gap-1">
-                      {c.status === "Pending Approval" && (
-                        <>
-                          <button onClick={() => govAction("Approved — dispatched via provider")} className="text-[11.5px] px-2 py-1 rounded-lg bg-white border border-cloud text-success inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />Approve</button>
-                          <button onClick={() => govAction("Draft rejected")} className="text-[11.5px] px-2 py-1 rounded-lg bg-white border border-cloud text-error inline-flex items-center gap-1"><XCircle className="h-3 w-3" />Reject</button>
-                        </>
-                      )}
-                      {c.status === "Approved" && (
-                        <button onClick={() => govAction("Sent")} className="text-[11.5px] px-2 py-1 rounded-lg bg-white border border-cloud text-navy inline-flex items-center gap-1"><Send className="h-3 w-3" />Send</button>
-                      )}
-                      <button onClick={() => toast("Opening draft editor")} className="text-[11.5px] px-2 py-1 rounded-lg bg-white border border-cloud text-slate2 inline-flex items-center gap-1"><MessageSquareText className="h-3 w-3" />Open</button>
-                    </div>
+                    {c.claim && c.claim !== "—" ? <Link href={`/app/claims/${c.claim}`} className="inline-flex items-center gap-1 rounded-lg border border-cloud bg-white px-2 py-1 text-[11.5px] font-medium text-navy focus-ring"><ExternalLink className="h-3 w-3" /> Open claim</Link> : <Badge tone="neutral">No case link</Badge>}
                   </td>
                 </tr>
               ))}
@@ -82,6 +66,7 @@ export default function Communications() {
           {filtered.length === 0 && <div className="p-8 text-center text-stone text-[13px]">No drafts in this state.</div>}
         </GlassCard>
       )}
+      <div className="mt-3 text-[11.5px] text-stone">This screen is a read-only communication ledger. Draft approval, rejection, and send remain inside the governed claim review where evidence and recipients are visible.</div>
     </>
   );
 }

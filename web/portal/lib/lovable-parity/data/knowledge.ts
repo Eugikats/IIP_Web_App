@@ -43,14 +43,15 @@ const PARITY: KnowledgeDocView[] = fixtureDocs.map((d) => ({
 
 function mapDto(dto: KnowledgeDocDto): KnowledgeDocView {
   const status = mapStatus(dto.approvalStatus);
-  const indexed = (dto.indexedStatus ?? "").toLowerCase().includes("index");
   return {
     id: dto.knowledgeDocumentId,
     title: dto.documentName,
     category: dto.documentType || dto.productLine || "Document",
     sensitivity: "unknown",
     status,
-    retrievalEligible: status === "Approved" && indexed,
+    // The current list contract does not expose a sensitivity label. Do not
+    // infer that an approved/indexed record is safe for retrieval.
+    retrievalEligible: false,
     updated: Number.isNaN(Date.parse(dto.updatedAt)) ? "—" : new Date(dto.updatedAt).toLocaleDateString(),
     owner: "—",
   };

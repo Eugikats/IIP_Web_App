@@ -25,7 +25,7 @@ export function AIMessageBubble({ children, sources = [] }: { children: ReactNod
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[11.5px] text-violet2 mb-1 flex items-center gap-1.5">
-          IIP Copilot <span className="text-stone">· human review required for regulated decisions</span>
+          IIP Operations <span className="text-stone">· human review required for regulated decisions</span>
         </div>
         <div className="text-[14px] leading-[22px] text-slate2 space-y-3">{children}</div>
         {sources.length > 0 && (

@@ -1,11 +1,17 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.cwd();
 const findings = [];
 
 function read(path) {
-  return readFileSync(join(root, path), "utf8");
+  const fullPath = join(root, path);
+  if (!existsSync(fullPath)) {
+    findings.push(`${path}: file is missing.`);
+    return "";
+  }
+
+  return readFileSync(fullPath, "utf8");
 }
 
 function requireText(path, text, message) {
@@ -22,81 +28,79 @@ function rejectPattern(path, pattern, message) {
   }
 }
 
-requireText("components/AppShell.tsx", "<RouteAccessGuard>{children}</RouteAccessGuard>", "must wrap app content in RouteAccessGuard.");
-requireText("components/AppShell.tsx", "<ProviderStatusStrip />", "must render backend-owned provider status in the shell.");
-requireText("components/AppShell.tsx", "<MobileNav />", "must keep mobile role-aware navigation available.");
+function requirePattern(path, pattern, message) {
+  const source = read(path);
+  if (!pattern.test(source)) {
+    findings.push(`${path}: ${message}`);
+  }
+}
 
-requireText("components/ProviderStatusStrip.tsx", "/api/v1/provider-status", "must fetch provider status from the backend.");
-requireText("components/ProviderStatusStrip.tsx", "can(\"ViewCommandCenter\")", "must hide provider status from unauthorized roles.");
-requireText("components/ProviderStatusStrip.tsx", "aria-label={`${item.label}: ${statusLabel(status)}`}", "must expose accessible provider status labels.");
-requireText("app/integrations/PortalIntegrationsClient.tsx", "/api/v1/integrations/email/health", "must fetch backend-owned email integration action state.");
-requireText("app/integrations/PortalIntegrationsClient.tsx", "setPendingIntegrationAction({ type: \"testIngestion\" })", "test ingestion must use governed confirmation before mutation.");
-requireText("app/integrations/PortalIntegrationsClient.tsx", "\"X-Audit-Reason\": auditReason", "integration mutations must send the governed audit reason.");
-rejectPattern("app/integrations/PortalIntegrationsClient.tsx", /defaultWorkspaceId\s*:/, "mailbox configuration must not send browser-owned workspace identity.");
-rejectPattern("app/integrations/PortalIntegrationsClient.tsx", /processedByUserId\s*:/, "email processing must not send browser-owned actor identity.");
-requireText("app/document-checker/DocumentCheckerClient.tsx", "/correct-field", "document corrections must use the governed backend endpoint.");
-requireText("app/document-checker/DocumentCheckerClient.tsx", "document.previewUrl", "document preview must use the authorized backend content route.");
-rejectPattern("app/document-checker/DocumentCheckerClient.tsx", /\bobjectKey\b/, "document workbench must not expose internal storage object keys.");
-requireText("app/claims/ClaimsInboxClient.tsx", "payload.every(hasActionState)", "claims inbox must require backend action authorization state.");
-requireText("app/cases/[caseId]/CaseDetailClient.tsx", "hasActionState(casePayload)", "case review must require backend action authorization state.");
-requireText("app/cases/new/NewCaseForm.tsx", "hasActionState(responsePayload)", "new claim intake must require backend action authorization state.");
-requireText("app/knowledge-base/KnowledgeBaseClient.tsx", "payload.every(hasActionState)", "knowledge hub must require backend lifecycle action state.");
-requireText("app/admin-settings/AdminSettingsClient.tsx", "usersPayload.every(hasActionState)", "admin role controls must require backend role-change authorization state.");
-requireText("app/approvals/ApprovalsClient.tsx", "payload.every(hasActionState)", "approval decisions must require backend authorization state.");
-rejectPattern("app/approvals/ApprovalsClient.tsx", /JSON\.stringify\(\{\s*reviewerUserId\s*:/, "approval decisions must not send browser-owned reviewer identity.");
-rejectPattern("app/cases/[caseId]/CaseDetailClient.tsx", /requestedByUserId\s*:/, "case workflow actions must not send browser-owned requester identity.");
-rejectPattern("app/cases/[caseId]/CaseDetailClient.tsx", /completedByUserId\s*:/, "workflow task completion must not send browser-owned actor identity.");
-requireText("app/customer-service/CustomerServiceClient.tsx", "updatesPayload.every(hasActionState)", "customer update controls must require backend action authorization state.");
-rejectPattern("app/customer-service/CustomerServiceClient.tsx", /createdByUserId\s*:/, "customer update drafting must not send browser-owned creator identity.");
-rejectPattern("app/customer-service/CustomerServiceClient.tsx", /JSON\.stringify\(\{\s*userId\s*:/, "customer update decisions must not send browser-owned actor identity.");
-rejectPattern("components/CustomerUpdatePanel.tsx", /update\.status\s*===/, "customer update actions must not infer authorization from frontend status.");
-rejectPattern("app/knowledge-base/KnowledgeBaseClient.tsx", /uploadedByUserId/, "knowledge upload must not send browser-owned uploader identity.");
-rejectPattern("app/knowledge-base/KnowledgeBaseClient.tsx", /\bobjectKey\b/, "knowledge hub must not expose internal storage object keys.");
-rejectPattern("app/cases/new/NewCaseForm.tsx", /createdByUserId\s*:/, "new claim intake must not send browser-owned creator identity.");
-rejectPattern("app/claims/ClaimsInboxClient.tsx", /return action === ["']openCaseReview["']/, "claims inbox must not infer action authority in the frontend.");
-rejectPattern("app/cases/[caseId]/CaseDetailClient.tsx", /caseDetail\.status !== ["']Closed["']/, "case review must not infer action authority from status.");
-requireText("components/AssistantChat.tsx", "Prepared by {response.modelProvider}", "assistant answers must render backend model provenance.");
-requireText("components/AssistantChat.tsx", "Preparation only", "assistant answers must state that they cannot trigger decisions.");
-requireText("components/AssistantChat.tsx", "response.guardrailMessage", "assistant answers must render backend guardrail guidance.");
-requireText("components/AssistantChat.tsx", "value.canTriggerDecision !== false", "assistant responses must fail closed unless the backend marks them as non-decision output.");
-requireText("components/AssistantChat.tsx", "aria-label=\"Approved sources\"", "assistant answers must render approved source citations.");
-rejectPattern("components/AssistantChat.tsx", /\/api\/assistant\/query/, "runtime chat must not use the multi-agent query endpoint until its tenant, visibility, provenance, and audit contracts are complete.");
-requireText("hooks/useCommandCenterQuery.tsx", "/api/v1/command-center/query", "Command Center chat must use the versioned governed typed-block query endpoint.");
-requireText("hooks/useCommandCenterQuery.tsx", "parseCommandCenterResponse", "Command Center query responses must pass through the strict typed-block parser.");
-rejectPattern("app/CommandCenterClient.tsx", /\/api\/assistant\/query/, "Command Center must not bypass the governed operational assistant endpoint.");
-requireText("app/ai-assistant/AiAssistantClient.tsx", "/api/v1/assistant/policy-questions", "AI Conversations must use the grounded policy-question endpoint.");
-rejectPattern("app/ai-assistant/AiAssistantClient.tsx", /setAudience|<select[\s\S]*?Customer/, "staff AI Conversations must not let the browser select a customer-safe response audience.");
-requireText("app/policy-intelligence/PolicyIntelligenceClient.tsx", "/api/v1/assistant/policy-questions", "Policy Intelligence must use the grounded policy-question endpoint.");
-requireText("app/policy-intelligence/PolicyIntelligenceClient.tsx", "response.coverageState", "Policy Intelligence must render backend-owned coverage state.");
-requireText("app/policy-intelligence/PolicyIntelligenceClient.tsx", "response.sources.map", "Policy Intelligence must render approved source citations.");
-requireText("app/policy-intelligence/PolicyIntelligenceClient.tsx", "response.canTriggerDecision === false", "Policy Intelligence must reject responses that could trigger decisions.");
-rejectPattern("app/policy-intelligence/PolicyIntelligenceClient.tsx", /tenantId\s*:/, "Policy Intelligence must not send browser-owned tenant authority.");
-rejectPattern("app/policy-intelligence/PolicyIntelligenceClient.tsx", /workspaceId\s*:/, "Policy Intelligence must not send browser-owned workspace authority.");
-rejectPattern("app/policy-intelligence/PolicyIntelligenceClient.tsx", /userId\s*:/, "Policy Intelligence must not send browser-owned user authority.");
-requireText("app/tenant-onboarding/TenantOnboardingClient.tsx", "/api/v1/admin/tenant-configuration", "tenant onboarding must use the governed tenant configuration endpoint.");
-requireText("app/tenant-onboarding/TenantOnboardingClient.tsx", "\"X-Audit-Reason\": auditReason", "tenant onboarding changes must include the governed audit reason.");
-requireText("app/tenant-onboarding/TenantOnboardingClient.tsx", "approvalThresholds: currentConfiguration.approvalThresholds", "tenant onboarding must preserve backend approval thresholds when saving profile changes.");
-requireText("app/tenant-onboarding/TenantOnboardingClient.tsx", "checklists: currentConfiguration.checklists", "tenant onboarding must preserve backend document checklists when saving profile changes.");
-rejectPattern("app/tenant-onboarding/TenantOnboardingClient.tsx", /tenantId\s*:/, "tenant onboarding must not send browser-owned tenant authority.");
-rejectPattern("app/tenant-onboarding/TenantOnboardingClient.tsx", /workspaceId\s*:/, "tenant onboarding must not send browser-owned workspace authority.");
-rejectPattern("app/tenant-onboarding/TenantOnboardingClient.tsx", /body:\s*JSON\.stringify\(\{[\s\S]*?\buserId\s*:/, "tenant onboarding must not send browser-owned user authority.");
-rejectPattern("app/tenant-onboarding/TenantOnboardingClient.tsx", /providerModes\s*:/, "tenant onboarding must not mutate provider modes through the tenant profile request.");
+requireText("app/app/layout.tsx", "@/components/iip/AppShell", "/app routes must render inside the governed IIP shell.");
+requireText("components/iip/AppShell.tsx", "RuntimeContextProvider", "must resolve runtime identity through the shared runtime context provider.");
+requireText("components/iip/AppShell.tsx", "canAccess(roleDef.key, loc.pathname)", "must guard /app routes through the role access config.");
+requireText("components/iip/AppShell.tsx", "<Navigate to={roleDef.landing} replace />", "must redirect denied routes to the role landing route.");
+requireText("components/iip/AppShell.tsx", "<Sidebar />", "must render role-aware left navigation.");
+requireText("components/iip/AppShell.tsx", "<CopilotPanel />", "must render the right evidence/context rail.");
+requireText("components/iip/AppShell.tsx", "<StatusBar />", "must render the environment/status footer.");
+requireText("components/iip/AppShell.tsx", "!runtimeContext", "must withhold protected shell content until /api/v1/me resolves.");
+requireText("components/iip/AppShell.tsx", "Verifying your access", "must render a bounded authentication loading state.");
+requireText("lovable-pages/Login.tsx", "runtimeProfile", "login environment labeling must come from runtime configuration.");
+requireText("lovable-pages/Login.tsx", "Microsoft Entra ID", "login must identify the configured organization identity provider.");
+rejectPattern("lovable-pages/Login.tsx", /Authority tenant|Resolved after sign-in|href="#"+|glass-elevated|err instanceof Error/, "login must not expose implementation details, dead links, prototype card composition, or raw auth errors.");
 
-requireText("app/client-portal/ClientPortalClient.tsx", "/api/v1/client-portal/claims/", "client portal must use dedicated customer-safe API routes.");
-requireText("app/client-portal/ClientPortalClient.tsx", "aria-label=\"Open customer claim\"", "claim lookup form must have an accessible name.");
-requireText("app/client-portal/ClientPortalClient.tsx", "role=\"status\"", "customer portal status messages must announce updates.");
-requireText("app/client-portal/ClientPortalClient.tsx", "Customer assistant endpoint not configured yet", "customer assistant must remain not configured until a safe endpoint exists.");
-requireText("app/client-portal/ClientPortalClient.tsx", "aria-label=\"Upload claim documents\"", "document upload input must have an accessible name.");
+requireText("lib/runtimeContext.tsx", "/api/v1/me", "runtime context must come from the governed /api/v1/me endpoint.");
+requireText("lib/runtimeContext.tsx", "LovableVisualParity", "visual parity identity must stay explicitly marked when the dev fixture mode is enabled.");
+rejectPattern("lib/runtimeContext.tsx", /headers:\s*\{[\s\S]*?(X-Tenant-Id|X-Workspace-Id|X-User-Id)/, "runtime context fetch must not send browser-owned authority headers.");
 
-rejectPattern(
-  "app/client-portal/ClientPortalClient.tsx",
-  /\/api\/(?:v1\/)?(cases|claims|admin|command-center|provider-status|audit|integrations)\b/,
-  "client portal must not call staff, provider, audit, integration, or command-center APIs."
-);
+requireText("components/iip/Sidebar.tsx", "group.items.filter((item) => roleDef.modules.includes(item.to))", "grouped module navigation must be role-filtered.");
+requireText("components/iip/Sidebar.tsx", "roleDef.admin.includes(m.to)", "admin navigation must be role-filtered.");
+requireText("components/iip/Sidebar.tsx", "runtimeContext?.availableWorkspaces", "workspace label must use backend runtime context.");
+requireText("components/iip/Sidebar.tsx", "Workspace not configured", "missing workspace must render an honest state.");
 
-requireText("components/MobileNav.tsx", "aria-label={item.label}", "mobile navigation links must expose full accessible labels.");
-requireText("next.config.ts", "outputFileTracingExcludes", "standalone builds must exclude unused native image optimization packages.");
-requireText("next.config.ts", "node_modules/sharp/**/*", "standalone builds must exclude unused Sharp packages.");
+requireText("components/iip/CopilotPanel.tsx", "useProviderHealth", "evidence rail must render backend-owned provider health.");
+requireText("components/iip/CopilotPanel.tsx", "Not configured", "provider gaps must render an honest not-configured state.");
+requireText("lib/lovable-parity/data/providerHealth.ts", "/api/v1/admin/provider-health", "provider health must come from the governed backend endpoint.");
+requireText("lib/lovable-parity/mode.ts", "process.env.NODE_ENV !== \"production\"", "visual parity fixtures must be disabled in production builds.");
+requireText("components/iip/ProviderHealthGrid.tsx", "providerStatusTone", "provider cards must use the shared fail-closed status classifier.");
+requireText("components/iip/StatusBar.tsx", "isProviderHealthy", "the status bar must use the shared fail-closed status classifier.");
+requireText("components/iip/CopilotPanel.tsx", "isProviderHealthy", "the evidence rail must use the shared fail-closed status classifier.");
+requireText("lib/providerHealth.ts", "return \"warning\";", "unknown provider states must fail closed as warnings.");
+
+requireText("lib/lovable-parity/data/commandCenterQuery.ts", "/api/v1/command-center/query", "Command Center must use the versioned governed typed-block query endpoint.");
+requireText("components/iip/CommandCenterAnswer.tsx", "case \"not_configured\"", "Command Center must render not-configured blocks explicitly.");
+requireText("components/iip/CommandCenterAnswer.tsx", "evidence_list", "Command Center must render evidence-list blocks.");
+rejectPattern("lib/lovable-parity/data/commandCenterQuery.ts", /\/api\/assistant\/query/, "Command Center must not use the removed multi-agent assistant query endpoint.");
+
+requireText("lovable-pages/FNOL.tsx", "/api/v1/cases", "new claim intake must use the governed case creation endpoint.");
+rejectPattern("lovable-pages/FNOL.tsx", /createdByUserId\s*:|tenantId\s*:|workspaceId\s*:/, "new claim intake must not send browser-owned creator or tenant/workspace authority.");
+requireText("lib/lovable-parity/data/claims.ts", "/api/v1/claims", "claims queue must load from the governed claims endpoint.");
+requireText("lib/lovable-parity/data/claims.ts", "/api/v1/cases/${caseId}/assign", "claims assignment must use the governed backend endpoint.");
+requireText("lib/lovable-parity/data/claims.ts", "/api/v1/cases/${caseId}/escalate", "claims escalation must use the governed backend endpoint.");
+rejectPattern("lib/lovable-parity/data/claims.ts", /tenantId\s*:|workspaceId\s*:|createdByUserId\s*:/, "claims queue actions must not send browser-owned tenant/workspace/creator authority.");
+
+requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/claims/${claimId}", "claim review must load claim details from the governed endpoint.");
+requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/cases/${claimId}/timeline", "claim review must load timeline from the governed endpoint.");
+requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/cases/${claimId}/customer-updates/draft", "customer-update drafting must use the governed backend endpoint.");
+requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/customer-updates/${updateId}/approve", "customer-update approval must use the governed backend endpoint.");
+requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/customer-updates/${update.updateId}/send", "customer-update send must use the governed backend endpoint.");
+requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/compliance/cases/${claimId}/audit-pack/export", "evidence-pack export must use the governed backend endpoint.");
+requireText("lib/lovable-parity/data/claimReview.ts", "\"X-Audit-Reason\": auditReason", "governed claim-review mutations must include an audit reason header.");
+rejectPattern("lib/lovable-parity/data/claimReview.ts", /requestedByUserId\s*:|completedByUserId\s*:|createdByUserId\s*:|reviewerUserId\s*:|tenantId\s*:|workspaceId\s*:/, "claim-review actions must not send browser-owned actor or tenant/workspace authority.");
+
+requireText("lib/lovable-parity/data/approvals.ts", "/api/v1/approvals", "approval queue must use the governed approvals endpoint.");
+requireText("lib/lovable-parity/data/approvals.ts", "\"X-Audit-Reason\"", "approval decisions must send governed audit reasons.");
+rejectPattern("lib/lovable-parity/data/approvals.ts", /JSON\.stringify\(\{[\s\S]*?(reviewerUserId|tenantId|workspaceId)\s*:/, "approval decisions must not send browser-owned reviewer or tenant/workspace authority.");
+
+requireText("lib/lovable-parity/data/channels.ts", "/api/v1/channels/overview", "Channels must read from the tenant-scoped channels endpoint.");
+requireText("lovable-pages/Channels.tsx", "Not configured", "unimplemented channel write actions must render not-configured states.");
+
+requireText("lib/lovable-parity/data/knowledge.ts", "/api/v1/knowledge-documents", "Knowledge Hub must read from the governed knowledge endpoint.");
+requireText("lovable-pages/Knowledge.tsx", "approved sources", "Knowledge Hub must state approved-source grounding.");
+rejectPattern("lib/lovable-parity/data/knowledge.ts", /uploadedByUserId\s*:|tenantId\s*:|workspaceId\s*:/, "knowledge requests must not send browser-owned uploader or tenant/workspace authority.");
+
+requireText("lib/lovable-parity/data/approvals.ts", "execute-next-step", "approved workflow next steps must execute through the backend.");
+requireText("lib/providerHealth.ts", "not configured", "communication/provider utilities must preserve honest not-configured states.");
+requirePattern("next.config.ts", /outputFileTracingExcludes[\s\S]*node_modules\/sharp\/\*\*\//, "standalone builds must exclude unused native image optimization packages.");
 
 if (findings.length > 0) {
   console.error("UI release gate check failed:");

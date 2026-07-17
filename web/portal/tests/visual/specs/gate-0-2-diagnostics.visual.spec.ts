@@ -2,13 +2,12 @@ import { expect, test } from "@playwright/test";
 import { installVisualApiFixtures } from "../fixtures/iip-fixtures";
 
 const diagnosticRoutes = [
-  { name: "command-center", path: "/" },
-  { name: "claims-queue", path: "/claims" },
-  { name: "case-review", path: "/cases/CLM-2026-00491" },
-  { name: "document-checker", path: "/document-checker" },
-  { name: "workflow-approvals", path: "/approvals" },
-  { name: "ai-conversations", path: "/ai-assistant" },
-  { name: "integrations-admin", path: "/integrations" }
+  { name: "command-center", path: "/app" },
+  { name: "claims-queue", path: "/app/claims" },
+  { name: "case-review", path: "/app/claims/CLM-2026-00491" },
+  { name: "document-checker", path: "/app/claims/CLM-2026-00491/extraction" },
+  { name: "review-and-approvals", path: "/app/work-items" },
+  { name: "integrations-admin", path: "/app/integrations" }
 ] as const;
 
 test.beforeEach(async ({ page }) => {
@@ -35,7 +34,7 @@ test("deployed-profile diagnostic shell hides local test controls @deployed", as
     "Run with IIP_VISUAL_RUNTIME_PROFILE=Staging and IIP_VISUAL_AUTH_MODE=Entra for deployed-profile assertions."
   );
 
-  await page.goto("/");
+  await page.goto("/app");
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByText("Role")).toHaveCount(0);
@@ -45,7 +44,7 @@ test("deployed-profile diagnostic shell hides local test controls @deployed", as
 });
 
 test("mobile diagnostic view does not expose prohibited consequential controls", async ({ page }) => {
-  await page.goto("/approvals");
+  await page.goto("/app/work-items");
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByRole("button", { name: /authorise payout/i })).toHaveCount(0);

@@ -6,23 +6,28 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("Gate 11 Command Center summarizes implemented workflow state", async ({ page }, testInfo) => {
-  await page.goto("/");
+  await page.goto("/app");
   await page.waitForLoadState("networkidle");
 
-  await expect(page.getByRole("heading", { name: "Command Center" })).toBeVisible();
-  await expect(page.getByText(/Chat-first operational workspace for .+\./)).toBeVisible();
   await expect(page.getByRole("heading", { name: /Good morning,/ })).toBeVisible();
-  await expect(page.getByText("Open claims")).toBeVisible();
-  await expect(page.getByText("SLA at risk")).toBeVisible();
-  await expect(page.getByText("Daily operational briefing")).toBeVisible();
-  await expect(page.getByRole("link", { name: /SLA pressure/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Missing evidence/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Human review/ })).toBeVisible();
-  await expect(page.getByText("Command Center prepares operational work.")).toBeVisible();
-  await expect(page.getByText("Provider And Evidence Context")).toBeVisible();
-  await expect(page.getByText("Owner Screens")).toBeVisible();
-  await expect(page.getByText("Human Boundary")).toBeVisible();
-  await expect(page.getByText("Not configured").first()).toBeVisible();
+  await expect(page.getByRole("main").getByText("IIP Operations · Command Center", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ask about claims, documents, SLA, approvals, or missing information.")).toBeVisible();
+  if ((page.viewportSize()?.width ?? 0) >= 640) {
+    await expect(page.getByRole("main").getByText("Open claims")).toBeVisible();
+    await expect(page.getByRole("main").getByText("SLA at risk")).toBeVisible();
+    await expect(page.getByRole("main").getByText("Approvals pending")).toBeVisible();
+  }
+  await expect(page.getByRole("button", { name: "Show claims that need attention." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Which claims are missing documents?" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Ask IIP anything — claims, documents, customers, policies, workflows…" })).toBeVisible();
+  await expect(page.getByText("IIP Operations assists — it never settles, denies, repudiates, pays, or accuses fraud.")).toBeVisible();
+
+  const viewportWidth = page.viewportSize()?.width ?? 0;
+  if (viewportWidth >= 1280) {
+    await expect(page.getByText("Provider health")).toBeVisible();
+  } else {
+    await expect(page.getByText("4 of 4 providers need attention")).toBeVisible();
+  }
 
   await testInfo.attach(`gate-11-command-center-${testInfo.project.name}.png`, {
     body: await page.screenshot({ fullPage: true }),
@@ -37,7 +42,7 @@ test("Gate 11 deployed profile exposes no decorative or autonomous command state
     "Run with IIP_VISUAL_RUNTIME_PROFILE=Staging and IIP_VISUAL_AUTH_MODE=Entra for deployed-profile assertions."
   );
 
-  await page.goto("/");
+  await page.goto("/app");
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByText(/Auto Decisions/i)).toHaveCount(0);

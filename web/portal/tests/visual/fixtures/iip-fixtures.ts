@@ -99,50 +99,89 @@ const breachedClaim = {
   ]
 };
 
+const claimRows = [claim, readyClaim, breachedClaim].map((item) => ({
+  claimId: item.caseId,
+  customerName: item.customerName,
+  policyNumber: item.policyNumber,
+  productLine: item.productLine,
+  claimType: item.claimType,
+  channel: item.channel,
+  status: item.status,
+  completenessScore: item.completenessScore,
+  riskLevel: item.riskLevel,
+  priority: item.priority,
+  slaStatus: item.slaStatus,
+  slaDueAt: item.slaDueAt,
+  assignedUserId: item.assignedUserId,
+  assignedTeam: item.assignedTeam,
+  updatedAt: item.updatedAt
+}));
+
+const claimDetails = Object.fromEntries(
+  [claim, readyClaim, breachedClaim].map((item) => [
+    `/api/v1/claims/${item.caseId}`,
+    {
+      ...item,
+      claimId: item.caseId,
+      documents: item.caseId === caseId ? [
+        { documentId: "DOC-2026-00214", documentType: "ClaimForm", processingStatus: "ExtractionApproved", classificationConfidence: 0.91 },
+        { documentId: "DOC-2026-00215", documentType: "GarageEstimate", processingStatus: "VerificationRequired", classificationConfidence: 0.63 }
+      ] : []
+    }
+  ])
+);
+
 const documents = [
   {
     documentId: "DOC-2026-00214",
     caseId,
     originalFileName: "claim_form.pdf",
-    fileName: "claim_form.pdf",
     contentType: "application/pdf",
     fileSizeBytes: 245000,
-    objectKey: "visual/claim_form.pdf",
     documentType: "ClaimForm",
-    processingStatus: "Completed",
+    processingStatus: "ExtractionApproved",
     confidenceScore: 0.91,
-    extractedFields: { claimant: "Sarah N.", incidentDate: "2026-05-30" },
-    fieldConfidences: { claimant: 0.96, incidentDate: 0.91 },
+    fields: [
+      { name: "claimant", extractedValue: "Sarah N.", effectiveValue: "Sarah N.", correctedValue: null, confidenceScore: 0.96, verificationStatus: "Approved", sensitivity: "Personal", warnings: [], correctedAt: null, correctionReference: null },
+      { name: "incidentDate", extractedValue: "2026-05-30", effectiveValue: "2026-05-30", correctedValue: null, confidenceScore: 0.91, verificationStatus: "Approved", sensitivity: "Operational", warnings: [], correctedAt: null, correctionReference: null }
+    ],
     validationWarnings: [],
     extractionApproved: true,
     uploadedAt: now,
-    allowedActions: ["ApproveExtraction"],
-    blockedActions: []
+    processedAt: now,
+    correlationId: "visual-document-214",
+    previewUrl: `/api/v1/cases/${caseId}/documents/DOC-2026-00214/content`,
+    allowedActions: [],
+    blockedActions: [
+      { action: "approveDocumentExtraction", label: "Approve extraction", requiredPermission: "UploadDocument", reason: "This extraction has already been approved." },
+      { action: "correctDocumentExtraction", label: "Correct extracted field", requiredPermission: "UploadDocument", reason: "Approved extractions are locked and cannot be corrected." }
+    ]
   },
   {
     documentId: "DOC-2026-00215",
     caseId,
     originalFileName: "repair_estimate.pdf",
-    fileName: "repair_estimate.pdf",
     contentType: "application/pdf",
     fileSizeBytes: 198000,
-    objectKey: "visual/repair_estimate.pdf",
-    documentType: "RepairEstimate",
+    documentType: "GarageEstimate",
     processingStatus: "VerificationRequired",
     confidenceScore: 0.63,
-    extractedFields: { amount: "UGX 18,500,000" },
-    fieldConfidences: { amount: 0.63 },
-    validationWarnings: [{ code: "LOW_CONFIDENCE_AMOUNT", message: "Amount requires human verification.", severity: "Warning" }],
+    fields: [
+      { name: "amount", extractedValue: "UGX 18,500,000", effectiveValue: "UGX 18,500,000", correctedValue: null, confidenceScore: 0.63, verificationStatus: "RequiresReview", sensitivity: "Financial", warnings: [{ code: "LOW_CONFIDENCE_AMOUNT", message: "Amount requires human verification against the source.", severity: "Warning", fieldName: "amount", expectedValue: null, observedValue: "UGX 18,500,000" }], correctedAt: null, correctionReference: null },
+      { name: "garageName", extractedValue: "Kampala Motor Works", effectiveValue: "Kampala Motor Works", correctedValue: null, confidenceScore: 0.89, verificationStatus: "Extracted", sensitivity: "Operational", warnings: [], correctedAt: null, correctionReference: null }
+    ],
+    validationWarnings: [{ code: "LOW_CONFIDENCE_AMOUNT", message: "Amount requires human verification against the source.", severity: "Warning", fieldName: "amount", expectedValue: null, observedValue: "UGX 18,500,000" }],
     extractionApproved: false,
     uploadedAt: now,
-    allowedActions: [],
-    blockedActions: [
-      {
-        action: "ApproveExtraction",
-        reasonCode: "LOW_CONFIDENCE",
-        message: "Human verification is required before extraction approval."
-      }
-    ]
+    processedAt: now,
+    correlationId: "visual-document-215",
+    previewUrl: `/api/v1/cases/${caseId}/documents/DOC-2026-00215/content`,
+    allowedActions: [
+      { action: "reclassifyDocument", label: "Reclassify document", requiredPermission: "UploadDocument", reason: null },
+      { action: "approveDocumentExtraction", label: "Approve extraction", requiredPermission: "UploadDocument", reason: null },
+      { action: "correctDocumentExtraction", label: "Correct extracted field", requiredPermission: "UploadDocument", reason: null }
+    ],
+    blockedActions: []
   }
 ];
 
@@ -184,7 +223,16 @@ const approvals = [
     comments: null,
     decidedAt: null,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    allowedActions: [
+      { action: "approveApproval", label: "Approve workflow step", requiredPermission: "ApproveSettlementWorkflowStep", reason: null },
+      { action: "rejectApproval", label: "Reject workflow step", requiredPermission: "ApproveSettlementWorkflowStep", reason: null },
+      { action: "escalateApproval", label: "Escalate workflow step", requiredPermission: "ApproveSettlementWorkflowStep", reason: null },
+      { action: "overrideApproval", label: "Override AI recommendation", requiredPermission: "OverrideAiRecommendation", reason: null }
+    ],
+    blockedActions: [
+      { action: "executeApprovedNextStep", label: "Execute approved next step", requiredPermission: "ApproveSettlementWorkflowStep", reason: "Only approved or overridden approval requests can execute a workflow next step." }
+    ]
   }
 ];
 
@@ -442,6 +490,8 @@ const responses: Record<string, unknown> = {
     knowledgeDocumentsApproved: 14,
     totalDocuments: 221
   },
+  "/api/v1/claims": claimRows,
+  ...claimDetails,
   "/api/v1/cases": [claim, readyClaim, breachedClaim],
   [`/api/v1/cases/${caseId}`]: claim,
   [`/api/v1/cases/${caseId}/documents`]: documents,
@@ -458,8 +508,8 @@ const responses: Record<string, unknown> = {
     }
   ],
   [`/api/v1/cases/${caseId}/timeline`]: [
-    { eventId: "TIM-001", eventType: "ClaimCreated", title: "Claim created", description: "Synthetic claim submitted.", occurredAt: now, actorName: "Sarah N." },
-    { eventId: "TIM-002", eventType: "DocumentUploaded", title: "Repair estimate uploaded", description: "Document requires verification.", occurredAt: now, actorName: "Jane Namusoke" }
+    { eventId: "TIM-001", caseId, eventType: "ClaimCreated", actor: "Sarah N.", timestamp: now, summary: "Synthetic claim submitted." },
+    { eventId: "TIM-002", caseId, eventType: "DocumentUploaded", actor: "Jane Namusoke", timestamp: now, summary: "Repair estimate requires verification." }
   ],
   [`/api/v1/cases/${caseId}/customer-updates`]: [
     {
@@ -533,6 +583,26 @@ const responses: Record<string, unknown> = {
   "/api/v1/provider-status": providerStatus,
   "/api/v1/system/capabilities": systemCapabilities,
   "/api/v1/integrations/email/health": emailIntegrationHealth,
+  "/api/v1/onboarding": [
+    {
+      onboardingId: "ONB-VISUAL-01",
+      customerName: "Uganda Insurer Ltd.",
+      expectedEntraTenantOrDomain: "ugandainsurer.onmicrosoft.com",
+      adminContactEmail: "it-admin@ugandainsurer.test",
+      targetWorkspaces: ["workspace-claims"],
+      azureSubscriptionIds: ["00000000-0000-0000-0000-000000000001"],
+      internalTenantId: "tenant-visual-insurer",
+      status: "Pending",
+      externalEntraTenantId: null,
+      createdAt: now,
+      consentedAt: null
+    }
+  ],
+  "/api/v1/onboarding/ONB-VISUAL-01/consent-url": {
+    configured: false,
+    url: null,
+    message: "Microsoft Entra admin consent is not configured for this visual fixture."
+  },
   "/api/v1/knowledge-documents": [knowledgeDocument],
   [`/api/v1/knowledge-documents/${knowledgeDocument.knowledgeDocumentId}`]: knowledgeDetail,
   "/api/v1/admin/tenant-configuration": {
@@ -611,7 +681,16 @@ export async function installVisualApiFixtures(page: Page) {
           roleLabel: "Tenant Admin",
           permissions: ["all"],
           authMode: "Development",
-          source: "Development"
+          source: "Development",
+          environment: {
+            name: "Local Development",
+            reviewMode: "LocalDevelopment",
+            syntheticData: true,
+            dataClassification: "Synthetic visual test data"
+          },
+          availableWorkspaces: [
+            { workspaceId: "workspace-visual-fixture", name: "Kampala Motor Claims", kind: "claims" }
+          ]
         });
         return;
       }
@@ -627,8 +706,61 @@ export async function installVisualApiFixtures(page: Page) {
       return;
     }
 
+    if (route.request().method() === "POST" && path === "/api/v1/command-center/query") {
+      await fulfillJson(route, {
+        blocks: [
+          {
+            type: "text",
+            markdown: "Claims needing attention are shown below for human review."
+          },
+          {
+            type: "claims_table",
+            rows: [
+              {
+                caseId,
+                customer: "Sarah N.",
+                productLine: "Motor",
+                status: "UnderReview",
+                slaStatus: "breached",
+                completeness: 72,
+                assignedTo: "Jane Namusoke",
+                href: `/app/claims/${caseId}`
+              }
+            ]
+          },
+          {
+            type: "document_gap_summary",
+            items: [
+              {
+                caseId,
+                customer: "Sarah N.",
+                missing: ["Police report", "Damage photographs"]
+              }
+            ]
+          },
+          {
+            type: "not_configured",
+            provider: "Azure OpenAI",
+            adminAction: "Configure Azure OpenAI before production AI generation."
+          }
+        ],
+        canTriggerDecision: false,
+        generatedAt: now
+      });
+      return;
+    }
+
     if (route.request().method() !== "GET") {
       await fulfillJson(route, { status: "Accepted", correlationId: "visual-fixture" });
+      return;
+    }
+
+    if (path.startsWith(`/api/v1/cases/${caseId}/documents/`) && path.endsWith("/content")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/svg+xml",
+        body: `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200"><rect width="900" height="1200" fill="#fff"/><rect x="48" y="48" width="804" height="1104" rx="20" fill="#f8faff" stroke="#d7deee"/><text x="90" y="120" font-family="Arial" font-size="30" font-weight="700" fill="#0b0f3b">Authorized source preview</text><text x="90" y="175" font-family="Arial" font-size="20" fill="#526070">Garage estimate · visual verification fixture</text><line x1="90" x2="810" y1="220" y2="220" stroke="#d7deee"/><text x="90" y="290" font-family="Arial" font-size="22" fill="#0b0f3b">Garage</text><text x="350" y="290" font-family="Arial" font-size="22" fill="#29334d">Kampala Motor Works</text><text x="90" y="350" font-family="Arial" font-size="22" fill="#0b0f3b">Estimate amount</text><text x="350" y="350" font-family="Arial" font-size="22" fill="#29334d">UGX 18,500,000</text><text x="90" y="430" font-family="Arial" font-size="17" fill="#6b7280">Visual test evidence only. Production loads the tenant-scoped stored source.</text></svg>`,
+      });
       return;
     }
 

@@ -1,5 +1,5 @@
-import Component from "@/lovable-pages/Support";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <Component />;
+  redirect("/app/integrations");
 }

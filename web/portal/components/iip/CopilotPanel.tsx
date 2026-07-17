@@ -1,15 +1,14 @@
 "use client";
-import { Sparkles, ShieldCheck, TrendingUp, AlertTriangle, FileText, Plug, BookOpen, MessageSquare, Inbox, UserSquare2, Bot, CreditCard, LifeBuoy, LineChart, ScrollText, ClipboardList } from "lucide-react";
+import { Sparkles, ShieldCheck, TrendingUp, AlertTriangle, FileText, Plug, BookOpen, MessageSquare, Inbox, UserSquare2, Bot, CreditCard, LineChart, ScrollText, ClipboardList } from "lucide-react";
 import type { ComponentType } from "react";
 import { useLocation } from "@/components/iip/NextRouterCompat";
 import { useUI } from "@/context/UIStateContext";
 import { useProviderHealth } from "@/lib/lovable-parity/data/providerHealth";
+import { isProviderHealthy } from "@/lib/providerHealth";
 
 type Icon = ComponentType<{ className?: string }>;
 type Block = { icon: Icon; label: string; text: string };
 interface Ctx { title: string; blocks: Block[]; footer?: string }
-
-const HEALTHY = /oper|health|config|ready|ok/i;
 
 // Static, fabrication-free governance guidance per route. No counts or IDs are invented here —
 // real numbers live on the screens themselves (grounded in /api/v1 data). This rail carries
@@ -75,11 +74,11 @@ function blocksFor(pathname: string): Ctx {
     ],
   };
   if (pathname.startsWith("/app/integrations")) return {
-    title: "Channel activity",
+    title: "Integration control plane",
     blocks: [
-      { icon: Plug, label: "Provider modes", text: "Configured provider modes and their live health are shown below." },
-      { icon: AlertTriangle, label: "Live ingestion", text: "Channel ingestion activates when providers are configured." },
-      { icon: MessageSquare, label: "Human handoff", text: "Flagged threads route to a human before any reply is sent." },
+      { icon: Plug, label: "Provider modes", text: "Configured provider modes and runtime-reported health are shown below." },
+      { icon: AlertTriangle, label: "Honest diagnostics", text: "Queue, retry, and correlation telemetry stay Not configured until real endpoints are wired." },
+      { icon: MessageSquare, label: "Controlled adapters", text: "Write-back and customer delivery remain human-approved, provider-specific actions." },
     ],
   };
   if (pathname.startsWith("/app/knowledge")) return {
@@ -90,8 +89,8 @@ function blocksFor(pathname: string): Ctx {
       { icon: FileText, label: "Grounding", text: "Policy answers are grounded in approved sources only." },
     ],
   };
-  if (pathname.startsWith("/app/workflows")) return {
-    title: "Workflow snapshot",
+  if (pathname.startsWith("/app/work-items") || pathname.startsWith("/app/workflows")) return {
+    title: "Review & approvals",
     blocks: [
       { icon: ShieldCheck, label: "Approvals", text: "Tasks await human decision across your team." },
       { icon: AlertTriangle, label: "Escalations", text: "Escalated items route to a supervisor for review." },
@@ -105,14 +104,6 @@ function blocksFor(pathname: string): Ctx {
       { icon: LineChart, label: "KPIs", text: "Operational KPIs come from the reports service for this workspace." },
       { icon: TrendingUp, label: "Trends", text: "Trends reflect real claims-by-status and SLA data." },
       { icon: ShieldCheck, label: "Note", text: "Financial and loss metrics require validated data sources before display." },
-    ],
-  };
-  if (pathname.startsWith("/app/support")) return {
-    title: "Support & health",
-    blocks: [
-      { icon: LifeBuoy, label: "Diagnostics", text: "Provider health and diagnostics are shown below." },
-      { icon: AlertTriangle, label: "Honest states", text: "Unconfigured diagnostics show Not configured, never fabricated." },
-      { icon: TrendingUp, label: "Retries", text: "Retryable failures are idempotent on retry." },
     ],
   };
   if (pathname.startsWith("/app/audit")) return {
@@ -148,7 +139,7 @@ function blocksFor(pathname: string): Ctx {
       { icon: CreditCard, label: "Billing & Usage", text: "Package, entitlements, seats, and usage meters." },
     ],
   };
-  // Default: AI Conversations
+  // Default: Command Center
   return {
     title: "Execution guidance",
     blocks: [
@@ -203,7 +194,7 @@ export default function CopilotPanel() {
               {providers.map((p) => (
                 <div key={p.name} className="flex items-center justify-between gap-2">
                   <span className="text-slate2 truncate">{p.name}</span>
-                  <span className={HEALTHY.test(p.status) ? "text-success shrink-0" : "text-warning shrink-0"}>{p.status}</span>
+                  <span className={isProviderHealthy(p.status) ? "text-success shrink-0" : "text-warning shrink-0"}>{p.status}</span>
                 </div>
               ))}
             </div>

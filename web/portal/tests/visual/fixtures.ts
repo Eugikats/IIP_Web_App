@@ -614,8 +614,41 @@ export async function prepareDeployedProfileApi(page: Page, role: RuntimeRole) {
         tenantId: "tenant-deployed",
         workspaceId: role === "Client" ? "client-portal" : "claims-operations",
         authMode: "EntraId",
-        source: "PlaywrightDeployedProfile"
+        source: "PlaywrightDeployedProfile",
+        environment: {
+          name: "Staging",
+          reviewMode: "Production",
+          syntheticData: true,
+          dataClassification: "Synthetic UAT records"
+        },
+        availableWorkspaces: [
+          {
+            workspaceId: role === "Client" ? "client-portal" : "claims-operations",
+            name: role === "Client" ? "Customer claim workspace" : "Claims operations",
+            kind: role === "Client" ? "customer" : "claims"
+          }
+        ]
       })
+    });
+  });
+
+  const providerHealthPayload = {
+    overallStatus: "not_configured",
+    providers: [
+      { name: "graphMail", mode: "Graph", status: "not_configured", detail: "No tenant mailbox connection configured." },
+      { name: "communications", mode: "NotConfigured", status: "not_configured", detail: "No customer communications provider configured." },
+      { name: "notifications", mode: "NotConfigured", status: "not_configured", detail: "No notification provider configured." },
+      { name: "azureOpenAI", mode: "AzureOpenAI", status: "not_configured", detail: "No Azure OpenAI deployment configured." },
+      { name: "aiSearch", mode: "AzureAISearch", status: "not_configured", detail: "No Azure AI Search index configured." },
+      { name: "documentIntelligence", mode: "AzureDocumentIntelligence", status: "not_configured", detail: "No Document Intelligence resource configured." }
+    ]
+  };
+
+  await page.route("**/api/v1/admin/provider-health", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(providerHealthPayload)
     });
   });
 
@@ -623,17 +656,7 @@ export async function prepareDeployedProfileApi(page: Page, role: RuntimeRole) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        overallStatus: "not_configured",
-        providers: [
-          { name: "graphMail", mode: "Graph", status: "not_configured", detail: "No tenant mailbox connection configured." },
-          { name: "communications", mode: "NotConfigured", status: "not_configured", detail: "No customer communications provider configured." },
-          { name: "notifications", mode: "NotConfigured", status: "not_configured", detail: "No notification provider configured." },
-          { name: "azureOpenAI", mode: "AzureOpenAI", status: "not_configured", detail: "No Azure OpenAI deployment configured." },
-          { name: "aiSearch", mode: "AzureAISearch", status: "not_configured", detail: "No Azure AI Search index configured." },
-          { name: "documentIntelligence", mode: "AzureDocumentIntelligence", status: "not_configured", detail: "No Document Intelligence resource configured." }
-        ]
-      })
+      body: JSON.stringify(providerHealthPayload)
     });
   });
 
