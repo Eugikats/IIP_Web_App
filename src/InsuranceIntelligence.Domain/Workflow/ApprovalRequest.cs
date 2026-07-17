@@ -16,8 +16,11 @@ public sealed record ApprovalRequest
     public string? ReviewerUserId { get; init; }
     public ApprovalDecision? Decision { get; init; }
     public string? Comments { get; init; }
+    public string? ExecutedByUserId { get; init; }
+    public string? ExecutionResult { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
     public required DateTimeOffset UpdatedAt { get; init; }
     public DateTimeOffset? DecidedAt { get; init; }
+    public DateTimeOffset? ExecutedAt { get; init; }
     public required string CorrelationId { get; init; }
 }

@@ -14,10 +14,11 @@ using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.Persistence;
-using InsuranceIntelligence.Infrastructure.Simulated;
+using InsuranceIntelligence.Infrastructure.Email;
 using InsuranceIntelligence.Infrastructure.Graph;
 using InsuranceIntelligence.Infrastructure.Notifications;
 using InsuranceIntelligence.Infrastructure.Providers;
+using InsuranceIntelligence.Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +35,7 @@ public static class InfrastructureRegistration
     {
         var options = BindOptions(configuration);
         services.AddSingleton(options);
+        services.AddSingleton<IOperationalTelemetry, LoggingOperationalTelemetry>();
 
         if (options.StorageProvider.Equals("EfSqlite", StringComparison.OrdinalIgnoreCase)
             || options.StorageProvider.Equals("SQLite", StringComparison.OrdinalIgnoreCase))
@@ -52,23 +54,12 @@ public static class InfrastructureRegistration
                 db.UseSqlServer(options.SqlServerConnectionString));
             AddEfRepositories(services);
         }
-        else if (options.StorageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase))
-        {
-            AddSupportRepositories(services);
-        }
         else
         {
-            throw new InvalidOperationException($"Unsupported storage provider '{options.StorageProvider}'. Use InMemory for isolated local/test execution or SqlServer for deployed environments.");
+            throw new InvalidOperationException($"Unsupported storage provider '{options.StorageProvider}'. Deployable runtime requires SqlServer; use explicit LocalTest projects for test doubles.");
         }
 
-        if (options.EmailProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddSingleton<IEmailIngestionProvider, MockEmailIngestionProvider>();
-        }
-        else
-        {
-            services.AddSingleton<IEmailIngestionProvider, DisabledEmailIngestionProvider>();
-        }
+        services.AddSingleton<IEmailIngestionProvider, DisabledEmailIngestionProvider>();
         services.AddHttpClient<IGraphMailClient, MicrosoftGraphMailClient>();
         services.AddSingleton<IGraphMailProvider, GraphMailProvider>();
         if (options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
@@ -77,35 +68,20 @@ public static class InfrastructureRegistration
         }
         else
         {
-            services.AddSingleton<IEmailAttachmentProcessor, MockEmailAttachmentProcessor>();
+            services.AddSingleton<IEmailAttachmentProcessor, DisabledEmailAttachmentProcessor>();
         }
-        services.AddScoped<IEmailToCaseMatcher, BasicEmailToCaseMatcher>();
+        services.AddScoped<IEmailToCaseMatcher, RuleBasedEmailToCaseMatcher>();
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
         {
             services.AddSingleton<ICommunicationSendingProvider, GraphCommunicationSendingProvider>();
-        }
-        else if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddSingleton<ICommunicationSendingProvider, MockCommunicationSendingProvider>();
         }
         else
         {
             services.AddSingleton<ICommunicationSendingProvider, DisabledCommunicationSendingProvider>();
         }
-        if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddSingleton<ISmsProvider, MockSmsProvider>();
-        }
-        else
-        {
-            services.AddSingleton<ISmsProvider, DisabledSmsProvider>();
-        }
+        services.AddSingleton<ISmsProvider, DisabledSmsProvider>();
 
-        if (options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddSingleton<ITeamsNotificationProvider, InsuranceIntelligence.Infrastructure.Notifications.MockTeamsNotificationProvider>();
-        }
-        else if (options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
+        if (options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
         {
             services.Configure<InsuranceIntelligence.Infrastructure.Notifications.IncomingWebhookTeamsProviderOptions>(
                 configuration.GetSection("TeamsWebhook"));
@@ -115,14 +91,7 @@ public static class InfrastructureRegistration
         {
             services.AddSingleton<ITeamsNotificationProvider, DisabledTeamsNotificationProvider>();
         }
-        if (options.EmailProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddSingleton<IWebhookSubscriptionProvider, MockWebhookSubscriptionProvider>();
-        }
-        else
-        {
-            services.AddSingleton<IWebhookSubscriptionProvider, DisabledWebhookSubscriptionProvider>();
-        }
+        services.AddSingleton<IWebhookSubscriptionProvider, DisabledWebhookSubscriptionProvider>();
 
         return services;
     }
@@ -141,10 +110,6 @@ public static class InfrastructureRegistration
             await dbContext.Database.EnsureCreatedAsync(cancellationToken);
         }
 
-        if (options.SeedDemoData)
-        {
-            await DemoDataSeeder.SeedAsync(scope.ServiceProvider, cancellationToken);
-        }
     }
 
     private static void AddEfRepositories(IServiceCollection services)
@@ -183,6 +148,9 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingRepository, EfTenantOnboardingRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantMembershipWriter, EfTenantMembershipWriter>();
         services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentStateRepository, EfAgentStateRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowDefinitionRepository, EfAgentWorkflowDefinitionRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowRunRepository, EfAgentWorkflowRunRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkItemRepository, EfAgentWorkItemRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
         // Azure SQL connectivity probe). The other three Core ports (ITenantContextAccessor,
@@ -193,20 +161,6 @@ public static class InfrastructureRegistration
         services.AddScoped<IProviderHealthCheck, ProviderHealthCheckEf>();
     }
 
-    private static void AddSupportRepositories(IServiceCollection services)
-    {
-        services.AddSingleton<ITenantConfigurationRepository, InMemoryTenantConfigurationRepository>();
-        services.AddSingleton<IUserAccountRepository, InMemoryUserAccountRepository>();
-        services.AddSingleton<ICommunicationRepository, InMemoryCommunicationRepository>();
-        services.AddSingleton<IMailboxConnectionRepository, InMemoryMailboxConnectionRepository>();
-        services.AddSingleton<IInboundEmailRepository, InMemoryInboundEmailRepository>();
-        services.AddSingleton<ITeamsNotificationRepository, InMemoryTeamsNotificationRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Customers.ICustomerRepository, InMemoryCustomerRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Policies.IPolicyRepository, InMemoryPolicyRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Policies.ICoverageRepository, InMemoryCoverageRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Distribution.IBranchRepository, InMemoryBranchRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Distribution.IProducerRepository, InMemoryProducerRepository>();
-    }
 
     public static InfrastructureOptions BindOptions(IConfiguration configuration) =>
         new()
@@ -225,6 +179,12 @@ public static class InfrastructureRegistration
             EntraClientId = configuration["INSURANCEINTELLIGENCE_ENTRA_CLIENT_ID"],
             EntraAudience = configuration["INSURANCEINTELLIGENCE_ENTRA_AUDIENCE"],
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
+            AzureRegion = configuration["INSURANCEINTELLIGENCE_AZURE_REGION"],
+            DataResidencyCountry = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY"],
+            DataResidencyGeography = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY"],
+            DataResidencyMode = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_MODE"] ?? "regional",
+            DataResidencyAllowedAzureRegions = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_ALLOWED_AZURE_REGIONS"],
+            DataResidencyApprovalReference = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_APPROVAL_REFERENCE"],
             AiProvider = configuration["INSURANCEINTELLIGENCE_AI_PROVIDER"] ?? "Mock",
             DocumentProvider = configuration["INSURANCEINTELLIGENCE_DOCUMENT_PROVIDER"] ?? "Mock",
             RetrievalProvider = configuration["INSURANCEINTELLIGENCE_RETRIEVAL_PROVIDER"] ?? "Mock",
@@ -260,6 +220,7 @@ public static class InfrastructureRegistration
             AzureOpenAI = new AzureOpenAiOptions
             {
                 Endpoint = configuration["AzureOpenAI:Endpoint"],
+                DeploymentType = configuration["AzureOpenAI:DeploymentType"],
                 ChatDeployment = configuration["AzureOpenAI:ChatDeployment"],
                 EmbeddingDeployment = configuration["AzureOpenAI:EmbeddingDeployment"],
                 PolicyAnswerPromptTemplatePath = configuration["AzureOpenAI:PolicyAnswerPromptTemplatePath"],

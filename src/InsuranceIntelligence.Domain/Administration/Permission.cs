@@ -24,6 +24,10 @@ public enum Permission
     ViewFraudSignals,
     ViewUnderwriting,
     ManageAgents,
+    ViewAgentWorkflows,
+    RunAgentWorkflows,
+    ManageAgentWorkflows,
+    ReviewAgentWorkItems,
     ViewBilling,
     ManageTenantOnboarding
 }

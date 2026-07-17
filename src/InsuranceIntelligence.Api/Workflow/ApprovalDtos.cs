@@ -10,6 +10,8 @@ public sealed record CreateApprovalRequest(
 
 public sealed record ApprovalDecisionRequest(string? Comments);
 
+public sealed record ExecuteApprovedNextStepRequest(string? Comments);
+
 public sealed record ApprovalResponse(
     Guid ApprovalId,
     Guid CaseId,
@@ -22,9 +24,12 @@ public sealed record ApprovalResponse(
     string? ReviewerUserId,
     string? Decision,
     string? Comments,
+    string? ExecutedByUserId,
+    string? ExecutionResult,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     DateTimeOffset? DecidedAt,
+    DateTimeOffset? ExecutedAt,
     string CorrelationId,
     IReadOnlyCollection<ActionStateResponse> AllowedActions,
     IReadOnlyCollection<ActionStateResponse> BlockedActions);

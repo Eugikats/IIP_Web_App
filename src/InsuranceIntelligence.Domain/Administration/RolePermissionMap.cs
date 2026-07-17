@@ -13,6 +13,10 @@ public static class RolePermissionMap
                 Permission.ConfigureIntegrations,
                 Permission.ManageTenantSettings,
                 Permission.ManageAgents,
+                Permission.ViewAgentWorkflows,
+                Permission.RunAgentWorkflows,
+                Permission.ManageAgentWorkflows,
+                Permission.ReviewAgentWorkItems,
                 Permission.ViewBilling
             ],
             [PlatformRole.ClaimsOfficer] =
@@ -25,7 +29,10 @@ public static class RolePermissionMap
                 Permission.ManageCustomerCommunications,
                 Permission.SendCustomerUpdate,
                 Permission.ViewChannels,
-                Permission.ViewCustomers
+                Permission.ViewCustomers,
+                Permission.ViewAgentWorkflows,
+                Permission.RunAgentWorkflows,
+                Permission.ReviewAgentWorkItems
             ],
             [PlatformRole.ClaimsSupervisor] =
             [
@@ -43,7 +50,10 @@ public static class RolePermissionMap
                 Permission.ViewChannels,
                 Permission.ViewCustomers,
                 Permission.ViewFraudSignals,
-                Permission.ViewUnderwriting
+                Permission.ViewUnderwriting,
+                Permission.ViewAgentWorkflows,
+                Permission.RunAgentWorkflows,
+                Permission.ReviewAgentWorkItems
             ],
             [PlatformRole.CustomerService] =
             [
@@ -57,7 +67,10 @@ public static class RolePermissionMap
                 Permission.ViewChannels,
                 Permission.ViewCustomers,
                 Permission.ViewSalesLeads,
-                Permission.ManageSalesLeads
+                Permission.ManageSalesLeads,
+                Permission.ViewAgentWorkflows,
+                Permission.RunAgentWorkflows,
+                Permission.ReviewAgentWorkItems
             ],
             [PlatformRole.Broker] =
             [
@@ -77,7 +90,10 @@ public static class RolePermissionMap
                 Permission.OverrideAiRecommendation,
                 Permission.ViewCustomers,
                 Permission.ViewFraudSignals,
-                Permission.ViewUnderwriting
+                Permission.ViewUnderwriting,
+                Permission.ViewAgentWorkflows,
+                Permission.RunAgentWorkflows,
+                Permission.ReviewAgentWorkItems
             ],
             [PlatformRole.Client] =
             [

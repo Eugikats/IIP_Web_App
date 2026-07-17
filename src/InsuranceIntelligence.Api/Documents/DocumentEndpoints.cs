@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -31,7 +32,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -144,7 +145,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -167,7 +168,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -193,7 +194,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -238,7 +239,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -323,7 +324,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -380,7 +381,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -439,7 +440,7 @@ public static class DocumentEndpoints
         }
 
         var correlationId = GetCorrelationId(httpContext);
-        var correctedBy = DemoAuthorization.GetUserId(httpContext);
+        var correctedBy = GetActor(httpContext, null);
         corrections[canonicalFieldName] = new DocumentFieldCorrection(
             canonicalFieldName,
             correctedValue,
@@ -589,8 +590,41 @@ public static class DocumentEndpoints
         || contentType.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase)
         || contentType.Equals("text/plain", StringComparison.OrdinalIgnoreCase);
 
+    private static bool TryResolveScope(
+        HttpContext httpContext,
+        out TenantScope scope,
+        out string userId,
+        out string validationError)
+    {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext)
+        {
+            var current = tenantContext.Current;
+            scope = TenantScope.Create(current.TenantId, current.WorkspaceId);
+            userId = current.UserId;
+            validationError = string.Empty;
+            return true;
+        }
+
+        if (TenantScopeReader.TryGetFromHeaders(httpContext, out scope, out validationError))
+        {
+            userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+            return true;
+        }
+
+        userId = string.Empty;
+        return false;
+    }
+
     private static string GetActor(HttpContext httpContext, string? candidate)
     {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext
+            && !string.IsNullOrWhiteSpace(tenantContext.Current.UserId))
+        {
+            return tenantContext.Current.UserId;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate))
         {
             return candidate.Trim();

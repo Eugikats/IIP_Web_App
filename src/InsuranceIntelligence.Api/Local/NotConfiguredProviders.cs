@@ -6,6 +6,8 @@ using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Api.Local;
 
+public sealed class ProviderNotConfiguredException(string message) : InvalidOperationException(message);
+
 public sealed class NotConfiguredDocumentProcessingProvider : IDocumentProcessingProvider
 {
     public Task<DocumentProcessingResult> ProcessAsync(DocumentProcessingRequest request, CancellationToken cancellationToken = default) =>
@@ -70,7 +72,7 @@ public sealed class NotConfiguredCustomerUpdateDraftingProvider : ICustomerUpdat
         string createdByUserId,
         string correlationId,
         CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("Customer update drafting provider is not configured.");
+        throw new ProviderNotConfiguredException("Customer update drafting provider is not configured.");
 }
 
 public sealed class NotConfiguredCommunicationProvider : ICommunicationProvider
@@ -80,5 +82,5 @@ public sealed class NotConfiguredCommunicationProvider : ICommunicationProvider
         string sentByUserId,
         string? recipient = null,
         CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("Customer communication provider is not configured.");
+        throw new ProviderNotConfiguredException("Customer communication provider is not configured.");
 }

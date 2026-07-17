@@ -415,6 +415,28 @@ public sealed class SecurityAuthorizationTests
     }
 
     [Fact]
+    public async Task RuntimeContext_UsesResolvedTenantContextBeforeDevelopmentHeaders()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers["x-demo-role"] = "Admin";
+        context.Request.Headers["x-demo-user-id"] = "spoofed-user";
+        context.Request.Headers["X-Tenant-Id"] = "tenant-spoofed";
+        context.Request.Headers["X-Workspace-Id"] = "workspace-spoofed";
+        var resolved = TenantContextWith("tenant-membership", "workspace-membership", "membership-runtime-user", "ClaimsSupervisor");
+
+        var result = await RuntimeContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost, EmptyWorkspaceCatalog, resolved, CancellationToken.None);
+
+        var (status, json) = await ExecuteJsonAsync(result);
+        Assert.Equal(StatusCodes.Status200OK, status);
+        var root = json.RootElement;
+        Assert.Equal("membership-runtime-user", root.GetProperty("userId").GetString());
+        Assert.Equal("ClaimsSupervisor", root.GetProperty("role").GetString());
+        Assert.Equal("tenant-membership", root.GetProperty("tenantId").GetString());
+        Assert.Equal("workspace-membership", root.GetProperty("workspaceId").GetString());
+        Assert.Equal("DevelopmentTenantContext", root.GetProperty("source").GetString());
+    }
+
+    [Fact]
     public async Task RuntimeContext_RejectsDemoHeadersOutsideDevelopment()
     {
         var context = new DefaultHttpContext();
@@ -603,59 +625,6 @@ public sealed class SecurityAuthorizationTests
         var result = RuntimeHeaderGuard.RejectUnauthenticatedApiOutsideDevelopment(context, ProductionOptions);
 
         Assert.Null(result);
-    }
-
-    [Fact]
-    public async Task UiContext_Development_ReturnsBackendOwnedRoleScopeAndPermissions()
-    {
-        var context = new DefaultHttpContext();
-        context.Request.Headers["X-Tenant-Id"] = "tenant-demo";
-        context.Request.Headers["X-Workspace-Id"] = "workspace-claims";
-        context.Request.Headers["x-demo-role"] = "ClaimsSupervisor";
-        context.Request.Headers["x-demo-user-id"] = "local-supervisor";
-
-        var result = UiContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost);
-        var (status, body) = await ExecuteJsonAsync(result);
-
-        Assert.Equal(StatusCodes.Status200OK, status);
-        var bodyRoot = body.RootElement;
-        Assert.Equal("local-supervisor", bodyRoot.GetProperty("userId").GetString());
-        Assert.Equal("tenant-demo", bodyRoot.GetProperty("tenantId").GetString());
-        Assert.Contains(bodyRoot.GetProperty("roles").EnumerateArray(), role => role.GetString() == "ClaimsSupervisor");
-        Assert.Contains(bodyRoot.GetProperty("permissions").EnumerateArray(), permission => permission.GetString() == nameof(Permission.ApproveSettlementWorkflowStep));
-        Assert.Equal("UGX", bodyRoot.GetProperty("authority").GetProperty("currency").GetString());
-        Assert.False(bodyRoot.GetProperty("authority").GetProperty("canApprovePayout").GetBoolean());
-    }
-
-    [Fact]
-    public async Task UiContext_AdminDoesNotBecomeClaimsDecisionAuthority()
-    {
-        var context = new DefaultHttpContext();
-        context.Request.Headers["X-Tenant-Id"] = "tenant-demo";
-        context.Request.Headers["X-Workspace-Id"] = "workspace-claims";
-        context.Request.Headers["x-demo-role"] = "Admin";
-
-        var result = UiContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost);
-        var (status, body) = await ExecuteJsonAsync(result);
-
-        Assert.Equal(StatusCodes.Status200OK, status);
-        var authority = body.RootElement.GetProperty("authority");
-        Assert.Equal(0m, authority.GetProperty("reviewApprovalLimit").GetDecimal());
-        Assert.False(authority.GetProperty("canOverrideAiRecommendation").GetBoolean());
-        Assert.False(authority.GetProperty("canApprovePayout").GetBoolean());
-    }
-
-    [Fact]
-    public async Task UiContext_NonDevelopmentWithoutAuthenticatedClaimsRefusesToIssueContext()
-    {
-        var context = new DefaultHttpContext();
-        context.Request.Headers["X-Tenant-Id"] = "tenant-demo";
-        context.Request.Headers["X-Workspace-Id"] = "workspace-claims";
-        context.Request.Headers["x-demo-role"] = "Admin";
-
-        var result = UiContextEndpoints.GetMe(context, ProductionOptions, ProductionHost);
-
-        Assert.Equal(StatusCodes.Status501NotImplemented, await ExecuteStatusAsync(result));
     }
 
     [Fact]

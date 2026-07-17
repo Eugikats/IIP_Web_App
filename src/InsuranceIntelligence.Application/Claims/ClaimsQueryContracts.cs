@@ -44,6 +44,7 @@ public sealed record ClaimDetailDto(
     string Channel,
     DateOnly IncidentDate,
     string IncidentDescription,
+    MotorFnolDetails? MotorFnolDetails,
     string Status,
     decimal CompletenessScore,
     string RiskLevel,

@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Cases;
+using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Documents;
@@ -23,7 +24,7 @@ public static class CustomerUpdateEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return WorkflowEndpoints.Validation("tenantScope", validationError);
         }
@@ -63,7 +64,22 @@ public static class CustomerUpdateEndpoints
         }
 
         var correlationId = WorkflowEndpoints.GetCorrelationId(httpContext);
-        var update = await draftingProvider.DraftAsync(claimCase, checklist, reasonCategory, channel, actor, correlationId, cancellationToken);
+        CustomerUpdateDraft update;
+        try
+        {
+            update = await draftingProvider.DraftAsync(claimCase, checklist, reasonCategory, channel, actor, correlationId, cancellationToken);
+        }
+        catch (ProviderNotConfiguredException)
+        {
+            return Results.Json(
+                new
+                {
+                    status = "NotConfigured",
+                    provider = "CustomerUpdateDrafting",
+                    message = "Customer update drafting is not configured."
+                },
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
 
         await updateRepository.SaveAsync(update, cancellationToken);
         var actionLog = new AgentActionLog
@@ -96,7 +112,7 @@ public static class CustomerUpdateEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return WorkflowEndpoints.Validation("tenantScope", validationError);
         }
@@ -141,7 +157,7 @@ public static class CustomerUpdateEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return WorkflowEndpoints.Validation("tenantScope", validationError);
         }
@@ -211,7 +227,7 @@ public static class CustomerUpdateEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return WorkflowEndpoints.Validation("tenantScope", validationError);
         }

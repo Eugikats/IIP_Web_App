@@ -14,4 +14,5 @@ public sealed record CreateCaseCommand(
     DateOnly IncidentDate,
     string IncidentDescription,
     string CreatedByUserId,
-    string CorrelationId);
+    string CorrelationId,
+    MotorFnolDetails? MotorFnolDetails = null);

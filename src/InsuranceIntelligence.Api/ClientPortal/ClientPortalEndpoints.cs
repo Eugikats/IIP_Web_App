@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
@@ -30,7 +31,7 @@ public static class ClientPortalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -63,7 +64,7 @@ public static class ClientPortalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -104,7 +105,7 @@ public static class ClientPortalEndpoints
             }
         }
 
-        var actor = DemoAuthorization.GetUserId(httpContext, fallback: "client-portal-user");
+        var actor = WorkflowEndpoints.GetActor(httpContext, "client-portal-user");
         var correlationId = httpContext.TraceIdentifier;
         foreach (var file in files)
         {
@@ -254,7 +255,7 @@ public static class ClientPortalEndpoints
 
     private static bool BelongsToCustomer(ClaimCase claimCase, HttpContext httpContext)
     {
-        var userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+        var userId = WorkflowEndpoints.GetActor(httpContext, string.Empty);
         if (string.IsNullOrWhiteSpace(userId))
         {
             return false;

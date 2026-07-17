@@ -18,6 +18,8 @@ using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.DependencyInjection;
 using InsuranceIntelligence.Infrastructure.Graph;
+using InsuranceIntelligence.Infrastructure.Email;
+using InsuranceIntelligence.Infrastructure.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -513,6 +515,56 @@ public sealed class Phase7ProviderTests
     }
 
     [Fact]
+    public void ProductionResidencyValidation_RejectsMissingApprovalMetadata()
+    {
+        var errors = AzureProviderStartupValidator.ValidateProductionResidency(
+            new InfrastructureOptions(),
+            "Production");
+
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_AZURE_REGION", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_DATA_RESIDENCY_ALLOWED_AZURE_REGIONS", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_DATA_RESIDENCY_APPROVAL_REFERENCE", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProductionResidencyValidation_RejectsRegionOutsideApprovedList()
+    {
+        var errors = AzureProviderStartupValidator.ValidateProductionResidency(
+            ApprovedResidencyOptions() with { AzureRegion = "unapproved-region" },
+            "Production");
+
+        Assert.Single(errors);
+        Assert.Contains("not included", errors.Single(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProductionResidencyValidation_RejectsOpenAiDeploymentTypeMismatch()
+    {
+        var errors = AzureProviderStartupValidator.ValidateProductionResidency(
+            ApprovedResidencyOptions() with
+            {
+                AiProvider = "AzureOpenAI",
+                AzureOpenAI = new AzureOpenAiOptions { DeploymentType = "GlobalStandard" }
+            },
+            "Production");
+
+        Assert.Single(errors);
+        Assert.Contains("requires AzureOpenAI:DeploymentType 'Standard'", errors.Single(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProductionResidencyValidation_AcceptsApprovedRegion()
+    {
+        var errors = AzureProviderStartupValidator.ValidateProductionResidency(
+            ApprovedResidencyOptions(),
+            "Production");
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
     public void DemoRuntimeStartupValidation_AllowsSyntheticSeedButStillRequiresRealProviders()
     {
         var errors = AzureProviderStartupValidator.ValidateProduction(
@@ -808,7 +860,8 @@ public sealed class Phase7ProviderTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["INSURANCEINTELLIGENCE_STORAGE_PROVIDER"] = "InMemory",
+                ["INSURANCEINTELLIGENCE_STORAGE_PROVIDER"] = "SqlServer",
+                ["INSURANCEINTELLIGENCE_SQLSERVER_CONNECTION_STRING"] = "Server=(localdb)\\MSSQLLocalDB;Database=IipProviderTests;Trusted_Connection=True;TrustServerCertificate=True",
                 ["INSURANCEINTELLIGENCE_EMAIL_PROVIDER"] = "Graph",
                 ["INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER"] = "GraphEmail",
                 ["INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER"] = "Disabled"
@@ -823,6 +876,42 @@ public sealed class Phase7ProviderTests
         Assert.IsType<DisabledWebhookSubscriptionProvider>(provider.GetRequiredService<IWebhookSubscriptionProvider>());
         Assert.IsType<DisabledSmsProvider>(provider.GetRequiredService<ISmsProvider>());
         Assert.IsType<DisabledTeamsNotificationProvider>(provider.GetRequiredService<ITeamsNotificationProvider>());
+    }
+
+    [Fact]
+    public void InfrastructureRegistration_MockNotificationModeResolvesToDisabledProvider()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["INSURANCEINTELLIGENCE_STORAGE_PROVIDER"] = "SqlServer",
+                ["INSURANCEINTELLIGENCE_SQLSERVER_CONNECTION_STRING"] = "Server=(localdb)\\MSSQLLocalDB;Database=IipProviderTests;Trusted_Connection=True;TrustServerCertificate=True",
+                ["INSURANCEINTELLIGENCE_EMAIL_PROVIDER"] = "Mock",
+                ["INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER"] = "Mock",
+                ["INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER"] = "Mock"
+            })
+            .Build();
+        var services = new ServiceCollection();
+
+        services.AddInsuranceIntelligenceInfrastructure(
+            configuration,
+            new TestEnvironment("LocalTest"));
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsType<DisabledTeamsNotificationProvider>(
+            provider.GetRequiredService<ITeamsNotificationProvider>());
+        Assert.IsType<EfTeamsNotificationRepository>(
+            provider.GetRequiredService<ITeamsNotificationRepository>());
+        Assert.IsType<DisabledEmailIngestionProvider>(
+            provider.GetRequiredService<IEmailIngestionProvider>());
+        Assert.IsType<DisabledEmailAttachmentProcessor>(
+            provider.GetRequiredService<IEmailAttachmentProcessor>());
+        Assert.IsType<DisabledCommunicationSendingProvider>(
+            provider.GetRequiredService<ICommunicationSendingProvider>());
+        Assert.IsType<DisabledSmsProvider>(
+            provider.GetRequiredService<ISmsProvider>());
+        Assert.IsType<DisabledWebhookSubscriptionProvider>(
+            provider.GetRequiredService<IWebhookSubscriptionProvider>());
     }
 
     private static DefaultHttpContext Context()
@@ -865,6 +954,17 @@ public sealed class Phase7ProviderTests
         var body = (await JsonSerializer.DeserializeAsync<T>(httpContext.Response.Body, JsonOptions))!;
         return (httpContext.Response.StatusCode, body);
     }
+
+    private static InfrastructureOptions ApprovedResidencyOptions() =>
+        new()
+        {
+            AzureRegion = "approved-region-1",
+            DataResidencyCountry = "Approved jurisdiction",
+            DataResidencyGeography = "Approved geography",
+            DataResidencyMode = "regional",
+            DataResidencyAllowedAzureRegions = "approved-region-1,approved-region-2",
+            DataResidencyApprovalReference = "RES-TEST-001"
+        };
 
     private static InfrastructureOptions OpenAiOptions() =>
         new()

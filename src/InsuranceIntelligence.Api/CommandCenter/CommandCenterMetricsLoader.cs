@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -53,7 +54,7 @@ public static class CommandCenterMetricsLoader
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return new MetricsLoadResult(null, null, Validation("tenantScope", validationError));
         }

@@ -15,6 +15,12 @@ public sealed record InfrastructureOptions
     public string? EntraClientId { get; init; }
     public string? EntraAudience { get; init; }
     public string? EntraIssuer { get; init; }
+    public string? AzureRegion { get; init; }
+    public string? DataResidencyCountry { get; init; }
+    public string? DataResidencyGeography { get; init; }
+    public string DataResidencyMode { get; init; } = "regional";
+    public string? DataResidencyAllowedAzureRegions { get; init; }
+    public string? DataResidencyApprovalReference { get; init; }
     public string AiProvider { get; init; } = "Mock";
     public string DocumentProvider { get; init; } = "Mock";
     public string RetrievalProvider { get; init; } = "Mock";
@@ -64,6 +70,7 @@ public sealed record AzureAiSearchOptions
 public sealed record AzureOpenAiOptions
 {
     public string? Endpoint { get; init; }
+    public string? DeploymentType { get; init; }
     public string? ChatDeployment { get; init; }
     public string? EmbeddingDeployment { get; init; }
     public string? PolicyAnswerPromptTemplatePath { get; init; }
@@ -84,6 +91,7 @@ public sealed record ServiceBusOptions
     public string OutboundCommunicationsQueue { get; init; } = "outbound-communications";
     public string ApprovalNotificationsQueue { get; init; } = "approval-notifications";
     public string AuditEventsQueue { get; init; } = "audit-events";
+    public string AgentWorkflowQueue { get; init; } = "agent-workflow";
 }
 
 public sealed record GraphMailOptions

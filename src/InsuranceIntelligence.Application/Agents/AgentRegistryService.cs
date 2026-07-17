@@ -15,7 +15,8 @@ public sealed class AgentRegistryService(
     ITenantContextAccessor tenantContextAccessor,
     IPermissionService permissionService,
     IAgentStateRepository repository,
-    IAuditWriter auditWriter) : IAgentRegistryService
+    IAuditWriter auditWriter,
+    IOperationalTelemetry operationalTelemetry) : IAgentRegistryService
 {
     public async Task<IReadOnlyList<AgentRegistryEntryDto>> ListAsync(CancellationToken cancellationToken = default)
     {
@@ -71,6 +72,13 @@ public sealed class AgentRegistryService(
                 AuditReason: reason.Trim(),
                 CorrelationId: Guid.NewGuid().ToString("N")),
             cancellationToken);
+
+        operationalTelemetry.TrackAgentRegistryRun(
+            context.TenantId,
+            context.WorkspaceId,
+            agentKey,
+            enabled ? "kill-switch-enabled" : "kill-switch-disabled",
+            "recorded");
 
         var descriptor = AgentCatalog.Find(agentKey)!;
         return ToDto(new AgentRegistryEntry(descriptor, enabled, context.UserId, now, reason.Trim()));

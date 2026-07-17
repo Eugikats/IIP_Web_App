@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 
@@ -10,6 +11,10 @@ public sealed class AuditQueryService(
 {
     private const int MaxPageSize = 200;
     private const string RedactedSummary = "Sensitive audit summary redacted.";
+    private static readonly Regex EmailPattern = new(
+        @"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9._%+-])",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
 
     private static readonly string[] UnsafeSummaryFragments =
     [
@@ -61,7 +66,7 @@ public sealed class AuditQueryService(
             .Select(auditEvent => new AuditEventRowDto(
                 auditEvent.Id,
                 NormalizeEventType(auditEvent.EventType),
-                auditEvent.ActorUserId,
+                MinimizeIdentifier(auditEvent.ActorUserId),
                 auditEvent.TargetType,
                 auditEvent.TargetId,
                 SanitizeSummary(auditEvent.Summary),
@@ -96,5 +101,25 @@ public sealed class AuditQueryService(
     private static string SanitizeSummary(string summary) =>
         UnsafeSummaryFragments.Any(fragment => summary.Contains(fragment, StringComparison.OrdinalIgnoreCase))
             ? RedactedSummary
-            : summary;
+            : EmailPattern.Replace(summary, MaskEmail);
+
+    private static string? MinimizeIdentifier(string? identifier) =>
+        string.IsNullOrWhiteSpace(identifier)
+            ? identifier
+            : EmailPattern.Replace(identifier, MaskEmail);
+
+    private static string MaskEmail(Match match)
+    {
+        var email = match.Value;
+        var atIndex = email.IndexOf('@', StringComparison.Ordinal);
+        if (atIndex <= 0)
+        {
+            return "[email]";
+        }
+
+        var local = email[..atIndex];
+        var domain = email[(atIndex + 1)..];
+        var first = char.ToLowerInvariant(local[0]);
+        return $"{first}***@{domain.ToLowerInvariant()}";
+    }
 }

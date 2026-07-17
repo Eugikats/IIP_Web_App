@@ -111,9 +111,11 @@ public sealed class CorePortsEfImplTests
     public async Task AuditWriter_PersistsOnlyCurrentTenantScope()
     {
         await using var dbContext = CreateDbContext();
+        var telemetry = new RecordingOperationalTelemetry();
         var writer = new AuditWriter(
             CurrentContext("tenant-a", "workspace-a", "user-1"),
-            new EfAuditEventRepository(dbContext));
+            new EfAuditEventRepository(dbContext),
+            telemetry);
         var auditEvent = AuditEventFor(TenantScope.Create("tenant-a", "workspace-a"));
 
         await writer.WriteAsync(auditEvent);
@@ -123,9 +125,11 @@ public sealed class CorePortsEfImplTests
         Assert.Equal("tenant-a", persisted.TenantId);
         Assert.Equal("workspace-a", persisted.WorkspaceId);
         Assert.Contains("core_port.test", persisted.PayloadJson, StringComparison.Ordinal);
+        Assert.Single(telemetry.AuditEvents, auditEvent);
 
         var otherTenantEvent = AuditEventFor(TenantScope.Create("tenant-b", "workspace-a"));
         await Assert.ThrowsAsync<AuditScopeException>(() => writer.WriteAsync(otherTenantEvent));
+        Assert.Single(telemetry.AuditEvents);
     }
 
     [Fact]
@@ -205,5 +209,14 @@ public sealed class CorePortsEfImplTests
             .Options;
 
         return new InsuranceIntelligenceDbContext(options);
+    }
+
+    private sealed class RecordingOperationalTelemetry : IOperationalTelemetry
+    {
+        public List<AuditEvent> AuditEvents { get; } = [];
+
+        public void TrackAuditEventCreated(AuditEvent auditEvent) => AuditEvents.Add(auditEvent);
+
+        public void TrackAgentRegistryRun(string tenantId, string workspaceId, string agentKey, string action, string result) { }
     }
 }

@@ -33,7 +33,8 @@ public sealed class CommunicationProviderRegistrationTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["INSURANCEINTELLIGENCE_STORAGE_PROVIDER"] = "InMemory",
+                ["INSURANCEINTELLIGENCE_STORAGE_PROVIDER"] = "SqlServer",
+                ["INSURANCEINTELLIGENCE_SQLSERVER_CONNECTION_STRING"] = "Server=(localdb)\\MSSQLLocalDB;Database=IipRegistrationTests;Trusted_Connection=True;TrustServerCertificate=True",
                 ["INSURANCEINTELLIGENCE_EMAIL_PROVIDER"] = "Graph",
                 ["INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER"] = communicationProvider,
                 ["INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER"] = "Disabled"

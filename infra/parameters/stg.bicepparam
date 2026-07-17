@@ -3,6 +3,12 @@ using '../mainTemplate.bicep'
 param environmentName = readEnvironmentVariable('IIP_STAGING_ENVIRONMENT_NAME', 'staging-demo')
 param runtimeProfile = 'Staging'
 param location = readEnvironmentVariable('AZURE_LOCATION', 'eastus')
+param dataResidencyMode = readEnvironmentVariable('IIP_DATA_RESIDENCY_MODE', 'regional')
+param dataResidencyCountry = readEnvironmentVariable('IIP_DATA_RESIDENCY_COUNTRY', '')
+param dataResidencyGeography = readEnvironmentVariable('IIP_DATA_RESIDENCY_GEOGRAPHY', '')
+param dataResidencyAllowedAzureRegions = readEnvironmentVariable('IIP_DATA_RESIDENCY_ALLOWED_AZURE_REGIONS', '')
+param dataResidencyApprovalReference = readEnvironmentVariable('IIP_DATA_RESIDENCY_APPROVAL_REFERENCE', '')
+param storageAccountSkuName = readEnvironmentVariable('IIP_STORAGE_ACCOUNT_SKU_NAME', 'Standard_LRS')
 param insurerDisplayName = readEnvironmentVariable('INSURANCEINTELLIGENCE_INSURER_DISPLAY_NAME', 'Pilot Insurance')
 param alertEmailOrGroup = readEnvironmentVariable('INSURANCEINTELLIGENCE_ALERT_EMAIL_OR_GROUP', 'ops@example.test')
 
@@ -41,6 +47,7 @@ param portalEntraRedirectUri = readEnvironmentVariable('IIP_ENTRA_REDIRECT_URI')
 
 param graphMailboxAccessScoped = false
 
+param azureOpenAiDeploymentType = readEnvironmentVariable('IIP_AZURE_OPENAI_DEPLOYMENT_TYPE', '')
 param azureOpenAiChatDeployment = readEnvironmentVariable('IIP_AZURE_OPENAI_CHAT_DEPLOYMENT')
 param azureOpenAiEmbeddingDeployment = readEnvironmentVariable('IIP_AZURE_OPENAI_EMBEDDING_DEPLOYMENT')
 param azureSearchIndexName = readEnvironmentVariable('IIP_AZURE_SEARCH_INDEX_NAME', 'insuranceintelligence-knowledge')

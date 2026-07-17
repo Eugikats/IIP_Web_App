@@ -2,6 +2,8 @@ using System.Text.Json;
 using System.Security.Claims;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -42,6 +44,9 @@ public sealed class CaseEndpointsTests
         Assert.Equal("tenant-demo", response.TenantId);
         Assert.Equal("workspace-claims", response.WorkspaceId);
         Assert.Equal("user-claims-1", response.CreatedByUserId);
+        Assert.Equal("UAX 123B", response.MotorFnolDetails?.VehicleRegistration);
+        Assert.Equal("17:40", response.MotorFnolDetails?.AccidentTime);
+        Assert.Equal("Kampala Road", response.MotorFnolDetails?.AccidentLocation);
         Assert.Equal(1, response.Audit.EventCount);
         Assert.Equal("case.created", response.Audit.LastActionName);
         Assert.Contains(response.AllowedActions, action =>
@@ -126,6 +131,41 @@ public sealed class CaseEndpointsTests
         Assert.Equal("tenant-entra", response!.TenantId);
         Assert.Equal("workspace-entra", response.WorkspaceId);
         Assert.Equal("entra-user-1", response.CreatedByUserId);
+    }
+
+    [Fact]
+    public async Task CreateCase_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var dependencies = CreateDependencies();
+        var tenantContext = new TenantContextAccessor();
+        tenantContext.SetCurrent(new TenantContext(
+            "tenant-membership",
+            "workspace-membership",
+            "membership-user-1",
+            [PlatformRole.Admin.ToString()]));
+        var context = new DefaultHttpContext
+        {
+            RequestServices = new ServiceCollection()
+                .AddSingleton<ITenantContextAccessor>(tenantContext)
+                .BuildServiceProvider()
+        };
+        context.Request.Headers["X-Tenant-Id"] = "attacker-tenant";
+        context.Request.Headers["X-Workspace-Id"] = "attacker-workspace";
+        context.Request.Headers["X-User-Id"] = "attacker-user";
+        context.Request.Headers["x-demo-user-id"] = "attacker-user";
+
+        var result = await CaseEndpoints.CreateCase(
+            ValidRequest(),
+            dependencies.Service,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None);
+        var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal(StatusCodes.Status201Created, statusCode);
+        Assert.Equal("tenant-membership", response!.TenantId);
+        Assert.Equal("workspace-membership", response.WorkspaceId);
+        Assert.Equal("membership-user-1", response.CreatedByUserId);
     }
 
     [Fact]
@@ -249,6 +289,79 @@ public sealed class CaseEndpointsTests
     }
 
     [Fact]
+    public async Task AssignCase_UpdatesAssignmentAndWritesAudit()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+        var context = ScopedContext("ClaimsSupervisor", "supervisor-1");
+        context.Request.Headers["X-Correlation-ID"] = "corr-assign-001";
+
+        var result = await CaseEndpoints.AssignCase(
+            created.CaseId,
+            new AssignCaseRequest("handler-42", "Motor Review", "Supervisor allocation"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None);
+        var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal("Assigned", response!.Status);
+        Assert.Equal("handler-42", response!.AssignedUserId);
+        Assert.Equal("Motor Review", response.AssignedTeam);
+        Assert.Equal("case.assigned", response.Audit.LastActionName);
+        Assert.Equal("corr-assign-001", response.Audit.CorrelationId);
+
+        var saved = await dependencies.CaseRepository.GetAsync(created.CaseId, CancellationToken.None);
+        Assert.Equal("handler-42", saved!.AssignedUserId);
+    }
+
+    [Fact]
+    public async Task EscalateCase_SetsEscalatedUrgentAndWritesAudit()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+        var context = ScopedContext("ClaimsSupervisor", "supervisor-1");
+        context.Request.Headers["X-Correlation-ID"] = "corr-escalate-001";
+
+        var result = await CaseEndpoints.EscalateCase(
+            created.CaseId,
+            new EscalateCaseRequest("SLA breach needs supervisor action", null),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None);
+        var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal("Escalated", response!.Status);
+        Assert.Equal("Claims Supervision", response.AssignedTeam);
+        Assert.Equal("case.escalated", response.Audit.LastActionName);
+
+        var saved = await dependencies.CaseRepository.GetAsync(created.CaseId, CancellationToken.None);
+        Assert.Equal(CasePriority.Urgent, saved!.Priority);
+    }
+
+    [Fact]
+    public async Task EscalateCase_RequiresAuditReason()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+
+        var result = await CaseEndpoints.EscalateCase(
+            created.CaseId,
+            new EscalateCaseRequest("", null),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext("ClaimsSupervisor", "supervisor-1"),
+            CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, statusCode);
+        Assert.True(body.GetProperty("errors").TryGetProperty("auditReason", out _));
+    }
+
+    [Fact]
     public async Task ListCases_FiltersUnassignedCasesForAssignedClaimViewer()
     {
         var dependencies = CreateDependencies();
@@ -322,7 +435,8 @@ public sealed class CaseEndpointsTests
             "Accident",
             "WebPortal",
             new DateOnly(2026, 5, 24),
-            "Minor collision reported at branch intake.");
+            "Minor collision reported at branch intake.",
+            MotorDetails());
 
     private static CreateCaseCommand ValidCommand(string createdByUserId = "user-claims-1") =>
         new(
@@ -337,7 +451,21 @@ public sealed class CaseEndpointsTests
             new DateOnly(2026, 5, 24),
             "Minor collision reported at branch intake.",
             createdByUserId,
-            "corr-api-001");
+            "corr-api-001",
+            MotorDetails());
+
+    private static MotorFnolDetails MotorDetails() =>
+        new(
+            "UAX 123B",
+            "17:40",
+            "Kampala Road",
+            "Amina Okello",
+            "DP-445566",
+            "Yes",
+            "No injuries reported",
+            "Received",
+            "Phone",
+            "Police report and photos uploaded");
 
     private static CaseDocument ProcessedDocument(ClaimCase claimCase, DocumentType documentType) =>
         new()

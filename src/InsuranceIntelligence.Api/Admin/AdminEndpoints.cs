@@ -1,8 +1,10 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
 namespace InsuranceIntelligence.Api.Admin;
@@ -22,7 +24,7 @@ public static class AdminEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -43,7 +45,7 @@ public static class AdminEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -74,7 +76,7 @@ public static class AdminEndpoints
             return Results.Conflict(new { message = "The submitted tenant configuration does not change the current configuration." });
         }
 
-        var actor = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+        var actor = ResolveActor(httpContext);
         if (string.IsNullOrWhiteSpace(actor))
         {
             return Validation("userId", "Authenticated user context is required to update tenant configuration.");
@@ -191,7 +193,7 @@ public static class AdminEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -212,7 +214,7 @@ public static class AdminEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -252,7 +254,7 @@ public static class AdminEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -283,7 +285,7 @@ public static class AdminEndpoints
             });
         }
 
-        var actor = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+        var actor = ResolveActor(httpContext);
         if (string.IsNullOrWhiteSpace(actor))
         {
             return Validation("userId", "Authenticated user context is required to change a tenant role.");
@@ -403,6 +405,32 @@ public static class AdminEndpoints
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });
+
+    private static bool TryResolveScope(HttpContext httpContext, out TenantScope scope, out string validationError)
+    {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext)
+        {
+            var current = tenantContext.Current;
+            scope = TenantScope.Create(current.TenantId, current.WorkspaceId);
+            validationError = string.Empty;
+            return true;
+        }
+
+        return TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out scope, out validationError);
+    }
+
+    private static string ResolveActor(HttpContext httpContext)
+    {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext
+            && !string.IsNullOrWhiteSpace(tenantContext.Current.UserId))
+        {
+            return tenantContext.Current.UserId;
+        }
+
+        return DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+    }
 
     private static ProviderHealthItem Health(string name, string mode, string status, string detail) =>
         new(name, mode, status, detail);

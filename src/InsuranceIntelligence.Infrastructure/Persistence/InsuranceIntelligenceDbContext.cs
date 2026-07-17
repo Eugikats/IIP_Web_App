@@ -26,6 +26,9 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
 
     public DbSet<PersistedCustomer> Customers => Set<PersistedCustomer>();
     public DbSet<PersistedAgentState> AgentStates => Set<PersistedAgentState>();
+    public DbSet<PersistedAgentWorkflowDefinition> AgentWorkflowDefinitions => Set<PersistedAgentWorkflowDefinition>();
+    public DbSet<PersistedAgentWorkflowRun> AgentWorkflowRuns => Set<PersistedAgentWorkflowRun>();
+    public DbSet<PersistedAgentWorkItem> AgentWorkItems => Set<PersistedAgentWorkItem>();
     public DbSet<PersistedPolicy> Policies => Set<PersistedPolicy>();
     public DbSet<PersistedCoverage> Coverages => Set<PersistedCoverage>();
     public DbSet<PersistedBranch> Branches => Set<PersistedBranch>();
@@ -62,6 +65,20 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
 
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomer>(), "Customers", "CustomerId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentState>(), "AgentStates", "AgentStateId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedAgentWorkflowDefinition>(), "AgentWorkflowDefinitions", "DefinitionId");
+        modelBuilder.Entity<PersistedAgentWorkflowDefinition>().Property(entity => entity.WorkflowKey).HasMaxLength(160).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkflowDefinition>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkflowDefinition>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.WorkflowKey }).IsUnique();
+        ConfigureScopedJson(modelBuilder.Entity<PersistedAgentWorkflowRun>(), "AgentWorkflowRuns", "RunId");
+        modelBuilder.Entity<PersistedAgentWorkflowRun>().Property(entity => entity.WorkflowKey).HasMaxLength(160).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkflowRun>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkflowRun>().Property(entity => entity.BusinessReferenceId).HasMaxLength(240).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkflowRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.WorkflowKey, entity.Status });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedAgentWorkItem>(), "AgentWorkItems", "WorkItemId");
+        modelBuilder.Entity<PersistedAgentWorkItem>().Property(entity => entity.WorkflowKey).HasMaxLength(160).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkItem>().Property(entity => entity.NodeKey).HasMaxLength(160).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkItem>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkItem>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RunId, entity.NodeKey });
         ConfigureScopedJson(modelBuilder.Entity<PersistedPolicy>(), "Policies", "PolicyId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedCoverage>(), "Coverages", "CoverageId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedBranch>(), "Branches", "BranchId");
@@ -166,6 +183,24 @@ public sealed class PersistedInboundEmail : PersistedScopedJson;
 public sealed class PersistedTeamsNotification : PersistedScopedJson { public Guid? CaseId { get; set; } }
 public sealed class PersistedCustomer : PersistedScopedJson;
 public sealed class PersistedAgentState : PersistedScopedJson;
+public sealed class PersistedAgentWorkflowDefinition : PersistedScopedJson
+{
+    public string WorkflowKey { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+}
+public sealed class PersistedAgentWorkflowRun : PersistedScopedJson
+{
+    public string WorkflowKey { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string BusinessReferenceId { get; set; } = string.Empty;
+}
+public sealed class PersistedAgentWorkItem : PersistedScopedJson
+{
+    public Guid RunId { get; set; }
+    public string WorkflowKey { get; set; } = string.Empty;
+    public string NodeKey { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+}
 
 public sealed class PersistedSalesLead : PersistedScopedJson;
 

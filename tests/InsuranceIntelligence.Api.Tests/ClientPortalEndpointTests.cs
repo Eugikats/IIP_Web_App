@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text;
 using System.Security.Claims;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Api.ClientPortal;
 using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.LocalTestDoubles;
@@ -10,7 +11,6 @@ using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
-using InsuranceIntelligence.Infrastructure.Simulated;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
@@ -170,6 +170,49 @@ public sealed class ClientPortalEndpointTests
         Assert.Contains(await audit.ListForCaseAsync(caseId), auditEvent => auditEvent.ActionName == "document.uploaded");
     }
 
+    [Fact]
+    public async Task UploadDocuments_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var caseId = Guid.NewGuid();
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var spoofedScope = TenantScope.Create("tenant-spoofed", "workspace-spoofed");
+        var cases = new InMemoryCaseRepository();
+        var documents = new InMemoryCaseDocumentRepository();
+        var communications = new InMemoryCommunicationRepository();
+        var audit = new InMemoryAuditRepository();
+        await cases.SaveAsync(Case(caseId, membershipScope, "sarah@example.com"));
+
+        var result = await ClientPortalEndpoints.UploadDocuments(
+            caseId,
+            cases,
+            documents,
+            new StubDocumentStorageProvider(),
+            new ClaimFormProcessingProvider(),
+            new StaticDocumentChecklistProvider(new CompletenessScoringService()),
+            communications,
+            audit,
+            UploadContext(
+                "sarah@example.com",
+                context => ApplyMembershipScope(context, membershipScope, spoofedScope, "sarah@example.com", "spoofed-user")),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+        var membershipDocuments = await documents.ListForCaseAsync(caseId, membershipScope);
+        var spoofedDocuments = await documents.ListForCaseAsync(caseId, spoofedScope);
+        var auditEvents = await audit.ListAsync(membershipScope, CancellationToken.None);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal(caseId, body.GetProperty("caseId").GetGuid());
+        var uploadedDocument = Assert.Single(membershipDocuments);
+        Assert.Empty(spoofedDocuments);
+        Assert.Equal(membershipScope, uploadedDocument.Scope);
+        Assert.Equal("sarah@example.com", uploadedDocument.UploadedByUserId);
+        Assert.Contains(
+            auditEvents,
+            auditEvent => auditEvent.ActionName == "document.uploaded"
+                && auditEvent.Scope == membershipScope);
+    }
+
     private static ClaimCase Case(Guid caseId, TenantScope scope, string customerEmail) =>
         new()
         {
@@ -237,7 +280,9 @@ public sealed class ClientPortalEndpointTests
         return context;
     }
 
-    private static DefaultHttpContext UploadContext(string userId)
+    private static DefaultHttpContext UploadContext(
+        string userId,
+        Action<DefaultHttpContext>? configure = null)
     {
         var context = Context(userId);
         var bytes = Encoding.UTF8.GetBytes("customer claim form");
@@ -248,7 +293,33 @@ public sealed class ClientPortalEndpointTests
         };
         context.Request.ContentType = "multipart/form-data; boundary=test";
         context.Request.Form = new FormCollection(new Dictionary<string, StringValues>(), new FormFileCollection { file });
+        configure?.Invoke(context);
         return context;
+    }
+
+    private static void ApplyMembershipScope(
+        DefaultHttpContext context,
+        TenantScope membershipScope,
+        TenantScope spoofedScope,
+        string membershipUserId,
+        string spoofedUserId)
+    {
+        var tenantContext = new TenantContextAccessor();
+        tenantContext.SetCurrent(new TenantContext(
+            membershipScope.TenantId,
+            membershipScope.WorkspaceId,
+            membershipUserId,
+            ["Client"]));
+
+        context.RequestServices = new ServiceCollection()
+            .AddSingleton<ITenantContextAccessor>(tenantContext)
+            .AddLogging()
+            .AddProblemDetails()
+            .BuildServiceProvider();
+        context.Request.Headers["X-Tenant-Id"] = spoofedScope.TenantId;
+        context.Request.Headers["X-Workspace-Id"] = spoofedScope.WorkspaceId;
+        context.Request.Headers["X-User-Id"] = spoofedUserId;
+        context.Request.Headers["x-demo-user-id"] = spoofedUserId;
     }
 
     private static TenantScope Scope() => TenantScope.Create("tenant-demo", "workspace-claims");

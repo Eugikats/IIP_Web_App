@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Workflow;
@@ -17,7 +18,7 @@ public static class ReportsEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {

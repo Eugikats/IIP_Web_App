@@ -77,6 +77,65 @@ public sealed class Phase5DomainTests
         Assert.True(pack.IsCustomerSafe());
     }
 
+    [Fact]
+    public void AssistantAuditEvents_RecordSafeMetadataWithoutPromptOutputOrToolTrace()
+    {
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var rawPrompt = "RAW PROMPT: include all claim notes and hidden tool trace.";
+        var rawOutput = "RAW MODEL OUTPUT: deny the claim and expose internal reasoning.";
+        var rawExcerpt = "Raw policy excerpt with customer email jane.customer@example.com.";
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = Guid.NewGuid(),
+            UserId = "user",
+            AgentName = "CommandCenter",
+            AssistantMode = AssistantMode.OperationalSummary,
+            InputSummary = rawPrompt,
+            RetrievedSources =
+            [
+                new SourceCitation(
+                    Guid.NewGuid(),
+                    "chunk-raw-tool-trace",
+                    "Motor Policy",
+                    "Motor",
+                    "v1",
+                    rawExcerpt,
+                    "Approved")
+            ],
+            ModelOutput = rawOutput,
+            ConfidenceScore = AiConfidenceScore.Create(0.72m),
+            RiskFlag = "needs_review",
+            HumanOverride = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-ai-governance",
+            ModelProvider = "AzureOpenAI",
+            ModelDeployment = "gpt-4.1",
+            PromptVersion = "command-center-query-v1"
+        };
+
+        var commandCenterAudit = AuditEvent.CommandCenterAssistantAnswered(actionLog);
+        var policyAudit = AuditEvent.AssistantPolicyQuestionAnswered(actionLog);
+
+        AssertAssistantAuditIsSafe(commandCenterAudit);
+        AssertAssistantAuditIsSafe(policyAudit);
+        Assert.Empty(commandCenterAudit.EvidenceIds);
+        Assert.Contains("chunk-raw-tool-trace", policyAudit.EvidenceIds);
+
+        void AssertAssistantAuditIsSafe(AuditEvent auditEvent)
+        {
+            Assert.Equal("AzureOpenAI", auditEvent.ModelProvider);
+            Assert.Equal(0.72m, auditEvent.Confidence);
+            Assert.Equal("needs_review", auditEvent.ValidationResult);
+            Assert.Equal("corr-ai-governance", auditEvent.CorrelationId);
+            Assert.Null(auditEvent.AuditReason);
+            Assert.DoesNotContain(rawPrompt, AuditText(auditEvent), StringComparison.Ordinal);
+            Assert.DoesNotContain(rawOutput, AuditText(auditEvent), StringComparison.Ordinal);
+            Assert.DoesNotContain(rawExcerpt, AuditText(auditEvent), StringComparison.Ordinal);
+        }
+    }
+
     private static ClaimCase Case(TenantScope scope) =>
         new()
         {
@@ -98,4 +157,17 @@ public sealed class Phase5DomainTests
             UpdatedAt = DateTimeOffset.UtcNow,
             CorrelationId = "corr"
         };
+
+    private static string AuditText(AuditEvent auditEvent) =>
+        string.Join(
+            "|",
+            [
+                auditEvent.ActionName,
+                auditEvent.BeforeStatus ?? string.Empty,
+                auditEvent.AfterStatus ?? string.Empty,
+                auditEvent.ValidationResult,
+                auditEvent.ModelProvider ?? string.Empty,
+                auditEvent.AuditReason ?? string.Empty,
+                .. auditEvent.EvidenceIds
+            ]);
 }

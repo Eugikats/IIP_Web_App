@@ -5,6 +5,7 @@ using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Api.Reports;
 using InsuranceIntelligence.Api.Workflow;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Common;
@@ -53,11 +54,58 @@ public sealed class WorkflowEndpointsTests
         var result = await EvaluateAsync(dependencies, claimCase.CaseId);
         var (statusCode, response) = await ExecuteAsync<WorkflowEvaluationResponse>(result);
         var auditEvents = await dependencies.AuditRepository.ListForCaseAsync(claimCase.CaseId);
+        var saved = await dependencies.CaseRepository.GetAsync(claimCase.CaseId);
 
         Assert.Equal(StatusCodes.Status200OK, statusCode);
         Assert.NotEmpty(response!.CreatedTasks);
+        Assert.Equal(CaseStatus.MissingDocuments, saved!.Status);
+        Assert.Contains(auditEvents, auditEvent => auditEvent.ActionName == "case.status.updated");
         Assert.Contains(auditEvents, auditEvent => auditEvent.ActionName == "workflow.evaluated");
         Assert.Contains(auditEvents, auditEvent => auditEvent.ActionName == "workflow.task.created");
+    }
+
+    [Fact]
+    public async Task EvaluateWorkflow_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var dependencies = CreateDependencies();
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var claimCase = await CreateCaseAsync(dependencies, createdByUserId: "membership-user-1", scope: membershipScope);
+        var context = MembershipScopedContext(
+            membershipScope,
+            "membership-user-1",
+            "attacker-tenant",
+            "attacker-workspace",
+            "attacker-user");
+
+        var result = await WorkflowEndpoints.EvaluateWorkflow(
+            claimCase.CaseId,
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.ChecklistProvider,
+            dependencies.ActionLogRepository,
+            dependencies.SlaCalculator,
+            dependencies.WorkflowRuleProvider,
+            dependencies.WorkflowTaskRepository,
+            dependencies.ApprovalRepository,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync<WorkflowEvaluationResponse>(result);
+        var membershipTasks = await dependencies.WorkflowTaskRepository.ListAsync(membershipScope, CancellationToken.None);
+        var attackerTasks = await dependencies.WorkflowTaskRepository.ListAsync(
+            TenantScope.Create("attacker-tenant", "attacker-workspace"),
+            CancellationToken.None);
+        var auditEvents = await dependencies.AuditRepository.ListForCaseAsync(claimCase.CaseId);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.NotEmpty(membershipTasks);
+        Assert.Empty(attackerTasks);
+        Assert.All(membershipTasks, task =>
+        {
+            Assert.Equal(membershipScope, task.Scope);
+            Assert.Equal("membership-user-1", task.CreatedByUserId);
+        });
+        Assert.Contains(auditEvents, auditEvent => auditEvent.ActionName == "workflow.evaluated");
     }
 
     [Fact]
@@ -158,6 +206,34 @@ public sealed class WorkflowEndpointsTests
     }
 
     [Fact]
+    public async Task DraftCustomerUpdate_ReturnsNotConfiguredWhenDraftingProviderIsAbsent()
+    {
+        var dependencies = CreateDependencies();
+        var claimCase = await CreateCaseAsync(dependencies);
+
+        var result = await CustomerUpdateEndpoints.DraftCustomerUpdate(
+            claimCase.CaseId,
+            new DraftCustomerUpdateRequest("MissingDocuments", "Portal"),
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.ChecklistProvider,
+            new NotConfiguredCustomerUpdateDraftingProvider(),
+            dependencies.CustomerUpdateRepository,
+            dependencies.ActionLogRepository,
+            dependencies.AuditRepository,
+            ScopedContext(),
+            CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, statusCode);
+        Assert.Equal("NotConfigured", body.GetProperty("status").GetString());
+        Assert.Equal("CustomerUpdateDrafting", body.GetProperty("provider").GetString());
+        Assert.Empty(await dependencies.CustomerUpdateRepository.ListForCaseAsync(
+            claimCase.CaseId,
+            TenantScope.Create("tenant-demo", "workspace-claims")));
+    }
+
+    [Fact]
     public async Task CreateAndApproveApprovalRequest()
     {
         var dependencies = CreateDependencies();
@@ -188,11 +264,82 @@ public sealed class WorkflowEndpointsTests
         Assert.Contains(auditEvents, auditEvent =>
             auditEvent.ActionName == "approval.approved"
             && auditEvent.AuditReason == auditReason);
-        Assert.Empty(response.AllowedActions);
+        Assert.Contains(response.AllowedActions, action =>
+            action.Action == "executeApprovedNextStep"
+            && action.RequiredPermission == "ApproveSettlementWorkflowStep");
         Assert.Contains(response.BlockedActions, action =>
             action.Action == "approveApproval"
             && action.Reason is not null
             && action.Reason.Contains("already approved", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ExecuteApprovedNextStep_AdvancesCaseToReadyForExportAndBlocksRepeat()
+    {
+        var dependencies = CreateDependencies();
+        var claimCase = await CreateCaseAsync(dependencies);
+        var approval = await CreateApprovalAsync(dependencies, claimCase.CaseId);
+        var approveResult = await ApprovalEndpoints.ApproveApproval(
+            approval.ApprovalId,
+            new ApprovalDecisionRequest("Approved for workflow progression."),
+            dependencies.ApprovalRepository,
+            dependencies.AuditRepository,
+            ScopedContext(auditReason: "Approve before execution."),
+            CancellationToken.None);
+        var (_, approved) = await ExecuteAsync<ApprovalResponse>(approveResult);
+
+        var executeResult = await ApprovalEndpoints.ExecuteApprovedNextStep(
+            approved!.ApprovalId,
+            new ExecuteApprovedNextStepRequest("Move the approved workflow step forward."),
+            dependencies.ApprovalRepository,
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext(auditReason: "Execute approved workflow next step."),
+            CancellationToken.None);
+        var (statusCode, executed) = await ExecuteAsync<ApprovalResponse>(executeResult);
+        var savedCase = await dependencies.CaseRepository.GetAsync(claimCase.CaseId);
+        var auditEvents = await dependencies.AuditRepository.ListForCaseAsync(claimCase.CaseId);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal("user-claims-1", executed!.ExecutedByUserId);
+        Assert.NotNull(executed.ExecutedAt);
+        Assert.Equal(CaseStatus.ReadyForExport, savedCase!.Status);
+        Assert.Contains(auditEvents, auditEvent => auditEvent.ActionName == "approval.next_step.executed");
+        Assert.Contains(auditEvents, auditEvent => auditEvent.ActionName == "case.status.updated");
+
+        var repeatResult = await ApprovalEndpoints.ExecuteApprovedNextStep(
+            approved.ApprovalId,
+            new ExecuteApprovedNextStepRequest("Repeat should fail."),
+            dependencies.ApprovalRepository,
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext(auditReason: "Attempt repeat execution."),
+            CancellationToken.None);
+        var (repeatStatus, repeatBody) = await ExecuteAsync<JsonElement>(repeatResult);
+
+        Assert.Equal(StatusCodes.Status409Conflict, repeatStatus);
+        Assert.Contains("already been executed", repeatBody.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExecuteApprovedNextStep_BlocksPendingApproval()
+    {
+        var dependencies = CreateDependencies();
+        var claimCase = await CreateCaseAsync(dependencies);
+        var approval = await CreateApprovalAsync(dependencies, claimCase.CaseId);
+
+        var result = await ApprovalEndpoints.ExecuteApprovedNextStep(
+            approval.ApprovalId,
+            new ExecuteApprovedNextStepRequest("Execution before approval should fail."),
+            dependencies.ApprovalRepository,
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext(auditReason: "Attempt pending execution."),
+            CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status409Conflict, statusCode);
+        Assert.Contains("Only approved", body.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -622,6 +769,39 @@ public sealed class WorkflowEndpointsTests
     }
 
     [Fact]
+    public async Task CommandCenterMetrics_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var dependencies = CreateDependencies();
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var attackerScope = TenantScope.Create("attacker-tenant", "attacker-workspace");
+        await CreateCaseAsync(dependencies, createdByUserId: "membership-user-1", scope: membershipScope);
+        await CreateCaseAsync(dependencies, createdByUserId: "attacker-user", scope: attackerScope);
+        await CreateCaseAsync(dependencies, createdByUserId: "attacker-user", scope: attackerScope);
+
+        var result = await CommandCenterMetricsLoader.GetMetrics(
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.KnowledgeRepository,
+            dependencies.ActionLogRepository,
+            dependencies.ApprovalRepository,
+            dependencies.WorkflowTaskRepository,
+            dependencies.CustomerUpdateRepository,
+            dependencies.SlaCalculator,
+            MembershipScopedContext(
+                membershipScope,
+                "membership-user-1",
+                attackerScope.TenantId,
+                attackerScope.WorkspaceId,
+                "attacker-user"),
+            CancellationToken.None);
+        var (statusCode, metrics) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal(1, metrics.GetProperty("totalCases").GetInt32());
+        Assert.Equal(1, metrics.GetProperty("openClaims").GetInt32());
+    }
+
+    [Fact]
     public async Task OperationsSummaryReturnsExpectedMetrics()
     {
         var dependencies = CreateDependencies();
@@ -642,6 +822,37 @@ public sealed class WorkflowEndpointsTests
         Assert.Equal(StatusCodes.Status200OK, statusCode);
         Assert.Equal(1, summary!.OpenClaims);
         Assert.True(summary.OpenTasks > 0);
+    }
+
+    [Fact]
+    public async Task OperationsSummary_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var dependencies = CreateDependencies();
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var attackerScope = TenantScope.Create("attacker-tenant", "attacker-workspace");
+        await CreateCaseAsync(dependencies, createdByUserId: "membership-user-1", scope: membershipScope);
+        await CreateCaseAsync(dependencies, createdByUserId: "attacker-user", scope: attackerScope);
+        await CreateCaseAsync(dependencies, createdByUserId: "attacker-user", scope: attackerScope);
+
+        var result = await ReportsEndpoints.GetOperationsSummary(
+            dependencies.CaseRepository,
+            dependencies.WorkflowTaskRepository,
+            dependencies.ApprovalRepository,
+            dependencies.CustomerUpdateRepository,
+            dependencies.ActionLogRepository,
+            dependencies.SlaCalculator,
+            MembershipScopedContext(
+                membershipScope,
+                "membership-user-1",
+                attackerScope.TenantId,
+                attackerScope.WorkspaceId,
+                "attacker-user"),
+            CancellationToken.None);
+        var (statusCode, summary) = await ExecuteAsync<OperationsSummaryResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal(1, summary!.OpenClaims);
+        Assert.Equal(1, summary.ClaimsByStatus.Sum(item => item.Count));
     }
 
     private static async Task<IResult> EvaluateAsync(Dependencies dependencies, Guid caseId) =>
@@ -698,13 +909,14 @@ public sealed class WorkflowEndpointsTests
 
     private static async Task<ClaimCase> CreateCaseAsync(
         Dependencies dependencies,
-        string createdByUserId = "user-claims-1")
+        string createdByUserId = "user-claims-1",
+        TenantScope? scope = null)
     {
         var service = new CaseIntakeService(dependencies.CaseRepository, dependencies.AuditRepository);
 
         return await service.CreateCaseAsync(
             new CreateCaseCommand(
-                TenantScope.Create("tenant-demo", "workspace-claims"),
+                scope ?? TenantScope.Create("tenant-demo", "workspace-claims"),
                 "Amina Okello",
                 "amina@example.test",
                 "+256700000000",
@@ -781,6 +993,28 @@ public sealed class WorkflowEndpointsTests
         {
             context.Request.Headers["X-Audit-Reason"] = auditReason;
         }
+        return context;
+    }
+
+    private static DefaultHttpContext MembershipScopedContext(
+        TenantScope membershipScope,
+        string membershipUserId,
+        string spoofedTenantId,
+        string spoofedWorkspaceId,
+        string spoofedUserId)
+    {
+        var tenantContext = new TenantContextAccessor();
+        tenantContext.SetCurrent(new TenantContext(
+            membershipScope.TenantId,
+            membershipScope.WorkspaceId,
+            membershipUserId,
+            ["ClaimsOfficer"]));
+        var context = ScopedContext(spoofedTenantId, spoofedWorkspaceId);
+        context.RequestServices = new ServiceCollection()
+            .AddSingleton<ITenantContextAccessor>(tenantContext)
+            .BuildServiceProvider();
+        context.Request.Headers["X-User-Id"] = spoofedUserId;
+        context.Request.Headers["x-demo-user-id"] = spoofedUserId;
         return context;
     }
 

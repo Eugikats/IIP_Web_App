@@ -4,9 +4,8 @@ using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Integrations;
 
-namespace InsuranceIntelligence.Infrastructure.Simulated;
+namespace InsuranceIntelligence.LocalTestDoubles;
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryTenantConfigurationRepository : ITenantConfigurationRepository
 {
     private readonly ConcurrentDictionary<string, TenantConfiguration> configurations = new(StringComparer.OrdinalIgnoreCase);
@@ -28,7 +27,6 @@ public sealed class InMemoryTenantConfigurationRepository : ITenantConfiguration
     private static string Key(TenantScope scope) => $"{scope.TenantId}:{scope.WorkspaceId}";
 }
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryUserAccountRepository : IUserAccountRepository
 {
     private readonly ConcurrentDictionary<string, InsuranceUserAccount> users = new(StringComparer.OrdinalIgnoreCase);
@@ -54,7 +52,6 @@ public sealed class InMemoryUserAccountRepository : IUserAccountRepository
     private static string Key(TenantScope scope, string userId) => $"{scope.TenantId}:{scope.WorkspaceId}:{userId}";
 }
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryCommunicationRepository : ICommunicationRepository
 {
     private readonly ConcurrentDictionary<Guid, Communication> communications = new();
@@ -78,7 +75,6 @@ public sealed class InMemoryCommunicationRepository : ICommunicationRepository
     }
 }
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryMailboxConnectionRepository : IMailboxConnectionRepository
 {
     private readonly ConcurrentDictionary<Guid, MailboxConnection> mailboxes = new();
@@ -102,7 +98,6 @@ public sealed class InMemoryMailboxConnectionRepository : IMailboxConnectionRepo
     }
 }
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryInboundEmailRepository : IInboundEmailRepository
 {
     private readonly ConcurrentDictionary<Guid, InboundEmailMessage> messages = new();
@@ -126,7 +121,6 @@ public sealed class InMemoryInboundEmailRepository : IInboundEmailRepository
     }
 }
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryCustomerRepository : InsuranceIntelligence.Domain.Customers.ICustomerRepository
 {
     private readonly ConcurrentDictionary<string, InsuranceIntelligence.Domain.Customers.Customer> items = new();
@@ -150,7 +144,6 @@ public sealed class InMemoryCustomerRepository : InsuranceIntelligence.Domain.Cu
     }
 }
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryPolicyRepository : InsuranceIntelligence.Domain.Policies.IPolicyRepository
 {
     private readonly ConcurrentDictionary<string, InsuranceIntelligence.Domain.Policies.Policy> items = new();
@@ -180,7 +173,6 @@ public sealed class InMemoryPolicyRepository : InsuranceIntelligence.Domain.Poli
     }
 }
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryCoverageRepository : InsuranceIntelligence.Domain.Policies.ICoverageRepository
 {
     private readonly ConcurrentDictionary<string, InsuranceIntelligence.Domain.Policies.Coverage> items = new();
@@ -204,7 +196,6 @@ public sealed class InMemoryCoverageRepository : InsuranceIntelligence.Domain.Po
     }
 }
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryBranchRepository : InsuranceIntelligence.Domain.Distribution.IBranchRepository
 {
     private readonly ConcurrentDictionary<string, InsuranceIntelligence.Domain.Distribution.Branch> items = new();
@@ -228,7 +219,6 @@ public sealed class InMemoryBranchRepository : InsuranceIntelligence.Domain.Dist
     }
 }
 
-[System.Obsolete("DO NOT USE IN PRODUCTION. Build the real Azure integration.")]
 public sealed class InMemoryProducerRepository : InsuranceIntelligence.Domain.Distribution.IProducerRepository
 {
     private readonly ConcurrentDictionary<string, InsuranceIntelligence.Domain.Distribution.Producer> items = new();
