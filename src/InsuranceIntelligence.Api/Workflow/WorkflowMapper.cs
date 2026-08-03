@@ -43,9 +43,12 @@ public static class WorkflowMapper
             approval.ReviewerUserId,
             approval.Decision?.ToString(),
             approval.Comments,
+            approval.ExecutedByUserId,
+            approval.ExecutionResult,
             approval.CreatedAt,
             approval.UpdatedAt,
             approval.DecidedAt,
+            approval.ExecutedAt,
             approval.CorrelationId,
             ApprovalActions.Allowed(approval),
             ApprovalActions.Blocked(approval));
@@ -155,37 +158,63 @@ internal static class CustomerUpdateActions
 
 internal static class ApprovalActions
 {
+    private const string ExecuteApprovedNextStep = "executeApprovedNextStep";
+
     public static IReadOnlyCollection<ActionStateResponse> Allowed(ApprovalRequest approval)
     {
-        if (approval.Status != ApprovalStatus.Pending)
+        if (approval.Status == ApprovalStatus.Pending)
         {
-            return Array.Empty<ActionStateResponse>();
+            return
+            [
+                Action("approveApproval", "Approve workflow step", Permission.ApproveSettlementWorkflowStep),
+                Action("rejectApproval", "Reject workflow step", Permission.ApproveSettlementWorkflowStep),
+                Action("escalateApproval", "Escalate workflow step", Permission.ApproveSettlementWorkflowStep),
+                Action("overrideApproval", "Override AI recommendation", Permission.OverrideAiRecommendation)
+            ];
         }
 
-        return
-        [
-            Action("approveApproval", "Approve workflow step", Permission.ApproveSettlementWorkflowStep),
-            Action("rejectApproval", "Reject workflow step", Permission.ApproveSettlementWorkflowStep),
-            Action("escalateApproval", "Escalate workflow step", Permission.ApproveSettlementWorkflowStep),
-            Action("overrideApproval", "Override AI recommendation", Permission.OverrideAiRecommendation)
-        ];
+        return CanExecuteApprovedNextStep(approval, out _)
+            ? [Action(ExecuteApprovedNextStep, "Execute approved next step", Permission.ApproveSettlementWorkflowStep)]
+            : Array.Empty<ActionStateResponse>();
     }
 
     public static IReadOnlyCollection<ActionStateResponse> Blocked(ApprovalRequest approval)
     {
-        if (approval.Status == ApprovalStatus.Pending)
+        var actions = new List<ActionStateResponse>();
+
+        if (approval.Status != ApprovalStatus.Pending)
         {
-            return Array.Empty<ActionStateResponse>();
+            var reason = $"This approval is already {approval.Status.ToString().ToLowerInvariant()} and cannot be changed from this queue.";
+            actions.Add(Action("approveApproval", "Approve workflow step", Permission.ApproveSettlementWorkflowStep, reason));
+            actions.Add(Action("rejectApproval", "Reject workflow step", Permission.ApproveSettlementWorkflowStep, reason));
+            actions.Add(Action("escalateApproval", "Escalate workflow step", Permission.ApproveSettlementWorkflowStep, reason));
+            actions.Add(Action("overrideApproval", "Override AI recommendation", Permission.OverrideAiRecommendation, reason));
         }
 
-        var reason = $"This approval is already {approval.Status.ToString().ToLowerInvariant()} and cannot be changed from this queue.";
-        return
-        [
-            Action("approveApproval", "Approve workflow step", Permission.ApproveSettlementWorkflowStep, reason),
-            Action("rejectApproval", "Reject workflow step", Permission.ApproveSettlementWorkflowStep, reason),
-            Action("escalateApproval", "Escalate workflow step", Permission.ApproveSettlementWorkflowStep, reason),
-            Action("overrideApproval", "Override AI recommendation", Permission.OverrideAiRecommendation, reason)
-        ];
+        if (!CanExecuteApprovedNextStep(approval, out var executionReason))
+        {
+            actions.Add(Action(ExecuteApprovedNextStep, "Execute approved next step", Permission.ApproveSettlementWorkflowStep, executionReason));
+        }
+
+        return actions;
+    }
+
+    public static bool CanExecuteApprovedNextStep(ApprovalRequest approval, out string? reason)
+    {
+        if (approval.ExecutedAt is not null)
+        {
+            reason = "This approval's next step has already been executed.";
+            return false;
+        }
+
+        if (approval.Status is ApprovalStatus.Approved or ApprovalStatus.Overridden)
+        {
+            reason = null;
+            return true;
+        }
+
+        reason = "Only approved or overridden approval requests can execute a workflow next step.";
+        return false;
     }
 
     private static ActionStateResponse Action(string action, string label, Permission permission, string? reason = null) =>

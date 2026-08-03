@@ -26,13 +26,28 @@ function readLS<T>(k: string, fallback: T): T {
 }
 
 export function UIStateProvider({ children }: { children: ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => readLS("iip.sidebarOpen", true));
-  const [copilotOpen, setCopilotOpen] = useState<boolean>(() => readLS("iip.copilotOpen", true));
-  const [role, setRole] = useState<Role>(() => readLS<Role>("iip.role", "Admin"));
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [copilotOpen, setCopilotOpen] = useState(true);
+  const [role, setRole] = useState<Role>("Admin");
+  const [hydrated, setHydrated] = useState(false);
 
-  useEffect(() => { localStorage.setItem("iip.sidebarOpen", JSON.stringify(sidebarOpen)); }, [sidebarOpen]);
-  useEffect(() => { localStorage.setItem("iip.copilotOpen", JSON.stringify(copilotOpen)); }, [copilotOpen]);
-  useEffect(() => { localStorage.setItem("iip.role", JSON.stringify(role)); }, [role]);
+  useEffect(() => {
+    const mobileViewport = window.matchMedia("(max-width: 767px)").matches;
+    setSidebarOpen(mobileViewport ? false : readLS("iip.sidebarOpen", true));
+    setCopilotOpen(readLS("iip.copilotOpen", true));
+    setRole(readLS<Role>("iip.role", "Admin"));
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) localStorage.setItem("iip.sidebarOpen", JSON.stringify(sidebarOpen));
+  }, [hydrated, sidebarOpen]);
+  useEffect(() => {
+    if (hydrated) localStorage.setItem("iip.copilotOpen", JSON.stringify(copilotOpen));
+  }, [copilotOpen, hydrated]);
+  useEffect(() => {
+    if (hydrated) localStorage.setItem("iip.role", JSON.stringify(role));
+  }, [hydrated, role]);
 
   const value = useMemo<UIState>(() => ({
     sidebarOpen, copilotOpen, role,

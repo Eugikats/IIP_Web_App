@@ -1,6 +1,5 @@
 import { CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import { Badge } from "./Primitives";
-import { toast } from "sonner";
 
 interface Item { label: string; present: boolean; lowConfidence?: boolean }
 
@@ -35,13 +34,7 @@ export default function CompletenessCard({
           </li>
         ))}
       </ul>
-      <button
-        onClick={() => toast.success("Customer-safe document request drafted", { description: "Draft added to Communications for officer approval." })}
-        className="mt-3 w-full text-[12.5px] rounded-xl border border-cloud bg-white py-2 text-navy hover:bg-white/80"
-      >
-        Draft request for missing documents
-      </button>
-      <div className="mt-2 text-[10.5px] text-stone">Completeness is not a claim decision. Low-confidence fields count as incomplete until reviewed.</div>
+      <div className="mt-3 text-[10.5px] leading-4 text-stone">Completeness is not a claim decision. Low-confidence fields count as incomplete until reviewed. Use the claim&apos;s governed document-follow-up action to prepare a customer request.</div>
     </div>
   );
 }

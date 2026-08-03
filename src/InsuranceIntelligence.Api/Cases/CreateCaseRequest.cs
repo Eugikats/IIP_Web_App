@@ -1,3 +1,5 @@
+using InsuranceIntelligence.Domain.Cases;
+
 namespace InsuranceIntelligence.Api.Cases;
 
 public sealed record CreateCaseRequest(
@@ -9,4 +11,5 @@ public sealed record CreateCaseRequest(
     string? ClaimType,
     string? Channel,
     DateOnly? IncidentDate,
-    string? IncidentDescription);
+    string? IncidentDescription,
+    MotorFnolDetails? MotorFnolDetails = null);

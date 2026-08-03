@@ -95,6 +95,27 @@ public sealed class CommandCenterQueryEndpointsTests
     }
 
     [Fact]
+    public async Task RunQuery_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var harness = new Harness();
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var spoofedScope = TenantScope.Create("tenant-spoofed", "workspace-spoofed");
+
+        var (statusCode, body) = await harness.RunWithResolvedContextAsync(
+            "What needs my attention today?",
+            membershipScope,
+            "membership-command-user",
+            spoofedScope);
+        var actionLogId = body.GetProperty("agentActionLogId").GetGuid();
+        var membershipLogs = await harness.ActionLogRepository.ListAsync(membershipScope);
+        var spoofedLogs = await harness.ActionLogRepository.ListAsync(spoofedScope);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Contains(membershipLogs, log => log.AgentActionLogId == actionLogId);
+        Assert.Empty(spoofedLogs);
+    }
+
+    [Fact]
     public async Task AiDependentIntentReturnsNotConfiguredAndWritesAudit()
     {
         var harness = new Harness();
@@ -409,13 +430,62 @@ public sealed class CommandCenterQueryEndpointsTests
             return await ExecuteAsync(result);
         }
 
+        public async Task<(int? StatusCode, JsonElement Body)> RunWithResolvedContextAsync(
+            string question,
+            TenantScope membershipScope,
+            string membershipUserId,
+            TenantScope spoofedScope)
+        {
+            TenantContextAccessor.SetCurrent(new TenantContext(
+                membershipScope.TenantId,
+                membershipScope.WorkspaceId,
+                membershipUserId,
+                [_role]));
+            var permissionService = new PermissionService(TenantContextAccessor, new LocalTestPermissionReadRepository());
+            var queryService = new CommandCenterQueryService(
+                TenantContextAccessor,
+                permissionService,
+                CaseRepository,
+                DocumentRepository,
+                ChecklistProvider,
+                KnowledgeRepository,
+                _retrievalProvider,
+                ActionLogRepository,
+                ApprovalRepository,
+                WorkflowTaskRepository,
+                CustomerUpdateRepository,
+                AuditRepository,
+                SlaCalculator,
+                new DeterministicThenAiIntentClassifier(),
+                new ProviderRequirementResolver(),
+                _providerHealthCheck,
+                _chatCompletionProvider,
+                new DeterministicAiOutputValidator(),
+                new CustomerUpdateNotificationDraftService(CustomerUpdateRepository));
+
+            var result = await CommandCenterQueryEndpoints.RunQuery(
+                new CommandCenterQueryRequest(question),
+                queryService,
+                TenantContextAccessor,
+                _options,
+                ScopedContext(spoofedScope, "spoofed-command-user"),
+                CancellationToken.None);
+
+            return await ExecuteAsync(result);
+        }
+
         private DefaultHttpContext ScopedContext()
         {
+            return ScopedContext(Scope, "user-claims-1");
+        }
+
+        private DefaultHttpContext ScopedContext(TenantScope scope, string userId)
+        {
             var context = new DefaultHttpContext { TraceIdentifier = "trace-query-001" };
-            context.Request.Headers["X-Tenant-Id"] = "tenant-demo";
-            context.Request.Headers["X-Workspace-Id"] = "workspace-claims";
-            context.Request.Headers["X-User-Id"] = "user-claims-1";
-            context.Request.Headers["x-demo-user-id"] = "user-claims-1";
+            context.Request.Headers["X-Tenant-Id"] = scope.TenantId;
+            context.Request.Headers["X-Workspace-Id"] = scope.WorkspaceId;
+            context.Request.Headers["X-User-Id"] = userId;
+            context.Request.Headers["x-demo-user-id"] = userId;
             context.Request.Headers["x-demo-role"] = _role;
             context.Request.Headers["X-Correlation-ID"] = "corr-query-001";
             return context;

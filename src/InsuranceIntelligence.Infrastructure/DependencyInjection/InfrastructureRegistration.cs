@@ -7,17 +7,21 @@ using InsuranceIntelligence.Application.Customers;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
+using InsuranceIntelligence.Infrastructure.Communications;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.Persistence;
-using InsuranceIntelligence.Infrastructure.Simulated;
+using InsuranceIntelligence.Infrastructure.Email;
 using InsuranceIntelligence.Infrastructure.Graph;
 using InsuranceIntelligence.Infrastructure.Notifications;
 using InsuranceIntelligence.Infrastructure.Providers;
+using InsuranceIntelligence.Infrastructure.Telemetry;
+using InsuranceIntelligence.Infrastructure.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +38,7 @@ public static class InfrastructureRegistration
     {
         var options = BindOptions(configuration);
         services.AddSingleton(options);
+        services.AddSingleton<IOperationalTelemetry, LoggingOperationalTelemetry>();
 
         if (options.StorageProvider.Equals("EfSqlite", StringComparison.OrdinalIgnoreCase)
             || options.StorageProvider.Equals("SQLite", StringComparison.OrdinalIgnoreCase))
@@ -52,23 +57,12 @@ public static class InfrastructureRegistration
                 db.UseSqlServer(options.SqlServerConnectionString));
             AddEfRepositories(services);
         }
-        else if (options.StorageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase))
-        {
-            AddSupportRepositories(services);
-        }
         else
         {
-            throw new InvalidOperationException($"Unsupported storage provider '{options.StorageProvider}'. Use InMemory for isolated local/test execution or SqlServer for deployed environments.");
+            throw new InvalidOperationException($"Unsupported storage provider '{options.StorageProvider}'. Deployable runtime requires SqlServer; use explicit LocalTest projects for test doubles.");
         }
 
-        if (options.EmailProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddSingleton<IEmailIngestionProvider, MockEmailIngestionProvider>();
-        }
-        else
-        {
-            services.AddSingleton<IEmailIngestionProvider, DisabledEmailIngestionProvider>();
-        }
+        services.AddSingleton<IEmailIngestionProvider, DisabledEmailIngestionProvider>();
         services.AddHttpClient<IGraphMailClient, MicrosoftGraphMailClient>();
         services.AddSingleton<IGraphMailProvider, GraphMailProvider>();
         if (options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
@@ -77,35 +71,41 @@ public static class InfrastructureRegistration
         }
         else
         {
-            services.AddSingleton<IEmailAttachmentProcessor, MockEmailAttachmentProcessor>();
+            services.AddSingleton<IEmailAttachmentProcessor, DisabledEmailAttachmentProcessor>();
         }
-        services.AddScoped<IEmailToCaseMatcher, BasicEmailToCaseMatcher>();
+        services.AddScoped<IEmailToCaseMatcher, RuleBasedEmailToCaseMatcher>();
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
         {
             services.AddSingleton<ICommunicationSendingProvider, GraphCommunicationSendingProvider>();
-        }
-        else if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddSingleton<ICommunicationSendingProvider, MockCommunicationSendingProvider>();
         }
         else
         {
             services.AddSingleton<ICommunicationSendingProvider, DisabledCommunicationSendingProvider>();
         }
-        if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
+        if (options.SmsProvider.Equals("AfricasTalking", StringComparison.OrdinalIgnoreCase))
         {
-            services.AddSingleton<ISmsProvider, MockSmsProvider>();
+            services.AddHttpClient<ISmsProvider, AfricasTalkingSmsProvider>();
         }
         else
         {
             services.AddSingleton<ISmsProvider, DisabledSmsProvider>();
         }
 
-        if (options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
+        if (options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase))
         {
-            services.AddSingleton<ITeamsNotificationProvider, InsuranceIntelligence.Infrastructure.Notifications.MockTeamsNotificationProvider>();
+            services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
+            services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
         }
-        else if (options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
+        else
+        {
+            services.AddSingleton<IWhatsAppInboundProvider, DisabledWhatsAppInboundProvider>();
+            services.AddSingleton<IWhatsAppAttachmentProcessor, DisabledWhatsAppAttachmentProcessor>();
+        }
+
+        services.AddScoped<IWhatsAppToCaseMatcher, RuleBasedWhatsAppToCaseMatcher>();
+        services.AddScoped<WhatsAppInboundDocumentIngestionService>();
+
+        if (options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
         {
             services.Configure<InsuranceIntelligence.Infrastructure.Notifications.IncomingWebhookTeamsProviderOptions>(
                 configuration.GetSection("TeamsWebhook"));
@@ -115,14 +115,7 @@ public static class InfrastructureRegistration
         {
             services.AddSingleton<ITeamsNotificationProvider, DisabledTeamsNotificationProvider>();
         }
-        if (options.EmailProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddSingleton<IWebhookSubscriptionProvider, MockWebhookSubscriptionProvider>();
-        }
-        else
-        {
-            services.AddSingleton<IWebhookSubscriptionProvider, DisabledWebhookSubscriptionProvider>();
-        }
+        services.AddSingleton<IWebhookSubscriptionProvider, DisabledWebhookSubscriptionProvider>();
 
         return services;
     }
@@ -141,10 +134,6 @@ public static class InfrastructureRegistration
             await dbContext.Database.EnsureCreatedAsync(cancellationToken);
         }
 
-        if (options.SeedDemoData)
-        {
-            await DemoDataSeeder.SeedAsync(scope.ServiceProvider, cancellationToken);
-        }
     }
 
     private static void AddEfRepositories(IServiceCollection services)
@@ -157,6 +146,7 @@ public static class InfrastructureRegistration
         services.AddScoped<IWorkflowTaskRepository, EfWorkflowTaskRepository>();
         services.AddScoped<IApprovalRepository, EfApprovalRepository>();
         services.AddScoped<ICustomerUpdateRepository, EfCustomerUpdateRepository>();
+        services.AddScoped<IClaimReviewRequestRepository, EfClaimReviewRequestRepository>();
         services.AddScoped<ICommunicationRepository, EfCommunicationRepository>();
         services.AddScoped<ITenantConfigurationRepository, EfTenantConfigurationRepository>();
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
@@ -183,6 +173,9 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingRepository, EfTenantOnboardingRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantMembershipWriter, EfTenantMembershipWriter>();
         services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentStateRepository, EfAgentStateRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowDefinitionRepository, EfAgentWorkflowDefinitionRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowRunRepository, EfAgentWorkflowRunRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkItemRepository, EfAgentWorkItemRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
         // Azure SQL connectivity probe). The other three Core ports (ITenantContextAccessor,
@@ -193,20 +186,6 @@ public static class InfrastructureRegistration
         services.AddScoped<IProviderHealthCheck, ProviderHealthCheckEf>();
     }
 
-    private static void AddSupportRepositories(IServiceCollection services)
-    {
-        services.AddSingleton<ITenantConfigurationRepository, InMemoryTenantConfigurationRepository>();
-        services.AddSingleton<IUserAccountRepository, InMemoryUserAccountRepository>();
-        services.AddSingleton<ICommunicationRepository, InMemoryCommunicationRepository>();
-        services.AddSingleton<IMailboxConnectionRepository, InMemoryMailboxConnectionRepository>();
-        services.AddSingleton<IInboundEmailRepository, InMemoryInboundEmailRepository>();
-        services.AddSingleton<ITeamsNotificationRepository, InMemoryTeamsNotificationRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Customers.ICustomerRepository, InMemoryCustomerRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Policies.IPolicyRepository, InMemoryPolicyRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Policies.ICoverageRepository, InMemoryCoverageRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Distribution.IBranchRepository, InMemoryBranchRepository>();
-        services.AddSingleton<InsuranceIntelligence.Domain.Distribution.IProducerRepository, InMemoryProducerRepository>();
-    }
 
     public static InfrastructureOptions BindOptions(IConfiguration configuration) =>
         new()
@@ -225,13 +204,22 @@ public static class InfrastructureRegistration
             EntraClientId = configuration["INSURANCEINTELLIGENCE_ENTRA_CLIENT_ID"],
             EntraAudience = configuration["INSURANCEINTELLIGENCE_ENTRA_AUDIENCE"],
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
+            AzureRegion = configuration["INSURANCEINTELLIGENCE_AZURE_REGION"],
+            DataResidencyCountry = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY"],
+            DataResidencyGeography = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY"],
+            DataResidencyMode = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_MODE"] ?? "regional",
+            DataResidencyAllowedAzureRegions = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_ALLOWED_AZURE_REGIONS"],
+            DataResidencyApprovalReference = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_APPROVAL_REFERENCE"],
             AiProvider = configuration["INSURANCEINTELLIGENCE_AI_PROVIDER"] ?? "Mock",
             DocumentProvider = configuration["INSURANCEINTELLIGENCE_DOCUMENT_PROVIDER"] ?? "Mock",
             RetrievalProvider = configuration["INSURANCEINTELLIGENCE_RETRIEVAL_PROVIDER"] ?? "Mock",
             QueueProvider = configuration["INSURANCEINTELLIGENCE_QUEUE_PROVIDER"] ?? "Mock",
             EmailProvider = configuration["INSURANCEINTELLIGENCE_EMAIL_PROVIDER"] ?? "Mock",
             CommunicationProvider = configuration["INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER"] ?? "Mock",
+            SmsProvider = configuration["INSURANCEINTELLIGENCE_SMS_PROVIDER"] ?? "Mock",
             NotificationProvider = configuration["INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER"] ?? "Mock",
+            ChannelProvider = configuration["INSURANCEINTELLIGENCE_CHANNEL_PROVIDER"] ?? "Mock",
+            ProvisionerProvider = configuration["INSURANCEINTELLIGENCE_PROVISIONER_PROVIDER"] ?? "Mock",
             AzureBlob = new AzureBlobOptions
             {
                 AccountName = configuration["AzureBlob:AccountName"],
@@ -260,6 +248,7 @@ public static class InfrastructureRegistration
             AzureOpenAI = new AzureOpenAiOptions
             {
                 Endpoint = configuration["AzureOpenAI:Endpoint"],
+                DeploymentType = configuration["AzureOpenAI:DeploymentType"],
                 ChatDeployment = configuration["AzureOpenAI:ChatDeployment"],
                 EmbeddingDeployment = configuration["AzureOpenAI:EmbeddingDeployment"],
                 PolicyAnswerPromptTemplatePath = configuration["AzureOpenAI:PolicyAnswerPromptTemplatePath"],
@@ -293,6 +282,27 @@ public static class InfrastructureRegistration
                 MoveProcessedMessages = !bool.TryParse(configuration["GraphMail:MoveProcessedMessages"], out var moveProcessed) || moveProcessed,
                 ProcessedFolderName = configuration["GraphMail:ProcessedFolderName"] ?? "InsuranceIntelligence Processed",
                 MaxMessagesPerPull = int.TryParse(configuration["GraphMail:MaxMessagesPerPull"], out var maxGraphMessages) ? maxGraphMessages : 10
+            },
+            AfricasTalking = new AfricasTalkingOptions
+            {
+                Username = configuration["AfricasTalking:Username"],
+                ApiKey = configuration["AfricasTalking:ApiKey"],
+                SenderId = configuration["AfricasTalking:SenderId"],
+                BaseUrl = configuration["AfricasTalking:BaseUrl"] ?? "https://api.africastalking.com",
+                RequestTimeoutSeconds = int.TryParse(configuration["AfricasTalking:RequestTimeoutSeconds"], out var atTimeout) ? atTimeout : 15,
+                AutoSendTransactionalSmsEnabled = bool.TryParse(configuration["AfricasTalking:AutoSendTransactionalSmsEnabled"], out var autoSms) && autoSms,
+            },
+            WhatsApp = new WhatsAppOptions
+            {
+                PhoneNumberId = configuration["WhatsApp:PhoneNumberId"],
+                AccessToken = configuration["WhatsApp:AccessToken"],
+                AppSecret = configuration["WhatsApp:AppSecret"],
+                VerifyToken = configuration["WhatsApp:VerifyToken"],
+                TenantId = configuration["WhatsApp:TenantId"] ?? configuration["INSURANCEINTELLIGENCE_TENANT_ID"],
+                WorkspaceId = configuration["WhatsApp:WorkspaceId"] ?? configuration["INSURANCEINTELLIGENCE_WORKSPACE_ID"],
+                IntegrationUserId = configuration["WhatsApp:IntegrationUserId"],
+                GraphBaseUrl = configuration["WhatsApp:GraphBaseUrl"] ?? "https://graph.facebook.com/v21.0",
+                RequestTimeoutSeconds = int.TryParse(configuration["WhatsApp:RequestTimeoutSeconds"], out var waTimeout) ? waTimeout : 20,
             },
             ProviderHealth = new ProviderHealthOptions
             {

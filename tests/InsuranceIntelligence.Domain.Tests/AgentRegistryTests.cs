@@ -32,7 +32,12 @@ public sealed class AgentRegistryTests
     [Fact]
     public async Task List_RequiresManageAgentsPermission()
     {
-        var service = new AgentRegistryService(Context(), new DenyPermissionService(), new InMemoryAgentStateRepository(), new NullAuditWriter());
+        var service = new AgentRegistryService(
+            Context(),
+            new DenyPermissionService(),
+            new InMemoryAgentStateRepository(),
+            new NullAuditWriter(),
+            NoOpOperationalTelemetry.Instance);
         await Assert.ThrowsAsync<PermissionDeniedException>(() => service.ListAsync());
     }
 
@@ -41,7 +46,8 @@ public sealed class AgentRegistryTests
     {
         var repo = new InMemoryAgentStateRepository();
         var audit = new NullAuditWriter();
-        var service = new AgentRegistryService(Context(), new AllowPermissionService(), repo, audit);
+        var telemetry = new RecordingOperationalTelemetry();
+        var service = new AgentRegistryService(Context(), new AllowPermissionService(), repo, audit, telemetry);
         var key = AgentCatalog.Agents[0].Key;
 
         var result = await service.SetKillSwitchAsync(key, enabled: false, "kill switch drill");
@@ -49,6 +55,12 @@ public sealed class AgentRegistryTests
         Assert.False(result.Enabled);
         Assert.Single(repo.Saved, s => s.AgentKey == key && !s.Enabled);
         Assert.Single(audit.Events, e => e.ActionName == "agent.killswitch.disabled");
+        Assert.Single(telemetry.AgentRuns, run =>
+            run.AgentKey == key
+            && run.Action == "kill-switch-disabled"
+            && run.Result == "recorded"
+            && run.TenantId == "tenant-a"
+            && run.WorkspaceId == "workspace-a");
 
         var listed = await service.ListAsync();
         Assert.False(Assert.Single(listed, e => e.Key == key).Enabled);
@@ -57,14 +69,24 @@ public sealed class AgentRegistryTests
     [Fact]
     public async Task SetKillSwitch_UnknownAgent_Throws()
     {
-        var service = new AgentRegistryService(Context(), new AllowPermissionService(), new InMemoryAgentStateRepository(), new NullAuditWriter());
+        var service = new AgentRegistryService(
+            Context(),
+            new AllowPermissionService(),
+            new InMemoryAgentStateRepository(),
+            new NullAuditWriter(),
+            NoOpOperationalTelemetry.Instance);
         await Assert.ThrowsAsync<AgentRegistryValidationException>(() => service.SetKillSwitchAsync("no-such-agent", true, "x"));
     }
 
     [Fact]
     public async Task SetKillSwitch_MissingReason_Throws()
     {
-        var service = new AgentRegistryService(Context(), new AllowPermissionService(), new InMemoryAgentStateRepository(), new NullAuditWriter());
+        var service = new AgentRegistryService(
+            Context(),
+            new AllowPermissionService(),
+            new InMemoryAgentStateRepository(),
+            new NullAuditWriter(),
+            NoOpOperationalTelemetry.Instance);
         await Assert.ThrowsAsync<AgentRegistryValidationException>(() => service.SetKillSwitchAsync(AgentCatalog.Agents[0].Key, true, "  "));
     }
 
@@ -111,5 +133,15 @@ public sealed class AgentRegistryTests
             Events.Add(auditEvent);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class RecordingOperationalTelemetry : IOperationalTelemetry
+    {
+        public List<(string TenantId, string WorkspaceId, string AgentKey, string Action, string Result)> AgentRuns { get; } = [];
+
+        public void TrackAuditEventCreated(AuditEvent auditEvent) { }
+
+        public void TrackAgentRegistryRun(string tenantId, string workspaceId, string agentKey, string action, string result) =>
+            AgentRuns.Add((tenantId, workspaceId, agentKey, action, result));
     }
 }

@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Cases;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -20,7 +21,7 @@ public static class WorkflowEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -46,7 +47,7 @@ public static class WorkflowEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -84,7 +85,7 @@ public static class WorkflowEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -123,21 +124,42 @@ public static class WorkflowEndpoints
         }
 
         var actions = workflowRuleProvider.GetRecommendedActions(context);
+        var beforeCase = context.ClaimCase;
+        var nextStatus = ResolveNextStatus(beforeCase, actions);
+        var claimForWorkflow = beforeCase;
+        if (nextStatus != beforeCase.Status)
+        {
+            claimForWorkflow = beforeCase with
+            {
+                Status = nextStatus,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            await caseRepository.SaveAsync(claimForWorkflow, cancellationToken);
+            await auditRepository.WriteAsync(
+                AuditEvent.CaseStatusUpdated(
+                    beforeCase.ToAuditSnapshot(),
+                    claimForWorkflow.ToAuditSnapshot(),
+                    actor,
+                    correlationId,
+                    "Workflow evaluation updated case lifecycle status."),
+                cancellationToken);
+        }
+
         var createdTasks = new List<WorkflowTask>();
         var createdApprovals = new List<ApprovalRequest>();
 
-        await auditRepository.WriteAsync(AuditEvent.WorkflowEvaluated(context.ClaimCase.ToAuditSnapshot(), actor, correlationId), cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.WorkflowEvaluated(claimForWorkflow.ToAuditSnapshot(), actor, correlationId), cancellationToken);
 
         foreach (var action in actions)
         {
-            var task = CreateTask(context.ClaimCase, action, actor, correlationId);
+            var task = CreateTask(claimForWorkflow, action, actor, correlationId);
             await taskRepository.SaveAsync(task, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.WorkflowTaskCreated(task), cancellationToken);
             createdTasks.Add(task);
 
             if (action.RequiresHumanApproval)
             {
-                var approval = CreateApproval(context.ClaimCase, action, actor, correlationId);
+                var approval = CreateApproval(claimForWorkflow, action, actor, correlationId);
                 await approvalRepository.SaveAsync(approval, cancellationToken);
                 await auditRepository.WriteAsync(AuditEvent.ApprovalCreated(approval), cancellationToken);
                 createdApprovals.Add(approval);
@@ -152,13 +174,38 @@ public static class WorkflowEndpoints
             createdApprovals.Select(WorkflowMapper.ToResponse).ToArray()));
     }
 
+    private static CaseStatus ResolveNextStatus(ClaimCase claimCase, IReadOnlyCollection<RecommendedNextAction> actions)
+    {
+        if (claimCase.Status is CaseStatus.Settled or CaseStatus.Closed or CaseStatus.Escalated)
+        {
+            return claimCase.Status;
+        }
+
+        if (actions.Any(action => action.ActionType == RecommendedNextActionType.SupervisorReview && action.RequiresHumanApproval))
+        {
+            return CaseStatus.PendingApproval;
+        }
+
+        if (actions.Any(action => action.ActionType == RecommendedNextActionType.RequestMissingDocuments))
+        {
+            return CaseStatus.MissingDocuments;
+        }
+
+        if (actions.Any(action => action.ActionType == RecommendedNextActionType.MarkReadyForReview))
+        {
+            return CaseStatus.ReadyForReview;
+        }
+
+        return claimCase.Status == CaseStatus.New ? CaseStatus.InReview : claimCase.Status;
+    }
+
     public static async Task<IResult> ListTasks(
         IWorkflowTaskRepository taskRepository,
         ICaseRepository caseRepository,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -183,7 +230,7 @@ public static class WorkflowEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -207,7 +254,7 @@ public static class WorkflowEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -248,7 +295,7 @@ public static class WorkflowEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -380,6 +427,13 @@ public static class WorkflowEndpoints
 
     internal static string GetActor(HttpContext httpContext, string? candidate)
     {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext
+            && !string.IsNullOrWhiteSpace(tenantContext.Current.UserId))
+        {
+            return tenantContext.Current.UserId;
+        }
+
         var runtimeActor = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
         if (!string.IsNullOrWhiteSpace(runtimeActor))
         {
@@ -392,6 +446,32 @@ public static class WorkflowEndpoints
         }
 
         return !string.IsNullOrWhiteSpace(candidate) ? candidate.Trim() : "local-workflow-user";
+    }
+
+    internal static bool TryResolveScope(
+        HttpContext httpContext,
+        out TenantScope scope,
+        out string userId,
+        out string validationError)
+    {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext)
+        {
+            var current = tenantContext.Current;
+            scope = TenantScope.Create(current.TenantId, current.WorkspaceId);
+            userId = current.UserId;
+            validationError = string.Empty;
+            return true;
+        }
+
+        if (TenantScopeReader.TryGetFromHeaders(httpContext, out scope, out validationError))
+        {
+            userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+            return true;
+        }
+
+        userId = string.Empty;
+        return false;
     }
 
     internal static string GetCorrelationId(HttpContext httpContext)

@@ -55,6 +55,31 @@ public sealed class WorkflowShell
         }
 
         var errors = new List<string>();
+        if (options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add("Protected workflow runtime requires external identity; Development auth is not allowed.");
+        }
+
+        var providerModes = new[]
+        {
+            ("INSURANCEINTELLIGENCE_STORAGE_PROVIDER", options.StorageProvider),
+            ("INSURANCEINTELLIGENCE_BLOB_PROVIDER", options.BlobProvider),
+            ("INSURANCEINTELLIGENCE_DOCUMENT_PROVIDER", options.DocumentProvider),
+            ("INSURANCEINTELLIGENCE_RETRIEVAL_PROVIDER", options.RetrievalProvider),
+            ("INSURANCEINTELLIGENCE_AI_PROVIDER", options.AiProvider),
+            ("INSURANCEINTELLIGENCE_QUEUE_PROVIDER", options.QueueProvider),
+            ("INSURANCEINTELLIGENCE_EMAIL_PROVIDER", options.EmailProvider),
+            ("INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER", options.CommunicationProvider),
+            ("INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER", options.NotificationProvider)
+        };
+        foreach (var (settingName, providerMode) in providerModes)
+        {
+            if (IsForbiddenProvider(providerMode, settingName == "INSURANCEINTELLIGENCE_STORAGE_PROVIDER"))
+            {
+                errors.Add($"Protected workflow runtime does not allow {settingName}={providerMode}.");
+            }
+        }
+
         if (!options.QueueProvider.Equals("AzureServiceBus", StringComparison.OrdinalIgnoreCase))
         {
             errors.Add("Protected workflow runtime requires INSURANCEINTELLIGENCE_QUEUE_PROVIDER=AzureServiceBus.");
@@ -89,6 +114,17 @@ public sealed class WorkflowShell
         return missingSettings;
     }
 
+    private static bool IsForbiddenProvider(string value, bool includeSqlite) =>
+        value.Equals("Mock", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("Simulated", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("Placeholder", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("DevelopmentAuth", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("Demo", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("SeededDemoBusinessData", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("FallbackToMock", StringComparison.OrdinalIgnoreCase)
+        || (includeSqlite && value.Equals("SQLite", StringComparison.OrdinalIgnoreCase));
+
     private static bool IsProtectedRuntime(string environmentName) =>
         environmentName.Equals("Staging", StringComparison.OrdinalIgnoreCase)
         || environmentName.Equals("Production", StringComparison.OrdinalIgnoreCase)
@@ -109,7 +145,8 @@ public sealed record WorkflowQueueNames(
     string KnowledgeIndexing,
     string OutboundCommunications,
     string ApprovalNotifications,
-    string AuditEvents)
+    string AuditEvents,
+    string AgentWorkflow)
 {
     public static WorkflowQueueNames From(ServiceBusOptions serviceBus) =>
         new(
@@ -118,7 +155,8 @@ public sealed record WorkflowQueueNames(
             serviceBus.KnowledgeIndexingQueue,
             serviceBus.OutboundCommunicationsQueue,
             serviceBus.ApprovalNotificationsQueue,
-            serviceBus.AuditEventsQueue);
+            serviceBus.AuditEventsQueue,
+            serviceBus.AgentWorkflowQueue);
 
     public IEnumerable<(string Setting, string QueueName)> Settings()
     {
@@ -128,6 +166,7 @@ public sealed record WorkflowQueueNames(
         yield return ("ServiceBus:OutboundCommunicationsQueue", OutboundCommunications);
         yield return ("ServiceBus:ApprovalNotificationsQueue", ApprovalNotifications);
         yield return ("ServiceBus:AuditEventsQueue", AuditEvents);
+        yield return ("ServiceBus:AgentWorkflowQueue", AgentWorkflow);
     }
 }
 
@@ -176,6 +215,12 @@ public sealed record WorkflowProcessorDescriptor(
                 queues.AuditEvents,
                 "Service Bus queue",
                 "Persist workflow evidence, action metadata, and audit export events.",
+                true),
+            new WorkflowProcessorDescriptor(
+                "Agent workflow",
+                queues.AgentWorkflow,
+                "Service Bus queue",
+                "Execute bounded agent and tool nodes from durable tenant-scoped workflow runs.",
                 true)
         };
 }

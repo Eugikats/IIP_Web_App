@@ -83,6 +83,11 @@ public static class AzureProviderStartupValidator
             errors.Add("GraphEmail communication mode requires GraphMail client credential settings, GraphMail:MailboxAccessScoped=true, and GraphMail:DefaultMailboxAddress.");
         }
 
+        if (options.NotificationProvider.Equals("GraphTeams", StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add("GraphTeams notification mode is not implemented. Configure IncomingWebhook or leave notifications Disabled.");
+        }
+
         return errors;
     }
 
@@ -139,6 +144,11 @@ public static class AzureProviderStartupValidator
             {
                 errors.Add($"{runtimeProfile} requires a real configured provider for {settingName}; {value} is not allowed.");
             }
+        }
+
+        if (RequiresProductionResidencyApproval(runtimeProfile))
+        {
+            errors.AddRange(ValidateProductionResidency(options, runtimeProfile));
         }
 
         return errors;
@@ -209,6 +219,73 @@ public static class AzureProviderStartupValidator
 
     private static bool IsDemoRuntime(string environmentName) =>
         environmentName.Equals("Demo", StringComparison.OrdinalIgnoreCase);
+
+    private static bool RequiresProductionResidencyApproval(string runtimeProfile) =>
+        runtimeProfile.Equals("Production", StringComparison.OrdinalIgnoreCase)
+        || runtimeProfile.Equals("ManagedApplicationReviewer", StringComparison.OrdinalIgnoreCase);
+
+    public static IReadOnlyCollection<string> ValidateProductionResidency(
+        InfrastructureOptions options,
+        string runtimeProfile)
+    {
+        var errors = new List<string>();
+        RequireResidencySetting(options.DataResidencyCountry, "INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY", runtimeProfile, errors);
+        RequireResidencySetting(options.DataResidencyGeography, "INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY", runtimeProfile, errors);
+        RequireResidencySetting(options.AzureRegion, "INSURANCEINTELLIGENCE_AZURE_REGION", runtimeProfile, errors);
+        RequireResidencySetting(options.DataResidencyAllowedAzureRegions, "INSURANCEINTELLIGENCE_DATA_RESIDENCY_ALLOWED_AZURE_REGIONS", runtimeProfile, errors);
+        RequireResidencySetting(options.DataResidencyApprovalReference, "INSURANCEINTELLIGENCE_DATA_RESIDENCY_APPROVAL_REFERENCE", runtimeProfile, errors);
+
+        var expectedOpenAiDeploymentType = ExpectedAzureOpenAiDeploymentType(options.DataResidencyMode);
+        if (expectedOpenAiDeploymentType is null)
+        {
+            errors.Add($"{runtimeProfile} has unsupported INSURANCEINTELLIGENCE_DATA_RESIDENCY_MODE '{options.DataResidencyMode}'.");
+        }
+        else if (options.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
+        {
+            RequireResidencySetting(options.AzureOpenAI.DeploymentType, "AzureOpenAI:DeploymentType", runtimeProfile, errors);
+
+            if (!string.IsNullOrWhiteSpace(options.AzureOpenAI.DeploymentType)
+                && !options.AzureOpenAI.DeploymentType.Equals(expectedOpenAiDeploymentType, StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add(
+                    $"{runtimeProfile} data residency mode '{options.DataResidencyMode}' requires AzureOpenAI:DeploymentType "
+                    + $"'{expectedOpenAiDeploymentType}', not '{options.AzureOpenAI.DeploymentType}'.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.AzureRegion)
+            && !string.IsNullOrWhiteSpace(options.DataResidencyAllowedAzureRegions)
+            && !AllowedAzureRegions(options).Contains(options.AzureRegion.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            errors.Add($"{runtimeProfile} Azure region '{options.AzureRegion}' is not included in INSURANCEINTELLIGENCE_DATA_RESIDENCY_ALLOWED_AZURE_REGIONS.");
+        }
+
+        return errors;
+    }
+
+    public static string? ExpectedAzureOpenAiDeploymentType(string mode) =>
+        mode.Equals("regional", StringComparison.OrdinalIgnoreCase) ? "Standard"
+        : mode.Equals("data_zone", StringComparison.OrdinalIgnoreCase) ? "DataZoneStandard"
+        : mode.Equals("global", StringComparison.OrdinalIgnoreCase) ? "GlobalStandard"
+        : null;
+
+    public static IReadOnlyCollection<string> AllowedAzureRegions(InfrastructureOptions options) =>
+        (options.DataResidencyAllowedAzureRegions ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private static void RequireResidencySetting(
+        string? value,
+        string settingName,
+        string runtimeProfile,
+        ICollection<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            errors.Add($"{runtimeProfile} requires {settingName} before customer data processing is enabled.");
+        }
+    }
 
     private static bool IsForbiddenProvider(string value, bool includeSqlite) =>
         value.Equals("Mock", StringComparison.OrdinalIgnoreCase)

@@ -21,6 +21,26 @@ public static class RuntimeContextEndpoints
         var environment = EnvironmentContextFactory.Build(options, hostEnvironment.EnvironmentName, source: "Runtime");
         if (options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
         {
+            if (tenantContext.HasCurrent)
+            {
+                var developmentContext = tenantContext.Current;
+                var currentScope = TenantScope.Create(developmentContext.TenantId, developmentContext.WorkspaceId);
+                var currentRole = developmentContext.RoleCodes
+                    .Select(code => Enum.TryParse<PlatformRole>(code, ignoreCase: true, out var parsed) ? parsed : (PlatformRole?)null)
+                    .OfType<PlatformRole>()
+                    .DefaultIfEmpty(PlatformRole.Client)
+                    .First();
+                return Results.Ok(BuildResponse(
+                    userId: developmentContext.UserId,
+                    displayName: developmentContext.UserId,
+                    role: currentRole,
+                    scope: currentScope,
+                    authMode: options.AuthMode,
+                    source: "DevelopmentTenantContext",
+                    environment: environment,
+                    availableWorkspaces: await ResolveWorkspacesAsync(workspaceCatalog, currentScope, cancellationToken)));
+            }
+
             if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var developmentScope, out var validationError))
             {
                 return Results.ValidationProblem(new Dictionary<string, string[]>

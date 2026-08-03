@@ -31,6 +31,8 @@ The launch plan defines the sequence for moving from approved pilot scope to a c
 | Monitoring | Weekly reviews active | Pilot Governance Team | Status reports and issue log updates |
 | Closeout | Pilot outcomes reviewed | Client Sponsor / Otic Lead | Closeout report and next decision |
 
+Daily stabilization should use `iip_pilot_daily_stabilization_log.md` during UAT, soft launch, and early live pilot days. Weekly steering should summarize the daily log into `iip_pilot_weekly_status_report_template.md`, the risk register, and the known issues register.
+
 
 ## 3. Mobilization Checklist
 
@@ -88,6 +90,7 @@ The launch plan defines the sequence for moving from approved pilot scope to a c
 - [ ] Pilot users trained.
 - [ ] Support and escalation path confirmed.
 - [ ] Issue log, risk register, and status report templates prepared.
+- [ ] Daily stabilization log prepared for UAT, soft launch, and go-live monitoring.
 - [ ] Rollback or pause criteria confirmed.
 - [ ] Go-live sign-off completed.
 
@@ -108,4 +111,3 @@ The launch plan defines the sequence for moving from approved pilot scope to a c
 | Client IT / Security Owner |  | Approve / Reject / Defer |  |  |
 | Otic Delivery Lead |  | Approve / Reject / Defer |  |  |
 | Otic Product Owner |  | Approve / Reject / Defer |  |  |
-

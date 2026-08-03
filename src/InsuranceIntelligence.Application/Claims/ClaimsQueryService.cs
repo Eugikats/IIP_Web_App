@@ -113,6 +113,7 @@ public sealed class ClaimsQueryService(
             claim.Channel,
             claim.IncidentDate,
             claim.IncidentDescription,
+            claim.MotorFnolDetails,
             claim.Status.ToString(),
             claim.CompletenessScore,
             claim.RiskLevel,

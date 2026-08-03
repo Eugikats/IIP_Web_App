@@ -61,7 +61,7 @@ function Block({ block }: { block: CommandCenterBlock }) {
       return (
         <div className="divide-y divide-cloud/80">
           {(block as Extract<CommandCenterBlock, { type: "approval_queue" }>).items.map((a) => (
-            <Link key={a.approvalId} to={a.href || "/app/workflows"} className="py-2.5 flex items-center justify-between hover:bg-white/50 rounded-lg px-1">
+            <Link key={a.approvalId} to={a.href || "/app/work-items"} className="py-2.5 flex items-center justify-between hover:bg-white/50 rounded-lg px-1">
               <span className="text-[12.5px] text-navy">{a.title}</span>
               <Badge tone="neutral">{a.status}</Badge>
             </Link>

@@ -3,8 +3,10 @@ using System.Text.Json;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -336,6 +338,61 @@ public sealed class DocumentEndpointsTests
     }
 
     [Fact]
+    public async Task UploadDocuments_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var dependencies = CreateDependencies();
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var claimCase = await CreateCaseAsync(dependencies, membershipScope, "membership-user-1");
+        var tenantContext = new TenantContextAccessor();
+        tenantContext.SetCurrent(new TenantContext(
+            membershipScope.TenantId,
+            membershipScope.WorkspaceId,
+            "membership-user-1",
+            ["ClaimsOfficer"]));
+        var context = UploadContext(
+            "claim-form.pdf",
+            tenantId: "attacker-tenant",
+            workspaceId: "attacker-workspace");
+        context.RequestServices = new ServiceCollection()
+            .AddSingleton<ITenantContextAccessor>(tenantContext)
+            .BuildServiceProvider();
+        context.Request.Headers["X-User-Id"] = "attacker-user";
+        context.Request.Headers["x-demo-user-id"] = "attacker-user";
+
+        var result = await DocumentEndpoints.UploadDocuments(
+            claimCase.CaseId,
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.StorageProvider,
+            dependencies.ProcessingProvider,
+            dependencies.ChecklistProvider,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None);
+        var (statusCode, response) = await ExecuteAsync<DocumentUploadResponse>(result);
+        var membershipDocuments = await dependencies.DocumentRepository.ListForCaseAsync(
+            claimCase.CaseId,
+            membershipScope,
+            CancellationToken.None);
+        var attackerDocuments = await dependencies.DocumentRepository.ListForCaseAsync(
+            claimCase.CaseId,
+            TenantScope.Create("attacker-tenant", "attacker-workspace"),
+            CancellationToken.None);
+        var auditEvents = await dependencies.AuditRepository.ListForCaseAsync(claimCase.CaseId);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Single(response!.Documents);
+        Assert.Single(membershipDocuments);
+        Assert.Empty(attackerDocuments);
+        Assert.All(membershipDocuments, document =>
+        {
+            Assert.Equal(membershipScope, document.Scope);
+            Assert.Equal("membership-user-1", document.UploadedByUserId);
+        });
+        Assert.Contains(auditEvents, auditEvent => auditEvent.ActionName == "document.uploaded");
+    }
+
+    [Fact]
     public async Task UploadDocuments_ReturnsNotFoundForTenantWorkspaceMismatch()
     {
         var dependencies = CreateDependencies();
@@ -589,13 +646,16 @@ public sealed class DocumentEndpointsTests
         return Assert.Single(response!.Documents);
     }
 
-    private static async Task<ClaimCase> CreateCaseAsync(Dependencies dependencies)
+    private static async Task<ClaimCase> CreateCaseAsync(
+        Dependencies dependencies,
+        TenantScope? scope = null,
+        string createdByUserId = "user-claims-1")
     {
         var service = new CaseIntakeService(dependencies.CaseRepository, dependencies.AuditRepository);
 
         return await service.CreateCaseAsync(
             new CreateCaseCommand(
-                InsuranceIntelligence.Domain.Common.TenantScope.Create("tenant-demo", "workspace-claims"),
+                scope ?? TenantScope.Create("tenant-demo", "workspace-claims"),
                 "Amina Okello",
                 "amina@example.test",
                 "+256700000000",
@@ -605,7 +665,7 @@ public sealed class DocumentEndpointsTests
                 "WebPortal",
                 new DateOnly(2026, 5, 24),
                 "Minor collision reported at branch intake.",
-                "user-claims-1",
+                createdByUserId,
                 "corr-api-001"));
     }
 

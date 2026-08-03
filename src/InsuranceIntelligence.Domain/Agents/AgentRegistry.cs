@@ -34,17 +34,20 @@ public sealed record AgentRegistryEntry(
 
 public static class AgentCatalog
 {
-    // The real agent capabilities IIP runs. Adding an agent here surfaces it in
-    // the registry with a default-enabled kill switch until an admin toggles it.
+    // The ten canonical agents from the governing architecture. Adding or
+    // removing an agent requires an ADR; tenant state may only disable them.
     public static readonly IReadOnlyList<AgentDescriptor> Agents =
     [
-        new("claim-summary", "Claim Summary Agent", "Summarises a claim with cited evidence for human review.", "Low", HumanApprovalRequired: false),
-        new("document-extraction", "Document Extraction Agent", "Extracts fields from claim documents; low-confidence fields are flagged incomplete.", "Medium", HumanApprovalRequired: false),
-        new("customer-update-draft", "Customer Update Draft Agent", "Drafts customer-safe updates; every send requires named human approval.", "High", HumanApprovalRequired: true),
-        new("policy-qa", "Policy Q&A Agent", "Answers coverage questions grounded only in approved knowledge sources.", "Medium", HumanApprovalRequired: false),
-        new("fraud-advisory", "Fraud Advisory Agent", "Raises deterministic advisory fraud signals — never a fraud verdict.", "Medium", HumanApprovalRequired: false),
-        new("underwriting-advisory", "Underwriting Advisory Agent", "Surfaces underwriting checks and drafts questions — never decides acceptance or premium.", "Medium", HumanApprovalRequired: false),
-        new("missing-information", "Missing Information Agent", "Detects missing documents/fields and prepares request checklists.", "Low", HumanApprovalRequired: false),
+        new("command-center", "Command Center Agent", "Prepares grounded operational briefings and structured command responses.", "Medium", HumanApprovalRequired: false),
+        new("claims-summary", "Claims Summary Agent", "Summarises claim facts, timelines, issues, and cited evidence for human review.", "Low", HumanApprovalRequired: false),
+        new("document-checker", "Document Checker Agent", "Classifies documents, reviews extraction, and identifies missing or low-confidence fields.", "Medium", HumanApprovalRequired: false),
+        new("policy-intelligence", "Policy Intelligence Agent", "Explains policy and coverage from approved, tenant-scoped sources only.", "Medium", HumanApprovalRequired: false),
+        new("risk-fraud-signal", "Risk & Fraud Signal Agent", "Raises advisory risk and fraud indicators for human review, never accusations or verdicts.", "Medium", HumanApprovalRequired: false),
+        new("customer-update-drafting", "Customer Update Drafting Agent", "Drafts customer-safe communications; every external send requires named human approval.", "High", HumanApprovalRequired: true),
+        new("routing", "Routing Agent", "Recommends assignment, prioritisation, and escalation without executing consequential actions.", "Medium", HumanApprovalRequired: true),
+        new("knowledge-assistant", "Knowledge Assistant", "Answers staff questions from approved, scoped knowledge with source citations.", "Low", HumanApprovalRequired: false),
+        new("report-insight", "Report Insight Agent", "Prepares grounded operational and management summaries from real aggregates.", "Medium", HumanApprovalRequired: false),
+        new("underwriting-intelligence", "Underwriting Intelligence Agent", "Supports proposal and risk review with referral notes; never accepts, rejects, or prices risk.", "High", HumanApprovalRequired: true),
     ];
 
     public static AgentDescriptor? Find(string key) =>

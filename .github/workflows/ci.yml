@@ -1,0 +1,87 @@
+name: CI
+
+# Validation gates for IIP (AGENTS.md §24), matched to what the repo actually contains.
+# Backend: build + test + vulnerable-package scan. Portal: lint + hygiene checks + build.
+# Infra: bicep compile of the files that exist. No secrets, no deployment.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore InsuranceIntelligence.sln
+
+      - name: Build
+        run: dotnet build InsuranceIntelligence.sln --no-restore -c Release
+
+      - name: Test
+        run: dotnet test InsuranceIntelligence.sln --no-build -c Release --verbosity normal
+
+      - name: Vulnerable package scan (report-only)
+        continue-on-error: true
+        run: dotnet list InsuranceIntelligence.sln package --vulnerable --include-transitive
+
+  portal:
+    name: Portal (lint + checks + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/portal
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: web/portal/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Runtime-data / provider / role / release-gate checks
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  infra:
+    name: Infra (bicep compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile Bicep templates
+        run: |
+          az bicep install
+          az bicep build --file infra/bicep/phase3-dev-foundation.bicep
+          az bicep build --file infra/bicep/phase6-functions-runtime.bicep

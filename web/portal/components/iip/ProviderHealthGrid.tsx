@@ -2,13 +2,7 @@
 import { Badge } from "./Primitives";
 import { Activity } from "lucide-react";
 import { useProviderHealth } from "@/lib/lovable-parity/data/providerHealth";
-
-function toneFor(status: string): "success" | "warning" | "error" {
-  const s = status.toLowerCase();
-  if (s.includes("oper") || s.includes("health") || s.includes("configured") || s.includes("connected") || s.includes("ready")) return "success";
-  if (s.includes("degrad") || s.includes("pending") || s.includes("missing") || s.includes("not configured")) return "warning";
-  return "error";
-}
+import { providerStatusTone } from "@/lib/providerHealth";
 
 export default function ProviderHealthGrid() {
   const { providers, loading, error } = useProviderHealth();
@@ -28,12 +22,12 @@ export default function ProviderHealthGrid() {
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
       {providers.map((p) => {
-        const tone = toneFor(p.status);
+        const tone = providerStatusTone(p.status);
         return (
           <div key={p.name} className="glass-subtle p-4 hover-lift">
             <div className="flex items-center justify-between mb-2">
               <div className="text-[11px] uppercase tracking-[0.14em] text-stone">{p.category}</div>
-              <Badge tone={tone as any}>{p.status}</Badge>
+              <Badge tone={tone}>{p.status}</Badge>
             </div>
             <div className="text-[13.5px] font-medium text-navy leading-snug">{p.name}</div>
             <div className="mt-2 flex items-center justify-between text-[11.5px] text-stone">

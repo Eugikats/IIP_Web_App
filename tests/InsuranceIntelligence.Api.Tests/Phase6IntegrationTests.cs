@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text;
 using System.Security.Claims;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Api.Communications;
 using InsuranceIntelligence.Api.Integrations;
 using InsuranceIntelligence.Api.Local;
@@ -13,7 +14,7 @@ using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.Graph;
-using InsuranceIntelligence.Infrastructure.Simulated;
+using InsuranceIntelligence.Infrastructure.Email;
 using InsuranceIntelligence.Infrastructure.Persistence;
 using InsuranceIntelligence.LocalTestDoubles;
 using Microsoft.AspNetCore.Http;
@@ -115,6 +116,37 @@ public sealed class Phase6IntegrationTests
         Assert.Equal(auditReason, mailboxAudit.AuditReason);
         Assert.Equal(ActorType.User, mailboxAudit.ActorType);
         Assert.DoesNotContain("claims@demo.local", mailboxAudit.EvidenceIds);
+    }
+
+    [Fact]
+    public async Task CreateMailbox_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var deps = CreateDeps();
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var spoofedScope = TenantScope.Create("tenant-spoofed", "workspace-spoofed");
+
+        var result = await EmailIntegrationEndpoints.CreateMailbox(
+            new CreateMailboxRequest("Claims", "claims@membership.example", true, "Email"),
+            deps.Mailboxes,
+            deps.Audit,
+            Options(),
+            MembershipScopedContext(membershipScope, "membership-integration-user", spoofedScope.TenantId, spoofedScope.WorkspaceId, "spoofed-user"),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+        var membershipMailboxes = await deps.Mailboxes.ListAsync(membershipScope, CancellationToken.None);
+        var spoofedMailboxes = await deps.Mailboxes.ListAsync(spoofedScope, CancellationToken.None);
+        var auditEvents = await deps.Audit.ListAsync(membershipScope, CancellationToken.None);
+
+        Assert.Equal(StatusCodes.Status201Created, status);
+        Assert.Equal("claims@membership.example", body.GetProperty("mailboxAddress").GetString());
+        var mailbox = Assert.Single(membershipMailboxes);
+        Assert.Empty(spoofedMailboxes);
+        Assert.Equal(membershipScope, mailbox.Scope);
+        Assert.Contains(
+            auditEvents,
+            item => item.ActionName == "integration.mailbox.configured"
+                && item.UserId == "membership-integration-user");
     }
 
     [Fact]
@@ -325,6 +357,60 @@ public sealed class Phase6IntegrationTests
         Assert.Single(stored.Single().Attachments);
         Assert.Equal("att-1", stored.Single().Attachments.Single().ExternalAttachmentId);
         Assert.Equal("graph-message-1", stored.Single().ExternalMessageId);
+    }
+
+    [Fact]
+    public async Task GraphIngestion_DeduplicatesExternalMessageIdsPerMailbox()
+    {
+        var graphClient = new FakeGraphMailClient();
+        graphClient.Messages.Add(new GraphMailboxMessage(
+            "graph-message-shared",
+            "<graph-message-shared@example.test>",
+            "customer@example.test",
+            "Claim POL-1",
+            "Customer sent a claim form. This preview is safe.",
+            DateTimeOffset.UtcNow,
+            []));
+        var deps = CreateDeps(GraphOptions(), graphClient);
+        var firstMailbox = Mailbox();
+        var secondMailbox = Mailbox() with
+        {
+            MailboxConnectionId = Guid.NewGuid(),
+            DisplayName = "Claims Escalations",
+            MailboxAddress = "claims-escalations@demo.local"
+        };
+        await deps.Mailboxes.SaveAsync(firstMailbox);
+        await deps.Mailboxes.SaveAsync(secondMailbox);
+
+        var first = await EmailIntegrationEndpoints.TestIngestion(
+            deps.Mailboxes,
+            deps.Emails,
+            deps.EmailProvider,
+            deps.GraphProvider,
+            deps.Audit,
+            GraphOptions(),
+            Context(),
+            CancellationToken.None);
+        var second = await EmailIntegrationEndpoints.TestIngestion(
+            deps.Mailboxes,
+            deps.Emails,
+            deps.EmailProvider,
+            deps.GraphProvider,
+            deps.Audit,
+            GraphOptions(),
+            Context(),
+            CancellationToken.None);
+        var (firstStatus, firstBody) = await ExecuteAsync<JsonElement>(first);
+        var (_, secondBody) = await ExecuteAsync<JsonElement>(second);
+        var stored = await deps.Emails.ListAsync(Scope());
+
+        Assert.Equal(StatusCodes.Status200OK, firstStatus);
+        Assert.Equal(2, firstBody.GetProperty("ingested").GetInt32());
+        Assert.Equal(0, secondBody.GetProperty("ingested").GetInt32());
+        Assert.Equal(2, stored.Count);
+        Assert.All(stored, message => Assert.Equal("graph-message-shared", message.ExternalMessageId));
+        Assert.Contains(stored, message => message.MailboxConnectionId == firstMailbox.MailboxConnectionId);
+        Assert.Contains(stored, message => message.MailboxConnectionId == secondMailbox.MailboxConnectionId);
     }
 
     [Fact]
@@ -667,9 +753,45 @@ public sealed class Phase6IntegrationTests
     }
 
     [Fact]
+    public async Task CommunicationSend_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var deps = CreateDeps();
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var spoofedScope = TenantScope.Create("tenant-spoofed", "workspace-spoofed");
+        var caseId = Guid.NewGuid();
+
+        var result = await CommunicationEndpoints.SendEmail(
+            new SendCommunicationRequest(caseId, "customer@example.test", "Approved customer update", "request-body-user", Approved: true, LowRisk: false),
+            deps.CommunicationProvider,
+            deps.Communications,
+            deps.Audit,
+            Options(),
+            MembershipScopedContext(membershipScope, "membership-communications-user", spoofedScope.TenantId, spoofedScope.WorkspaceId, "spoofed-user"),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+        var membershipHistory = await deps.Communications.ListForCaseAsync(caseId, membershipScope);
+        var spoofedHistory = await deps.Communications.ListForCaseAsync(caseId, spoofedScope);
+        var auditEvents = await deps.Audit.ListAsync(membershipScope, CancellationToken.None);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        var communication = Assert.Single(membershipHistory);
+        Assert.Empty(spoofedHistory);
+        Assert.Equal(membershipScope, communication.Scope);
+        Assert.Equal("membership-communications-user", communication.SentBy);
+        Assert.Equal("membership-communications-user", body.GetProperty("sentBy").GetString());
+        Assert.Contains(
+            auditEvents,
+            item => item.ActionName == "notification.email.simulated"
+                && item.UserId == "membership-communications-user");
+    }
+
+    [Fact]
     public async Task LiveModeMissingConfig_ReturnsSafeError()
     {
-        var deps = CreateDeps(new InfrastructureOptions { CommunicationProvider = "GraphEmail" });
+        var deps = CreateDeps(
+            new InfrastructureOptions { CommunicationProvider = "GraphEmail" },
+            communicationSendingProvider: new DisabledCommunicationSendingProvider());
         var result = await CommunicationEndpoints.SendEmail(
             new SendCommunicationRequest(Guid.NewGuid(), "customer@example.test", "Approved update", "local-service-agent", Approved: true, LowRisk: false),
             deps.CommunicationProvider,
@@ -733,7 +855,7 @@ public sealed class Phase6IntegrationTests
         var deps = CreateDeps(options);
         var result = await CommunicationEndpoints.SendTeamsNotification(
             new SendTeamsNotificationRequest(Guid.NewGuid(), "SlaAtRisk", "Case escalation", "entra-user"),
-            new MockTeamsNotificationProvider(options),
+            new DisabledTeamsNotificationProvider(),
             deps.Audit,
             options,
             AuthenticatedContext("Admin"),
@@ -810,7 +932,7 @@ public sealed class Phase6IntegrationTests
         var cases = new InMemoryCaseRepository();
         var effectiveOptions = options ?? Options();
         graphClient ??= new FakeGraphMailClient();
-        var communicationProvider = communicationSendingProvider ?? new MockCommunicationSendingProvider(effectiveOptions);
+        var communicationProvider = communicationSendingProvider ?? new MockCommunicationSendingProvider();
         IEmailAttachmentProcessor attachmentProcessor = effectiveOptions.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase)
             ? new GraphEmailAttachmentProcessor(effectiveOptions, graphClient, new TestDocumentStorageProvider(), new MockDocumentProcessingProvider())
             : new MockEmailAttachmentProcessor();
@@ -821,7 +943,7 @@ public sealed class Phase6IntegrationTests
             new GraphMailProvider(effectiveOptions, graphClient),
             cases,
             new InMemoryCaseDocumentRepository(),
-            new BasicEmailToCaseMatcher(cases),
+            new RuleBasedEmailToCaseMatcher(cases),
             attachmentProcessor,
             new InMemoryAuditRepository(),
             new InMemoryCommunicationRepository(),
@@ -867,6 +989,35 @@ public sealed class Phase6IntegrationTests
             context.Request.Headers["X-Audit-Reason"] = auditReason;
         }
         context.RequestServices = new ServiceCollection().AddLogging().AddProblemDetails().BuildServiceProvider();
+        return context;
+    }
+
+    private static DefaultHttpContext MembershipScopedContext(
+        TenantScope membershipScope,
+        string membershipUserId,
+        string spoofedTenantId,
+        string spoofedWorkspaceId,
+        string spoofedUserId,
+        string role = "Admin",
+        string? auditReason = "Integration mutation approved for test execution.")
+    {
+        var tenantContext = new TenantContextAccessor();
+        tenantContext.SetCurrent(new TenantContext(
+            membershipScope.TenantId,
+            membershipScope.WorkspaceId,
+            membershipUserId,
+            [role]));
+
+        var context = Context(role: role, auditReason: auditReason);
+        context.RequestServices = new ServiceCollection()
+            .AddSingleton<ITenantContextAccessor>(tenantContext)
+            .AddLogging()
+            .AddProblemDetails()
+            .BuildServiceProvider();
+        context.Request.Headers["X-Tenant-Id"] = spoofedTenantId;
+        context.Request.Headers["X-Workspace-Id"] = spoofedWorkspaceId;
+        context.Request.Headers["X-User-Id"] = spoofedUserId;
+        context.Request.Headers["x-demo-user-id"] = spoofedUserId;
         return context;
     }
 
@@ -941,11 +1092,11 @@ public sealed class Phase6IntegrationTests
     private sealed record Deps(
         InMemoryMailboxConnectionRepository Mailboxes,
         InMemoryInboundEmailRepository Emails,
-        MockEmailIngestionProvider EmailProvider,
+        IEmailIngestionProvider EmailProvider,
         GraphMailProvider GraphProvider,
         InMemoryCaseRepository Cases,
         InMemoryCaseDocumentRepository Documents,
-        BasicEmailToCaseMatcher Matcher,
+        IEmailToCaseMatcher Matcher,
         IEmailAttachmentProcessor AttachmentProcessor,
         InMemoryAuditRepository Audit,
         InMemoryCommunicationRepository Communications,

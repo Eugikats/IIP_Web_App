@@ -5,22 +5,25 @@ test.beforeEach(async ({ page }) => {
   await installVisualApiFixtures(page);
 });
 
-test("Gate 9 Workflow Approvals frames decisions as review steps with mandatory reason", async ({ page }, testInfo) => {
-  await page.goto("/approvals");
+test("Gate 9 Review and Approvals separates prepared work from consequential workflow review", async ({ page }, testInfo) => {
+  await page.goto("/app/work-items");
   await page.waitForLoadState("networkidle");
 
-  await expect(page.getByRole("heading", { name: "Human review steps" })).toBeVisible();
-  await expect(page.getByText("Review-step queue")).toBeVisible();
-
-  await expect(page.getByText("Workflow review-step decision")).toBeVisible();
-  await expect(page.getByText("They do not settle, deny, repudiate, accuse fraud, or authorize payment on a claim.")).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Review-step reason" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Approve review step" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Override AI recommendation" })).toBeDisabled();
-
-  await page.getByRole("textbox", { name: "Review-step reason" }).fill("Reviewed the evidence checklist and confirmed this workflow step may continue.");
-  await expect(page.getByRole("button", { name: "Approve review step" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Escalate review step" })).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Human review workspace" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Prepared work" })).toBeVisible();
+  await page.getByRole("button", { name: "Consequential approvals" }).click();
+  await expect(page.getByText(/Approval actions advance a governed workflow only/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "All approvals" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "High risk" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Completed" })).toBeVisible();
+  await expect(page.getByText("Police report is missing; supervisor review is required.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve" }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Reject" }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Escalate" }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Override AI" }).first()).toBeDisabled();
+  await page.getByLabel("Decision reason").fill("Reviewed the cited checklist and the missing evidence warning.");
+  await expect(page.getByRole("button", { name: "Approve" }).first()).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Escalate" }).first()).toBeEnabled();
 
   await testInfo.attach(`gate-9-workflow-approvals-${testInfo.project.name}.png`, {
     body: await page.screenshot({ fullPage: true }),
@@ -35,8 +38,9 @@ test("Gate 9 deployed profile exposes no final claim decision controls @deployed
     "Run with IIP_VISUAL_RUNTIME_PROFILE=Staging and IIP_VISUAL_AUTH_MODE=Entra for deployed-profile assertions."
   );
 
-  await page.goto("/approvals");
+  await page.goto("/app/work-items");
   await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Consequential approvals" }).click();
 
   await expect(page.getByRole("button", { name: /approve payout/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /deny claim/i })).toHaveCount(0);

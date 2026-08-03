@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Cases;
+using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Notifications;
@@ -14,7 +15,7 @@ public static class ApprovalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return WorkflowEndpoints.Validation("tenantScope", validationError);
         }
@@ -29,7 +30,7 @@ public static class ApprovalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return WorkflowEndpoints.Validation("tenantScope", validationError);
         }
@@ -50,7 +51,7 @@ public static class ApprovalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return WorkflowEndpoints.Validation("tenantScope", validationError);
         }
@@ -151,6 +152,97 @@ public static class ApprovalEndpoints
         CancellationToken cancellationToken) =>
         DecideAsync(approvalId, request, ApprovalStatus.Escalated, ApprovalDecision.Escalated, "escalateApproval", approvalRepository, auditRepository, httpContext, cancellationToken);
 
+    public static async Task<IResult> ExecuteApprovedNextStep(
+        Guid approvalId,
+        ExecuteApprovedNextStepRequest request,
+        IApprovalRepository approvalRepository,
+        ICaseRepository caseRepository,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return WorkflowEndpoints.Validation("tenantScope", validationError);
+        }
+
+        var approval = await approvalRepository.GetAsync(approvalId, scope, cancellationToken);
+        if (approval is null)
+        {
+            return Results.NotFound(new { message = "Approval request was not found for the requested tenant workspace." });
+        }
+
+        if (!ApprovalActions.CanExecuteApprovedNextStep(approval, out var blockedReason))
+        {
+            var blockedAction = ApprovalActions.Blocked(approval).FirstOrDefault(action => action.Action == "executeApprovedNextStep");
+            return Results.Conflict(new
+            {
+                message = blockedReason,
+                blockedAction
+            });
+        }
+
+        var claimCase = await WorkflowEndpoints.GetScopedCaseAsync(caseRepository, approval.CaseId, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return WorkflowEndpoints.NotFoundCase();
+        }
+
+        if (claimCase.Status is CaseStatus.Settled or CaseStatus.Closed)
+        {
+            return Results.Conflict(new
+            {
+                message = "Settled or closed cases cannot execute a workflow next step.",
+                blockedAction = new ActionStateResponse(
+                    "executeApprovedNextStep",
+                    "Execute approved next step",
+                    nameof(Permission.ApproveSettlementWorkflowStep),
+                    "Settled or closed cases cannot execute a workflow next step.")
+            });
+        }
+
+        var executor = WorkflowEndpoints.GetActor(httpContext, null);
+        if (string.IsNullOrWhiteSpace(executor))
+        {
+            return WorkflowEndpoints.Validation("userId", "Authenticated user context is required to execute an approved next step.");
+        }
+
+        var auditReason = AuditReasonReader.Read(httpContext);
+        if (string.IsNullOrWhiteSpace(auditReason))
+        {
+            return WorkflowEndpoints.Validation("auditReason", "An audit reason is required to execute an approved next step.");
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var beforeCase = claimCase.ToAuditSnapshot();
+        var updatedCase = claimCase with
+        {
+            Status = CaseStatus.ReadyForExport,
+            UpdatedAt = now
+        };
+        var updatedApproval = approval with
+        {
+            ExecutedByUserId = executor,
+            ExecutedAt = now,
+            ExecutionResult = "Case advanced to ReadyForExport for evidence-pack preparation.",
+            UpdatedAt = now
+        };
+
+        await caseRepository.SaveAsync(updatedCase, cancellationToken);
+        await approvalRepository.SaveAsync(updatedApproval, cancellationToken);
+        await auditRepository.WriteAsync(
+            AuditEvent.CaseStatusUpdated(
+                beforeCase,
+                updatedCase.ToAuditSnapshot(),
+                executor,
+                WorkflowEndpoints.GetCorrelationId(httpContext),
+                auditReason),
+            cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.ApprovalNextStepExecuted(updatedApproval, executor, auditReason), cancellationToken);
+
+        return Results.Ok(WorkflowMapper.ToResponse(updatedApproval));
+    }
+
     private static async Task<IResult> DecideAsync(
         Guid approvalId,
         ApprovalDecisionRequest request,
@@ -162,7 +254,7 @@ public static class ApprovalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return WorkflowEndpoints.Validation("tenantScope", validationError);
         }

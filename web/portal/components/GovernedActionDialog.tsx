@@ -78,7 +78,7 @@ export function GovernedActionDialog({
         aria-modal="true"
         aria-hidden={!open}
         aria-labelledby="governed-action-title"
-        className={`fixed left-1/2 top-1/2 z-[121] w-[min(560px,92vw)] -translate-x-1/2 rounded-2xl border border-line bg-surface shadow-float transition-all duration-200 ${
+        className={`fixed left-1/2 top-1/2 z-[121] flex max-h-[calc(100dvh-24px)] w-[min(560px,92vw)] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-float transition-all duration-200 ${
           open ? "-translate-y-1/2 opacity-100" : "pointer-events-none -translate-y-[45%] opacity-0"
         }`}
       >
@@ -101,7 +101,7 @@ export function GovernedActionDialog({
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
           <InfoBlock label="Affected object" value={target} />
           <InfoBlock label="Impact" value={impact} />
           {evidence ? <div>{evidence}</div> : null}
@@ -122,7 +122,7 @@ export function GovernedActionDialog({
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-3 border-t border-line px-6 py-4">
+        <div className="flex flex-wrap justify-end gap-3 border-t border-line bg-surface px-6 py-4">
           <button
             className="rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-muted transition-all hover:border-accent/50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onClose}

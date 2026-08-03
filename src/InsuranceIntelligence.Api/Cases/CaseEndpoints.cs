@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -17,7 +18,7 @@ public static class CaseEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -25,8 +26,7 @@ public static class CaseEndpoints
             });
         }
 
-        var actor = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
-        if (string.IsNullOrWhiteSpace(actor))
+        if (string.IsNullOrWhiteSpace(userId))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -48,8 +48,9 @@ public static class CaseEndpoints
                 request.Channel ?? string.Empty,
                 request.IncidentDate ?? default,
                 request.IncidentDescription ?? string.Empty,
-                actor,
-                correlationId);
+                userId,
+                correlationId,
+                request.MotorFnolDetails);
 
             var claimCase = await service.CreateCaseAsync(command, cancellationToken);
             var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);
@@ -73,7 +74,7 @@ public static class CaseEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -96,6 +97,128 @@ public static class CaseEndpoints
         return Results.Ok(CaseMapper.ToResponse(claimCase, auditEvents));
     }
 
+    public static async Task<IResult> AssignCase(
+        Guid caseId,
+        AssignCaseRequest request,
+        ICaseRepository caseRepository,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["tenantScope"] = [validationError]
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["userId"] = ["Authenticated user context is required to assign a case."]
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.AssignedUserId) && string.IsNullOrWhiteSpace(request.AssignedTeam))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["assignedUserId"] = ["Assigned user or assigned team is required."]
+            });
+        }
+
+        var claimCase = await GetScopedCaseAsync(caseId, caseRepository, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
+        var before = claimCase.ToAuditSnapshot();
+        var updated = claimCase with
+        {
+            Status = claimCase.Status == CaseStatus.New ? CaseStatus.Assigned : claimCase.Status,
+            AssignedUserId = NormalizeOptional(request.AssignedUserId),
+            AssignedTeam = NormalizeOptional(request.AssignedTeam) ?? claimCase.AssignedTeam,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        var correlationId = GetCorrelationId(httpContext);
+
+        await caseRepository.SaveAsync(updated, cancellationToken);
+        await auditRepository.WriteAsync(
+            AuditEvent.CaseAssigned(before, updated.ToAuditSnapshot(), userId, correlationId, NormalizeOptional(request.AuditReason)),
+            cancellationToken);
+
+        var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
+        return Results.Ok(CaseMapper.ToResponse(updated, auditEvents));
+    }
+
+    public static async Task<IResult> EscalateCase(
+        Guid caseId,
+        EscalateCaseRequest request,
+        ICaseRepository caseRepository,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["tenantScope"] = [validationError]
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["userId"] = ["Authenticated user context is required to escalate a case."]
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.AuditReason))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["auditReason"] = ["Escalation reason is required."]
+            });
+        }
+
+        var claimCase = await GetScopedCaseAsync(caseId, caseRepository, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
+        if (claimCase.Status is CaseStatus.Settled or CaseStatus.Closed)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["status"] = ["Settled or closed cases cannot be escalated from the active work queue."]
+            });
+        }
+
+        var before = claimCase.ToAuditSnapshot();
+        var updated = claimCase with
+        {
+            Status = CaseStatus.Escalated,
+            Priority = CasePriority.Urgent,
+            AssignedTeam = NormalizeOptional(request.AssignedTeam) ?? "Claims Supervision",
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        var correlationId = GetCorrelationId(httpContext);
+
+        await caseRepository.SaveAsync(updated, cancellationToken);
+        await auditRepository.WriteAsync(
+            AuditEvent.CaseEscalated(before, updated.ToAuditSnapshot(), userId, correlationId, request.AuditReason.Trim()),
+            cancellationToken);
+
+        var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
+        return Results.Ok(CaseMapper.ToResponse(updated, auditEvents));
+    }
+
     public static async Task<IResult> ListCases(
         ICaseRepository caseRepository,
         ICaseDocumentRepository documentRepository,
@@ -105,7 +228,7 @@ public static class CaseEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -159,6 +282,50 @@ public static class CaseEndpoints
         return Results.Ok(responses);
     }
 
+    private static async Task<ClaimCase?> GetScopedCaseAsync(
+        Guid caseId,
+        ICaseRepository caseRepository,
+        TenantScope scope,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
+        if (claimCase is null || !claimCase.Scope.Matches(scope))
+        {
+            return null;
+        }
+
+        return ClaimAccessGuard.CanViewCase(httpContext, claimCase)
+            ? claimCase
+            : null;
+    }
+
+    private static bool TryResolveScope(
+        HttpContext httpContext,
+        out TenantScope scope,
+        out string userId,
+        out string validationError)
+    {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext)
+        {
+            var current = tenantContext.Current;
+            scope = TenantScope.Create(current.TenantId, current.WorkspaceId);
+            userId = current.UserId;
+            validationError = string.Empty;
+            return true;
+        }
+
+        if (TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out scope, out validationError))
+        {
+            userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+            return true;
+        }
+
+        userId = string.Empty;
+        return false;
+    }
+
     private static string GetCorrelationId(HttpContext httpContext)
     {
         if (httpContext.Request.Headers.TryGetValue("X-Correlation-ID", out var header)
@@ -169,5 +336,8 @@ public static class CaseEndpoints
 
         return httpContext.TraceIdentifier;
     }
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
 }

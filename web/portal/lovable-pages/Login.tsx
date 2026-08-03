@@ -1,60 +1,132 @@
 "use client";
-import { Link } from "@/components/iip/NextRouterCompat";
-import { ShieldCheck, ChevronRight, Lock } from "lucide-react";
+
+import { useState } from "react";
+import { ArrowRight, AlertTriangle, Check, Loader2, LockKeyhole, ShieldCheck } from "lucide-react";
+import { useNavigate } from "@/components/iip/NextRouterCompat";
 import iipLogo from "@/assets/iip-logo";
+import { canUseEntraBrowserAuth, canUseLocalTestDoubles, runtimeProfile } from "@/lib/config";
+import { getEntraApiAccessToken } from "@/lib/entraAuth";
+
+function environmentLabel() {
+  if (runtimeProfile.toLowerCase() === "managedapplicationreviewer") return "Reviewer environment";
+  return `${runtimeProfile} environment`;
+}
 
 export default function Login() {
+  const navigate = useNavigate();
+  const [signingIn, setSigningIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function signIn() {
+    setSigningIn(true);
+    setError(null);
+    try {
+      if (canUseLocalTestDoubles) {
+        navigate("/app");
+        return;
+      }
+      const token = await getEntraApiAccessToken();
+      if (token) navigate("/app");
+    } catch {
+      setError("Sign-in could not be completed. Try again or contact your IIP administrator.");
+      setSigningIn(false);
+    }
+  }
+
+  const signInAvailable = canUseEntraBrowserAuth || canUseLocalTestDoubles;
+
   return (
-    <div className="min-h-screen ambient-bg relative flex items-center justify-center px-6 py-12">
-      <div className="absolute top-6 left-6 flex items-center gap-2.5">
-        <div className="h-9 w-9 rounded-xl bg-white grid place-items-center shadow-l2 ring-1 ring-cloud/70 overflow-hidden">
-          <img src={iipLogo.url} alt="IIP logo" className="h-7 w-7 object-contain" />
-        </div>
-        <div className="leading-tight">
-          <div className="text-[13px] font-semibold tracking-tight text-navy">Insurance Intelligence Platform</div>
-          <div className="text-[10.5px] uppercase tracking-[0.14em] text-stone">IIP · Azure-native</div>
-        </div>
-      </div>
-
-      <div className="w-full max-w-md glass-elevated p-8 animate-fade-in">
-        <div className="mb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Sign in</div>
-          <h1 className="text-[26px] leading-[32px] font-semibold text-navy mt-1">Enter your workspace</h1>
-          <p className="text-[13.5px] text-stone mt-2">Human-reviewed insurance intelligence for regulated operations.</p>
-        </div>
-
-        <div className="space-y-4">
+    <main className="grid min-h-screen bg-white text-navy lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
+      <section className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-navy px-12 py-10 text-white lg:flex xl:px-16 xl:py-12">
+        <div className="absolute inset-y-0 right-0 w-px bg-white/15" />
+        <div className="relative flex items-center gap-3">
+          <span className="grid h-10 w-10 place-items-center rounded-md bg-white">
+            <img src={iipLogo.url} alt="IIP" className="h-8 w-8 object-contain" />
+          </span>
           <div>
-            <label className="text-[11.5px] font-medium text-slate2">Tenant</label>
-            <div className="mt-1 rounded-2xl border border-cloud bg-white/80 px-4 py-3 text-[13.5px] text-navy flex items-center justify-between">
-              Global Insurance Co. <ChevronRight className="h-4 w-4 text-stone" />
+            <div className="text-sm font-semibold">IIP Operations</div>
+            <div className="mt-0.5 text-xs text-white/65">Insurance Intelligence Platform</div>
+          </div>
+        </div>
+
+        <div className="relative max-w-2xl">
+          <p className="mb-5 text-sm font-medium text-white/65">Secure insurance operations workspace</p>
+          <h1 className="max-w-xl text-4xl font-semibold leading-tight text-white xl:text-5xl">
+            Prepare insurance work with evidence, controls, and human accountability.
+          </h1>
+          <p className="mt-6 max-w-lg text-base leading-7 text-white/70">
+            Review claims, documents, approvals, communications, and audit evidence from one governed staff workspace.
+          </p>
+          <div className="mt-10 grid max-w-xl gap-4 border-t border-white/15 pt-7 sm:grid-cols-3">
+            {["Server-resolved access", "Evidence-linked work", "Human-reviewed decisions"].map((item) => (
+              <div key={item} className="flex items-start gap-2 text-sm leading-5 text-white/75">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#7dd3fc]" />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="relative text-xs text-white/55">Authorized insurer staff only</div>
+      </section>
+
+      <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
+        <div className="w-full max-w-md">
+          <div className="mb-12 flex items-center gap-3 lg:hidden">
+            <span className="grid h-10 w-10 place-items-center rounded-md border border-cloud bg-white">
+              <img src={iipLogo.url} alt="IIP" className="h-8 w-8 object-contain" />
+            </span>
+            <div>
+              <div className="text-sm font-semibold">IIP Operations</div>
+              <div className="text-xs text-stone">Insurance Intelligence Platform</div>
             </div>
           </div>
-          <div>
-            <label className="text-[11.5px] font-medium text-slate2">Workspace</label>
-            <div className="mt-1 rounded-2xl border border-cloud bg-white/80 px-4 py-3 text-[13.5px] text-navy flex items-center justify-between">
-              Motor Ops · Production <ChevronRight className="h-4 w-4 text-stone" />
+
+          <div className="mb-8 flex items-center justify-between gap-4 border-b border-cloud pb-4">
+            <span className="text-sm font-medium text-slate2">Staff access</span>
+            <span className="text-xs text-stone">{environmentLabel()}</span>
+          </div>
+          <h2 className="text-3xl font-semibold leading-tight text-navy">Sign in to IIP Operations</h2>
+          <p className="mt-3 text-sm leading-6 text-stone">
+            Use your organization account. Your tenant, workspace, role, and permissions are resolved securely after sign-in.
+          </p>
+
+          <div className="mt-8 flex items-start gap-3 border-y border-cloud py-4">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+            <div>
+              <div className="text-sm font-medium text-navy">Microsoft Entra ID</div>
+              <div className="mt-1 text-xs leading-5 text-stone">Single sign-on and your organization&apos;s access policies apply.</div>
             </div>
           </div>
 
-          <Link
-            to="/app"
-            className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-2xl gradient-primary text-white text-[13.5px] font-medium py-3.5 shadow-l3 hover-lift focus-ring"
+          <button
+            type="button"
+            onClick={signIn}
+            disabled={signingIn || !signInAvailable}
+            className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white shadow-l2 transition-colors hover:bg-primary/90 focus-ring disabled:cursor-not-allowed disabled:opacity-55"
           >
-            <svg width="16" height="16" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#F35325"/><rect x="11" y="1" width="9" height="9" fill="#81BC06"/><rect x="1" y="11" width="9" height="9" fill="#05A6F0"/><rect x="11" y="11" width="9" height="9" fill="#FFBA08"/></svg>
-            Continue with Microsoft
-          </Link>
+            {signingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
+            <span>{signingIn ? "Connecting to Microsoft" : canUseLocalTestDoubles ? "Enter local workspace" : "Continue with Microsoft"}</span>
+            {!signingIn && <ArrowRight className="h-4 w-4" />}
+          </button>
 
-          <div className="flex items-center gap-2 pt-2 text-[11.5px] text-stone">
-            <ShieldCheck className="h-3.5 w-3.5 text-success" />
-            SSO enforced · Conditional Access · AAD tenant <span className="text-navy">global-ins.onmicrosoft.com</span>
-          </div>
+          {!signInAvailable && (
+            <div className="mt-5 flex items-start gap-2 rounded-md border border-[hsl(var(--warning)/0.3)] bg-[hsl(var(--warning)/0.08)] px-3 py-3 text-xs leading-5 text-slate2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <span>Microsoft sign-in is not configured for this environment.</span>
+            </div>
+          )}
+          {error && (
+            <div role="alert" className="mt-5 flex items-start gap-2 rounded-md border border-[hsl(var(--error)/0.25)] bg-[hsl(var(--error)/0.07)] px-3 py-3 text-xs leading-5 text-[hsl(var(--error))]">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          <p className="mt-8 text-xs leading-5 text-stone">
+            Access is limited to authorized staff. Consequential insurance decisions remain with accountable human reviewers.
+          </p>
         </div>
-      </div>
-
-      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center text-[11.5px] text-stone gap-2">
-        <Lock className="h-3 w-3" /> All actions are auditable · Regulator-ready logs · <a className="text-info hover:underline" href="#">Support</a>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

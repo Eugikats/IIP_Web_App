@@ -1,8 +1,7 @@
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Domain.Cases;
 
 namespace InsuranceIntelligence.Api.Cases;
-
-using InsuranceIntelligence.Api.Common;
 
 public sealed record CaseResponse(
     Guid CaseId,
@@ -17,6 +16,7 @@ public sealed record CaseResponse(
     string Channel,
     DateOnly IncidentDate,
     string IncidentDescription,
+    MotorFnolDetails? MotorFnolDetails,
     string Status,
     decimal CompletenessScore,
     string RiskLevel,
@@ -57,3 +57,12 @@ public sealed record ClaimInboxItemResponse(
     SafeAuditSummary Audit,
     IReadOnlyCollection<ActionStateResponse> AllowedActions,
     IReadOnlyCollection<ActionStateResponse> BlockedActions);
+
+public sealed record AssignCaseRequest(
+    string? AssignedUserId,
+    string? AssignedTeam,
+    string? AuditReason);
+
+public sealed record EscalateCaseRequest(
+    string AuditReason,
+    string? AssignedTeam);

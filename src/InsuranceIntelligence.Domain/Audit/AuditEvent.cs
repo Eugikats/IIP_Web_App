@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Workflow;
@@ -42,6 +43,132 @@ public sealed record AuditEvent(
             ValidationResult: "accepted",
             ApprovalId: null,
             AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ClaimReviewRequested(ClaimReviewRequest request) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: request.RequestedByUserId,
+            ActorType.User,
+            "claim.review_requested",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "Contestability",
+            Confidence: null,
+            ValidationResult: request.Origin.ToString(),
+            ApprovalId: null,
+            AuditReason: request.Reason,
+            CorrelationId: request.CorrelationId);
+
+    public static AuditEvent ClaimReviewAcknowledged(
+        ClaimReviewRequest request,
+        string actorUserId,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: actorUserId,
+            ActorType.User,
+            "claim.review_acknowledged",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: ClaimReviewRequestStatus.Open.ToString(),
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "Contestability",
+            Confidence: null,
+            ValidationResult: "acknowledged",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ClaimReviewResolved(
+        ClaimReviewRequest request,
+        string actorUserId,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: actorUserId,
+            ActorType.User,
+            "claim.review_resolved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "Contestability",
+            Confidence: null,
+            ValidationResult: "resolved",
+            ApprovalId: null,
+            AuditReason: request.ResolutionNote,
+            CorrelationId: correlationId);
+
+    public static AuditEvent CaseAssigned(ClaimCaseSnapshot before, ClaimCaseSnapshot after, string assignedByUserId, string correlationId, string? auditReason = null) =>
+        new(
+            Guid.NewGuid(),
+            after.Scope,
+            after.CaseId,
+            DocumentId: null,
+            UserId: assignedByUserId,
+            ActorType.User,
+            "case.assigned",
+            DateTimeOffset.UtcNow,
+            before.Status,
+            after.Status,
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "Workflow",
+            Confidence: null,
+            ValidationResult: "assigned",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    public static AuditEvent CaseEscalated(ClaimCaseSnapshot before, ClaimCaseSnapshot after, string escalatedByUserId, string correlationId, string auditReason) =>
+        new(
+            Guid.NewGuid(),
+            after.Scope,
+            after.CaseId,
+            DocumentId: null,
+            UserId: escalatedByUserId,
+            ActorType.User,
+            "case.escalated",
+            DateTimeOffset.UtcNow,
+            before.Status,
+            after.Status,
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "Workflow",
+            Confidence: null,
+            ValidationResult: "escalated",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    public static AuditEvent CaseStatusUpdated(ClaimCaseSnapshot before, ClaimCaseSnapshot after, string userId, string correlationId, string auditReason) =>
+        new(
+            Guid.NewGuid(),
+            after.Scope,
+            after.CaseId,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.System,
+            "case.status.updated",
+            DateTimeOffset.UtcNow,
+            before.Status,
+            after.Status,
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "Workflow",
+            Confidence: null,
+            ValidationResult: "updated",
+            ApprovalId: null,
+            AuditReason: auditReason,
             CorrelationId: correlationId);
 
     public static AuditEvent DocumentUploaded(CaseDocument document, string userId, string correlationId) =>
@@ -213,6 +340,9 @@ public sealed record AuditEvent(
     public static AuditEvent ApprovalEscalated(ApprovalRequest approval, string reviewerUserId, string? auditReason = null) =>
         ForApproval(approval, reviewerUserId, "approval.escalated", ApprovalStatus.Pending.ToString(), approval.Status.ToString(), "escalated", auditReason);
 
+    public static AuditEvent ApprovalNextStepExecuted(ApprovalRequest approval, string executorUserId, string? auditReason = null) =>
+        ForApproval(approval, executorUserId, "approval.next_step.executed", approval.Status.ToString(), approval.ExecutionResult, "executed", auditReason);
+
     public static AuditEvent CustomerUpdateDrafted(CustomerUpdateDraft update) =>
         ForCustomerUpdate(update, update.CreatedByUserId, ActorType.Agent, "customer_update.drafted", null, update.Status.ToString(), "drafted");
 
@@ -233,6 +363,33 @@ public sealed record AuditEvent(
             update.Status == CustomerUpdateStatus.Sent ? "sent" : "simulated_sent",
             update.Status == CustomerUpdateStatus.Sent ? "GraphEmail" : "Mock",
             auditReason);
+
+    public static AuditEvent EvidencePackExported(
+        TenantScope scope,
+        Guid caseId,
+        string exportedByUserId,
+        string objectKey,
+        long fileSizeBytes,
+        string auditReason,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            DocumentId: null,
+            exportedByUserId,
+            ActorType.User,
+            "evidence_pack.exported",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: "exported",
+            EvidenceIds: [objectKey],
+            ModelProvider: "EvidencePackStorage",
+            Confidence: fileSizeBytes,
+            ValidationResult: "exported",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
 
     private static AuditEvent ForCase(
         ClaimCaseSnapshot snapshot,

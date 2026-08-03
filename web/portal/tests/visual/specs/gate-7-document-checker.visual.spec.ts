@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { installVisualApiFixtures } from "../fixtures/iip-fixtures";
 
-const documentPath = "/claims/CLM-2026-00491/documents";
+const documentPath = "/app/claims/CLM-2026-00491/extraction?documentId=DOC-2026-00215";
 
 test.beforeEach(async ({ page }) => {
   await installVisualApiFixtures(page);
@@ -11,17 +11,16 @@ test("Gate 7 Document Checker exposes split verification workspace and blocked e
   await page.goto(documentPath);
   await page.waitForLoadState("networkidle");
 
-  await expect(page.getByRole("heading", { name: "Claim document workspace" })).toBeVisible();
-  await expect(page.getByText("Completeness checklist")).toBeVisible();
-  await expect(page.getByText("Documents received")).toBeVisible();
-  await expect(page.getByText("Extraction review")).toBeVisible();
-
-  await page.getByRole("button", { name: /repair_estimate\.pdf/ }).click();
-  await expect(page.getByText("Needs Human Verification")).toBeVisible();
-  await expect(page.getByText("Extraction blocked actions")).toBeVisible();
-  await expect(page.getByText("Human verification is required before extraction approval.")).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Human verification reason" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Extraction Review · Garage Estimate" })).toBeVisible();
+  await expect(page.getByText("Release 1 · Document-to-Decision", { exact: true })).toBeVisible();
+  await expect(page.getByText("repair_estimate.pdf").first()).toBeVisible();
+  await expect(page.getByText("Extracted fields · 2")).toBeVisible();
+  await expect(page.getByText("Amount", { exact: true })).toBeVisible();
+  await expect(page.getByText("Confidence · Low · 63%").first()).toBeVisible();
+  await expect(page.getByText("Garage Name")).toBeVisible();
   await expect(page.getByRole("button", { name: "Approve extraction" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save corrections" })).toBeDisabled();
+  await expect(page.getByAltText("Authorized preview of repair_estimate.pdf")).toBeVisible();
 
   await testInfo.attach(`gate-7-document-checker-${testInfo.project.name}.png`, {
     body: await page.screenshot({ fullPage: true }),
@@ -29,13 +28,15 @@ test("Gate 7 Document Checker exposes split verification workspace and blocked e
   });
 });
 
-test("Gate 7 Document Checker requires human verification reason before approval action is enabled", async ({ page }) => {
+test("Gate 7 Document Checker requires a human audit reason for correction or approval", async ({ page }) => {
   await page.goto(documentPath);
   await page.waitForLoadState("networkidle");
 
-  await page.getByRole("button", { name: /repair_estimate\.pdf/ }).click();
-  await page.getByRole("textbox", { name: "Human verification reason" }).fill("Verified estimate amount and invoice details against the uploaded document.");
+  await page.getByLabel("Review reason").fill("Verified the garage estimate against the authorized source preview.");
   await expect(page.getByRole("button", { name: "Approve extraction" })).toBeEnabled();
+  await page.locator('input[value="UGX 18,500,000"]').fill("UGX 18,250,000");
+  await expect(page.getByRole("button", { name: "Approve extraction" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save corrections" })).toBeEnabled();
 });
 
 test("Gate 7 Document Checker deployed profile shows no fake processing success @deployed", async ({ page }) => {

@@ -113,6 +113,29 @@ public sealed class AuditQueryServiceTests
     }
 
     [Fact]
+    public async Task ListEventsAsync_MinimizesEmailAddressesInActorAndSummary()
+    {
+        var service = new AuditQueryService(
+            CurrentContext("tenant-a", "workspace-a", "user-1"),
+            new FixedPermissionService(Permission.ViewAuditLog),
+            new RecordingAuditReadRepository(
+            [
+                AuditEvent(
+                    "audit-1",
+                    actorUserId: "Jane.Operator@Example.COM",
+                    summary: "Customer email jane.customer@example.com was viewed for service triage.")
+            ]));
+
+        var row = Assert.Single(await service.ListEventsAsync(new AuditEventListQuery()));
+        var json = JsonSerializer.Serialize(row, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.Equal("j***@example.com", row.ActorUserId);
+        Assert.Contains("j***@example.com", row.Summary, StringComparison.Ordinal);
+        Assert.DoesNotContain("Jane.Operator@Example.COM", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("jane.customer@example.com", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ListEventsAsync_UsesIsoOccurredAtAndNormalizesUnknownEventType()
     {
         var service = new AuditQueryService(
@@ -160,12 +183,13 @@ public sealed class AuditQueryServiceTests
     private static AuditEventReadModel AuditEvent(
         string id,
         string eventType = AuditEventTypeValues.DataViewed,
+        string actorUserId = "user-1",
         string summary = "Customer profile viewed.",
         DateTimeOffset? occurredAt = null) =>
         new(
             id,
             eventType,
-            "user-1",
+            actorUserId,
             "customer",
             "customer-1",
             summary,

@@ -1,12 +1,11 @@
 "use client";
-import { toast } from "sonner";
+import Link from "next/link";
 import { GlassCard, SectionHeader, Badge, StatusBadge, ConfidenceBadge } from "@/components/iip/Primitives";
-import { FileText, RefreshCw, XCircle } from "lucide-react";
+import { ExternalLink, FileText } from "lucide-react";
 import { useDocuments } from "@/lib/lovable-parity/data/documents";
 
 export default function Documents() {
-  const { documents, loading, error, parityMode } = useDocuments();
-  const gov = (label: string) => (parityMode ? toast.success(label) : toast("Recorded — governed document action is audited."));
+  const { documents, loading, error } = useDocuments();
 
   return (
     <>
@@ -43,12 +42,7 @@ export default function Documents() {
                   <td className="p-3">{d.confidence > 0 ? <ConfidenceBadge value={d.confidence} /> : <Badge tone="neutral">—</Badge>}</td>
                   <td className="p-3 text-stone">{d.uploaded}</td>
                   <td className="p-3">
-                    <div className="flex items-center gap-1">
-                      {(d.status === "Failed" || d.status === "ReviewRequired") && (
-                        <button onClick={() => gov("Extraction re-queued")} className="text-[11.5px] px-2 py-1 rounded-lg bg-white border border-cloud text-navy inline-flex items-center gap-1"><RefreshCw className="h-3 w-3" />Retry</button>
-                      )}
-                      <button onClick={() => gov("Document rejected")} className="text-[11.5px] px-2 py-1 rounded-lg bg-white border border-cloud text-error inline-flex items-center gap-1"><XCircle className="h-3 w-3" />Reject</button>
-                    </div>
+                    <Link href={`/app/claims/${d.claim}/extraction?documentId=${d.id}`} className="inline-flex items-center gap-1 rounded-lg border border-cloud bg-white px-2 py-1 text-[11.5px] font-medium text-navy focus-ring"><ExternalLink className="h-3 w-3" /> Review</Link>
                   </td>
                 </tr>
               ))}
@@ -56,7 +50,7 @@ export default function Documents() {
           </table>
         </GlassCard>
       )}
-      <div className="mt-3 text-[11.5px] text-stone">Allowed file types: PDF, JPEG, PNG · Max 20MB per document.</div>
+      <div className="mt-3 text-[11.5px] text-stone">Allowed file types: PDF, JPEG, PNG · Current upload boundary: 10MB per document.</div>
     </>
   );
 }

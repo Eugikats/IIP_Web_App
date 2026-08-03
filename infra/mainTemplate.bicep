@@ -74,6 +74,27 @@ param aiProviderMode string = 'mock'
 @description('Data residency mode.')
 param dataResidencyMode string = 'regional'
 
+@description('Approved country or jurisdiction for customer-data residency. Required for Production and ManagedApplicationReviewer.')
+param dataResidencyCountry string = ''
+
+@description('Approved Azure geography or data boundary, for example Africa or EU. Required for Production and ManagedApplicationReviewer.')
+param dataResidencyGeography string = ''
+
+@description('Comma-separated Azure region names approved by legal, security, and the customer. Required for Production and ManagedApplicationReviewer.')
+param dataResidencyAllowedAzureRegions string = ''
+
+@description('Non-secret legal/security approval or decision-record reference. Required for Production and ManagedApplicationReviewer.')
+param dataResidencyApprovalReference string = ''
+
+@allowed([
+  'Standard_LRS'
+  'Standard_ZRS'
+  'Standard_GRS'
+  'Standard_GZRS'
+])
+@description('Storage replication SKU. LRS is the residency-safe default. GRS/GZRS require the paired secondary region to be approved and listed in the residency decision.')
+param storageAccountSkuName string = 'Standard_LRS'
+
 @minValue(30)
 @description('Document retention in days.')
 param documentRetentionDays int = 365
@@ -128,6 +149,15 @@ param assistantAiProviderMode string = 'mock'
 
 @description('Create a dev Azure OpenAI account. Default is false because availability and quota are subscription/region dependent.')
 param deployAzureOpenAi bool = false
+@allowed([
+  ''
+  'Standard'
+  'DataZoneStandard'
+  'GlobalStandard'
+])
+@description('Deployment type of the externally created Azure OpenAI model deployments. Protected production runtimes require this to match dataResidencyMode.')
+param azureOpenAiDeploymentType string = ''
+
 
 @description('Azure OpenAI chat deployment name to use after a deployment is created outside this dev template.')
 param azureOpenAiChatDeployment string = ''
@@ -229,6 +259,7 @@ param serviceBusQueueNames array = [
   'document-processing'
   'outbound-communications'
   'approval-notifications'
+  'agent-workflow'
 ]
 
 @allowed([
@@ -288,6 +319,10 @@ var uniqueSuffix = uniqueString(resourceGroup().id, environmentName)
 var normalizedEnvironmentName = toLower(environmentName)
 var inferredRuntimeProfile = normalizedEnvironmentName == 'dev' || normalizedEnvironmentName == 'development' ? 'Development' : normalizedEnvironmentName == 'production' || deploymentSize == 'production' ? 'Production' : 'Staging'
 var appRuntimeProfile = runtimeProfile == 'auto' ? inferredRuntimeProfile : runtimeProfile
+var productionResidencyApprovalRequired = appRuntimeProfile == 'Production' || appRuntimeProfile == 'ManagedApplicationReviewer'
+var normalizedAllowedAzureRegions = split(toLower(replace(dataResidencyAllowedAzureRegions, ' ', '')), ',')
+var productionResidencyConfigured = !productionResidencyApprovalRequired || (!empty(dataResidencyCountry) && !empty(dataResidencyGeography) && !empty(dataResidencyAllowedAzureRegions) && !empty(dataResidencyApprovalReference))
+var productionRegionApproved = !productionResidencyApprovalRequired || contains(normalizedAllowedAzureRegions, toLower(location))
 var privateAccessEnabled = enablePrivateEndpoints || privateNetworkingEnabled
 var resourceTags = {
   product: 'InsuranceIntelligence'
@@ -348,7 +383,7 @@ var appServicePlanSku = deploymentSize == 'production' ? {
   capacity: 1
 }
 
-var storageSkuName = deploymentSize == 'production' ? 'Standard_GRS' : 'Standard_LRS'
+var storageSkuName = storageAccountSkuName
 var searchSkuName = deploymentSize == 'production' ? 'standard' : 'basic'
 var serviceBusSku = deploymentSize == 'production' ? 'Standard' : 'Basic'
 var sqlSkuName = deploymentSize == 'production' ? 'GP_Gen5_2' : 'Basic'
@@ -392,11 +427,35 @@ var managedIdentityFlag = string(useManagedIdentity)
 var apiAppSettings = [
   {
     name: 'ASPNETCORE_ENVIRONMENT'
-    value: environmentName == 'dev' ? 'Development' : 'Production'
+    value: 'Production'
   }
   {
     name: 'INSURANCEINTELLIGENCE_RUNTIME_PROFILE'
     value: appRuntimeProfile
+  }
+  {
+    name: 'INSURANCEINTELLIGENCE_AZURE_REGION'
+    value: location
+  }
+  {
+    name: 'INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY'
+    value: dataResidencyCountry
+  }
+  {
+    name: 'INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY'
+    value: dataResidencyGeography
+  }
+  {
+    name: 'INSURANCEINTELLIGENCE_DATA_RESIDENCY_MODE'
+    value: dataResidencyMode
+  }
+  {
+    name: 'INSURANCEINTELLIGENCE_DATA_RESIDENCY_ALLOWED_AZURE_REGIONS'
+    value: dataResidencyAllowedAzureRegions
+  }
+  {
+    name: 'INSURANCEINTELLIGENCE_DATA_RESIDENCY_APPROVAL_REFERENCE'
+    value: dataResidencyApprovalReference
   }
   {
     name: 'INSURANCEINTELLIGENCE_STORAGE_PROVIDER'
@@ -511,6 +570,10 @@ var apiAppSettings = [
     value: openAiEndpoint
   }
   {
+    name: 'AzureOpenAI__DeploymentType'
+    value: azureOpenAiDeploymentType
+  }
+  {
     name: 'AzureOpenAI__ChatDeployment'
     value: azureOpenAiChatDeployment
   }
@@ -565,6 +628,10 @@ var apiAppSettings = [
   {
     name: 'ServiceBus__AuditEventsQueue'
     value: 'audit-events'
+  }
+  {
+    name: 'ServiceBus__AgentWorkflowQueue'
+    value: 'agent-workflow'
   }
   {
     name: 'ProviderHealth__TimeoutSeconds'
@@ -1025,6 +1092,7 @@ resource apiApp 'Microsoft.Web/sites@2023-12-01' = {
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|8.0'
       alwaysOn: deploymentSize != 'dev'
+      http20Enabled: true
       ftpsState: 'Disabled'
       healthCheckPath: '/health/ready'
       appSettings: apiAppSettings
@@ -1047,6 +1115,7 @@ resource portalApp 'Microsoft.Web/sites@2023-12-01' = {
     siteConfig: {
       linuxFxVersion: 'NODE|20-lts'
       alwaysOn: deploymentSize != 'dev'
+      http20Enabled: true
       ftpsState: 'Disabled'
       appCommandLine: 'bash -c "if [ ! -d node_modules/next ] && [ -f node_modules.tar.gz ]; then mkdir -p node_modules && tar --touch --no-same-owner --no-same-permissions -xzf node_modules.tar.gz -C node_modules; fi; node server.js"'
       appSettings: [
@@ -1147,8 +1216,14 @@ output documentIntelligenceName string = provisionDocumentIntelligence ? documen
 output azureOpenAiName string = provisionOpenAi ? openAiAccountName : ''
 output serviceBusNamespaceName string = provisionServiceBus ? serviceBusNamespaceName : ''
 output appSettings object = {
-  ASPNETCORE_ENVIRONMENT: environmentName == 'dev' ? 'Development' : 'Production'
+  ASPNETCORE_ENVIRONMENT: 'Production'
   INSURANCEINTELLIGENCE_RUNTIME_PROFILE: appRuntimeProfile
+  INSURANCEINTELLIGENCE_AZURE_REGION: location
+  INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY: dataResidencyCountry
+  INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY: dataResidencyGeography
+  INSURANCEINTELLIGENCE_DATA_RESIDENCY_MODE: dataResidencyMode
+  INSURANCEINTELLIGENCE_DATA_RESIDENCY_ALLOWED_AZURE_REGIONS: dataResidencyAllowedAzureRegions
+  INSURANCEINTELLIGENCE_DATA_RESIDENCY_APPROVAL_REFERENCE: dataResidencyApprovalReference
   INSURANCEINTELLIGENCE_STORAGE_PROVIDER: appStorageProvider
   INSURANCEINTELLIGENCE_BLOB_PROVIDER: appBlobProvider
   INSURANCEINTELLIGENCE_DOCUMENT_PROVIDER: appDocumentProvider
@@ -1165,6 +1240,7 @@ output appSettings object = {
   AzureAiSearch__Endpoint: searchEndpoint
   AzureAiSearch__IndexName: azureSearchIndexName
   AzureOpenAI__Endpoint: openAiEndpoint
+  AzureOpenAI__DeploymentType: azureOpenAiDeploymentType
   AzureOpenAI__ChatDeployment: azureOpenAiChatDeployment
   ServiceBus__FullyQualifiedNamespace: provisionServiceBus ? serviceBusNamespaceEndpoint : ''
   ProviderHealth__TimeoutSeconds: '5'
@@ -1179,6 +1255,12 @@ output deploymentSettings object = {
   useManagedIdentity: useManagedIdentity
   aiProviderMode: aiProviderMode
   dataResidencyMode: dataResidencyMode
+  dataResidencyCountry: dataResidencyCountry
+  dataResidencyGeography: dataResidencyGeography
+  dataResidencyAllowedAzureRegions: dataResidencyAllowedAzureRegions
+  dataResidencyApprovalReference: dataResidencyApprovalReference
+  productionResidencyConfigured: productionResidencyConfigured
+  productionRegionApproved: productionRegionApproved
   documentRetentionDays: documentRetentionDays
   documentStorageMode: documentStorageMode
   documentIntelligenceMode: documentIntelligenceMode
@@ -1189,6 +1271,7 @@ output deploymentSettings object = {
   assistantAiProviderMode: assistantAiProviderMode
   deployAzureOpenAi: deployAzureOpenAi
   graphMailboxAccessScoped: graphMailboxAccessScoped
+  azureOpenAiDeploymentType: azureOpenAiDeploymentType
   graphClientIdSettingName: graphClientIdSettingName
   graphSharedMailboxSettingName: graphSharedMailboxSettingName
   communicationServicesConnectionSettingName: communicationServicesConnectionSettingName
@@ -1207,4 +1290,3 @@ output deploymentSettings object = {
   voiceModuleEnabled: voiceModuleEnabled
   whatsAppModuleEnabled: whatsAppModuleEnabled
 }
-

@@ -1,5 +1,8 @@
+using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Functions;
 using InsuranceIntelligence.Infrastructure.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace InsuranceIntelligence.Api.Tests;
 
@@ -92,17 +95,148 @@ public sealed class FunctionsWorkflowRuntimeTests
     [InlineData("ManagedApplicationReviewer")]
     public void ProtectedRuntimeValidation_AcceptsConfiguredServiceBusWorkflowRuntime(string environmentName)
     {
-        var options = new InfrastructureOptions
+        var errors = WorkflowShell.ValidateProtectedRuntime(ProtectedOptions(), environmentName);
+
+        Assert.Empty(errors);
+    }
+
+    [Theory]
+    [InlineData("Staging")]
+    [InlineData("Production")]
+    [InlineData("ManagedApplicationReviewer")]
+    public void ProtectedRuntimeValidation_RejectsMockProviderModes(string environmentName)
+    {
+        var errors = WorkflowShell.ValidateProtectedRuntime(
+            ProtectedOptions() with { NotificationProvider = "Mock" },
+            environmentName);
+
+        Assert.Contains(errors, error => error.Contains("INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER=Mock", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void TeamsNotificationDispatch_UsesConfiguredQueueAndIdentityConnection()
+    {
+        Assert.Equal("%ServiceBus:ApprovalNotificationsQueue%", TeamsNotificationDispatchFunction.ApprovalNotificationsQueueSetting);
+        Assert.Equal("ServiceBusConnection", TeamsNotificationDispatchFunction.ServiceBusConnectionSetting);
+    }
+
+    [Fact]
+    public async Task TeamsNotificationDispatch_InvalidEnvelopeFailsForRetryAndDeadLetter()
+    {
+        var function = new TeamsNotificationDispatchFunction(
+            new StubTeamsNotificationProvider("delivered_webhook"),
+            new RecordingTeamsNotificationRepository(),
+            NullLogger<TeamsNotificationDispatchFunction>.Instance);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => function.Run("{}", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task TeamsNotificationDispatch_UnconfirmedDeliveryFailsForRetryAndDeadLetter()
+    {
+        var repository = new RecordingTeamsNotificationRepository();
+        var function = new TeamsNotificationDispatchFunction(
+            new StubTeamsNotificationProvider("ConfigurationRequired"),
+            repository,
+            NullLogger<TeamsNotificationDispatchFunction>.Instance);
+        var message = """
+            {
+              "QueueName": "approval-notifications",
+              "MessageType": "TeamsNotification.Dispatch",
+              "TenantId": "tenant-1",
+              "WorkspaceId": "workspace-1",
+              "CorrelationId": "correlation-1",
+              "Payload": {
+                "NotificationId": "11111111-1111-1111-1111-111111111111",
+                "NotificationType": "ApprovalRequired",
+                "PayloadJson": "{}"
+              }
+            }
+            """;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => function.Run(message, CancellationToken.None));
+        Assert.Equal(TeamsNotificationDeliveryStatus.Failed, repository.Saved?.DeliveryStatus);
+        Assert.Equal("Delivery failed. Review correlated provider telemetry.", repository.Saved?.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task TeamsNotificationDispatch_ConfirmedDeliveryCompletes()
+    {
+        var repository = new RecordingTeamsNotificationRepository();
+        var function = new TeamsNotificationDispatchFunction(
+            new StubTeamsNotificationProvider("delivered_webhook"),
+            repository,
+            NullLogger<TeamsNotificationDispatchFunction>.Instance);
+        var message = """
+            {
+              "QueueName": "approval-notifications",
+              "MessageType": "TeamsNotification.Dispatch",
+              "TenantId": "tenant-1",
+              "WorkspaceId": "workspace-1",
+              "CorrelationId": "correlation-1",
+              "Payload": {
+                "NotificationId": "22222222-2222-2222-2222-222222222222",
+                "CaseId": "3fd88a70-04dc-4d55-b60c-1c00db4118b1",
+                "NotificationType": "SlaAtRisk",
+                "PayloadJson": "{}"
+              }
+            }
+            """;
+
+        await function.Run(message, CancellationToken.None);
+
+        Assert.Equal(Guid.Parse("22222222-2222-2222-2222-222222222222"), repository.Saved?.Id);
+        Assert.Equal(TeamsNotificationDeliveryStatus.Delivered, repository.Saved?.DeliveryStatus);
+        Assert.NotNull(repository.Saved?.DeliveredAt);
+        Assert.Null(repository.Saved?.ErrorMessage);
+    }
+
+    [Fact]
+    public void GraphTeamsStub_IsRejectedAsUnimplemented()
+    {
+        var errors = InsuranceIntelligence.Api.Azure.AzureProviderStartupValidator.Validate(
+            new InfrastructureOptions { NotificationProvider = "GraphTeams" });
+
+        Assert.Contains(errors, error => error.Contains("not implemented", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static InfrastructureOptions ProtectedOptions() =>
+        new()
         {
+            AuthMode = "Entra",
+            StorageProvider = "SqlServer",
+            BlobProvider = "AzureBlob",
+            DocumentProvider = "NotConfigured",
+            RetrievalProvider = "AzureAiSearch",
+            AiProvider = "NotConfigured",
             QueueProvider = "AzureServiceBus",
+            EmailProvider = "Disabled",
+            CommunicationProvider = "Disabled",
+            NotificationProvider = "Disabled",
             ServiceBus = new ServiceBusOptions
             {
                 FullyQualifiedNamespace = "iip-prod.servicebus.windows.net"
             }
         };
 
-        var errors = WorkflowShell.ValidateProtectedRuntime(options, environmentName);
+    private sealed class RecordingTeamsNotificationRepository : ITeamsNotificationRepository
+    {
+        public TeamsNotification? Saved { get; private set; }
 
-        Assert.Empty(errors);
+        public Task SaveAsync(TeamsNotification notification, CancellationToken cancellationToken = default)
+        {
+            Saved = notification;
+            return Task.CompletedTask;
+        }
+
+        public Task<IEnumerable<TeamsNotification>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IEnumerable<TeamsNotification>>(
+                Saved is not null && Saved.Scope.Matches(scope) ? [Saved] : []);
+    }
+
+    private sealed class StubTeamsNotificationProvider(string status) : ITeamsNotificationProvider
+    {
+        public Task<string> SendAsync(TeamsNotification notification, CancellationToken cancellationToken = default) =>
+            Task.FromResult(status);
     }
 }

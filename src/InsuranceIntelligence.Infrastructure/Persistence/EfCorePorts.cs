@@ -12,12 +12,22 @@ namespace InsuranceIntelligence.Infrastructure.Persistence;
 
 public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext dbContext) : IPermissionReadRepository
 {
+    private EffectivePermissionCache? _effectivePermissionCache;
+
     public async Task<IReadOnlyCollection<Permission>> GetPermissionsAsync(
         string tenantId,
         string workspaceId,
         string userId,
         CancellationToken cancellationToken = default)
     {
+        if (_effectivePermissionCache is { } cached
+            && cached.TenantId == tenantId
+            && cached.WorkspaceId == workspaceId
+            && cached.UserId == userId)
+        {
+            return cached.Permissions;
+        }
+
         var hasMembership = await dbContext.UserTenantMemberships.AsNoTracking()
             .AnyAsync(item =>
                 item.TenantId == tenantId
@@ -101,12 +111,33 @@ public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext db
             .Select(code => Enum.TryParse<PlatformRole>(code, ignoreCase: true, out var role) ? role : (PlatformRole?)null)
             .OfType<PlatformRole>()
             .SelectMany(RolePermissionMap.ForRole);
-        var overridePermissions = await GetPermissionsAsync(scope.TenantId, scope.WorkspaceId, userId, cancellationToken);
+        var overridePermissionCodes = await dbContext.RolePermissions.AsNoTracking()
+            .Where(item =>
+                item.TenantId == scope.TenantId
+                && item.WorkspaceId == scope.WorkspaceId
+                && roles.Contains(item.RoleCode))
+            .Select(item => item.PermissionCode)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+        var overridePermissions = overridePermissionCodes
+            .Select(code => Enum.TryParse<Permission>(code, ignoreCase: true, out var permission) ? permission : (Permission?)null)
+            .OfType<Permission>();
 
         var permissions = mapPermissions.Concat(overridePermissions).Distinct().ToArray();
+        _effectivePermissionCache = new EffectivePermissionCache(
+            scope.TenantId,
+            scope.WorkspaceId,
+            userId,
+            permissions);
 
         return new EffectiveMembership(scope.TenantId, scope.WorkspaceId, userId, roles, permissions);
     }
+
+    private sealed record EffectivePermissionCache(
+        string TenantId,
+        string WorkspaceId,
+        string UserId,
+        IReadOnlyCollection<Permission> Permissions);
 }
 
 public sealed class EfAuditEventRepository(InsuranceIntelligenceDbContext dbContext)

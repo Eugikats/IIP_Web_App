@@ -20,6 +20,8 @@ export type ClaimRowView = {
   updated: string;
   confidence: number;
   region: string;
+  assignedUserId: string | null;
+  assignedTeam: string | null;
 };
 
 type ClaimListItemDto = {
@@ -35,6 +37,8 @@ type ClaimListItemDto = {
   priority: string;
   slaStatus: string;
   slaDueAt?: string | null;
+  assignedUserId?: string | null;
+  assignedTeam?: string | null;
   updatedAt: string;
 };
 
@@ -59,6 +63,8 @@ function mapDto(dto: ClaimListItemDto): ClaimRowView {
     updated: formatWhen(dto.updatedAt),
     confidence: Math.max(0, Math.min(1, dto.completenessScore / 100)),
     region: "—",
+    assignedUserId: dto.assignedUserId ?? null,
+    assignedTeam: dto.assignedTeam ?? null,
   };
 }
 
@@ -77,6 +83,8 @@ const PARITY_ROWS: ClaimRowView[] = fixtureClaims.map((c) => ({
   updated: c.updated,
   confidence: c.confidence,
   region: c.region,
+  assignedUserId: c.officer === "Unassigned" ? null : c.officer,
+  assignedTeam: null,
 }));
 
 export function useClaims() {
@@ -108,5 +116,46 @@ export function useClaims() {
     void load();
   }, [load]);
 
-  return { claims, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  const assignCase = useCallback(
+    async (caseId: string, assignedUserId: string, assignedTeam = "Motor Review") => {
+      if (LOVABLE_VISUAL_PARITY_MODE) return { ok: true };
+      const response = await fetch(`${apiBaseUrl}/api/v1/cases/${caseId}/assign`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assignedUserId,
+          assignedTeam,
+          auditReason: "Assigned from claims work queue",
+        }),
+      });
+      if (!response.ok) {
+        return { ok: false, message: `Assign failed with HTTP ${response.status}.` };
+      }
+      await load();
+      return { ok: true };
+    },
+    [load, role],
+  );
+
+  const escalateCase = useCallback(
+    async (caseId: string, auditReason: string) => {
+      if (LOVABLE_VISUAL_PARITY_MODE) return { ok: true };
+      const response = await fetch(`${apiBaseUrl}/api/v1/cases/${caseId}/escalate`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          auditReason,
+          assignedTeam: "Claims Supervision",
+        }),
+      });
+      if (!response.ok) {
+        return { ok: false, message: `Escalate failed with HTTP ${response.status}.` };
+      }
+      await load();
+      return { ok: true };
+    },
+    [load, role],
+  );
+
+  return { claims, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, refresh: load, assignCase, escalateCase };
 }

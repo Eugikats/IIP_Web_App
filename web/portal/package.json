@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:ui-release-gates",
     "check:runtime-data": "node scripts/check-runtime-data-hygiene.mjs",
+    "check:provider-status": "node scripts/check-provider-status.mjs",
     "check:role-routes": "node scripts/check-role-route-config.mjs",
     "check:ui-release-gates": "node scripts/check-ui-release-gates.mjs",
     "test:visual:update": "playwright test --update-snapshots",

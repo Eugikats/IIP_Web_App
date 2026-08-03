@@ -1,16 +1,19 @@
 using System.Text.Json;
+using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Api.Admin;
 using InsuranceIntelligence.Api.Compliance;
+using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Onboarding;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
+using InsuranceIntelligence.Domain.Storage;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.Persistence;
-using InsuranceIntelligence.Infrastructure.Simulated;
 using InsuranceIntelligence.LocalTestDoubles;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +77,43 @@ public sealed class Phase5InfrastructureTests
             && auditEvent.AuditReason == auditReason
             && auditEvent.EvidenceIds.Contains("insurerProfile")
             && auditEvent.EvidenceIds.Contains("auditRetention"));
+    }
+
+    [Fact]
+    public async Task AdminTenantConfigUpdate_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var repository = new InMemoryTenantConfigurationRepository();
+        var auditRepository = new InMemoryAuditRepository();
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var spoofedScope = TenantScope.Create("tenant-spoofed", "workspace-spoofed");
+
+        var result = await AdminEndpoints.UpdateTenantConfiguration(
+            TenantConfigurationRequest(),
+            repository,
+            auditRepository,
+            Options(),
+            MembershipScopedContext(
+                membershipScope,
+                "membership-admin-user",
+                spoofedScope.TenantId,
+                spoofedScope.WorkspaceId,
+                "spoofed-user",
+                "Membership admin approved tenant configuration hardening test."),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<TenantConfiguration>(result);
+        var membershipConfiguration = await repository.GetAsync(membershipScope);
+        var spoofedConfiguration = await repository.GetAsync(spoofedScope);
+        var auditEvents = await auditRepository.ListAsync(membershipScope);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal(membershipScope, body!.Scope);
+        Assert.Equal("Updated Insurer", membershipConfiguration.InsurerName);
+        Assert.NotEqual("Updated Insurer", spoofedConfiguration.InsurerName);
+        Assert.Contains(
+            auditEvents,
+            auditEvent => auditEvent.ActionName == "admin.tenant_configuration.updated"
+                && auditEvent.UserId == "membership-admin-user");
     }
 
     [Fact]
@@ -324,6 +364,194 @@ public sealed class Phase5InfrastructureTests
     }
 
     [Fact]
+    public async Task AuditPackExport_StoresArtifactAndWritesAuditReason()
+    {
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var claimCase = Case(scope);
+        var caseRepository = new InMemoryCaseRepository();
+        var auditRepository = new InMemoryAuditRepository();
+        var documentRepository = new InMemoryCaseDocumentRepository();
+        var actionRepository = new InMemoryAgentActionLogRepository();
+        var approvalRepository = new InMemoryApprovalRepository();
+        var updateRepository = new InMemoryCustomerUpdateRepository();
+        var storageProvider = new TestEvidencePackStorageProvider();
+        const string auditReason = "Compliance officer exported the claim evidence pack.";
+        await caseRepository.SaveAsync(claimCase);
+
+        var result = await ComplianceEndpoints.ExportAuditPack(
+            claimCase.CaseId,
+            caseRepository,
+            auditRepository,
+            documentRepository,
+            actionRepository,
+            approvalRepository,
+            updateRepository,
+            storageProvider,
+            Options(),
+            ScopedContext(auditReason: auditReason),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<EvidencePackExportResponse>(result);
+        var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.NotNull(body);
+        Assert.Equal(claimCase.CaseId, body!.CaseId);
+        Assert.Equal("application/json", body.ContentType);
+        Assert.True(body.FileSizeBytes > 0);
+        Assert.Contains(body.ObjectKey, storageProvider.StoredPayloads.Keys);
+        Assert.Contains(auditEvents, auditEvent =>
+            auditEvent.ActionName == "evidence_pack.exported"
+            && auditEvent.AuditReason == auditReason
+            && auditEvent.EvidenceIds.Contains(body.ObjectKey));
+    }
+
+    [Fact]
+    public async Task AuditPackExport_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
+    {
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var claimCase = Case(membershipScope);
+        var caseRepository = new InMemoryCaseRepository();
+        var auditRepository = new InMemoryAuditRepository();
+        var documentRepository = new InMemoryCaseDocumentRepository();
+        var actionRepository = new InMemoryAgentActionLogRepository();
+        var approvalRepository = new InMemoryApprovalRepository();
+        var updateRepository = new InMemoryCustomerUpdateRepository();
+        var storageProvider = new TestEvidencePackStorageProvider();
+        const string auditReason = "Compliance officer exported the evidence pack using resolved membership context.";
+        await caseRepository.SaveAsync(claimCase);
+
+        var result = await ComplianceEndpoints.ExportAuditPack(
+            claimCase.CaseId,
+            caseRepository,
+            auditRepository,
+            documentRepository,
+            actionRepository,
+            approvalRepository,
+            updateRepository,
+            storageProvider,
+            Options(),
+            MembershipScopedContext(
+                membershipScope,
+                "membership-compliance-user",
+                "attacker-tenant",
+                "attacker-workspace",
+                "attacker-user",
+                auditReason),
+            CancellationToken.None);
+        var (status, body) = await ExecuteAsync<EvidencePackExportResponse>(result);
+        var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.NotNull(body);
+        Assert.StartsWith("tenant-membership/workspace-membership/evidence-packs/", body!.ObjectKey, StringComparison.Ordinal);
+        Assert.DoesNotContain("attacker-tenant", body.ObjectKey, StringComparison.Ordinal);
+        Assert.Contains(body.ObjectKey, storageProvider.StoredPayloads.Keys);
+        Assert.Contains(auditEvents, auditEvent =>
+            auditEvent.ActionName == "evidence_pack.exported"
+            && auditEvent.UserId == "membership-compliance-user"
+            && auditEvent.AuditReason == auditReason);
+    }
+
+    [Fact]
+    public async Task CompliancePosture_UsesResolvedScopeAndReturnsAggregateComplianceState()
+    {
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var tenantRepository = new InMemoryTenantConfigurationRepository();
+        var caseRepository = new InMemoryCaseRepository();
+        var onboardingRepository = new RecordingTenantOnboardingRepository(
+        [
+            new TenantOnboardingRecord(
+                "onboarding-1",
+                "Insurer A",
+                "insurer-a.example",
+                "admin@example.test",
+                ["workspace-membership"],
+                ["00000000-0000-0000-0000-000000000001"],
+                "tenant-membership",
+                "state-1",
+                TenantOnboardingStatus.Consented,
+                "external-tenant-1",
+                "admin-user",
+                "operator",
+                DateTimeOffset.Parse("2026-07-01T00:00:00Z"),
+                DateTimeOffset.Parse("2026-07-02T00:00:00Z")),
+            new TenantOnboardingRecord(
+                "attacker-onboarding",
+                "Attacker",
+                "attacker.example",
+                "attacker@example.test",
+                ["attacker-workspace"],
+                ["00000000-0000-0000-0000-000000000002"],
+                "attacker-tenant",
+                "state-2",
+                TenantOnboardingStatus.Blocked,
+                null,
+                null,
+                "operator",
+                DateTimeOffset.Parse("2026-07-01T00:00:00Z"),
+                null)
+        ]);
+        await tenantRepository.SaveAsync(TenantConfiguration.Demo() with
+        {
+            Scope = membershipScope,
+            Country = "Uganda",
+            Region = "East Africa",
+            AuditRetentionDays = 365,
+            ProviderModes = new ProviderModeConfiguration(
+                "SqlServer",
+                "Entra",
+                "NotConfigured",
+                "NotConfigured",
+                "AzureAiSearch",
+                "NotConfigured",
+                "NotConfigured",
+                "NotConfigured",
+                false),
+            UpdatedAt = DateTimeOffset.Parse("2026-07-03T00:00:00Z")
+        });
+        await caseRepository.SaveAsync(Case(membershipScope) with { SlaDueAt = DateTimeOffset.UtcNow.AddHours(-1) });
+        await caseRepository.SaveAsync(Case(membershipScope) with { SlaDueAt = DateTimeOffset.UtcNow.AddHours(4) });
+        await caseRepository.SaveAsync(Case(TenantScope.Create("attacker-tenant", "attacker-workspace")) with { SlaDueAt = DateTimeOffset.UtcNow.AddHours(-1) });
+
+        var result = await ComplianceEndpoints.GetCompliancePosture(
+            tenantRepository,
+            onboardingRepository,
+            caseRepository,
+            Options(),
+            new BasicSlaCalculator(),
+            MembershipScopedContext(
+                membershipScope,
+                "membership-compliance-user",
+                "attacker-tenant",
+                "attacker-workspace",
+                "attacker-user"),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<CompliancePostureResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.NotNull(body);
+        Assert.Equal(365, body!.Retention.AuditRetentionDays);
+        Assert.True(body.Retention.MeetsMinimum);
+        Assert.Equal(1, body.Consent.OnboardingRecords);
+        Assert.Equal(1, body.Consent.ConsentedRecords);
+        Assert.False(body.Consent.BlockedConsent);
+        Assert.Equal(2, body.Sla.TotalOpenClaims);
+        Assert.Equal(1, body.Sla.AtRisk);
+        Assert.Equal(1, body.Sla.Breached);
+        Assert.Equal("Uganda", body.DataResidency.TenantCountry);
+        Assert.Equal("East Africa", body.DataResidency.TenantRegion);
+        Assert.Equal("Approved jurisdiction", body.DataResidency.ResidencyCountry);
+        Assert.Equal("approved-region-1", body.DataResidency.AzureRegion);
+        Assert.True(body.DataResidency.IsConfigured);
+        Assert.True(body.DataResidency.IsDeploymentRegionApproved);
+        Assert.Equal("Compliant", body.DataResidency.Status);
+        Assert.Equal("Entra", body.Providers.AuthMode);
+        Assert.False(body.Providers.SeedDemoData);
+    }
+
+    [Fact]
     public async Task EfTenantConfigurationRepository_MissingRecordReturnsUnconfiguredTenant()
     {
         await using var fixture = await EfFixture.CreateAsync();
@@ -341,38 +569,19 @@ public sealed class Phase5InfrastructureTests
         Assert.False(configuration.ProviderModes.SeedDemoData);
     }
 
-    [Fact]
-    public async Task SeedData_CreatesExpectedDemoRecords()
-    {
-        await using var fixture = await EfFixture.CreateAsync();
-        var services = new ServiceCollection()
-            .AddSingleton<ITenantConfigurationRepository>(new EfTenantConfigurationRepository(fixture.DbContext))
-            .AddSingleton<IUserAccountRepository>(new EfUserAccountRepository(fixture.DbContext))
-            .AddSingleton<ICaseRepository>(new EfCaseRepository(fixture.DbContext))
-            .AddSingleton<IKnowledgeDocumentRepository>(new EfKnowledgeDocumentRepository(fixture.DbContext))
-            .AddSingleton<IApprovalRepository>(new EfApprovalRepository(fixture.DbContext))
-            .AddSingleton<ICustomerUpdateRepository>(new EfCustomerUpdateRepository(fixture.DbContext))
-            .AddSingleton<IAuditRepository>(new EfAuditRepository(fixture.DbContext))
-            .BuildServiceProvider();
 
-        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
-        await DemoDataSeeder.SeedAsync(services);
-        var cases = await services.GetRequiredService<ICaseRepository>().ListAsync(scope);
-        var users = await services.GetRequiredService<IUserAccountRepository>().ListAsync(scope);
-        var approvals = await services.GetRequiredService<IApprovalRepository>().ListAsync(scope);
-        var updates = await services.GetRequiredService<ICustomerUpdateRepository>().ListAsync(scope);
-        var audits = await services.GetRequiredService<IAuditRepository>().ListAsync(scope);
-
-        // Enriched demo spread: multiple claims across SLA states, pending approvals,
-        // draft customer updates, and audit trail — enough for every Command Center block.
-        Assert.True(cases.Count > 1);
-        Assert.Contains(users, user => user.Role == PlatformRole.Admin);
-        Assert.Contains(approvals, approval => approval.Status == ApprovalStatus.Pending);
-        Assert.Contains(updates, update => update.Status == CustomerUpdateStatus.Draft && update.RequiresApproval);
-        Assert.Contains(audits, evt => evt.ActionName == "case.created");
-    }
-
-    private static InfrastructureOptions Options() => new() { AuthMode = "Development", StorageProvider = "InMemory" };
+    private static InfrastructureOptions Options() =>
+        new()
+        {
+            AuthMode = "Development",
+            StorageProvider = "InMemory",
+            AzureRegion = "approved-region-1",
+            DataResidencyCountry = "Approved jurisdiction",
+            DataResidencyGeography = "Approved geography",
+            DataResidencyMode = "regional",
+            DataResidencyAllowedAzureRegions = "approved-region-1",
+            DataResidencyApprovalReference = "RES-TEST-001"
+        };
 
     private static UpdateTenantConfigurationRequest TenantConfigurationRequest() =>
         new(
@@ -398,6 +607,31 @@ public sealed class Phase5InfrastructureTests
             context.Request.Headers["X-Audit-Reason"] = auditReason;
         }
         context.RequestServices = new ServiceCollection().AddLogging().AddProblemDetails().BuildServiceProvider();
+        return context;
+    }
+
+    private static DefaultHttpContext MembershipScopedContext(
+        TenantScope membershipScope,
+        string membershipUserId,
+        string spoofedTenantId,
+        string spoofedWorkspaceId,
+        string spoofedUserId,
+        string? auditReason = null)
+    {
+        var tenantContext = new TenantContextAccessor();
+        tenantContext.SetCurrent(new TenantContext(
+            membershipScope.TenantId,
+            membershipScope.WorkspaceId,
+            membershipUserId,
+            ["Admin"]));
+        var context = ScopedContext(auditReason: auditReason);
+        context.RequestServices = new ServiceCollection()
+            .AddSingleton<ITenantContextAccessor>(tenantContext)
+            .BuildServiceProvider();
+        context.Request.Headers["X-Tenant-Id"] = spoofedTenantId;
+        context.Request.Headers["X-Workspace-Id"] = spoofedWorkspaceId;
+        context.Request.Headers["X-User-Id"] = spoofedUserId;
+        context.Request.Headers["x-demo-user-id"] = spoofedUserId;
         return context;
     }
 
@@ -458,5 +692,44 @@ public sealed class Phase5InfrastructureTests
         {
             await DbContext.DisposeAsync();
         }
+    }
+
+    private sealed class TestEvidencePackStorageProvider : IEvidencePackStorageProvider
+    {
+        public Dictionary<string, byte[]> StoredPayloads { get; } = [];
+
+        public async Task<EvidencePackStorageResult> StoreAsync(
+            EvidencePackStorageRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            using var memory = new MemoryStream();
+            await request.Content.CopyToAsync(memory, cancellationToken);
+            var objectKey = $"{request.Scope.TenantId}/{request.Scope.WorkspaceId}/evidence-packs/{request.CaseId}/{request.FileName}";
+            var bytes = memory.ToArray();
+            StoredPayloads[objectKey] = bytes;
+            return new EvidencePackStorageResult(objectKey, request.ContentType, bytes.Length);
+        }
+    }
+
+    private sealed class RecordingTenantOnboardingRepository(
+        IReadOnlyList<TenantOnboardingRecord> records) : ITenantOnboardingRepository
+    {
+        private readonly List<TenantOnboardingRecord> records = [.. records];
+
+        public Task UpsertAsync(TenantOnboardingRecord record, CancellationToken cancellationToken = default)
+        {
+            records.RemoveAll(item => string.Equals(item.OnboardingId, record.OnboardingId, StringComparison.OrdinalIgnoreCase));
+            records.Add(record);
+            return Task.CompletedTask;
+        }
+
+        public Task<TenantOnboardingRecord?> GetAsync(string onboardingId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(records.FirstOrDefault(item => string.Equals(item.OnboardingId, onboardingId, StringComparison.OrdinalIgnoreCase)));
+
+        public Task<TenantOnboardingRecord?> GetByStateAsync(string state, CancellationToken cancellationToken = default) =>
+            Task.FromResult(records.FirstOrDefault(item => string.Equals(item.State, state, StringComparison.Ordinal)));
+
+        public Task<IReadOnlyList<TenantOnboardingRecord>> ListAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<TenantOnboardingRecord>>(records.ToArray());
     }
 }

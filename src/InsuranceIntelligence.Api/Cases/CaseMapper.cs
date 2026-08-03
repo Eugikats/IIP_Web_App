@@ -23,6 +23,7 @@ public static class CaseMapper
             claimCase.Channel,
             claimCase.IncidentDate,
             claimCase.IncidentDescription,
+            claimCase.MotorFnolDetails,
             claimCase.Status.ToString(),
             claimCase.CompletenessScore,
             claimCase.RiskLevel,

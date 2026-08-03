@@ -24,6 +24,7 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             Channel = command.Channel.Trim(),
             IncidentDate = command.IncidentDate,
             IncidentDescription = command.IncidentDescription.Trim(),
+            MotorFnolDetails = command.MotorFnolDetails?.Normalize(),
             Status = CaseStatus.New,
             CompletenessScore = 0m,
             RiskLevel = "Low",

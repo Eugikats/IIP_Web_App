@@ -22,6 +22,7 @@ using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Api.CommandCenter;
 using InsuranceIntelligence.Api.Communications;
 using InsuranceIntelligence.Api.Compliance;
+using InsuranceIntelligence.Api.Contestability;
 using InsuranceIntelligence.Api.Domain;
 using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Health;
@@ -42,10 +43,13 @@ using InsuranceIntelligence.Infrastructure.DependencyInjection;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Logging.ApplicationInsights;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddApplicationInsightsTelemetry();
+builder.Logging.AddFilter<ApplicationInsightsLoggerProvider>("InsuranceIntelligence", LogLevel.Information);
 
 // Gate 1 (G1.6): load deployment secrets from Azure Key Vault when configured. The vault URI is a
 // non-secret pointer (Azure:KeyVaultUri / Azure__KeyVaultUri); secrets are read via managed identity
@@ -84,11 +88,12 @@ AzureProviderStartupValidator.ThrowIfProductionInvalid(infrastructureOptions, ru
 // Development diagnostics endpoints (debug notification trigger, email test-ingestion)
 // are mapped ONLY in local Development/LocalTest. They must never exist as a deployed
 // surface in Demo/Staging/Production/Reviewer, per the Gate 0 secure-baseline rule.
-var developmentDiagnosticsEnabled =
-    runtimeProfile.Equals("Development", StringComparison.OrdinalIgnoreCase)
-    || runtimeProfile.Equals("LocalTest", StringComparison.OrdinalIgnoreCase);
+var developmentDiagnosticsEnabled = builder.Environment.IsDevelopment()
+    && (runtimeProfile.Equals("Development", StringComparison.OrdinalIgnoreCase)
+        || runtimeProfile.Equals("LocalTest", StringComparison.OrdinalIgnoreCase));
 
 builder.Services.AddAuthorization();
+builder.Services.AddProblemDetails();
 
 // OpenAPI/Swagger. The generated document is the machine-checkable API contract map
 // (see docs/api/IIP_API_Contracts_Master.md, ADR-0004). The interactive Swagger UI and
@@ -123,6 +128,10 @@ if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnor
     var audience = string.IsNullOrWhiteSpace(infrastructureOptions.EntraAudience)
         ? $"api://{clientId}"
         : infrastructureOptions.EntraAudience;
+    var validAudiences = new[] { audience, clientId }
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
 
     builder.Services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -136,9 +145,27 @@ if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnor
                 jwt.TokenValidationParameters ??= new TokenValidationParameters();
                 jwt.TokenValidationParameters.ValidateIssuer = true;
                 jwt.TokenValidationParameters.ValidateAudience = true;
-                jwt.TokenValidationParameters.ValidAudience = audience;
+                jwt.TokenValidationParameters.ValidAudiences = validAudiences;
                 jwt.TokenValidationParameters.ValidateLifetime = true;
                 jwt.TokenValidationParameters.ValidateIssuerSigningKey = true;
+                jwt.TokenValidationParameters.IssuerValidator = (issuer, _, _) =>
+                {
+                    if (!Uri.TryCreate(issuer, UriKind.Absolute, out var issuerUri)
+                        || !string.Equals(issuerUri.Host, "login.microsoftonline.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new SecurityTokenInvalidIssuerException($"Unsupported token issuer '{issuer}'.");
+                    }
+
+                    var segments = issuerUri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+                    if (segments.Length >= 2
+                        && Guid.TryParse(segments[0], out _)
+                        && string.Equals(segments[1], "v2.0", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return issuer;
+                    }
+
+                    throw new SecurityTokenInvalidIssuerException($"Unsupported token issuer '{issuer}'.");
+                };
                 jwt.TokenValidationParameters.ClockSkew = TimeSpan.FromMinutes(2);
                 jwt.TokenValidationParameters.NameClaimType = "preferred_username";
                 jwt.TokenValidationParameters.RoleClaimType = "roles";
@@ -178,6 +205,7 @@ else
 {
     builder.Services.AddSingleton<IDocumentStorageProvider, LocalMockDocumentStorageProvider>();
     builder.Services.AddSingleton<IKnowledgeStorageProvider, LocalMockKnowledgeStorageProvider>();
+    builder.Services.AddSingleton<IEvidencePackStorageProvider, NotConfiguredEvidencePackStorageProvider>();
 }
 
 if (infrastructureOptions.DocumentProvider.Equals("AzureDocumentIntelligence", StringComparison.OrdinalIgnoreCase))
@@ -243,18 +271,14 @@ else
 }
 builder.Services.AddSingleton<ISlaCalculator, BasicSlaCalculator>();
 
-if (infrastructureOptions.NotificationProvider.Equals("GraphTeams", StringComparison.OrdinalIgnoreCase))
-{
-    builder.Services.AddSingleton<ITeamsNotificationProvider, GraphTeamsNotificationProvider>();
-}
-else if (infrastructureOptions.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
+if (infrastructureOptions.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.Configure<IncomingWebhookTeamsProviderOptions>(builder.Configuration.GetSection("TeamsWebhook"));
     builder.Services.AddHttpClient<ITeamsNotificationProvider, IncomingWebhookTeamsProvider>();
 }
 else
 {
-    builder.Services.AddSingleton<ITeamsNotificationProvider, MockTeamsNotificationProvider>();
+    builder.Services.AddSingleton<ITeamsNotificationProvider, InsuranceIntelligence.Infrastructure.Graph.DisabledTeamsNotificationProvider>();
 }
 
 builder.Services.AddScoped<ITeamsNotificationQueue, DefaultTeamsNotificationQueue>();
@@ -285,6 +309,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQuerySe
 builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingQueryService, InsuranceIntelligence.Application.Underwriting.UnderwritingQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingSubmissionSource, InsuranceIntelligence.Api.Underwriting.NotConfiguredUnderwritingSubmissionSource>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentRegistryService, InsuranceIntelligence.Application.Agents.AgentRegistryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowService, InsuranceIntelligence.Application.AgentWorkflows.AgentWorkflowService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingQueryService, InsuranceIntelligence.Application.Billing.BillingQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingUsageSource, InsuranceIntelligence.Api.Admin.Billing.RecordBackedBillingUsageSource>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentQueryService, InsuranceIntelligence.Application.Documents.DocumentQueryService>();
@@ -306,6 +331,9 @@ builder.Configuration["INSURANCEINTELLIGENCE_LOCAL_KNOWLEDGE_MAX_BYTES"] ??= Kno
 var app = builder.Build();
 
 await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Environment);
+
+// Always return a generic RFC 7807 response. Exception details and request headers stay server-side.
+app.UseExceptionHandler();
 
 app.UseCors();
 
@@ -420,12 +448,18 @@ app.MapGet("/api/v1/client-portal/claims/{caseId:guid}", ClientPortalEndpoints.G
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents", ClientPortalEndpoints.UploadDocuments)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
+app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/request-review", ClientPortalEndpoints.RequestReview)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
 
 app.MapPost("/api/v1/cases", CaseEndpoints.CreateCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim));
 app.MapGet("/api/v1/cases", CaseEndpoints.ListCases)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}", CaseEndpoints.GetCase)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/assign", CaseEndpoints.AssignCase)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/escalate", CaseEndpoints.EscalateCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/claims", ClaimsController.ListClaims)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
@@ -451,6 +485,12 @@ app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/approve-ext
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));
 app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/correct-field", DocumentEndpoints.CorrectExtractionField)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));
+app.MapGet("/api/v1/cases/{caseId:guid}/review-requests", ContestabilityEndpoints.ListReviewRequests)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/review-requests/{requestId:guid}/acknowledge", ContestabilityEndpoints.AcknowledgeReviewRequest)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/review-requests/{requestId:guid}/resolve", ContestabilityEndpoints.ResolveReviewRequest)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/knowledge-documents", KnowledgeEndpoints.UploadKnowledgeDocument)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
 app.MapGet("/api/v1/knowledge-documents", KnowledgeEndpoints.ListKnowledgeDocuments)
@@ -506,6 +546,8 @@ app.MapPost("/api/v1/approvals/{approvalId:guid}/reject", ApprovalEndpoints.Reje
 app.MapPost("/api/v1/approvals/{approvalId:guid}/override", ApprovalEndpoints.OverrideApproval)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.OverrideAiRecommendation));
 app.MapPost("/api/v1/approvals/{approvalId:guid}/escalate", ApprovalEndpoints.EscalateApproval)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ApproveSettlementWorkflowStep));
+app.MapPost("/api/v1/approvals/{approvalId:guid}/execute-next-step", ApprovalEndpoints.ExecuteApprovedNextStep)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ApproveSettlementWorkflowStep));
 app.MapPost("/api/v1/cases/{caseId:guid}/customer-updates/draft", CustomerUpdateEndpoints.DraftCustomerUpdate)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
@@ -584,6 +626,29 @@ app.MapGet("/api/v1/admin/agents", InsuranceIntelligence.Api.Admin.Agents.AgentR
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 app.MapPost("/api/v1/admin/agents/{agentKey}/kill-switch", InsuranceIntelligence.Api.Admin.Agents.AgentRegistryEndpoints.SetKillSwitch)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+// Governed agent workflow control plane: immutable Releases 1-5 plus tenant-scoped custom flows.
+app.MapGet("/api/v1/agent-workflows", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.ListDefinitions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAgentWorkflows));
+app.MapGet("/api/v1/agent-workflows/{workflowKey}", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.GetDefinition)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAgentWorkflows));
+app.MapPost("/api/v1/agent-workflows", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.SaveDraft)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgentWorkflows));
+app.MapPost("/api/v1/agent-workflows/{workflowKey}/publish", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.Publish)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgentWorkflows));
+app.MapPost("/api/v1/agent-workflows/{workflowKey}/runs", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.StartRun)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.RunAgentWorkflows));
+app.MapGet("/api/v1/agent-workflow-runs", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.ListRuns)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAgentWorkflows));
+app.MapGet("/api/v1/agent-workflow-runs/{runId:guid}", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.GetRun)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAgentWorkflows));
+app.MapPost("/api/v1/agent-workflow-runs/{runId:guid}/nodes/{nodeKey}/complete", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.CompleteNode)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgentWorkflows));
+app.MapGet("/api/v1/agent-work-items", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.ListWorkItems)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ReviewAgentWorkItems));
+app.MapGet("/api/v1/agent-work-items/{workItemId:guid}", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.GetWorkItem)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ReviewAgentWorkItems));
+app.MapPost("/api/v1/agent-work-items/{workItemId:guid}/decision", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.DecideWorkItem)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ReviewAgentWorkItems));
 // Initiative LP: Billing & entitlements — default package + real usage meters (ADR-0003).
 app.MapGet("/api/v1/admin/billing", InsuranceIntelligence.Api.Admin.Billing.BillingEndpoints.GetSummary)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
@@ -593,7 +658,11 @@ app.MapGet("/api/v1/documents", InsuranceIntelligence.Api.Documents.DocumentLibr
 
 app.MapGet("/api/v1/compliance/audit-events", ComplianceEndpoints.ListAuditEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
+app.MapGet("/api/v1/compliance/posture", ComplianceEndpoints.GetCompliancePosture)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack", ComplianceEndpoints.GetAuditPack)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
+app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export", ComplianceEndpoints.ExportAuditPack)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 app.MapGet("/api/v1/integrations/email/health", EmailIntegrationEndpoints.GetHealth)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
@@ -613,6 +682,10 @@ app.MapGet("/api/v1/integrations/email/messages", EmailIntegrationEndpoints.List
 app.MapGet("/api/v1/integrations/email/messages/{messageId:guid}", EmailIntegrationEndpoints.GetMessage)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/email/graph/webhook", EmailIntegrationEndpoints.GraphWebhook);
+app.MapGet("/api/v1/integrations/whatsapp/health", WhatsAppIntegrationEndpoints.GetHealth)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
+app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);
 app.MapPost("/api/v1/communications/send-email", CommunicationEndpoints.SendEmail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.SendCustomerUpdate));
 app.MapPost("/api/v1/communications/send-sms", CommunicationEndpoints.SendSms)

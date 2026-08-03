@@ -33,9 +33,9 @@ export default function Executive() {
   return (
     <>
       <SectionHeader
-        eyebrow="Executive Intelligence"
-        title="Operations command view"
-        sub="MVP metrics: claims volume, SLA state, approvals, document completeness. Financial and loss metrics remain placeholders pending data validation."
+        eyebrow="Operations Intelligence"
+        title="Management operations view"
+        sub="Claims volume, SLA state, approvals, and document completeness from real workspace aggregates. Unavailable financial or loss measures are omitted rather than estimated."
         action={<button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-2xl gradient-primary text-white text-[13px] px-4 py-2 shadow-l2 hover-lift"><Download className="h-4 w-4" /> Export CSV</button>}
       />
 

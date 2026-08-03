@@ -26,7 +26,7 @@
 
 **Remaining backend:** Agent Registry (+ kill switch, persistence), Billing (usage counters), Documents/Communications status enums + cross-case list endpoints, Sales-Leads list, Channels write-actions, `/me` workspaces.
 
-**Remaining non-screen:** token consolidation (`globals.css` + `lovable.css`), dead-code cleanup (`components/blocks/*`).
+**Remaining non-screen:** token consolidation (`globals.css` + `lovable.css`), dead-code cleanup (`components/blocks/*`). Auth shell live-proof is complete on dev: browser sign-in reached `/app` and `/api/v1/me` resolved from `MembershipStore`.
 
 ## Milestone (2026-07-05): no fabricated data in live, across the whole app
 
@@ -59,6 +59,20 @@ These are new-feature / data-source work, not fixture cleanup — every screen a
 
 **Validation:** `dotnet build` 0 errors; `dotnet test` 85 Domain + 229 API pass; `pnpm build` + `pnpm lint` green.
 
+## Update (2026-07-08) — Phase 4 FNOL → Case Review first slice
+
+- ✅ `/app/claims/new` no longer renders canned FNOL values or fake draft-save actions. It captures required Motor FNOL fields, posts to `POST /api/v1/cases`, and routes to `/app/claims/{caseId}` on successful backend intake.
+- ✅ Case endpoints now prefer server-resolved `ITenantContextAccessor` membership scope over browser-supplied tenant/workspace/user headers, while preserving the local test compatibility path. Regression coverage proves hostile browser headers do not override membership context.
+- ✅ `/app/claims/[id]` no longer imports `lib/lovable-parity/mock` or the hardcoded Kampala prototype narrative. It renders the live claim detail/timeline path, honest document/timeline empty states, and only the wired customer-update draft action executes; unwired review/export actions report `Not configured`.
+- ✅ `/app/claims` now exposes audited per-case assignment and escalation against new backend endpoints (`POST /api/v1/cases/{caseId}/assign`, `POST /api/v1/cases/{caseId}/escalate`) and refreshes the queue from backend state after actions complete.
+- ✅ Motor FNOL details are now structured case data (`MotorFnolDetails`) and returned on case/claim detail responses. FNOL sends the structured object, and Claim Review renders it without parsing or duplicating narrative text.
+- ✅ Motor lifecycle/status is backend-driven: assignment sets `Assigned`; workflow evaluation persists `MissingDocuments`, `ReadyForReview`, or `PendingApproval` and writes `case.status.updated`; Claim Review renders the lifecycle from the backend status.
+- ✅ Approval-backed next-step execution is now explicit and audited: Claim Review creates supervisor approvals, Workflows approves/rejects through real endpoints, `POST /api/v1/approvals/{approvalId}/execute-next-step` advances approved work to `ReadyForExport`, and repeat execution is blocked.
+- ✅ Missing-document customer follow-up is now a governed live path: Claim Review drafts `MissingDocuments` updates through the backend customer-update draft endpoint, displays persisted customer-update records, and uses the existing audited approve/send endpoints with a required human audit reason. Send stays blocked by backend action state and provider/recipient readiness rather than a frontend-only toast.
+- ✅ Evidence-pack export is now backend-owned and audited: `POST /api/v1/compliance/cases/{caseId}/audit-pack/export` rebuilds the sanitized audit pack, stores the JSON artifact through the configured evidence storage provider, requires `X-Audit-Reason`, and writes `evidence_pack.exported`; Claim Review now uses a governed export dialog instead of a placeholder action.
+- ✅ Work Queue filtering now uses backend-shaped data instead of prototype display-label matching: quick filters cover My queue, Unassigned, Missing documents, Pending approval, Escalated, and SLA attention; structured filters cover product, risk, and channel; search includes assignment/status/product/type.
+- 🔄 Phase 4 live gate update: the validated build was redeployed to dev on 2026-07-08. API deployment `2c65b925-c2be-4a76-8a4e-8281639bf941` and portal deployment `3317b78a-7108-40cc-82ae-d70c26d01a8f` both completed `RuntimeSuccessful`; `/health/ready` returned `200`, unauthenticated `/api/v1/me` returned `401`, and `/app?smoke=phase4-20260708` returned `200`. The remaining functional smoke is blocked on real Entra consent/sign-in: Azure CLI token acquisition for `api://d55fe46b-1fba-4c5b-81e1-4ee1918ecf73/access_as_user` fails with `AADSTS65001 consent_required`, and Chrome reached Microsoft sign-in rather than an authenticated portal session.
+
 ## Remaining backlog (with reasons)
 
 | Item | Status / reason |
@@ -67,6 +81,7 @@ These are new-feature / data-source work, not fixture cleanup — every screen a
 | **Billing & entitlements** (new domain, ADR-0003) | Not started. Needs persisted entitlements + real usage counters (AI calls/docs/channels/storage) that don't exist yet; honest v1 would surface `Not configured` for unmetered dimensions. |
 | **Remaining screen reconciliations** | `/app` (command center), customers + customer-360 detail, communications, documents, claims, claims/[id], claims/new, acquisition, policy, knowledge, workflows, audit, integrations, support, executive, admin, settings, portal still render prototype fixtures. Each follows the Channels/Fraud template; several depend on backend deltas below. |
 | **Backend deltas** | Customers **list** endpoint (only `/customers/{id}` detail exists); Documents cross-case list + status enum (`ReviewRequired`/`Reviewed`/`Rejected`) + retry; Communications cross-case list + `DeliveryStatus` enum; Channels write-actions (create-claim/create-lead/draft-response/escalate) + the tenant-context `SetCurrent` gap; `/api/v1/me` available-workspaces for the workspace switcher. |
+| **Auth shell cleanup** | Complete on dev. Implemented and deployed as `portal-authshell-hoisted.zip` plus the later `portal-authfix-hoisted.zip`: root login starts MSAL directly, login/shell deployed-mode residue is removed, live role preview is hidden, and sidebar/topbar state comes from `/api/v1/me` or cautious resolving/unverified states. API auth remediation is also deployed: `/me` token validation now accepts the configured API audience plus bare API client ID and validates Entra v2 tenant issuers. Browser proof captured `/me` resolving from `MembershipStore` for `harrygafa0` in `workspace-operations` with role `Tenant Admin`; non-shell prototype labels remain in screen-specific backlog areas such as Admin/Workspaces/ClientPortal. |
 | **Token consolidation** (audit §2.3) | Two token layers still coexist (`globals.css` RGB + `lovable.css` HSL). |
 | **Prod parity-gate** (audit A7/§2.4) | `LovableVisualParityGate` still blocks the whole app in a prod build when the flag is off — correct safety net WHILE screens are fixture-backed; resolve once all screens are reconciled. |
 | **Dead code cleanup** | `components/blocks/*` + `lib/commandCenterBlocks.ts` are now orphaned (compile fine); remove in a later pass. |

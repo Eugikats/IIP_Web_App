@@ -9,8 +9,13 @@ public class InsuranceIntelligenceDbContextFactory : IDesignTimeDbContextFactory
     {
         var optionsBuilder = new DbContextOptionsBuilder<InsuranceIntelligenceDbContext>();
         
-        // Use a dummy connection string for design-time tooling
-        optionsBuilder.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=IIP_Design;Trusted_Connection=True;MultipleActiveResultSets=true");
+        // Migration generation uses localdb by default. A deployment operator may
+        // explicitly supply the canonical runtime variable for an approved Azure
+        // SQL migration; the connection string is never written to source/output.
+        var connectionString = Environment.GetEnvironmentVariable("INSURANCEINTELLIGENCE_SQLSERVER_CONNECTION_STRING");
+        optionsBuilder.UseSqlServer(string.IsNullOrWhiteSpace(connectionString)
+            ? "Server=(localdb)\\mssqllocaldb;Database=IIP_Design;Trusted_Connection=True;MultipleActiveResultSets=true"
+            : connectionString);
 
         return new InsuranceIntelligenceDbContext(optionsBuilder.Options);
     }

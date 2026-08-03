@@ -156,17 +156,17 @@ public static class ClaimsController
         InfrastructureOptions options,
         out IResult error)
     {
+        if (tenantContextSetter is ITenantContextAccessor { HasCurrent: true })
+        {
+            error = Results.Empty;
+            return true;
+        }
+
         // Deployed (Entra) mode: the per-request middleware is the sole authority — it resolves the
         // TenantContext from IIP's membership store (ADR-0005). Defer to it; never re-derive scope
         // from the token tid/headers here. Fail closed if the middleware resolved no membership.
         if (!options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
         {
-            if (tenantContextSetter is ITenantContextAccessor accessor && accessor.HasCurrent)
-            {
-                error = Results.Empty;
-                return true;
-            }
-
             error = Results.StatusCode(StatusCodes.Status403Forbidden);
             return false;
         }

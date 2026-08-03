@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IIP — UNDP Demo Prototype (throwaway)</title>
+<!--
+  PROTOTYPE — throwaway. Built for the UNDP Insurance Innovation Challenge application video.
+  Not production code. No real data. Illustrates the human-supervised AI claims flow.
+  Screen-record this: use the bottom control bar (or → / ← arrow keys) to step through scenes.
+-->
+<style>
+  :root{
+    --ink:#0e1726; --ink-soft:#41506a; --ink-faint:#7c88a0;
+    --line:#e4e9f2; --line-soft:#eef2f8;
+    --bg:#f6f8fc; --card:#ffffff;
+    --ai:#6d5efc; --ai-soft:#efedff; --ai-line:#d9d4ff;
+    --human:#0f9d70; --human-soft:#e4f7ef; --human-line:#bfead9;
+    --amber:#e08a2b; --amber-soft:#fdf1e0;
+    --red:#d64b52; --red-soft:#fbe7e8;
+    --shadow:0 10px 40px -12px rgba(20,30,60,.18);
+    --shadow-lg:0 24px 70px -20px rgba(20,30,60,.32);
+    --r:18px;
+    --font:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:var(--font); color:var(--ink); background:var(--bg);
+    background-image:
+      radial-gradient(1200px 600px at 12% -8%, #eef1ff 0%, rgba(238,241,255,0) 55%),
+      radial-gradient(1100px 620px at 100% 0%, #e7f7f1 0%, rgba(231,247,241,0) 50%);
+    overflow:hidden;
+  }
+  .stage{
+    position:absolute; inset:0 0 84px 0;
+    display:flex; align-items:center; justify-content:center;
+    padding:34px; overflow:hidden;
+  }
+  /* scenes */
+  .scene{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    padding:40px; opacity:0; transform:translateY(14px) scale(.99); pointer-events:none;
+    transition:opacity .5s ease, transform .5s ease;}
+  .scene.active{opacity:1; transform:none; pointer-events:auto;}
+
+  /* ---------- header chrome ---------- */
+  .brandbar{position:absolute; top:22px; left:26px; display:flex; align-items:center; gap:12px; z-index:5}
+  .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--ai),#8f83ff);
+    box-shadow:0 6px 18px -6px rgba(109,94,252,.6); position:relative}
+  .logo:after{content:"";position:absolute;inset:8px;border-radius:5px;border:2px solid rgba(255,255,255,.9)}
+  .brandtxt b{font-size:15px;letter-spacing:.2px}
+  .brandtxt span{display:block;font-size:11px;color:var(--ink-faint);margin-top:1px;letter-spacing:.3px}
+  .rolechip{position:absolute; top:24px; right:26px; z-index:5; display:flex; gap:8px; align-items:center;
+    background:var(--card); border:1px solid var(--line); border-radius:999px; padding:8px 14px 8px 10px;
+    box-shadow:var(--shadow); font-size:12.5px; font-weight:600}
+  .rolechip .dot{width:9px;height:9px;border-radius:50%}
+
+  /* ---------- phone frame ---------- */
+  .phone{width:322px; height:650px; background:#0c1424; border-radius:42px; padding:12px;
+    box-shadow:var(--shadow-lg); position:relative; flex:0 0 auto}
+  .phone:before{content:"";position:absolute;top:20px;left:50%;transform:translateX(-50%);
+    width:120px;height:26px;background:#0c1424;border-radius:0 0 16px 16px;z-index:3}
+  .screen{width:100%;height:100%;background:var(--bg);border-radius:32px;overflow:hidden;position:relative;
+    display:flex;flex-direction:column}
+  .p-top{padding:26px 20px 14px;background:linear-gradient(135deg,#12203a,#1c2f52);color:#fff}
+  .p-top small{opacity:.7;font-size:11px;letter-spacing:.4px;text-transform:uppercase}
+  .p-top h3{margin:6px 0 0;font-size:18px;font-weight:650}
+  .p-body{padding:16px;flex:1;overflow:auto}
+  .fieldrow{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+  .fieldrow label{display:block;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.4px}
+  .fieldrow .v{font-size:14.5px;font-weight:600;margin-top:3px}
+  .photostrip{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 12px}
+  .photo{height:96px;border-radius:14px;position:relative;overflow:hidden;border:1px solid var(--line);
+    display:flex;align-items:flex-end;padding:8px;color:#fff;font-size:11px;font-weight:600;
+    text-shadow:0 1px 4px rgba(0,0,0,.5)}
+  .photo.crop1{background:linear-gradient(160deg,#7c8b3a,#4d5e23)}
+  .photo.crop2{background:linear-gradient(160deg,#9a7b3c,#5f4a1f)}
+  .photo.doc{background:linear-gradient(160deg,#4a6fa5,#2c477a)}
+  .photo.add{background:#eef2f8;border:1.5px dashed var(--line);color:var(--ink-faint);text-shadow:none;
+    align-items:center;justify-content:center;font-size:26px;font-weight:300}
+  .p-btn{display:block;width:100%;text-align:center;padding:14px;border-radius:14px;border:none;
+    background:linear-gradient(135deg,var(--human),#12b884);color:#fff;font-weight:650;font-size:14.5px;
+    box-shadow:0 10px 24px -8px rgba(15,157,112,.6);cursor:pointer}
+  .ussd{background:#0c1424;color:#e8f0ff;font-family:'Consolas',monospace;font-size:14px;line-height:1.85;
+    padding:20px;border-radius:14px;margin-bottom:12px}
+  .ussd .q{color:#8fb3ff}
+
+  /* SMS */
+  .sms-wrap{padding:16px;flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;
+    background:linear-gradient(180deg,#eef2f8,#e7ecf5)}
+  .sms{max-width:86%;padding:12px 14px;border-radius:16px;font-size:13.5px;line-height:1.5;
+    background:#fff;border:1px solid var(--line);box-shadow:0 4px 14px -8px rgba(20,30,60,.25);
+    align-self:flex-start;border-bottom-left-radius:5px}
+  .sms .from{font-size:10.5px;font-weight:700;color:var(--human);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+  .sms-time{font-size:10px;color:var(--ink-faint);text-align:center;margin:4px 0}
+
+  /* ---------- desktop console ---------- */
+  .console{width:min(1080px,94vw); height:min(660px,80vh); background:var(--card); border-radius:22px;
+    box-shadow:var(--shadow-lg); border:1px solid var(--line); overflow:hidden; display:flex; flex-direction:column}
+  .c-top{height:52px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 20px;
+    background:linear-gradient(180deg,#fff,#fbfcfe)}
+  .traffic{display:flex;gap:7px}.traffic i{width:11px;height:11px;border-radius:50%;display:block}
+  .traffic i:nth-child(1){background:#f0605c}.traffic i:nth-child(2){background:#f5bd4f}.traffic i:nth-child(3){background:#61c454}
+  .c-tabs{display:flex;gap:4px;margin-left:8px}
+  .c-tab{font-size:12.5px;padding:6px 12px;border-radius:9px;color:var(--ink-soft);font-weight:600}
+  .c-tab.on{background:var(--ai-soft);color:var(--ai)}
+  .c-crumb{margin-left:auto;font-size:12px;color:var(--ink-faint)}
+  .c-body{flex:1;display:grid;grid-template-columns:1.55fr 1fr;overflow:hidden}
+  .c-main{padding:24px 26px;overflow:auto}
+  .c-side{border-left:1px solid var(--line);background:#fbfcfe;padding:22px 22px;overflow:auto}
+
+  .claimhead{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}
+  .avatar{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,#2c477a,#4a6fa5);
+    color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex:0 0 auto}
+  .claimhead h2{margin:0;font-size:19px}
+  .claimhead .sub{font-size:12.5px;color:var(--ink-faint);margin-top:3px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;
+    text-transform:uppercase;letter-spacing:.3px}
+  .pill.ai{background:var(--ai-soft);color:var(--ai);border:1px solid var(--ai-line)}
+  .pill.await{background:var(--amber-soft);color:var(--amber)}
+  .pill.approved{background:var(--human-soft);color:var(--human);border:1px solid var(--human-line)}
+
+  .ai-panel{border:1px solid var(--ai-line);background:linear-gradient(180deg,#faf9ff,#fff);
+    border-radius:16px;padding:16px 18px;margin-bottom:16px;position:relative;overflow:hidden}
+  .ai-panel:before{content:"";position:absolute;top:-40%;right:-10%;width:220px;height:220px;
+    background:radial-gradient(circle,var(--ai-soft),transparent 70%);opacity:.9}
+  .ai-tag{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;color:var(--ai);
+    text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;position:relative}
+  .ai-tag .spark{width:16px;height:16px;position:relative}
+  .ai-tag .spark:before,.ai-tag .spark:after{content:"";position:absolute;background:var(--ai);border-radius:1px}
+  .ai-tag .spark:before{width:2px;height:16px;left:7px}.ai-tag .spark:after{width:16px;height:2px;top:7px}
+  .ai-note{font-size:11px;color:var(--ai);font-weight:600;background:var(--ai-soft);padding:2px 8px;border-radius:6px;margin-left:auto}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;position:relative}
+  .ext{}
+  .ext label{font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.4px;display:block}
+  .ext .v{font-size:14px;font-weight:600;margin-top:2px;display:flex;align-items:center;gap:7px}
+  .conf{font-size:9.5px;font-weight:700;color:var(--human);background:var(--human-soft);padding:1px 6px;border-radius:5px}
+  .conf.low{color:var(--amber);background:var(--amber-soft)}
+
+  .flag{display:flex;gap:12px;align-items:flex-start;border-radius:14px;padding:13px 15px;margin-bottom:11px;font-size:13px}
+  .flag .ic{width:26px;height:26px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:14px;color:#fff}
+  .flag.miss{background:var(--amber-soft);border:1px solid #f4dcb3}
+  .flag.miss .ic{background:var(--amber)}
+  .flag.risk{background:#fff;border:1px solid var(--line)}
+  .flag.risk .ic{background:var(--ink-soft)}
+  .flag.ok{background:var(--human-soft);border:1px solid var(--human-line)}
+  .flag.ok .ic{background:var(--human)}
+  .flag b{display:block;margin-bottom:2px}
+  .flag span{color:var(--ink-soft)}
+
+  .decision{border:1.5px solid var(--human-line);background:var(--human-soft);border-radius:16px;padding:16px 18px;margin-top:6px}
+  .decision .hdr{display:flex;align-items:center;gap:9px;font-weight:700;font-size:13.5px;color:#0b7a57;margin-bottom:6px}
+  .decision p{margin:0 0 14px;font-size:12.5px;color:#2b6a55;line-height:1.5}
+  .dec-actions{display:flex;gap:10px}
+  .btn{border:none;border-radius:11px;padding:11px 18px;font-weight:650;font-size:13.5px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:8px}
+  .btn.approve{background:linear-gradient(135deg,var(--human),#12b884);color:#fff;box-shadow:0 10px 22px -10px rgba(15,157,112,.7)}
+  .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink-soft)}
+  .btn.query{background:#fff;border:1px solid var(--amber);color:var(--amber)}
+
+  .side-h{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.6px;margin:0 0 14px}
+  .audit{list-style:none;margin:0;padding:0;position:relative}
+  .audit:before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--line)}
+  .audit li{position:relative;padding:0 0 18px 26px;font-size:12.5px}
+  .audit li .dot{position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--ink-faint)}
+  .audit li.ai .dot{border-color:var(--ai)}
+  .audit li.human .dot{border-color:var(--human)}
+  .audit li b{display:block;font-size:12.5px}
+  .audit li .who{color:var(--ink-faint);font-size:11px;margin-top:1px}
+  .audit li.pending{opacity:.4}
+  .audit li.pending .dot{border-color:var(--line)}
+
+  .who-tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:6px;vertical-align:1px}
+  .who-tag.ai{background:var(--ai-soft);color:var(--ai)}
+  .who-tag.human{background:var(--human-soft);color:var(--human)}
+
+  /* processing scene */
+  .proc{display:flex;flex-direction:column;align-items:center;gap:26px;text-align:center}
+  .orb{width:120px;height:120px;border-radius:50%;position:relative;
+    background:radial-gradient(circle at 40% 35%,#a99fff,var(--ai));
+    box-shadow:0 0 0 0 rgba(109,94,252,.35);animation:pulse 2.2s infinite ease-out}
+  .orb:before,.orb:after{content:"";position:absolute;border-radius:50%;border:1.5px solid var(--ai-line)}
+  .orb:before{inset:-22px;animation:spin 7s linear infinite}
+  .orb:after{inset:-42px;border-style:dashed;opacity:.6;animation:spin 12s linear infinite reverse}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(109,94,252,.35)}70%{box-shadow:0 0 0 34px rgba(109,94,252,0)}100%{box-shadow:0 0 0 0 rgba(109,94,252,0)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .proc h2{margin:0;font-size:22px;font-weight:650}
+  .proc p{margin:0;color:var(--ink-soft);max-width:440px;font-size:14px;line-height:1.6}
+  .proclist{display:flex;flex-direction:column;gap:10px;margin-top:6px;min-width:320px;text-align:left}
+  .proclist div{display:flex;align-items:center;gap:11px;font-size:13.5px;color:var(--ink-soft);
+    background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 15px;box-shadow:var(--shadow)}
+  .proclist .tick{width:20px;height:20px;border-radius:50%;background:var(--human);color:#fff;display:flex;
+    align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:0 0 auto}
+  .humanbanner{display:inline-flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--human-line);
+    border-radius:999px;padding:9px 18px;font-size:13px;font-weight:600;color:#0b7a57;box-shadow:var(--shadow);margin-top:4px}
+  .humanbanner .b{width:9px;height:9px;border-radius:50%;background:var(--human)}
+
+  .caption{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);z-index:6;
+    background:rgba(14,23,38,.92);color:#fff;padding:11px 20px;border-radius:12px;font-size:13.5px;font-weight:500;
+    box-shadow:var(--shadow-lg);max-width:min(640px,86vw);text-align:center;line-height:1.45;
+    opacity:0;transition:opacity .4s;pointer-events:none}
+  .caption.show{opacity:1}
+  .caption b{color:#a99fff}
+
+  /* control bar */
+  .ctrl{position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(255,255,255,.86);
+    backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex;align-items:center;
+    padding:0 24px;gap:18px;z-index:10}
+  .steps{display:flex;gap:9px;flex:1;align-items:center}
+  .step{display:flex;align-items:center;gap:9px;padding:7px 13px;border-radius:11px;cursor:pointer;
+    font-size:12.5px;color:var(--ink-faint);font-weight:600;transition:.25s;white-space:nowrap}
+  .step .n{width:22px;height:22px;border-radius:50%;background:#e9edf5;color:var(--ink-faint);
+    display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;flex:0 0 auto}
+  .step.on{background:var(--ink);color:#fff}
+  .step.on .n{background:var(--ai);color:#fff}
+  .step.done .n{background:var(--human);color:#fff}
+  .navbtns{display:flex;gap:10px}
+  .nav{border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px 20px;font-weight:650;
+    font-size:14px;cursor:pointer;color:var(--ink)}
+  .nav.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .nav:disabled{opacity:.4;cursor:default}
+  .hintkeys{position:absolute;bottom:96px;right:22px;font-size:11px;color:var(--ink-faint);z-index:6}
+</style>
+</head>
+<body>
+
+<div class="brandbar">
+  <div class="logo"></div>
+  <div class="brandtxt"><b>Insurance Intelligence Platform</b><span>AI prepares · humans decide</span></div>
+</div>
+<div class="rolechip" id="rolechip"><span class="dot" style="background:var(--human)"></span><span id="roletxt">Field Agent · SACCO</span></div>
+
+<div class="stage">
+
+  <!-- SCENE 1 — field agent: initiate -->
+  <section class="scene" data-scene="0">
+    <div class="phone"><div class="screen">
+      <div class="p-top"><small>New microinsurance claim</small><h3>Crop-loss claim</h3></div>
+      <div class="p-body">
+        <div class="ussd">
+          <div>*247# · Nakawa SACCO</div>
+          <div class="q">Member: Sarah Nakato</div>
+          <div class="q">Policy: Kilimo Micro-Crop</div>
+          <div>Peril: <b>Flood / crop loss</b></div>
+          <div>Season: 2026 A</div>
+        </div>
+        <div class="fieldrow"><label>Claimant</label><div class="v">Sarah Nakato · Namulonge</div></div>
+        <div class="fieldrow"><label>Insured crop</label><div class="v">Maize · 1.2 acres</div></div>
+        <div class="fieldrow"><label>Reported loss</label><div class="v">Flood damage after heavy rains</div></div>
+        <button class="p-btn">Start claim on behalf of member →</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- SCENE 2 — field agent: capture + submit -->
+  <section class="scene" data-scene="1">
+    <div class="phone"><div class="screen">
+      <div class="p-top"><small>Claim CLM-4471 · evidence</small><h3>Capture &amp; submit</h3></div>
+      <div class="p-body">
+        <div class="photostrip">
+          <div class="photo crop1">Flooded field</div>
+          <div class="photo crop2">Damaged maize</div>
+          <div class="photo doc">Policy card</div>
+          <div class="photo add">+</div>
+        </div>
+        <div class="fieldrow"><label>Agent note</label><div class="v" style="font-weight:500;font-size:13px">Visited plot, standing water across ~1 acre, crop flattened.</div></div>
+        <div class="fieldrow"><label>Works offline</label><div class="v" style="color:var(--human)">✓ Saved · will sync on signal</div></div>
+        <button class="p-btn">Submit to insurer →</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- SCENE 3 — AI processing -->
+  <section class="scene" data-scene="2">
+    <div class="proc">
+      <div class="orb"></div>
+      <div>
+        <h2>Preparing the claim for a human reviewer</h2>
+        <p>IIP extracts and structures the submission — it does not decide the claim. A person makes every consequential decision.</p>
+      </div>
+      <div class="proclist">
+        <div><span class="tick">✓</span> Documents read &amp; fields extracted</div>
+        <div><span class="tick">✓</span> Policy &amp; cover matched</div>
+        <div><span class="tick">✓</span> Missing evidence identified</div>
+        <div><span class="tick">✓</span> Risk signals surfaced for review</div>
+      </div>
+      <div class="humanbanner"><span class="b"></span> No approval, denial, or payment is ever automated</div>
+    </div>
+  </section>
+
+  <!-- SCENE 4 — insurer console: AI-prepared summary -->
+  <section class="scene" data-scene="3">
+    <div class="console">
+      <div class="c-top">
+        <div class="traffic"><i></i><i></i><i></i></div>
+        <div class="c-tabs"><span class="c-tab on">Claims queue</span><span class="c-tab">Underwriting</span><span class="c-tab">Partners</span></div>
+        <div class="c-crumb">Nakawa SACCO · Kilimo Micro-Crop</div>
+      </div>
+      <div class="c-body">
+        <div class="c-main">
+          <div class="claimhead">
+            <div class="avatar">SN</div>
+            <div style="flex:1">
+              <h2>Sarah Nakato — Crop-loss claim</h2>
+              <div class="sub">CLM-4471 · submitted by field agent · Namulonge, Wakiso</div>
+            </div>
+            <span class="pill await">Awaiting human review</span>
+          </div>
+
+          <div class="ai-panel">
+            <div class="ai-tag"><span class="spark"></span> AI-prepared summary <span class="ai-note">decision support only</span></div>
+            <div class="grid2">
+              <div class="ext"><label>Claimant</label><div class="v">Sarah Nakato <span class="conf">matched</span></div></div>
+              <div class="ext"><label>Policy status</label><div class="v">Active · in season <span class="conf">verified</span></div></div>
+              <div class="ext"><label>Insured crop / area</label><div class="v">Maize · 1.2 ac <span class="conf">99%</span></div></div>
+              <div class="ext"><label>Peril</label><div class="v">Flood <span class="conf">98%</span></div></div>
+              <div class="ext"><label>Est. loss extent</label><div class="v">~1.0 ac affected <span class="conf low">from photos</span></div></div>
+              <div class="ext"><label>Indicative payout band</label><div class="v">UGX 480k–620k <span class="conf low">for review</span></div></div>
+            </div>
+          </div>
+
+          <div class="flag miss"><div class="ic">!</div><div><b>Missing document — weather corroboration</b><span>No rainfall/flood record attached for the loss window. Suggested: district weather report or index data before approval.</span></div></div>
+          <div class="flag risk"><div class="ic">◔</div><div><b>Risk signal — first claim on policy</b><span>No prior claims history for this member. Not adverse; flagged for reviewer context.</span></div></div>
+          <div class="flag ok"><div class="ic">✓</div><div><b>Consistency check passed</b><span>Photo geotag, agent location and insured plot align. No duplicate claim found.</span></div></div>
+
+          <div class="decision">
+            <div class="hdr"><span style="width:9px;height:9px;border-radius:50%;background:var(--human);display:inline-block"></span> Human decision required</div>
+            <p>AI has prepared this claim. As the claims officer, you decide the outcome. You can approve, request the missing document, or decline with reason — every action is logged.</p>
+            <div class="dec-actions">
+              <button class="btn approve" id="approveBtn">✓ Approve claim</button>
+              <button class="btn query">Request weather doc</button>
+              <button class="btn ghost">Decline…</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="c-side">
+          <p class="side-h">Audit trail</p>
+          <ul class="audit" id="audit">
+            <li class="human"><span class="dot"></span><b>Claim initiated</b><div class="who">Field agent · J. Okello · Nakawa SACCO</div></li>
+            <li class="human"><span class="dot"></span><b>Evidence captured &amp; submitted</b><div class="who">3 documents · offline-synced 14:02</div></li>
+            <li class="ai"><span class="dot"></span><b>Extracted &amp; structured <span class="who-tag ai">AI</span></b><div class="who">Fields, policy match, payout band</div></li>
+            <li class="ai"><span class="dot"></span><b>Flagged missing evidence <span class="who-tag ai">AI</span></b><div class="who">Weather corroboration absent</div></li>
+            <li class="pending" id="auditPending"><span class="dot"></span><b>Human decision</b><div class="who">Awaiting claims officer…</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCENE 5 — approved state (same console, mutated by JS) reuses scene 3 via class; but we make a dedicated scene -->
+  <section class="scene" data-scene="4">
+    <div class="console">
+      <div class="c-top">
+        <div class="traffic"><i></i><i></i><i></i></div>
+        <div class="c-tabs"><span class="c-tab on">Claims queue</span><span class="c-tab">Underwriting</span><span class="c-tab">Partners</span></div>
+        <div class="c-crumb">Nakawa SACCO · Kilimo Micro-Crop</div>
+      </div>
+      <div class="c-body">
+        <div class="c-main">
+          <div class="claimhead">
+            <div class="avatar" style="background:linear-gradient(135deg,var(--human),#12b884)">SN</div>
+            <div style="flex:1">
+              <h2>Sarah Nakato — Crop-loss claim</h2>
+              <div class="sub">CLM-4471 · decided by A. Nabirye, Claims Officer · 14:09</div>
+            </div>
+            <span class="pill approved">✓ Approved by human</span>
+          </div>
+
+          <div class="decision" style="border-color:var(--human-line)">
+            <div class="hdr"><span style="width:9px;height:9px;border-radius:50%;background:var(--human);display:inline-block"></span> Decision recorded</div>
+            <p style="color:#2b6a55"><b>Approved</b> at indicative payout <b>UGX 540,000</b>, conditional on weather report attached by agent. AI prepared the summary; the officer made and signed the decision. Payment instruction routed for the standard second-approver release step.</p>
+            <div class="dec-actions">
+              <span class="humanbanner" style="margin:0"><span class="b"></span> Human accountability preserved · fully auditable</span>
+            </div>
+          </div>
+
+          <div class="flag ok" style="margin-top:16px"><div class="ic">✓</div><div><b>Claimant notified</b><span>Plain-language SMS sent in Luganda &amp; English via the field agent's member record.</span></div></div>
+          <div class="flag ok"><div class="ic">✓</div><div><b>Turnaround</b><span>Submitted 14:02 · decided 14:09 — minutes, not weeks, at micro-premium cost.</span></div></div>
+        </div>
+
+        <div class="c-side">
+          <p class="side-h">Audit trail</p>
+          <ul class="audit">
+            <li class="human"><span class="dot"></span><b>Claim initiated</b><div class="who">Field agent · J. Okello · Nakawa SACCO</div></li>
+            <li class="human"><span class="dot"></span><b>Evidence captured &amp; submitted</b><div class="who">3 documents · offline-synced 14:02</div></li>
+            <li class="ai"><span class="dot"></span><b>Extracted &amp; structured <span class="who-tag ai">AI</span></b><div class="who">Fields, policy match, payout band</div></li>
+            <li class="ai"><span class="dot"></span><b>Flagged missing evidence <span class="who-tag ai">AI</span></b><div class="who">Weather corroboration absent</div></li>
+            <li class="human"><span class="dot"></span><b>Approved &amp; signed <span class="who-tag human">HUMAN</span></b><div class="who">A. Nabirye · Claims Officer · 14:09</div></li>
+            <li class="human"><span class="dot"></span><b>Claimant notified <span class="who-tag human">HUMAN</span></b><div class="who">SMS · Luganda + English</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCENE 6 — claimant SMS -->
+  <section class="scene" data-scene="5">
+    <div class="phone"><div class="screen">
+      <div class="p-top" style="background:linear-gradient(135deg,#0b7a57,#12b884)"><small>Messages · today</small><h3>IIP-INSURE</h3></div>
+      <div class="sms-wrap">
+        <div class="sms-time">Season 2026 A · crop claim</div>
+        <div class="sms"><div class="from">IIP-Insure</div>Nakato, tukukyalidde. Claim yo eya kasooli (CLM-4471) ekakasiddwa. <b>Approved</b> — UGX 540,000.</div>
+        <div class="sms"><div class="from">IIP-Insure · EN</div>Your maize crop-loss claim CLM-4471 has been <b>reviewed and approved by our claims officer</b>. Payout: UGX 540,000. Reply HELP or ask your SACCO agent to query this decision.</div>
+        <div class="sms" style="background:var(--human-soft);border-color:var(--human-line)"><div class="from">Contestable</div>You may request a human re-review at any time — the decision is not final AI, and can be challenged.</div>
+      </div>
+    </div></div>
+  </section>
+
+</div>
+
+<div class="caption" id="caption"></div>
+<div class="hintkeys">← / → to step · click a stage to advance</div>
+
+<div class="ctrl">
+  <div class="steps" id="steps"></div>
+  <div class="navbtns">
+    <button class="nav" id="prev">← Back</button>
+    <button class="nav primary" id="next">Next →</button>
+  </div>
+</div>
+
+<script>
+  const scenes = [
+    {role:"Field Agent · SACCO", dot:"var(--human)", label:"1 · Initiate",
+     cap:"A <b>SACCO field agent</b> starts a crop-loss claim on behalf of a smallholder farmer — via USSD, no smartphone needed."},
+    {role:"Field Agent · SACCO", dot:"var(--human)", label:"2 · Capture",
+     cap:"The agent captures photos and documents. Works <b>offline</b> and syncs when there's signal."},
+    {role:"IIP · AI layer", dot:"var(--ai)", label:"3 · AI prepares",
+     cap:"IIP reads the submission and <b>prepares</b> it — extraction, policy match, missing-evidence and risk flags. It never decides."},
+    {role:"Insurer · Claims Ops", dot:"var(--ai)", label:"4 · Human reviews",
+     cap:"The insurer's officer sees an <b>AI-prepared summary</b> with a missing-document flag and risk signals — and makes the decision."},
+    {role:"Insurer · Claims Ops", dot:"var(--human)", label:"5 · Human decides",
+     cap:"The officer <b>approves and signs</b>. AI prepared, a human decided — every step recorded in the audit trail."},
+    {role:"Claimant", dot:"var(--human)", label:"6 · Claimant notified",
+     cap:"The farmer gets a <b>plain-language SMS</b> in local language — and can always request a human re-review."},
+  ];
+
+  let i = 0;
+  const stageEls = [...document.querySelectorAll('.scene')];
+  const stepsWrap = document.getElementById('steps');
+  const roletxt = document.getElementById('roletxt');
+  const roledot = document.querySelector('#rolechip .dot');
+  const caption = document.getElementById('caption');
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+
+  scenes.forEach((s,idx)=>{
+    const el = document.createElement('div');
+    el.className='step'; el.dataset.i=idx;
+    el.innerHTML = `<span class="n">${idx+1}</span>${s.label.split(' · ')[1]||s.label}`;
+    el.onclick = ()=>go(idx);
+    stepsWrap.appendChild(el);
+  });
+  const stepEls = [...stepsWrap.children];
+
+  function go(n){
+    i = Math.max(0, Math.min(scenes.length-1, n));
+    stageEls.forEach(el=>el.classList.toggle('active', +el.dataset.scene===i));
+    stepEls.forEach((el,idx)=>{
+      el.classList.toggle('on', idx===i);
+      el.classList.toggle('done', idx<i);
+    });
+    roletxt.textContent = scenes[i].role;
+    roledot.style.background = scenes[i].dot;
+    caption.classList.remove('show');
+    caption.innerHTML = scenes[i].cap;
+    setTimeout(()=>caption.classList.add('show'), 180);
+    prevBtn.disabled = i===0;
+    nextBtn.textContent = i===scenes.length-1 ? 'Restart ↺' : 'Next →';
+  }
+
+  nextBtn.onclick = ()=> i===scenes.length-1 ? go(0) : go(i+1);
+  prevBtn.onclick = ()=> go(i-1);
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight') nextBtn.click();
+    if(e.key==='ArrowLeft') prevBtn.click();
+  });
+  document.querySelector('.stage').addEventListener('click', e=>{
+    if(e.target.closest('button')) return;   // let in-scene buttons feel live
+    if(i<scenes.length-1) go(i+1);
+  });
+  // approve button jumps to decided state for a satisfying beat
+  document.getElementById('approveBtn').onclick = (e)=>{ e.stopPropagation(); go(4); };
+
+  go(0);
+</script>
+</body>
+</html>

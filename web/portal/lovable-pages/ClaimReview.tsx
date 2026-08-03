@@ -1,246 +1,224 @@
 "use client";
-import { useParams, Link } from "@/components/iip/NextRouterCompat";
+
 import { toast } from "sonner";
-import { ArrowLeft, FileText, Sparkles, CheckCircle2, AlertTriangle, ShieldCheck, Download, Send, MessageSquareText, Loader2 } from "lucide-react";
-import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge, ConfidenceBadge } from "@/components/iip/Primitives";
-import MotorLifecycle from "@/components/iip/MotorLifecycle";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  FileText,
+  Loader2,
+  MessageSquareText,
+  Send,
+  ShieldCheck,
+} from "lucide-react";
+import { useState } from "react";
+import { Link, useParams } from "@/components/iip/NextRouterCompat";
+import { CustomerUpdateGovernedDialog, type PendingCustomerUpdateAction } from "@/components/CustomerUpdateGovernedDialog";
+import { CustomerUpdatePanel, type CustomerUpdate } from "@/components/CustomerUpdatePanel";
+import { ClaimReviewRequestsPanel } from "@/components/ClaimReviewRequestsPanel";
+import { GovernedActionDialog } from "@/components/GovernedActionDialog";
+import { Badge, ConfidenceBadge, GlassCard, RiskBadge, SectionHeader, SLABadge, StatusBadge } from "@/components/iip/Primitives";
 import CompletenessCard from "@/components/iip/CompletenessCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
-import { claims } from "@/lib/lovable-parity/mock";
-import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
+import MotorLifecycle from "@/components/iip/MotorLifecycle";
+import { DocumentUploadWidget } from "@/components/iip/DocumentUploadWidget";
 import { useClaimReview } from "@/lib/lovable-parity/data/claimReview";
+import type { ChannelSendAvailability } from "@/lib/providerHealth";
+import { useUI } from "@/context/UIStateContext";
 
 export default function ClaimReview() {
   const { id } = useParams();
-
-  if (!LOVABLE_VISUAL_PARITY_MODE) {
-    return <ClaimReviewLive claimId={String(id ?? "")} />;
-  }
-
-  const c = claims.find(x => x.id === id) ?? claims[0];
-
-  const timeline = [
-    { t: "Today 09:42", who: "AI Copilot", text: "Extracted 14 fields from police report (avg conf 0.86)." },
-    { t: "Today 09:31", who: "AI Copilot", text: "Advisory: repair quotation 22% above regional median." },
-    { t: "Today 08:04", who: c.customer, text: "Submitted vehicle photos via WhatsApp (5 images)." },
-    { t: "Yesterday 17:22", who: "T. Okello", text: "Assigned claim to self." },
-    { t: "Yesterday 16:41", who: "System", text: "FNOL received via WhatsApp channel." },
-  ];
-
-  const missingDocs = ["Driving permit (front)", "Traffic officer signature"];
-  const documents = [
-    { name: "FNOL form", status: "Extracted", conf: 0.94 },
-    { name: "Police report", status: "Extracted", conf: 0.86 },
-    { name: "National ID", status: "Extracted", conf: 0.98 },
-    { name: "Vehicle photos (5)", status: "Classified", conf: 0.91 },
-    { name: "Repair quotation", status: "Advisory flag", conf: 0.72 },
-    { name: "Policy schedule", status: "Extracted", conf: 0.95 },
-  ];
-
-  return (
-    <>
-      <div className="flex items-center gap-2 text-[12px] text-stone mb-4">
-        <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-navy"><ArrowLeft className="h-3.5 w-3.5" /> Work Queue</Link>
-        <span>/</span><span className="text-navy">{c.id}</span>
-      </div>
-
-      <SectionHeader
-        eyebrow={`Case Review · ${c.policy}`}
-        title={`${c.id} · ${c.customer}`}
-        sub={c.incident}
-        action={
-          <div className="flex items-center gap-2">
-            <StatusBadge status={c.status} />
-            <SLABadge sla={c.sla} />
-            <RiskBadge risk={c.risk} />
-          </div>
-        }
-      />
-
-      <div className="mb-4"><GuardrailBanner text="AI prepares this claim's work — extractions, summaries, drafts, and advisory signals. Settlement, denial, repudiation, payment, and fraud determination remain with the reviewing officer." /></div>
-
-      <div className="mb-4"><MotorLifecycle current={6} /></div>
-
-      <div className="grid lg:grid-cols-3 gap-4">
-        {/* Left column */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* AI summary */}
-          <GlassCard level={3}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-xl gradient-primary grid place-items-center shadow-l2"><Sparkles className="h-4 w-4 text-white" /></div>
-                <div>
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-stone">AI-generated claim summary</div>
-                  <div className="text-[14px] font-semibold text-navy">Prepared for human review</div>
-                </div>
-              </div>
-              <ConfidenceBadge value={0.86} />
-            </div>
-            <p className="text-[13.5px] leading-[21px] text-slate2">
-              Policyholder <b>{c.customer}</b> reports a <b>rear-end collision</b> on Kampala Road at approx. 17:40 involving one third-party vehicle.
-              Police report reference <b>UPF/KLA/2098</b> attached. Vehicle photos indicate rear bumper and boot deformation, consistent with statement.
-              Repair quotation of <b>UGX 4,200,000</b> is 22% above the regional median for the make/model — Copilot recommends secondary assessor review before settlement.
-              Coverage under policy <b>{c.policy}</b> (Motor Comprehensive) appears applicable to the loss event, subject to human confirmation.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge tone="info">Evidence · 3 links</Badge>
-              <Badge tone="violet">Policy clause 4.2 · 4.7</Badge>
-              <Badge tone="warning">Advisory · quotation variance</Badge>
-            </div>
-          </GlassCard>
-
-          {/* Human decision area */}
-          <GlassCard>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-[14px] font-semibold text-navy">Human review actions</div>
-              <div className="text-[11.5px] text-stone">AI prepares work. You make the decision.</div>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-2.5">
-              {[
-                { label: "Prepare recommendation", icon: FileText, tone: "primary" as const },
-                { label: "Request supervisor review", icon: ShieldCheck, tone: "secondary" as const },
-                { label: "Draft customer update", icon: MessageSquareText, tone: "secondary" as const },
-                { label: "Mark evidence reviewed", icon: CheckCircle2, tone: "secondary" as const },
-                { label: "Send document follow-up", icon: Send, tone: "secondary" as const },
-                { label: "Export claim pack", icon: Download, tone: "secondary" as const },
-              ].map(a => (
-                <button
-                  key={a.label}
-                  onClick={() => toast.success(`${a.label} · queued for review`, { description: "This is a prototype — no backend action performed." })}
-                  className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-[13px] font-medium hover-lift ${
-                    a.tone === "primary"
-                      ? "gradient-primary text-white shadow-l2"
-                      : "bg-white border border-cloud text-navy"
-                  }`}>
-                  <a.icon className="h-4 w-4" /> {a.label}
-                </button>
-              ))}
-            </div>
-          </GlassCard>
-
-          {/* Timeline */}
-          <GlassCard>
-            <div className="text-[14px] font-semibold text-navy mb-4">Incident & activity timeline</div>
-            <div className="relative pl-5">
-              <div className="absolute left-1.5 top-1 bottom-1 w-px bg-cloud" />
-              {timeline.map((t, i) => (
-                <div key={i} className="relative pb-4">
-                  <div className="absolute -left-[9px] top-1 h-2 w-2 rounded-full bg-info ring-2 ring-white" />
-                  <div className="text-[12px] text-stone">{t.t} · {t.who}</div>
-                  <div className="text-[13px] text-navy mt-0.5">{t.text}</div>
-                </div>
-              ))}
-            </div>
-          </GlassCard>
-
-          {/* Documents */}
-          <GlassCard>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-[14px] font-semibold text-navy">Documents received</div>
-              <Link to="/app/claims/CLM-1048/extraction" className="text-[12px] text-info hover:underline">Open extraction review →</Link>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {documents.map(d => (
-                <div key={d.name} className="rounded-xl border border-cloud bg-white/80 p-3 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-[hsl(var(--info)/0.08)] grid place-items-center text-info"><FileText className="h-4 w-4" /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-medium text-navy truncate">{d.name}</div>
-                    <div className="text-[11px] text-stone">{d.status}</div>
-                  </div>
-                  <ConfidenceBadge value={d.conf} />
-                </div>
-              ))}
-            </div>
-          </GlassCard>
-        </div>
-
-        {/* Right column */}
-        <div className="space-y-4">
-          <GlassCard>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Policy & customer</div>
-            <div className="mt-2 space-y-2 text-[13px]">
-              <Row k="Customer" v={c.customer} />
-              <Row k="Policy" v={`${c.policy} · Motor Comprehensive`} />
-              <Row k="Sum insured" v="UGX 42,000,000" />
-              <Row k="Excess" v="UGX 250,000" />
-              <Row k="Renewal" v="12 Aug 2026" />
-              <Row k="Channel" v={c.channel} />
-              <Row k="Region" v={c.region} />
-            </div>
-          </GlassCard>
-
-          <CompletenessCard
-            score={0.78}
-            items={[
-              { label: "Claim form", present: true },
-              { label: "Police report", present: true },
-              { label: "National ID", present: true },
-              { label: "Driving permit", present: false },
-              { label: "Vehicle photos", present: true },
-              { label: "Repair quotation", present: true, lowConfidence: true },
-              { label: "Policy schedule", present: true },
-              { label: "Traffic officer signature", present: false },
-            ]}
-          />
-
-
-
-          <div className="rounded-2xl border border-[hsl(var(--warning)/0.28)] bg-[hsl(var(--warning)/0.08)] p-4">
-            <div className="flex items-center gap-2 mb-1"><AlertTriangle className="h-3.5 w-3.5 text-warning" />
-              <div className="text-[11px] uppercase tracking-[0.14em] text-[hsl(38_92%_36%)]">Advisory fraud signal</div>
-            </div>
-            <p className="text-[13px] text-slate2 leading-snug">
-              Repair quotation from provider <b>SwiftFix Auto Ltd</b> exceeds regional median by 22%. Provider appears on 3 other active claims this month.
-              Advisory only — requires human investigation. Not a fraud determination.
-            </p>
-          </div>
-
-          <GlassCard>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Audit trail (last 5)</div>
-            <div className="mt-2 space-y-1.5 text-[12px]">
-              {["Field extraction · run_9f2a","Advisory signal · run_9f04","Human view · T. Okello","Draft customer update · run_9f19","FNOL received · WhatsApp"].map((x,i) => (
-                <div key={i} className="flex items-center justify-between text-slate2"><span>{x}</span><span className="text-stone">EV-{88291 - i * 21}</span></div>
-              ))}
-            </div>
-          </GlassCard>
-        </div>
-      </div>
-    </>
-  );
-}
-function Row({ k, v }: { k: string; v: string }) {
-  return <div className="flex items-baseline justify-between gap-2"><span className="text-stone text-[11.5px]">{k}</span><span className="text-navy text-right">{v}</span></div>;
+  return <ClaimReviewLive claimId={String(id ?? "")} />;
 }
 
 function ClaimReviewLive({ claimId }: { claimId: string }) {
-  const { detail, timeline, loading, error, drafting, draftCustomerUpdate } = useClaimReview(claimId);
+  const {
+    detail,
+    timeline,
+    customerUpdates,
+    reviewRequests,
+    loading,
+    error,
+    drafting,
+    requestingApproval,
+    exporting,
+    draftCustomerUpdate,
+    draftDocumentFollowUp,
+    approveCustomerUpdate,
+    sendCustomerUpdate,
+    acknowledgeReviewRequest,
+    resolveReviewRequest,
+    exportEvidencePack,
+    requestSupervisorReview,
+    reload,
+  } = useClaimReview(claimId);
+  const { roleDef } = useUI();
+  const [pendingCustomerUpdateAction, setPendingCustomerUpdateAction] = useState<PendingCustomerUpdateAction | null>(null);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
 
-  const gov = async (label: string) => {
-    if (label === "Draft customer update") {
-      const res = await draftCustomerUpdate();
-      if (res.ok) toast.success("Customer update drafted — pending human approval before send.");
-      else toast.error(res.message ?? "Could not draft update");
+  async function handleDraftCustomerUpdate() {
+    const res = await draftCustomerUpdate();
+    if (res.ok) {
+      toast.success("Customer update drafted", {
+        description: "The draft is pending human approval before send.",
+      });
+    } else {
+      toast.error(res.message ?? "Could not draft update");
+    }
+  }
+
+  async function handleDraftDocumentFollowUp() {
+    const res = await draftDocumentFollowUp();
+    if (res.ok) {
+      toast.success("Document follow-up drafted", {
+        description: "Review the customer update below before approval or send.",
+      });
+    } else {
+      toast.error(res.message ?? "Could not draft document follow-up");
+    }
+  }
+
+  function unavailable(label: string) {
+    toast("Not configured", {
+      description: `${label} is not wired to a backend workflow yet.`,
+    });
+  }
+
+  async function handleSupervisorReview() {
+    const res = await requestSupervisorReview();
+    if (res.ok) {
+      toast.success("Supervisor review requested", {
+        description: "The approval is now in the human review queue.",
+      });
+    } else {
+      toast.error(res.message ?? "Could not request supervisor review");
+    }
+  }
+
+  function sendAvailability(update: CustomerUpdate): ChannelSendAvailability {
+    const channel = update.channel.toLowerCase();
+    if (channel === "email" && !detail?.customerEmail) {
+      return { enabled: false, reason: "This claim has no customer email recipient.", recipientField: "email" };
+    }
+
+    if ((channel === "sms" || channel === "whatsapp") && !detail?.customerPhone) {
+      return { enabled: false, reason: "This claim has no customer phone recipient.", recipientField: "phone" };
+    }
+
+    return { enabled: true, reason: "", recipientField: channel === "email" ? "email" : channel === "sms" || channel === "whatsapp" ? "phone" : null };
+  }
+
+  async function handleCustomerUpdateConfirm(auditReason: string) {
+    if (!pendingCustomerUpdateAction) return;
+
+    const action = pendingCustomerUpdateAction;
+    const res = action.action === "approve"
+      ? await approveCustomerUpdate(action.update.updateId, auditReason)
+      : await sendCustomerUpdate(action.update, auditReason);
+
+    if (res.ok) {
+      toast.success(action.action === "approve" ? "Customer update approved" : "Customer update sent");
+      setPendingCustomerUpdateAction(null);
+    } else {
+      toast.error(res.message ?? "Customer update action failed");
+    }
+  }
+
+  async function handleAcknowledgeReviewRequest(requestId: string) {
+    setReviewBusyId(requestId);
+    try {
+      const res = await acknowledgeReviewRequest(requestId);
+      if (res.ok) {
+        toast.success("Re-review request acknowledged", {
+          description: "Workflow state only — this does not settle, deny, or pay the claim.",
+        });
+      } else {
+        toast.error(res.message ?? "Could not acknowledge re-review request");
+      }
+    } finally {
+      setReviewBusyId(null);
+    }
+  }
+
+  async function handleResolveReviewRequest(requestId: string, resolutionNote: string) {
+    if (resolutionNote.trim().length < 3) {
+      toast.error("Record a short resolution note before closing the re-review request.");
       return;
     }
-    toast("Recorded — governed action is audited. Human decision required.");
-  };
+    setReviewBusyId(requestId);
+    try {
+      const res = await resolveReviewRequest(requestId, resolutionNote);
+      if (res.ok) {
+        toast.success("Re-review request resolved", {
+          description: "Human workflow state recorded. Claim outcome still requires a separate governed decision.",
+        });
+      } else {
+        toast.error(res.message ?? "Could not resolve re-review request");
+      }
+    } finally {
+      setReviewBusyId(null);
+    }
+  }
+
+  async function handleExportEvidencePack(auditReason: string) {
+    const res = await exportEvidencePack(auditReason);
+    if (res.ok) {
+      toast.success("Claim pack exported", {
+        description: res.objectKey ? `Stored as ${res.objectKey}` : "Evidence pack artifact stored.",
+      });
+      setExportDialogOpen(false);
+    } else {
+      toast.error(res.message ?? "Evidence-pack export failed");
+    }
+  }
 
   const crumb = (
     <div className="flex items-center gap-2 text-[12px] text-stone mb-4">
-      <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-navy"><ArrowLeft className="h-3.5 w-3.5" /> Claims</Link>
-      <span>/</span><span className="text-navy">{claimId}</span>
+      <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-navy">
+        <ArrowLeft className="h-3.5 w-3.5" /> Claims
+      </Link>
+      <span>/</span>
+      <span className="text-navy">{claimId}</span>
     </div>
   );
 
   if (loading) {
-    return <>{crumb}<GlassCard><div className="p-10 text-center text-[13px] text-stone inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading claim workspace…</div></GlassCard></>;
+    return (
+      <>
+        {crumb}
+        <GlassCard>
+          <div className="inline-flex items-center gap-2 p-10 text-center text-[13px] text-stone">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading claim workspace...
+          </div>
+        </GlassCard>
+      </>
+    );
   }
+
   if (error || !detail) {
-    return <>{crumb}<GlassCard><div className="p-10 text-center flex flex-col items-center gap-2"><FileText className="h-6 w-6 text-stone" /><div className="text-navy font-medium">Claim unavailable</div><div className="text-[12.5px] text-stone max-w-md">{error ?? "No claim found for this id in the current workspace."}</div></div></GlassCard></>;
+    return (
+      <>
+        {crumb}
+        <GlassCard>
+          <div className="flex flex-col items-center gap-2 p-10 text-center">
+            <FileText className="h-6 w-6 text-stone" />
+            <div className="font-medium text-navy">Claim unavailable</div>
+            <div className="max-w-md text-[12.5px] text-stone">{error ?? "No claim found for this workspace."}</div>
+          </div>
+        </GlassCard>
+      </>
+    );
   }
 
   const completeness = detail.completenessScore > 1 ? detail.completenessScore / 100 : detail.completenessScore;
-  const sla = detail.slaDueAt ? (new Date(detail.slaDueAt).getTime() < Date.now() ? "Breached" : "On Track") : "On Track";
+  const sla = detail.slaDueAt ? (new Date(detail.slaDueAt).getTime() < Date.now() ? "Breached" : "Normal") : "Normal";
+  const documentItems = detail.documents.map((document) => ({
+    label: document.documentType,
+    present: document.processingStatus !== "Missing" && document.processingStatus !== "MissingDocuments",
+    lowConfidence: document.classificationConfidence > 0 && document.classificationConfidence < 0.75,
+  }));
 
   return (
     <>
@@ -249,66 +227,190 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         eyebrow={`Case Review · ${detail.policyNumber}`}
         title={`${detail.claimId.slice(0, 8)} · ${detail.customerName}`}
         sub={detail.incidentDescription}
-        action={<div className="flex items-center gap-2"><StatusBadge status={detail.status} /><SLABadge sla={sla} /><RiskBadge risk={detail.riskLevel} /></div>}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={detail.status} />
+            <SLABadge sla={sla} />
+            <RiskBadge risk={detail.riskLevel} />
+          </div>
+        }
       />
 
-      <div className="mb-4"><GuardrailBanner text="AI prepares this claim's work — extractions, summaries, drafts, and advisory signals. Settlement, denial, repudiation, payment, and fraud determination remain with the reviewing officer." /></div>
+      <div className="mb-4">
+        <GuardrailBanner text="AI prepares this claim's work: extractions, summaries, drafts, and advisory signals. Settlement, denial, repudiation, payment, and fraud determination remain with the reviewing officer." />
+      </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="mb-4">
+        <MotorLifecycle status={detail.status} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
           <GlassCard>
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between gap-4">
               <div className="text-[14px] font-semibold text-navy">Human review actions</div>
-              <div className="text-[11.5px] text-stone">AI prepares work. You make the decision.</div>
+              <div className="text-[11.5px] text-stone">Only wired actions execute. Unwired actions report Not configured.</div>
             </div>
-            <div className="grid sm:grid-cols-2 gap-2.5">
-              {[
-                { label: "Draft customer update", icon: MessageSquareText },
-                { label: "Request supervisor review", icon: ShieldCheck },
-                { label: "Mark evidence reviewed", icon: CheckCircle2 },
-                { label: "Send document follow-up", icon: Send },
-                { label: "Export claim pack", icon: Download },
-              ].map((a) => (
-                <button key={a.label} onClick={() => gov(a.label)} disabled={drafting && a.label === "Draft customer update"}
-                  className="inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-[13px] font-medium hover-lift bg-white border border-cloud text-navy disabled:opacity-50">
-                  {drafting && a.label === "Draft customer update" ? <Loader2 className="h-4 w-4 animate-spin" /> : <a.icon className="h-4 w-4" />} {a.label}
-                </button>
-              ))}
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleDraftCustomerUpdate}
+                disabled={drafting}
+                className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+              >
+                {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />}
+                Draft customer update
+              </button>
+              <button
+                type="button"
+                onClick={handleSupervisorReview}
+                disabled={requestingApproval}
+                className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+              >
+                {requestingApproval ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                Request supervisor review
+              </button>
+              <UnavailableAction icon={CheckCircle2} label="Mark evidence reviewed" onClick={unavailable} />
+              <button
+                type="button"
+                onClick={handleDraftDocumentFollowUp}
+                disabled={drafting}
+                className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+              >
+                {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Draft document follow-up
+              </button>
+              <button
+                type="button"
+                onClick={() => setExportDialogOpen(true)}
+                disabled={exporting}
+                className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+              >
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export claim pack
+              </button>
             </div>
           </GlassCard>
 
           <GlassCard>
-            <div className="text-[14px] font-semibold text-navy mb-3">Documents received</div>
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[14px] font-semibold text-navy">Customer updates</div>
+                <div className="mt-1 text-[11.5px] text-stone">
+                  Backend action states control approval and send availability.
+                </div>
+              </div>
+            </div>
+            <CustomerUpdatePanel
+              updates={customerUpdates}
+              onApprove={(update) => setPendingCustomerUpdateAction({ action: "approve", update })}
+              onSend={(update) => {
+                const availability = sendAvailability(update);
+                setPendingCustomerUpdateAction({
+                  action: "send",
+                  update,
+                  recipient: availability.recipientField === "email" ? detail.customerEmail : availability.recipientField === "phone" ? detail.customerPhone : null,
+                  availability,
+                });
+              }}
+              getSendAvailability={sendAvailability}
+            />
+          </GlassCard>
+
+          <GlassCard>
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[14px] font-semibold text-navy">Claimant re-review requests</div>
+                <div className="mt-1 text-[11.5px] text-stone">
+                  Acknowledge or resolve contestability requests. This updates workflow state only — it does not settle, deny, or pay the claim.
+                </div>
+              </div>
+              {reviewRequests.some((request) => request.status === "Open" || request.status === "Acknowledged") ? (
+                <Badge tone="warning">
+                  {reviewRequests.filter((request) => request.status === "Open" || request.status === "Acknowledged").length} open
+                </Badge>
+              ) : null}
+            </div>
+            <ClaimReviewRequestsPanel
+              requests={reviewRequests}
+              busyId={reviewBusyId}
+              onAcknowledge={handleAcknowledgeReviewRequest}
+              onResolve={handleResolveReviewRequest}
+            />
+          </GlassCard>
+
+          <GlassCard>
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div className="text-[14px] font-semibold text-navy">Documents received</div>
+              {detail.documents.length > 0 ? <Link to={`/app/claims/${claimId}/extraction?documentId=${detail.documents[0].documentId}`} className="text-[12px] text-info hover:underline">
+                Open extraction review
+              </Link> : null}
+            </div>
             {detail.documents.length === 0 ? (
-              <div className="text-[12.5px] text-stone">No documents uploaded to this claim yet.</div>
+              <div className="rounded-xl border border-cloud bg-white/70 p-4 text-[12.5px] text-stone">
+                No documents uploaded to this claim yet.
+              </div>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-2">
-                {detail.documents.map((d) => (
-                  <div key={d.documentId} className="rounded-xl border border-cloud bg-white/80 p-3 flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-lg bg-[hsl(var(--info)/0.08)] grid place-items-center text-info"><FileText className="h-4 w-4" /></div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-medium text-navy truncate">{d.documentType}</div>
-                      <div className="text-[11px] text-stone">{d.processingStatus}</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {detail.documents.map((document) => (
+                  <div key={document.documentId} className="flex items-center gap-3 rounded-xl border border-cloud bg-white/80 p-3">
+                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-[hsl(var(--info)/0.08)] text-info">
+                      <FileText className="h-4 w-4" />
                     </div>
-                    {d.classificationConfidence > 0 ? <ConfidenceBadge value={d.classificationConfidence > 1 ? d.classificationConfidence / 100 : d.classificationConfidence} /> : <Badge tone="neutral">—</Badge>}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-medium text-navy">{document.documentType}</div>
+                      <div className="text-[11px] text-stone">{document.processingStatus}</div>
+                    </div>
+                    {document.classificationConfidence > 0 ? (
+                      <ConfidenceBadge value={document.classificationConfidence > 1 ? document.classificationConfidence / 100 : document.classificationConfidence} />
+                    ) : (
+                      <Badge tone="neutral">Not scored</Badge>
+                    )}
                   </div>
                 ))}
+              </div>
+            )}
+            <DocumentUploadWidget caseId={claimId} role={roleDef.key} onUploaded={reload} />
+          </GlassCard>
+
+          <GlassCard>
+            <div className="mb-3 text-[14px] font-semibold text-navy">Motor FNOL details</div>
+            {detail.motorFnolDetails ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <DetailTile label="Vehicle registration" value={detail.motorFnolDetails.vehicleRegistration} />
+                <DetailTile label="Accident time" value={detail.motorFnolDetails.accidentTime} />
+                <DetailTile label="Accident location" value={detail.motorFnolDetails.accidentLocation} />
+                <DetailTile label="Driver name" value={detail.motorFnolDetails.driverName} />
+                <DetailTile label="Driving permit" value={detail.motorFnolDetails.drivingPermitNumber} />
+                <DetailTile label="Third party" value={detail.motorFnolDetails.thirdPartyInvolved} />
+                <DetailTile label="Injury indicator" value={detail.motorFnolDetails.injuryIndicator} />
+                <DetailTile label="Police report" value={detail.motorFnolDetails.policeReportStatus} />
+                <DetailTile label="Preferred channel" value={detail.motorFnolDetails.preferredCommunicationChannel} />
+                <DetailTile label="Document notes" value={detail.motorFnolDetails.uploadedDocuments} />
+              </div>
+            ) : (
+              <div className="rounded-xl border border-cloud bg-white/70 p-4 text-[12.5px] text-stone">
+                This claim has no structured Motor FNOL details yet.
               </div>
             )}
           </GlassCard>
 
           <GlassCard>
-            <div className="text-[14px] font-semibold text-navy mb-4">Activity timeline</div>
+            <div className="mb-4 text-[14px] font-semibold text-navy">Activity timeline</div>
             {timeline.length === 0 ? (
-              <div className="text-[12.5px] text-stone">No recorded activity yet. Governed actions and AI runs appear here as they happen.</div>
+              <div className="rounded-xl border border-cloud bg-white/70 p-4 text-[12.5px] text-stone">
+                No recorded activity yet. Governed actions and AI runs appear here after they are written by the backend.
+              </div>
             ) : (
               <div className="relative pl-5">
-                <div className="absolute left-1.5 top-1 bottom-1 w-px bg-cloud" />
-                {timeline.map((t) => (
-                  <div key={t.eventId} className="relative pb-4">
+                <div className="absolute bottom-1 left-1.5 top-1 w-px bg-cloud" />
+                {timeline.map((event) => (
+                  <div key={event.eventId} className="relative pb-4">
                     <div className="absolute -left-[9px] top-1 h-2 w-2 rounded-full bg-info ring-2 ring-white" />
-                    <div className="text-[12px] text-stone">{new Date(t.timestamp).toLocaleString()} · {t.actor}</div>
-                    <div className="text-[13px] text-navy mt-0.5">{t.summary || t.eventType}</div>
+                    <div className="text-[12px] text-stone">
+                      {new Date(event.timestamp).toLocaleString()} · {event.actor}
+                    </div>
+                    <div className="mt-0.5 text-[13px] text-navy">{event.summary || event.eventType}</div>
                   </div>
                 ))}
               </div>
@@ -331,9 +433,95 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             </div>
           </GlassCard>
 
-          <CompletenessCard score={completeness} items={detail.documents.map((d) => ({ label: d.documentType, present: d.processingStatus !== "Missing" && d.processingStatus !== "MissingDocuments" }))} />
+          <CompletenessCard
+            score={completeness}
+            items={documentItems.length > 0 ? documentItems : [{ label: "Claim documents", present: false }]}
+          />
+
+          <div className="rounded-2xl border border-[hsl(var(--warning)/0.28)] bg-[hsl(var(--warning)/0.08)] p-4">
+            <div className="mb-1 flex items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[hsl(38_92%_36%)]">Advisory boundary</div>
+            </div>
+            <p className="text-[13px] leading-snug text-slate2">
+              Fraud and risk outputs are advisory only. The platform must show backend evidence before any human investigation step proceeds.
+            </p>
+          </div>
         </div>
       </div>
+      <CustomerUpdateGovernedDialog
+        pendingAction={pendingCustomerUpdateAction}
+        onClose={() => setPendingCustomerUpdateAction(null)}
+        onConfirm={handleCustomerUpdateConfirm}
+      />
+      <GovernedActionDialog
+        open={exportDialogOpen}
+        title="Export claim evidence pack"
+        target={`Case ${detail.claimId}`}
+        impact="Creates a durable JSON evidence-pack artifact from sanitized audit, document, assistant-action, approval, and customer-update records for this claim."
+        auditNotice="Evidence-pack export is a compliance-sensitive action. The exported artifact is stored through the configured evidence storage provider and the export event is written to the audit trail."
+        confirmLabel="Export claim pack"
+        evidence={
+          <div className="rounded-xl border border-line bg-mist p-4 text-sm leading-6 text-muted">
+            <dl className="grid gap-2 sm:grid-cols-2">
+              <ExportEvidenceItem label="Claim status" value={detail.status} />
+              <ExportEvidenceItem label="Documents" value={String(detail.documents.length)} />
+              <ExportEvidenceItem label="Customer updates" value={String(customerUpdates.length)} />
+              <ExportEvidenceItem label="Timeline events" value={String(timeline.length)} />
+            </dl>
+          </div>
+        }
+        onClose={() => setExportDialogOpen(false)}
+        onConfirm={handleExportEvidencePack}
+      />
     </>
+  );
+}
+
+function UnavailableAction({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof ShieldCheck;
+  label: string;
+  onClick: (label: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(label)}
+      className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift"
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-[11.5px] text-stone">{k}</span>
+      <span className="text-right text-navy">{v}</span>
+    </div>
+  );
+}
+
+function DetailTile({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="rounded-xl border border-cloud bg-white/70 p-3">
+      <div className="text-[11px] uppercase tracking-[0.12em] text-stone">{label}</div>
+      <div className="mt-1 text-[13px] text-navy">{value || "Not captured"}</div>
+    </div>
+  );
+}
+
+function ExportEvidenceItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">{label}</dt>
+      <dd className="mt-1 break-words font-mono font-semibold text-ink">{value}</dd>
+    </div>
   );
 }

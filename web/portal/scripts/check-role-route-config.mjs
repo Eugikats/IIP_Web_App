@@ -1,41 +1,69 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const source = readFileSync(join(process.cwd(), "lib", "roleUiConfig.ts"), "utf8");
+const root = process.cwd();
+const source = readFileSync(join(root, "lib", "roles.ts"), "utf8");
+const sidebar = readFileSync(join(root, "components", "iip", "Sidebar.tsx"), "utf8");
 
-const navHrefMatches = [...source.matchAll(/href:\s*"([^"]+)"/g)].map((match) => match[1]);
-const routeRuleMatches = [...source.matchAll(/\{\s*path:\s*"([^"]+)",\s*permission:\s*"([^"]+)"/g)].map((match) => ({
-  path: match[1],
-  permission: match[2]
-}));
-const permissionMatches = [...source.matchAll(/"([A-Za-z]+(?:[A-Za-z0-9]+)*)"/g)]
-  .map((match) => match[1])
-  .filter((value) => /^(View|Create|Upload|Approve|Manage|Configure|Override)/.test(value));
-
-const configuredPermissions = new Set(permissionMatches);
-const routePaths = routeRuleMatches.map((rule) => rule.path);
+const rolePaths = [...source.matchAll(/"\/app(?:\/[^"]*)?"/g)].map((match) => match[0].slice(1, -1));
+const sidebarPaths = [...sidebar.matchAll(/to:\s*"([^"]+)"/g)].map((match) => match[1]);
+const roleKeys = [...source.matchAll(/^\s{2}([A-Za-z0-9]+):\s*\{/gm)].map((match) => match[1]);
+const moduleList = source.match(/export const ALL_MODULES = \[([\s\S]*?)\];/)?.[1] ?? "";
+const adminList = source.match(/export const ALL_ADMIN = \[([\s\S]*?)\];/)?.[1] ?? "";
+const canonicalPaths = [...`${moduleList}\n${adminList}`.matchAll(/"\/app(?:\/[^"]*)?"/g)].map((match) => match[0].slice(1, -1));
+const expectedRoles = [
+  "Admin",
+  "ClaimsOfficer",
+  "ClaimsSupervisor",
+  "CustomerService",
+  "Broker",
+  "Compliance",
+  "KnowledgeManager",
+  "ITAdmin",
+  "PublisherSupport",
+];
 const findings = [];
 
-for (const href of navHrefMatches) {
-  const covered = routeRuleMatches.some((rule) => href === rule.path || href.startsWith(rule.path));
+for (const role of expectedRoles) {
+  if (!roleKeys.includes(role)) {
+    findings.push(`Expected role "${role}" is missing from ROLES.`);
+  }
+}
+
+for (const path of rolePaths) {
+  if (path !== "/app" && !path.startsWith("/app/")) {
+    findings.push(`Role route "${path}" must stay under /app.`);
+  }
+}
+
+for (const href of sidebarPaths) {
+  const covered = rolePaths.includes(href);
   if (!covered) {
-    findings.push(`Navigation href "${href}" has no route access rule.`);
+    findings.push(`Sidebar route "${href}" is not present in role access config.`);
   }
 }
 
-for (const rule of routeRuleMatches) {
-  if (!configuredPermissions.has(rule.permission)) {
-    findings.push(`Route access rule "${rule.path}" uses unknown permission "${rule.permission}".`);
+for (const role of roleKeys) {
+  const roleBlock = source.match(new RegExp(`${role}:\\s*\\{[\\s\\S]*?landing:\\s*"([^"]+)"`));
+  const landing = roleBlock?.[1];
+  if (!landing) {
+    findings.push(`Role "${role}" has no landing route.`);
+  } else if (!rolePaths.includes(landing)) {
+    findings.push(`Role "${role}" landing route "${landing}" is not in role access config.`);
   }
 }
 
-const duplicates = routePaths.filter((path, index) => routePaths.indexOf(path) !== index);
+const duplicates = canonicalPaths.filter((path, index) => canonicalPaths.indexOf(path) !== index);
 for (const path of new Set(duplicates)) {
-  findings.push(`Route access rule "${path}" is duplicated.`);
+  findings.push(`Role route "${path}" is duplicated.`);
 }
 
-if (!/Client:\s*\[\s*"ViewClientPortal"\s*\]/.test(source)) {
-  findings.push("Client role must only be granted ViewClientPortal.");
+if (!source.includes("canonicalPath === m") || !source.includes("canonicalPath.startsWith(m + \"/\")")) {
+  findings.push("canAccess must cover nested /app route children through prefix matching.");
+}
+
+if (!source.includes('m !== "/app"') || !source.includes('m !== "/app/admin"')) {
+  findings.push("Root /app and /app/admin grants must remain exact so they do not authorize every nested route.");
 }
 
 if (findings.length > 0) {

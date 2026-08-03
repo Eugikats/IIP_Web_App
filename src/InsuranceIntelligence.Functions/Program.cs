@@ -1,7 +1,9 @@
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.DependencyInjection;
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace InsuranceIntelligence.Functions;
 
@@ -13,11 +15,27 @@ public class Program
             .ConfigureFunctionsWorkerDefaults()
             .ConfigureServices((context, services) =>
             {
-                // In a full implementation, we'd wire up the real providers here
-                // just like in Api's Program.cs. For now we will add the basics
-                // so the TeamsNotificationDispatchFunction can be instantiated.
-                
+                services.AddApplicationInsightsTelemetryWorkerService();
+                services.ConfigureFunctionsApplicationInsights();
+                services.Configure<LoggerFilterOptions>(filterOptions =>
+                {
+                    var defaultRule = filterOptions.Rules.FirstOrDefault(rule =>
+                        rule.ProviderName == "Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider");
+                    if (defaultRule is not null)
+                    {
+                        filterOptions.Rules.Remove(defaultRule);
+                    }
+                });
+
                 var options = InfrastructureRegistration.BindOptions(context.Configuration);
+                var runtimeProfile = options.RuntimeProfile ?? context.HostingEnvironment.EnvironmentName;
+                var runtimeErrors = WorkflowShell.ValidateProtectedRuntime(options, runtimeProfile);
+                if (runtimeErrors.Count > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Functions runtime configuration is invalid: {string.Join(" ", runtimeErrors)}");
+                }
+
                 services.AddInsuranceIntelligenceInfrastructure(context.Configuration, context.HostingEnvironment);
 
                 // Add Teams webhook client if configured
@@ -30,9 +48,8 @@ public class Program
                 }
                 else
                 {
-                    // Fallback to mock
-                    services.AddSingleton<InsuranceIntelligence.Domain.Notifications.ITeamsNotificationProvider, 
-                        InsuranceIntelligence.Infrastructure.Notifications.MockTeamsNotificationProvider>();
+                    services.AddSingleton<InsuranceIntelligence.Domain.Notifications.ITeamsNotificationProvider,
+                        InsuranceIntelligence.Infrastructure.Graph.DisabledTeamsNotificationProvider>();
                 }
             })
             .Build();

@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -9,16 +10,8 @@ namespace InsuranceIntelligence.Api.Documents;
 
 public static class DocumentEndpoints
 {
-    public const long MaxLocalMockFileSizeBytes = 10 * 1024 * 1024;
-
-    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".pdf",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".txt"
-    };
+    /// <summary>Backward-compatible alias for configuration defaults; prefer <see cref="DocumentUploadValidation.MaxUploadFileSizeBytes"/>.</summary>
+    public const long MaxLocalMockFileSizeBytes = DocumentUploadValidation.MaxUploadFileSizeBytes;
 
     public static async Task<IResult> UploadDocuments(
         Guid caseId,
@@ -31,7 +24,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -144,7 +137,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -167,7 +160,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -193,7 +186,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -238,7 +231,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -323,7 +316,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -380,7 +373,7 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -439,7 +432,7 @@ public static class DocumentEndpoints
         }
 
         var correlationId = GetCorrelationId(httpContext);
-        var correctedBy = DemoAuthorization.GetUserId(httpContext);
+        var correctedBy = GetActor(httpContext, null);
         corrections[canonicalFieldName] = new DocumentFieldCorrection(
             canonicalFieldName,
             correctedValue,
@@ -550,26 +543,8 @@ public static class DocumentEndpoints
         };
     }
 
-    private static string? ValidateFile(IFormFile file)
-    {
-        if (file.Length <= 0)
-        {
-            return "Uploaded documents cannot be empty.";
-        }
-
-        if (file.Length > MaxLocalMockFileSizeBytes)
-        {
-            return "Uploaded documents cannot exceed 10 MB in local mock mode.";
-        }
-
-        var extension = Path.GetExtension(file.FileName);
-        if (!SupportedExtensions.Contains(extension))
-        {
-            return "Unsupported file type. Supported local mock file types are PDF, PNG, JPG, JPEG, and TXT.";
-        }
-
-        return null;
-    }
+    private static string? ValidateFile(IFormFile file) =>
+        DocumentUploadValidation.Validate(file.Length, file.FileName);
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]>
@@ -589,8 +564,41 @@ public static class DocumentEndpoints
         || contentType.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase)
         || contentType.Equals("text/plain", StringComparison.OrdinalIgnoreCase);
 
+    private static bool TryResolveScope(
+        HttpContext httpContext,
+        out TenantScope scope,
+        out string userId,
+        out string validationError)
+    {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext)
+        {
+            var current = tenantContext.Current;
+            scope = TenantScope.Create(current.TenantId, current.WorkspaceId);
+            userId = current.UserId;
+            validationError = string.Empty;
+            return true;
+        }
+
+        if (TenantScopeReader.TryGetFromHeaders(httpContext, out scope, out validationError))
+        {
+            userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+            return true;
+        }
+
+        userId = string.Empty;
+        return false;
+    }
+
     private static string GetActor(HttpContext httpContext, string? candidate)
     {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext
+            && !string.IsNullOrWhiteSpace(tenantContext.Current.UserId))
+        {
+            return tenantContext.Current.UserId;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate))
         {
             return candidate.Trim();

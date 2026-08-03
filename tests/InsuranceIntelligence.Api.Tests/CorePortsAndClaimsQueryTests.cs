@@ -60,7 +60,7 @@ public sealed class CorePortsAndClaimsQueryTests
         await using var db = Db();
         var context = new TenantContextAccessor();
         context.SetCurrent(new TenantContext("tenant-a", "claims", "user-1", [PlatformRole.Admin.ToString()]));
-        var writer = new AuditWriter(context, new EfAuditEventRepository(db));
+        var writer = new AuditWriter(context, new EfAuditEventRepository(db), NoOpOperationalTelemetry.Instance);
 
         var otherScope = TenantScope.Create("tenant-b", "claims");
         var auditEvent = new AuditEvent(

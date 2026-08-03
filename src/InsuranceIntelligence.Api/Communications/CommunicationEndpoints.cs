@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -45,7 +46,7 @@ public static class CommunicationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -88,7 +89,7 @@ public static class CommunicationEndpoints
                 scope,
                 request.CaseId,
                 null,
-                request.RequestedByUserId,
+                WorkflowEndpoints.GetActor(httpContext, request.RequestedByUserId),
                 ActorType.Integration,
                 auditAction,
                 DateTimeOffset.UtcNow,
@@ -117,7 +118,7 @@ public static class CommunicationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -151,7 +152,7 @@ public static class CommunicationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -182,7 +183,7 @@ public static class CommunicationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -197,7 +198,13 @@ public static class CommunicationEndpoints
             });
         }
 
-        var result = await send(new CommunicationSendRequest(scope, request.CaseId, channel, request.Recipient, request.MessageBody, request.SentByUserId, request.Approved, request.LowRisk, httpContext.TraceIdentifier), cancellationToken);
+        var actor = WorkflowEndpoints.GetActor(httpContext, request.SentByUserId);
+        if (string.IsNullOrWhiteSpace(actor))
+        {
+            return Validation("userId", "Authenticated user context is required to send a customer communication.");
+        }
+
+        var result = await send(new CommunicationSendRequest(scope, request.CaseId, channel, request.Recipient, request.MessageBody, actor, request.Approved, request.LowRisk, httpContext.TraceIdentifier), cancellationToken);
         if (result.DeliveryStatus is "ApprovalRequired" or "ConfigurationRequired" or "Failed")
         {
             return Results.BadRequest(new { deliveryStatus = result.DeliveryStatus, message = result.SafeError });
@@ -211,7 +218,7 @@ public static class CommunicationEndpoints
             Channel = channel,
             Direction = "Outbound",
             MessageBody = request.MessageBody,
-            SentBy = request.SentByUserId,
+            SentBy = actor,
             DeliveryStatus = result.DeliveryStatus,
             CreatedAt = DateTimeOffset.UtcNow,
             CorrelationId = httpContext.TraceIdentifier
@@ -224,7 +231,7 @@ public static class CommunicationEndpoints
                 scope,
                 request.CaseId,
                 communication.CommunicationId.ToString(),
-                request.SentByUserId,
+                actor,
                 ActorType.Integration,
                 auditAction,
                 DateTimeOffset.UtcNow,

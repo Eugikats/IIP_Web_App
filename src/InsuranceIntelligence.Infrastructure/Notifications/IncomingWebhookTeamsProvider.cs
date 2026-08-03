@@ -20,8 +20,7 @@ public class IncomingWebhookTeamsProvider(
         var webhookUrl = options.Value.WebhookUrl;
         if (string.IsNullOrWhiteSpace(webhookUrl))
         {
-            logger.LogWarning("Teams Incoming Webhook URL is not configured. Skipping delivery.");
-            return "skipped_unconfigured";
+            throw new InvalidOperationException("Teams incoming webhook is not configured.");
         }
 
         // Build the Adaptive Card JSON

@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Admin;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -89,7 +90,7 @@ public static class EmailIntegrationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -110,7 +111,7 @@ public static class EmailIntegrationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -183,7 +184,7 @@ public static class EmailIntegrationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -215,7 +216,7 @@ public static class EmailIntegrationEndpoints
             var existingMessages = await emailRepository.ListAsync(scope, cancellationToken);
             var existingExternalIds = existingMessages
                 .Where(message => !string.IsNullOrWhiteSpace(message.ExternalMessageId))
-                .Select(message => message.ExternalMessageId!)
+                .Select(message => ExternalMessageKey(message.MailboxConnectionId, message.ExternalMessageId!))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var ingested = new List<InboundEmailMessage>();
             foreach (var configuredMailbox in (await mailboxRepository.ListAsync(scope, cancellationToken)).Where(item => item.IngestionEnabled))
@@ -233,7 +234,8 @@ public static class EmailIntegrationEndpoints
                 foreach (var graphMessage in pulled)
                 {
                     if (existingMessages.Any(existing => existing.MessageId == graphMessage.MessageId)
-                        || (!string.IsNullOrWhiteSpace(graphMessage.ExternalMessageId) && existingExternalIds.Contains(graphMessage.ExternalMessageId)))
+                        || (!string.IsNullOrWhiteSpace(graphMessage.ExternalMessageId)
+                            && existingExternalIds.Contains(ExternalMessageKey(configuredMailbox.MailboxConnectionId, graphMessage.ExternalMessageId))))
                     {
                         continue;
                     }
@@ -242,7 +244,7 @@ public static class EmailIntegrationEndpoints
                     ingested.Add(graphMessage);
                     if (!string.IsNullOrWhiteSpace(graphMessage.ExternalMessageId))
                     {
-                        existingExternalIds.Add(graphMessage.ExternalMessageId);
+                        existingExternalIds.Add(ExternalMessageKey(configuredMailbox.MailboxConnectionId, graphMessage.ExternalMessageId));
                     }
 
                     await auditRepository.WriteAsync(
@@ -297,7 +299,7 @@ public static class EmailIntegrationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -436,7 +438,7 @@ public static class EmailIntegrationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -456,7 +458,7 @@ public static class EmailIntegrationEndpoints
             return forbidden;
         }
 
-        if (!TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out var scope, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -513,6 +515,9 @@ public static class EmailIntegrationEndpoints
         };
     }
 
+    private static string ExternalMessageKey(Guid mailboxConnectionId, string externalMessageId) =>
+        $"{mailboxConnectionId:N}:{externalMessageId.Trim()}";
+
     private static AuditEvent EmailAudit(
         TenantScope scope,
         Guid? caseId,
@@ -531,7 +536,7 @@ public static class EmailIntegrationEndpoints
         out string auditReason,
         out IResult? error)
     {
-        actor = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty).Trim();
+        actor = ResolveActor(httpContext).Trim();
         if (string.IsNullOrWhiteSpace(actor))
         {
             auditReason = string.Empty;
@@ -548,6 +553,32 @@ public static class EmailIntegrationEndpoints
 
         error = null;
         return true;
+    }
+
+    private static bool TryResolveScope(HttpContext httpContext, out TenantScope scope, out string validationError)
+    {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext)
+        {
+            var current = tenantContext.Current;
+            scope = TenantScope.Create(current.TenantId, current.WorkspaceId);
+            validationError = string.Empty;
+            return true;
+        }
+
+        return TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out scope, out validationError);
+    }
+
+    private static string ResolveActor(HttpContext httpContext)
+    {
+        if (httpContext.RequestServices is not null
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext
+            && !string.IsNullOrWhiteSpace(tenantContext.Current.UserId))
+        {
+            return tenantContext.Current.UserId;
+        }
+
+        return DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
     }
 
     private static string? NullIfWhiteSpace(string? value) =>

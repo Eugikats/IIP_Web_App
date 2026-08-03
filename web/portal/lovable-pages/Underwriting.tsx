@@ -1,8 +1,8 @@
 "use client";
+import Link from "next/link";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
 import { Sparkles, ClipboardCheck } from "lucide-react";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
-import { toast } from "sonner";
 import { useUnderwritingReviews, type UnderwritingCheckState } from "@/lib/lovable-parity/data/underwriting";
 
 const checkTone: Record<UnderwritingCheckState, "success" | "warning" | "info"> = {
@@ -55,10 +55,7 @@ export default function Underwriting() {
                     ))}
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 shrink-0">
-                  <button onClick={() => toast("Draft prepared — send only after underwriter approval")} className="text-[12.5px] rounded-xl gradient-primary text-white px-3 py-1.5">Draft questions</button>
-                  <button onClick={() => toast("Escalated for underwriter review")} className="text-[12.5px] rounded-xl border border-cloud bg-white px-3 py-1.5 text-navy">Escalate for review</button>
-                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2"><Badge tone="violet">Advisory only</Badge><Link href="/app/work-items" className="text-[11.5px] font-medium text-info">Open Review & Approvals</Link></div>
               </div>
 
               {r.draftedQuestions.length > 0 ? (

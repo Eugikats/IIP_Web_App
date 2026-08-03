@@ -1,0 +1,44 @@
+{
+  "generatedAt": "2026-07-13T19:34:13.251Z",
+  "baseUrl": "https://app-api-dev-h5girbnzrayqe.azurewebsites.net",
+  "mode": "runtime",
+  "results": [
+    {
+      "id": "PERF-HEALTH-001",
+      "path": "/health/ready",
+      "requests": 50,
+      "concurrency": 5,
+      "elapsedMs": 4909,
+      "requestsPerSecond": 10.19,
+      "errorRate": 0,
+      "p50Ms": 304,
+      "p95Ms": 1237,
+      "p99Ms": 1286,
+      "targetP95Ms": 300,
+      "statusCounts": {
+        "200": 50
+      },
+      "passed": false,
+      "errors": []
+    },
+    {
+      "id": "PERF-API-001",
+      "path": "/api/v1/claims",
+      "requests": 50,
+      "concurrency": 5,
+      "elapsedMs": 8293,
+      "requestsPerSecond": 6.03,
+      "errorRate": 0,
+      "p50Ms": 426,
+      "p95Ms": 2849,
+      "p99Ms": 3015,
+      "targetP95Ms": 800,
+      "statusCounts": {
+        "200": 50
+      },
+      "passed": false,
+      "errors": []
+    }
+  ],
+  "passed": false
+}

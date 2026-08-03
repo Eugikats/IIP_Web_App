@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { installVisualApiFixtures } from "../fixtures/iip-fixtures";
 
-const casePath = "/cases/CLM-2026-00491";
+const casePath = "/app/claims/CLM-2026-00491";
 
 test.beforeEach(async ({ page }) => {
   await installVisualApiFixtures(page);
@@ -11,17 +11,17 @@ test("Gate 6 Case Review exposes approved tabs, record fields and action state",
   await page.goto(casePath);
   await page.waitForLoadState("networkidle");
 
-  await expect(page.getByRole("heading", { name: "Sarah N." })).toBeVisible();
-  for (const tab of ["Overview", "Documents", "Policy & Coverage", "Timeline", "Tasks", "Approvals", "Communications", "Audit"]) {
-    await expect(page.getByRole("tab", { name: tab })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /CLM-2026 · Sarah N\./ })).toBeVisible();
+  await expect(page.getByText("Motor claim lifecycle")).toBeVisible();
+  await expect(page.getByText("Human review actions")).toBeVisible();
+  for (const action of ["Draft customer update", "Request supervisor review", "Draft document follow-up", "Export claim pack"]) {
+    await expect(page.getByRole("button", { name: action })).toBeVisible();
   }
-
-  await expect(page.getByText("Claim ID")).toBeVisible();
-  await expect(page.getByText("Masked contact")).toBeVisible();
-  await expect(page.getByText("Claimed amount")).toBeVisible();
-  await expect(page.getByText("Not captured")).toBeVisible();
-  await expect(page.getByText("Case-level blocked actions")).toBeVisible();
-  await expect(page.getByText("MISSING_REQUIRED_DOCUMENTS")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Customer updates")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Documents received")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open extraction review" })).toHaveAttribute("href", /\/app\/claims\/CLM-2026-00491\/extraction/);
+  await expect(page.getByRole("main").getByText("Policy & customer")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Completeness", { exact: true })).toBeVisible();
 
   await testInfo.attach(`gate-6-case-review-overview-${testInfo.project.name}.png`, {
     body: await page.screenshot({ fullPage: true }),
@@ -33,23 +33,17 @@ test("Gate 6 Case Review documents, approvals and governed action confirmation a
   await page.goto(casePath);
   await page.waitForLoadState("networkidle");
 
-  await page.getByRole("tab", { name: "Documents" }).click();
-  await expect(page.getByText("repair_estimate.pdf")).toBeVisible();
-  await page.getByText("repair_estimate.pdf").click();
-  await expect(page.getByText("LOW_CONFIDENCE_AMOUNT")).toBeVisible();
-  await expect(page.getByText("Document blocked actions")).toBeVisible();
-  await page.getByRole("button", { name: "Close drawer" }).click();
+  await page.getByRole("button", { name: "Export claim pack" }).click();
+  const dialog = page.getByRole("dialog", { name: "Export claim evidence pack" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Reason for audit trail" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Export claim pack" })).toBeDisabled();
+  await dialog.getByRole("textbox", { name: "Reason for audit trail" }).fill("Export evidence pack for supervisor review validation.");
+  await expect(dialog.getByRole("button", { name: "Export claim pack" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
 
-  await page.getByRole("tab", { name: "Approvals" }).click();
-  await expect(page.getByText("Police report is missing; supervisor review is required.")).toBeVisible();
-
-  await page.getByRole("tab", { name: "Tasks" }).click();
-  await page.getByRole("button", { name: "Create approval request" }).click();
-  await expect(page.getByRole("textbox", { name: "Reason" })).toBeVisible();
-  await expect(page.getByText("A mandatory reason and audit event are required before this governed action is recorded.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create review step" })).toBeDisabled();
-  await page.getByRole("textbox", { name: "Reason" }).fill("Supervisor review is required because mandatory evidence is still missing.");
-  await expect(page.getByRole("button", { name: "Create review step" })).toBeEnabled();
+  await page.getByRole("button", { name: "Request supervisor review" }).click();
+  await expect(page.getByText(/Supervisor review requested|Could not request supervisor review/)).toBeVisible();
 });
 
 test("Gate 6 Case Review deployed profile exposes no final decision controls @deployed", async ({ page }) => {
