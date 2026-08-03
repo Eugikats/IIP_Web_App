@@ -1,30 +1,18 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Workflow;
+using InsuranceIntelligence.Application.Compliance;
 using InsuranceIntelligence.Application.Core;
-using InsuranceIntelligence.Application.Onboarding;
 using InsuranceIntelligence.Domain.Administration;
-using InsuranceIntelligence.Domain.Audit;
-using InsuranceIntelligence.Domain.Cases;
-using InsuranceIntelligence.Domain.Common;
-using InsuranceIntelligence.Domain.Compliance;
-using InsuranceIntelligence.Domain.Documents;
-using InsuranceIntelligence.Domain.Knowledge;
-using InsuranceIntelligence.Domain.Storage;
-using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
-using System.Text.Json;
 
 namespace InsuranceIntelligence.Api.Compliance;
 
 public static class ComplianceEndpoints
 {
     public static async Task<IResult> GetCompliancePosture(
-        ITenantConfigurationRepository tenantConfigurationRepository,
-        ITenantOnboardingRepository onboardingRepository,
-        ICaseRepository caseRepository,
+        IComplianceQueryService complianceQueryService,
         InfrastructureOptions options,
-        ISlaCalculator slaCalculator,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -33,54 +21,28 @@ public static class ComplianceEndpoints
             return forbidden;
         }
 
-        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        if (!TryRequireTenantContext(httpContext, out _))
         {
-            return Validation("tenantScope", validationError);
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
         }
 
-        var tenantConfiguration = await tenantConfigurationRepository.GetAsync(scope, cancellationToken);
-        var onboardingRecords = await onboardingRepository.ListAsync(cancellationToken);
-        var matchingOnboarding = onboardingRecords
-            .Where(record => string.Equals(record.InternalTenantId, scope.TenantId, StringComparison.OrdinalIgnoreCase)
-                && (record.TargetWorkspaces.Count == 0
-                    || record.TargetWorkspaces.Any(workspace => string.Equals(workspace, scope.WorkspaceId, StringComparison.OrdinalIgnoreCase))))
-            .ToArray();
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
-        var now = DateTimeOffset.UtcNow;
-        var slaStatuses = cases.Select(claimCase => slaCalculator.Calculate(claimCase, now)).ToArray();
-
-        return Results.Ok(new CompliancePostureResponse(
-            new RetentionPosture(
-                tenantConfiguration.AuditRetentionDays,
-                tenantConfiguration.AuditRetentionDays >= 90,
-                tenantConfiguration.UpdatedAt.ToString("O")),
-            new ConsentPosture(
-                matchingOnboarding.Length,
-                matchingOnboarding.Count(record => record.Status is TenantOnboardingStatus.Consented or TenantOnboardingStatus.Active),
-                matchingOnboarding.Any(record => record.Status is TenantOnboardingStatus.Pending),
-                matchingOnboarding.Any(record => record.Status is TenantOnboardingStatus.Blocked),
-                matchingOnboarding
-                    .Where(record => record.ConsentedAt is not null)
-                    .OrderByDescending(record => record.ConsentedAt)
-                    .Select(record => record.ConsentedAt!.Value.ToString("O"))
-                    .FirstOrDefault()),
-            new SlaCompliancePosture(
-                cases.Count,
-                slaStatuses.Count(status => status == SlaStatus.OnTrack),
-                slaStatuses.Count(status => status == SlaStatus.AtRisk),
-                slaStatuses.Count(status => status == SlaStatus.Breached)),
-            BuildDataResidencyPosture(tenantConfiguration, options),
-            new ComplianceProviderPosture(
-                tenantConfiguration.ProviderModes.AuthMode,
-                tenantConfiguration.ProviderModes.StorageProvider,
-                tenantConfiguration.ProviderModes.AiProvider,
-                tenantConfiguration.ProviderModes.DocumentProvider,
-                tenantConfiguration.ProviderModes.RetrievalProvider,
-                tenantConfiguration.ProviderModes.SeedDemoData)));
+        try
+        {
+            var posture = await complianceQueryService.GetPostureAsync(cancellationToken);
+            return Results.Ok(ToResponse(posture));
+        }
+        catch (MissingTenantContextException)
+        {
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
+        }
+        catch (PermissionDeniedException)
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
     }
 
     public static async Task<IResult> ListAuditEvents(
-        IAuditRepository auditRepository,
+        IComplianceQueryService complianceQueryService,
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken)
@@ -90,42 +52,52 @@ public static class ComplianceEndpoints
             return forbidden;
         }
 
-        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        if (!TryRequireTenantContext(httpContext, out _))
         {
-            return Validation("tenantScope", validationError);
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
         }
 
-        var events = await auditRepository.ListAsync(scope, cancellationToken);
-        var filtered = events.AsEnumerable();
+        Guid? caseId = null;
         if (httpContext.Request.Query.TryGetValue("caseId", out var caseIdValue)
-            && Guid.TryParse(caseIdValue, out var caseId))
+            && Guid.TryParse(caseIdValue, out var parsedCaseId))
         {
-            filtered = filtered.Where(auditEvent => auditEvent.CaseId == caseId);
+            caseId = parsedCaseId;
         }
 
-        if (httpContext.Request.Query.TryGetValue("eventType", out var eventType)
-            && !string.IsNullOrWhiteSpace(eventType))
+        string? eventType = null;
+        if (httpContext.Request.Query.TryGetValue("eventType", out var eventTypeValue)
+            && !string.IsNullOrWhiteSpace(eventTypeValue))
         {
-            filtered = filtered.Where(auditEvent => auditEvent.ActionName.Contains(eventType.ToString(), StringComparison.OrdinalIgnoreCase));
+            eventType = eventTypeValue.ToString();
         }
 
-        if (httpContext.Request.Query.TryGetValue("actor", out var actor)
-            && !string.IsNullOrWhiteSpace(actor))
+        string? actor = null;
+        if (httpContext.Request.Query.TryGetValue("actor", out var actorValue)
+            && !string.IsNullOrWhiteSpace(actorValue))
         {
-            filtered = filtered.Where(auditEvent => string.Equals(auditEvent.UserId, actor.ToString(), StringComparison.OrdinalIgnoreCase));
+            actor = actorValue.ToString();
         }
 
-        return Results.Ok(filtered.ToArray());
+        try
+        {
+            var events = await complianceQueryService.ListAuditEventsAsync(
+                new ComplianceAuditEventQuery(caseId, eventType, actor),
+                cancellationToken);
+            return Results.Ok(events);
+        }
+        catch (MissingTenantContextException)
+        {
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
+        }
+        catch (PermissionDeniedException)
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
     }
 
     public static async Task<IResult> GetAuditPack(
         Guid caseId,
-        ICaseRepository caseRepository,
-        IAuditRepository auditRepository,
-        ICaseDocumentRepository documentRepository,
-        IAgentActionLogRepository actionLogRepository,
-        IApprovalRepository approvalRepository,
-        ICustomerUpdateRepository updateRepository,
+        IComplianceQueryService complianceQueryService,
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken)
@@ -135,39 +107,31 @@ public static class ComplianceEndpoints
             return forbidden;
         }
 
-        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        if (!TryRequireTenantContext(httpContext, out _))
         {
-            return Validation("tenantScope", validationError);
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
         }
 
-        var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
-        if (claimCase is null || !claimCase.Scope.Matches(scope))
+        try
         {
-            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+            var pack = await complianceQueryService.GetAuditPackAsync(caseId, cancellationToken);
+            return pack is null
+                ? Results.NotFound(new { message = "Case was not found for the requested tenant workspace." })
+                : Results.Ok(pack);
         }
-
-        var pack = await BuildAuditPackAsync(
-            claimCase,
-            scope,
-            auditRepository,
-            documentRepository,
-            actionLogRepository,
-            approvalRepository,
-            updateRepository,
-            cancellationToken);
-
-        return Results.Ok(pack);
+        catch (MissingTenantContextException)
+        {
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
+        }
+        catch (PermissionDeniedException)
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
     }
 
     public static async Task<IResult> ExportAuditPack(
         Guid caseId,
-        ICaseRepository caseRepository,
-        IAuditRepository auditRepository,
-        ICaseDocumentRepository documentRepository,
-        IAgentActionLogRepository actionLogRepository,
-        IApprovalRepository approvalRepository,
-        ICustomerUpdateRepository updateRepository,
-        IEvidencePackStorageProvider storageProvider,
+        IComplianceQueryService complianceQueryService,
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken)
@@ -177,61 +141,43 @@ public static class ComplianceEndpoints
             return forbidden;
         }
 
-        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        if (!TryRequireTenantContext(httpContext, out var tenantContext))
         {
-            return Validation("tenantScope", validationError);
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
         }
 
-        var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
-        if (claimCase is null || !claimCase.Scope.Matches(scope))
-        {
-            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
-        }
-
-        var actor = WorkflowEndpoints.GetActor(httpContext, null);
-        if (string.IsNullOrWhiteSpace(actor))
-        {
-            return Validation("userId", "Authenticated user context is required to export an evidence pack.");
-        }
-
+        // Actor comes from membership-resolved TenantContext only — never from spoofable headers.
+        var actor = tenantContext.UserId;
         var auditReason = AuditReasonReader.Read(httpContext);
-        if (string.IsNullOrWhiteSpace(auditReason))
-        {
-            return Validation("auditReason", "An audit reason is required to export an evidence pack.");
-        }
-
-        var pack = await BuildAuditPackAsync(
-            claimCase,
-            scope,
-            auditRepository,
-            documentRepository,
-            actionLogRepository,
-            approvalRepository,
-            updateRepository,
-            cancellationToken);
-
-        await using var content = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(pack));
-        var fileName = $"case-{caseId:N}-evidence-pack-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.json";
+        var correlationId = WorkflowEndpoints.GetCorrelationId(httpContext);
 
         try
         {
-            var stored = await storageProvider.StoreAsync(
-                new EvidencePackStorageRequest(scope, caseId, fileName, "application/json", content),
+            var exported = await complianceQueryService.ExportAuditPackAsync(
+                new EvidencePackExportCommand(caseId, actor, auditReason ?? string.Empty, correlationId),
                 cancellationToken);
 
-            var correlationId = WorkflowEndpoints.GetCorrelationId(httpContext);
-            await auditRepository.WriteAsync(
-                AuditEvent.EvidencePackExported(scope, caseId, actor, stored.ObjectKey, stored.FileSizeBytes, auditReason, correlationId),
-                cancellationToken);
+            if (exported is null)
+            {
+                return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+            }
 
             return Results.Ok(new EvidencePackExportResponse(
-                caseId,
-                stored.ObjectKey,
-                stored.ContentType,
-                stored.FileSizeBytes,
-                DateTimeOffset.UtcNow));
+                exported.CaseId,
+                exported.ObjectKey,
+                exported.ContentType,
+                exported.FileSizeBytes,
+                exported.ExportedAt));
         }
-        catch (InvalidOperationException ex)
+        catch (MissingTenantContextException)
+        {
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
+        }
+        catch (ComplianceQueryValidationException ex)
+        {
+            return Validation(ex.Field, ex.Message);
+        }
+        catch (ComplianceConfigurationException ex)
         {
             return Results.BadRequest(new
             {
@@ -239,88 +185,68 @@ public static class ComplianceEndpoints
                 message = ex.Message
             });
         }
+        catch (PermissionDeniedException)
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
     }
 
-    private static async Task<AuditPack> BuildAuditPackAsync(
-        ClaimCase claimCase,
-        TenantScope scope,
-        IAuditRepository auditRepository,
-        ICaseDocumentRepository documentRepository,
-        IAgentActionLogRepository actionLogRepository,
-        IApprovalRepository approvalRepository,
-        ICustomerUpdateRepository updateRepository,
-        CancellationToken cancellationToken) =>
-        AuditPack.Build(
-            claimCase,
-            await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken),
-            await documentRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken),
-            await actionLogRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken),
-            await approvalRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken),
-            await updateRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken));
-
-    private static DataResidencyPosture BuildDataResidencyPosture(
-        TenantConfiguration tenantConfiguration,
-        InfrastructureOptions options)
-    {
-        var allowedAzureRegions = Azure.AzureProviderStartupValidator.AllowedAzureRegions(options);
-        var expectedOpenAiDeploymentType = Azure.AzureProviderStartupValidator.ExpectedAzureOpenAiDeploymentType(options.DataResidencyMode);
-        var openAiDeploymentTypeRequired = options.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase);
-        var configured = !string.IsNullOrWhiteSpace(options.DataResidencyCountry)
-            && !string.IsNullOrWhiteSpace(options.DataResidencyGeography)
-            && !string.IsNullOrWhiteSpace(options.AzureRegion)
-            && allowedAzureRegions.Count > 0
-            && !string.IsNullOrWhiteSpace(options.DataResidencyApprovalReference)
-            && expectedOpenAiDeploymentType is not null
-            && (!openAiDeploymentTypeRequired || !string.IsNullOrWhiteSpace(options.AzureOpenAI.DeploymentType));
-        var deploymentRegionApproved = configured
-            && allowedAzureRegions.Contains(options.AzureRegion!.Trim(), StringComparer.OrdinalIgnoreCase);
-        var openAiDeploymentTypeApproved = configured
-            && (!openAiDeploymentTypeRequired
-                || options.AzureOpenAI.DeploymentType!.Equals(expectedOpenAiDeploymentType, StringComparison.OrdinalIgnoreCase));
-        var compliant = deploymentRegionApproved && openAiDeploymentTypeApproved;
-
-        return new DataResidencyPosture(
-            string.IsNullOrWhiteSpace(tenantConfiguration.Country) ? "Not configured" : tenantConfiguration.Country,
-            string.IsNullOrWhiteSpace(tenantConfiguration.Region) ? "Not configured" : tenantConfiguration.Region,
-            string.IsNullOrWhiteSpace(options.DataResidencyCountry) ? "Not configured" : options.DataResidencyCountry,
-            string.IsNullOrWhiteSpace(options.DataResidencyGeography) ? "Not configured" : options.DataResidencyGeography,
-            string.IsNullOrWhiteSpace(options.AzureRegion) ? "Not configured" : options.AzureRegion,
-            options.DataResidencyMode,
-            string.IsNullOrWhiteSpace(options.AzureOpenAI.DeploymentType) ? "Not configured" : options.AzureOpenAI.DeploymentType,
-            allowedAzureRegions,
-            string.IsNullOrWhiteSpace(options.DataResidencyApprovalReference) ? "Not configured" : options.DataResidencyApprovalReference,
-            configured,
-            deploymentRegionApproved,
-            openAiDeploymentTypeApproved,
-            !configured ? "Not configured" : compliant ? "Compliant" : "Mismatch");
-    }
+    private static CompliancePostureResponse ToResponse(CompliancePostureDto posture) =>
+        new(
+            new RetentionPosture(
+                posture.Retention.AuditRetentionDays,
+                posture.Retention.MeetsMinimum,
+                posture.Retention.LastUpdatedAt),
+            new ConsentPosture(
+                posture.Consent.OnboardingRecords,
+                posture.Consent.ConsentedRecords,
+                posture.Consent.PendingConsent,
+                posture.Consent.BlockedConsent,
+                posture.Consent.LastConsentedAt),
+            new SlaCompliancePosture(
+                posture.Sla.TotalOpenClaims,
+                posture.Sla.OnTrack,
+                posture.Sla.AtRisk,
+                posture.Sla.Breached),
+            new DataResidencyPosture(
+                posture.DataResidency.TenantCountry,
+                posture.DataResidency.TenantRegion,
+                posture.DataResidency.ResidencyCountry,
+                posture.DataResidency.AzureGeography,
+                posture.DataResidency.AzureRegion,
+                posture.DataResidency.Mode,
+                posture.DataResidency.AzureOpenAiDeploymentType,
+                posture.DataResidency.AllowedAzureRegions,
+                posture.DataResidency.ApprovalReference,
+                posture.DataResidency.IsConfigured,
+                posture.DataResidency.IsDeploymentRegionApproved,
+                posture.DataResidency.IsAzureOpenAiDeploymentTypeApproved,
+                posture.DataResidency.Status),
+            new ComplianceProviderPosture(
+                posture.Providers.AuthMode,
+                posture.Providers.StorageProvider,
+                posture.Providers.AiProvider,
+                posture.Providers.DocumentProvider,
+                posture.Providers.RetrievalProvider,
+                posture.Providers.SeedDemoData));
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });
 
-    private static bool TryResolveScope(
-        HttpContext httpContext,
-        out TenantScope scope,
-        out string userId,
-        out string validationError)
+    /// <summary>
+    /// Compliance scope is membership-resolved TenantContext only. Header/query tenant
+    /// authority is never accepted on these deployable paths.
+    /// </summary>
+    private static bool TryRequireTenantContext(HttpContext httpContext, out TenantContext tenantContext)
     {
         if (httpContext.RequestServices is not null
-            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } tenantContext)
+            && httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) is ITenantContextAccessor { HasCurrent: true } accessor)
         {
-            var current = tenantContext.Current;
-            scope = TenantScope.Create(current.TenantId, current.WorkspaceId);
-            userId = current.UserId;
-            validationError = string.Empty;
+            tenantContext = accessor.Current;
             return true;
         }
 
-        if (TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out scope, out validationError))
-        {
-            userId = WorkflowEndpoints.GetActor(httpContext, null);
-            return true;
-        }
-
-        userId = string.Empty;
+        tenantContext = null!;
         return false;
     }
 }

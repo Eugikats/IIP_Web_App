@@ -15,6 +15,7 @@ using InsuranceIntelligence.Application.Audit;
 using InsuranceIntelligence.Application.Channels;
 using InsuranceIntelligence.Application.Claims;
 using InsuranceIntelligence.Application.CommandCenter;
+using InsuranceIntelligence.Application.Compliance;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Customers;
 using InsuranceIntelligence.Application.SalesLeads;
@@ -304,6 +305,16 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceC
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingService, InsuranceIntelligence.Application.Onboarding.TenantOnboardingService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
+builder.Services.AddSingleton<IComplianceResidencySettings>(_ => new ComplianceResidencySettings(
+    infrastructureOptions.DataResidencyCountry,
+    infrastructureOptions.DataResidencyGeography,
+    infrastructureOptions.AzureRegion,
+    infrastructureOptions.DataResidencyMode,
+    infrastructureOptions.AzureOpenAI.DeploymentType,
+    infrastructureOptions.DataResidencyAllowedAzureRegions,
+    infrastructureOptions.DataResidencyApprovalReference,
+    infrastructureOptions.AiProvider));
+builder.Services.AddScoped<IComplianceQueryService, ComplianceQueryService>();
 // Initiative LP: rule-based advisory domains + admin domains (Fraud/Underwriting/Agents/Billing).
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQueryService, InsuranceIntelligence.Application.Fraud.FraudQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingQueryService, InsuranceIntelligence.Application.Underwriting.UnderwritingQueryService>();
