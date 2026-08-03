@@ -123,4 +123,13 @@ public sealed record AfricasTalkingOptions
     public string? SenderId { get; init; }
     public string BaseUrl { get; init; } = "https://api.africastalking.com";
     public int RequestTimeoutSeconds { get; init; } = 15;
+
+    /// <summary>
+    /// Tenant/platform opt-in for auto-sending low-risk, non-consequential transactional status SMS
+    /// (e.g. "we received your claim") without individual human approval. Conservative default: OFF —
+    /// every outbound SMS requires human approval until a tenant deliberately enables this. Consequential
+    /// messages (claim decisions, payouts, rejections) always require approval regardless of this flag.
+    /// See docs/research/sms-auto-send-policy.md.
+    /// </summary>
+    public bool AutoSendTransactionalSmsEnabled { get; init; }
 }

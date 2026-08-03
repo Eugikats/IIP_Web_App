@@ -26,8 +26,9 @@ public sealed class AfricasTalkingSmsProvider(
         CancellationToken cancellationToken = default)
     {
         // Human-supervised boundary: a customer-facing SMS must not leave the platform unless a
-        // human has approved it. See OutboundSmsGuard for the exact policy (founder-owned decision).
-        if (!OutboundSmsGuard.IsDispatchPermitted(request))
+        // human has approved it — or it is a low-risk, non-consequential transactional message and
+        // the tenant has opted into transactional auto-send. See OutboundSmsGuard.
+        if (!OutboundSmsGuard.IsDispatchPermitted(request, options.AfricasTalking.AutoSendTransactionalSmsEnabled))
         {
             logger.LogInformation(
                 "Outbound SMS blocked pending human approval. CaseId={CaseId} CorrelationId={CorrelationId}",
@@ -148,19 +149,25 @@ public sealed class AfricasTalkingSmsProvider(
 }
 
 /// <summary>
-/// Human-supervised send policy for outbound customer SMS.
+/// Human-supervised send policy for outbound customer SMS (tiered — see
+/// docs/research/sms-auto-send-policy.md, grounded in Uganda's Data Protection and Privacy Act 2019,
+/// the UCC Text &amp; Multimedia Messaging Regulations 2019, and AGENTS.md §4/§16).
 ///
-/// FOUNDER DECISION — confirm or adjust this stance. It encodes how strict IIP is about letting
-/// a customer-facing SMS leave the platform. Current default is conservative: an SMS is only
-/// dispatched when a human has explicitly approved it (<c>request.Approved</c>). The request also
-/// carries a <c>LowRisk</c> flag; decide whether a low-risk, system-generated status SMS (e.g.
-/// "we received your claim") may auto-send without individual approval, or whether every outbound
-/// SMS always requires a human. This is a product + regulatory stance, not a technical detail.
+/// A message may leave the platform when EITHER:
+///  - a human has explicitly approved it (<c>request.Approved</c>); or
+///  - it is low-risk / non-consequential (<c>request.LowRisk</c>, set upstream to
+///    <c>!RequiresApproval</c> — i.e. a transactional status notice, not a claim decision) AND the
+///    tenant has opted into transactional auto-send.
+///
+/// Consequential messages (claim decisions, payouts, rejections, sensitive content) are never
+/// low-risk and therefore always require human approval, regardless of the tenant flag.
 /// </summary>
 public static class OutboundSmsGuard
 {
-    public static bool IsDispatchPermitted(CommunicationSendRequest request) =>
-        request.Approved;
+    public static bool IsDispatchPermitted(
+        CommunicationSendRequest request,
+        bool autoSendTransactionalEnabled) =>
+        request.Approved || (autoSendTransactionalEnabled && request.LowRisk);
 }
 
 /// <summary>Normalizes Ugandan mobile numbers to E.164 (+256XXXXXXXXX). Returns null if invalid.</summary>

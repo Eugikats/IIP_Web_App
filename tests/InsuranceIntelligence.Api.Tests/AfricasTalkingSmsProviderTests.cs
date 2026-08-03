@@ -28,6 +28,54 @@ public sealed class AfricasTalkingSmsProviderTests
     }
 
     [Fact]
+    public async Task SendAsync_WhenLowRiskAndTenantAutoSendEnabled_DispatchesWithoutApproval()
+    {
+        var handler = new CapturingHandler(SuccessBody);
+        var provider = Provider(handler, Configured(autoSendTransactional: true));
+
+        var result = await provider.SendAsync(Request(approved: false, lowRisk: true));
+
+        Assert.Equal("Success", result.DeliveryStatus);
+        Assert.NotNull(handler.LastRequestUri);
+    }
+
+    [Fact]
+    public async Task SendAsync_WhenLowRiskButTenantAutoSendDisabled_BlocksForHumanApproval()
+    {
+        var handler = new CapturingHandler(SuccessBody);
+        var provider = Provider(handler, Configured(autoSendTransactional: false));
+
+        var result = await provider.SendAsync(Request(approved: false, lowRisk: true));
+
+        Assert.Equal("HumanApprovalRequired", result.DeliveryStatus);
+        Assert.Null(handler.LastRequestUri);
+    }
+
+    [Fact]
+    public async Task SendAsync_WhenConsequentialEvenWithAutoSendEnabled_BlocksForHumanApproval()
+    {
+        var handler = new CapturingHandler(SuccessBody);
+        var provider = Provider(handler, Configured(autoSendTransactional: true));
+
+        // Not low-risk == consequential (e.g. a claim-decision SMS): must always require approval.
+        var result = await provider.SendAsync(Request(approved: false, lowRisk: false));
+
+        Assert.Equal("HumanApprovalRequired", result.DeliveryStatus);
+        Assert.Null(handler.LastRequestUri);
+    }
+
+    [Theory]
+    [InlineData(true, false, false, true)]   // human-approved -> always send
+    [InlineData(false, true, true, true)]    // low-risk + tenant opted in -> send
+    [InlineData(false, true, false, false)]  // low-risk but tenant not opted in -> block
+    [InlineData(false, false, true, false)]  // consequential + tenant opted in -> block
+    [InlineData(false, false, false, false)] // consequential, no opt-in -> block
+    public void Guard_TieredPolicy_MatchesMatrix(bool approved, bool lowRisk, bool autoSend, bool expected) =>
+        Assert.Equal(
+            expected,
+            OutboundSmsGuard.IsDispatchPermitted(Request(approved, lowRisk: lowRisk), autoSend));
+
+    [Fact]
     public async Task SendAsync_WhenNotConfigured_ReturnsConfigurationRequired()
     {
         var handler = new CapturingHandler(SuccessBody);
@@ -99,7 +147,7 @@ public sealed class AfricasTalkingSmsProviderTests
     public void Normalize_InvalidNumbers_ReturnsNull(string? raw) =>
         Assert.Null(UgandaMsisdn.Normalize(raw));
 
-    private static InfrastructureOptions Configured() =>
+    private static InfrastructureOptions Configured(bool autoSendTransactional = false) =>
         new()
         {
             SmsProvider = "AfricasTalking",
@@ -109,13 +157,17 @@ public sealed class AfricasTalkingSmsProviderTests
                 ApiKey = "test-key",
                 SenderId = "IIP",
                 BaseUrl = "https://api.sandbox.africastalking.com",
+                AutoSendTransactionalSmsEnabled = autoSendTransactional,
             },
         };
 
     private static AfricasTalkingSmsProvider Provider(CapturingHandler handler, InfrastructureOptions options) =>
         new(options, NullLogger<AfricasTalkingSmsProvider>.Instance, new HttpClient(handler));
 
-    private static CommunicationSendRequest Request(bool approved, string recipient = "+256772118001") =>
+    private static CommunicationSendRequest Request(
+        bool approved,
+        string recipient = "+256772118001",
+        bool lowRisk = false) =>
         new(
             TenantScope.Create("tenant-demo", "workspace-claims"),
             Guid.NewGuid(),
@@ -124,7 +176,7 @@ public sealed class AfricasTalkingSmsProviderTests
             "Your claim CLM-4471 has been reviewed and approved by our claims officer.",
             "officer-1",
             approved,
-            LowRisk: false,
+            LowRisk: lowRisk,
             "corr-1");
 
     private sealed class CapturingHandler(string body, HttpStatusCode statusCode = HttpStatusCode.OK)

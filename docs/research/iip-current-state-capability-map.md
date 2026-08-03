@@ -115,8 +115,8 @@ This is the layer that dominates UNDP Sections 3 (Inclusion) and 5 (Distribution
 
 | Claimed capability (in our answers) | Status | Evidence |
 |---|---|---|
-| USSD access (feature phones) | **ABSENT** | No USSD gateway, no Africa's Talking integration |
-| SMS notifications | **CONCEPT** | `ISmsProvider` exists; only impl is `DisabledSmsProvider` |
+| USSD access (feature phones) | **ABSENT** | No USSD gateway / session flow (Africa's Talking SMS adapter exists separately) |
+| SMS notifications | **PARTIAL** | `AfricasTalkingSmsProvider` behind `ISmsProvider` when `Infrastructure:SmsProvider=AfricasTalking`; Uganda MSISDN normalize; tiered `OutboundSmsGuard` (human approval OR low-risk + `AutoSendTransactionalSmsEnabled`, default OFF). Live credentials / staging prove still pending. |
 | WhatsApp document submission | **CONCEPT** | "WhatsApp" is an enum/channel label + fixtures only; no WhatsApp Business API adapter |
 | Mobile money (MTN/Airtel) premium collection | **ABSENT** | No integration, no interface |
 | Offline-capable field agent app | **ABSENT** | Not in codebase |
@@ -158,7 +158,7 @@ The Uganda specifics (customer names, UGX amounts, Kampala streets, boda-boda cl
 
 1. Live Azure deployment / processed real claims (UNVERIFIED — confirm with user).
 2. Azure Managed Application packaging / Partner Center readiness (ABSENT).
-3. USSD, SMS, WhatsApp, mobile money, offline agent app, local languages (CONCEPT/ABSENT).
+3. USSD, WhatsApp, mobile money, offline agent app, local languages (CONCEPT/ABSENT). SMS outbound adapter is PARTIAL (Africa's Talking, config-gated; live prove pending).
 4. Any live insurer, SACCO, or MFI integration or pilot (CONCEPT).
 5. Autonomous / multi-agent orchestration (deliberately not built).
 6. CI/CD gate enforcement (no workflows present).

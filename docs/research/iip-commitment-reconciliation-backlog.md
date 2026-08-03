@@ -46,7 +46,7 @@ BUILT = real & tested · PARTIAL = scaffolding exists, unproven/incomplete · CO
 
 | Commitment | Status | Work to reconcile | Tier |
 |---|---|---|---|
-| SMS status notifications | CONCEPT (`DisabledSmsProvider`) | Real SMS provider (e.g. Africa's Talking) adapter behind `ISmsProvider` | **T1** |
+| SMS status notifications | **PARTIAL** (`AfricasTalkingSmsProvider` built + unit-tested; live AT credentials + staging prove pending) | Prove live sandbox/prod send; tenant policy wiring beyond platform config flag | **T1** (adapter done) |
 | USSD claim initiation | ABSENT | USSD gateway integration + session flow | **T1/T2** |
 | WhatsApp document submission | CONCEPT | WhatsApp Business API inbound adapter → `IDocumentUploadService` | T1 |
 | Photograph capture, 2G/low-bandwidth optimisation | PARTIAL (upload exists) | Compression, resumable upload, honest offline status | T1 |
