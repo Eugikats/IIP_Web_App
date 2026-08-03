@@ -48,7 +48,7 @@ BUILT = real & tested · PARTIAL = scaffolding exists, unproven/incomplete · CO
 |---|---|---|---|
 | SMS status notifications | **PARTIAL** (`AfricasTalkingSmsProvider` built + unit-tested; live AT credentials + staging prove pending) | Prove live sandbox/prod send; tenant policy wiring beyond platform config flag | **T1** (adapter done) |
 | USSD claim initiation | ABSENT | USSD gateway integration + session flow | **T1/T2** |
-| WhatsApp document submission | CONCEPT | WhatsApp Business API inbound adapter → `IDocumentUploadService` | T1 |
+| WhatsApp document submission | **PARTIAL** (`WhatsAppCloudApi` inbound adapter + webhook + document router; live Meta credentials pending) | Prove live webhook+media download; EF multi-number mapping; outbound WhatsApp | **T1** (adapter done) |
 | Photograph capture, 2G/low-bandwidth optimisation | PARTIAL (upload exists) | Compression, resumable upload, honest offline status | T1 |
 | Offline-capable field-agent app + sync | ABSENT | Separate app/PWA + sync engine; large | **T2** |
 | Local languages (Luganda, Runyankole, Acholi, Ateso) | ABSENT | i18n framework + translated status/comms templates | T1/T2 |

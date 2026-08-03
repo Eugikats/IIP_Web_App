@@ -1,6 +1,8 @@
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Infrastructure.DependencyInjection;
 using InsuranceIntelligence.Infrastructure.Graph;
+using InsuranceIntelligence.Infrastructure.WhatsApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -26,6 +28,33 @@ public sealed class CommunicationProviderRegistrationTests
 
         Assert.IsType<DisabledCommunicationSendingProvider>(provider.GetRequiredService<ICommunicationSendingProvider>());
         Assert.IsType<DisabledSmsProvider>(provider.GetRequiredService<ISmsProvider>());
+        Assert.IsType<DisabledWhatsAppInboundProvider>(provider.GetRequiredService<IWhatsAppInboundProvider>());
+    }
+
+    [Fact]
+    public void InfrastructureRegistration_UsesWhatsAppCloudApiWhenChannelConfigured()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["INSURANCEINTELLIGENCE_STORAGE_PROVIDER"] = "SqlServer",
+                ["INSURANCEINTELLIGENCE_SQLSERVER_CONNECTION_STRING"] = "Server=(localdb)\\MSSQLLocalDB;Database=IipRegistrationTests;Trusted_Connection=True;TrustServerCertificate=True",
+                ["INSURANCEINTELLIGENCE_EMAIL_PROVIDER"] = "Graph",
+                ["INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER"] = "Disabled",
+                ["INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER"] = "Disabled",
+                ["INSURANCEINTELLIGENCE_CHANNEL_PROVIDER"] = "WhatsAppCloudApi",
+            })
+            .Build();
+        var services = new ServiceCollection();
+        services.AddInsuranceIntelligenceInfrastructure(configuration, new TestEnvironment("Development"));
+
+        Assert.Contains(
+            services,
+            descriptor => descriptor.ServiceType == typeof(IWhatsAppAttachmentProcessor)
+                && descriptor.ImplementationType == typeof(WhatsAppAttachmentProcessor));
+
+        using var provider = services.BuildServiceProvider();
+        Assert.IsType<WhatsAppCloudApiInboundProvider>(provider.GetRequiredService<IWhatsAppInboundProvider>());
     }
 
     private static ServiceProvider BuildProvider(string communicationProvider)

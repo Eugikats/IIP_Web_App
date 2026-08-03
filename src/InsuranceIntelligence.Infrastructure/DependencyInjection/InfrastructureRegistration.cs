@@ -20,6 +20,7 @@ using InsuranceIntelligence.Infrastructure.Graph;
 using InsuranceIntelligence.Infrastructure.Notifications;
 using InsuranceIntelligence.Infrastructure.Providers;
 using InsuranceIntelligence.Infrastructure.Telemetry;
+using InsuranceIntelligence.Infrastructure.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -88,6 +89,20 @@ public static class InfrastructureRegistration
         {
             services.AddSingleton<ISmsProvider, DisabledSmsProvider>();
         }
+
+        if (options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
+            services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
+        }
+        else
+        {
+            services.AddSingleton<IWhatsAppInboundProvider, DisabledWhatsAppInboundProvider>();
+            services.AddSingleton<IWhatsAppAttachmentProcessor, DisabledWhatsAppAttachmentProcessor>();
+        }
+
+        services.AddScoped<IWhatsAppToCaseMatcher, RuleBasedWhatsAppToCaseMatcher>();
+        services.AddScoped<WhatsAppInboundDocumentIngestionService>();
 
         if (options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
         {
@@ -199,7 +214,10 @@ public static class InfrastructureRegistration
             QueueProvider = configuration["INSURANCEINTELLIGENCE_QUEUE_PROVIDER"] ?? "Mock",
             EmailProvider = configuration["INSURANCEINTELLIGENCE_EMAIL_PROVIDER"] ?? "Mock",
             CommunicationProvider = configuration["INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER"] ?? "Mock",
+            SmsProvider = configuration["INSURANCEINTELLIGENCE_SMS_PROVIDER"] ?? "Mock",
             NotificationProvider = configuration["INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER"] ?? "Mock",
+            ChannelProvider = configuration["INSURANCEINTELLIGENCE_CHANNEL_PROVIDER"] ?? "Mock",
+            ProvisionerProvider = configuration["INSURANCEINTELLIGENCE_PROVISIONER_PROVIDER"] ?? "Mock",
             AzureBlob = new AzureBlobOptions
             {
                 AccountName = configuration["AzureBlob:AccountName"],
@@ -262,6 +280,27 @@ public static class InfrastructureRegistration
                 MoveProcessedMessages = !bool.TryParse(configuration["GraphMail:MoveProcessedMessages"], out var moveProcessed) || moveProcessed,
                 ProcessedFolderName = configuration["GraphMail:ProcessedFolderName"] ?? "InsuranceIntelligence Processed",
                 MaxMessagesPerPull = int.TryParse(configuration["GraphMail:MaxMessagesPerPull"], out var maxGraphMessages) ? maxGraphMessages : 10
+            },
+            AfricasTalking = new AfricasTalkingOptions
+            {
+                Username = configuration["AfricasTalking:Username"],
+                ApiKey = configuration["AfricasTalking:ApiKey"],
+                SenderId = configuration["AfricasTalking:SenderId"],
+                BaseUrl = configuration["AfricasTalking:BaseUrl"] ?? "https://api.africastalking.com",
+                RequestTimeoutSeconds = int.TryParse(configuration["AfricasTalking:RequestTimeoutSeconds"], out var atTimeout) ? atTimeout : 15,
+                AutoSendTransactionalSmsEnabled = bool.TryParse(configuration["AfricasTalking:AutoSendTransactionalSmsEnabled"], out var autoSms) && autoSms,
+            },
+            WhatsApp = new WhatsAppOptions
+            {
+                PhoneNumberId = configuration["WhatsApp:PhoneNumberId"],
+                AccessToken = configuration["WhatsApp:AccessToken"],
+                AppSecret = configuration["WhatsApp:AppSecret"],
+                VerifyToken = configuration["WhatsApp:VerifyToken"],
+                TenantId = configuration["WhatsApp:TenantId"] ?? configuration["INSURANCEINTELLIGENCE_TENANT_ID"],
+                WorkspaceId = configuration["WhatsApp:WorkspaceId"] ?? configuration["INSURANCEINTELLIGENCE_WORKSPACE_ID"],
+                IntegrationUserId = configuration["WhatsApp:IntegrationUserId"],
+                GraphBaseUrl = configuration["WhatsApp:GraphBaseUrl"] ?? "https://graph.facebook.com/v21.0",
+                RequestTimeoutSeconds = int.TryParse(configuration["WhatsApp:RequestTimeoutSeconds"], out var waTimeout) ? waTimeout : 20,
             },
             ProviderHealth = new ProviderHealthOptions
             {

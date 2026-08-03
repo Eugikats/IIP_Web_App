@@ -673,6 +673,10 @@ app.MapGet("/api/v1/integrations/email/messages", EmailIntegrationEndpoints.List
 app.MapGet("/api/v1/integrations/email/messages/{messageId:guid}", EmailIntegrationEndpoints.GetMessage)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/email/graph/webhook", EmailIntegrationEndpoints.GraphWebhook);
+app.MapGet("/api/v1/integrations/whatsapp/health", WhatsAppIntegrationEndpoints.GetHealth)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
+app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);
 app.MapPost("/api/v1/communications/send-email", CommunicationEndpoints.SendEmail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.SendCustomerUpdate));
 app.MapPost("/api/v1/communications/send-sms", CommunicationEndpoints.SendSms)

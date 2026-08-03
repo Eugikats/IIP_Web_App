@@ -38,6 +38,7 @@ public sealed record InfrastructureOptions
     public ServiceBusOptions ServiceBus { get; init; } = new();
     public GraphMailOptions GraphMail { get; init; } = new();
     public AfricasTalkingOptions AfricasTalking { get; init; } = new();
+    public WhatsAppOptions WhatsApp { get; init; } = new();
     public ProviderHealthOptions ProviderHealth { get; init; } = new();
 }
 
@@ -132,4 +133,25 @@ public sealed record AfricasTalkingOptions
     /// See docs/research/sms-auto-send-policy.md.
     /// </summary>
     public bool AutoSendTransactionalSmsEnabled { get; init; }
+}
+
+/// <summary>
+/// Meta WhatsApp Cloud API inbound configuration. Secrets (AccessToken, AppSecret, VerifyToken)
+/// must come from Key Vault / env — never commit real values. Channel mapping fields support the
+/// default one-insurer-per-Managed-App deployment; multi-number EF mapping is a later slice.
+/// </summary>
+public sealed record WhatsAppOptions
+{
+    public string? PhoneNumberId { get; init; }
+    public string? AccessToken { get; init; }
+    public string? AppSecret { get; init; }
+    public string? VerifyToken { get; init; }
+    /// <summary>Server-side tenant for this WhatsApp business number (not taken from the webhook).</summary>
+    public string? TenantId { get; init; }
+    /// <summary>Server-side workspace for this WhatsApp business number.</summary>
+    public string? WorkspaceId { get; init; }
+    /// <summary>Integration principal used for audit/actor when ingesting asynchronously.</summary>
+    public string? IntegrationUserId { get; init; }
+    public string GraphBaseUrl { get; init; } = "https://graph.facebook.com/v21.0";
+    public int RequestTimeoutSeconds { get; init; } = 20;
 }
