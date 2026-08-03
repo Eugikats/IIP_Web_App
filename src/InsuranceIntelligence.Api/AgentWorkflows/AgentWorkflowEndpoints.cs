@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Application.AgentWorkflows;
+using InsuranceIntelligence.Domain.Common;
 
 namespace InsuranceIntelligence.Api.AgentWorkflows;
 
@@ -82,6 +83,12 @@ public static class AgentWorkflowEndpoints
         catch (AgentWorkflowValidationException exception)
         {
             return Results.ValidationProblem(new Dictionary<string, string[]> { [exception.Field] = [exception.Message] });
+        }
+        catch (DomainException exception)
+        {
+            return Results.Json(
+                new { message = exception.Message, code = "human_decision_required" },
+                statusCode: StatusCodes.Status403Forbidden);
         }
     }
 }

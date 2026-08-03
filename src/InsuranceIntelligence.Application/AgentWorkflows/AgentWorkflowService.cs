@@ -3,6 +3,7 @@ using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.AgentWorkflows;
 using InsuranceIntelligence.Domain.Agents;
+using InsuranceIntelligence.Domain.Approvals;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Queue;
 
@@ -287,6 +288,11 @@ public sealed class AgentWorkflowService(
         }
 
         var context = tenantContextAccessor.Current;
+        ApprovalDecisionGuard.EnsureHumanForConsequentialDecision(
+            requiresHumanDecision: true,
+            ApprovalDecisionGuard.ResolveActorType(context.UserId),
+            requestedActionType: "agent_workflow.work_item.decide");
+
         var item = await workItemRepository.GetAsync(workItemId, context.Scope, cancellationToken)
             ?? throw new AgentWorkflowValidationException(nameof(workItemId), "Work item was not found.");
         if (item.Status is not (AgentWorkItemStatus.RequiresReview or AgentWorkItemStatus.InProgress or AgentWorkItemStatus.Escalated))
@@ -681,34 +687,8 @@ public sealed class AgentWorkflowService(
         {
             throw new AgentWorkflowValidationException(nameof(edges), "Every edge must connect existing nodes.");
         }
-        foreach (var governedNode in nodes.Where(node => node.SideEffect == AgentWorkflowSideEffect.ApprovalRequired && node.Type != AgentWorkflowNodeType.HumanReview))
-        {
-            if (!HasPathToHumanReview(governedNode.Key, nodes, edges, new HashSet<string>(StringComparer.OrdinalIgnoreCase)))
-            {
-                throw new AgentWorkflowValidationException(nameof(nodes), $"Node '{governedNode.Key}' requires a downstream human review gate.");
-            }
-        }
-    }
 
-    private static bool HasPathToHumanReview(
-        string source,
-        IReadOnlyList<AgentWorkflowNode> nodes,
-        IReadOnlyList<AgentWorkflowEdge> edges,
-        HashSet<string> visited)
-    {
-        if (!visited.Add(source))
-        {
-            return false;
-        }
-        foreach (var targetKey in edges.Where(edge => edge.SourceNodeKey.Equals(source, StringComparison.OrdinalIgnoreCase)).Select(edge => edge.TargetNodeKey))
-        {
-            var target = nodes.First(node => node.Key.Equals(targetKey, StringComparison.OrdinalIgnoreCase));
-            if (target.Type == AgentWorkflowNodeType.HumanReview || HasPathToHumanReview(target.Key, nodes, edges, visited))
-            {
-                return true;
-            }
-        }
-        return false;
+        AgentWorkflowHumanReviewInvariant.Ensure(nodes, edges);
     }
 
     private static string NormalizeKey(string value) => value.Trim().ToLowerInvariant();

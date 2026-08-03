@@ -422,6 +422,11 @@ public static class WorkflowEndpoints
             [key] = [message]
         });
 
+    internal static IResult HumanDecisionRequired(string message) =>
+        Results.Json(
+            new { message, code = "human_decision_required" },
+            statusCode: StatusCodes.Status403Forbidden);
+
     internal static IResult NotFoundCase() =>
         Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
 

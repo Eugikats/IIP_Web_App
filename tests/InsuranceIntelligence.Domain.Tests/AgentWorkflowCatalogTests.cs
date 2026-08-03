@@ -45,27 +45,13 @@ public sealed class AgentWorkflowCatalogTests
     }
 
     [Fact]
-    public void Every_approval_required_release_node_has_a_downstream_human_review()
+    public void Every_approval_required_release_node_has_human_review_on_all_paths_to_complete()
     {
         foreach (var flow in AgentWorkflowCatalog.Releases)
         {
-            foreach (var governed in flow.Nodes.Where(node =>
-                         node.SideEffect == AgentWorkflowSideEffect.ApprovalRequired
-                         && node.Type != AgentWorkflowNodeType.HumanReview))
-            {
-                Assert.True(HasPathToReview(flow, governed.Key, new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
-            }
+            var exception = Record.Exception(() =>
+                AgentWorkflowHumanReviewInvariant.Ensure(flow.Nodes, flow.Edges));
+            Assert.Null(exception);
         }
-    }
-
-    private static bool HasPathToReview(AgentWorkflowDefinition flow, string source, HashSet<string> visited)
-    {
-        if (!visited.Add(source)) return false;
-        foreach (var edge in flow.Edges.Where(edge => edge.SourceNodeKey.Equals(source, StringComparison.OrdinalIgnoreCase)))
-        {
-            var node = flow.Nodes.Single(item => item.Key.Equals(edge.TargetNodeKey, StringComparison.OrdinalIgnoreCase));
-            if (node.Type == AgentWorkflowNodeType.HumanReview || HasPathToReview(flow, node.Key, visited)) return true;
-        }
-        return false;
     }
 }
