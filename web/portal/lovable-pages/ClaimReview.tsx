@@ -21,8 +21,10 @@ import { Badge, ConfidenceBadge, GlassCard, RiskBadge, SectionHeader, SLABadge, 
 import CompletenessCard from "@/components/iip/CompletenessCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import MotorLifecycle from "@/components/iip/MotorLifecycle";
+import { DocumentUploadWidget } from "@/components/iip/DocumentUploadWidget";
 import { useClaimReview } from "@/lib/lovable-parity/data/claimReview";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
+import { useUI } from "@/context/UIStateContext";
 
 export default function ClaimReview() {
   const { id } = useParams();
@@ -45,7 +47,9 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     sendCustomerUpdate,
     exportEvidencePack,
     requestSupervisorReview,
+    reload,
   } = useClaimReview(claimId);
+  const { roleDef } = useUI();
   const [pendingCustomerUpdateAction, setPendingCustomerUpdateAction] = useState<PendingCustomerUpdateAction | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
@@ -303,6 +307,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 ))}
               </div>
             )}
+            <DocumentUploadWidget caseId={claimId} role={roleDef.key} onUploaded={reload} />
           </GlassCard>
 
           <GlassCard>

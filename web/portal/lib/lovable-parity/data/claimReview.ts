@@ -285,5 +285,6 @@ export function useClaimReview(claimId: string) {
     sendCustomerUpdate,
     exportEvidencePack,
     requestSupervisorReview,
+    reload: load,
   };
 }

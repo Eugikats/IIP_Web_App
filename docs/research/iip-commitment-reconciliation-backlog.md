@@ -4,6 +4,8 @@
 **Premise:** The UNDP application answers are a **binding specification**. This backlog is the delta between what was promised and what the codebase currently provides (per `iip-current-state-capability-map.md`). Goal: make every commitment **true in the system**.
 **Target window:** ~1 month.
 
+**Carry-forward pending prove/follow-ups:** see [`iip-pending-work-register.md`](./iip-pending-work-register.md) — open items deferred from shipped slices (SMS/WhatsApp live prove, auto-send policy depth, etc.). Update that register when closing or adding deferred work; do not treat PARTIAL adapters as BUILT until those rows are CLOSED.
+
 ## Status legend
 BUILT = real & tested · PARTIAL = scaffolding exists, unproven/incomplete · CONCEPT = design/enum/fixture only · ABSENT = not in codebase
 
@@ -49,7 +51,7 @@ BUILT = real & tested · PARTIAL = scaffolding exists, unproven/incomplete · CO
 | SMS status notifications | **PARTIAL** (`AfricasTalkingSmsProvider` built + unit-tested; live AT credentials + staging prove pending) | Prove live sandbox/prod send; tenant policy wiring beyond platform config flag | **T1** (adapter done) |
 | USSD claim initiation | ABSENT | USSD gateway integration + session flow | **T1/T2** |
 | WhatsApp document submission | **PARTIAL** (`WhatsAppCloudApi` inbound adapter + webhook + document router; live Meta credentials pending) | Prove live webhook+media download; EF multi-number mapping; outbound WhatsApp | **T1** (adapter done) |
-| Photograph capture, 2G/low-bandwidth optimisation | PARTIAL (upload exists) | Compression, resumable upload, honest offline status | T1 |
+| Photograph capture, 2G/low-bandwidth optimisation | **PARTIAL** (client JPEG downscale + progress + honest offline; 25 MB limits; camera capture on claim review) | Resumable/chunked upload + offline queue deferred — see pending register | **T1** |
 | Offline-capable field-agent app + sync | ABSENT | Separate app/PWA + sync engine; large | **T2** |
 | Local languages (Luganda, Runyankole, Acholi, Ateso) | ABSENT | i18n framework + translated status/comms templates | T1/T2 |
 | Agent-assisted intermediary role & experience | CONCEPT | New role, permissions, simplified agent workspace | T1 |

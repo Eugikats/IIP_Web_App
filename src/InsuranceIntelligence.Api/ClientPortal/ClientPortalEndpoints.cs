@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -11,17 +12,6 @@ namespace InsuranceIntelligence.Api.ClientPortal;
 
 public static class ClientPortalEndpoints
 {
-    private const long MaxUploadFileSizeBytes = 10 * 1024 * 1024;
-
-    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".pdf",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".txt"
-    };
-
     public static async Task<IResult> GetClaim(
         Guid caseId,
         ICaseRepository caseRepository,
@@ -314,25 +304,8 @@ public static class ClientPortalEndpoints
         };
     }
 
-    private static string? ValidateUploadFile(IFormFile file)
-    {
-        if (file.Length <= 0)
-        {
-            return "Uploaded documents cannot be empty.";
-        }
-
-        if (file.Length > MaxUploadFileSizeBytes)
-        {
-            return "Uploaded documents cannot exceed 10 MB.";
-        }
-
-        if (!SupportedExtensions.Contains(Path.GetExtension(file.FileName)))
-        {
-            return "Unsupported file type. Supported file types are PDF, PNG, JPG, JPEG, and TXT.";
-        }
-
-        return null;
-    }
+    private static string? ValidateUploadFile(IFormFile file) =>
+        DocumentUploadValidation.Validate(file.Length, file.FileName);
 
     private static bool IsMultipartFormData(string? contentType) =>
         contentType?.StartsWith("multipart/form-data", StringComparison.OrdinalIgnoreCase) == true;

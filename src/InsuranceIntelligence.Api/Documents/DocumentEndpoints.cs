@@ -10,16 +10,8 @@ namespace InsuranceIntelligence.Api.Documents;
 
 public static class DocumentEndpoints
 {
-    public const long MaxLocalMockFileSizeBytes = 10 * 1024 * 1024;
-
-    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".pdf",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".txt"
-    };
+    /// <summary>Backward-compatible alias for configuration defaults; prefer <see cref="DocumentUploadValidation.MaxUploadFileSizeBytes"/>.</summary>
+    public const long MaxLocalMockFileSizeBytes = DocumentUploadValidation.MaxUploadFileSizeBytes;
 
     public static async Task<IResult> UploadDocuments(
         Guid caseId,
@@ -551,26 +543,8 @@ public static class DocumentEndpoints
         };
     }
 
-    private static string? ValidateFile(IFormFile file)
-    {
-        if (file.Length <= 0)
-        {
-            return "Uploaded documents cannot be empty.";
-        }
-
-        if (file.Length > MaxLocalMockFileSizeBytes)
-        {
-            return "Uploaded documents cannot exceed 10 MB in local mock mode.";
-        }
-
-        var extension = Path.GetExtension(file.FileName);
-        if (!SupportedExtensions.Contains(extension))
-        {
-            return "Unsupported file type. Supported local mock file types are PDF, PNG, JPG, JPEG, and TXT.";
-        }
-
-        return null;
-    }
+    private static string? ValidateFile(IFormFile file) =>
+        DocumentUploadValidation.Validate(file.Length, file.FileName);
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]>
