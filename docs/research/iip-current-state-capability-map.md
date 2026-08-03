@@ -27,12 +27,12 @@ IIP is a **real, well-architected, compiling, tested backend + frontend** — fa
 
 ## 1. Build & test reality (BUILT)
 
-- `dotnet build InsuranceIntelligence.sln` → **Build succeeded, 0 warnings, 0 errors** (~60s).
-- `dotnet test` → **383 passing, 0 failing** (106 Domain + 277 API tests).
-- 336 C# files, 111 `.tsx`, real EF Core migrations, real Next.js portal.
-- **No GitHub Actions workflows present** (`.github/workflows/` empty) → CI/CD gate (AGENTS.md §24) is not automated yet.
+- `dotnet build InsuranceIntelligence.sln` → **Build succeeded, 0 warnings, 0 errors**.
+- `dotnet test` → **424 passing, 0 failing** (106 Domain + 318 API tests, as of 2026-08-03; grows with each slice).
+- 336+ C# files, 111+ `.tsx`, real EF Core migrations, real Next.js portal.
+- **CI/CD present and green** — `.github/workflows/ci.yml` (backend build+test+vuln-scan, portal lint+checks+build, infra bicep compile); first run 30807368448 green on all jobs.
 
-**Reconciliation impact:** We can legitimately say the platform "builds cleanly and passes its automated test suite." We cannot say "CI/CD pipeline enforces gates" — it does not run automatically.
+**Reconciliation impact:** We can legitimately say the platform "builds cleanly, passes its automated test suite, and is gated by CI on every push/PR."
 
 ---
 
