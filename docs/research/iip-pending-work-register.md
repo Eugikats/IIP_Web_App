@@ -40,7 +40,7 @@
 |---|---|---|---|
 | PEND-T0-01 | Live Azure staging with real providers | Blocks honest SMS/WhatsApp/Doc Intelligence prove | **OPEN** / BLOCKED |
 | PEND-T0-02 | One real document extraction → human review e2e | Demo-critical | **OPEN** / BLOCKED on PEND-T0-01 |
-| PEND-T1-CI | GitHub Actions build/test/lint/infra gates | Commitment backlog T1 | **OPEN** |
+| PEND-T1-CI | GitHub Actions build/test/lint/infra gates | Workflow added (`.github/workflows/ci.yml`): backend build+test+vuln-scan, portal lint+checks+build, infra bicep compile. **First-run green not yet verified** — needs a push to the GitHub remote to prove the jobs pass on ubuntu runners. | **IN PROGRESS** (verify first run) |
 
 ---
 
@@ -50,3 +50,4 @@
 |---|---|
 | 2026-08-03 | Register created. Seeded SMS + WhatsApp deferred prove/policy items from channel adapter slices. |
 | 2026-08-03 | Added PEND-UP-01…03 from low-bandwidth upload T1 (compression shipped; resumable/offline-queue deferred). |
+| 2026-08-03 | PEND-T1-CI → IN PROGRESS: added `.github/workflows/ci.yml`; matched to real scripts/infra (no `main.bicep`). First-run verification on remote still pending. |
