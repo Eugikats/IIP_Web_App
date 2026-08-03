@@ -1,5 +1,7 @@
 # IIP Full-Program Implementation Plan (Docs-Only, From Scratch)
 
+> **⚠️ For execution ORDER, defer to [`IIP-CONSOLIDATED-ROADMAP.md`](./IIP-CONSOLIDATED-ROADMAP.md)** — the single authoritative sequence (2026-07-07). This document remains valid for file-ownership lanes and build detail, but where the two disagree on *what to do next*, the consolidated roadmap wins.
+
 ## Context
 
 The Insurance Intelligence Platform v2 repo (`C:\Users\Nic Kings\OneDrive\Desktop\IIP V2`) contains a mature, ~150-document specification pack covering frontend/UX, backend architecture, Azure infrastructure, and a 10-phase roadmap — but only a fraction of it is built. This plan sequences the **remaining** work (as if starting fresh, grounded solely in this repo's docs) into phases that two AI coding agents — **Claude Code** and **OpenAI Codex** — can execute **in parallel sessions on the same repo without colliding**.
