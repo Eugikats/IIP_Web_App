@@ -1,8 +1,10 @@
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Approvals;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
 
@@ -207,6 +209,18 @@ public static class ApprovalEndpoints
             return WorkflowEndpoints.Validation("userId", "Authenticated user context is required to execute an approved next step.");
         }
 
+        try
+        {
+            ApprovalDecisionGuard.EnsureHumanForConsequentialDecision(
+                requiresHumanDecision: true,
+                ApprovalDecisionGuard.ResolveActorType(executor),
+                requestedActionType: "executeApprovedNextStep");
+        }
+        catch (DomainException exception)
+        {
+            return WorkflowEndpoints.HumanDecisionRequired(exception.Message);
+        }
+
         var auditReason = AuditReasonReader.Read(httpContext);
         if (string.IsNullOrWhiteSpace(auditReason))
         {
@@ -284,6 +298,18 @@ public static class ApprovalEndpoints
         if (string.IsNullOrWhiteSpace(reviewer))
         {
             return WorkflowEndpoints.Validation("userId", "Authenticated reviewer context is required for an approval decision.");
+        }
+
+        try
+        {
+            ApprovalDecisionGuard.EnsureHumanForConsequentialDecision(
+                requiresHumanDecision: true,
+                ApprovalDecisionGuard.ResolveActorType(reviewer),
+                requestedActionType: actionName);
+        }
+        catch (DomainException exception)
+        {
+            return WorkflowEndpoints.HumanDecisionRequired(exception.Message);
         }
 
         var auditReason = AuditReasonReader.Read(httpContext);
