@@ -12,6 +12,7 @@ using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
+using InsuranceIntelligence.Infrastructure.Communications;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.Persistence;
 using InsuranceIntelligence.Infrastructure.Email;
@@ -79,7 +80,14 @@ public static class InfrastructureRegistration
         {
             services.AddSingleton<ICommunicationSendingProvider, DisabledCommunicationSendingProvider>();
         }
-        services.AddSingleton<ISmsProvider, DisabledSmsProvider>();
+        if (options.SmsProvider.Equals("AfricasTalking", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHttpClient<ISmsProvider, AfricasTalkingSmsProvider>();
+        }
+        else
+        {
+            services.AddSingleton<ISmsProvider, DisabledSmsProvider>();
+        }
 
         if (options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
         {

@@ -27,6 +27,7 @@ public sealed record InfrastructureOptions
     public string QueueProvider { get; init; } = "Mock";
     public string EmailProvider { get; init; } = "Mock";
     public string CommunicationProvider { get; init; } = "Mock";
+    public string SmsProvider { get; init; } = "Mock";
     public string NotificationProvider { get; init; } = "Mock";
     public string ChannelProvider { get; init; } = "Mock";
     public string ProvisionerProvider { get; init; } = "Mock";
@@ -36,6 +37,7 @@ public sealed record InfrastructureOptions
     public AzureOpenAiOptions AzureOpenAI { get; init; } = new();
     public ServiceBusOptions ServiceBus { get; init; } = new();
     public GraphMailOptions GraphMail { get; init; } = new();
+    public AfricasTalkingOptions AfricasTalking { get; init; } = new();
     public ProviderHealthOptions ProviderHealth { get; init; } = new();
 }
 
@@ -112,4 +114,13 @@ public sealed record GraphMailOptions
 public sealed record ProviderHealthOptions
 {
     public int TimeoutSeconds { get; init; } = 5;
+}
+
+public sealed record AfricasTalkingOptions
+{
+    public string? Username { get; init; }
+    public string? ApiKey { get; init; }
+    public string? SenderId { get; init; }
+    public string BaseUrl { get; init; } = "https://api.africastalking.com";
+    public int RequestTimeoutSeconds { get; init; } = 15;
 }
