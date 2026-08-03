@@ -38,6 +38,14 @@ Confirmed project baseline:
 - Deployments must produce observable release records and post-deployment validation evidence.
 - Hotfixes must not bypass security, tenant isolation, or audit controls.
 
+## Merge Governance (default branch)
+
+Merges into `main` follow `docs/05-deployment-release-enablement/iip_merge_governance.md` (RF-07).
+
+- Authoritative CI gate set: `.github/workflows/ci.yml` — required contexts `Backend (build + test)`, `Portal (lint + checks + build)`, `Infra (bicep compile)`.
+- On the current private-repo GitHub plan, native required checks / rulesets are unavailable; the compensating PR + green-CI + human-review process in that document is in force until the plan upgrade path is completed.
+- Do not weaken the CI workflow to obtain a merge.
+
 ## Branching and Promotion Model
 
 | Stage | Branch / Source | Target Environment | Required Gates |

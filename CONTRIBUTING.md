@@ -537,6 +537,20 @@ Each PR should include:
 - Do not resolve critical design/security threads yourself unless the reviewer agrees.
 - Keep communication professional, specific, and evidence-based.
 
+### 16.4 Merge Governance for `main` (RF-07)
+
+Native GitHub required checks / rulesets are **plan-blocked** on this private repository today. The compensating process in `docs/05-deployment-release-enablement/iip_merge_governance.md` is **in force**:
+
+- Do not push directly to `main`; merge only through a pull request.
+- Do not merge unless all three CI check contexts from `.github/workflows/ci.yml` are green on the PR head:
+  - `Backend (build + test)`
+  - `Portal (lint + checks + build)`
+  - `Infra (bicep compile)`
+- Do not merge without at least one maintainer approval.
+- Do not weaken or bypass those CI jobs to obtain a green merge.
+
+When the organization enables private-repo branch protection or rulesets, update the merge governance document and prefer native enforcement over this compensating control.
+
 ---
 
 ## 17. Documentation Requirements

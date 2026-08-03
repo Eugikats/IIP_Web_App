@@ -21,6 +21,17 @@ Fixes / Closes # (issue number)
 - [ ] **Customer-Safe Boundaries**: Verified customer-facing routes use dedicated customer-safe API contracts and do not expose staff DTOs, provider health, prompts, internal notes, fraud flags, reserves, or audit internals.
 - [ ] **Linear Git History**: I have rebased my branch onto `main` and verified a linear history.
 
+## Merge Governance Gate (required for `main`)
+
+Authoritative gates: `.github/workflows/ci.yml` (see `docs/05-deployment-release-enablement/iip_merge_governance.md`). Native required checks are plan-limited on this private repo; maintainers must still enforce this checklist before merge.
+
+- [ ] `Backend (build + test)` is green on this PR head
+- [ ] `Portal (lint + checks + build)` is green on this PR head
+- [ ] `Infra (bicep compile)` is green on this PR head
+- [ ] At least one maintainer approval
+- [ ] No direct push to `main`; this change lands only via PR
+- [ ] CI was not weakened, skipped, or replaced to force a green result
+
 ## Verification & Testing
 ### Automated Tests
 - [ ] Unit tests added/updated and passing

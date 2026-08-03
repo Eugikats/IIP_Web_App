@@ -21,13 +21,14 @@ Bring the release-foundation work now reachable from `main` to a demonstrably me
 ## Decisions so far
 
 - Spec IIP-RF-001 published (`ready-for-agent`); primary test seam = HTTP API tenant-isolation contract tests; first ticket branch `harry/rf-enforce-server-tenant-authority`.
-- Tickets RF-01…RF-10 published (`ready-for-agent`): GitHub #12–#21; local `.scratch/release-foundation-blocker-remediation/issues/`. Frontier: RF-01, 02, 03, 04, 07.
+- Tickets RF-01 through RF-10 published (`ready-for-agent`): GitHub #12-#21; local `.scratch/release-foundation-blocker-remediation/issues/`. Frontier: RF-01, 02, 03, 04, 07.
 - RF-02: all-paths HumanReview publish invariant + `ApprovalDecisionGuard` Decide/Send/Execute ceiling; branch `harry/rf-human-review-every-path`.
+- RF-07: private-repo GitHub plan blocks rulesets (HTTP 403) and classic required-check protection on `main` (HTTP 404); compensating merge process in force - PR-only, green `Backend (build + test)` / `Portal (lint + checks + build)` / `Infra (bicep compile)` from `.github/workflows/ci.yml`, >=1 maintainer approval; evidence in `docs/05-deployment-release-enablement/iip_merge_governance.md`; branch `harry/rf-reinstate-merge-governance`.
 
 ## Not yet specified
 
 - Whether the current sponsored subscription can meet representative non-dev latency and provider-capability gates without PAYG approval.
-- Whether GitHub plan limitations require an alternative to native protected-branch required checks.
+- When the org will upgrade GitHub plan (or otherwise) so native `main` required checks/rulesets can replace the RF-07 compensating control.
 - Which authorized operator and maintenance window will apply the consolidated Azure SQL migration.
 - Which real Azure AI Document Intelligence deployment and region will support Release 1 after capacity/residency verification.
 
@@ -44,12 +45,11 @@ Bring the release-foundation work now reachable from `main` to a demonstrably me
 - [Guarantee Human Review on Every Consequential Workflow Path](tickets/guarantee-human-review-on-every-path.md)
 - [Implement Immutable Workflow Version Lineage](tickets/implement-immutable-workflow-version-lineage.md)
 - [Bound Orchestration to Release 1](tickets/bound-orchestration-to-release-one.md)
-- [Reinstate Merge Governance](tickets/reinstate-merge-governance.md)
 
 ## Blocked tickets
 
-- [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) — blocked by human-review invariant.
-- [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) — blocked by review, replay, versioning, and Release 1 scope decisions.
-- [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) — blocked by the worker contract and external operator/capacity facts.
-- [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) — blocked by tenant safety, worker, and real-provider path.
-- [Publish Final Go-No-Go Evidence](tickets/publish-final-go-no-go-evidence.md) — blocked by every remediation and verification ticket.
+- [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) - blocked by human-review invariant.
+- [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) - blocked by review, replay, versioning, and Release 1 scope decisions.
+- [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) - blocked by the worker contract and external operator/capacity facts.
+- [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) - blocked by tenant safety, worker, and real-provider path.
+- [Publish Final Go-No-Go Evidence](tickets/publish-final-go-no-go-evidence.md) - blocked by every remediation and verification ticket.
