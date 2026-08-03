@@ -3,6 +3,7 @@ using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Knowledge;
@@ -194,6 +195,26 @@ public sealed class EfCustomerUpdateRepository(InsuranceIntelligenceDbContext db
         await Scoped(DbContext.CustomerUpdates.AsNoTracking(), scope)
             .Where(record => record.CaseId == caseId)
             .Select(record => Deserialize<CustomerUpdateDraft>(record.PayloadJson))
+            .ToArrayAsync(cancellationToken);
+}
+
+public sealed class EfClaimReviewRequestRepository(InsuranceIntelligenceDbContext dbContext)
+    : JsonRepositoryBase(dbContext), IClaimReviewRequestRepository
+{
+    public Task SaveAsync(ClaimReviewRequest request, CancellationToken cancellationToken = default) =>
+        UpsertAsync(DbContext.ClaimReviewRequests, request.RequestId, request.Scope, Serialize(request), record => record.CaseId = request.CaseId, cancellationToken);
+
+    public async Task<ClaimReviewRequest?> GetAsync(Guid requestId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var record = await Scoped(DbContext.ClaimReviewRequests.AsNoTracking(), scope)
+            .FirstOrDefaultAsync(item => item.Id == requestId, cancellationToken);
+        return record is null ? null : Deserialize<ClaimReviewRequest>(record.PayloadJson);
+    }
+
+    public async Task<IReadOnlyCollection<ClaimReviewRequest>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default) =>
+        await Scoped(DbContext.ClaimReviewRequests.AsNoTracking(), scope)
+            .Where(record => record.CaseId == caseId)
+            .Select(record => Deserialize<ClaimReviewRequest>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
 }
 

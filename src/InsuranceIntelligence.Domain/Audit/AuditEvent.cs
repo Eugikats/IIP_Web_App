@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Workflow;
@@ -43,6 +44,26 @@ public sealed record AuditEvent(
             ApprovalId: null,
             AuditReason: null,
             CorrelationId: correlationId);
+
+    public static AuditEvent ClaimReviewRequested(ClaimReviewRequest request) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: request.RequestedByUserId,
+            ActorType.User,
+            "claim.review_requested",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "Contestability",
+            Confidence: null,
+            ValidationResult: request.Origin.ToString(),
+            ApprovalId: null,
+            AuditReason: request.Reason,
+            CorrelationId: request.CorrelationId);
 
     public static AuditEvent CaseAssigned(ClaimCaseSnapshot before, ClaimCaseSnapshot after, string assignedByUserId, string correlationId, string? auditReason = null) =>
         new(

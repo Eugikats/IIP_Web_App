@@ -7,6 +7,7 @@ using InsuranceIntelligence.Application.Customers;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Knowledge;
@@ -145,6 +146,7 @@ public static class InfrastructureRegistration
         services.AddScoped<IWorkflowTaskRepository, EfWorkflowTaskRepository>();
         services.AddScoped<IApprovalRepository, EfApprovalRepository>();
         services.AddScoped<ICustomerUpdateRepository, EfCustomerUpdateRepository>();
+        services.AddScoped<IClaimReviewRequestRepository, EfClaimReviewRequestRepository>();
         services.AddScoped<ICommunicationRepository, EfCommunicationRepository>();
         services.AddScoped<ITenantConfigurationRepository, EfTenantConfigurationRepository>();
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
