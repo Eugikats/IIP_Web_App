@@ -38,7 +38,7 @@
 
 | ID | Item | Opened by | Why deferred | Revisit when | Owner track | Status |
 |---|---|---|---|---|---|---|
-| PEND-CONTEST-01 | Staff-side list / acknowledge / resolve re-review requests | `harry/t1-contestability` claimant create path | Slice is customer create + read on claim GET only; domain `Acknowledge`/`Resolve` exist without endpoints | Building claims officer contestability UI or ops inbox | Api / Portal | **OPEN** |
+| PEND-CONTEST-01 | Staff-side list / acknowledge / resolve re-review requests | `harry/t1-contestability` claimant create path | Staff API + Claim Review panel shipped on `harry/t1-contestability-portal`; cross-case inbox deferred (no workspace-wide list API) | Cross-case inbox / Command Center surface | Api / Portal | **CLOSED** (case-scoped); cross-case inbox remains deferred |
 | PEND-CONTEST-02 | SMS / USSD entry into `ClaimReviewRequest.Create` | Contestability T1 | Uses Africa's Talking SMS adapter later; not in client-portal slice | After PEND-SMS-01 live prove; contestability via feature phone | Channels | **OPEN** |
 
 ---
@@ -62,3 +62,5 @@
 | 2026-08-03 | PEND-T1-CI → IN PROGRESS: added `.github/workflows/ci.yml`; matched to real scripts/infra (no `main.bicep`). First-run verification on remote still pending. |
 | 2026-08-03 | PEND-T1-CI → CLOSED: first CI run (30807368448) green on all 3 jobs. |
 | 2026-08-03 | Contestability claimant path shipped (ClaimReviewRequest + client-portal request-review). Added PEND-CONTEST-01/02 for staff UI and SMS entry. |
+| 2026-08-03 | Staff contestability API (list/acknowledge/resolve) shipped; PEND-CONTEST-01 PARTIAL (API done, portal inbox UI open). |
+| 2026-08-03 | Claim Review re-review panel shipped; PEND-CONTEST-01 CLOSED for case-scoped staff path (cross-case inbox still deferred). |
