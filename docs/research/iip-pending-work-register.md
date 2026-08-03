@@ -38,7 +38,7 @@
 
 | ID | Item | Opened by | Why deferred | Revisit when | Owner track | Status |
 |---|---|---|---|---|---|---|
-| PEND-CONTEST-01 | Staff-side list / acknowledge / resolve re-review requests | `harry/t1-contestability` claimant create path | Staff API shipped on `harry/t1-contestability-staff` (`GET/POST .../review-requests`); portal inbox UI still deferred | Portal staff inbox / Command Center surface | Api / Portal | **PARTIAL** — API CLOSED; UI OPEN |
+| PEND-CONTEST-01 | Staff-side list / acknowledge / resolve re-review requests | `harry/t1-contestability` claimant create path | Staff API + Claim Review panel shipped on `harry/t1-contestability-portal`; cross-case inbox deferred (no workspace-wide list API) | Cross-case inbox / Command Center surface | Api / Portal | **CLOSED** (case-scoped); cross-case inbox remains deferred |
 | PEND-CONTEST-02 | SMS / USSD entry into `ClaimReviewRequest.Create` | Contestability T1 | Uses Africa's Talking SMS adapter later; not in client-portal slice | After PEND-SMS-01 live prove; contestability via feature phone | Channels | **OPEN** |
 
 ---
@@ -63,3 +63,4 @@
 | 2026-08-03 | PEND-T1-CI → CLOSED: first CI run (30807368448) green on all 3 jobs. |
 | 2026-08-03 | Contestability claimant path shipped (ClaimReviewRequest + client-portal request-review). Added PEND-CONTEST-01/02 for staff UI and SMS entry. |
 | 2026-08-03 | Staff contestability API (list/acknowledge/resolve) shipped; PEND-CONTEST-01 PARTIAL (API done, portal inbox UI open). |
+| 2026-08-03 | Claim Review re-review panel shipped; PEND-CONTEST-01 CLOSED for case-scoped staff path (cross-case inbox still deferred). |

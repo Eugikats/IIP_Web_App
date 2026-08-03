@@ -16,6 +16,7 @@ import { useState } from "react";
 import { Link, useParams } from "@/components/iip/NextRouterCompat";
 import { CustomerUpdateGovernedDialog, type PendingCustomerUpdateAction } from "@/components/CustomerUpdateGovernedDialog";
 import { CustomerUpdatePanel, type CustomerUpdate } from "@/components/CustomerUpdatePanel";
+import { ClaimReviewRequestsPanel } from "@/components/ClaimReviewRequestsPanel";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { Badge, ConfidenceBadge, GlassCard, RiskBadge, SectionHeader, SLABadge, StatusBadge } from "@/components/iip/Primitives";
 import CompletenessCard from "@/components/iip/CompletenessCard";
@@ -36,6 +37,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     detail,
     timeline,
     customerUpdates,
+    reviewRequests,
     loading,
     error,
     drafting,
@@ -45,6 +47,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     draftDocumentFollowUp,
     approveCustomerUpdate,
     sendCustomerUpdate,
+    acknowledgeReviewRequest,
+    resolveReviewRequest,
     exportEvidencePack,
     requestSupervisorReview,
     reload,
@@ -52,6 +56,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const { roleDef } = useUI();
   const [pendingCustomerUpdateAction, setPendingCustomerUpdateAction] = useState<PendingCustomerUpdateAction | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
 
   async function handleDraftCustomerUpdate() {
     const res = await draftCustomerUpdate();
@@ -118,6 +123,42 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       setPendingCustomerUpdateAction(null);
     } else {
       toast.error(res.message ?? "Customer update action failed");
+    }
+  }
+
+  async function handleAcknowledgeReviewRequest(requestId: string) {
+    setReviewBusyId(requestId);
+    try {
+      const res = await acknowledgeReviewRequest(requestId);
+      if (res.ok) {
+        toast.success("Re-review request acknowledged", {
+          description: "Workflow state only — this does not settle, deny, or pay the claim.",
+        });
+      } else {
+        toast.error(res.message ?? "Could not acknowledge re-review request");
+      }
+    } finally {
+      setReviewBusyId(null);
+    }
+  }
+
+  async function handleResolveReviewRequest(requestId: string, resolutionNote: string) {
+    if (resolutionNote.trim().length < 3) {
+      toast.error("Record a short resolution note before closing the re-review request.");
+      return;
+    }
+    setReviewBusyId(requestId);
+    try {
+      const res = await resolveReviewRequest(requestId, resolutionNote);
+      if (res.ok) {
+        toast.success("Re-review request resolved", {
+          description: "Human workflow state recorded. Claim outcome still requires a separate governed decision.",
+        });
+      } else {
+        toast.error(res.message ?? "Could not resolve re-review request");
+      }
+    } finally {
+      setReviewBusyId(null);
     }
   }
 
@@ -273,6 +314,28 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 });
               }}
               getSendAvailability={sendAvailability}
+            />
+          </GlassCard>
+
+          <GlassCard>
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[14px] font-semibold text-navy">Claimant re-review requests</div>
+                <div className="mt-1 text-[11.5px] text-stone">
+                  Acknowledge or resolve contestability requests. This updates workflow state only — it does not settle, deny, or pay the claim.
+                </div>
+              </div>
+              {reviewRequests.some((request) => request.status === "Open" || request.status === "Acknowledged") ? (
+                <Badge tone="warning">
+                  {reviewRequests.filter((request) => request.status === "Open" || request.status === "Acknowledged").length} open
+                </Badge>
+              ) : null}
+            </div>
+            <ClaimReviewRequestsPanel
+              requests={reviewRequests}
+              busyId={reviewBusyId}
+              onAcknowledge={handleAcknowledgeReviewRequest}
+              onResolve={handleResolveReviewRequest}
             />
           </GlassCard>
 

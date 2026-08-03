@@ -61,12 +61,25 @@ export type CustomerUpdateView = {
   blockedActions: ActionStateView[];
 };
 
+export type ReviewRequestView = {
+  requestId: string;
+  status: string;
+  origin: string;
+  requestedByUserId: string;
+  reason: string;
+  requestedAt: string;
+  resolvedAt: string | null;
+  resolvedByUserId: string | null;
+  resolutionNote: string | null;
+};
+
 export function useClaimReview(claimId: string) {
   const { roleDef } = useUI();
   const role = roleDef.key;
   const [detail, setDetail] = useState<ClaimDetailView | null>(null);
   const [timeline, setTimeline] = useState<TimelineEventView[]>([]);
   const [customerUpdates, setCustomerUpdates] = useState<CustomerUpdateView[]>([]);
+  const [reviewRequests, setReviewRequests] = useState<ReviewRequestView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drafting, setDrafting] = useState(false);
@@ -96,6 +109,33 @@ export function useClaimReview(claimId: string) {
       allowedActions: update.allowedActions ?? [],
       blockedActions: update.blockedActions ?? [],
     })));
+  }, [claimId, role]);
+
+  const loadReviewRequests = useCallback(async () => {
+    if (!claimId) { setReviewRequests([]); return; }
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/review-requests`, {
+        headers: scopedHeaders(role, ""),
+      });
+      if (!res.ok) {
+        setReviewRequests([]);
+        return;
+      }
+      const rows = await res.json();
+      setReviewRequests((rows ?? []).map((request: ReviewRequestView) => ({
+        requestId: request.requestId,
+        status: request.status,
+        origin: request.origin,
+        requestedByUserId: request.requestedByUserId,
+        reason: request.reason,
+        requestedAt: request.requestedAt,
+        resolvedAt: request.resolvedAt ?? null,
+        resolvedByUserId: request.resolvedByUserId ?? null,
+        resolutionNote: request.resolutionNote ?? null,
+      })));
+    } catch {
+      setReviewRequests([]);
+    }
   }, [claimId, role]);
 
   const load = useCallback(async () => {
@@ -128,14 +168,16 @@ export function useClaimReview(claimId: string) {
       } catch { /* timeline optional */ }
 
       await loadCustomerUpdates();
+      await loadReviewRequests();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Claim failed to load.");
       setDetail(null);
       setCustomerUpdates([]);
+      setReviewRequests([]);
     } finally {
       setLoading(false);
     }
-  }, [claimId, loadCustomerUpdates, role]);
+  }, [claimId, loadCustomerUpdates, loadReviewRequests, role]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -247,6 +289,42 @@ export function useClaimReview(claimId: string) {
     }
   }, [detail?.customerEmail, detail?.customerPhone, load, loadCustomerUpdates, role]);
 
+  const acknowledgeReviewRequest = useCallback(async (requestId: string): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/review-requests/${requestId}/acknowledge`, {
+        method: "POST",
+        headers: scopedHeaders(role, ""),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to acknowledge re-review requests." };
+      if (res.status === 404) return { ok: false, message: "Re-review request was not found for this claim." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Acknowledge failed with HTTP ${res.status}.`) };
+      await loadReviewRequests();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Acknowledge failed." };
+    }
+  }, [claimId, loadReviewRequests, role]);
+
+  const resolveReviewRequest = useCallback(async (
+    requestId: string,
+    resolutionNote: string
+  ): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/review-requests/${requestId}/resolve`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({ resolutionNote }),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to resolve re-review requests." };
+      if (res.status === 404) return { ok: false, message: "Re-review request was not found for this claim." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Resolve failed with HTTP ${res.status}.`) };
+      await loadReviewRequests();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Resolve failed." };
+    }
+  }, [claimId, loadReviewRequests, role]);
+
   const exportEvidencePack = useCallback(async (auditReason: string): Promise<{ ok: boolean; objectKey?: string; message?: string }> => {
     setExporting(true);
     try {
@@ -274,6 +352,7 @@ export function useClaimReview(claimId: string) {
     detail,
     timeline,
     customerUpdates,
+    reviewRequests,
     loading,
     error,
     drafting,
@@ -283,6 +362,8 @@ export function useClaimReview(claimId: string) {
     draftDocumentFollowUp,
     approveCustomerUpdate,
     sendCustomerUpdate,
+    acknowledgeReviewRequest,
+    resolveReviewRequest,
     exportEvidencePack,
     requestSupervisorReview,
     reload: load,

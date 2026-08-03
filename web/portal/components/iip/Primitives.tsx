@@ -80,6 +80,9 @@ export function StatusBadge({ status }: { status: string }) {
     "Skipped": "neutral",
     "Degraded": "warning",
     "Closed": "neutral",
+    "Open": "warning",
+    "Acknowledged": "info",
+    "Resolved": "success",
   };
   return <Badge tone={map[status] ?? "neutral"}><Dot tone={map[status] ?? "neutral"} />{status}</Badge>;
 }
