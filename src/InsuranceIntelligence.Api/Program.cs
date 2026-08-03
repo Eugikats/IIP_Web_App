@@ -22,6 +22,7 @@ using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Api.CommandCenter;
 using InsuranceIntelligence.Api.Communications;
 using InsuranceIntelligence.Api.Compliance;
+using InsuranceIntelligence.Api.Contestability;
 using InsuranceIntelligence.Api.Domain;
 using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Health;
@@ -484,6 +485,12 @@ app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/approve-ext
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));
 app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/correct-field", DocumentEndpoints.CorrectExtractionField)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));
+app.MapGet("/api/v1/cases/{caseId:guid}/review-requests", ContestabilityEndpoints.ListReviewRequests)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/review-requests/{requestId:guid}/acknowledge", ContestabilityEndpoints.AcknowledgeReviewRequest)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/review-requests/{requestId:guid}/resolve", ContestabilityEndpoints.ResolveReviewRequest)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/knowledge-documents", KnowledgeEndpoints.UploadKnowledgeDocument)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
 app.MapGet("/api/v1/knowledge-documents", KnowledgeEndpoints.ListKnowledgeDocuments)

@@ -65,6 +65,52 @@ public sealed record AuditEvent(
             AuditReason: request.Reason,
             CorrelationId: request.CorrelationId);
 
+    public static AuditEvent ClaimReviewAcknowledged(
+        ClaimReviewRequest request,
+        string actorUserId,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: actorUserId,
+            ActorType.User,
+            "claim.review_acknowledged",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: ClaimReviewRequestStatus.Open.ToString(),
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "Contestability",
+            Confidence: null,
+            ValidationResult: "acknowledged",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ClaimReviewResolved(
+        ClaimReviewRequest request,
+        string actorUserId,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: actorUserId,
+            ActorType.User,
+            "claim.review_resolved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "Contestability",
+            Confidence: null,
+            ValidationResult: "resolved",
+            ApprovalId: null,
+            AuditReason: request.ResolutionNote,
+            CorrelationId: correlationId);
+
     public static AuditEvent CaseAssigned(ClaimCaseSnapshot before, ClaimCaseSnapshot after, string assignedByUserId, string correlationId, string? auditReason = null) =>
         new(
             Guid.NewGuid(),
