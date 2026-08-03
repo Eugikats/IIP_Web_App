@@ -122,7 +122,7 @@ This is the layer that dominates UNDP Sections 3 (Inclusion) and 5 (Distribution
 | Offline-capable field agent app | **ABSENT** | Not in codebase |
 | Local languages (Luganda, etc.) | **ABSENT** | No i18n/localization in code |
 | Agent-assisted intermediary workflows | **CONCEPT** | Design intent only; not a built role/flow |
-| Contestability (human re-review request) | **PARTIAL** | Claimant create via client-portal + staff `GET/POST /api/v1/cases/{caseId}/review-requests` (list/acknowledge/resolve) + audits. Staff portal inbox UI and SMS/USSD entry still deferred. |
+| Contestability (human re-review request) | **PARTIAL** | Claimant create via client-portal + staff API + Claim Review staff panel (list/acknowledge/resolve). Cross-case inbox and SMS/USSD entry still deferred. |
 | SACCO/MFI partner integration | **CONCEPT** | Generic multi-tenant/API scaffolding exists; no partner-specific integration |
 
 The Uganda specifics (customer names, UGX amounts, Kampala streets, boda-boda claims) live entirely in `web/portal/lib/lovable-parity/mock.ts` — **dev-only fixtures**, never deployed.

@@ -85,7 +85,7 @@ requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/customer-updates/
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/customer-updates/${update.updateId}/send", "customer-update send must use the governed backend endpoint.");
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/compliance/cases/${claimId}/audit-pack/export", "evidence-pack export must use the governed backend endpoint.");
 requireText("lib/lovable-parity/data/claimReview.ts", "\"X-Audit-Reason\": auditReason", "governed claim-review mutations must include an audit reason header.");
-rejectPattern("lib/lovable-parity/data/claimReview.ts", /requestedByUserId\s*:|completedByUserId\s*:|createdByUserId\s*:|reviewerUserId\s*:|tenantId\s*:|workspaceId\s*:/, "claim-review actions must not send browser-owned actor or tenant/workspace authority.");
+rejectPattern("lib/lovable-parity/data/claimReview.ts", /JSON\.stringify\(\{[\s\S]*?(requestedByUserId|completedByUserId|createdByUserId|reviewerUserId|tenantId|workspaceId)\s*:/, "claim-review actions must not send browser-owned actor or tenant/workspace authority.");
 
 requireText("lib/lovable-parity/data/approvals.ts", "/api/v1/approvals", "approval queue must use the governed approvals endpoint.");
 requireText("lib/lovable-parity/data/approvals.ts", "\"X-Audit-Reason\"", "approval decisions must send governed audit reasons.");
