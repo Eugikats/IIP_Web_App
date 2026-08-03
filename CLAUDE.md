@@ -8,12 +8,15 @@ Staff application name: **IIP Operations**.
 Formal product name: **Insurance Intelligence Platform (IIP)**.  
 Short product name: **IIP**.
 
+**Start here:** `docs/CONTEXT.md` — a thin start-here index that points to current-state, backlog, pending-work, and research artifacts. Read it first to orient, then open the deep artifact you need.
+
 Read the following files fully before making any change:
 
-1. `AGENTS.md`
-2. `IIP_IMPLEMENTATION_GUARDRAILS.md`
-3. `README.md`
-4. Any relevant deployment, security, UI, architecture, API, testing, or production documentation for the task being executed.
+1. `docs/CONTEXT.md` (orientation index)
+2. `AGENTS.md`
+3. `IIP_IMPLEMENTATION_GUARDRAILS.md`
+4. `README.md`
+5. Any relevant deployment, security, UI, architecture, API, testing, or production documentation for the task being executed.
 
 `AGENTS.md` is the authoritative product, architecture, security, deployment, UI, and production release contract for this repository.
 
