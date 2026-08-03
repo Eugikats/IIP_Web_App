@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Integrations;
 
 namespace InsuranceIntelligence.LocalTestDoubles;
@@ -72,6 +73,32 @@ public sealed class InMemoryCommunicationRepository : ICommunicationRepository
     {
         var matches = communications.Values.Where(item => item.CaseId == caseId && item.Scope.Matches(scope)).OrderByDescending(item => item.CreatedAt).ToArray();
         return Task.FromResult<IReadOnlyCollection<Communication>>(matches);
+    }
+}
+
+public sealed class InMemoryClaimReviewRequestRepository : IClaimReviewRequestRepository
+{
+    private readonly ConcurrentDictionary<Guid, ClaimReviewRequest> requests = new();
+
+    public Task SaveAsync(ClaimReviewRequest request, CancellationToken cancellationToken = default)
+    {
+        requests[request.RequestId] = request;
+        return Task.CompletedTask;
+    }
+
+    public Task<ClaimReviewRequest?> GetAsync(Guid requestId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        requests.TryGetValue(requestId, out var request);
+        return Task.FromResult(request is not null && request.Scope.Matches(scope) ? request : null);
+    }
+
+    public Task<IReadOnlyCollection<ClaimReviewRequest>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var matches = requests.Values
+            .Where(item => item.CaseId == caseId && item.Scope.Matches(scope))
+            .OrderByDescending(item => item.RequestedAt)
+            .ToArray();
+        return Task.FromResult<IReadOnlyCollection<ClaimReviewRequest>>(matches);
     }
 }
 

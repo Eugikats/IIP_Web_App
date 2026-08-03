@@ -63,6 +63,7 @@ public sealed class ClientPortalEndpointTests
             documents,
             new StaticDocumentChecklistProvider(new CompletenessScoringService()),
             communications,
+            new InMemoryClaimReviewRequestRepository(),
             Context("sarah@example.com"),
             CancellationToken.None);
 
@@ -97,6 +98,7 @@ public sealed class ClientPortalEndpointTests
             new InMemoryCaseDocumentRepository(),
             new StaticDocumentChecklistProvider(new CompletenessScoringService()),
             new InMemoryCommunicationRepository(),
+            new InMemoryClaimReviewRequestRepository(),
             Context("other@example.com"),
             CancellationToken.None);
 
@@ -123,6 +125,7 @@ public sealed class ClientPortalEndpointTests
             documents,
             new StaticDocumentChecklistProvider(new CompletenessScoringService()),
             communications,
+            new InMemoryClaimReviewRequestRepository(),
             ProtectedContext("sarah@example.com", authenticatedScope, spoofedHeaderScope),
             CancellationToken.None);
 
@@ -211,6 +214,77 @@ public sealed class ClientPortalEndpointTests
             auditEvents,
             auditEvent => auditEvent.ActionName == "document.uploaded"
                 && auditEvent.Scope == membershipScope);
+    }
+
+    [Fact]
+    public async Task RequestReview_WhenOwnerAndReasonProvided_LogsRequestAndAudit()
+    {
+        var caseId = Guid.NewGuid();
+        var scope = Scope();
+        var cases = new InMemoryCaseRepository();
+        await cases.SaveAsync(Case(caseId, scope, "sarah@example.com"));
+        var reviewRequests = new InMemoryClaimReviewRequestRepository();
+        var audit = new InMemoryAuditRepository();
+
+        var result = await ClientPortalEndpoints.RequestReview(
+            caseId,
+            new ClientPortalReviewRequestBody("The payout does not reflect my repair costs."),
+            cases,
+            reviewRequests,
+            audit,
+            Context("sarah@example.com"),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal("Open", body.GetProperty("status").GetString());
+
+        var stored = await reviewRequests.ListForCaseAsync(caseId, scope, CancellationToken.None);
+        Assert.Single(stored);
+        Assert.Equal("The payout does not reflect my repair costs.", stored.First().Reason);
+
+        var auditEvents = await audit.ListForCaseAsync(caseId, CancellationToken.None);
+        Assert.Contains(auditEvents, auditEvent => auditEvent.ActionName == "claim.review_requested");
+    }
+
+    [Fact]
+    public async Task RequestReview_WhenNotOwner_ReturnsNotFound()
+    {
+        var caseId = Guid.NewGuid();
+        var cases = new InMemoryCaseRepository();
+        await cases.SaveAsync(Case(caseId, Scope(), "sarah@example.com"));
+
+        var result = await ClientPortalEndpoints.RequestReview(
+            caseId,
+            new ClientPortalReviewRequestBody("Please re-check my claim."),
+            cases,
+            new InMemoryClaimReviewRequestRepository(),
+            new InMemoryAuditRepository(),
+            Context("intruder@example.com"),
+            CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, status);
+    }
+
+    [Fact]
+    public async Task RequestReview_WhenReasonMissing_ReturnsValidationProblem()
+    {
+        var caseId = Guid.NewGuid();
+        var cases = new InMemoryCaseRepository();
+        await cases.SaveAsync(Case(caseId, Scope(), "sarah@example.com"));
+
+        var result = await ClientPortalEndpoints.RequestReview(
+            caseId,
+            new ClientPortalReviewRequestBody("   "),
+            cases,
+            new InMemoryClaimReviewRequestRepository(),
+            new InMemoryAuditRepository(),
+            Context("sarah@example.com"),
+            CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, status);
     }
 
     private static ClaimCase Case(Guid caseId, TenantScope scope, string customerEmail) =>

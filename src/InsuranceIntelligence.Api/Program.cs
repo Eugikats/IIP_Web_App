@@ -447,6 +447,8 @@ app.MapGet("/api/v1/client-portal/claims/{caseId:guid}", ClientPortalEndpoints.G
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents", ClientPortalEndpoints.UploadDocuments)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
+app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/request-review", ClientPortalEndpoints.RequestReview)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
 
 app.MapPost("/api/v1/cases", CaseEndpoints.CreateCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim));

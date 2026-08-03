@@ -12,6 +12,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedWorkflowTask> WorkflowTasks => Set<PersistedWorkflowTask>();
     public DbSet<PersistedApproval> Approvals => Set<PersistedApproval>();
     public DbSet<PersistedCustomerUpdate> CustomerUpdates => Set<PersistedCustomerUpdate>();
+    public DbSet<PersistedClaimReviewRequest> ClaimReviewRequests => Set<PersistedClaimReviewRequest>();
     public DbSet<PersistedCommunication> Communications => Set<PersistedCommunication>();
     public DbSet<PersistedTenantConfiguration> TenantConfigurations => Set<PersistedTenantConfiguration>();
     public DbSet<PersistedUserAccount> UserAccounts => Set<PersistedUserAccount>();
@@ -53,6 +54,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedApproval>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomerUpdate>(), "CustomerUpdates", "UpdateId");
         modelBuilder.Entity<PersistedCustomerUpdate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedClaimReviewRequest>(), "ClaimReviewRequests", "ReviewRequestId");
+        modelBuilder.Entity<PersistedClaimReviewRequest>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedCommunication>(), "Communications", "CommunicationId");
         modelBuilder.Entity<PersistedCommunication>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedTenantConfiguration>(), "TenantConfigurations", "ConfigurationId");
@@ -175,6 +178,7 @@ public sealed class PersistedAgentActionLog : PersistedScopedJson { public Guid?
 public sealed class PersistedWorkflowTask : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedApproval : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedCustomerUpdate : PersistedScopedJson { public Guid CaseId { get; set; } }
+public sealed class PersistedClaimReviewRequest : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedCommunication : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedTenantConfiguration : PersistedScopedJson;
 public sealed class PersistedUserAccount : PersistedScopedJson { public string UserId { get; set; } = string.Empty; }

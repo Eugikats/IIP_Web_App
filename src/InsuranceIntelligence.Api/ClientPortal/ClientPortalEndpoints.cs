@@ -5,6 +5,7 @@ using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -18,6 +19,7 @@ public static class ClientPortalEndpoints
         ICaseDocumentRepository documentRepository,
         IDocumentChecklistProvider checklistProvider,
         ICommunicationRepository communicationRepository,
+        IClaimReviewRequestRepository reviewRequestRepository,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -38,8 +40,9 @@ public static class ClientPortalEndpoints
         var documents = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         var checklist = await checklistProvider.BuildChecklistAsync(claimCase, documents, cancellationToken);
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        var reviewRequests = await reviewRequestRepository.ListForCaseAsync(caseId, scope, cancellationToken);
 
-        return Results.Ok(ToResponse(claimCase, checklist, documents, communications));
+        return Results.Ok(ToResponse(claimCase, checklist, documents, communications, reviewRequests));
     }
 
     public static async Task<IResult> UploadDocuments(
@@ -160,11 +163,60 @@ public static class ClientPortalEndpoints
         return Results.Ok(ToResponse(updatedCase, checklist, allDocuments, communications));
     }
 
+    public static async Task<IResult> RequestReview(
+        Guid caseId,
+        ClientPortalReviewRequestBody body,
+        ICaseRepository caseRepository,
+        IClaimReviewRequestRepository reviewRequestRepository,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["tenantScope"] = [validationError]
+            });
+        }
+
+        if (body is null || string.IsNullOrWhiteSpace(body.Reason))
+        {
+            return Validation("reason", "Tell us briefly why you would like a human to re-review this claim.");
+        }
+
+        var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
+        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext))
+        {
+            return Results.NotFound(new { message = "Claim was not found for the signed-in customer." });
+        }
+
+        var actor = WorkflowEndpoints.GetActor(httpContext, "client-portal-user");
+        var correlationId = httpContext.TraceIdentifier;
+        var request = ClaimReviewRequest.Create(
+            scope,
+            caseId,
+            ClaimReviewRequestOrigin.Customer,
+            actor,
+            body.Reason,
+            correlationId);
+
+        await reviewRequestRepository.SaveAsync(request, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.ClaimReviewRequested(request), cancellationToken);
+
+        return Results.Ok(new ClientPortalReviewRequestResponse(
+            request.RequestId,
+            request.Status.ToString(),
+            request.RequestedAt,
+            "Your request for a human re-review has been logged. A claims officer will review it. This decision is not final AI — a person will look at it."));
+    }
+
     private static ClientPortalClaimResponse ToResponse(
         ClaimCase claimCase,
         DocumentCompletenessChecklist checklist,
         IReadOnlyCollection<CaseDocument> documents,
-        IReadOnlyCollection<Communication> communications)
+        IReadOnlyCollection<Communication> communications,
+        IReadOnlyCollection<ClaimReviewRequest>? reviewRequests = null)
     {
         var receivedDocumentTypes = documents
             .Select(document => document.DocumentType)
@@ -191,6 +243,16 @@ public static class ClientPortalEndpoints
                 communication.DeliveryStatus))
             .ToArray();
 
+        var reviewRequestSummaries = (reviewRequests ?? Array.Empty<ClaimReviewRequest>())
+            .OrderByDescending(request => request.RequestedAt)
+            .Select(request => new ClientPortalReviewRequestSummary(
+                request.RequestId,
+                request.Status.ToString(),
+                request.Reason,
+                request.RequestedAt,
+                request.ResolvedAt))
+            .ToArray();
+
         return new ClientPortalClaimResponse(
             claimCase.CaseId,
             claimCase.ProductLine,
@@ -204,7 +266,8 @@ public static class ClientPortalEndpoints
             requiredDocuments,
             BuildTimeline(claimCase),
             messages,
-            BuildNextSteps(checklist));
+            BuildNextSteps(checklist),
+            reviewRequestSummaries);
     }
 
     private static IReadOnlyCollection<ClientPortalTimelineStep> BuildTimeline(ClaimCase claimCase)
@@ -343,7 +406,23 @@ public sealed record ClientPortalClaimResponse(
     IReadOnlyCollection<ClientPortalDocumentRequirement> RequiredDocuments,
     IReadOnlyCollection<ClientPortalTimelineStep> Timeline,
     IReadOnlyCollection<ClientPortalMessage> Messages,
-    IReadOnlyCollection<string> NextSteps);
+    IReadOnlyCollection<string> NextSteps,
+    IReadOnlyCollection<ClientPortalReviewRequestSummary> ReviewRequests);
+
+public sealed record ClientPortalReviewRequestBody(string Reason);
+
+public sealed record ClientPortalReviewRequestResponse(
+    Guid RequestId,
+    string Status,
+    DateTimeOffset RequestedAt,
+    string Message);
+
+public sealed record ClientPortalReviewRequestSummary(
+    Guid RequestId,
+    string Status,
+    string Reason,
+    DateTimeOffset RequestedAt,
+    DateTimeOffset? ResolvedAt);
 
 public sealed record ClientPortalDocumentRequirement(
     string DocumentType,

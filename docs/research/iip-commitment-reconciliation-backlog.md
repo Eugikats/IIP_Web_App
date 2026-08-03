@@ -55,7 +55,7 @@ BUILT = real & tested · PARTIAL = scaffolding exists, unproven/incomplete · CO
 | Offline-capable field-agent app + sync | ABSENT | Separate app/PWA + sync engine; large | **T2** |
 | Local languages (Luganda, Runyankole, Acholi, Ateso) | ABSENT | i18n framework + translated status/comms templates | T1/T2 |
 | Agent-assisted intermediary role & experience | CONCEPT | New role, permissions, simplified agent workspace | T1 |
-| Contestability (SMS query + human re-review request) | CONCEPT | Re-review request flow + status query endpoint | T1 |
+| Contestability (SMS query + human re-review request) | **PARTIAL** (client-portal create + list + audit + EF migration; staff resolve UI and SMS/USSD entry deferred) | Staff acknowledge/resolve endpoints + SMS inbound into `ClaimReviewRequest.Create` | **T1** (claimant path done) |
 | Mobile-money (MTN/Airtel) premium/payout rails | ABSENT | Payment integration; regulated; large | **T2** |
 | SACCO/MFI partner API integration | CONCEPT (generic scaffolding) | Partner onboarding + API contracts | T2 |
 
