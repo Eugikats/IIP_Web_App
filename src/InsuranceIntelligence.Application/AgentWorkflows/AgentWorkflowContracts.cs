@@ -6,8 +6,12 @@ namespace InsuranceIntelligence.Application.AgentWorkflows;
 public interface IAgentWorkflowDefinitionRepository
 {
     Task<IReadOnlyList<AgentWorkflowDefinition>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AgentWorkflowDefinition>> ListByKeyAsync(string key, TenantScope scope, CancellationToken cancellationToken = default);
     Task<AgentWorkflowDefinition?> GetAsync(Guid definitionId, TenantScope scope, CancellationToken cancellationToken = default);
-    Task<AgentWorkflowDefinition?> GetByKeyAsync(string key, TenantScope scope, CancellationToken cancellationToken = default);
+    Task<AgentWorkflowDefinition?> GetByKeyAndVersionAsync(string key, int version, TenantScope scope, CancellationToken cancellationToken = default);
+    Task<AgentWorkflowDefinition?> GetDraftByKeyAsync(string key, TenantScope scope, CancellationToken cancellationToken = default);
+    Task<AgentWorkflowDefinition?> GetLatestPublishedByKeyAsync(string key, TenantScope scope, CancellationToken cancellationToken = default);
+    Task<int> GetMaxVersionAsync(string key, TenantScope scope, CancellationToken cancellationToken = default);
     Task SaveAsync(AgentWorkflowDefinition definition, CancellationToken cancellationToken = default);
 }
 
@@ -56,8 +60,11 @@ public sealed record DecideAgentWorkItemRequest(
 public interface IAgentWorkflowService
 {
     Task<IReadOnlyList<AgentWorkflowDefinition>> ListDefinitionsAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AgentWorkflowDefinition>> ListVersionsAsync(string key, CancellationToken cancellationToken = default);
     Task<AgentWorkflowDefinition?> GetDefinitionAsync(string key, CancellationToken cancellationToken = default);
+    Task<AgentWorkflowDefinition?> GetVersionAsync(string key, int version, CancellationToken cancellationToken = default);
     Task<AgentWorkflowDefinition> SaveDraftAsync(SaveAgentWorkflowDraftRequest request, CancellationToken cancellationToken = default);
+    Task<AgentWorkflowDefinition> DraftNewVersionAsync(string key, CancellationToken cancellationToken = default);
     Task<AgentWorkflowDefinition> PublishAsync(string key, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AgentWorkflowRun>> ListRunsAsync(CancellationToken cancellationToken = default);
     Task<AgentWorkflowRun?> GetRunAsync(Guid runId, CancellationToken cancellationToken = default);
@@ -72,4 +79,3 @@ public sealed class AgentWorkflowValidationException(string field, string messag
 {
     public string Field { get; } = field;
 }
-

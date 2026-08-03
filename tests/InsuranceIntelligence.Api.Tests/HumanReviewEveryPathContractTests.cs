@@ -238,7 +238,7 @@ public sealed class HumanReviewEveryPathContractTests
             [
                 Node("trigger", AgentWorkflowNodeType.Trigger, AgentWorkflowSideEffect.ReadOnly),
                 Node("prepare", AgentWorkflowNodeType.Agent, AgentWorkflowSideEffect.ApprovalRequired, "document-checker"),
-                Node("orphan", AgentWorkflowNodeType.Agent, AgentWorkflowSideEffect.ApprovalRequired, "routing"),
+                Node("orphan", AgentWorkflowNodeType.Agent, AgentWorkflowSideEffect.ApprovalRequired, "document-checker"),
                 Node("review", AgentWorkflowNodeType.HumanReview, AgentWorkflowSideEffect.ApprovalRequired),
                 Node("complete", AgentWorkflowNodeType.Complete, AgentWorkflowSideEffect.ReadOnly)
             ],
@@ -413,11 +413,43 @@ public sealed class HumanReviewEveryPathContractTests
         public Task<IReadOnlyList<AgentWorkflowDefinition>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<AgentWorkflowDefinition>>(_items.Where(i => i.Scope == scope).ToArray());
 
+        public Task<IReadOnlyList<AgentWorkflowDefinition>> ListByKeyAsync(string key, TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<AgentWorkflowDefinition>>(_items
+                .Where(i => i.Scope == scope && string.Equals(i.Key, key, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(i => i.Version)
+                .ToArray());
+
         public Task<AgentWorkflowDefinition?> GetAsync(Guid definitionId, TenantScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult(_items.FirstOrDefault(i => i.DefinitionId == definitionId && i.Scope == scope));
 
-        public Task<AgentWorkflowDefinition?> GetByKeyAsync(string key, TenantScope scope, CancellationToken cancellationToken = default) =>
-            Task.FromResult(_items.FirstOrDefault(i => i.Scope == scope && string.Equals(i.Key, key, StringComparison.OrdinalIgnoreCase)));
+        public Task<AgentWorkflowDefinition?> GetByKeyAndVersionAsync(string key, int version, TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_items.FirstOrDefault(i =>
+                i.Scope == scope
+                && string.Equals(i.Key, key, StringComparison.OrdinalIgnoreCase)
+                && i.Version == version));
+
+        public Task<AgentWorkflowDefinition?> GetDraftByKeyAsync(string key, TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_items
+                .Where(i => i.Scope == scope
+                    && string.Equals(i.Key, key, StringComparison.OrdinalIgnoreCase)
+                    && i.Status == AgentWorkflowDefinitionStatus.Draft)
+                .OrderByDescending(i => i.Version)
+                .FirstOrDefault());
+
+        public Task<AgentWorkflowDefinition?> GetLatestPublishedByKeyAsync(string key, TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_items
+                .Where(i => i.Scope == scope
+                    && string.Equals(i.Key, key, StringComparison.OrdinalIgnoreCase)
+                    && i.Status == AgentWorkflowDefinitionStatus.Published)
+                .OrderByDescending(i => i.Version)
+                .FirstOrDefault());
+
+        public Task<int> GetMaxVersionAsync(string key, TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_items
+                .Where(i => i.Scope == scope && string.Equals(i.Key, key, StringComparison.OrdinalIgnoreCase))
+                .Select(i => i.Version)
+                .DefaultIfEmpty(0)
+                .Max());
 
         public Task SaveAsync(AgentWorkflowDefinition definition, CancellationToken cancellationToken = default)
         {

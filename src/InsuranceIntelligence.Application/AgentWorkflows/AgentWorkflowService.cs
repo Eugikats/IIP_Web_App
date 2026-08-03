@@ -24,17 +24,49 @@ public sealed class AgentWorkflowService(
     {
         await permissionService.RequirePermissionAsync(Permission.ViewAgentWorkflows, cancellationToken);
         var custom = await definitionRepository.ListAsync(tenantContextAccessor.Current.Scope, cancellationToken);
+        var currentCustom = custom
+            .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+                group.FirstOrDefault(item => item.Status == AgentWorkflowDefinitionStatus.Draft)
+                ?? group.Where(item => item.Status == AgentWorkflowDefinitionStatus.Published).OrderByDescending(item => item.Version).FirstOrDefault()
+                ?? group.OrderByDescending(item => item.Version).First())
+            .ToArray();
         return AgentWorkflowCatalog.Releases
-            .Concat(custom)
+            .Concat(currentCustom)
             .OrderBy(item => item.Release == 0 ? int.MaxValue : item.Release)
             .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
 
+    public async Task<IReadOnlyList<AgentWorkflowDefinition>> ListVersionsAsync(string key, CancellationToken cancellationToken = default)
+    {
+        await permissionService.RequirePermissionAsync(Permission.ViewAgentWorkflows, cancellationToken);
+        var normalized = NormalizeKey(key);
+        if (AgentWorkflowCatalog.Find(normalized) is { } system)
+        {
+            return [system];
+        }
+
+        var versions = await definitionRepository.ListByKeyAsync(normalized, tenantContextAccessor.Current.Scope, cancellationToken);
+        return versions.OrderBy(item => item.Version).ToArray();
+    }
+
     public async Task<AgentWorkflowDefinition?> GetDefinitionAsync(string key, CancellationToken cancellationToken = default)
     {
         await permissionService.RequirePermissionAsync(Permission.ViewAgentWorkflows, cancellationToken);
-        return await ResolveDefinitionAsync(key, cancellationToken);
+        return await ResolveCurrentDefinitionAsync(key, cancellationToken);
+    }
+
+    public async Task<AgentWorkflowDefinition?> GetVersionAsync(string key, int version, CancellationToken cancellationToken = default)
+    {
+        await permissionService.RequirePermissionAsync(Permission.ViewAgentWorkflows, cancellationToken);
+        var normalized = NormalizeKey(key);
+        if (AgentWorkflowCatalog.Find(normalized) is { } system && system.Version == version)
+        {
+            return system;
+        }
+
+        return await definitionRepository.GetByKeyAndVersionAsync(normalized, version, tenantContextAccessor.Current.Scope, cancellationToken);
     }
 
     public async Task<AgentWorkflowDefinition> SaveDraftAsync(
@@ -50,20 +82,45 @@ public sealed class AgentWorkflowService(
         }
 
         var context = tenantContextAccessor.Current;
-        var existing = request.DefinitionId.HasValue
-            ? await definitionRepository.GetAsync(request.DefinitionId.Value, context.Scope, cancellationToken)
-            : await definitionRepository.GetByKeyAsync(request.Key, context.Scope, cancellationToken);
-
-        if (existing is not null && existing.Status == AgentWorkflowDefinitionStatus.Published)
+        var normalizedKey = NormalizeKey(request.Key);
+        AgentWorkflowDefinition? existing = null;
+        if (request.DefinitionId.HasValue)
         {
-            throw new AgentWorkflowValidationException(nameof(request.DefinitionId), "Published workflow versions are immutable. Create a new workflow key for a revised version.");
+            existing = await definitionRepository.GetAsync(request.DefinitionId.Value, context.Scope, cancellationToken)
+                ?? throw new AgentWorkflowValidationException("definitionId", "Workflow definition was not found.");
+            if (existing.Status != AgentWorkflowDefinitionStatus.Draft)
+            {
+                throw new AgentWorkflowValidationException(
+                    "definitionId",
+                    "Published workflow versions are immutable. Use draft-new-version to revise under the same key.");
+            }
+            if (!string.Equals(existing.Key, normalizedKey, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new AgentWorkflowValidationException(
+                    nameof(request.Key),
+                    "Workflow key cannot change across versions of an existing definition.");
+            }
+        }
+        else
+        {
+            existing = await definitionRepository.GetDraftByKeyAsync(normalizedKey, context.Scope, cancellationToken);
+            if (existing is null)
+            {
+                var published = await definitionRepository.GetLatestPublishedByKeyAsync(normalizedKey, context.Scope, cancellationToken);
+                if (published is not null)
+                {
+                    throw new AgentWorkflowValidationException(
+                        "definitionId",
+                        "Published workflow versions are immutable. Use draft-new-version to create the next draft under this key.");
+                }
+            }
         }
 
         var now = DateTimeOffset.UtcNow;
         var definition = new AgentWorkflowDefinition(
-            existing?.DefinitionId ?? request.DefinitionId ?? Guid.NewGuid(),
+            existing?.DefinitionId ?? Guid.NewGuid(),
             context.Scope,
-            NormalizeKey(request.Key),
+            normalizedKey,
             request.Name.Trim(),
             request.Description.Trim(),
             Release: 0,
@@ -83,6 +140,49 @@ public sealed class AgentWorkflowService(
         return definition;
     }
 
+    public async Task<AgentWorkflowDefinition> DraftNewVersionAsync(string key, CancellationToken cancellationToken = default)
+    {
+        await permissionService.RequirePermissionAsync(Permission.ManageAgentWorkflows, cancellationToken);
+        if (AgentWorkflowCatalog.Find(key) is not null)
+        {
+            throw new AgentWorkflowValidationException(nameof(key), "System release workflows are immutable. Copy one to a new key before editing.");
+        }
+
+        var context = tenantContextAccessor.Current;
+        var normalizedKey = NormalizeKey(key);
+        var existingDraft = await definitionRepository.GetDraftByKeyAsync(normalizedKey, context.Scope, cancellationToken);
+        if (existingDraft is not null)
+        {
+            throw new AgentWorkflowValidationException(nameof(key), "A draft already exists for this workflow key. Edit or publish it before drafting a new version.");
+        }
+
+        var published = await definitionRepository.GetLatestPublishedByKeyAsync(normalizedKey, context.Scope, cancellationToken)
+            ?? throw new AgentWorkflowValidationException(nameof(key), "A published workflow version is required before drafting a new version.");
+
+        var now = DateTimeOffset.UtcNow;
+        var maxVersion = await definitionRepository.GetMaxVersionAsync(normalizedKey, context.Scope, cancellationToken);
+        var draft = published with
+        {
+            DefinitionId = Guid.NewGuid(),
+            Version = maxVersion + 1,
+            Status = AgentWorkflowDefinitionStatus.Draft,
+            CreatedAt = now,
+            CreatedByUserId = context.UserId,
+            PublishedAt = null,
+            PublishedByUserId = null
+        };
+
+        await definitionRepository.SaveAsync(draft, cancellationToken);
+        await WriteAuditAsync(
+            "agent_workflow.draft_new_version.created",
+            draft.Key,
+            draft.Status.ToString(),
+            draft.DefinitionId.ToString(),
+            null,
+            cancellationToken);
+        return draft;
+    }
+
     public async Task<AgentWorkflowDefinition> PublishAsync(string key, CancellationToken cancellationToken = default)
     {
         await permissionService.RequirePermissionAsync(Permission.ManageAgentWorkflows, cancellationToken);
@@ -92,8 +192,8 @@ public sealed class AgentWorkflowService(
         }
 
         var context = tenantContextAccessor.Current;
-        var definition = await definitionRepository.GetByKeyAsync(key, context.Scope, cancellationToken)
-            ?? throw new AgentWorkflowValidationException(nameof(key), "Workflow definition was not found.");
+        var definition = await definitionRepository.GetDraftByKeyAsync(NormalizeKey(key), context.Scope, cancellationToken)
+            ?? throw new AgentWorkflowValidationException(nameof(key), "No draft workflow definition was found to publish.");
 
         ValidateDefinitionInput(
             definition.Key,
@@ -132,7 +232,7 @@ public sealed class AgentWorkflowService(
         CancellationToken cancellationToken = default)
     {
         await permissionService.RequirePermissionAsync(Permission.RunAgentWorkflows, cancellationToken);
-        var definition = await ResolveDefinitionAsync(workflowKey, cancellationToken)
+        var definition = await ResolveLatestPublishedDefinitionAsync(workflowKey, cancellationToken)
             ?? throw new AgentWorkflowValidationException(nameof(workflowKey), "Workflow definition was not found.");
 
         if (definition.Status != AgentWorkflowDefinitionStatus.Published)
@@ -205,7 +305,7 @@ public sealed class AgentWorkflowService(
         var context = tenantContextAccessor.Current;
         var run = await runRepository.GetAsync(runId, context.Scope, cancellationToken)
             ?? throw new AgentWorkflowValidationException(nameof(runId), "Workflow run was not found.");
-        var definition = await ResolveDefinitionAsync(run.WorkflowKey, cancellationToken)
+        var definition = await ResolvePinnedDefinitionAsync(run, cancellationToken)
             ?? throw new AgentWorkflowValidationException(nameof(run.WorkflowKey), "Workflow definition was not found.");
         var node = definition.Nodes.FirstOrDefault(item => string.Equals(item.Key, nodeKey, StringComparison.OrdinalIgnoreCase))
             ?? throw new AgentWorkflowValidationException(nameof(nodeKey), "Workflow node was not found.");
@@ -302,7 +402,7 @@ public sealed class AgentWorkflowService(
 
         var run = await runRepository.GetAsync(item.RunId, context.Scope, cancellationToken)
             ?? throw new AgentWorkflowValidationException(nameof(item.RunId), "Workflow run was not found.");
-        var definition = await ResolveDefinitionAsync(run.WorkflowKey, cancellationToken)
+        var definition = await ResolvePinnedDefinitionAsync(run, cancellationToken)
             ?? throw new AgentWorkflowValidationException(nameof(run.WorkflowKey), "Workflow definition was not found.");
         var reviewNode = definition.Nodes.First(node => node.Key.Equals(item.NodeKey, StringComparison.OrdinalIgnoreCase));
         var now = DateTimeOffset.UtcNow;
@@ -561,10 +661,48 @@ public sealed class AgentWorkflowService(
         await WriteAuditAsync("agent_workflow.work_item.created", node.Key, workItem.Status.ToString(), workItem.WorkItemId.ToString(), run.BusinessReferenceId, cancellationToken, run.CorrelationId);
     }
 
-    private async Task<AgentWorkflowDefinition?> ResolveDefinitionAsync(string key, CancellationToken cancellationToken)
+    private async Task<AgentWorkflowDefinition?> ResolveCurrentDefinitionAsync(string key, CancellationToken cancellationToken)
     {
-        var system = AgentWorkflowCatalog.Find(key);
-        return system ?? await definitionRepository.GetByKeyAsync(key, tenantContextAccessor.Current.Scope, cancellationToken);
+        var scope = tenantContextAccessor.Current.Scope;
+        var normalized = NormalizeKey(key);
+        var draft = await definitionRepository.GetDraftByKeyAsync(normalized, scope, cancellationToken);
+        if (draft is not null)
+        {
+            return draft;
+        }
+
+        var published = await definitionRepository.GetLatestPublishedByKeyAsync(normalized, scope, cancellationToken);
+        return published ?? AgentWorkflowCatalog.Find(normalized);
+    }
+
+    private async Task<AgentWorkflowDefinition?> ResolveLatestPublishedDefinitionAsync(string key, CancellationToken cancellationToken)
+    {
+        var normalized = NormalizeKey(key);
+        var system = AgentWorkflowCatalog.Find(normalized);
+        if (system is not null)
+        {
+            return system;
+        }
+
+        return await definitionRepository.GetLatestPublishedByKeyAsync(normalized, tenantContextAccessor.Current.Scope, cancellationToken);
+    }
+
+    private async Task<AgentWorkflowDefinition?> ResolvePinnedDefinitionAsync(AgentWorkflowRun run, CancellationToken cancellationToken)
+    {
+        var byId = await definitionRepository.GetAsync(run.DefinitionId, run.Scope, cancellationToken);
+        if (byId is not null)
+        {
+            return byId;
+        }
+
+        var byKeyVersion = await definitionRepository.GetByKeyAndVersionAsync(run.WorkflowKey, run.WorkflowVersion, run.Scope, cancellationToken);
+        if (byKeyVersion is not null)
+        {
+            return byKeyVersion;
+        }
+
+        var system = AgentWorkflowCatalog.Find(run.WorkflowKey);
+        return system is not null && system.Version == run.WorkflowVersion ? system : null;
     }
 
     private static bool IsReady(AgentWorkflowDefinition definition, AgentWorkflowRun run, AgentWorkflowNode node)
