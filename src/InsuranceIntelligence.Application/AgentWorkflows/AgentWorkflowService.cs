@@ -140,6 +140,8 @@ public sealed class AgentWorkflowService(
             throw new AgentWorkflowValidationException(nameof(workflowKey), "Only published workflow definitions can run.");
         }
 
+        AgentWorkflowReleaseOneBound.EnsureExecutable(definition);
+
         var referenceType = request.BusinessReferenceType?.Trim().ToLowerInvariant() ?? string.Empty;
         var referenceId = request.BusinessReferenceId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(referenceType)
@@ -477,6 +479,7 @@ public sealed class AgentWorkflowService(
 
         try
         {
+            AgentWorkflowReleaseOneBound.EnsureDispatchAllowed(node);
             await queueDispatcher.DispatchAsync(
                 new QueueMessageEnvelope(
                     QueueName,
@@ -682,6 +685,9 @@ public sealed class AgentWorkflowService(
                 throw new AgentWorkflowValidationException(nameof(nodes), $"Tool node '{node.Key}' references an unknown typed tool.");
             }
         }
+
+        AgentWorkflowReleaseOneBound.EnsureNodesWithinAllowList(nodes);
+
         var keys = nodes.Select(node => node.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (edges.Count == 0 || edges.Any(edge => !keys.Contains(edge.SourceNodeKey) || !keys.Contains(edge.TargetNodeKey)))
         {

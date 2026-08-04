@@ -3,9 +3,11 @@ using InsuranceIntelligence.Domain.AgentWorkflows;
 namespace InsuranceIntelligence.Application.AgentWorkflows;
 
 /// <summary>
-/// The governed Releases 1-5 shipped with IIP. These are executable configuration,
-/// not demo business records. Tenants can inspect and run them but cannot weaken
-/// their review boundaries.
+/// The governed Releases 1-5 shipped with IIP. These are configuration records,
+/// not demo business data. Release 1 is executable on the current orchestration
+/// path; Releases 2–5 remain visibly held (inspectable, not runnable) until
+/// their providers and earlier services are proven — see
+/// <see cref="AgentWorkflowReleaseOneBound"/>.
 /// </summary>
 public static class AgentWorkflowCatalog
 {
@@ -38,7 +40,8 @@ public static class AgentWorkflowCatalog
             "22222222-2222-4222-8222-222222222222",
             "fnol-claim-readiness",
             "Release 2 · FNOL & Claim Readiness",
-            "Builds a grounded first-notice brief, checks policy and document readiness, and proposes routing for human confirmation.",
+            AgentWorkflowReleaseOneBound.HeldCatalogPreface(2)
+            + "Builds a grounded first-notice brief, checks policy and document readiness, and proposes routing for human confirmation.",
             2,
             ["case", "claim"],
             [
@@ -60,7 +63,8 @@ public static class AgentWorkflowCatalog
             "33333333-3333-4333-8333-333333333333",
             "claims-triage-sla",
             "Release 3 · Claims Triage & SLA",
-            "Prepares a claim summary, advisory risk signals, and an escalation recommendation for accountable human triage.",
+            AgentWorkflowReleaseOneBound.HeldCatalogPreface(3)
+            + "Prepares a claim summary, advisory risk signals, and an escalation recommendation for accountable human triage.",
             3,
             ["case", "claim"],
             [
@@ -80,7 +84,8 @@ public static class AgentWorkflowCatalog
             "44444444-4444-4444-8444-444444444444",
             "policy-customer-response",
             "Release 4 · Policy & Customer Response",
-            "Grounds a policy explanation and prepares a customer-safe draft that cannot be sent by the workflow engine.",
+            AgentWorkflowReleaseOneBound.HeldCatalogPreface(4)
+            + "Grounds a policy explanation and prepares a customer-safe draft that cannot be sent by the workflow engine.",
             4,
             ["case", "claim", "policy", "customer"],
             [
@@ -100,7 +105,8 @@ public static class AgentWorkflowCatalog
             "55555555-5555-4555-8555-555555555555",
             "underwriting-management-insight",
             "Release 5 · Underwriting & Management Insight",
-            "Combines advisory underwriting review, risk signals, and real operational reporting into a human-reviewed insight pack.",
+            AgentWorkflowReleaseOneBound.HeldCatalogPreface(5)
+            + "Combines advisory underwriting review, risk signals, and real operational reporting into a human-reviewed insight pack.",
             5,
             ["submission", "policy", "portfolio", "report"],
             [

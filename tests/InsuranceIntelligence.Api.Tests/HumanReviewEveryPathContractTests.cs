@@ -238,7 +238,7 @@ public sealed class HumanReviewEveryPathContractTests
             [
                 Node("trigger", AgentWorkflowNodeType.Trigger, AgentWorkflowSideEffect.ReadOnly),
                 Node("prepare", AgentWorkflowNodeType.Agent, AgentWorkflowSideEffect.ApprovalRequired, "document-checker"),
-                Node("orphan", AgentWorkflowNodeType.Agent, AgentWorkflowSideEffect.ApprovalRequired, "routing"),
+                Node("orphan", AgentWorkflowNodeType.Agent, AgentWorkflowSideEffect.ApprovalRequired, "document-checker"),
                 Node("review", AgentWorkflowNodeType.HumanReview, AgentWorkflowSideEffect.ApprovalRequired),
                 Node("complete", AgentWorkflowNodeType.Complete, AgentWorkflowSideEffect.ReadOnly)
             ],
