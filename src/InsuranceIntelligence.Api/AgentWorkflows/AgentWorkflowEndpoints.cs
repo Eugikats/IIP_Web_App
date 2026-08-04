@@ -14,6 +14,15 @@ public static class AgentWorkflowEndpoints
         return definition is null ? Results.NotFound() : Results.Ok(definition);
     }
 
+    public static async Task<IResult> ListVersions(string workflowKey, IAgentWorkflowService service, CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListVersionsAsync(workflowKey, cancellationToken));
+
+    public static async Task<IResult> GetVersion(string workflowKey, int version, IAgentWorkflowService service, CancellationToken cancellationToken)
+    {
+        var definition = await service.GetVersionAsync(workflowKey, version, cancellationToken);
+        return definition is null ? Results.NotFound() : Results.Ok(definition);
+    }
+
     public static async Task<IResult> SaveDraft(
         SaveAgentWorkflowDraftRequest request,
         IAgentWorkflowService service,
@@ -21,7 +30,17 @@ public static class AgentWorkflowEndpoints
         await ExecuteAsync(async () =>
         {
             var definition = await service.SaveDraftAsync(request, cancellationToken);
-            return Results.Created($"/api/v1/agent-workflows/{definition.Key}", definition);
+            return Results.Created($"/api/v1/agent-workflows/{definition.Key}/versions/{definition.Version}", definition);
+        });
+
+    public static async Task<IResult> DraftNewVersion(
+        string workflowKey,
+        IAgentWorkflowService service,
+        CancellationToken cancellationToken) =>
+        await ExecuteAsync(async () =>
+        {
+            var definition = await service.DraftNewVersionAsync(workflowKey, cancellationToken);
+            return Results.Created($"/api/v1/agent-workflows/{definition.Key}/versions/{definition.Version}", definition);
         });
 
     public static async Task<IResult> Publish(

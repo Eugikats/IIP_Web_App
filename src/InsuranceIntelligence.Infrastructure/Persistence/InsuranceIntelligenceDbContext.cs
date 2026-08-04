@@ -71,12 +71,16 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentWorkflowDefinition>(), "AgentWorkflowDefinitions", "DefinitionId");
         modelBuilder.Entity<PersistedAgentWorkflowDefinition>().Property(entity => entity.WorkflowKey).HasMaxLength(160).IsRequired();
         modelBuilder.Entity<PersistedAgentWorkflowDefinition>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
-        modelBuilder.Entity<PersistedAgentWorkflowDefinition>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.WorkflowKey }).IsUnique();
+        modelBuilder.Entity<PersistedAgentWorkflowDefinition>().Property(entity => entity.Version).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkflowDefinition>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.WorkflowKey, entity.Version }).IsUnique();
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentWorkflowRun>(), "AgentWorkflowRuns", "RunId");
         modelBuilder.Entity<PersistedAgentWorkflowRun>().Property(entity => entity.WorkflowKey).HasMaxLength(160).IsRequired();
         modelBuilder.Entity<PersistedAgentWorkflowRun>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
         modelBuilder.Entity<PersistedAgentWorkflowRun>().Property(entity => entity.BusinessReferenceId).HasMaxLength(240).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkflowRun>().Property(entity => entity.DefinitionId).IsRequired();
+        modelBuilder.Entity<PersistedAgentWorkflowRun>().Property(entity => entity.WorkflowVersion).IsRequired();
         modelBuilder.Entity<PersistedAgentWorkflowRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.WorkflowKey, entity.Status });
+        modelBuilder.Entity<PersistedAgentWorkflowRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.DefinitionId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentWorkItem>(), "AgentWorkItems", "WorkItemId");
         modelBuilder.Entity<PersistedAgentWorkItem>().Property(entity => entity.WorkflowKey).HasMaxLength(160).IsRequired();
         modelBuilder.Entity<PersistedAgentWorkItem>().Property(entity => entity.NodeKey).HasMaxLength(160).IsRequired();
@@ -191,12 +195,15 @@ public sealed class PersistedAgentWorkflowDefinition : PersistedScopedJson
 {
     public string WorkflowKey { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public int Version { get; set; }
 }
 public sealed class PersistedAgentWorkflowRun : PersistedScopedJson
 {
     public string WorkflowKey { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string BusinessReferenceId { get; set; } = string.Empty;
+    public Guid DefinitionId { get; set; }
+    public int WorkflowVersion { get; set; }
 }
 public sealed class PersistedAgentWorkItem : PersistedScopedJson
 {

@@ -180,6 +180,9 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
                     b.Property<string>("WorkflowKey")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -194,7 +197,7 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "WorkspaceId");
 
-                    b.HasIndex("TenantId", "WorkspaceId", "WorkflowKey")
+                    b.HasIndex("TenantId", "WorkspaceId", "WorkflowKey", "Version")
                         .IsUnique();
 
                     b.ToTable("AgentWorkflowDefinitions", (string)null);
@@ -211,6 +214,9 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(240)
                         .HasColumnType("nvarchar(240)");
+
+                    b.Property<Guid>("DefinitionId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()
@@ -234,6 +240,9 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<int>("WorkflowVersion")
+                        .HasColumnType("int");
+
                     b.Property<string>("WorkspaceId")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -242,6 +251,8 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId", "WorkspaceId");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "DefinitionId");
 
                     b.HasIndex("TenantId", "WorkspaceId", "WorkflowKey", "Status");
 

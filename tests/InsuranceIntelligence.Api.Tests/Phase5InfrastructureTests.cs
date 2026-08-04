@@ -1,7 +1,8 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Api.Admin;
 using InsuranceIntelligence.Api.Compliance;
+using InsuranceIntelligence.Application.Compliance;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Onboarding;
 using InsuranceIntelligence.Domain.Administration;
@@ -356,7 +357,22 @@ public sealed class Phase5InfrastructureTests
             CorrelationId = "corr"
         });
 
-        var result = await ComplianceEndpoints.GetAuditPack(claimCase.CaseId, caseRepository, auditRepository, documentRepository, actionRepository, approvalRepository, updateRepository, Options(), ScopedContext(), CancellationToken.None);
+        var context = MembershipScopedContext(scope, "local-admin", "attacker-tenant", "attacker-workspace", "attacker-user");
+        var service = CreateComplianceService(
+            context,
+            caseRepository: caseRepository,
+            auditRepository: auditRepository,
+            documentRepository: documentRepository,
+            actionRepository: actionRepository,
+            approvalRepository: approvalRepository,
+            updateRepository: updateRepository);
+
+        var result = await ComplianceEndpoints.GetAuditPack(
+            claimCase.CaseId,
+            service,
+            Options(),
+            context,
+            CancellationToken.None);
         var (status, body) = await ExecuteAsync<JsonElement>(result);
 
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -378,17 +394,28 @@ public sealed class Phase5InfrastructureTests
         const string auditReason = "Compliance officer exported the claim evidence pack.";
         await caseRepository.SaveAsync(claimCase);
 
+        var context = MembershipScopedContext(
+            scope,
+            "local-admin",
+            "attacker-tenant",
+            "attacker-workspace",
+            "attacker-user",
+            auditReason);
+        var service = CreateComplianceService(
+            context,
+            caseRepository: caseRepository,
+            auditRepository: auditRepository,
+            documentRepository: documentRepository,
+            actionRepository: actionRepository,
+            approvalRepository: approvalRepository,
+            updateRepository: updateRepository,
+            storageProvider: storageProvider);
+
         var result = await ComplianceEndpoints.ExportAuditPack(
             claimCase.CaseId,
-            caseRepository,
-            auditRepository,
-            documentRepository,
-            actionRepository,
-            approvalRepository,
-            updateRepository,
-            storageProvider,
+            service,
             Options(),
-            ScopedContext(auditReason: auditReason),
+            context,
             CancellationToken.None);
 
         var (status, body) = await ExecuteAsync<EvidencePackExportResponse>(result);
@@ -421,23 +448,28 @@ public sealed class Phase5InfrastructureTests
         const string auditReason = "Compliance officer exported the evidence pack using resolved membership context.";
         await caseRepository.SaveAsync(claimCase);
 
+        var context = MembershipScopedContext(
+            membershipScope,
+            "membership-compliance-user",
+            "attacker-tenant",
+            "attacker-workspace",
+            "attacker-user",
+            auditReason);
+        var service = CreateComplianceService(
+            context,
+            caseRepository: caseRepository,
+            auditRepository: auditRepository,
+            documentRepository: documentRepository,
+            actionRepository: actionRepository,
+            approvalRepository: approvalRepository,
+            updateRepository: updateRepository,
+            storageProvider: storageProvider);
+
         var result = await ComplianceEndpoints.ExportAuditPack(
             claimCase.CaseId,
-            caseRepository,
-            auditRepository,
-            documentRepository,
-            actionRepository,
-            approvalRepository,
-            updateRepository,
-            storageProvider,
+            service,
             Options(),
-            MembershipScopedContext(
-                membershipScope,
-                "membership-compliance-user",
-                "attacker-tenant",
-                "attacker-workspace",
-                "attacker-user",
-                auditReason),
+            context,
             CancellationToken.None);
         var (status, body) = await ExecuteAsync<EvidencePackExportResponse>(result);
         var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId);
@@ -451,6 +483,50 @@ public sealed class Phase5InfrastructureTests
             auditEvent.ActionName == "evidence_pack.exported"
             && auditEvent.UserId == "membership-compliance-user"
             && auditEvent.AuditReason == auditReason);
+    }
+
+    [Fact]
+    public async Task CompliancePosture_FailsClosedWhenMembershipContextMissing_IgnoresSpoofedHeaders()
+    {
+        // Headers/query present but no server-resolved TenantContext ΓÇö must fail closed.
+        var result = await ComplianceEndpoints.GetCompliancePosture(
+            CreateComplianceService(ScopedContext()),
+            Options(),
+            ScopedContext(),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, status);
+        Assert.True(body.GetProperty("errors").TryGetProperty("tenantScope", out _));
+    }
+
+    [Fact]
+    public async Task GetAuditPack_ReturnsNotFoundForCrossTenantCase()
+    {
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var foreignScope = TenantScope.Create("attacker-tenant", "attacker-workspace");
+        var claimCase = Case(foreignScope);
+        var caseRepository = new InMemoryCaseRepository();
+        await caseRepository.SaveAsync(claimCase);
+
+        var context = MembershipScopedContext(
+            membershipScope,
+            "membership-compliance-user",
+            "attacker-tenant",
+            "attacker-workspace",
+            "attacker-user");
+        var service = CreateComplianceService(context, caseRepository: caseRepository);
+
+        var result = await ComplianceEndpoints.GetAuditPack(
+            claimCase.CaseId,
+            service,
+            Options(),
+            context,
+            CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, status);
     }
 
     [Fact]
@@ -514,18 +590,22 @@ public sealed class Phase5InfrastructureTests
         await caseRepository.SaveAsync(Case(membershipScope) with { SlaDueAt = DateTimeOffset.UtcNow.AddHours(4) });
         await caseRepository.SaveAsync(Case(TenantScope.Create("attacker-tenant", "attacker-workspace")) with { SlaDueAt = DateTimeOffset.UtcNow.AddHours(-1) });
 
+        var context = MembershipScopedContext(
+            membershipScope,
+            "membership-compliance-user",
+            "attacker-tenant",
+            "attacker-workspace",
+            "attacker-user");
+        var service = CreateComplianceService(
+            context,
+            tenantRepository: tenantRepository,
+            onboardingRepository: onboardingRepository,
+            caseRepository: caseRepository);
+
         var result = await ComplianceEndpoints.GetCompliancePosture(
-            tenantRepository,
-            onboardingRepository,
-            caseRepository,
+            service,
             Options(),
-            new BasicSlaCalculator(),
-            MembershipScopedContext(
-                membershipScope,
-                "membership-compliance-user",
-                "attacker-tenant",
-                "attacker-workspace",
-                "attacker-user"),
+            context,
             CancellationToken.None);
 
         var (status, body) = await ExecuteAsync<CompliancePostureResponse>(result);
@@ -633,6 +713,46 @@ public sealed class Phase5InfrastructureTests
         context.Request.Headers["X-User-Id"] = spoofedUserId;
         context.Request.Headers["x-demo-user-id"] = spoofedUserId;
         return context;
+    }
+
+    private static IComplianceQueryService CreateComplianceService(
+        HttpContext httpContext,
+        ITenantConfigurationRepository? tenantRepository = null,
+        ITenantOnboardingRepository? onboardingRepository = null,
+        ICaseRepository? caseRepository = null,
+        IAuditRepository? auditRepository = null,
+        ICaseDocumentRepository? documentRepository = null,
+        IAgentActionLogRepository? actionRepository = null,
+        IApprovalRepository? approvalRepository = null,
+        ICustomerUpdateRepository? updateRepository = null,
+        IEvidencePackStorageProvider? storageProvider = null)
+    {
+        var tenantContext = httpContext.RequestServices.GetService<ITenantContextAccessor>()
+            ?? new TenantContextAccessor();
+        var permissionService = new PermissionService(tenantContext, new LocalTestPermissionReadRepository());
+        var options = Options();
+        return new ComplianceQueryService(
+            tenantContext,
+            permissionService,
+            tenantRepository ?? new InMemoryTenantConfigurationRepository(),
+            onboardingRepository ?? new RecordingTenantOnboardingRepository([]),
+            caseRepository ?? new InMemoryCaseRepository(),
+            auditRepository ?? new InMemoryAuditRepository(),
+            documentRepository ?? new InMemoryCaseDocumentRepository(),
+            actionRepository ?? new InMemoryAgentActionLogRepository(),
+            approvalRepository ?? new InMemoryApprovalRepository(),
+            updateRepository ?? new InMemoryCustomerUpdateRepository(),
+            storageProvider ?? new TestEvidencePackStorageProvider(),
+            new BasicSlaCalculator(),
+            new ComplianceResidencySettings(
+                options.DataResidencyCountry,
+                options.DataResidencyGeography,
+                options.AzureRegion,
+                options.DataResidencyMode,
+                options.AzureOpenAI.DeploymentType,
+                options.DataResidencyAllowedAzureRegions,
+                options.DataResidencyApprovalReference,
+                options.AiProvider));
     }
 
     private static ClaimCase Case(TenantScope scope) =>
