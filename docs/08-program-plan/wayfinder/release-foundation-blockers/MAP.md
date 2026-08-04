@@ -28,16 +28,17 @@ Bring the release-foundation work now reachable from `main` to a demonstrably me
 - [Reinstate Merge Governance](tickets/reinstate-merge-governance.md) � RF-07 � [#24](https://github.com/OticGroupAz/agenticIip-v2/pull/24): private-repo plan blocks native rulesets (403) / classic required checks (404); compensating control in force � PR-only to `main`, green Backend/Portal/Infra from `.github/workflows/ci.yml`, ?1 maintainer approval; evidence in `docs/05-deployment-release-enablement/iip_merge_governance.md`.
 - [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) � RF-05 � branch `harry/rf-invalidate-downstream-after-corrections`: BFS descendant invalidation + re-queue after field correction / return-for-correction; audits `nodes.invalidated` / `nodes.reevaluated`.
 - [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) � RF-06 � branch `harry/rf-invalidate-downstream-after-corrections`: Service Bus worker contract, server-resolved membership per message, idempotent duplicate/stale guards, and bounded R1 node execution tests; pending deployed telemetry proof.
+- [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) � RF-08 � branch `harry/rf-invalidate-downstream-after-corrections`: provider health now surfaces explicit `not_configured` for intentionally disabled providers; live migration/capacity evidence remains human-blocked.
 
 ## Frontier
 
 Open / unblocked next work:
 
 - [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) � RF-06 � [#18](https://github.com/OticGroupAz/agenticIip-v2/issues/18) (implementation in progress; deployment evidence pending)
+- [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) � RF-08 � [#19](https://github.com/OticGroupAz/agenticIip-v2/issues/19) (app-side safety done; operator migration/capacity evidence pending)
 
 ## Blocked tickets
 
-- [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) � RF-08 � blocked by RF-06 + ops facts
 - [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) � RF-09 � blocked by tenant safety, worker, real-provider path
 - [Publish Final Go-No-Go Evidence](tickets/publish-final-go-no-go-evidence.md) � RF-10 � blocked by every remediation and verification ticket
 

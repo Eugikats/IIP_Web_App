@@ -122,6 +122,60 @@ public sealed class Phase7ProviderTests
     }
 
     [Fact]
+    public async Task ProviderHealth_NotConfiguredProvidersSurfaceExplicitNotConfiguredStatus()
+    {
+        var options = new InfrastructureOptions
+        {
+            AuthMode = "Entra",
+            StorageProvider = "SqlServer",
+            DocumentProvider = "NotConfigured",
+            RetrievalProvider = "NotConfigured",
+            AiProvider = "NotConfigured",
+            QueueProvider = "AzureServiceBus",
+            ServiceBus = new ServiceBusOptions { FullyQualifiedNamespace = "iip-prod.servicebus.windows.net" }
+        };
+
+        var result = AdminEndpoints.GetProviderHealth(options, AuthenticatedContext("ITAdmin"));
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal("degraded", body.GetProperty("overallStatus").GetString());
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "database"
+            && item.GetProperty("status").GetString() == "missing");
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "documentIntelligence"
+            && item.GetProperty("status").GetString() == "not_configured");
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "azureOpenAI"
+            && item.GetProperty("status").GetString() == "not_configured");
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "aiSearch"
+            && item.GetProperty("status").GetString() == "not_configured");
+    }
+
+    [Theory]
+    [InlineData("NotConfigured")]
+    [InlineData("Disabled")]
+    public async Task ProviderHealth_NotConfiguredStorageModesSurfaceExplicitNotConfiguredStatus(string storageProvider)
+    {
+        var options = new InfrastructureOptions
+        {
+            AuthMode = "Entra",
+            StorageProvider = storageProvider
+        };
+
+        var result = AdminEndpoints.GetProviderHealth(options, AuthenticatedContext("ITAdmin"));
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal("degraded", body.GetProperty("overallStatus").GetString());
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "database"
+            && item.GetProperty("status").GetString() == "not_configured");
+    }
+
+    [Fact]
     public async Task ProviderHealth_AzureOpenAiRequiresEmbeddingDeployment()
     {
         var options = new InfrastructureOptions
