@@ -442,36 +442,18 @@ public sealed class AgentWorkflowService(
         }
         else if (request.Decision == AgentWorkItemDecision.ReturnForCorrection)
         {
-            if (!reviewNode.Configuration.TryGetValue("correctionTarget", out var correctionTarget))
+            if (!reviewNode.Configuration.TryGetValue("correctionTarget", out var correctionTarget)
+                || string.IsNullOrWhiteSpace(correctionTarget))
             {
                 throw new AgentWorkflowValidationException(nameof(request.Decision), "This review node has no governed correction target.");
             }
-            var resetReview = FindNodeRun(run, reviewNode.Key) with
-            {
-                Status = AgentWorkflowNodeRunStatus.Pending,
-                StartedAt = null,
-                CompletedAt = null,
-                Outcome = null,
-                OutputSummary = null
-            };
-            var resetTarget = FindNodeRun(ReplaceNodeRun(run, resetReview), correctionTarget) with
-            {
-                Status = AgentWorkflowNodeRunStatus.Pending,
-                StartedAt = null,
-                CompletedAt = null,
-                Outcome = null,
-                OutputSummary = null,
-                ErrorCode = null
-            };
-            updatedRun = ReplaceNodeRun(ReplaceNodeRun(run, resetReview), resetTarget) with
-            {
-                Status = AgentWorkflowRunStatus.Running,
-                UpdatedAt = now,
-                CompletedAt = null,
-                FailureCode = null
-            };
-            await runRepository.SaveAsync(updatedRun, cancellationToken);
-            updatedRun = await ActivateReadyNodesAsync(definition, updatedRun, cancellationToken);
+
+            updatedRun = await InvalidateRunDescendantsAsync(
+                definition,
+                run,
+                correctionTarget.Trim(),
+                request.Reason.Trim(),
+                cancellationToken);
         }
         else if (request.Decision == AgentWorkItemDecision.CancelWorkflow)
         {
@@ -494,6 +476,146 @@ public sealed class AgentWorkflowService(
             item.CorrelationId,
             auditReason: request.Reason.Trim());
         return decidedItem;
+    }
+
+    public async Task<IReadOnlyList<AgentWorkflowRun>> InvalidateDownstreamAfterEvidenceCorrectionAsync(
+        string businessReferenceType,
+        string businessReferenceId,
+        string? auditReason = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Same gate as document field correction actors (UploadDocument); Brokers may correct
+        // extraction without ReviewAgentWorkItems but must still invalidate stale runs.
+        await permissionService.RequirePermissionAsync(Permission.UploadDocument, cancellationToken);
+
+        var referenceType = businessReferenceType?.Trim().ToLowerInvariant() ?? string.Empty;
+        var referenceId = businessReferenceId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(referenceType) || string.IsNullOrWhiteSpace(referenceId) || referenceId.Length > 240)
+        {
+            throw new AgentWorkflowValidationException(
+                nameof(businessReferenceId),
+                "A business reference type and id are required to invalidate downstream workflow state.");
+        }
+
+        var scope = tenantContextAccessor.Current.Scope;
+        var candidates = (await runRepository.ListAsync(scope, cancellationToken))
+            .Where(run =>
+                run.BusinessReferenceType.Equals(referenceType, StringComparison.OrdinalIgnoreCase)
+                && run.BusinessReferenceId.Equals(referenceId, StringComparison.OrdinalIgnoreCase)
+                && run.Status is AgentWorkflowRunStatus.Queued
+                    or AgentWorkflowRunStatus.Running
+                    or AgentWorkflowRunStatus.WaitingForHuman
+                    or AgentWorkflowRunStatus.Completed)
+            .OrderBy(run => run.CreatedAt)
+            .ToArray();
+
+        var results = new List<AgentWorkflowRun>(candidates.Length);
+        foreach (var run in candidates)
+        {
+            var definition = await ResolvePinnedDefinitionAsync(run, cancellationToken)
+                ?? throw new AgentWorkflowValidationException(
+                    nameof(run.WorkflowKey),
+                    $"Cannot invalidate run '{run.RunId}': pinned workflow definition was not found.");
+            var root = AgentWorkflowDescendantInvalidation.ResolveEvidenceCorrectionRoot(definition);
+            results.Add(await InvalidateRunDescendantsAsync(definition, run, root, auditReason, cancellationToken));
+        }
+
+        return results;
+    }
+
+    private async Task<AgentWorkflowRun> InvalidateRunDescendantsAsync(
+        AgentWorkflowDefinition definition,
+        AgentWorkflowRun run,
+        string rootNodeKey,
+        string? auditReason,
+        CancellationToken cancellationToken)
+    {
+        var keys = AgentWorkflowDescendantInvalidation.CollectRootAndDescendants(definition, rootNodeKey);
+        var now = DateTimeOffset.UtcNow;
+        var priorSnapshots = new List<string>(keys.Count);
+        var updated = run;
+
+        foreach (var key in keys)
+        {
+            var current = FindNodeRun(updated, key);
+            priorSnapshots.Add($"{current.NodeKey}:{current.Status}:{current.Outcome ?? "-"}");
+            var reset = current with
+            {
+                Status = AgentWorkflowNodeRunStatus.Pending,
+                StartedAt = null,
+                CompletedAt = null,
+                Outcome = null,
+                OutputSummary = null,
+                Evidence = Array.Empty<AgentEvidenceReference>(),
+                Provider = null,
+                ModelOrTool = null,
+                PromptVersion = null,
+                ErrorCode = null
+            };
+            updated = ReplaceNodeRun(updated, reset);
+            await CancelOpenWorkItemsForNodeAsync(updated.RunId, key, now, cancellationToken);
+        }
+
+        updated = updated with
+        {
+            Status = AgentWorkflowRunStatus.Running,
+            UpdatedAt = now,
+            CompletedAt = null,
+            FailureCode = null
+        };
+        await runRepository.SaveAsync(updated, cancellationToken);
+        await WriteAuditAsync(
+            "agent_workflow.nodes.invalidated",
+            rootNodeKey,
+            "Pending",
+            updated.RunId.ToString(),
+            updated.BusinessReferenceId,
+            cancellationToken,
+            updated.CorrelationId,
+            auditReason: auditReason,
+            beforeStatus: string.Join(";", priorSnapshots));
+
+        updated = await ActivateReadyNodesAsync(definition, updated, cancellationToken);
+        await WriteAuditAsync(
+            "agent_workflow.nodes.reevaluated",
+            rootNodeKey,
+            updated.Status.ToString(),
+            updated.RunId.ToString(),
+            updated.BusinessReferenceId,
+            cancellationToken,
+            updated.CorrelationId,
+            auditReason: auditReason);
+        return updated;
+    }
+
+    private async Task CancelOpenWorkItemsForNodeAsync(
+        Guid runId,
+        string nodeKey,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var openItems = (await workItemRepository.ListAsync(tenantContextAccessor.Current.Scope, cancellationToken))
+            .Where(item =>
+                item.RunId == runId
+                && item.NodeKey.Equals(nodeKey, StringComparison.OrdinalIgnoreCase)
+                && item.Status is AgentWorkItemStatus.RequiresReview
+                    or AgentWorkItemStatus.InProgress
+                    or AgentWorkItemStatus.Escalated)
+            .ToArray();
+
+        foreach (var existing in openItems)
+        {
+            var cancelled = existing with
+            {
+                Status = AgentWorkItemStatus.Cancelled,
+                UpdatedAt = now,
+                Decision = null,
+                DecisionReason = "Superseded by evidence correction; downstream workflow state was invalidated.",
+                DecidedAt = now,
+                DecidedByUserId = tenantContextAccessor.Current.UserId
+            };
+            await workItemRepository.SaveAsync(cancelled, cancellationToken);
+        }
     }
 
     private async Task<AgentWorkflowRun> ActivateReadyNodesAsync(
@@ -626,8 +748,16 @@ public sealed class AgentWorkflowService(
         AgentWorkflowNode node,
         CancellationToken cancellationToken)
     {
-        var existing = await workItemRepository.GetForNodeAsync(run.RunId, node.Key, run.Scope, cancellationToken);
-        if (existing?.Status is AgentWorkItemStatus.RequiresReview or AgentWorkItemStatus.InProgress or AgentWorkItemStatus.Escalated)
+        var openWorkItem = (await workItemRepository.ListAsync(run.Scope, cancellationToken))
+            .Where(item =>
+                item.RunId == run.RunId
+                && item.NodeKey.Equals(node.Key, StringComparison.OrdinalIgnoreCase)
+                && item.Status is AgentWorkItemStatus.RequiresReview
+                    or AgentWorkItemStatus.InProgress
+                    or AgentWorkItemStatus.Escalated)
+            .OrderByDescending(item => item.UpdatedAt)
+            .FirstOrDefault();
+        if (openWorkItem is not null)
         {
             return;
         }
@@ -752,7 +882,8 @@ public sealed class AgentWorkflowService(
         string? correlationId = null,
         string? provider = "AgentWorkflowEngine",
         decimal? confidence = null,
-        string? auditReason = null)
+        string? auditReason = null,
+        string? beforeStatus = null)
     {
         var context = tenantContextAccessor.Current;
         await auditWriter.WriteAsync(
@@ -765,7 +896,7 @@ public sealed class AgentWorkflowService(
                 ActorType.User,
                 action,
                 DateTimeOffset.UtcNow,
-                BeforeStatus: null,
+                BeforeStatus: beforeStatus,
                 AfterStatus: status,
                 EvidenceIds: string.IsNullOrWhiteSpace(evidenceId) ? [subject] : [subject, evidenceId],
                 ModelProvider: provider,

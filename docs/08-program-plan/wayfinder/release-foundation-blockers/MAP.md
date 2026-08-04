@@ -26,16 +26,16 @@ Bring the release-foundation work now reachable from `main` to a demonstrably me
 - [Implement Immutable Workflow Version Lineage](tickets/implement-immutable-workflow-version-lineage.md) — RF-03 · [#25](https://github.com/OticGroupAz/agenticIip-v2/pull/25) merged: key+version identity, audited draft/publish, runs pin DefinitionId.
 - [Bound Orchestration to Release 1](tickets/bound-orchestration-to-release-one.md) — RF-04 · [#26](https://github.com/OticGroupAz/agenticIip-v2/pull/26) merged: R1 allow-list at publish/start/dispatch; R2–5 held.
 - [Reinstate Merge Governance](tickets/reinstate-merge-governance.md) — RF-07 · [#24](https://github.com/OticGroupAz/agenticIip-v2/pull/24): private-repo plan blocks native rulesets (403) / classic required checks (404); compensating control in force — PR-only to `main`, green Backend/Portal/Infra from `.github/workflows/ci.yml`, ?1 maintainer approval; evidence in `docs/05-deployment-release-enablement/iip_merge_governance.md`.
+- [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) — RF-05 · branch `harry/rf-invalidate-downstream-after-corrections`: BFS descendant invalidation + re-queue after field correction / return-for-correction; audits `nodes.invalidated` / `nodes.reevaluated`.
 
 ## Frontier
 
 Open / unblocked next work:
 
-- [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) — RF-05 · [#17](https://github.com/OticGroupAz/agenticIip-v2/issues/17)
+- [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) — RF-06 · [#18](https://github.com/OticGroupAz/agenticIip-v2/issues/18) (unblocks once RF-05 merges)
 
 ## Blocked tickets
 
-- [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) — RF-06 · blocked by RF-05 + Release 1 scope
 - [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) — RF-08 · blocked by RF-06 + ops facts
 - [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) — RF-09 · blocked by tenant safety, worker, real-provider path
 - [Publish Final Go-No-Go Evidence](tickets/publish-final-go-no-go-evidence.md) — RF-10 · blocked by every remediation and verification ticket
