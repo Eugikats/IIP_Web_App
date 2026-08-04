@@ -21,21 +21,21 @@ Bring the release-foundation work now reachable from `main` to a demonstrably me
 ## Decisions so far
 
 - Spec IIP-RF-001 published (`ready-for-agent`); tickets RF-01…RF-10 as GitHub #12–#21.
-- [Enforce Server-Resolved Tenant Authority in Compliance](tickets/enforce-server-resolved-tenant-authority.md) — RF-01 · [#23](https://github.com/OticGroupAz/agenticIip-v2/pull/23): `IComplianceQueryService` + membership `TenantContext` only; header/query fallback removed; `ComplianceTenantAuthorityTests` green.
-- [Guarantee Human Review on Every Consequential Workflow Path](tickets/guarantee-human-review-on-every-path.md) — RF-02 · [#22](https://github.com/OticGroupAz/agenticIip-v2/pull/22) merged: all-paths HumanReview publish invariant + `ApprovalDecisionGuard` Decide/Send/Execute ceiling.
+- [Enforce Server-Resolved Tenant Authority in Compliance](tickets/enforce-server-resolved-tenant-authority.md) — RF-01 · [#23](https://github.com/OticGroupAz/agenticIip-v2/pull/23) merged: `IComplianceQueryService` + membership `TenantContext` only.
+- [Guarantee Human Review on Every Consequential Workflow Path](tickets/guarantee-human-review-on-every-path.md) — RF-02 · [#22](https://github.com/OticGroupAz/agenticIip-v2/pull/22) merged: all-paths HumanReview publish invariant + `ApprovalDecisionGuard`.
+- [Implement Immutable Workflow Version Lineage](tickets/implement-immutable-workflow-version-lineage.md) — RF-03 · [#25](https://github.com/OticGroupAz/agenticIip-v2/pull/25) merged: key+version identity, audited draft/publish, runs pin DefinitionId.
+- [Bound Orchestration to Release 1](tickets/bound-orchestration-to-release-one.md) — RF-04 · [#26](https://github.com/OticGroupAz/agenticIip-v2/pull/26) merged: R1 allow-list at publish/start/dispatch; R2–5 held.
+- [Reinstate Merge Governance](tickets/reinstate-merge-governance.md) — RF-07 · [#24](https://github.com/OticGroupAz/agenticIip-v2/pull/24): private-repo plan blocks native rulesets (403) / classic required checks (404); compensating control in force — PR-only to `main`, green Backend/Portal/Infra from `.github/workflows/ci.yml`, ?1 maintainer approval; evidence in `docs/05-deployment-release-enablement/iip_merge_governance.md`.
 
 ## Frontier
 
 Open / unblocked next work:
 
-- [Implement Immutable Workflow Version Lineage](tickets/implement-immutable-workflow-version-lineage.md) — RF-03 · [#14](https://github.com/OticGroupAz/agenticIip-v2/issues/14)
-- [Bound Orchestration to Release 1](tickets/bound-orchestration-to-release-one.md) — RF-04 · [#15](https://github.com/OticGroupAz/agenticIip-v2/issues/15)
-- [Reinstate Merge Governance](tickets/reinstate-merge-governance.md) — RF-07 · [#16](https://github.com/OticGroupAz/agenticIip-v2/issues/16)
+- [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) — RF-05 · [#17](https://github.com/OticGroupAz/agenticIip-v2/issues/17)
 
 ## Blocked tickets
 
-- [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) — RF-05 · blocked by RF-02 (code landed; unblocks after RF-01 merge hygiene)
-- [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) — RF-06 · blocked by RF-02–05 + Release 1 scope
+- [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) — RF-06 · blocked by RF-05 + Release 1 scope
 - [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) — RF-08 · blocked by RF-06 + ops facts
 - [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) — RF-09 · blocked by tenant safety, worker, real-provider path
 - [Publish Final Go-No-Go Evidence](tickets/publish-final-go-no-go-evidence.md) — RF-10 · blocked by every remediation and verification ticket
@@ -43,7 +43,7 @@ Open / unblocked next work:
 ## Not yet specified
 
 - Whether the current sponsored subscription can meet representative non-dev latency and provider-capability gates without PAYG approval.
-- Whether GitHub plan limitations require an alternative to native protected-branch required checks.
+- When the org will upgrade GitHub plan (or otherwise) so native `main` required checks/rulesets can replace the RF-07 compensating control.
 - Which authorized operator and maintenance window will apply the consolidated Azure SQL migration.
 - Which real Azure AI Document Intelligence deployment and region will support Release 1 after capacity/residency verification.
 
