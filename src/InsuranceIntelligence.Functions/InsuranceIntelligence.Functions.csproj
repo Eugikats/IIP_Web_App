@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\InsuranceIntelligence.Application\InsuranceIntelligence.Application.csproj" />
     <ProjectReference Include="..\InsuranceIntelligence.Domain\InsuranceIntelligence.Domain.csproj" />
     <ProjectReference Include="..\InsuranceIntelligence.Infrastructure\InsuranceIntelligence.Infrastructure.csproj" />
   </ItemGroup>

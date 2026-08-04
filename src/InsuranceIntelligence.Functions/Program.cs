@@ -1,5 +1,8 @@
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.DependencyInjection;
+using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.AgentWorkflows;
+using InsuranceIntelligence.Domain.Queue;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,6 +40,22 @@ public class Program
                 }
 
                 services.AddInsuranceIntelligenceInfrastructure(context.Configuration, context.HostingEnvironment);
+                services.AddScoped<TenantContextAccessor>();
+                services.AddScoped<ITenantContextAccessor>(serviceProvider => serviceProvider.GetRequiredService<TenantContextAccessor>());
+                services.AddScoped<ITenantContextSetter>(serviceProvider => serviceProvider.GetRequiredService<TenantContextAccessor>());
+                services.AddScoped<IPermissionService, PermissionService>();
+                services.AddScoped<IAuditWriter, AuditWriter>();
+                services.AddScoped<IAgentWorkflowService, AgentWorkflowService>();
+                services.AddScoped<IAgentWorkflowNodeExecutor, AgentWorkflowNodeExecutor>();
+                services.AddScoped<IAgentWorkflowExecutionWorker, AgentWorkflowExecutionWorker>();
+                if (options.QueueProvider.Equals("AzureServiceBus", StringComparison.OrdinalIgnoreCase))
+                {
+                    services.AddSingleton<IMessageQueueDispatcher, FunctionsAzureServiceBusQueueDispatcher>();
+                }
+                else
+                {
+                    services.AddSingleton<IMessageQueueDispatcher, FunctionsMockMessageQueueDispatcher>();
+                }
 
                 // Add Teams webhook client if configured
                 if (options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
