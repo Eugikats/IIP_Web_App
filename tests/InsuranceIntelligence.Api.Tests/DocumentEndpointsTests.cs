@@ -3,8 +3,10 @@ using System.Text.Json;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.AgentWorkflows;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.LocalTestDoubles;
+using InsuranceIntelligence.Domain.AgentWorkflows;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
@@ -101,6 +103,7 @@ public sealed class DocumentEndpointsTests
             dependencies.CaseRepository,
             dependencies.DocumentRepository,
             dependencies.AuditRepository,
+            dependencies.AgentWorkflowService,
             ScopedContext(auditReason: auditReason),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<DocumentResponse>(result);
@@ -143,6 +146,7 @@ public sealed class DocumentEndpointsTests
             dependencies.CaseRepository,
             dependencies.DocumentRepository,
             dependencies.AuditRepository,
+            dependencies.AgentWorkflowService,
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
@@ -175,6 +179,7 @@ public sealed class DocumentEndpointsTests
             dependencies.CaseRepository,
             dependencies.DocumentRepository,
             dependencies.AuditRepository,
+            dependencies.AgentWorkflowService,
             ScopedContext(auditReason: "Attempted internal field correction should be blocked."),
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
@@ -684,7 +689,8 @@ public sealed class DocumentEndpointsTests
             documentRepository,
             storageProvider ?? new StubDocumentStorageProvider(),
             processingProvider ?? new MockDocumentProcessingProvider(),
-            new StaticDocumentChecklistProvider(scoringService));
+            new StaticDocumentChecklistProvider(scoringService),
+            new NoOpAgentWorkflowService());
     }
 
     private static DefaultHttpContext ScopedContext(
@@ -792,7 +798,60 @@ public sealed class DocumentEndpointsTests
         InMemoryCaseDocumentRepository DocumentRepository,
         IDocumentStorageProvider StorageProvider,
         IDocumentProcessingProvider ProcessingProvider,
-        IDocumentChecklistProvider ChecklistProvider);
+        IDocumentChecklistProvider ChecklistProvider,
+        IAgentWorkflowService AgentWorkflowService);
+
+    private sealed class NoOpAgentWorkflowService : IAgentWorkflowService
+    {
+        public Task<IReadOnlyList<AgentWorkflowDefinition>> ListDefinitionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<AgentWorkflowDefinition>>([]);
+
+        public Task<IReadOnlyList<AgentWorkflowDefinition>> ListVersionsAsync(string key, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<AgentWorkflowDefinition>>([]);
+
+        public Task<AgentWorkflowDefinition?> GetDefinitionAsync(string key, CancellationToken cancellationToken = default) =>
+            Task.FromResult<AgentWorkflowDefinition?>(null);
+
+        public Task<AgentWorkflowDefinition?> GetVersionAsync(string key, int version, CancellationToken cancellationToken = default) =>
+            Task.FromResult<AgentWorkflowDefinition?>(null);
+
+        public Task<AgentWorkflowDefinition> SaveDraftAsync(SaveAgentWorkflowDraftRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<AgentWorkflowDefinition> DraftNewVersionAsync(string key, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<AgentWorkflowDefinition> PublishAsync(string key, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AgentWorkflowRun>> ListRunsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<AgentWorkflowRun>>([]);
+
+        public Task<AgentWorkflowRun?> GetRunAsync(Guid runId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<AgentWorkflowRun?>(null);
+
+        public Task<AgentWorkflowRun> StartAsync(string workflowKey, StartAgentWorkflowRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<AgentWorkflowRun> CompleteNodeAsync(Guid runId, string nodeKey, CompleteAgentWorkflowNodeRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AgentWorkItem>> ListWorkItemsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<AgentWorkItem>>([]);
+
+        public Task<AgentWorkItem?> GetWorkItemAsync(Guid workItemId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<AgentWorkItem?>(null);
+
+        public Task<AgentWorkItem> DecideWorkItemAsync(Guid workItemId, DecideAgentWorkItemRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AgentWorkflowRun>> InvalidateDownstreamAfterEvidenceCorrectionAsync(
+            string businessReferenceType,
+            string businessReferenceId,
+            string? auditReason = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<AgentWorkflowRun>>([]);
+    }
 
     private sealed class StubDocumentStorageProvider : IDocumentStorageProvider
     {

@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Application.AgentWorkflows;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -370,6 +371,7 @@ public static class DocumentEndpoints
         ICaseRepository caseRepository,
         ICaseDocumentRepository documentRepository,
         IAuditRepository auditRepository,
+        IAgentWorkflowService agentWorkflowService,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -443,6 +445,14 @@ public static class DocumentEndpoints
         {
             Extraction = document.Extraction with { FieldCorrections = corrections }
         };
+
+        // RF-05: invalidate before persisting so a failed re-queue cannot leave a
+        // corrected document paired with stale completed downstream workflow state.
+        await agentWorkflowService.InvalidateDownstreamAfterEvidenceCorrectionAsync(
+            "case",
+            caseId.ToString(),
+            auditReason,
+            cancellationToken);
 
         await documentRepository.SaveAsync(correctedDocument, cancellationToken);
         await auditRepository.WriteAsync(

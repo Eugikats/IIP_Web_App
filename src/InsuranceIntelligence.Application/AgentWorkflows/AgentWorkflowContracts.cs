@@ -73,6 +73,17 @@ public interface IAgentWorkflowService
     Task<IReadOnlyList<AgentWorkItem>> ListWorkItemsAsync(CancellationToken cancellationToken = default);
     Task<AgentWorkItem?> GetWorkItemAsync(Guid workItemId, CancellationToken cancellationToken = default);
     Task<AgentWorkItem> DecideWorkItemAsync(Guid workItemId, DecideAgentWorkItemRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// RF-05: after evidence correction, invalidate the correction root and all graph
+    /// descendants on active/completed runs for the business reference, then re-activate
+    /// ready nodes so stale quality/review/complete outcomes cannot proceed.
+    /// </summary>
+    Task<IReadOnlyList<AgentWorkflowRun>> InvalidateDownstreamAfterEvidenceCorrectionAsync(
+        string businessReferenceType,
+        string businessReferenceId,
+        string? auditReason = null,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class AgentWorkflowValidationException(string field, string message) : InvalidOperationException(message)
