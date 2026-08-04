@@ -161,7 +161,7 @@ public static class AdminEndpoints
             items.Add(Health("mockProviders", "Mock", "healthy", "Mock providers remain available for local development."));
         }
 
-        var overall = items.Any(item => item.Status == "missing") ? "degraded" : "healthy";
+        var overall = items.Any(item => item.Status is "missing" or "not_configured") ? "degraded" : "healthy";
         return new ProviderHealthResponse(overall, items);
     }
 
@@ -521,6 +521,11 @@ public static class AdminEndpoints
 
     private static string DatabaseStatus(InfrastructureOptions options)
     {
+        if (IsNotConfiguredMode(options.StorageProvider))
+        {
+            return "not_configured";
+        }
+
         if (!options.StorageProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
         {
             return IsDevelopmentAuth(options) ? "configured" : "missing";
@@ -530,7 +535,9 @@ public static class AdminEndpoints
     }
 
     private static string DatabaseDetail(InfrastructureOptions options) =>
-        options.StorageProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase)
+        IsNotConfiguredMode(options.StorageProvider)
+            ? "Database provider is explicitly not configured. Persistence-dependent capabilities remain unavailable."
+            : options.StorageProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase)
             ? "SQL Server mode selected. Connection string must come from secure configuration or Key Vault reference."
             : IsDevelopmentAuth(options)
                 ? $"{options.StorageProvider} mode selected for local development."
@@ -559,6 +566,11 @@ public static class AdminEndpoints
 
     private static string RequiredStatus(InfrastructureOptions options, string selectedMode, string liveMode, params string?[] required)
     {
+        if (IsNotConfiguredMode(selectedMode))
+        {
+            return "not_configured";
+        }
+
         if (!selectedMode.Equals(liveMode, StringComparison.OrdinalIgnoreCase))
         {
             return IsDevelopmentAuth(options) && selectedMode.Equals("Mock", StringComparison.OrdinalIgnoreCase) ? "healthy" : "missing";
@@ -568,6 +580,9 @@ public static class AdminEndpoints
     }
 
     private static string RequiredDetail(InfrastructureOptions options, string selectedMode, string liveMode, string settingNames) =>
+        IsNotConfiguredMode(selectedMode)
+            ? "Provider is explicitly not configured for this environment. Related capabilities remain unavailable."
+            :
         selectedMode.Equals(liveMode, StringComparison.OrdinalIgnoreCase)
             ? $"Live provider mode selected. Required settings: {settingNames}. Sensitive values are never returned."
             : IsDevelopmentAuth(options)
@@ -576,4 +591,8 @@ public static class AdminEndpoints
 
     private static bool IsDevelopmentAuth(InfrastructureOptions options) =>
         options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsNotConfiguredMode(string mode) =>
+        mode.Equals("NotConfigured", StringComparison.OrdinalIgnoreCase)
+        || mode.Equals("Disabled", StringComparison.OrdinalIgnoreCase);
 }

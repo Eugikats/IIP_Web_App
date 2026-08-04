@@ -1,8 +1,8 @@
-# Release Foundation Blockers — Wayfinder Map
+ï»¿# Release Foundation Blockers â€” Wayfinder Map
 
 **Label:** `wayfinder:map`  
 **Status:** Open  
-**Tracker:** IIP-RF-001 · [GitHub #11](https://github.com/OticGroupAz/agenticIip-v2/issues/11) · [spec](../../../agents/specs/release-foundation-blocker-remediation.md)  
+**Tracker:** IIP-RF-001 â€” [GitHub #11](https://github.com/OticGroupAz/agenticIip-v2/issues/11) â€” [spec](../../../agents/specs/release-foundation-blocker-remediation.md)  
 **Local tickets:** `docs/08-program-plan/wayfinder/release-foundation-blockers/tickets/`
 
 ## Destination
@@ -20,25 +20,29 @@ Bring the release-foundation work now reachable from `main` to a demonstrably me
 
 ## Decisions so far
 
-- Spec IIP-RF-001 published (`ready-for-agent`); tickets RF-01…RF-10 as GitHub #12–#21.
-- [Enforce Server-Resolved Tenant Authority in Compliance](tickets/enforce-server-resolved-tenant-authority.md) — RF-01 · [#23](https://github.com/OticGroupAz/agenticIip-v2/pull/23) merged: `IComplianceQueryService` + membership `TenantContext` only.
-- [Guarantee Human Review on Every Consequential Workflow Path](tickets/guarantee-human-review-on-every-path.md) — RF-02 · [#22](https://github.com/OticGroupAz/agenticIip-v2/pull/22) merged: all-paths HumanReview publish invariant + `ApprovalDecisionGuard`.
-- [Implement Immutable Workflow Version Lineage](tickets/implement-immutable-workflow-version-lineage.md) — RF-03 · [#25](https://github.com/OticGroupAz/agenticIip-v2/pull/25) merged: key+version identity, audited draft/publish, runs pin DefinitionId.
-- [Bound Orchestration to Release 1](tickets/bound-orchestration-to-release-one.md) — RF-04 · [#26](https://github.com/OticGroupAz/agenticIip-v2/pull/26) merged: R1 allow-list at publish/start/dispatch; R2–5 held.
-- [Reinstate Merge Governance](tickets/reinstate-merge-governance.md) — RF-07 · [#24](https://github.com/OticGroupAz/agenticIip-v2/pull/24): private-repo plan blocks native rulesets (403) / classic required checks (404); compensating control in force — PR-only to `main`, green Backend/Portal/Infra from `.github/workflows/ci.yml`, ?1 maintainer approval; evidence in `docs/05-deployment-release-enablement/iip_merge_governance.md`.
-- [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) — RF-05 · branch `harry/rf-invalidate-downstream-after-corrections`: BFS descendant invalidation + re-queue after field correction / return-for-correction; audits `nodes.invalidated` / `nodes.reevaluated`.
+- Spec IIP-RF-001 published (`ready-for-agent`); tickets RF-01â€“RF-10 as GitHub #12â€“#21.
+- [Enforce Server-Resolved Tenant Authority in Compliance](tickets/enforce-server-resolved-tenant-authority.md) â€” RF-01 â€” [#23](https://github.com/OticGroupAz/agenticIip-v2/pull/23) merged: `IComplianceQueryService` + membership `TenantContext` only.
+- [Guarantee Human Review on Every Consequential Workflow Path](tickets/guarantee-human-review-on-every-path.md) â€” RF-02 â€” [#22](https://github.com/OticGroupAz/agenticIip-v2/pull/22) merged: all-paths HumanReview publish invariant + `ApprovalDecisionGuard`.
+- [Implement Immutable Workflow Version Lineage](tickets/implement-immutable-workflow-version-lineage.md) â€” RF-03 â€” [#25](https://github.com/OticGroupAz/agenticIip-v2/pull/25) merged: key+version identity, audited draft/publish, runs pin DefinitionId.
+- [Bound Orchestration to Release 1](tickets/bound-orchestration-to-release-one.md) â€” RF-04 â€” [#26](https://github.com/OticGroupAz/agenticIip-v2/pull/26) merged: R1 allow-list at publish/start/dispatch; R2â€“5 held.
+- [Reinstate Merge Governance](tickets/reinstate-merge-governance.md) â€” RF-07 â€” [#24](https://github.com/OticGroupAz/agenticIip-v2/pull/24): private-repo plan blocks native rulesets (403) / classic required checks (404); compensating control in force â€” PR-only to `main`, green Backend/Portal/Infra from `.github/workflows/ci.yml`, â‰¥1 maintainer approval; evidence in `docs/05-deployment-release-enablement/iip_merge_governance.md`.
+- [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) â€” RF-05 â€” branch `harry/rf-invalidate-downstream-after-corrections`: BFS descendant invalidation + re-queue after field correction / return-for-correction; audits `nodes.invalidated` / `nodes.reevaluated`.
+- [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) â€” RF-06 â€” branch `harry/rf-invalidate-downstream-after-corrections`: Service Bus worker contract, server-resolved membership per message, idempotent duplicate/stale guards, and bounded R1 node execution tests; pending deployed telemetry proof.
+- [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) â€” RF-08 â€” branch `harry/rf-invalidate-downstream-after-corrections`: provider health now surfaces explicit `not_configured` for intentionally disabled providers; live migration/capacity evidence remains human-blocked.
+- [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) â€” RF-09 â€” branch `harry/rf-invalidate-downstream-after-corrections`: UAT/perf smoke runners emit richer RF-09 evidence and fail fast with explicit blockers; authenticated staging reruns and tail-latency remediation remain open.
+- [Publish Final Go-No-Go Evidence](tickets/publish-final-go-no-go-evidence.md) â€” RF-10 â€” honest NO-GO pack published: [`docs/07-qa/rf10-release-foundation-go-no-go-evidence.md`](../../../07-qa/rf10-release-foundation-go-no-go-evidence.md). Separates code-complete from human-owned RF-06/08/09 blockers. `PRODUCTION-CANDIDATE: NO` / Managed App / Partner Center all **NO**.
 
 ## Frontier
 
-Open / unblocked next work:
+Open / human-blocked next work (not agent-fakeable):
 
-- [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) — RF-06 · [#18](https://github.com/OticGroupAz/agenticIip-v2/issues/18) (unblocks once RF-05 merges)
+- [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) â€” RF-06 â€” [#18](https://github.com/OticGroupAz/agenticIip-v2/issues/18) (code complete on branch; deployment telemetry pending)
+- [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) â€” RF-08 â€” [#19](https://github.com/OticGroupAz/agenticIip-v2/issues/19) (app-side safety done; operator migration/capacity evidence pending)
+- [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) â€” RF-09 â€” [#20](https://github.com/OticGroupAz/agenticIip-v2/issues/20) (tooling/evidence harness in place; authenticated staging evidence and latency remediation pending)
 
 ## Blocked tickets
 
-- [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) — RF-08 · blocked by RF-06 + ops facts
-- [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) — RF-09 · blocked by tenant safety, worker, real-provider path
-- [Publish Final Go-No-Go Evidence](tickets/publish-final-go-no-go-evidence.md) — RF-10 · blocked by every remediation and verification ticket
+- None agent-blocked. RF-10 evidence pack is published; remaining work is human-owned (Azure/Entra/UAT/latency). Re-issue go/no-go only after RF-06/08/09 live evidence exists.
 
 ## Not yet specified
 
@@ -51,5 +55,5 @@ Open / unblocked next work:
 
 - Partner Center or Managed Application republication.
 - Production launch or insurer onboarding before staging and pilot gates pass.
-- Extending Releases 2–5, Fraud, Underwriting, Billing, Marketplace, or other post-MVP surfaces.
+- Extending Releases 2â€“5, Fraud, Underwriting, Billing, Marketplace, or other post-MVP surfaces.
 - Visual redesign unrelated to blocker remediation.

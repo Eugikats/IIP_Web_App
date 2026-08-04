@@ -88,6 +88,7 @@ public sealed record ServiceBusOptions
 {
     public string? FullyQualifiedNamespace { get; init; }
     public bool UseManagedIdentity { get; init; } = true;
+    public string AgentWorkflowWorkerUserId { get; init; } = "system:agent-workflow-worker";
     public string EmailIngestionQueue { get; init; } = "email-ingestion";
     public string DocumentProcessingQueue { get; init; } = "document-processing";
     public string KnowledgeIndexingQueue { get; init; } = "knowledge-indexing";

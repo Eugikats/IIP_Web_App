@@ -262,12 +262,14 @@ public static class InfrastructureRegistration
             {
                 FullyQualifiedNamespace = configuration["ServiceBus:FullyQualifiedNamespace"],
                 UseManagedIdentity = !bool.TryParse(configuration["ServiceBus:UseManagedIdentity"], out var serviceBusManagedIdentity) || serviceBusManagedIdentity,
+                AgentWorkflowWorkerUserId = configuration["ServiceBus:AgentWorkflowWorkerUserId"] ?? "system:agent-workflow-worker",
                 EmailIngestionQueue = configuration["ServiceBus:EmailIngestionQueue"] ?? "email-ingestion",
                 DocumentProcessingQueue = configuration["ServiceBus:DocumentProcessingQueue"] ?? "document-processing",
                 KnowledgeIndexingQueue = configuration["ServiceBus:KnowledgeIndexingQueue"] ?? "knowledge-indexing",
                 OutboundCommunicationsQueue = configuration["ServiceBus:OutboundCommunicationsQueue"] ?? "outbound-communications",
                 ApprovalNotificationsQueue = configuration["ServiceBus:ApprovalNotificationsQueue"] ?? "approval-notifications",
-                AuditEventsQueue = configuration["ServiceBus:AuditEventsQueue"] ?? "audit-events"
+                AuditEventsQueue = configuration["ServiceBus:AuditEventsQueue"] ?? "audit-events",
+                AgentWorkflowQueue = configuration["ServiceBus:AgentWorkflowQueue"] ?? "agent-workflow"
             },
             GraphMail = new GraphMailOptions
             {

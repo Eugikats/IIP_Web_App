@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { randomUUID } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { createServer } from "node:http";
 import process from "node:process";
 import { performance } from "node:perf_hooks";
@@ -16,6 +17,8 @@ function usage() {
     "  --requests <n>              Requests per scenario (default: 50)",
     "  --concurrency <n>           Concurrent workers (default: 5)",
     "  --include-authenticated     Test claims routes using IIP_UAT_ACCESS_TOKEN",
+    "  --include-provider-health   Also test /api/v1/provider-status",
+    "  --include-compliance        Also test /api/v1/compliance/posture",
     "  --claim-id <id>             Also test /api/v1/claims/{id}",
     "  --allow-remote              Required for non-loopback targets",
     "  --output <path>             Write the JSON result to a file",
@@ -43,6 +46,8 @@ function parseArgs(argv) {
     concurrency: 5,
     help: false,
     includeAuthenticated: false,
+    includeCompliance: false,
+    includeProviderHealth: false,
     output: "",
     requests: 50,
     selfTest: false
@@ -52,6 +57,8 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === "--allow-remote") options.allowRemote = true;
     else if (arg === "--include-authenticated") options.includeAuthenticated = true;
+    else if (arg === "--include-compliance") options.includeCompliance = true;
+    else if (arg === "--include-provider-health") options.includeProviderHealth = true;
     else if (arg === "--self-test") options.selfTest = true;
     else if (arg === "--help" || arg === "-h") options.help = true;
     else if (arg === "--base-url") options.baseUrl = argv[++index] ?? "";
@@ -158,6 +165,18 @@ async function startSelfTestServer() {
       return;
     }
 
+    if (request.url === "/api/v1/provider-status" && authenticated) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end('{"overallStatus":"healthy","providers":[]}');
+      return;
+    }
+
+    if (request.url === "/api/v1/compliance/posture" && authenticated) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end('{"retention":{"auditRetentionDays":365},"providers":{"seedDemoData":false}}');
+      return;
+    }
+
     response.writeHead(401, { "content-type": "application/json" });
     response.end('{"error":"unauthorized"}');
   });
@@ -222,6 +241,24 @@ async function main() {
         targetP95Ms: 800
       });
     }
+    if (options.includeAuthenticated && options.includeProviderHealth) {
+      scenarios.push({
+        id: "PERF-ADMIN-001",
+        path: "/api/v1/provider-status",
+        authenticated: true,
+        expectedStatuses: [200],
+        targetP95Ms: 800
+      });
+    }
+    if (options.includeAuthenticated && options.includeCompliance) {
+      scenarios.push({
+        id: "PERF-COMPLIANCE-001",
+        path: "/api/v1/compliance/posture",
+        authenticated: true,
+        expectedStatuses: [200],
+        targetP95Ms: 1200
+      });
+    }
     if (options.includeAuthenticated && options.claimId) {
       scenarios.push({
         id: "PERF-API-002",
@@ -241,11 +278,21 @@ async function main() {
       generatedAt: new Date().toISOString(),
       baseUrl: baseUrl.origin,
       mode: options.selfTest ? "self-test" : "runtime",
+      requests: options.requests,
+      concurrency: options.concurrency,
       results,
+      thresholdFailures: results.filter((result) => !result.passed).map((result) => ({
+        id: result.id,
+        path: result.path,
+        p95Ms: result.p95Ms,
+        targetP95Ms: result.targetP95Ms,
+        errorRate: result.errorRate
+      })),
       passed: results.every((result) => result.passed)
     };
     console.table(results.map(({ errors, statusCounts, ...result }) => result));
     if (options.output) {
+      await mkdir(path.dirname(options.output), { recursive: true });
       await writeFile(options.output, JSON.stringify(report, null, 2) + "\n", "utf8");
     }
     if (!report.passed) process.exitCode = 1;

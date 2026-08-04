@@ -45,7 +45,7 @@ Later on 2026-07-13, after Entra token acquisition and server-resolved membershi
 
 A follow-up optimization reduced observed SQL calls from about seven to exactly four per claims request and deployed successfully to dev after `376/376` backend tests. The immediate warm repeat remained error-free but measured client claims p95 `1,336 ms`; sampled server p95 was `321.0767 ms` with a `5,525.1093 ms` outlier. The latency gate therefore remains failed despite lower database round trips and a better server median.
 
-The executable smoke harness currently covers `/health/ready`, `/api/v1/claims`, and optional `/api/v1/claims/{id}`. Provider, document, queue, webhook, and audit-load scenarios remain environment/provider gated.
+The executable smoke harness currently covers `/health/ready`, `/api/v1/claims`, optional `/api/v1/claims/{id}`, and representative authenticated control-plane checks for `/api/v1/provider-status` and `/api/v1/compliance/posture`. Document, queue, webhook, and audit-load scenarios remain environment/provider gated.
 
 ## Purpose
 
@@ -80,6 +80,9 @@ Run against an approved remote runtime only after authorization:
 ```powershell
 $env:IIP_UAT_ACCESS_TOKEN = "<real bearer token>"
 node tools/qa/Invoke-IipPerformanceSmoke.mjs --base-url "https://<approved-api-host>" --allow-remote --include-authenticated --claim-id "<synthetic-claim-id>" --requests 50 --concurrency 5
+
+# Extended authenticated matrix for RF-09 representative paths.
+node tools/qa/Invoke-IipPerformanceSmoke.mjs --base-url "https://<approved-api-host>" --allow-remote --include-authenticated --include-provider-health --include-compliance --claim-id "<synthetic-claim-id>" --requests 50 --concurrency 5 --output "artifacts/rf09/<env>-perf.json"
 ```
 
 The token is read only from `IIP_UAT_ACCESS_TOKEN` and is never printed or written to the report. The runner refuses non-loopback targets unless `--allow-remote` is supplied.
