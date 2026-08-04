@@ -29,6 +29,7 @@ Bring the release-foundation work now reachable from `main` to a demonstrably me
 - [Invalidate and Re-evaluate Downstream Workflow State](tickets/invalidate-downstream-workflow-state.md) � RF-05 � branch `harry/rf-invalidate-downstream-after-corrections`: BFS descendant invalidation + re-queue after field correction / return-for-correction; audits `nodes.invalidated` / `nodes.reevaluated`.
 - [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) � RF-06 � branch `harry/rf-invalidate-downstream-after-corrections`: Service Bus worker contract, server-resolved membership per message, idempotent duplicate/stale guards, and bounded R1 node execution tests; pending deployed telemetry proof.
 - [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) � RF-08 � branch `harry/rf-invalidate-downstream-after-corrections`: provider health now surfaces explicit `not_configured` for intentionally disabled providers; live migration/capacity evidence remains human-blocked.
+- [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) � RF-09 � branch `harry/rf-invalidate-downstream-after-corrections`: UAT/perf smoke runners emit richer RF-09 evidence and fail fast with explicit blockers; authenticated staging reruns and tail-latency remediation remain open.
 
 ## Frontier
 
@@ -36,10 +37,10 @@ Open / unblocked next work:
 
 - [Deliver the Release 1 Workflow Execution Worker](tickets/deliver-release-one-workflow-worker.md) � RF-06 � [#18](https://github.com/OticGroupAz/agenticIip-v2/issues/18) (implementation in progress; deployment evidence pending)
 - [Close Azure SQL and Document Provider Gates](tickets/close-azure-sql-and-document-provider-gates.md) � RF-08 � [#19](https://github.com/OticGroupAz/agenticIip-v2/issues/19) (app-side safety done; operator migration/capacity evidence pending)
+- [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) � RF-09 � [#20](https://github.com/OticGroupAz/agenticIip-v2/issues/20) (tooling/evidence progress in place; authenticated staging evidence and latency remediation pending)
 
 ## Blocked tickets
 
-- [Pass Authenticated UAT and Tail-Latency Gates](tickets/pass-uat-and-tail-latency-gates.md) � RF-09 � blocked by tenant safety, worker, real-provider path
 - [Publish Final Go-No-Go Evidence](tickets/publish-final-go-no-go-evidence.md) � RF-10 � blocked by every remediation and verification ticket
 
 ## Not yet specified

@@ -128,9 +128,20 @@ powershell -ExecutionPolicy Bypass -File tools\qa\Invoke-IipLiveUatSmoke.ps1 -Sk
 
 # Full authenticated gate after tenant admin consent/sign-in is complete.
 powershell -ExecutionPolicy Bypass -File tools\qa\Invoke-IipLiveUatSmoke.ps1 -RequireAuthenticated
+
+# Role-specific authenticated evidence with JSON output.
+powershell -ExecutionPolicy Bypass -File tools\qa\Invoke-IipLiveUatSmoke.ps1 `
+  -RequireAuthenticated `
+  -ExpectedRole ClaimsSupervisor `
+  -ExpectedMeSource MembershipStore `
+  -IncludeClaimsList `
+  -IncludeProviderStatus `
+  -IncludeCompliancePosture `
+  -DeniedApiPath "/api/v1/admin/users" `
+  -OutputPath "artifacts/rf09/claims-supervisor-uat.json"
 ```
 
-The runner accepts `-ApiBaseUrl`, `-PortalBaseUrl`, `-Scope`, and `-AccessToken` overrides. It does not persist tokens. `-RequireAuthenticated` fails if `az account get-access-token --scope <scope>` cannot obtain a user token or if authenticated `/api/v1/me` does not return `200`.
+The runner accepts `-ApiBaseUrl`, `-PortalBaseUrl`, `-Scope`, `-AccessToken`, `-ExpectedRole`, `-ExpectedTenantId`, `-ExpectedWorkspaceId`, `-ExpectedMeSource`, `-DeniedApiPath`, `-IncludeClaimsList`, `-IncludeProviderStatus`, `-IncludeCompliancePosture`, `-TimeoutSeconds`, and `-OutputPath` overrides. It does not persist tokens. `-RequireAuthenticated` fails if `az account get-access-token --scope <scope>` cannot obtain a user token or if authenticated `/api/v1/me` does not return `200`.
 
 ### 7.2 Admin Consent URL Helper
 
@@ -151,6 +162,7 @@ Important: portal admin consent grants consent for the portal SPA/client applica
 | `node tools/qa/Invoke-IipPerformanceSmoke.mjs --self-test --requests 20 --concurrency 5` | Harness passes readiness, claims-list, and claim-detail loopback scenarios with zero errors. |
 | Remote target without `--allow-remote` | Runner refuses before sending traffic. |
 | Protected scenario without `IIP_UAT_ACCESS_TOKEN` | Runner fails closed before sending protected requests. |
+| `node tools/qa/Invoke-IipPerformanceSmoke.mjs --self-test --include-provider-health --include-compliance --claim-id <id>` | Harness also proves representative authenticated provider-status and compliance-posture scenarios. |
 | Approved dev/staging run with a real token and synthetic claim ID | Health p95 < 300 ms, claims list p95 < 800 ms, claim detail p95 < 1.2 s, zero unexpected HTTP responses, no cross-tenant data. |
 
 The self-test validates the harness only. Remote load execution requires explicit approval and does not become pilot evidence until run against the approved environment with a real token and synthetic records.
@@ -201,3 +213,4 @@ The self-test validates the harness only. Remote load execution requires explici
 | 2026-07-13 | Authenticated live UAT | Codex / tenant administrator | Core identity smoke passed | Azure CLI delegated consent completed for the API scope. The current user's `oid` was added idempotently to the existing dev `dcb0b132-fb9e-475c-a68e-b0671222e8d8` / `workspace-operations` Admin scope without replacing the existing principal. `Invoke-IipLiveUatSmoke.ps1 -RequireAuthenticated` passed readiness `200`, anonymous `/api/v1/me` denial `401`, portal `/app` `200`, and authenticated `/api/v1/me` `200` with server-resolved context. Full role/provider scenarios remain open. |
 | 2026-07-13 | Production data-residency technical control | Codex | Technical gate pass; approval open | Production/reviewer startup now fails on missing decision metadata or an Azure region outside the approved list. Compliance posture separates tenant address from Azure residency; IaC defaults storage to `Standard_LRS` and requires explicit replication choice. Focused backend tests passed `56/56`; Bicep compiled with the existing nullable-module warning. No jurisdiction was selected and no production resources were created. |
 | 2026-07-13 | Approved live dev performance smoke | Repository owner / Codex | Approval resolved; latency gate still failed | Readiness and authenticated claims runs completed with zero errors. A request-scoped permission optimization reduced observed SQL dependencies from about seven to exactly four per claims request; full backend tests passed `376/376`; dev deployment `b0b8d3d3-1bf4-4c22-976a-466d17516c41` succeeded. The warm repeat still measured client claims p95 `1,336 ms` against `800 ms`; sampled server p95 was `321.0767 ms` with a `5,525.1093 ms` outlier. Evidence is in the approval document and three authenticated JSON reports. Staging/pilot sign-off remains open. |
+| 2026-08-04 | RF-09 smoke runner evidence refresh | GPT-5.4 | Partial pass | `Invoke-IipLiveUatSmoke.ps1 -SkipAzToken -TimeoutSeconds 20 -OutputPath artifacts/rf09/uat-smoke-blocked.json` wrote machine-readable evidence for readiness `200`, anonymous `/me` denial `401`, portal `/app` route `200`, and an honest authenticated block when no token was supplied. `Invoke-IipPerformanceSmoke.mjs --self-test --include-provider-health --include-compliance --output artifacts/rf09/perf-self-test.json` passed all representative self-test scenarios. Full authenticated role-matrix and staging/provider runs remain open. |
