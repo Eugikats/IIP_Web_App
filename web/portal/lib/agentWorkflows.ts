@@ -179,7 +179,10 @@ export function useAgentWorkflows() {
   const publish = useCallback(async (workflowKey: string) =>
     api<WorkflowDefinition>(`/api/v1/agent-workflows/${encodeURIComponent(workflowKey)}/publish`, role, { method: "POST" }), [role]);
 
-  return { definitions, runs, loading, error, refresh, startRun, saveDraft, publish };
+  const draftNewVersion = useCallback(async (workflowKey: string) =>
+    api<WorkflowDefinition>(`/api/v1/agent-workflows/${encodeURIComponent(workflowKey)}/draft-new-version`, role, { method: "POST" }), [role]);
+
+  return { definitions, runs, loading, error, refresh, startRun, saveDraft, publish, draftNewVersion };
 }
 
 export function useAgentWorkflowRun(runId: string) {
@@ -196,7 +199,10 @@ export function useAgentWorkflowRun(runId: string) {
       setRun(null); setDefinition(null); setError(runResult.message); setLoading(false); return;
     }
     setRun(runResult.data);
-    const definitionResult = await api<WorkflowDefinition>(`/api/v1/agent-workflows/${encodeURIComponent(runResult.data.workflowKey)}`, roleDef.key);
+    const definitionResult = await api<WorkflowDefinition>(
+      `/api/v1/agent-workflows/${encodeURIComponent(runResult.data.workflowKey)}/versions/${runResult.data.workflowVersion}`,
+      roleDef.key,
+    );
     setDefinition(definitionResult.ok ? definitionResult.data : null);
     setError(definitionResult.ok ? null : definitionResult.message);
     setLoading(false);

@@ -642,7 +642,13 @@ app.MapGet("/api/v1/agent-workflows", InsuranceIntelligence.Api.AgentWorkflows.A
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAgentWorkflows));
 app.MapGet("/api/v1/agent-workflows/{workflowKey}", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.GetDefinition)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAgentWorkflows));
+app.MapGet("/api/v1/agent-workflows/{workflowKey}/versions", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.ListVersions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAgentWorkflows));
+app.MapGet("/api/v1/agent-workflows/{workflowKey}/versions/{version:int}", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.GetVersion)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAgentWorkflows));
 app.MapPost("/api/v1/agent-workflows", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.SaveDraft)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgentWorkflows));
+app.MapPost("/api/v1/agent-workflows/{workflowKey}/draft-new-version", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.DraftNewVersion)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgentWorkflows));
 app.MapPost("/api/v1/agent-workflows/{workflowKey}/publish", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.Publish)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgentWorkflows));
