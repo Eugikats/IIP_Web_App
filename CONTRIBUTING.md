@@ -58,6 +58,8 @@ If a check cannot run, record the command, reason and remaining risk. Never repo
 
 Update the owning document when a contract, workflow, data model, route, UI behavior, runtime profile, provider, deployment process or operational procedure changes.
 
+Use the task map in [`docs/README.md`](docs/README.md) and the placement/lifecycle rules in [`documentation-governance.md`](docs/00-start-here/documentation-governance.md). After adding, moving or removing documentation, run `pwsh scripts/docs/Update-IipDocsCatalog.ps1` and include the regenerated catalog in the same change.
+
 Use an ADR for a material decision that changes boundaries, dependencies, source of truth, security posture, human authority, deployment model or migration strategy. Mark superseded guidance explicitly; do not leave two active authorities.
 
 Do not copy volatile inventories into `AGENTS.md` or this guide. Route catalogs, agent/provider definitions, UI tokens, delivery status and release evidence belong in code or their owning documents.

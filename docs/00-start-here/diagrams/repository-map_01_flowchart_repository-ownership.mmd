@@ -1,0 +1,40 @@
+flowchart LR
+    Contributor["👤 Contributor"] --> Entry["🧭 Repository entry points"]
+
+    Entry --> Product["💻 Product implementation"]
+    Entry --> Delivery["🏗️ Delivery and operations"]
+    Entry --> Knowledge["📝 Governed knowledge"]
+    Entry --> Local["🧪 Local and temporary work"]
+
+    Product --> Domain["Domain"]
+    Product --> Application["Application"]
+    Product --> Adapters["Infrastructure adapters"]
+    Product --> Hosts["API and Functions"]
+    Product --> Portal["IIP Operations portal"]
+
+    Delivery --> Infra["infra"]
+    Delivery --> Automation["scripts, tools, and CI"]
+
+    Knowledge --> Docs["docs task index"]
+    Docs --> Authority["Owned specifications and ADRs"]
+    Docs --> Evidence["Dated research and QA evidence"]
+
+    Local --> Scratch[".scratch"]
+    Local --> Generated["output, tmp, and package caches"]
+
+    Domain --> Application
+    Application --> Adapters
+    Adapters --> Hosts
+    Hosts --> Portal
+
+    classDef entry fill:#FFD700,stroke:#333,stroke-width:2px,color:#111111
+    classDef product fill:#90EE90,stroke:#333,stroke-width:2px,color:#0B3D0B
+    classDef delivery fill:#87CEEB,stroke:#333,stroke-width:2px,color:#0B2E59
+    classDef knowledge fill:#E6E6FA,stroke:#333,stroke-width:2px,color:#1E1B4B
+    classDef local fill:#F3F4F6,stroke:#4B5563,stroke-width:2px,color:#111827
+
+    class Contributor,Entry entry
+    class Product,Domain,Application,Adapters,Hosts,Portal product
+    class Delivery,Infra,Automation delivery
+    class Knowledge,Docs,Authority,Evidence knowledge
+    class Local,Scratch,Generated local

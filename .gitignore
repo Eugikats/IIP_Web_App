@@ -2,15 +2,19 @@
 bin/
 obj/
 node_modules/
+.nuget-packages/
 .next/
 dist/
 output/
+/tmp/
 *.user
 *.tsbuildinfo
 web/portal/playwright-report/
 web/portal/test-results/
 web/portal/tests/visual/test-results/
 web/portal/next-dev-*.log
+/IIP_Docs_*.zip
+/artifacts/documentation-archives/
 
 # Keep the infra build-output dir tracked (via .gitkeep) but ignore its generated contents
 !infra/dist/

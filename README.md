@@ -28,6 +28,8 @@ Coding agents read [`AGENTS.md`](AGENTS.md) first. Its **Authority and current t
 - Product intent: [`iip_master_product_context.md`](docs/01-strategy-requirements-roadmap/iip_master_product_context.md) and [`iip_product_requirements_document.md`](docs/01-strategy-requirements-roadmap/iip_product_requirements_document.md).
 - Current work order: [`IIP-CONSOLIDATED-ROADMAP.md`](docs/08-program-plan/IIP-CONSOLIDATED-ROADMAP.md).
 - Documentation index: [`docs/README.md`](docs/README.md).
+- Repository map: [`docs/00-start-here/repository-map.md`](docs/00-start-here/repository-map.md).
+- Product glossary: [`docs/00-start-here/product-glossary.md`](docs/00-start-here/product-glossary.md).
 - Contributor workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - Focused safety reference: [`IIP_IMPLEMENTATION_GUARDRAILS.md`](IIP_IMPLEMENTATION_GUARDRAILS.md).
 
