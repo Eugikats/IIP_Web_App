@@ -177,6 +177,8 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowRunRepository, EfAgentWorkflowRunRepository>();
         services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkItemRepository, EfAgentWorkItemRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
+        services.AddScoped<InsuranceIntelligence.Infrastructure.DemoSeeding.IDemoDataPurgeService, InsuranceIntelligence.Infrastructure.DemoSeeding.EfDemoDataPurgeService>();
+        services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.DemoSeedService>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
         // Azure SQL connectivity probe). The other three Core ports (ITenantContextAccessor,
         // IPermissionService, IAuditWriter) are already correctly implemented via the hexagonal

@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\InsuranceIntelligence.Application\InsuranceIntelligence.Application.csproj" />
     <ProjectReference Include="..\..\src\InsuranceIntelligence.Domain\InsuranceIntelligence.Domain.csproj" />
     <ProjectReference Include="..\..\src\InsuranceIntelligence.Infrastructure\InsuranceIntelligence.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\InsuranceIntelligence.LocalTestDoubles\InsuranceIntelligence.LocalTestDoubles.csproj" />
   </ItemGroup>
 
 </Project>

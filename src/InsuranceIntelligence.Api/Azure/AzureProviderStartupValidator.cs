@@ -212,7 +212,13 @@ public static class AzureProviderStartupValidator
             : environmentName;
     }
 
-    private static bool IsProtectedRuntime(string environmentName) =>
+    /// <summary>
+    /// True for runtime profiles where live customer data may be present and synthetic
+    /// seeding must never be reachable (Staging/Production/ManagedApplicationReviewer).
+    /// Exposed publicly so other guarded surfaces (e.g. demo data seeding) can reuse the
+    /// exact same classification instead of re-deriving it.
+    /// </summary>
+    public static bool IsProtectedRuntime(string environmentName) =>
         environmentName.Equals("Staging", StringComparison.OrdinalIgnoreCase)
         || environmentName.Equals("Production", StringComparison.OrdinalIgnoreCase)
         || environmentName.Equals("ManagedApplicationReviewer", StringComparison.OrdinalIgnoreCase);
