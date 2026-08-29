@@ -8,6 +8,7 @@ public enum IntentType
     ShowPendingApprovals,
     GenerateManagementSummary,
     PrepareCustomerUpdateDraft,
+    AnswerPolicyQuestion,
     Unsupported
 }
 
@@ -55,6 +56,18 @@ public sealed class DeterministicThenAiIntentClassifier : IIntentClassifier
     {
         var normalized = (message ?? string.Empty).Trim().ToLowerInvariant();
 
+        // Vocabulary that only ever appears in a policy-knowledge question, never in an
+        // operational queue query. Checked first so these route to grounded retrieval + AI
+        // rather than falling through to an operational intent that happens to share a word.
+        if (Mentions(normalized,
+            "exclusion", "excluded", "waiting period", "sub-limit", "sublimit",
+            "deductible", "excess", "policy wording", "co-payment", "copayment",
+            "grace period", "premium", "sum insured", "sum assured", "what is covered",
+            "what does the policy", "does the policy", "covered under", "benefit"))
+        {
+            return Result(IntentType.AnswerPolicyQuestion, 0.86m);
+        }
+
         if (Mentions(normalized, "customer update", "customer communication", "draft update", "draft email", "draft message"))
         {
             return Result(IntentType.PrepareCustomerUpdateDraft, 0.88m, ExtractGuidParameter(message));
@@ -85,8 +98,25 @@ public sealed class DeterministicThenAiIntentClassifier : IIntentClassifier
             return Result(IntentType.ShowAttentionClaims, 0.85m);
         }
 
+        // Nothing operational matched. If the user actually asked something (rather than
+        // greeting or typing a fragment), send it to grounded retrieval + AI instead of
+        // silently returning the standing workspace briefing — answering "how does X work?"
+        // with an unrelated claims summary reads as a broken assistant.
+        if (LooksLikeAQuestion(normalized))
+        {
+            return Result(IntentType.AnswerPolicyQuestion, 0.6m);
+        }
+
         return Result(IntentType.Unsupported, 0m);
     }
+
+    private static readonly string[] QuestionOpeners =
+        ["what", "how", "why", "when", "which", "who", "where", "does", "do ", "can ", "is ", "are ", "should", "explain", "tell me"];
+
+    private static bool LooksLikeAQuestion(string normalized) =>
+        normalized.Length > 8
+        && (normalized.EndsWith('?')
+            || QuestionOpeners.Any(opener => normalized.StartsWith(opener, StringComparison.Ordinal)));
 
     private static IntentClassificationResult Result(
         IntentType intent,
