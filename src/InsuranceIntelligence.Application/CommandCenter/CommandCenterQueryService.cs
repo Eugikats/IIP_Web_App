@@ -40,6 +40,7 @@ public sealed class CommandCenterQueryService(
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
+    private const string PolicyAnswerPromptVersion = "command-center-policy-answer-v1";
     private const string Visibility = "Internal";
 
     public async Task<CommandCenterQueryResponse> QueryAsync(
@@ -88,6 +89,16 @@ public sealed class CommandCenterQueryService(
                 question,
                 context,
                 intent.Parameters,
+                correlationId,
+                now,
+                cancellationToken);
+        }
+
+        if (intent.Intent == IntentType.AnswerPolicyQuestion)
+        {
+            return await BuildPolicyAnswerResponseAsync(
+                question,
+                context,
                 correlationId,
                 now,
                 cancellationToken);
@@ -234,6 +245,160 @@ public sealed class CommandCenterQueryService(
             slaStatuses.Count(status => status == SlaStatus.Breached));
     }
 
+    /// <summary>
+    /// Answers a policy-knowledge question from approved, indexed knowledge only. Retrieval
+    /// runs first and the model is given exactly those excerpts; if retrieval returns nothing
+    /// the model is never called and the user is told the knowledge base has no approved
+    /// source — the product forbids answering policy questions without grounding, so an
+    /// honest "not covered by approved sources" is the required behaviour, not a guess.
+    /// </summary>
+    private async Task<CommandCenterQueryResponse> BuildPolicyAnswerResponseAsync(
+        string question,
+        TenantContext context,
+        string correlationId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var scope = context.Scope;
+        var assistantQuestion = new AssistantQuestion(
+            scope,
+            CaseId: null,
+            question,
+            ProductLine: null,
+            Audience: "Internal",
+            context.UserId,
+            correlationId);
+
+        var retrieval = await retrievalProvider.RetrieveAsync(assistantQuestion, cancellationToken);
+
+        if (retrieval.Chunks.Count == 0)
+        {
+            return await BuildUngroundedPolicyAnswerAsync(question, context, correlationId, now, cancellationToken);
+        }
+
+        var sources = string.Join("\n\n", retrieval.Chunks.Select((chunk, index) =>
+            $"[{index + 1}] {chunk.DocumentName} (v{chunk.Version}, {chunk.ProductLine}):\n{chunk.Content}"));
+
+        var prompt = string.Join('\n', [
+            "You are an insurance operations assistant for staff at a Ugandan composite insurer.",
+            "Answer the staff question using ONLY the approved policy sources provided below.",
+            "Cite the sources you used by their bracketed number, e.g. [1].",
+            "If the sources do not contain the answer, say so plainly instead of guessing.",
+            "Do not approve, deny, settle, or repudiate any claim. Do not promise payment or admit liability.",
+            "Be concise and factual. Amounts are Ugandan Shillings (UGX).",
+            string.Empty,
+            $"STAFF QUESTION: {question}",
+            string.Empty,
+            "APPROVED POLICY SOURCES:",
+            sources
+        ]);
+
+        var chatResult = await chatCompletionProvider.CompleteAsync(
+            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId),
+            cancellationToken);
+
+        var blocks = new List<CommandCenterResponseBlock>
+        {
+            new TextBlock(chatResult.Content),
+            new EvidenceListBlock(retrieval.Citations
+                .Select(citation => new EvidenceSource(citation.Label, citation.DocumentName, citation.ChunkId))
+                .ToArray())
+        };
+
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = null,
+            UserId = context.UserId,
+            AgentName = "CommandCenterPolicyQnA",
+            AssistantMode = AssistantMode.PolicyQnA,
+            InputSummary = SummarizeInput(question),
+            RetrievedSources = retrieval.Citations.ToArray(),
+            ModelOutput = chatResult.Content,
+            ConfidenceScore = AiConfidenceScore.Create(0.75m),
+            RiskFlag = "none",
+            HumanOverride = false,
+            CreatedAt = now,
+            CorrelationId = correlationId,
+            ModelProvider = chatResult.Provider,
+            ModelDeployment = chatResult.Deployment,
+            PromptVersion = PolicyAnswerPromptVersion,
+            Visibility = Visibility,
+            CanTriggerDecision = false,
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+
+        return new CommandCenterQueryResponse(
+            blocks,
+            actionLog.AgentActionLogId,
+            correlationId,
+            chatResult.Provider,
+            PolicyAnswerPromptVersion,
+            Visibility,
+            CanTriggerDecision: false,
+            now);
+    }
+
+    /// <summary>
+    /// Retrieval found no approved source for the question. Says so honestly rather than
+    /// letting the model answer a policy question ungrounded.
+    /// </summary>
+    private async Task<CommandCenterQueryResponse> BuildUngroundedPolicyAnswerAsync(
+        string question,
+        TenantContext context,
+        string correlationId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var blocks = new CommandCenterResponseBlock[]
+        {
+            new TextBlock(
+                "I could not find an approved knowledge source covering that question, so I have not answered it. "
+                + "IIP only answers policy questions from approved, indexed policy documents. "
+                + "A Knowledge Manager can upload and approve the relevant policy wording in Knowledge Base, "
+                + "after which this question can be answered with citations.")
+        };
+
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = context.Scope,
+            CaseId = null,
+            UserId = context.UserId,
+            AgentName = "CommandCenterPolicyQnA",
+            AssistantMode = AssistantMode.PolicyQnA,
+            InputSummary = SummarizeInput(question),
+            RetrievedSources = Array.Empty<SourceCitation>(),
+            ModelOutput = "No approved knowledge source matched the question; no answer generated.",
+            ConfidenceScore = AiConfidenceScore.Create(0m),
+            RiskFlag = "none",
+            HumanOverride = false,
+            CreatedAt = now,
+            CorrelationId = correlationId,
+            ModelProvider = ModelProvider,
+            ModelDeployment = null,
+            PromptVersion = PolicyAnswerPromptVersion,
+            Visibility = Visibility,
+            CanTriggerDecision = false,
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+
+        return new CommandCenterQueryResponse(
+            blocks,
+            actionLog.AgentActionLogId,
+            correlationId,
+            ModelProvider,
+            PolicyAnswerPromptVersion,
+            Visibility,
+            CanTriggerDecision: false,
+            now);
+    }
+
     private async Task RequireIntentPermissionAsync(IntentClassificationResult intent, CancellationToken cancellationToken)
     {
         switch (intent.Intent)
@@ -248,6 +413,9 @@ public sealed class CommandCenterQueryService(
             case IntentType.PrepareCustomerUpdateDraft:
             case IntentType.Unsupported:
                 await RequireClaimsReadPermissionAsync(cancellationToken);
+                break;
+            case IntentType.AnswerPolicyQuestion:
+                await permissionService.RequirePermissionAsync(Permission.ViewAiOutputs, cancellationToken);
                 break;
             default:
                 break;

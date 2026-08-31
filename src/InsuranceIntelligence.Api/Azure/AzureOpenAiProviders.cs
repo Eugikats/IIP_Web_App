@@ -52,7 +52,11 @@ public sealed class AzureOpenAiChatCompletionProvider(
                         content = request.Prompt
                     }
                 },
-                max_tokens = Math.Clamp(options.AzureOpenAI.MaxTokens, 64, 800),
+                // Current Azure OpenAI chat models (gpt-5.x family and later) reject the
+                // legacy `max_tokens` parameter outright with HTTP 400
+                // ("Unsupported parameter: 'max_tokens' is not supported with this model.
+                // Use 'max_completion_tokens' instead."). `temperature` is still accepted.
+                max_completion_tokens = Math.Clamp(options.AzureOpenAI.MaxTokens, 64, 800),
                 temperature = Math.Clamp((double)options.AzureOpenAI.Temperature, 0d, 0.7d)
             })
         };
@@ -225,7 +229,7 @@ public sealed class AzureOpenAiAssistantProvider(
                         content = BuildGroundedDraft(question, retrievalResult)
                     }
                 },
-                max_tokens = Math.Clamp(options.AzureOpenAI.MaxTokens, 64, 1600),
+                max_completion_tokens = Math.Clamp(options.AzureOpenAI.MaxTokens, 64, 1600),
                 temperature = Math.Clamp((double)options.AzureOpenAI.Temperature, 0d, 1d)
             })
         };
@@ -418,7 +422,7 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
                             content = BuildPrompt(claimCase, checklist, reasonCategory, channel)
                         }
                     },
-                    max_tokens = Math.Clamp(options.AzureOpenAI.MaxTokens, 64, 500),
+                    max_completion_tokens = Math.Clamp(options.AzureOpenAI.MaxTokens, 64, 500),
                     temperature = Math.Clamp((double)options.AzureOpenAI.Temperature, 0d, 0.7d)
                 })
             };

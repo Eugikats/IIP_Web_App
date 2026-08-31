@@ -2,6 +2,7 @@
 import { AlertTriangle, FileText, ShieldCheck, Sparkles } from "lucide-react";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { Badge } from "@/components/iip/Primitives";
+import { MarkdownText } from "@/components/iip/MarkdownText";
 import type { CommandCenterAnswer, CommandCenterBlock } from "@/lib/lovable-parity/data/commandCenterQuery";
 
 // Renders one governed answer from POST /api/v1/command-center/query. Every block type has an
@@ -9,7 +10,12 @@ import type { CommandCenterAnswer, CommandCenterBlock } from "@/lib/lovable-pari
 function Block({ block, historical = false }: { block: CommandCenterBlock; historical?: boolean }) {
   switch (block.type) {
     case "text":
-      return <p className="text-[13.5px] text-slate2 leading-relaxed">{String((block as { markdown?: string }).markdown ?? "")}</p>;
+      return (
+        <MarkdownText
+          className="text-[13.5px] text-slate2 leading-relaxed"
+          content={String((block as { markdown?: string }).markdown ?? "")}
+        />
+      );
     case "metric_pills":
       return (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">

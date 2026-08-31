@@ -157,7 +157,9 @@ export default function AIConversations({ conversationId: requestedConversationI
         </div>
       </div>
 
-      <div className="max-w-[780px] mx-auto w-full space-y-2 pt-4 pb-2 sticky bottom-0 bg-transparent">
+      {/* Opaque backdrop: the composer is sticky, so a transparent background let long
+          answers scroll visibly underneath the input and the guardrail footnote. */}
+      <div className="max-w-[780px] mx-auto w-full space-y-2 pt-4 pb-2 sticky bottom-0 bg-bg/95 backdrop-blur-sm">
         <Composer value={input} onChange={setInput} onSend={() => send()} disabled={loading || historyLoading || !canContinue || Boolean(historyError)} />
         <div className="text-[10.5px] text-stone text-center">IIP Operations assists — it never settles, denies, repudiates, pays, or accuses fraud. Human reviewers approve regulated decisions.</div>
       </div>

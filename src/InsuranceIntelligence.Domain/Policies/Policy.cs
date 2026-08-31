@@ -10,4 +10,7 @@ public sealed record Policy(
     string? CustomerId,
     string? BranchId,
     DateOnly? EffectiveFrom,
-    DateOnly? EffectiveTo);
+    DateOnly? EffectiveTo,
+    decimal? AnnualPremium = null,
+    string? PremiumCurrency = null,
+    decimal? SumInsured = null);
