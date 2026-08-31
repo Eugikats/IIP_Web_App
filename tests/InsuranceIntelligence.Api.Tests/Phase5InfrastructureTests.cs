@@ -383,7 +383,7 @@ public sealed class Phase5InfrastructureTests
     public async Task AuditPackExport_StoresArtifactAndWritesAuditReason()
     {
         var scope = TenantScope.Create("tenant-demo", "workspace-claims");
-        var claimCase = Case(scope);
+        var claimCase = Case(scope) with { Status = CaseStatus.ReadyForExport };
         var caseRepository = new InMemoryCaseRepository();
         var auditRepository = new InMemoryAuditRepository();
         var documentRepository = new InMemoryCaseDocumentRepository();
@@ -437,7 +437,7 @@ public sealed class Phase5InfrastructureTests
     public async Task AuditPackExport_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
     {
         var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
-        var claimCase = Case(membershipScope);
+        var claimCase = Case(membershipScope) with { Status = CaseStatus.ReadyForExport };
         var caseRepository = new InMemoryCaseRepository();
         var auditRepository = new InMemoryAuditRepository();
         var documentRepository = new InMemoryCaseDocumentRepository();

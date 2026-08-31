@@ -10,7 +10,7 @@ public sealed class StaticDocumentChecklistProvider(ICompletenessScoringService 
         IReadOnlyCollection<CaseDocument> documents,
         CancellationToken cancellationToken = default)
     {
-        var rules = DocumentChecklistRules.ForProductLine(claimCase.ProductLine);
+        var rules = DocumentChecklistRules.ForCase(claimCase);
         var received = documents
             .Where(document => document.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved)
             .Select(document => document.DocumentType)

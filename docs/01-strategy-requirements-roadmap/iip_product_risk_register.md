@@ -1,110 +1,43 @@
-# IIP Product Risk Register
+# IIP Release 1 Product and Algorithmic Risk Register
 
 | Field | Value |
 |---|---|
-| Product | Insurance Intelligence Platform (IIP) |
-| Document Name | Product Risk Register |
-| Version | 1.0 |
-| Status | Draft |
-| Audience | Product owners, delivery managers, risk leads, architects, QA leads, pilot sponsors |
-| Date | 2026-06-30 |
+| Version | 2.2 |
+| Date | 2026-08-10 |
+| Status | Active proposed controls; named ownership and residual-risk acceptance pending |
 
+## Scale
 
-## 1. Purpose
+Probability: Low/Medium/High. Impact: Low/Medium/High/Critical. Any Critical impact or High probability requires a release-gate control and named owner; no numerical score can override legal, human-authority, privacy or tenant-isolation obligations.
 
-This register tracks product, technical, compliance, AI, delivery, deployment, integration, and pilot risks for IIP. It is intended to be reviewed throughout roadmap planning, implementation, UAT, pilot launch, and pilot closeout.
+| ID | Risk/harm | Probability | Impact | Prevent/detect/respond | Requirement/gate | Owner/status |
+|---|---|---:|---:|---|---|---|
+| R-001 | Scope expands into disconnected modules before the evidence-review loop is proven. | High | High | Scope register, P0 gap-first sequencing, change control, kill criteria | R1-BUS-001; G0 | Product — pending name |
+| R-002 | AI/rules influence or complete a consequential claim outcome without meaningful human authority. | Medium | Critical | Guard + graph/worker enforcement, exact approvals, wrong-output/workload tests, recourse, kill switch | R1-BUS-002; R1-AI-001–007 | Insurance/RAI — pending names |
+| R-003 | Cross-tenant or stale scope leaks evidence or contaminates a decision. | Low | Critical | Server membership, scoped stores/messages/exports, re-resolution, enumeration tests | R1-DAT-002; R1-SEC-001–002 | Security — pending name |
+| R-004 | Corrected evidence leaves stale summaries, tasks or proposals executable. | Medium | Critical | Provenance/dependency lineage, invalidation and re-evaluation, regression tests | R1-FUN-009; AC-COR-01 | Architecture/Engineering — mapped |
+| R-005 | Unsupported output or automation bias causes harmful follow-up or review. | Medium | High | Evidence/limits/version display, severe-error tests, human correction, override/workload monitoring | R1-AI-002–003; AIA | AI Quality/Operations — pending names |
+| R-006 | Language, script, scan quality, disability, device or connectivity creates unequal errors/delay. | High | High | Original-source preservation, strata/intersection evaluation, accessible/low-bandwidth recovery, human fallback | R1-A11Y-*; R1-L10N-*; R1-RES-001–002 | Product/Design/Quality — pending names |
+| R-007 | Missing/incorrect tenant document rule creates false gaps or hides necessary evidence. | High | High | Versioned approved rules, no invented checklist, exception route, rule tests | R1-FUN-008; OQ-003 | Insurance/Client Ops — blocked |
+| R-008 | Provider timeout/retry duplicates sends/write-backs or falsely reports success. | Medium | Critical | Stable idempotency, pending/reconcile state, bounded retry, DLQ, provider confirmation | R1-DAT-006; R1-RES-004 | Architecture/Operations — conditional |
+| R-009 | Protected runtime activates mock/fallback, seeded data or DevelopmentAuth. | Medium | Critical | Startup validation, binary/source/config scans, fail-closed readiness, deployed smoke | R1-SEC-004; AC-SIM-01 | Engineering/Security — pending environment proof |
+| R-010 | Logs, prompts, exports or customer messages disclose sensitive/internal information. | Medium | Critical | Minimization, safe metadata/references, customer-safe filters, adversarial sampling | R1-PRI-001–004 | Privacy/Security — pending names |
+| R-011 | Retention/cross-border/support access is unlawful or unacceptable to buyer. | Medium | Critical | Exact deployment/data record, legal/client approval, deletion/exit rehearsal | R1-PRI-002; OQ-002/007/008/013 | Legal/Privacy — blocked |
+| R-012 | Review queues make human oversight nominal or create unsafe backlog. | High | High | Measure volume/time/bulk approval/disagreement, staffing/SLA, throttle/pause | R1-AI-003; AIA | Operations/Insurance — evidence absent |
+| R-013 | Performance/low bandwidth prevents safe timely work or encourages workarounds. | High | High | Preserve targets, near-region load, throttled/interruption tests, field telemetry | R1-PERF-*; R1-RES-* | Architecture/Product — current p95 fail |
+| R-014 | Backup/restore/migration failure loses evidence or breaks lineage. | Medium | Critical | Versioned migrations, backup/restore, RPO/RTO rehearsal, repair/rebuild | R1-RES-003; R1-OPS-003 | Operations/Architecture — blocked |
+| R-015 | Requirements appear complete while practitioner/buyer/configuration evidence is absent. | High | High | Status labels, evidence IDs, approval record, gate separation | R1-BUS-005; R1-REL-* | Product/Delivery — controls drafted |
+| R-016 | Existing broad API/design documents reintroduce stale routes, states or scope. | High | High | Current-code/API map authority notes, RTM, conflict log, no legacy fallback | R1-DAT-001/004; G0/G1 | Architecture/Product — active reconciliation |
+| R-017 | Prompt injection or untrusted content obtains tools/data authority. | Medium | Critical | Treat content as data, allow-list, permission/approval recheck, incident handling | R1-AI-004/007 | Security/AI Quality — evidence incomplete |
+| R-018 | No qualified buyer/pilot means custom work cannot validate market or ROI. | High | High | Commitment ladder, paid-pilot gate, baseline/finance attribution | R1-BUS-004; OQ-001/010/012/013 | Commercial/Product — blocked |
+| R-019 | WhatsApp spoofing, wrong tenant/case correlation, unsafe outbound content or ambiguous provider status harms customers or exposes data. | Medium | Critical | Verify webhooks, map business number server-side, deduplicate, manual-review unmatched content, human-reviewed sends, consent/template controls, explicit delivery states and reconciliation | R1-WA-001–004; AC-WA-01 | Security/Privacy/Operations/Architecture — source/local controls complete; insurer policy, protected-staging provider, reconciliation and UAT proof blocked |
+| R-020 | Assessor impersonation, wrong/excessive disclosure, malicious attachment, forwarding/stale access, false acknowledgement, or cross-tenant provider/match failure exposes evidence or contaminates review. | Medium | Critical | Approved assessor directory/appointment, exact minimum-pack preflight, dedicated permission, quarantine/malware/parser controls, no bearer evidence links, explicit non-revocation, tenant-scoped provider/match/reconciliation, exact-state audit and negative matrix | R1-SEC-006–009; AC-ASR-01; `THR-R1-ASR-01`–`08` | Security/Privacy/Claims Operations/Architecture — blocked; named owners, implementation, insurer policy, protected evidence and residual forwarding-risk acceptance absent |
+| R-021 | Opaque or excessive assessor disclosure, inaccessible notice, unjustified report authority/feedback reuse, or ineffective contestability creates unequal evidence burden, privacy loss, delay, and an adverse claim path that affected people cannot understand or correct. | Medium | Critical | Purpose/item-level minimum-disclosure manifest; accessible claimant notice; contracted external-professional boundary; `Contested` reliance pause and independent reconsideration; no unapproved training/scoring reuse; procedural-parity and burden monitoring | R1-FUN-020; R1-AI-008; R1-PRI-005–007; AC-ETH-01; assessor ethical review | Privacy/Claims Operations/Complaints/Responsible AI — blocked; policy, implementation, claimant/practitioner validation, monitoring and residual-risk approval absent |
 
+## Stop conditions
 
-This document uses the existing IIP project context and prior documentation pack: Master Product Context, PRD, FSD, Technical Architecture Document, System Integration Strategy, UI/UX Handoff, API Specification, Data Model, Security & Compliance Document, QA/Test Plan, Deployment Plan, User/Admin Guide, and Implementation Roadmap.
+Stop or limit Release 1 if tenant isolation, human authority, provenance, recourse, correction propagation, representative testing or legal data authority cannot be made acceptable; if reviewer workload makes oversight ceremonial; if a systematic severe error cannot be measured/repaired; or if a simpler safer process provides comparable value at lower total cost and disruption.
 
-Confirmed project baseline:
-- Official product name: Insurance Intelligence Platform (IIP).
-- IIP is an Azure-native, human-reviewed insurance operations platform, not a replacement for core insurance systems.
-- MVP focus: motor claims and document intelligence for a mid-to-large insurer pilot.
-- Customer engagement is WhatsApp-first and channel-led; customers do not log into the internal staff application.
-- Internal modules include Command Center, Channels, Customers, Sales & Leads, Claims, Documents, Knowledge Base, Approvals, Compliance & Audit, Reports & Analytics, Integrations, Admin Settings, and Support & Health.
-- The internal UI is a role-aware staff workspace with persistent navigation, a top bar, global search, operational states, and a contextual Copilot panel.
-- The platform uses Next.js/React/TypeScript/Tailwind on the frontend and .NET 8/Azure services on the backend.
-- AI assists with extraction, summarization, classification, routing, drafting, risk signals, and evidence preparation; humans make regulated or consequential decisions.
+## Review cadence
 
-
-## 2. Risk Scale
-
-| Level | Probability | Impact |
-| --- | --- | --- |
-| Low | Unlikely or limited exposure | Minor schedule, user, or operational effect. |
-| Medium | Possible under normal delivery conditions | Could affect scope, timeline, client confidence, or quality. |
-| High | Likely or serious exposure | Could block release, pilot, security acceptance, or client adoption. |
-
-
-
-## 3. Risk Register
-
-| Risk ID | Risk | Category | Probability | Impact | Mitigation | Owner |
-| --- | --- | --- | --- | --- | --- | --- |
-| R-001 | MVP scope expands beyond motor claims before core workflow is stable | Product | Medium | High | Use MVP Scope Control Register and change control gates. | Product Owner |
-| R-002 | Client expects IIP to replace core insurance systems | Commercial/Product | Medium | High | Position IIP as intelligence and operations layer, not core replacement. | Leadership/Commercial |
-| R-003 | AI outputs are treated as final decisions by users | AI/Compliance | Medium | High | Use visible human review gates, disclaimers, audit logs, and permission controls. | AI Governance Lead |
-| R-004 | Insufficient document samples reduce extraction quality | Document Intelligence | High | High | Collect representative samples and build document test pack before pilot. | Document Lead/Client SME |
-| R-005 | Live integration dependencies delay pilot | Integration | Medium | High | Use phased integration: configured/not configured states, controlled import, read-only lookup first. | Integration Lead |
-| R-006 | Tenant isolation or RBAC defects expose data incorrectly | Security | Low | High | Server-side auth tests, tenant boundary tests, audit checks, security validation. | Security Lead |
-| R-007 | Production uses mock/demo data accidentally | Quality | Medium | High | Environment gates, no mock production policy, release readiness checklist. | Engineering Lead |
-| R-008 | Pilot users are not trained on human-in-loop model | Adoption | Medium | Medium | Role-based training and user guide reinforcement. | Delivery Lead |
-| R-009 | Claims SMEs are unavailable for workflow validation | Delivery | Medium | Medium | Schedule SME review gates and pre-agree decisions. | Project Manager |
-| R-010 | Azure cost or capacity assumptions are not validated | Deployment | Medium | Medium | Create environment setup and cost monitoring plan. | Cloud Lead |
-| R-011 | WhatsApp/channel message handling loses context | Integration/Operations | Medium | High | Use idempotency, message correlation, retries, and audit events. | Integration Lead |
-| R-012 | Pilot success metrics are not agreed early | Pilot | Medium | High | Create Pilot Success Measurement Plan before launch. | Product/Client Sponsor |
-
-
-
-## 4. Active Controls
-
-| Control | Risk Reduced |
-| --- | --- |
-| Human-in-the-loop approval model | R-003 |
-| MVP Scope Control Register | R-001 |
-| Provider health and Not configured states | R-005, R-007 |
-| Security & Compliance Document plus QA/Test Plan | R-006 |
-| Document test pack and extraction review workflow | R-004 |
-| Pilot success measurement plan | R-012 |
-
-
-
-## 5. Open Questions
-
-| ID | Open Question | Risk Impact |
-| --- | --- | --- |
-| OQ-RISK-001 | Who owns risk review cadence during implementation? | Risks may not be actively managed. |
-| OQ-RISK-002 | Which risk tool or tracker will be used? | Risk evidence may be scattered. |
-| OQ-RISK-003 | What is the pilot client tolerance for manual workaround during integration setup? | Impacts launch approach. |
-
-## 6. Risk Response Options
-
-| Response | When to Use |
-| --- | --- |
-| Avoid | When risk violates human-in-loop, security, compliance, or client trust principles. |
-| Mitigate | When risk can be reduced with controls, tests, training, or phased rollout. |
-| Transfer | When responsibility belongs to client IT, integration provider, or cloud provider. |
-| Accept | When risk is low, visible, and has a workaround. |
-| Escalate | When risk may block pilot, client confidence, security approval, or release. |
-
-## 7. Risk Review Agenda Template
-
-| Agenda Item | Description |
-| --- | --- |
-| New risks | Capture new risks from development, QA, client, or support discussions. |
-| Changed risks | Update probability, impact, owner, or mitigation status. |
-| Top blockers | Review risks that can block UAT, pilot, or release. |
-| Mitigation actions | Assign actions and dates. |
-| Escalations | Identify risks requiring leadership or client decision. |
-
-## 8. Risk Indicators to Monitor
-
-| Indicator | Possible Risk |
-| --- | --- |
-| Repeated document extraction errors | Document sample quality or model mismatch. |
-| Many Not configured providers near UAT | Integration readiness risk. |
-| High number of change requests | Scope creep or stakeholder misalignment. |
-| User confusion about AI recommendations | Training or UX governance risk. |
-| Frequent auth/tenant test failures | Security readiness risk. |
-| No baseline KPI data | Pilot value measurement risk. |
+Review at every research synthesis, requirement/scope change, model/provider/rule/workflow version, security/privacy finding, protected deployment, UAT cycle, performance/recovery exercise, incident, pilot midpoint and go/no-go decision. Every High/Critical residual risk needs a named owner, decision, conditions and expiry.

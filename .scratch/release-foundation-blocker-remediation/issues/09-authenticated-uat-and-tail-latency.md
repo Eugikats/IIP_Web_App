@@ -21,6 +21,7 @@
 
 ## Remaining blockers
 
+- 2026-08-07 live discovery found `rg-iip-stg` present but empty; the previously documented staging API is `ResourceNotFound`, and no replacement IIP protected runtime exists in the active subscription. See `docs/07-qa/protected-staging-multi-role-verification-2026-08-07.md` and `artifacts/rf09/protected-staging-smoke-2026-08-07.json`.
 - Approved authenticated tokens for the full role matrix in the representative environment.
 - Staging or approved non-dev rerun with real providers and synthetic/masked records.
 - Final p95/p99 pass evidence after rerun near the deployment region.

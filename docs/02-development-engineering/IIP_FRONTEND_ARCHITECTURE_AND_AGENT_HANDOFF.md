@@ -6,6 +6,8 @@
 **Status:** Implementation handoff specification  
 **Updated:** July 2026 chat-first Command Center alignment  
 
+> **IA authority note — 2026-08-05:** The canonical `/app/*` sitemap, destination labels, permission-derived visibility, aliases, search/recent-work status, and screen/state IDs are governed by `../03-design-architecture/iip_information_architecture_navigation_and_screen_inventory.md`. Historical route examples below are non-authoritative where they differ. Protected navigation uses effective permissions returned by `/api/v1/me`; browser role preview is local/demo presentation only.
+
 ---
 
 ## 1. Command Center Direction — Read First
@@ -13,7 +15,7 @@
 The **Command Center is the primary landing experience** for IIP. The default authenticated landing route must be:
 
 ```text
-/command-center
+/app
 ```
 
 Authoritative rule:

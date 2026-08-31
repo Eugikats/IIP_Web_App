@@ -8,7 +8,7 @@ import StatusBar from "./StatusBar";
 import CopilotPanel from "./CopilotPanel";
 import EnvironmentBanner from "./EnvironmentBanner";
 import { UIStateProvider, useUI } from "@/context/UIStateContext";
-import { canAccess } from "@/lib/roles";
+import { canAccess, canAccessWithPermissions, firstAccessibleRoute } from "@/lib/roles";
 import { RuntimeContextProvider, useRuntimeContext } from "@/lib/runtimeContext";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { Loader2, PanelLeftOpen, PanelRightOpen, ShieldAlert } from "lucide-react";
@@ -53,8 +53,14 @@ function ShellInner({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!canAccess(roleDef.key, loc.pathname)) {
-    return <Navigate to={roleDef.landing} replace />;
+  const permitted = canUseLocalTestDoubles || parityMode
+    ? canAccess(roleDef.key, loc.pathname)
+    : canAccessWithPermissions(runtimeContext?.permissions ?? [], loc.pathname);
+  if (!permitted) {
+    const fallback = canUseLocalTestDoubles || parityMode
+      ? roleDef.landing
+      : firstAccessibleRoute(runtimeContext?.permissions ?? []) ?? "/";
+    return <Navigate to={fallback} replace />;
   }
 
   return (

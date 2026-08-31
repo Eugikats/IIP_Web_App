@@ -17,6 +17,12 @@ public sealed class MockMessageQueueDispatcher(ILogger<MockMessageQueueDispatche
     }
 }
 
+public sealed class NotConfiguredMessageQueueDispatcher : IMessageQueueDispatcher
+{
+    public Task DispatchAsync(QueueMessageEnvelope envelope, CancellationToken cancellationToken = default) =>
+        throw new InvalidOperationException("Message queue provider is not configured.");
+}
+
 public sealed class AzureServiceBusQueueDispatcher(InfrastructureOptions options, ILogger<AzureServiceBusQueueDispatcher> logger) : IMessageQueueDispatcher
 {
     public async Task DispatchAsync(QueueMessageEnvelope envelope, CancellationToken cancellationToken = default)

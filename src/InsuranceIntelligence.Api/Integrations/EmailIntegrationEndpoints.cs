@@ -73,7 +73,7 @@ public static class EmailIntegrationEndpoints
         return Results.Ok(new EmailIntegrationHealthResponse(
             "email",
             "Microsoft Graph mail",
-            providers.Any(provider => provider.Status.Equals("missing", StringComparison.OrdinalIgnoreCase)) ? "degraded" : "healthy",
+            providers.Any(provider => provider.Status is "missing" or "not_configured") ? "degraded" : "healthy",
             providers,
             allowedActions,
             blockedActions));

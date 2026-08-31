@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
+import { formatProviderStatusLabel } from "@/lib/providerHealth";
 
 export type ProviderHealthView = {
   name: string;
@@ -29,7 +30,7 @@ function mapItem(dto: ProviderHealthItemDto): ProviderHealthView {
   return {
     name: dto.name,
     category: dto.mode || "Provider",
-    status: dto.status,
+    status: formatProviderStatusLabel(dto.status),
     latency: "—",
     lastCheck: dto.detail || "—",
   };
@@ -47,7 +48,7 @@ export function useProviderHealth() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/admin/provider-health`, { headers: scopedHeaders(role, "") });
+      const response = await fetch(`${apiBaseUrl}/api/v1/provider-status`, { headers: scopedHeaders(role, "") });
       if (!response.ok) throw new Error(`Provider health failed with HTTP ${response.status}.`);
       const payload = (await response.json()) as ProviderHealthResponseDto;
       setProviders((payload.providers ?? []).map(mapItem));

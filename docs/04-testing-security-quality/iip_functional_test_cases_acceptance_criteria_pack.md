@@ -10,6 +10,8 @@ Date: 2026-06-30
 
 ---
 
+> **Authority note — 2026-08-05:** This pack is a historical scenario catalogue. The normative Release 1 obligations and measurable gates are `../01-strategy-requirements-roadmap/iip_release_1_requirements_baseline.md` and `../01-strategy-requirements-roadmap/iip_mvp_acceptance_criteria_register.md`. Retain useful scenarios, but do not treat broad module coverage or generic quality language below as acceptance without requirement IDs and current evidence.
+
 # July 2026 Update: Functional Tests for Chat-First Command Center
 
 ## Functional Testing Decision
@@ -118,6 +120,10 @@ Use the format `FT-<MODULE>-<NUMBER>`, for example `FT-CLAIMS-001`.
 | FT-SHELL-001 | App Shell | User opens staff app with valid tenant and workspace context. | User is authenticated or in approved demo mode. | Open app, inspect left nav, top bar, workspace, role, alerts. | Shell loads, context is visible, no broken nav, role-aware items are visible. | High | Major |
 | FT-SHELL-002 | App Shell | Unauthorized user attempts to access restricted route. | User lacks role permission. | Navigate to restricted module. | User sees unauthorized state; no data is leaked. | High | Critical |
 | FT-SHELL-003 | App Shell | Provider is not configured. | Provider config missing. | Open affected module. | UI shows Not configured state and admin-oriented next step. | High | Major |
+| FT-SEARCH-001 | Global Search | Assigned-claims user searches a term matching assigned and unassigned cases. | Same-workspace records exist for multiple assignees. | Submit the shared term from the shell. | Only cases the current user may open appear; returned counts do not reveal restricted matches. | High | Critical |
+| FT-SEARCH-002 | Global Search | User searches case, document, task and approval references. | Authorized related objects exist. | Search exact and partial references. | Results group by type, explain the match, rank exact identity first and link to a real authorized route; approval results require approval permission. | High | Critical |
+| FT-SEARCH-003 | Global Search | User searches restricted or cross-tenant identifiers. | Restricted records exist. | Submit exact identifiers. | UI reports no authorized results without existence, count, snippet or sensitive-metadata leakage; raw query is absent from audit. | High | Critical |
+| FT-SEARCH-004 | Global Search | Search is used with keyboard, failure and return navigation. | Search route available. | Focus with Ctrl/Cmd+K, submit, inject API failure, open a result, then go back. | Focus/submit/status are accessible; safe error is shown; query and result context return without stale authority. | High | Major |
 | FT-CMD-001 | Command Center | Operational metrics load. | Backend available. | Open Command Center. | Open claims, new claims, incomplete claims, SLA risk, pending approvals, and AI metrics display or empty state. | High | Major |
 | FT-CMD-002 | Command Center | Metrics API fails. | Simulate failed API call. | Open Command Center. | Error state appears; no fake fallback numbers appear. | High | Major |
 | FT-CMD-003 | Command Center | Quick link opens claims queue. | Claims data exists or empty state exists. | Click claims quick link. | Correct filtered view opens with context preserved. | Medium | Minor |
@@ -182,3 +188,7 @@ Use the format `FT-<MODULE>-<NUMBER>`, for example `FT-CLAIMS-001`.
 | OQ-04 | Which WhatsApp Business provider will be used for the first pilot? | Product / Integrations | Impacts webhook tests, retry tests, idempotency checks, and channel support runbooks. |
 | OQ-05 | What client-specific SLAs, roles, branches, claim categories, and document checklists must be configured? | Client Operations | Impacts functional tests, RBAC tests, document intelligence tests, and acceptance criteria. |
 | OQ-06 | What final regulatory, legal, data protection, and breach notification requirements must be signed off for the first pilot? | Legal / Compliance | Impacts compliance evidence, security validation, and incident response steps. |
+
+### WhatsApp operational acceptance journey
+
+Run WA-AC-001–010 from `docs/03-design-architecture/iip_whatsapp_thread_outbound_delivery_spec.md` with authorized channel staff and a separate unauthorized role. Include unmatched inbound manual-link review, case-linked thread reopen, in-window reviewed reply, out-of-window approved template, provider failure, unknown acknowledgement, duplicate callback and late delivered/read callback. Record exact environment, provider/business number, template/language, participant role, permission evidence, timestamps, audit references, accessibility/low-bandwidth observations and named approvers. Provider acceptance must never be scored as delivered.

@@ -7,6 +7,7 @@ using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Policies;
+using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -127,11 +128,52 @@ public sealed class Phase2ReadRepositoryTests
     }
 
     [Fact]
-    public async Task Channels_Overview_IsEmptyUntilIngestionConfigured()
+    public async Task Channels_Overview_IsEmptyWhenNoMessagesExist()
     {
-        var repository = new EfChannelReadRepository();
+        await using var dbContext = CreateDbContext();
+        var repository = new EfChannelReadRepository(dbContext);
 
         Assert.Empty(await repository.GetOverviewAsync("tenant-a", "workspace-a"));
+    }
+
+    [Fact]
+    public async Task Channels_Overview_ProjectsLatestTenantScopedWhatsAppThread()
+    {
+        await using var dbContext = CreateDbContext();
+        var caseId = Guid.NewGuid();
+        SeedJson(dbContext.Cases, ScopeA, caseId, Claim(caseId, "Jane WhatsApp", "jane@example.com"));
+        var message = new WhatsAppMessage
+        {
+            MessageId = Guid.NewGuid(), Scope = ScopeA, CaseId = caseId,
+            ThreadId = "wa:opaque-thread-id", BusinessPhoneNumberId = "phone-1",
+            ContactWaId = "256772118001", Direction = WhatsAppMessageDirection.Inbound,
+            ContentType = WhatsAppContentType.Text, CustomerSafeBody = "Please check my claim.",
+            ProviderMessageId = "wamid.channel", DeliveryState = WhatsAppDeliveryState.Received,
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, CorrelationId = "corr-wa"
+        };
+        SeedJson(dbContext.WhatsAppMessages, ScopeA, message.MessageId, message, entity =>
+        {
+            entity.CaseId = caseId;
+            entity.ThreadId = message.ThreadId;
+            entity.ProviderMessageId = message.ProviderMessageId;
+            entity.CreatedAt = message.CreatedAt;
+        });
+        var otherScope = TenantScope.Create("tenant-b", "workspace-a");
+        var otherMessage = message with { MessageId = Guid.NewGuid(), Scope = otherScope, ThreadId = "wa:other-tenant", ProviderMessageId = "wamid.other" };
+        SeedJson(dbContext.WhatsAppMessages, otherScope, otherMessage.MessageId, otherMessage, entity =>
+        {
+            entity.ThreadId = otherMessage.ThreadId;
+            entity.ProviderMessageId = otherMessage.ProviderMessageId;
+            entity.CreatedAt = otherMessage.CreatedAt;
+        });
+        await dbContext.SaveChangesAsync();
+
+        var rows = await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a");
+
+        var row = Assert.Single(rows);
+        Assert.Equal(message.ThreadId, row.Id);
+        Assert.Equal("Jane WhatsApp", row.CustomerName);
+        Assert.Equal("whatsapp", row.Channel);
     }
 
     [Fact]

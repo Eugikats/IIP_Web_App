@@ -1,5 +1,9 @@
 # Insurance Intelligence Platform (IIP) - Product Requirements Document
 
+> **Authority note — 2026-08-05:** This remains the broad working PRD. Use `iip_product_definition_and_validation_charter.md` for current product definition and `iip_release_1_requirements_baseline.md` for atomic Release 1 obligations, priorities, thresholds and approval status. Scope, acceptance and traceability are governed by their v2 registers. Broad module requirements below do not enter Release 1 automatically. `AGENTS.md` remains highest authority.
+>
+> **Release 1 channel decision — 2026-08-05:** WhatsApp intake and human-reviewed customer follow-up are mandatory capabilities (DEC-017; R1-WA-001–004). This does not approve a provider, business account, consent/legal basis, templates, languages, sender identity, callback policy, credentials, or live readiness; those remain target-insurer and release-evidence gates.
+
 **Document type:** Product Requirements Document (PRD)  
 **Product name:** Insurance Intelligence Platform  
 **Acronym:** IIP  
@@ -233,6 +237,8 @@ IIP should eventually help insurers:
 
 ## 5. Target Market and Customer Segments
 
+> **Validation status — 2026-08-05:** The segment descriptions below are strategy hypotheses, not quantified demand. Current public evidence is summarized in `../research/iip-market-regulatory-competitive-evidence-2026-08-05.md`; the 2026 count of 19 authorized non-life insurers is an eligible-account ceiling, not TAM/SAM/SOM or reachable revenue. Initial reach requires a named-account qualification model and primary buyer evidence under `../research/iip-user-business-market-research-program.md`.
+
 ### 5.1 Primary Market
 
 The first market is Uganda, with an Africa-configurable product model.
@@ -276,6 +282,8 @@ Reasons:
 ---
 
 ## 6. User Personas
+
+> **Validation status — 2026-08-05:** These are provisional role hypotheses, not research-validated personas or RBAC authority. Validate actual labels, jobs, authority, handoffs, devices, connectivity, language/document context, and accessibility needs at each target institution. Record evidence and requirement changes in `../research/iip-research-evidence-register.csv`.
 
 ### 6.1 Internal Insurance Users
 
@@ -985,6 +993,20 @@ The following require legal/compliance confirmation:
 - Breach notification requirements
 
 This PRD is not legal advice.
+
+### 16.4 Research-Derived Candidate Requirements — Approval Pending
+
+These requirements are proposed from the 2026-08-05 [market, regulatory, and competitive evidence pack](../research/iip-market-regulatory-competitive-evidence-2026-08-05.md). They become approved contracts only after the named owners decide them and the evidence register records the disposition.
+
+| ID | Candidate requirement | Provenance | Approval owner | Status |
+|---|---|---|---|---|
+| PRD-RES-001 | Before a production deployment, record controller/processor roles, region, cross-border basis, subprocessors, backup locations, support access, retention, deletion, and exit evidence. | PUB-UG-PDPO-OBLIGATIONS; REP-IIP-MARKET-PACK | Legal + Security + Client Compliance | Proposed |
+| PRD-RES-002 | Assess whether the service or any integration is material outsourcing; if applicable, contract scope, authority, confidentiality, monitoring, audit/information access, continuity, termination, dispute, and regulator-access controls. | REP-IIP-MARKET-PACK | Legal + Client Compliance + Operations | Proposed |
+| PRD-RES-003 | Before promising Azure Managed Application/private-plan delivery, verify customer subscription ownership, Azure/Entra authority, CSP status, region/service availability, publisher access, deny/JIT posture, support, and offboarding. | PUB-MS-MANAGEDAPP; PUB-MS-PRIVATEPLAN | Cloud Architecture + Security + Commercial | Proposed |
+| PRD-RES-004 | Treat persona, role label, device/network, language, accessibility, and handoff definitions as tenant-specific hypotheses until representative research supports product invariants or configuration. | REP-IIP-UX-SPEC; REP-IIP-DISCOVERY-DOMAIN | Product + Design + Client Operations | Proposed |
+| PRD-RES-005 | Every material requirement or roadmap change from research must reference evidence IDs, sample/method, confidence, limits, affected decision, owner, approver, and disposition. | `docs/research/README.md` | Product + Research | Proposed |
+
+No participant evidence currently supports marking PRD-RES-004 validated, and desk review does not replace qualified legal advice for PRD-RES-001 or PRD-RES-002.
 
 ---
 

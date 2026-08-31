@@ -19,6 +19,7 @@ using InsuranceIntelligence.Application.Compliance;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Customers;
 using InsuranceIntelligence.Application.SalesLeads;
+using InsuranceIntelligence.Application.Search;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Api.CommandCenter;
 using InsuranceIntelligence.Api.Communications;
@@ -31,6 +32,7 @@ using InsuranceIntelligence.Api.Integrations;
 using InsuranceIntelligence.Api.Knowledge;
 using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Api.Reports;
+using InsuranceIntelligence.Api.Search;
 using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Documents;
@@ -202,10 +204,16 @@ if (infrastructureOptions.BlobProvider.Equals("AzureBlob", StringComparison.Ordi
     builder.Services.AddSingleton<IKnowledgeStorageProvider, AzureBlobKnowledgeStorageProvider>();
     builder.Services.AddSingleton<IEvidencePackStorageProvider, AzureBlobEvidencePackStorageProvider>();
 }
-else
+else if (infrastructureOptions.BlobProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddSingleton<IDocumentStorageProvider, LocalMockDocumentStorageProvider>();
     builder.Services.AddSingleton<IKnowledgeStorageProvider, LocalMockKnowledgeStorageProvider>();
+    builder.Services.AddSingleton<IEvidencePackStorageProvider, NotConfiguredEvidencePackStorageProvider>();
+}
+else
+{
+    builder.Services.AddSingleton<IDocumentStorageProvider, NotConfiguredDocumentStorageProvider>();
+    builder.Services.AddSingleton<IKnowledgeStorageProvider, NotConfiguredKnowledgeStorageProvider>();
     builder.Services.AddSingleton<IEvidencePackStorageProvider, NotConfiguredEvidencePackStorageProvider>();
 }
 
@@ -248,9 +256,13 @@ if (infrastructureOptions.QueueProvider.Equals("AzureServiceBus", StringComparis
 {
     builder.Services.AddSingleton<IMessageQueueDispatcher, AzureServiceBusQueueDispatcher>();
 }
-else
+else if (infrastructureOptions.QueueProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddSingleton<IMessageQueueDispatcher, MockMessageQueueDispatcher>();
+}
+else
+{
+    builder.Services.AddSingleton<IMessageQueueDispatcher, NotConfiguredMessageQueueDispatcher>();
 }
 
 builder.Services.AddSingleton<IWorkflowRuleProvider, StaticWorkflowRuleProvider>();
@@ -262,13 +274,13 @@ else
 {
     builder.Services.AddSingleton<ICustomerUpdateDraftingProvider, NotConfiguredCustomerUpdateDraftingProvider>();
 }
-if (infrastructureOptions.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
+if (infrastructureOptions.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<ICommunicationProvider, NotConfiguredCommunicationProvider>();
+    builder.Services.AddSingleton<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
 }
 else
 {
-    builder.Services.AddSingleton<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
+    builder.Services.AddSingleton<ICommunicationProvider, NotConfiguredCommunicationProvider>();
 }
 builder.Services.AddSingleton<ISlaCalculator, BasicSlaCalculator>();
 
@@ -284,11 +296,13 @@ else
 
 builder.Services.AddScoped<ITeamsNotificationQueue, DefaultTeamsNotificationQueue>();
 builder.Services.AddScoped<CaseIntakeService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Claims.IClaimGovernedPathService, InsuranceIntelligence.Application.Claims.ClaimGovernedPathService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<TenantContextAccessor>();
 builder.Services.AddScoped<ITenantContextAccessor>(serviceProvider => serviceProvider.GetRequiredService<TenantContextAccessor>());
 builder.Services.AddScoped<ITenantContextSetter>(serviceProvider => serviceProvider.GetRequiredService<TenantContextAccessor>());
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
 builder.Services.AddScoped<IClaimsQueryService, ClaimsQueryService>();
 builder.Services.AddSingleton<IAiOutputValidator, DeterministicAiOutputValidator>();
@@ -296,6 +310,7 @@ builder.Services.AddSingleton<IIntentClassifier, DeterministicThenAiIntentClassi
 builder.Services.AddSingleton<IProviderRequirementResolver, ProviderRequirementResolver>();
 builder.Services.AddScoped<INotificationDraftService, CustomerUpdateNotificationDraftService>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
+builder.Services.AddScoped<ICommandCenterConversationService, CommandCenterConversationService>();
 // W2.5: Phase 2 core-workspace query services.
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
@@ -321,6 +336,8 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnder
 builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingSubmissionSource, InsuranceIntelligence.Api.Underwriting.NotConfiguredUnderwritingSubmissionSource>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentRegistryService, InsuranceIntelligence.Application.Agents.AgentRegistryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowService, InsuranceIntelligence.Application.AgentWorkflows.AgentWorkflowService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.MyWork.IMyWorkService, InsuranceIntelligence.Application.MyWork.MyWorkService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.IWhatsAppMessagingService, InsuranceIntelligence.Application.WhatsApp.WhatsAppMessagingService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingQueryService, InsuranceIntelligence.Application.Billing.BillingQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingUsageSource, InsuranceIntelligence.Api.Admin.Billing.RecordBackedBillingUsageSource>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentQueryService, InsuranceIntelligence.Application.Documents.DocumentQueryService>();
@@ -454,6 +471,8 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "live" }));
 app.MapGet("/health/ready", HealthEndpoints.Ready);
 
 app.MapGet("/api/v1/me", RuntimeContextEndpoints.GetMe);
+app.MapGet("/api/v1/search", SearchEndpoints.Search)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 
 app.MapGet("/api/v1/client-portal/claims/{caseId:guid}", ClientPortalEndpoints.GetClaim)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
@@ -526,6 +545,16 @@ app.MapGet("/api/v1/command-center/metrics", CommandCenterMetricsLoader.GetMetri
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
 app.MapPost("/api/v1/command-center/query", CommandCenterQueryEndpoints.RunQuery)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapGet("/api/v1/command-center/conversations", CommandCenterConversationEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapGet("/api/v1/command-center/conversations/{conversationId:guid}", CommandCenterConversationEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPatch("/api/v1/command-center/conversations/{conversationId:guid}", CommandCenterConversationEndpoints.Rename)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/command-center/conversations/{conversationId:guid}/archive", CommandCenterConversationEndpoints.Archive)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/command-center/conversations/{conversationId:guid}/restore", CommandCenterConversationEndpoints.Restore)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
 app.MapGet("/api/v1/provider-status", ProviderStatusEndpoints.GetProviderStatus)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
 app.MapGet("/api/v1/system/capabilities", SystemCapabilityEndpoints.GetCapabilities)
@@ -538,6 +567,13 @@ app.MapPost("/api/v1/cases/{caseId:guid}/workflow/evaluate", WorkflowEndpoints.E
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ApproveSettlementWorkflowStep));
 app.MapGet("/api/v1/workflow/tasks", WorkflowEndpoints.ListTasks)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/my-work", InsuranceIntelligence.Api.MyWork.MyWorkEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(
+        Permission.ViewAssignedClaims,
+        Permission.ViewAllClaims,
+        Permission.ApproveSettlementWorkflowStep,
+        Permission.ManageCustomerCommunications,
+        Permission.ReviewAgentWorkItems));
 app.MapGet("/api/v1/workflow/tasks/{taskId:guid}", WorkflowEndpoints.GetTask)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/workflow/tasks/{taskId:guid}/complete", WorkflowEndpoints.CompleteTask)
@@ -687,7 +723,7 @@ app.MapGet("/api/v1/compliance/posture", ComplianceEndpoints.GetCompliancePostur
 app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack", ComplianceEndpoints.GetAuditPack)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export", ComplianceEndpoints.ExportAuditPack)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/integrations/email/health", EmailIntegrationEndpoints.GetHealth)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.ListMailboxes)
@@ -710,6 +746,10 @@ app.MapGet("/api/v1/integrations/whatsapp/health", WhatsAppIntegrationEndpoints.
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
 app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);
+app.MapGet("/api/v1/channels/whatsapp/threads/{threadId}", WhatsAppIntegrationEndpoints.GetThread)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapPost("/api/v1/channels/whatsapp/threads/{threadId}/messages", WhatsAppIntegrationEndpoints.SendMessage)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.SendCustomerUpdate));
 app.MapPost("/api/v1/communications/send-email", CommunicationEndpoints.SendEmail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.SendCustomerUpdate));
 app.MapPost("/api/v1/communications/send-sms", CommunicationEndpoints.SendSms)

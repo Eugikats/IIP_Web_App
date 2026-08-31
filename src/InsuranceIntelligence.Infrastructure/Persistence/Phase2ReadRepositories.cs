@@ -8,6 +8,7 @@ using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Policies;
+using InsuranceIntelligence.Domain.Integrations;
 using Microsoft.EntityFrameworkCore;
 using DomainAuditEvent = InsuranceIntelligence.Domain.Audit.AuditEvent;
 using CustomerAuditRow = InsuranceIntelligence.Application.Customers.AuditEventRowDto;
@@ -364,18 +365,51 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
 }
 
 /// <summary>
-/// Channel conversations are ingested by the external-channel pipeline (WhatsApp/webchat/etc.),
-/// which is a later program phase. No such data exists yet, so this returns an empty overview
-/// honestly rather than simulating conversations. When ingestion is configured this adapter reads
-/// the real conversation store.
+/// Tenant-scoped channel overview projected from durable WhatsApp messages.
 /// </summary>
-public sealed class EfChannelReadRepository : IChannelReadRepository
+public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbContext)
+    : JsonRepositoryBase(dbContext), IChannelReadRepository
 {
-    public Task<IReadOnlyList<ChannelConversationReadModel>> GetOverviewAsync(
+    public async Task<IReadOnlyList<ChannelConversationReadModel>> GetOverviewAsync(
         string tenantId,
         string workspaceId,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<ChannelConversationReadModel>>(Array.Empty<ChannelConversationReadModel>());
+        CancellationToken cancellationToken = default)
+    {
+        var scope = TenantScope.Create(tenantId, workspaceId);
+        var messages = (await Scoped(DbContext.WhatsAppMessages.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<WhatsAppMessage>)
+            .ToArray();
+        if (messages.Length == 0) return [];
+
+        var cases = (await Scoped(DbContext.Cases.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<ClaimCase>)
+            .ToDictionary(claimCase => claimCase.CaseId);
+
+        return messages
+            .GroupBy(message => message.ThreadId, StringComparer.Ordinal)
+            .Select(group => group.OrderByDescending(message => message.CreatedAt).First())
+            .OrderByDescending(message => message.CreatedAt)
+            .Select(message =>
+            {
+                var claimCase = message.CaseId is { } caseId && cases.TryGetValue(caseId, out var found) ? found : null;
+                return new ChannelConversationReadModel(
+                    message.ThreadId,
+                    claimCase?.CustomerName ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
+                    ChannelValues.WhatsApp,
+                    ChannelDetectedIntentValues.GeneralService,
+                    claimCase is null ? "Manual case-link review" : "Open linked claim",
+                    0m,
+                    message.DeliveryState.ToString(),
+                    claimCase?.AssignedUserId,
+                    message.CustomerSafeBody.Length <= 160 ? message.CustomerSafeBody : message.CustomerSafeBody[..160],
+                    message.CreatedAt);
+            })
+            .ToArray();
+    }
 }
 
 // Sales-lead persistence moved to EfSalesLeadRepository (real scoped-JSON store) — the manual

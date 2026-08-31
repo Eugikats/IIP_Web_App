@@ -6,6 +6,7 @@ using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http.Features;
 namespace InsuranceIntelligence.Api.Documents;
 
@@ -590,6 +591,18 @@ public static class DocumentEndpoints
             return true;
         }
 
+        var options = httpContext.RequestServices?.GetService(typeof(InfrastructureOptions)) as InfrastructureOptions;
+        if (options is not null
+            && !options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+        {
+            // Protected runtimes: membership-resolved TenantContext only (ADR-0005).
+            // Do not fall back to deployment config or client headers/query.
+            scope = new TenantScope(string.Empty, string.Empty);
+            userId = string.Empty;
+            validationError = "Server-resolved tenant context is required.";
+            return false;
+        }
+
         if (TenantScopeReader.TryGetFromHeaders(httpContext, out scope, out validationError))
         {
             userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
@@ -607,6 +620,14 @@ public static class DocumentEndpoints
             && !string.IsNullOrWhiteSpace(tenantContext.Current.UserId))
         {
             return tenantContext.Current.UserId;
+        }
+
+        var options = httpContext.RequestServices?.GetService(typeof(InfrastructureOptions)) as InfrastructureOptions;
+        if (options is not null
+            && !options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+        {
+            // Never accept form-field or header actor spoofing outside Development.
+            return string.Empty;
         }
 
         if (!string.IsNullOrWhiteSpace(candidate))

@@ -1,5 +1,7 @@
 # One-Page Product Brief
 
+> **Validation note — 2026-08-04:** Treat this as legacy commercial summary, not proof of market demand or ROI. Current product definition and validation status live in `../01-strategy-requirements-roadmap/iip_product_definition_and_validation_charter.md`.
+
 | Field | Value |
 |---|---|
 | Product | Insurance Intelligence Platform (IIP) |
@@ -99,4 +101,3 @@ Run a controlled motor claims and document intelligence pilot with confirmed sco
 | Final pilot duration | Requires Confirmation | An 8 to 12 week pilot is assumed unless client procurement or integration timelines require adjustment. |
 | Production deployment model | Requires Confirmation | Azure Managed Application is preferred for enterprise clients; Otic-hosted SaaS may be used for demos or smaller clients. |
 | Regulatory sign-off requirements | Requires Confirmation | Local insurance, privacy, outsourcing, and client legal requirements must be validated before production. |
-

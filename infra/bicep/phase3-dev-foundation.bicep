@@ -367,6 +367,18 @@ var apiAppSettings = [
     value: 'Disabled'
   }
   {
+    name: 'INSURANCEINTELLIGENCE_SMS_PROVIDER'
+    value: 'Disabled'
+  }
+  {
+    name: 'INSURANCEINTELLIGENCE_CHANNEL_PROVIDER'
+    value: 'Disabled'
+  }
+  {
+    name: 'INSURANCEINTELLIGENCE_PROVISIONER_PROVIDER'
+    value: 'Disabled'
+  }
+  {
     name: 'INSURANCEINTELLIGENCE_SEED_DEMO_DATA'
     value: 'false'
   }

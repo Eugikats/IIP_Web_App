@@ -16,9 +16,14 @@ public sealed class Phase5DomainTests
     {
         Assert.True(RolePermissionMap.HasPermission(PlatformRole.Admin, Permission.ManageTenantSettings));
         Assert.True(RolePermissionMap.HasPermission(PlatformRole.ClaimsSupervisor, Permission.ViewAuditLog));
+        Assert.True(RolePermissionMap.HasPermission(PlatformRole.ClaimsSupervisor, Permission.ExportEvidencePack));
+        Assert.True(RolePermissionMap.HasPermission(PlatformRole.Compliance, Permission.ExportEvidencePack));
         Assert.True(RolePermissionMap.HasPermission(PlatformRole.CustomerService, Permission.ManageCustomerCommunications));
         Assert.True(RolePermissionMap.HasPermission(PlatformRole.CustomerService, Permission.SendCustomerUpdate));
+        Assert.True(RolePermissionMap.HasPermission(PlatformRole.PublisherSupport, Permission.ViewAuditLog));
+        Assert.False(RolePermissionMap.HasPermission(PlatformRole.PublisherSupport, Permission.ExportEvidencePack));
         Assert.False(RolePermissionMap.HasPermission(PlatformRole.Client, Permission.ViewAuditLog));
+        Assert.False(RolePermissionMap.HasPermission(PlatformRole.Client, Permission.ExportEvidencePack));
         Assert.False(RolePermissionMap.HasPermission(PlatformRole.Client, Permission.ViewAssignedClaims));
         Assert.False(RolePermissionMap.HasPermission(PlatformRole.Client, Permission.ManageCustomerCommunications));
         Assert.False(RolePermissionMap.HasPermission(PlatformRole.Broker, Permission.SendCustomerUpdate));

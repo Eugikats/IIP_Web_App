@@ -1,3 +1,5 @@
+using InsuranceIntelligence.Infrastructure.Configuration;
+
 namespace InsuranceIntelligence.Api.CommandCenter;
 
 public sealed record SystemCapabilityStatusDto(
@@ -26,14 +28,14 @@ public sealed class SystemCapabilityStatusService(
         var envProfile = Azure.AzureProviderStartupValidator.ResolveRuntimeProfile(options, environment.EnvironmentName);
 
         var status = new SystemCapabilityStatusDto(
-            ActiveAi: !options.AiProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase),
-            ActiveDocumentExtraction: !options.DocumentProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase),
-            ActiveKnowledgeRetrieval: !options.RetrievalProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase),
-            ActiveEmailIngestion: !options.EmailProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase),
-            ActiveSmsDelivery: !options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase),
-            ActiveTeamsNotification: !options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase),
-            ActiveChannels: !options.ChannelProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase),
-            ActiveOnboarding: !options.ProvisionerProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase),
+            ActiveAi: ProviderModeSupport.IsLiveProviderMode(options.AiProvider, "AzureOpenAI"),
+            ActiveDocumentExtraction: ProviderModeSupport.IsLiveProviderMode(options.DocumentProvider, "AzureDocumentIntelligence"),
+            ActiveKnowledgeRetrieval: ProviderModeSupport.IsLiveProviderMode(options.RetrievalProvider, "AzureAiSearch"),
+            ActiveEmailIngestion: ProviderModeSupport.IsLiveProviderMode(options.EmailProvider, "Graph"),
+            ActiveSmsDelivery: ProviderModeSupport.IsLiveProviderMode(options.SmsProvider, "AfricasTalking"),
+            ActiveTeamsNotification: ProviderModeSupport.IsLiveProviderMode(options.NotificationProvider, "IncomingWebhook"),
+            ActiveChannels: ProviderModeSupport.IsLiveProviderMode(options.ChannelProvider, "WhatsAppCloudApi"),
+            ActiveOnboarding: ProviderModeSupport.IsLiveProviderMode(options.ProvisionerProvider, "Entra"),
             Environment: envProfile,
             AuthMode: options.AuthMode);
 

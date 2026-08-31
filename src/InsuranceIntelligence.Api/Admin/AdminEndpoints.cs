@@ -417,6 +417,15 @@ public static class AdminEndpoints
             return true;
         }
 
+        var options = httpContext.RequestServices?.GetService(typeof(InfrastructureOptions)) as InfrastructureOptions;
+        if (options is not null
+            && !options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+        {
+            scope = new TenantScope(string.Empty, string.Empty);
+            validationError = "Server-resolved tenant context is required.";
+            return false;
+        }
+
         return TenantScopeReader.TryGetFromHeadersOrQuery(httpContext, out scope, out validationError);
     }
 
@@ -437,6 +446,11 @@ public static class AdminEndpoints
 
     private static string GraphStatus(InfrastructureOptions options)
     {
+        if (IsNotConfiguredMode(options.EmailProvider))
+        {
+            return "not_configured";
+        }
+
         if (!options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
         {
             return IsDevelopmentAuth(options) ? "healthy" : "missing";
@@ -447,6 +461,11 @@ public static class AdminEndpoints
 
     private static string GraphDetail(InfrastructureOptions options)
     {
+        if (IsNotConfiguredMode(options.EmailProvider))
+        {
+            return "Email ingestion is explicitly not configured for this environment.";
+        }
+
         if (!options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
         {
             return IsDevelopmentAuth(options)
@@ -461,6 +480,11 @@ public static class AdminEndpoints
 
     private static string CommunicationStatus(InfrastructureOptions options)
     {
+        if (IsNotConfiguredMode(options.CommunicationProvider))
+        {
+            return "not_configured";
+        }
+
         if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
         {
             return IsDevelopmentAuth(options) ? "healthy" : "missing";
@@ -478,6 +502,11 @@ public static class AdminEndpoints
 
     private static string CommunicationDetail(InfrastructureOptions options)
     {
+        if (IsNotConfiguredMode(options.CommunicationProvider))
+        {
+            return "Customer communication sending is explicitly not configured for this environment.";
+        }
+
         if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
         {
             return IsDevelopmentAuth(options)
@@ -495,19 +524,37 @@ public static class AdminEndpoints
         return "Customer communication sending is not configured. Configure GraphEmail with scoped mailbox access before enabling customer sends.";
     }
 
-    private static string NotificationStatus(InfrastructureOptions options) =>
-        options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase) && !IsDevelopmentAuth(options)
+    private static string NotificationStatus(InfrastructureOptions options)
+    {
+        if (IsNotConfiguredMode(options.NotificationProvider))
+        {
+            return "not_configured";
+        }
+
+        return options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase) && !IsDevelopmentAuth(options)
             ? "missing"
             : options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase)
                 ? "healthy"
-                : "missing";
+                : options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase)
+                    ? "configured"
+                    : "missing";
+    }
 
-    private static string NotificationDetail(InfrastructureOptions options) =>
-        options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase)
+    private static string NotificationDetail(InfrastructureOptions options)
+    {
+        if (IsNotConfiguredMode(options.NotificationProvider))
+        {
+            return "Notification provider is explicitly not configured for this environment.";
+        }
+
+        return options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase)
             ? IsDevelopmentAuth(options)
                 ? "Mock notifications are available only for local development."
                 : "A real notification provider must be configured or notification features must be unavailable."
-            : "Notification provider is not configured.";
+            : options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase)
+                ? "IncomingWebhook Teams notification provider is configured."
+                : "Notification provider is not configured.";
+    }
 
     private static bool HasGraphClientCredential(InfrastructureOptions options) =>
         !options.GraphMail.UseManagedIdentity
@@ -545,6 +592,11 @@ public static class AdminEndpoints
 
     private static string BlobStatus(InfrastructureOptions options)
     {
+        if (IsNotConfiguredMode(options.BlobProvider))
+        {
+            return "not_configured";
+        }
+
         if (!options.BlobProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase))
         {
             return IsDevelopmentAuth(options) ? "healthy" : "missing";
@@ -558,7 +610,9 @@ public static class AdminEndpoints
     }
 
     private static string BlobDetail(InfrastructureOptions options) =>
-        options.BlobProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase)
+        IsNotConfiguredMode(options.BlobProvider)
+            ? "Blob storage is explicitly not configured for this environment."
+            : options.BlobProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase)
             ? "Azure Blob mode selected. Storage endpoint/account must be configured; sensitive values are not returned."
             : IsDevelopmentAuth(options)
                 ? "Mock/local blob storage is active only for local development."
@@ -593,6 +647,5 @@ public static class AdminEndpoints
         options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsNotConfiguredMode(string mode) =>
-        mode.Equals("NotConfigured", StringComparison.OrdinalIgnoreCase)
-        || mode.Equals("Disabled", StringComparison.OrdinalIgnoreCase);
+        ProviderModeSupport.IsNotConfiguredMode(mode);
 }

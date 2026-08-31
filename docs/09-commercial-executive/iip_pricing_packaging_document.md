@@ -1,128 +1,120 @@
-# Pricing & Packaging Document
+# IIP Pricing and Packaging Hypotheses
 
 | Field | Value |
 |---|---|
 | Product | Insurance Intelligence Platform (IIP) |
-| Document Name | Pricing & Packaging Document |
-| Version | 1.0 |
-| Status | Draft |
-| Audience | Commercial leadership, sales, finance, executives, client procurement |
-| Date | 2026-06-30 |
+| Version | 2.0 |
+| Status | Research hypotheses; no approved prices |
+| Audience | Commercial, finance, product, insurer buyers, procurement |
+| Updated | 2026-08-05 |
+| Release focus | Motor own-damage claim evidence review and follow-up |
 
-## Core Principles Used Across This Pack
+## Authority and limits
 
-- IIP is the official product name. Older ACIP references are not used as official naming.
-- The MVP is centered on motor claims and document intelligence for an insurer pilot.
-- IIP assists insurance work; humans make consequential insurance decisions.
-- AI may summarize, classify, extract, flag, draft, recommend, and route, but it must not approve or reject claims, bind policies, set final premiums, accuse customers of fraud, promise settlement, or release payment.
-- The target architecture is Azure-first with Next.js/React/TypeScript frontend, .NET 8 backend, Azure SQL, Blob Storage, Key Vault, AI Search, Azure OpenAI, Azure AI Document Intelligence, Service Bus/Event Grid, Application Insights, Entra ID/MSAL, and Microsoft Graph where appropriate.
-- Customer interaction is WhatsApp-first but can extend to web chat, SMS, email, broker, call center, and Microsoft channels.
-- Internal users work through role-aware staff workspaces; customers do not log into the internal app.
-- Staging and production must not rely on fake data or mock endpoints. Empty, error, unauthorized, loading, and Not configured states must be handled clearly.
+Use this document with the [business case and ROI validation model](iip_business_case_roi_document.md), [research program](../research/iip-user-business-market-research-program.md), and [product definition charter](../01-strategy-requirements-roadmap/iip_product_definition_and_validation_charter.md).
 
+The former broad Standard, Professional, Enterprise, customer-acquisition, fraud, early-warning, and underwriting packages are withdrawn as current offers. They exceed validated Release 1 scope. No price, discount, deployment preference, or willingness-to-pay result is approved yet.
 
-## Purpose
+## Packaging principles
 
-This document defines a pricing and packaging structure for IIP that can support pilots, enterprise deployments, Azure Managed Application deployments, and Otic-hosted SaaS deployments. All prices are placeholders until commercially approved.
+- Package the smallest complete customer outcome, not the largest feature list.
+- Keep evidence lineage, human review, tenant isolation, audit, safe failure, and recovery in the core offer.
+- Separate services, platform rights, customer cloud/provider usage, integration, and support.
+- Make variable cost exposure visible and capped; do not advertise unlimited AI or document processing.
+- Do not use seats as the only value metric until role concurrency and buyer preference are known.
+- Do not assume WhatsApp, a particular core-system integration, customer-tenant deployment, or Marketplace procurement without buyer evidence.
+- Time-bound every pilot and state conversion, exit, data-return, and deletion conditions.
 
-## Packaging Principles
+## Hypothesis ladder
 
-- Keep the first pilot simple and focused on motor claims and document intelligence.
-- Separate platform access, implementation services, support, usage, and optional modules.
-- Price enterprise deployments differently from lightweight SaaS/demo deployments because Managed Application deployments carry additional setup, security, support, and governance work.
-- Do not price AI as unlimited if provider costs are usage-based.
-- Keep human-in-loop and auditability as core product value, not optional compliance add-ons.
-
-## Recommended Package Structure
-
-| Package | Target client | Description |
-|---|---|---|
-| Pilot Package | First insurer pilot | Controlled pilot for motor claims, documents, dashboards, AI assistance, training, and weekly support |
-| Core Claims Intelligence | Insurer operations team | Claims inbox, case review, document intelligence, command center, audit trail, user/admin setup |
-| Customer Acquisition Add-on | Distribution and digital teams | WhatsApp-first lead capture, quote handoff, customer channels, follow-up backlog |
-| Fraud Signal Add-on | Claims/risk teams | Risk signals, duplicate/mismatch flags, suspicious pattern queues, investigation support |
-| Early Warning Add-on | Executives and operations | Trend alerts, SLA risk, claim volume shifts, operational bottleneck signals |
-| Underwriting Support Add-on | Underwriting teams | Policy/quote support, document review, risk notes, human-reviewed recommendations |
-| Enterprise Managed Application | Large regulated clients | Customer-tenant deployment, Azure Managed Application packaging, support access controls, premium governance |
-
-## Pricing Components
-
-| Component | Description | Pricing basis | Status |
+| Offer hypothesis | Intended decision | Included scope | Explicit exclusions |
 |---|---|---|---|
-| Platform subscription | Access to core IIP workspaces and dashboards | Monthly or annual | Requires Confirmation |
-| User seats | Staff users by role or bundle | Per user/month or tier bundle | Requires Confirmation |
-| AI usage | LLM calls, summaries, RAG, evaluation, red-team monitoring | Usage-based or included allowance | Requires Confirmation |
-| Document processing | OCR/classification/extraction | Per document/page or included allowance | Requires Confirmation |
-| WhatsApp/channel usage | Customer messages and channel fees | Usage-based | Requires Confirmation |
-| Implementation services | Setup, configuration, integration, training, UAT | One-time fee | Requires Confirmation |
-| Managed Application premium | Extra security, packaging, client tenant deployment, support model | One-time and/or annual premium | Requires Confirmation |
-| Support tier | Support response targets and coverage | Monthly or annual | Requires Confirmation |
+| Readiness and value-baseline engagement | Is there a qualified problem, usable data, buyer path, and measurable baseline? | Workflow observation, baseline definition, data/security review, pilot plan, cost model | Production use, promised ROI, custom product build |
+| Controlled paid pilot | Does Release 1 produce safe, attributable value under representative conditions? | Bounded cases/users, configured evidence review, human gates, training, measurement, weekly review, exit report | Autonomous decisions, enterprise-wide rollout, unmeasured modules |
+| Release 1 production subscription | Can one approved claims operation run the validated workflow reliably? | Approved Release 1 capability, operations, security, support, usage allowance, change control | Future modules, bespoke integrations not contracted, unsupported geographies/products |
 
-## Illustrative Package Matrix
+Later modules require their own discovery, validation, cost, safety, and pricing decisions.
 
-The following is a commercial structure, not approved pricing.
+## Price architecture to test
 
-| Tier | Intended use | Included modules | Notes |
+| Component | Candidate basis | Why test it | Required buyer evidence |
 |---|---|---|---|
-| Pilot | 8-12 week validation | Motor claims, document intelligence, command center, limited users, support | Best for first insurer proof of value |
-| Standard | Single business unit | Core claims intelligence, documents, audit, reports, admin | Suitable for claims department rollout |
-| Professional | Multi-team operations | Standard plus channels, customer workspace, sales/leads, advanced reporting | Suitable for insurer-wide operations |
-| Enterprise | Regulated enterprise | Professional plus Managed Application deployment, premium support, custom integrations | Suitable for large insurers and strict security environments |
+| Readiness engagement | Fixed fee for bounded deliverables | Creates a real commitment before custom work | Past spend, signing authority, procurement threshold |
+| Pilot | Fixed fee plus explicit usage allowance | Keeps evaluation scope and cost legible | Pilot budget, success criteria, data access, conversion authority |
+| Implementation | Fixed scope or milestone fee | Reflects configuration, migration, integration, security, and training | Integration inventory, internal capacity, acceptance owner |
+| Platform subscription | Annual fee per approved operation/workspace | Aligns with governed operational use | Budget owner, preferred billing unit, renewal process |
+| Usage | Included allowance plus capped overage or customer-paid cloud | Reflects AI, pages, storage, messages, and telemetry cost | Forecast volume, cost predictability needs, invoice constraints |
+| Support | Defined service tier | Reflects coverage, response, upgrade, and incident obligations | Criticality, hours, escalation, local support expectations |
+| Professional services | Approved change order | Prevents custom work from hiding in subscription | Change authority, day-rate/fixed-fee preference |
 
-## Module Definitions
+## Deployment and channel hypotheses
 
-| Module | Included capabilities | Commercial note |
+| Question | Current status | Validation needed |
 |---|---|---|
-| Core Staff App | Navigation, top bar, global search, role-aware workspace, status states | Core |
-| Command Center | Claims metrics, trends, SLA risk, approvals, escalations, AI usage | Core |
-| Claims | Claims inbox, filters, case review, summaries, approval routing | Core |
-| Documents | Upload, classification, extraction, completeness, review, evidence | Core for MVP |
-| Channels | WhatsApp/email/web intake, backlog, customer updates | Add-on or Professional+ |
-| Customers | Customer timeline, policies, documents, interactions | Add-on or Professional+ |
-| Sales & Leads | Lead capture, quote handoff, follow-up backlog | Add-on |
-| AI/RAG Knowledge | Approved knowledge base, citations, Q&A, safe responses | Core with usage controls |
-| Fraud Signals | Duplicate/mismatch/pattern flags, investigation support | Add-on |
-| Early Warning | Trend/risk/volume alerts and operational forecasting | Add-on |
+| Customer Azure tenant, vendor-hosted environment, or another model? | Open | Security, data, procurement, operations, and cost interviews |
+| Azure Managed Application required? | Open | Buyer deployment policy and operational-support model |
+| Azure Marketplace/private plan required? | Open | Actual transacting route and account eligibility; private-plan mechanics do not prove buyer preference |
+| CSP procurement required? | Open risk | Microsoft documentation indicates private plans are not supported for CSP-program resellers; verify the buyer's account and route |
+| WhatsApp or another external channel required for Release 1? | Open | Observed intake and follow-up workflow; privacy and consent review |
+| Deep core-system write-back required? | Open | Workflow necessity, authority, API availability, risk, and integration cost |
 
-## Pilot Pricing Model Template
+## Pricing research sequence
 
-| Item | Placeholder | Notes |
-|---|---|---|
-| Pilot setup fee | Requires Confirmation | Covers configuration, training, UAT, pilot management |
-| Pilot subscription | Requires Confirmation | Could be discounted or credited into annual contract |
-| Included users | Requires Confirmation | Suggested: claims officers, supervisors, admin, compliance, executive viewers |
-| Included documents/pages | Requires Confirmation | Should match pilot volume |
-| Included AI usage | Requires Confirmation | Must include safe limits and monitoring |
-| Support coverage | Requires Confirmation | Pilot support hours and escalation targets must be agreed |
-| Optional integrations | Requires Confirmation | Deeper core system integration may be priced separately |
+1. Establish the recent problem, current workaround, consequence, and budget owner.
+2. Document the last comparable purchase: amount/range, approval chain, timeline, security review, and failure points.
+3. Quantify the current operating cost with finance-approved definitions.
+4. Test offer comprehension and exclusions before presenting a price.
+5. Use several realistic price structures in randomized or counterbalanced research; do not ask only “Would you pay?”
+6. Ask what budget would fund it, who can approve it, what it displaces, and what evidence is required.
+7. Seek behavioral commitment: named sponsor, data access, technical review, procurement step, letter of intent, or paid pilot.
+8. Validate gross margin against full provider, cloud, support, implementation, security, and change costs.
 
-## Annual Contract Model Template
+## Pricing hypothesis register
 
-| Commercial element | Recommended approach |
+| ID | Hypothesis | Test | Advance signal | Status |
+|---|---|---|---|---|
+| PRICE-H01 | Buyers will fund a bounded readiness engagement before bespoke implementation | Buyer interviews plus real proposal | Authorized budget and agreed deliverables | Untested |
+| PRICE-H02 | A paid pilot is acceptable when success, data use, conversion, and exit are explicit | Real pilot offer | Signed or procurement-approved paid pilot | Untested |
+| PRICE-H03 | Annual operation/workspace pricing is easier to approve than pure per-seat pricing | Structured buyer comparison | Consistent preference tied to budget structure | Untested |
+| PRICE-H04 | Buyers require predictable usage exposure | Contract and procurement interviews | Preference for allowance/cap or customer-paid cloud | Untested |
+| PRICE-H05 | Customer-tenant deployment commands recognized value that covers its operating burden | Security/IT interviews and cost model | Buyer requirement plus accepted incremental price | Untested |
+| PRICE-H06 | The measured Release 1 value supports positive buyer ROI and sustainable gross margin | Pilot plus finance review | Finance-accepted value and commercial cost model | Untested |
+
+## Offer worksheet
+
+| Field | Required entry |
 |---|---|
-| Annual platform fee | Based on tier and deployment model |
-| Usage allowances | AI usage, document pages, messages, storage |
-| Overage fees | Defined per usage category |
-| Implementation services | One-time project fee by integration complexity |
-| Support | Tiered support levels by coverage and response targets |
-| Professional services | Change requests, new modules, custom workflows, custom reports |
-| Managed Application | Premium for private deployment, marketplace packaging, and support operations |
+| Target organization and operation | Named, qualified segment |
+| Job and workflow boundary | Recent evidence with repository IDs |
+| Outcome | Measurable and attributable |
+| Included users/cases/volume | Explicit ceiling and complexity mix |
+| Included capability | Release 1 only, with human responsibilities |
+| Data and deployment | Location, controller/processor roles, access, retention, exit |
+| Integration | Read/write scope, owners, prerequisites, acceptance |
+| Support | Hours, response, escalation, maintenance, upgrade |
+| Measurement | Baseline, comparison, quality guardrails, decision date |
+| Price and currency | Approved amount, taxes, indexation, payment schedule |
+| Variable costs | Allowance, overage/cap, customer-paid items |
+| Conversion and exit | Production decision, credit treatment, return/deletion |
+| Evidence | Buyer, finance, product, legal, and security approvals |
 
-## Discount and Commercial Control Rules
+## Commercial guardrails
 
-- Pilot discounts should be time-limited and tied to a next-phase decision.
-- Do not include unlimited AI/document processing unless cost exposure is capped.
-- Deep core system integrations should be scoped and priced separately.
-- Any client-specific compliance or hosting requirement should be assessed before pricing.
-- Pricing should align with measured value, not only software seats.
+- Do not quote placeholder prices as market evidence.
+- Do not offer a free pilot when substantial custom work, real data, or operational support is required without an explicit learning investment decision.
+- Do not discount without a time limit, decision date, and exchanged commitment.
+- Do not bury customer cloud or usage cost in “unlimited” language.
+- Do not claim Managed Application, Marketplace, or a private plan removes procurement, security, legal, or deployment work.
+- Do not price expected future modules before scope and evidence are approved.
+- Do not use a pilot logo, quote, result, or workflow detail without permission.
 
-## Open Questions and Required Confirmations
+## Approval gate
 
-| Item | Status | Notes |
-|---|---|---|
-| First pilot insurer | Requires Confirmation | ICEA-like mid-to-large insurer is the working assumption, but the named pilot client must be confirmed. |
-| Commercial currency | Requires Confirmation | Pricing can be expressed in USD for investor/client modeling, but local contract currency may vary. |
-| Final pilot duration | Requires Confirmation | An 8 to 12 week pilot is assumed unless client procurement or integration timelines require adjustment. |
-| Production deployment model | Requires Confirmation | Azure Managed Application is preferred for enterprise clients; Otic-hosted SaaS may be used for demos or smaller clients. |
-| Regulatory sign-off requirements | Requires Confirmation | Local insurance, privacy, outsourcing, and client legal requirements must be validated before production. |
+A commercial offer becomes approved only when:
 
+- the target segment and buyer roles are evidenced;
+- the business-case inputs have named sources and finance review;
+- the deployment, data, integration, procurement, and support constraints are known;
+- the full cost-to-serve and gross-margin range are reviewed;
+- product, commercial, finance, security, and legal owners approve the offer;
+- the evidence register records the decision, date, scope, and caveats.

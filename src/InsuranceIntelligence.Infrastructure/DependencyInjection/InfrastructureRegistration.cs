@@ -4,6 +4,7 @@ using InsuranceIntelligence.Application.Channels;
 using InsuranceIntelligence.Application.Claims;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Customers;
+using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
@@ -94,11 +95,13 @@ public static class InfrastructureRegistration
         if (options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase))
         {
             services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
+            services.AddHttpClient<IWhatsAppOutboundProvider, WhatsAppCloudApiOutboundProvider>();
             services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
         }
         else
         {
             services.AddSingleton<IWhatsAppInboundProvider, DisabledWhatsAppInboundProvider>();
+            services.AddSingleton<IWhatsAppOutboundProvider, DisabledWhatsAppOutboundProvider>();
             services.AddSingleton<IWhatsAppAttachmentProcessor, DisabledWhatsAppAttachmentProcessor>();
         }
 
@@ -177,6 +180,8 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowRunRepository, EfAgentWorkflowRunRepository>();
         services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkItemRepository, EfAgentWorkItemRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
+        services.AddScoped<ICommandCenterConversationRepository, EfCommandCenterConversationRepository>();
+        services.AddScoped<IWhatsAppMessageRepository, EfWhatsAppMessageRepository>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.DemoSeeding.IDemoDataPurgeService, InsuranceIntelligence.Infrastructure.DemoSeeding.EfDemoDataPurgeService>();
         services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.DemoSeedService>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
@@ -305,7 +310,7 @@ public static class InfrastructureRegistration
                 TenantId = configuration["WhatsApp:TenantId"] ?? configuration["INSURANCEINTELLIGENCE_TENANT_ID"],
                 WorkspaceId = configuration["WhatsApp:WorkspaceId"] ?? configuration["INSURANCEINTELLIGENCE_WORKSPACE_ID"],
                 IntegrationUserId = configuration["WhatsApp:IntegrationUserId"],
-                GraphBaseUrl = configuration["WhatsApp:GraphBaseUrl"] ?? "https://graph.facebook.com/v21.0",
+                GraphBaseUrl = configuration["WhatsApp:GraphBaseUrl"] ?? "https://graph.facebook.com/v24.0",
                 RequestTimeoutSeconds = int.TryParse(configuration["WhatsApp:RequestTimeoutSeconds"], out var waTimeout) ? waTimeout : 20,
             },
             ProviderHealth = new ProviderHealthOptions

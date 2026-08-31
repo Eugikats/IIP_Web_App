@@ -21,6 +21,23 @@ public interface IWhatsAppInboundProvider
     Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, CancellationToken cancellationToken = default);
 }
 
+public interface IWhatsAppOutboundProvider
+{
+    bool IsConfigured { get; }
+    Task<WhatsAppProviderSendResult> SendAsync(
+        WhatsAppProviderSendRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IWhatsAppMessageRepository
+{
+    Task SaveAsync(WhatsAppMessage message, CancellationToken cancellationToken = default);
+    Task<WhatsAppMessage?> GetAsync(TenantScope scope, Guid messageId, CancellationToken cancellationToken = default);
+    Task<WhatsAppMessage?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default);
+    Task<WhatsAppMessage?> FindByIdempotencyKeyAsync(TenantScope scope, string idempotencyKey, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WhatsAppMessage>> ListThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default);
+}
+
 /// <summary>
 /// Downloads WhatsApp media and stores it as a case document via <see cref="IDocumentStorageProvider"/>,
 /// mirroring <see cref="IEmailAttachmentProcessor"/>.

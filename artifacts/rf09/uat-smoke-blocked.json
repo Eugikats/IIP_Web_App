@@ -1,0 +1,41 @@
+﻿{
+    "generatedAt":  "2026-08-04T10:37:51.2037661+00:00",
+    "apiBaseUrl":  "https://app-api-dev-h5girbnzrayqe.azurewebsites.net",
+    "portalBaseUrl":  "https://app-portal-dev-h5girbnzrayqe.azurewebsites.net",
+    "requireAuthenticated":  false,
+    "includeClaimsList":  false,
+    "includeProviderStatus":  false,
+    "includeCompliancePosture":  false,
+    "expectedRole":  "",
+    "expectedMeSource":  "",
+    "expectedTenantId":  "",
+    "expectedWorkspaceId":  "",
+    "deniedApiPath":  "",
+    "results":  [
+                    {
+                        "Check":  "API readiness",
+                        "Result":  "PASS",
+                        "Detail":  "GET https://app-api-dev-h5girbnzrayqe.azurewebsites.net/health/ready returned 200.",
+                        "StatusCode":  0
+                    },
+                    {
+                        "Check":  "Unauthenticated /me denial",
+                        "Result":  "PASS",
+                        "Detail":  "GET https://app-api-dev-h5girbnzrayqe.azurewebsites.net/api/v1/me returned 401.",
+                        "StatusCode":  0
+                    },
+                    {
+                        "Check":  "Portal app route",
+                        "Result":  "PASS",
+                        "Detail":  "GET https://app-portal-dev-h5girbnzrayqe.azurewebsites.net/app?smoke=uat-live returned 200.",
+                        "StatusCode":  0
+                    },
+                    {
+                        "Check":  "Authenticated /me",
+                        "Result":  "BLOCKED",
+                        "Detail":  "No access token supplied and -SkipAzToken was set.",
+                        "StatusCode":  0
+                    }
+                ],
+    "passed":  true
+}

@@ -9,6 +9,8 @@ Date: 2026-06-30
 
 # API Test Suite Specification
 
+> **Authority note — 2026-08-05:** Use current code/OpenAPI and `../02-development-engineering/iip_release_1_api_data_contract_map.md` for routes. Every Release 1 test must link a baseline requirement and acceptance gate; historical route examples below do not restore removed or unmapped APIs.
+
 ## Common IIP Context Used
 
 The Insurance Intelligence Platform (IIP) is an Azure-native, human-reviewed insurance operations platform for African insurers and related insurance organizations. It acts as an intelligent operational layer across staff, customers, core insurance systems, documents, channels, knowledge sources, and AI agents.
@@ -130,3 +132,7 @@ This document defines API-level tests for IIP endpoints, authentication, tenant 
 | OQ-04 | Which WhatsApp Business provider will be used for the first pilot? | Product / Integrations | Impacts webhook tests, retry tests, idempotency checks, and channel support runbooks. |
 | OQ-05 | What client-specific SLAs, roles, branches, claim categories, and document checklists must be configured? | Client Operations | Impacts functional tests, RBAC tests, document intelligence tests, and acceptance criteria. |
 | OQ-06 | What final regulatory, legal, data protection, and breach notification requirements must be signed off for the first pilot? | Legal / Compliance | Impacts compliance evidence, security validation, and incident response steps. |
+
+### WhatsApp thread, outbound and delivery contract tests
+
+The owning contract is `docs/03-design-architecture/iip_whatsapp_thread_outbound_delivery_spec.md`. Automated coverage must include tenant/workspace thread isolation, missing permissions, inbound replay, wrong business number, exact human approval, verified case-linked recipient, restricted content, 24-hour template enforcement, named template payloads, idempotency conflict, provider rejection, lost acknowledgement to `Unknown`, and duplicate/out-of-order delivery callbacks. Protected staging must additionally prove real signature validation, inbound text/document, provider acceptance, delivered/read/failed callbacks and reconciliation before retry.

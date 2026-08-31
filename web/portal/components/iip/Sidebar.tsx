@@ -10,39 +10,45 @@ import {
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
 import { runtimeInitials, useRuntimeContext } from "@/lib/runtimeContext";
+import { canAccessWithPermissions, canUseGlobalSearchPreview } from "@/lib/roles";
+import { canUseLocalTestDoubles } from "@/lib/config";
+import { useEffect, useState } from "react";
+import { listConversations, type ConversationSummary } from "@/lib/lovable-parity/data/commandCenterConversations";
 
 const NAV_GROUPS = [
-  { label: "Command", items: [
+  { label: "Work", items: [
     { to: "/app", label: "Command Center", icon: MessagesSquare },
-    { to: "/app/claims", label: "Claims Intelligence", icon: FileSearch },
-    { to: "/app/channels", label: "Channels Inbox", icon: Inbox },
-    { to: "/app/customers", label: "Customer 360", icon: UserSquare2 },
+    { to: "/app/work-items", label: "My Work", icon: ListChecks },
+    { to: "/app/claims", label: "Claims", icon: FileSearch },
+    { to: "/app/channels", label: "Channels", icon: Inbox },
   ]},
-  { label: "Operations", items: [
-    { to: "/app/work-items", label: "Review & Approvals", icon: ListChecks },
+  { label: "Records", items: [
+    { to: "/app/customers", label: "Customers", icon: UserSquare2 },
     { to: "/app/documents", label: "Documents", icon: FileText },
     { to: "/app/communications", label: "Communications", icon: MessageSquareText },
-    { to: "/app/acquisition", label: "Customer Acquisition", icon: Users },
+    { to: "/app/knowledge", label: "Knowledge", icon: BookOpen },
   ]},
-  { label: "Intelligence", items: [
-    { to: "/app/policy", label: "Policy Intelligence", icon: ShieldCheck },
-    { to: "/app/fraud", label: "Risk & Fraud Signals", icon: AlertTriangle },
+  { label: "Specialist work", items: [
+    { to: "/app/acquisition", label: "Acquisition", icon: Users },
+    { to: "/app/policy", label: "Policy Guidance", icon: ShieldCheck },
+    { to: "/app/fraud", label: "Risk Signals", icon: AlertTriangle },
     { to: "/app/underwriting", label: "Underwriting", icon: ClipboardList },
-    { to: "/app/knowledge", label: "Knowledge Hub", icon: BookOpen },
-    { to: "/app/executive", label: "Operations Intelligence", icon: LineChart },
   ]},
   { label: "Automation", items: [
-    { to: "/app/flows", label: "Automation Studio", icon: Bot },
+    { to: "/app/flows", label: "Flows", icon: Bot },
   ]},
-  { label: "Governance", items: [
-    { to: "/app/integrations", label: "Integrations & Health", icon: Plug },
+  { label: "Oversight", items: [
+    { to: "/app/executive", label: "Operations Intelligence", icon: LineChart },
     { to: "/app/audit", label: "Audit & Compliance", icon: ScrollText },
+  ]},
+  { label: "Platform", items: [
+    { to: "/app/integrations", label: "Integrations & Health", icon: Plug },
   ]},
 ];
 const ALL_ADMIN = [
   { to: "/app/admin", label: "Admin Console", icon: Cog },
-  { to: "/app/admin/agents", label: "AI & Agent Management", icon: Bot },
-  { to: "/app/admin/tenant-policy", label: "Tenant Agent Policy", icon: Gavel },
+  { to: "/app/admin/agents", label: "Agents", icon: Bot },
+  { to: "/app/admin/tenant-policy", label: "Agent Policy", icon: Gavel },
   { to: "/app/admin/onboarding", label: "Tenant Onboarding", icon: Building2 },
   { to: "/app/admin/billing", label: "Billing & Usage", icon: CreditCard },
 ];
@@ -72,11 +78,28 @@ function Item({ to, label, icon: Icon }: { to: string; label: string; icon: any 
 
 export default function Sidebar() {
   const { roleDef, toggleSidebar } = useUI();
-  const { runtimeContext, loading } = useRuntimeContext();
+  const { runtimeContext, loading, parityMode } = useRuntimeContext();
+  const usePreviewRole = canUseLocalTestDoubles || parityMode;
+  const searchAvailable = parityMode
+    ? false
+    : usePreviewRole
+      ? canUseGlobalSearchPreview(roleDef.key)
+      : (runtimeContext?.permissions ?? []).some((permission) => permission === "ViewAssignedClaims" || permission === "ViewAllClaims");
   const groups = NAV_GROUPS
-    .map((group) => ({ ...group, items: group.items.filter((item) => roleDef.modules.includes(item.to)) }))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        usePreviewRole
+          ? roleDef.modules.includes(item.to)
+          : canAccessWithPermissions(runtimeContext?.permissions ?? [], item.to)
+      ),
+    }))
     .filter((group) => group.items.length > 0);
-  const admin = ALL_ADMIN.filter((m) => roleDef.admin.includes(m.to));
+  const admin = ALL_ADMIN.filter((item) =>
+    usePreviewRole
+      ? roleDef.admin.includes(item.to)
+      : canAccessWithPermissions(runtimeContext?.permissions ?? [], item.to)
+  );
   const activeWorkspace = runtimeContext?.availableWorkspaces.find(
     (workspace) => workspace.workspaceId === runtimeContext.workspaceId,
   );
@@ -86,6 +109,22 @@ export default function Sidebar() {
   const displayName = runtimeContext?.displayName ?? (loading ? "Resolving user" : "User unavailable");
   const roleLabel = runtimeContext?.roleLabel ?? roleDef.title;
   const userInitials = runtimeInitials(displayName);
+  const commandCenterAvailable = usePreviewRole
+    ? roleDef.modules.includes("/app")
+    : (runtimeContext?.permissions ?? []).includes("ViewCommandCenter");
+  const [recentConversations, setRecentConversations] = useState<ConversationSummary[]>([]);
+
+  useEffect(() => {
+    if (!commandCenterAvailable || !runtimeContext || parityMode) {
+      setRecentConversations([]);
+      return;
+    }
+    const controller = new AbortController();
+    void listConversations(roleDef.key, runtimeContext.userId, false, 5, controller.signal)
+      .then((response) => setRecentConversations(Array.isArray(response.items) ? response.items : []))
+      .catch(() => setRecentConversations([]));
+    return () => controller.abort();
+  }, [commandCenterAvailable, parityMode, roleDef.key, runtimeContext]);
 
   return (
     <aside className="h-full flex flex-col border-r border-cloud/70 bg-white/60 backdrop-blur-xl">
@@ -118,19 +157,39 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <div className="px-4">
-        <div className="flex items-center gap-2 rounded-2xl bg-white/70 border border-cloud px-3 py-2 text-[12.5px] text-stone">
+      {searchAvailable && <div className="px-4">
+        <NavLink to="/app/search" className="flex items-center gap-2 rounded-2xl bg-white/70 border border-cloud px-3 py-2 text-[12.5px] text-stone hover:text-navy hover:bg-white focus-ring">
           <Search className="h-3.5 w-3.5" />
-          <span className="flex-1">Search everything</span>
-          <kbd className="text-[10px] rounded bg-cloud/80 px-1.5 py-0.5 text-slate2">⌘K</kbd>
-        </div>
-      </div>
+          <span className="flex-1">Search IIP</span>
+          <span className="text-[10px] rounded bg-cloud/80 px-1.5 py-0.5 text-slate2">Ctrl K</span>
+        </NavLink>
+      </div>}
 
       <div className="px-4 mt-3">
         <NavLink to="/app" className="w-full inline-flex items-center justify-center gap-2 rounded-2xl gradient-primary text-white text-[13px] font-medium py-2.5 shadow-l2 hover-lift focus-ring">
           <Plus className="h-4 w-4" /> New Conversation
         </NavLink>
       </div>
+
+      {commandCenterAvailable && (
+        <div className="px-4 pt-4">
+          <div className="flex items-center justify-between px-1 text-[10.5px] uppercase tracking-[0.14em] text-stone">
+            <span>Recent conversations</span>
+            <NavLink to="/app/conversations" className="normal-case tracking-normal text-info hover:underline focus-ring">All</NavLink>
+          </div>
+          {recentConversations.length > 0 ? (
+            <div className="mt-2 space-y-1">
+              {recentConversations.map((conversation) => (
+                <NavLink key={conversation.conversationId} to={`/app/conversations/${conversation.conversationId}`} className="block truncate rounded-lg px-2 py-1.5 text-[11.5px] text-slate2 hover:bg-white/70 hover:text-navy focus-ring">
+                  {conversation.title}
+                </NavLink>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-2 px-2 text-[11px] text-stone">No recent conversations</div>
+          )}
+        </div>
+      )}
 
       <nav className="flex-1 overflow-y-auto px-3 pt-5 pb-4">
         {groups.map((group, index) => (

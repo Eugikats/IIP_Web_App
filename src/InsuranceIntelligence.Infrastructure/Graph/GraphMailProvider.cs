@@ -116,9 +116,9 @@ public sealed class GraphCommunicationSendingProvider(InfrastructureOptions opti
                 cancellationToken);
             return new CommunicationSendResult("Sent", result.ProviderMessageId, null);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
-            return new CommunicationSendResult("ConfigurationRequired", string.Empty, SafeError(ex.Message));
+            return new CommunicationSendResult("ConfigurationRequired", string.Empty, SafeError());
         }
         catch (HttpRequestException)
         {
@@ -129,10 +129,8 @@ public sealed class GraphCommunicationSendingProvider(InfrastructureOptions opti
     public Task<CommunicationSendResult> SendSmsAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
         Task.FromResult(new CommunicationSendResult("ConfigurationRequired", string.Empty, "SMS provider is not configured for GraphEmail mode."));
 
-    private static string SafeError(string message) =>
-        message.Contains("secret", StringComparison.OrdinalIgnoreCase)
-            ? "Graph mail provider configuration is incomplete."
-            : message;
+    private static string SafeError() =>
+        "Microsoft Graph mail provider configuration is incomplete. Check mailbox access, identity, and Graph app permissions.";
 }
 
 public sealed class DisabledEmailIngestionProvider : IEmailIngestionProvider

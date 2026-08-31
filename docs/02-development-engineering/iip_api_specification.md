@@ -1,5 +1,7 @@
 # Insurance Intelligence Platform (IIP) - API Specification
 
+> **Contract authority note — 2026-08-05:** This broad document is a historical design catalogue and contains endpoint candidates that do not match current route mappings. Do not implement or consume a route from this document alone. Current code/generated OpenAPI is implementation truth; use `iip_release_1_api_data_contract_map.md` for the bounded Release 1 contract view and `../01-strategy-requirements-roadmap/iip_requirements_traceability_matrix.md` for requirement coverage. Unmapped examples below are `Legacy design candidate` until explicitly reconciled and approved.
+
 **Document Type:** API Specification  
 **Product:** Insurance Intelligence Platform (IIP)  
 **Prepared For:** Otic / IIP Product, Engineering, Architecture, Security, and Delivery Teams  
@@ -48,6 +50,22 @@ The frontend must not compute or invent operational metrics. All deployed Comman
 | `GET` | `/api/v1/command-center/conversations/{conversationId}` | Returns a command conversation history where enabled and authorized. |
 | `POST` | `/api/v1/command-center/actions` | Executes a safe command action such as opening a filtered queue, preparing a draft, or creating an approval task. |
 | `GET` | `/api/v1/command-center/evidence/{messageId}` | Returns evidence sources and audit references for a command response. |
+
+> **Current route reconciliation — 2026-08-07:** Of the broader candidates above, current code maps `GET /api/v1/command-center/metrics`, `POST /api/v1/command-center/query`, and the Recent Conversations routes below. `briefing`, `actions`, and `evidence/{messageId}` remain legacy design candidates, not implemented contracts.
+
+| Method | Current Recent Conversations path | Contract |
+|---|---|---|
+| `GET` | `/api/v1/command-center/conversations?archived={bool}&limit={1..100}` | Owner-, tenant-, and workspace-scoped safe metadata list. |
+| `GET` | `/api/v1/command-center/conversations/{conversationId}` | Owned history; returns `groundingStatus=required_before_next_turn`; inaccessible history is not disclosed. |
+| `PATCH` | `/api/v1/command-center/conversations/{conversationId}` | Rename using `{ title, expectedVersion }`. |
+| `POST` | `/api/v1/command-center/conversations/{conversationId}/archive` | Archive using `{ expectedVersion }`; not deletion. |
+| `POST` | `/api/v1/command-center/conversations/{conversationId}/restore` | Restore using `{ expectedVersion }`. |
+
+The current query body is `{ "question": "...", "conversationId": "optional-guid" }`. The response retains the typed-block envelope and adds server-issued `conversationId` and `turnId`. Browser tenant, workspace, user, and role values are never authority in protected runtimes.
+
+### Current Universal My Work contract — 2026-08-07
+
+`GET /api/v1/my-work?ownership={mine|unassigned|all}&sourceType={WorkflowTask|Approval|DocumentReview|CommunicationReview|AgentWorkItem}&state={Ready|InProgress|Escalated|Completed|Closed}&limit={1..100}` returns a no-store, server-scope and permission-filtered read projection. Defaults are `mine` and `50`. Each row retains source type, ID and status plus owner provenance, required action, priority, case SLA/due state, evidence readiness, approval-needed flag, handoff and update time. It creates no universal persistence or action endpoint; actions remain with source-owned contracts. `unassigned` and `all` require all-claims visibility in the current baseline.
 
 ### Request: command query
 
@@ -615,6 +633,46 @@ Response example:
       "displayName": "Claims Operations",
       "role": "claims_officer",
       "isDefault": true
+    }
+  ]
+}
+```
+
+### 8.3 Permission-filtered global search
+
+```http
+GET /api/v1/search?q=POL-12345&limit=20
+```
+
+Current bounded contract:
+
+- requires `ViewAssignedClaims` or `ViewAllClaims`;
+- resolves tenant/workspace and permissions server-side;
+- filters case assignment/access before matching, ranking, or counting;
+- returns case, document, workflow-task, and permitted approval metadata only;
+- requires `ApproveSettlementWorkflowStep` before approval results are included;
+- ranks exact authorized references above urgency and recency;
+- never searches or returns unrestricted evidence text, task/approval summaries, internal notes, national IDs, payment details, fraud/risk signals, or raw conversation content;
+- emits safe audit metadata while omitting the raw query;
+- returns `Cache-Control: no-store` and `Pragma: no-cache`.
+
+Response:
+
+```json
+{
+  "query": "POL-12345",
+  "returnedCount": 1,
+  "hasMore": false,
+  "results": [
+    {
+      "type": "Case",
+      "id": "5cd65eb5-6061-4712-9787-8fa6e2d95467",
+      "caseId": "5cd65eb5-6061-4712-9787-8fa6e2d95467",
+      "title": "Case 5CD65EB5",
+      "subtitle": "Authorized customer · POL-12345 · InReview",
+      "matchReason": "Policy reference",
+      "href": "/app/claims/5cd65eb5-6061-4712-9787-8fa6e2d95467",
+      "updatedAt": "2026-08-07T08:00:00Z"
     }
   ]
 }
@@ -2179,17 +2237,27 @@ Webhook endpoints receive external provider events. They must validate signature
 ### 26.1 WhatsApp Webhook
 
 ```http
-POST /api/v1/webhooks/whatsapp
+GET  /api/v1/integrations/whatsapp/webhook
+POST /api/v1/integrations/whatsapp/webhook
 ```
 
 Rules:
 
 - Validate provider signature.
 - Return `200` quickly after durable enqueue.
-- Store raw event metadata for troubleshooting.
-- Do not process customer messages synchronously in the request thread.
-- Create or update ChannelConversation records.
+- Retain safe event/message metadata; do not retain secrets or unbounded raw payloads for troubleshooting.
+- Target protected-runtime processing is durable enqueue plus asynchronous workers. The current source-complete baseline retains messages/status and processes media in the request path; webhook latency/load evidence and queue extraction remain release gates.
+- Create or update tenant-owned WhatsApp message/thread projections.
 - Deduplicate events by provider message ID.
+
+### 26.1.1 WhatsApp staff thread and reviewed outbound
+
+```http
+GET  /api/v1/channels/whatsapp/threads/{threadId}
+POST /api/v1/channels/whatsapp/threads/{threadId}/messages
+```
+
+The read requires server permission `ViewChannels`. The outbound route requires `SendCustomerUpdate` plus `ManageCustomerCommunications`, a case-linked provider-verified recipient, exact human approval, purpose, consent/legal basis, language, idempotency key and an approved template outside the 24-hour service window. Responses preserve `Queued`, `ProviderAccepted`, `Delivered`, `Read`, `Failed` and `Unknown`; provider acceptance is never delivery. See `docs/03-design-architecture/iip_whatsapp_thread_outbound_delivery_spec.md`.
 
 ### 26.2 Microsoft Graph Mail Webhook
 
@@ -2506,7 +2574,9 @@ When implementing this API, coding agents must follow these rules:
 | Admin | `/api/v1/admin/tenant-settings` | PATCH | Yes |
 | Reports | `/api/v1/reports/operations-summary` | GET | Phase 2 |
 | Support | `/api/v1/support/queues` | GET | Yes |
-| Webhooks | `/api/v1/webhooks/whatsapp` | POST | Yes |
+| WhatsApp webhook | `/api/v1/integrations/whatsapp/webhook` | GET/POST | Provider verification/signature |
+| WhatsApp thread | `/api/v1/channels/whatsapp/threads/{threadId}` | GET | Yes |
+| WhatsApp reviewed outbound | `/api/v1/channels/whatsapp/threads/{threadId}/messages` | POST | Yes |
 | Webhooks | `/api/v1/webhooks/microsoft-graph/mail` | POST | Phase 2 |
 
 ---
@@ -2562,4 +2632,3 @@ export async function apiGet<T>(path: string, params?: ApiQueryParams, signal?: 
 ## 36. Final Implementation Note
 
 This API specification should be treated as the bridge between the IIP PRD/FSD and the actual backend implementation. It should be converted into an OpenAPI file before large-scale implementation begins, then used by frontend, backend, QA, and AI coding agents as the shared API contract.
-

@@ -213,6 +213,9 @@ public sealed class FunctionsWorkflowRuntimeTests
             EmailProvider = "Disabled",
             CommunicationProvider = "Disabled",
             NotificationProvider = "Disabled",
+            SmsProvider = "Disabled",
+            ChannelProvider = "Disabled",
+            ProvisionerProvider = "Disabled",
             ServiceBus = new ServiceBusOptions
             {
                 FullyQualifiedNamespace = "iip-prod.servicebus.windows.net"

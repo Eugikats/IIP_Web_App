@@ -10,6 +10,7 @@ public static class RolePermissionMap
             [
                 Permission.ViewCommandCenter,
                 Permission.ViewAuditLog,
+                Permission.ExportEvidencePack,
                 Permission.ConfigureIntegrations,
                 Permission.ManageTenantSettings,
                 Permission.ManageAgents,
@@ -43,6 +44,7 @@ public static class RolePermissionMap
                 Permission.ViewAssignedClaims,
                 Permission.ApproveSettlementWorkflowStep,
                 Permission.ViewAuditLog,
+                Permission.ExportEvidencePack,
                 Permission.ViewAiOutputs,
                 Permission.OverrideAiRecommendation,
                 Permission.ManageCustomerCommunications,
@@ -84,6 +86,7 @@ public static class RolePermissionMap
                 Permission.ViewCommandCenter,
                 Permission.ViewAllClaims,
                 Permission.ViewAuditLog,
+                Permission.ExportEvidencePack,
                 Permission.ManageKnowledgeBase,
                 Permission.ViewAiOutputs,
                 Permission.ApproveSettlementWorkflowStep,

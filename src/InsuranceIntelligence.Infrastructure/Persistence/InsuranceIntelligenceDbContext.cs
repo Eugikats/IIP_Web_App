@@ -37,6 +37,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedSalesLead> SalesLeads => Set<PersistedSalesLead>();
     public DbSet<PersistedWorkspace> Workspaces => Set<PersistedWorkspace>();
     public DbSet<PersistedTenantOnboarding> TenantOnboardings => Set<PersistedTenantOnboarding>();
+    public DbSet<PersistedCommandCenterConversation> CommandCenterConversations => Set<PersistedCommandCenterConversation>();
+    public DbSet<PersistedWhatsAppMessage> WhatsAppMessages => Set<PersistedWhatsAppMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -93,6 +95,19 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedSalesLead>(), "SalesLeads", "SalesLeadId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedWorkspace>(), "Workspaces", "WorkspaceRecordId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedTenantOnboarding>(), "TenantOnboardings", "OnboardingRecordId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedCommandCenterConversation>(), "CommandCenterConversations", "ConversationId");
+        modelBuilder.Entity<PersistedCommandCenterConversation>().Property(entity => entity.OwnerUserId).HasMaxLength(240).IsRequired();
+        modelBuilder.Entity<PersistedCommandCenterConversation>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedCommandCenterConversation>().Property(entity => entity.LastActivityAt).IsRequired();
+        modelBuilder.Entity<PersistedCommandCenterConversation>().Property(entity => entity.Version).IsConcurrencyToken().IsRequired();
+        modelBuilder.Entity<PersistedCommandCenterConversation>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.OwnerUserId, entity.Status, entity.LastActivityAt });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedWhatsAppMessage>(), "WhatsAppMessages", "MessageId");
+        modelBuilder.Entity<PersistedWhatsAppMessage>().Property(entity => entity.ThreadId).HasMaxLength(320).IsRequired();
+        modelBuilder.Entity<PersistedWhatsAppMessage>().Property(entity => entity.ProviderMessageId).HasMaxLength(320);
+        modelBuilder.Entity<PersistedWhatsAppMessage>().Property(entity => entity.IdempotencyKey).HasMaxLength(128);
+        modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ThreadId, entity.CreatedAt });
+        modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ProviderMessageId }).IsUnique();
+        modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.IdempotencyKey }).IsUnique();
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)
@@ -218,6 +233,21 @@ public sealed class PersistedSalesLead : PersistedScopedJson;
 public sealed class PersistedWorkspace : PersistedScopedJson;
 
 public sealed class PersistedTenantOnboarding : PersistedScopedJson;
+public sealed class PersistedCommandCenterConversation : PersistedScopedJson
+{
+    public string OwnerUserId { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTimeOffset LastActivityAt { get; set; }
+    public int Version { get; set; }
+}
+public sealed class PersistedWhatsAppMessage : PersistedScopedJson
+{
+    public Guid? CaseId { get; set; }
+    public string ThreadId { get; set; } = string.Empty;
+    public string? ProviderMessageId { get; set; }
+    public string? IdempotencyKey { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;
 public sealed class PersistedBranch : PersistedScopedJson;

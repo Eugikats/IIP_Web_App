@@ -13,7 +13,10 @@ public static class AzureProviderStartupValidator
         ("INSURANCEINTELLIGENCE_QUEUE_PROVIDER", options => options.QueueProvider),
         ("INSURANCEINTELLIGENCE_EMAIL_PROVIDER", options => options.EmailProvider),
         ("INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER", options => options.CommunicationProvider),
-        ("INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER", options => options.NotificationProvider)
+        ("INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER", options => options.NotificationProvider),
+        ("INSURANCEINTELLIGENCE_SMS_PROVIDER", options => options.SmsProvider),
+        ("INSURANCEINTELLIGENCE_CHANNEL_PROVIDER", options => options.ChannelProvider),
+        ("INSURANCEINTELLIGENCE_PROVISIONER_PROVIDER", options => options.ProvisionerProvider)
     ];
 
     public static IReadOnlyCollection<string> Validate(InfrastructureOptions options)
@@ -151,6 +154,51 @@ public static class AzureProviderStartupValidator
             errors.AddRange(ValidateProductionResidency(options, runtimeProfile));
         }
 
+        errors.AddRange(ValidateSecretlessManagedIdentity(options, runtimeProfile));
+
+        return errors;
+    }
+
+    /// <summary>
+    /// Protected profiles must not boot with shared-key / connection-string blob or Service Bus
+    /// auth when managed identity is the required secretless path. Connection strings may still
+    /// exist in Key Vault for local Development only.
+    /// </summary>
+    public static IReadOnlyCollection<string> ValidateSecretlessManagedIdentity(
+        InfrastructureOptions options,
+        string runtimeProfile)
+    {
+        var errors = new List<string>();
+
+        if (options.BlobProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!options.AzureBlob.UseManagedIdentity)
+            {
+                errors.Add(
+                    $"{runtimeProfile} requires AzureBlob:UseManagedIdentity=true; shared-key or connection-string blob auth is not allowed.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.AzureBlob.ConnectionString))
+            {
+                errors.Add(
+                    $"{runtimeProfile} forbids AzureBlob:ConnectionString; configure Endpoint/AccountName and managed identity instead.");
+            }
+        }
+
+        if (options.RetrievalProvider.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase)
+            && !options.AzureAiSearch.UseManagedIdentity)
+        {
+            errors.Add(
+                $"{runtimeProfile} requires AzureAiSearch:UseManagedIdentity=true for secretless search access.");
+        }
+
+        if (options.QueueProvider.Equals("AzureServiceBus", StringComparison.OrdinalIgnoreCase)
+            && !options.ServiceBus.UseManagedIdentity)
+        {
+            errors.Add(
+                $"{runtimeProfile} requires ServiceBus:UseManagedIdentity=true; connection-string queue auth is not allowed.");
+        }
+
         return errors;
     }
 
@@ -186,31 +234,8 @@ public static class AzureProviderStartupValidator
         options.SeedDemoData
         && !ResolveReviewMode(options, environmentName).Equals("Production", StringComparison.Ordinal);
 
-    public static string ResolveRuntimeProfile(InfrastructureOptions options, string environmentName)
-    {
-        if (!string.IsNullOrWhiteSpace(options.RuntimeProfile))
-        {
-            return options.RuntimeProfile;
-        }
-
-        if (environmentName.Equals("Development", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Development";
-        }
-
-        if (environmentName.Equals("Staging", StringComparison.OrdinalIgnoreCase)
-            || environmentName.Equals("Production", StringComparison.OrdinalIgnoreCase)
-            || environmentName.Equals("ManagedApplicationReviewer", StringComparison.OrdinalIgnoreCase)
-            || environmentName.Equals("Demo", StringComparison.OrdinalIgnoreCase)
-            || environmentName.Equals("LocalTest", StringComparison.OrdinalIgnoreCase))
-        {
-            return environmentName;
-        }
-
-        return environmentName.Equals("Test", StringComparison.OrdinalIgnoreCase)
-            ? "LocalTest"
-            : environmentName;
-    }
+    public static string ResolveRuntimeProfile(InfrastructureOptions options, string environmentName) =>
+        ProviderModeSupport.ResolveRuntimeProfile(options, environmentName);
 
     /// <summary>
     /// True for runtime profiles where live customer data may be present and synthetic
@@ -219,9 +244,7 @@ public static class AzureProviderStartupValidator
     /// exact same classification instead of re-deriving it.
     /// </summary>
     public static bool IsProtectedRuntime(string environmentName) =>
-        environmentName.Equals("Staging", StringComparison.OrdinalIgnoreCase)
-        || environmentName.Equals("Production", StringComparison.OrdinalIgnoreCase)
-        || environmentName.Equals("ManagedApplicationReviewer", StringComparison.OrdinalIgnoreCase);
+        ProviderModeSupport.IsProtectedRuntime(environmentName);
 
     private static bool IsDemoRuntime(string environmentName) =>
         environmentName.Equals("Demo", StringComparison.OrdinalIgnoreCase);
@@ -294,16 +317,7 @@ public static class AzureProviderStartupValidator
     }
 
     private static bool IsForbiddenProvider(string value, bool includeSqlite) =>
-        value.Equals("Mock", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("Simulated", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("Placeholder", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("DevelopmentAuth", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("Demo", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("SeededDemoBusinessData", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("FallbackToMock", StringComparison.OrdinalIgnoreCase)
-        || (includeSqlite && (value.Equals("SQLite", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("EfSqlite", StringComparison.OrdinalIgnoreCase)));
+        ProviderModeSupport.IsForbiddenProtectedMode(value, includeSqlite);
 
     private static bool HasConfiguredGraphMailboxAccess(InfrastructureOptions options) =>
         HasGraphClientCredential(options)

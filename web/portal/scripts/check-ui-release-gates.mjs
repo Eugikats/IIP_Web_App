@@ -37,8 +37,8 @@ function requirePattern(path, pattern, message) {
 
 requireText("app/app/layout.tsx", "@/components/iip/AppShell", "/app routes must render inside the governed IIP shell.");
 requireText("components/iip/AppShell.tsx", "RuntimeContextProvider", "must resolve runtime identity through the shared runtime context provider.");
-requireText("components/iip/AppShell.tsx", "canAccess(roleDef.key, loc.pathname)", "must guard /app routes through the role access config.");
-requireText("components/iip/AppShell.tsx", "<Navigate to={roleDef.landing} replace />", "must redirect denied routes to the role landing route.");
+requireText("components/iip/AppShell.tsx", "canAccessWithPermissions(runtimeContext?.permissions", "protected /app presentation must use server-returned effective permissions.");
+requireText("components/iip/AppShell.tsx", "firstAccessibleRoute(runtimeContext?.permissions", "denied routes must fall back to an actually permitted destination.");
 requireText("components/iip/AppShell.tsx", "<Sidebar />", "must render role-aware left navigation.");
 requireText("components/iip/AppShell.tsx", "<CopilotPanel />", "must render the right evidence/context rail.");
 requireText("components/iip/AppShell.tsx", "<StatusBar />", "must render the environment/status footer.");
@@ -49,17 +49,18 @@ requireText("lovable-pages/Login.tsx", "Microsoft Entra ID", "login must identif
 rejectPattern("lovable-pages/Login.tsx", /Authority tenant|Resolved after sign-in|href="#"+|glass-elevated|err instanceof Error/, "login must not expose implementation details, dead links, prototype card composition, or raw auth errors.");
 
 requireText("lib/runtimeContext.tsx", "/api/v1/me", "runtime context must come from the governed /api/v1/me endpoint.");
+requireText("lib/runtimeContext.tsx", "permissions: (body.permissions", "runtime context must retain server-returned effective permissions.");
 requireText("lib/runtimeContext.tsx", "LovableVisualParity", "visual parity identity must stay explicitly marked when the dev fixture mode is enabled.");
 rejectPattern("lib/runtimeContext.tsx", /headers:\s*\{[\s\S]*?(X-Tenant-Id|X-Workspace-Id|X-User-Id)/, "runtime context fetch must not send browser-owned authority headers.");
 
-requireText("components/iip/Sidebar.tsx", "group.items.filter((item) => roleDef.modules.includes(item.to))", "grouped module navigation must be role-filtered.");
-requireText("components/iip/Sidebar.tsx", "roleDef.admin.includes(m.to)", "admin navigation must be role-filtered.");
+requireText("components/iip/Sidebar.tsx", "canAccessWithPermissions(runtimeContext?.permissions", "protected navigation must be effective-permission-filtered.");
+requireText("components/iip/Sidebar.tsx", "usePreviewRole", "browser role preview must remain explicitly separated from protected navigation.");
 requireText("components/iip/Sidebar.tsx", "runtimeContext?.availableWorkspaces", "workspace label must use backend runtime context.");
 requireText("components/iip/Sidebar.tsx", "Workspace not configured", "missing workspace must render an honest state.");
 
 requireText("components/iip/CopilotPanel.tsx", "useProviderHealth", "evidence rail must render backend-owned provider health.");
 requireText("components/iip/CopilotPanel.tsx", "Not configured", "provider gaps must render an honest not-configured state.");
-requireText("lib/lovable-parity/data/providerHealth.ts", "/api/v1/admin/provider-health", "provider health must come from the governed backend endpoint.");
+requireText("lib/lovable-parity/data/providerHealth.ts", "/api/v1/provider-status", "provider health must come from the governed backend endpoint.");
 requireText("lib/lovable-parity/mode.ts", "process.env.NODE_ENV !== \"production\"", "visual parity fixtures must be disabled in production builds.");
 requireText("components/iip/ProviderHealthGrid.tsx", "providerStatusTone", "provider cards must use the shared fail-closed status classifier.");
 requireText("components/iip/StatusBar.tsx", "isProviderHealthy", "the status bar must use the shared fail-closed status classifier.");

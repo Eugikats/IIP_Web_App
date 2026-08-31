@@ -136,7 +136,7 @@ public static class ComplianceEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (DemoAuthorization.Require(httpContext, options, Permission.ViewAuditLog) is { } forbidden)
+        if (DemoAuthorization.Require(httpContext, options, Permission.ExportEvidencePack) is { } forbidden)
         {
             return forbidden;
         }
@@ -177,12 +177,12 @@ public static class ComplianceEndpoints
         {
             return Validation(ex.Field, ex.Message);
         }
-        catch (ComplianceConfigurationException ex)
+        catch (ComplianceConfigurationException)
         {
             return Results.BadRequest(new
             {
                 deliveryStatus = "ConfigurationRequired",
-                message = ex.Message
+                message = "Evidence pack storage is unavailable. Verify blob identity, container configuration, and network access."
             });
         }
         catch (PermissionDeniedException)

@@ -9,6 +9,8 @@
 **Status:** Working implementation baseline - updated for chat-first Command Center  
 **Classification:** Internal - Product, Design, Engineering, AI, QA, Cloud, and Delivery Reference
 
+> **IA authority note — 2026-08-05:** Use `../03-design-architecture/iip_information_architecture_navigation_and_screen_inventory.md` for the canonical object/findability model, `/app/*` sitemap, labels, route ownership, permission-derived visibility, and screen/state inventory. Historical navigation matrices and labels below are supporting design history where they differ. Visual direction is governed by the current visual-design authority, not the superseded Light Intelligence statement below.
+
 ---
 
 ---
@@ -1956,4 +1958,3 @@ Each screen is complete only when it has:
 | 10 | Add Approvals and Audit patterns before enabling sensitive actions | Backend/Frontend/Compliance |
 | 11 | Add not-configured provider states for OpenAI, Document Intelligence, Search, Graph, WhatsApp | Frontend/Backend |
 | 12 | QA every screen against the acceptance checklist | QA |
-

@@ -36,6 +36,8 @@ public sealed class CommandCenterQueryEndpointsTests
         Assert.Equal("Deterministic", body.GetProperty("modelProvider").GetString());
         Assert.Equal("command-center-query-v1", body.GetProperty("promptVersion").GetString());
         Assert.Equal("Internal", body.GetProperty("visibility").GetString());
+        Assert.NotEqual(Guid.Empty, body.GetProperty("conversationId").GetGuid());
+        Assert.NotEqual(Guid.Empty, body.GetProperty("turnId").GetGuid());
 
         var types = BlockTypes(body);
         Assert.Contains("metric_pills", types);
@@ -342,6 +344,7 @@ public sealed class CommandCenterQueryEndpointsTests
         public InMemoryWorkflowTaskRepository WorkflowTaskRepository { get; } = new();
         public InMemoryCustomerUpdateRepository CustomerUpdateRepository { get; } = new();
         public InMemoryAuditRepository AuditRepository { get; } = new();
+        public InMemoryCommandCenterConversationRepository ConversationRepository { get; } = new();
         public StaticDocumentChecklistProvider ChecklistProvider { get; } = new(new CompletenessScoringService());
         public BasicSlaCalculator SlaCalculator { get; } = new();
         private TenantContextAccessor TenantContextAccessor { get; } = new();
@@ -418,10 +421,16 @@ public sealed class CommandCenterQueryEndpointsTests
                 _chatCompletionProvider,
                 new DeterministicAiOutputValidator(),
                 new CustomerUpdateNotificationDraftService(CustomerUpdateRepository));
+            var conversationService = new CommandCenterConversationService(
+                TenantContextAccessor,
+                permissionService,
+                queryService,
+                ConversationRepository,
+                AuditRepository);
 
             var result = await CommandCenterQueryEndpoints.RunQuery(
                 new CommandCenterQueryRequest(question),
-                queryService,
+                conversationService,
                 TenantContextAccessor,
                 _options,
                 ScopedContext(),
@@ -462,10 +471,16 @@ public sealed class CommandCenterQueryEndpointsTests
                 _chatCompletionProvider,
                 new DeterministicAiOutputValidator(),
                 new CustomerUpdateNotificationDraftService(CustomerUpdateRepository));
+            var conversationService = new CommandCenterConversationService(
+                TenantContextAccessor,
+                permissionService,
+                queryService,
+                ConversationRepository,
+                AuditRepository);
 
             var result = await CommandCenterQueryEndpoints.RunQuery(
                 new CommandCenterQueryRequest(question),
-                queryService,
+                conversationService,
                 TenantContextAccessor,
                 _options,
                 ScopedContext(spoofedScope, "spoofed-command-user"),

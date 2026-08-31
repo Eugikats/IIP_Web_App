@@ -74,6 +74,9 @@ var functionAppSettings = [
   { name: 'INSURANCEINTELLIGENCE_EMAIL_PROVIDER', value: 'Disabled' }
   { name: 'INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER', value: 'Disabled' }
   { name: 'INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER', value: 'Disabled' }
+  { name: 'INSURANCEINTELLIGENCE_SMS_PROVIDER', value: 'Disabled' }
+  { name: 'INSURANCEINTELLIGENCE_CHANNEL_PROVIDER', value: 'Disabled' }
+  { name: 'INSURANCEINTELLIGENCE_PROVISIONER_PROVIDER', value: 'Disabled' }
   { name: 'INSURANCEINTELLIGENCE_SEED_DEMO_DATA', value: 'false' }
   { name: 'Azure__KeyVaultUri', value: keyVault.properties.vaultUri }
   { name: 'AzureBlob__AccountName', value: storageAccount.name }

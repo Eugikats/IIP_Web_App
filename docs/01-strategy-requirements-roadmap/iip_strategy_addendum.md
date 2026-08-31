@@ -1,5 +1,7 @@
 # IIP Strategy Addendum / Product Strategy Update
 
+> **Authority note — 2026-08-04:** This June addendum is retained for history. Its current successor is `iip_product_definition_and_validation_charter.md`, which adds the evidence-aware strategy kernel, blue-ocean diagnostic, target/role priority, measurable outcomes, validation plan, and explicit disposition of stale assumptions. `AGENTS.md` remains highest authority.
+
 | Field | Value |
 |---|---|
 | Product | Insurance Intelligence Platform (IIP) |

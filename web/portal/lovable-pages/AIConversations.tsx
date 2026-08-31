@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState, useEffect } from "react";
 import { Sparkles, MessagesSquare, ShieldCheck, TrendingUp, AlertTriangle, ListChecks, Bot } from "lucide-react";
 import { AIMessageBubble, UserMessageBubble, Composer } from "@/components/iip/ChatPrimitives";
@@ -7,10 +8,12 @@ import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
 import { useCommandCenterQuery, type CommandCenterAnswer } from "@/lib/lovable-parity/data/commandCenterQuery";
 import { useOperationsSummary } from "@/lib/lovable-parity/data/reports";
 import { useRuntimeContext } from "@/lib/runtimeContext";
+import { useUI } from "@/context/UIStateContext";
+import { getConversation } from "@/lib/lovable-parity/data/commandCenterConversations";
 
 type Msg =
   | { id: string; role: "user"; text: string }
-  | { id: string; role: "ai"; answer: CommandCenterAnswer }
+  | { id: string; role: "ai"; answer: CommandCenterAnswer; historical?: boolean }
   | { id: string; role: "ai-error"; text: string };
 
 const STARTERS = [
@@ -20,12 +23,18 @@ const STARTERS = [
   "Show pending approvals.",
 ];
 
-export default function AIConversations() {
+export default function AIConversations({ conversationId: requestedConversationId }: { conversationId?: string }) {
+  const router = useRouter();
   const { runtimeContext } = useRuntimeContext();
+  const { roleDef } = useUI();
   const { ask, loading } = useCommandCenterQuery();
   const { summary } = useOperationsSummary();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const [conversationId, setConversationId] = useState(requestedConversationId);
+  const [historyLoading, setHistoryLoading] = useState(Boolean(requestedConversationId));
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [canContinue, setCanContinue] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const hasContent = messages.length > 0 || input.length > 0 || loading;
@@ -34,6 +43,31 @@ export default function AIConversations() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (!requestedConversationId || !runtimeContext) return;
+    const controller = new AbortController();
+    setHistoryLoading(true);
+    setHistoryError(null);
+    void getConversation(requestedConversationId, roleDef.key, runtimeContext.userId, controller.signal)
+      .then((conversation) => {
+        const restored = conversation.turns.flatMap<Msg>((turn) => [
+          { id: `${turn.turnId}-question`, role: "user", text: turn.question },
+          { id: turn.turnId, role: "ai", answer: { ...turn.response, question: turn.question }, historical: true },
+        ]);
+        setMessages(restored);
+        setConversationId(conversation.conversationId);
+        setCanContinue(conversation.canContinue);
+      })
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        setHistoryError(reason instanceof Error ? reason.message : "Conversation could not be loaded.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHistoryLoading(false);
+      });
+    return () => controller.abort();
+  }, [requestedConversationId, roleDef.key, runtimeContext]);
 
   const metrics = summary
     ? [
@@ -49,7 +83,11 @@ export default function AIConversations() {
     if (!q || loading) return;
     setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text: q }]);
     setInput("");
-    const answer = await ask(q);
+    const answer = await ask(q, conversationId);
+    if (answer?.conversationId && !conversationId) {
+      setConversationId(answer.conversationId);
+      router.replace(`/app/conversations/${answer.conversationId}`);
+    }
     setMessages((m) =>
       answer
         ? [...m, { id: crypto.randomUUID(), role: "ai", answer }]
@@ -95,11 +133,18 @@ export default function AIConversations() {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-[780px] mx-auto w-full space-y-6 pb-6">
+          {historyLoading && <div className="glass-subtle p-4 text-[12.5px] text-stone" role="status">Loading conversation history…</div>}
+          {historyError && <div className="glass-subtle p-4 text-[12.5px] text-error" role="alert">{historyError}</div>}
+          {requestedConversationId && !historyLoading && !historyError && (
+            <div className="rounded-xl border border-info/20 bg-info/5 px-4 py-3 text-[12px] text-slate2">
+              Historical responses are shown for continuity. IIP checks current permissions and live workspace data again when you continue.
+            </div>
+          )}
           {messages.map((m) =>
             m.role === "user" ? (
               <UserMessageBubble key={m.id} text={m.text} />
             ) : m.role === "ai" ? (
-              <AIMessageBubble key={m.id}><CommandCenterBlocks blocks={m.answer.blocks} /></AIMessageBubble>
+              <AIMessageBubble key={m.id}><CommandCenterBlocks blocks={m.answer.blocks} historical={m.historical} /></AIMessageBubble>
             ) : (
               <AIMessageBubble key={m.id}><p className="text-[13px] text-error">{m.text}</p></AIMessageBubble>
             )
@@ -115,7 +160,7 @@ export default function AIConversations() {
       {/* Opaque backdrop: the composer is sticky, so a transparent background let long
           answers scroll visibly underneath the input and the guardrail footnote. */}
       <div className="max-w-[780px] mx-auto w-full space-y-2 pt-4 pb-2 sticky bottom-0 bg-bg/95 backdrop-blur-sm">
-        <Composer value={input} onChange={setInput} onSend={() => send()} disabled={loading} />
+        <Composer value={input} onChange={setInput} onSend={() => send()} disabled={loading || historyLoading || !canContinue || Boolean(historyError)} />
         <div className="text-[10.5px] text-stone text-center">IIP Operations assists — it never settles, denies, repudiates, pays, or accuses fraud. Human reviewers approve regulated decisions.</div>
       </div>
     </div>

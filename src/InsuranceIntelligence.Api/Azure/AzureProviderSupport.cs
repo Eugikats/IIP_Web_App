@@ -16,6 +16,8 @@ public static partial class AzureProviderSupport
 
     public static BlobContainerClient BlobContainer(AzureBlobOptions options, string containerName)
     {
+        // Prefer managed identity. Connection-string clients are Development/local only and must
+        // never win when UseManagedIdentity is true (protected runtimes fail closed at startup).
         if (!string.IsNullOrWhiteSpace(options.ConnectionString) && !options.UseManagedIdentity)
         {
             return new BlobContainerClient(options.ConnectionString, containerName);

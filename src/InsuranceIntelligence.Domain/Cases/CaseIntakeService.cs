@@ -11,6 +11,8 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
         Validate(command);
 
         var now = DateTimeOffset.UtcNow;
+        var motorFnol = command.MotorFnolDetails?.Normalize();
+        var routing = ClaimRoutingPolicy.Evaluate(command.ClaimType, motorFnol);
         var claimCase = new ClaimCase
         {
             CaseId = Guid.NewGuid(),
@@ -24,14 +26,14 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             Channel = command.Channel.Trim(),
             IncidentDate = command.IncidentDate,
             IncidentDescription = command.IncidentDescription.Trim(),
-            MotorFnolDetails = command.MotorFnolDetails?.Normalize(),
-            Status = CaseStatus.New,
+            MotorFnolDetails = motorFnol,
+            Status = routing.InitialStatus,
             CompletenessScore = 0m,
-            RiskLevel = "Low",
-            Priority = CasePriority.Normal,
-            SlaDueAt = DateTimeOffset.UtcNow.AddDays(3),
+            RiskLevel = routing.InitialRiskLevel,
+            Priority = routing.Priority,
+            SlaDueAt = now.AddDays(routing.SlaDays),
             AssignedUserId = null,
-            AssignedTeam = "Claims Intake",
+            AssignedTeam = routing.AssignedTeam,
             CreatedByUserId = command.CreatedByUserId.Trim(),
             CreatedAt = now,
             UpdatedAt = now,

@@ -3,14 +3,16 @@ import { Link } from "@/components/iip/NextRouterCompat";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
 import { Building2, Users, FileText, Workflow, Sparkles, Plug, ShieldCheck, ScrollText, Bot, CreditCard, Gavel, ArrowRight } from "lucide-react";
 import { useUI } from "@/context/UIStateContext";
-import { canAccess } from "@/lib/roles";
+import { canAccess, canAccessWithPermissions } from "@/lib/roles";
+import { useRuntimeContext } from "@/lib/runtimeContext";
+import { canUseLocalTestDoubles } from "@/lib/config";
 
 const cards = [
-  { to: "/app/admin/agents", icon: Bot, title: "AI & Agent Management", desc: "Registry · versions · permissions · kill switch · run logs · feedback." },
-  { to: "/app/admin/tenant-policy", icon: Gavel, title: "Tenant Agent Policy", desc: "Baseline guardrails inherited by all agents in this workspace." },
-  { to: "/app/flows", icon: Workflow, title: "Automation Studio", desc: "Governed Releases 1–5, tenant workflow drafts, publication, and run inspection." },
-  { to: "/app/admin/onboarding", icon: Building2, title: "Insurer Onboarding", desc: "Customer Entra tenant identity, Azure subscription targeting, consent, and workspaces." },
-  { to: "/app/admin/billing", icon: CreditCard, title: "Billing, Packaging & Usage", desc: "Plan, entitlement, seat, AI run, document, message, and storage controls." },
+  { to: "/app/admin/agents", icon: Bot, title: "Agents", desc: "Registry · versions · permissions · kill switch · run logs · feedback." },
+  { to: "/app/admin/tenant-policy", icon: Gavel, title: "Agent Policy", desc: "Baseline guardrails inherited by all agents in this workspace." },
+  { to: "/app/flows", icon: Workflow, title: "Flows", desc: "Governed Releases 1–5, tenant workflow drafts, publication, and run inspection." },
+  { to: "/app/admin/onboarding", icon: Building2, title: "Tenant Onboarding", desc: "Customer Entra tenant identity, Azure subscription targeting, consent, and workspaces." },
+  { to: "/app/admin/billing", icon: CreditCard, title: "Billing & Usage", desc: "Plan, entitlement, seat, AI run, document, message, and storage controls." },
   { to: "/app/integrations", icon: Plug, title: "Integrations & Health", desc: "Live provider health, adapter boundaries, identity paths, and safe diagnostics." },
 ];
 
@@ -25,7 +27,13 @@ const inline = [
 
 export default function Admin() {
   const { roleDef } = useUI();
-  const visibleCards = cards.filter((card) => canAccess(roleDef.key, card.to));
+  const { runtimeContext, parityMode } = useRuntimeContext();
+  const usePreviewRole = canUseLocalTestDoubles || parityMode;
+  const visibleCards = cards.filter((card) =>
+    usePreviewRole
+      ? canAccess(roleDef.key, card.to)
+      : canAccessWithPermissions(runtimeContext?.permissions ?? [], card.to)
+  );
 
   return (
     <>

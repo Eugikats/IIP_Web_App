@@ -18,6 +18,35 @@ import { conversations as fixtureConversations, type Channel, type ChannelConver
 
 export type ChannelsSource = "parity" | "live" | "empty";
 
+export type WhatsAppMessage = {
+  messageId: string;
+  caseId?: string | null;
+  threadId: string;
+  businessPhoneNumberId: string;
+  contactWaId: string;
+  direction: "Inbound" | "Outbound";
+  contentType: string;
+  customerSafeBody: string;
+  providerMessageId?: string | null;
+  templateName?: string | null;
+  language?: string | null;
+  deliveryState: "Received" | "Queued" | "ProviderAccepted" | "Delivered" | "Read" | "Failed" | "Unknown";
+  createdAt: string;
+  updatedAt: string;
+  safeError?: string | null;
+};
+
+export type SendWhatsAppInput = {
+  caseId: string;
+  recipientWaId: string;
+  customerSafeBody: string;
+  purpose: string;
+  consentBasis: string;
+  language: string;
+  templateName?: string;
+  humanApproved: boolean;
+};
+
 type OverviewRow = {
   id: string;
   customerName: string;
@@ -74,7 +103,8 @@ function mapRow(row: OverviewRow): ChannelConversation {
     id: row.id,
     channel,
     customer: row.customerName || "Unknown",
-    matched: Boolean(row.customerName) && !looksLikePhone && !/unknown/i.test(row.customerName),
+    matched: Boolean(row.customerName) && !looksLikePhone && !/unknown|whatsapp contact/i.test(row.customerName)
+      && !/manual case-link/i.test(row.suggestedRouting || ""),
     snippet: row.lastMessage || "",
     updated: relativeTime(row.lastActivityAt),
     unread: 0,
@@ -113,4 +143,59 @@ export function useChannelConversations() {
 
   const source: ChannelsSource = LOVABLE_VISUAL_PARITY_MODE ? "parity" : data.length > 0 ? "live" : "empty";
   return { conversations: data, loading, error, source, reload: load, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+}
+
+export function useWhatsAppThread(threadId?: string | null) {
+  const { roleDef } = useUI();
+  const role = roleDef.key;
+  const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!threadId || LOVABLE_VISUAL_PARITY_MODE) {
+      setMessages([]);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/channels/whatsapp/threads/${encodeURIComponent(threadId)}`, {
+        headers: scopedHeaders(role, ""),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`WhatsApp thread failed with HTTP ${response.status}.`);
+      setMessages((await response.json()) as WhatsAppMessage[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "WhatsApp thread failed to load.");
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [role, threadId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const send = useCallback(async (input: SendWhatsAppInput) => {
+    if (!threadId) throw new Error("Select a WhatsApp thread before sending.");
+    const response = await fetch(`${apiBaseUrl}/api/v1/channels/whatsapp/threads/${encodeURIComponent(threadId)}/messages`, {
+      method: "POST",
+      headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...input,
+        templateName: input.templateName?.trim() || null,
+        idempotencyKey: crypto.randomUUID(),
+        replyToProviderMessageId: null,
+        templateParameters: null,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok && response.status !== 202) {
+      throw new Error(payload.message || payload.safeError || `WhatsApp send failed with HTTP ${response.status}.`);
+    }
+    await load();
+    return payload as WhatsAppMessage;
+  }, [load, role, threadId]);
+
+  return { messages, loading, error, reload: load, send };
 }
