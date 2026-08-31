@@ -49,7 +49,8 @@ public sealed class WorkflowShell
 
     public static IReadOnlyCollection<string> ValidateProtectedRuntime(InfrastructureOptions options, string environmentName)
     {
-        if (!IsProtectedRuntime(environmentName))
+        var runtimeProfile = ProviderModeSupport.ResolveRuntimeProfile(options, environmentName);
+        if (!ProviderModeSupport.IsProtectedRuntime(runtimeProfile))
         {
             return Array.Empty<string>();
         }
@@ -70,7 +71,10 @@ public sealed class WorkflowShell
             ("INSURANCEINTELLIGENCE_QUEUE_PROVIDER", options.QueueProvider),
             ("INSURANCEINTELLIGENCE_EMAIL_PROVIDER", options.EmailProvider),
             ("INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER", options.CommunicationProvider),
-            ("INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER", options.NotificationProvider)
+            ("INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER", options.NotificationProvider),
+            ("INSURANCEINTELLIGENCE_SMS_PROVIDER", options.SmsProvider),
+            ("INSURANCEINTELLIGENCE_CHANNEL_PROVIDER", options.ChannelProvider),
+            ("INSURANCEINTELLIGENCE_PROVISIONER_PROVIDER", options.ProvisionerProvider)
         };
         foreach (var (settingName, providerMode) in providerModes)
         {
@@ -115,20 +119,7 @@ public sealed class WorkflowShell
     }
 
     private static bool IsForbiddenProvider(string value, bool includeSqlite) =>
-        value.Equals("Mock", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("Simulated", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("Placeholder", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("DevelopmentAuth", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("Demo", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("SeededDemoBusinessData", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("FallbackToMock", StringComparison.OrdinalIgnoreCase)
-        || (includeSqlite && value.Equals("SQLite", StringComparison.OrdinalIgnoreCase));
-
-    private static bool IsProtectedRuntime(string environmentName) =>
-        environmentName.Equals("Staging", StringComparison.OrdinalIgnoreCase)
-        || environmentName.Equals("Production", StringComparison.OrdinalIgnoreCase)
-        || environmentName.Equals("ManagedApplicationReviewer", StringComparison.OrdinalIgnoreCase);
+        ProviderModeSupport.IsForbiddenProtectedMode(value, includeSqlite);
 }
 
 public sealed record WorkflowRuntimeDescriptor(

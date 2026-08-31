@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Domain.Tests;
 
@@ -19,11 +20,42 @@ public sealed class CaseIntakeServiceTests
         Assert.Equal(0m, claimCase.CompletenessScore);
         Assert.Equal("tenant-demo", claimCase.Scope.TenantId);
         Assert.Equal("workspace-claims", claimCase.Scope.WorkspaceId);
+        Assert.Equal(ClaimRoutingPolicy.ClaimsIntakeTeam, claimCase.AssignedTeam);
         var auditEvent = Assert.Single(auditRepository.Events);
         Assert.Equal("case.created", auditEvent.ActionName);
         Assert.Equal(claimCase.CaseId, auditEvent.CaseId);
         Assert.Equal("New", auditEvent.AfterStatus);
         Assert.Equal("corr-001", auditEvent.CorrelationId);
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_InjuryClaim_StartsOnDesignatedEscalationRoute()
+    {
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
+        var command = ValidCommand() with
+        {
+            ClaimType = "Bodily injury",
+            MotorFnolDetails = new MotorFnolDetails(null, null, null, null, null, null, "Yes", null, null, null)
+        };
+
+        var claimCase = await service.CreateCaseAsync(command);
+
+        Assert.Equal(CaseStatus.Escalated, claimCase.Status);
+        Assert.Equal(ClaimRoutingPolicy.DesignatedInjuryEscalationTeam, claimCase.AssignedTeam);
+        Assert.Equal(CasePriority.Urgent, claimCase.Priority);
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_TheftClaim_RoutesToTotalLossDesk()
+    {
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
+        var command = ValidCommand() with { ClaimType = "Theft" };
+
+        var claimCase = await service.CreateCaseAsync(command);
+
+        Assert.Equal(CaseStatus.New, claimCase.Status);
+        Assert.Equal(ClaimRoutingPolicy.TotalLossDeskTeam, claimCase.AssignedTeam);
+        Assert.Equal(CasePriority.High, claimCase.Priority);
     }
 
     [Fact]

@@ -18,6 +18,62 @@ public sealed class DocumentCompletenessTests
     }
 
     [Fact]
+    public void InjuryChecklistRequiresMedicalReportOnGovernedPath()
+    {
+        var claimCase = new ClaimCase
+        {
+            CaseId = Guid.NewGuid(),
+            Scope = TenantScope.Create("tenant-demo", "workspace-claims"),
+            CustomerName = "Amina Okello",
+            PolicyNumber = "POL-1001",
+            ProductLine = "Motor",
+            ClaimType = "Bodily injury",
+            Channel = "WebPortal",
+            IncidentDate = new DateOnly(2026, 5, 24),
+            IncidentDescription = "Injury reported",
+            Status = CaseStatus.Escalated,
+            CompletenessScore = 0m,
+            CreatedByUserId = "user-1",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-doc-injury"
+        };
+
+        var rules = DocumentChecklistRules.ForCase(claimCase);
+
+        Assert.Contains(DocumentType.MedicalReport, rules.RequiredDocuments);
+        Assert.Contains(DocumentType.PoliceAbstract, rules.RequiredDocuments);
+    }
+
+    [Fact]
+    public void TheftChecklistRequiresCustomerIdOnGovernedPath()
+    {
+        var claimCase = new ClaimCase
+        {
+            CaseId = Guid.NewGuid(),
+            Scope = TenantScope.Create("tenant-demo", "workspace-claims"),
+            CustomerName = "Amina Okello",
+            PolicyNumber = "POL-1001",
+            ProductLine = "Motor",
+            ClaimType = "Theft",
+            Channel = "WebPortal",
+            IncidentDate = new DateOnly(2026, 5, 24),
+            IncidentDescription = "Vehicle stolen",
+            Status = CaseStatus.New,
+            CompletenessScore = 0m,
+            CreatedByUserId = "user-1",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-doc-theft"
+        };
+
+        var rules = DocumentChecklistRules.ForCase(claimCase);
+
+        Assert.Contains(DocumentType.CustomerId, rules.RequiredDocuments);
+        Assert.Contains(DocumentType.PoliceAbstract, rules.RequiredDocuments);
+    }
+
+    [Fact]
     public void MedicalChecklistRequiresClaimFormMedicalReportAndInvoice()
     {
         var rules = DocumentChecklistRules.ForProductLine("Medical");

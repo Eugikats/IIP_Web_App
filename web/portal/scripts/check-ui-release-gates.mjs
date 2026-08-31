@@ -60,7 +60,7 @@ requireText("components/iip/Sidebar.tsx", "Workspace not configured", "missing w
 
 requireText("components/iip/CopilotPanel.tsx", "useProviderHealth", "evidence rail must render backend-owned provider health.");
 requireText("components/iip/CopilotPanel.tsx", "Not configured", "provider gaps must render an honest not-configured state.");
-requireText("lib/lovable-parity/data/providerHealth.ts", "/api/v1/admin/provider-health", "provider health must come from the governed backend endpoint.");
+requireText("lib/lovable-parity/data/providerHealth.ts", "/api/v1/provider-status", "provider health must come from the governed backend endpoint.");
 requireText("lib/lovable-parity/mode.ts", "process.env.NODE_ENV !== \"production\"", "visual parity fixtures must be disabled in production builds.");
 requireText("components/iip/ProviderHealthGrid.tsx", "providerStatusTone", "provider cards must use the shared fail-closed status classifier.");
 requireText("components/iip/StatusBar.tsx", "isProviderHealthy", "the status bar must use the shared fail-closed status classifier.");

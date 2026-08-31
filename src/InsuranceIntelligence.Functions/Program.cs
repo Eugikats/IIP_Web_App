@@ -31,7 +31,9 @@ public class Program
                 });
 
                 var options = InfrastructureRegistration.BindOptions(context.Configuration);
-                var runtimeProfile = options.RuntimeProfile ?? context.HostingEnvironment.EnvironmentName;
+                var runtimeProfile = ProviderModeSupport.ResolveRuntimeProfile(
+                    options,
+                    context.HostingEnvironment.EnvironmentName);
                 var runtimeErrors = WorkflowShell.ValidateProtectedRuntime(options, runtimeProfile);
                 if (runtimeErrors.Count > 0)
                 {
@@ -52,9 +54,13 @@ public class Program
                 {
                     services.AddSingleton<IMessageQueueDispatcher, FunctionsAzureServiceBusQueueDispatcher>();
                 }
-                else
+                else if (options.QueueProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
                 {
                     services.AddSingleton<IMessageQueueDispatcher, FunctionsMockMessageQueueDispatcher>();
+                }
+                else
+                {
+                    services.AddSingleton<IMessageQueueDispatcher, FunctionsNotConfiguredMessageQueueDispatcher>();
                 }
 
                 // Add Teams webhook client if configured

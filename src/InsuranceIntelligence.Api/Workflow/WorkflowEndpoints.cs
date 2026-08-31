@@ -125,13 +125,21 @@ public static class WorkflowEndpoints
 
         var actions = workflowRuleProvider.GetRecommendedActions(context);
         var beforeCase = context.ClaimCase;
+        var routing = ClaimRoutingPolicy.Evaluate(beforeCase);
         var nextStatus = ResolveNextStatus(beforeCase, actions);
         var claimForWorkflow = beforeCase;
-        if (nextStatus != beforeCase.Status)
+        if (nextStatus != beforeCase.Status
+            || (nextStatus == CaseStatus.Escalated && !string.Equals(beforeCase.AssignedTeam, ClaimRoutingPolicy.ResolveEscalationTeam(routing), StringComparison.OrdinalIgnoreCase)))
         {
             claimForWorkflow = beforeCase with
             {
                 Status = nextStatus,
+                AssignedTeam = nextStatus == CaseStatus.Escalated
+                    ? ClaimRoutingPolicy.ResolveEscalationTeam(routing)
+                    : beforeCase.AssignedTeam,
+                Priority = nextStatus == CaseStatus.Escalated
+                    ? (routing.Priority == CasePriority.Normal ? CasePriority.Urgent : routing.Priority)
+                    : beforeCase.Priority,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
             await caseRepository.SaveAsync(claimForWorkflow, cancellationToken);
@@ -141,7 +149,9 @@ public static class WorkflowEndpoints
                     claimForWorkflow.ToAuditSnapshot(),
                     actor,
                     correlationId,
-                    "Workflow evaluation updated case lifecycle status."),
+                    nextStatus == CaseStatus.Escalated
+                        ? routing.OperatorExplanation
+                        : "Workflow evaluation updated case lifecycle status."),
                 cancellationToken);
         }
 
@@ -181,6 +191,11 @@ public static class WorkflowEndpoints
             return claimCase.Status;
         }
 
+        if (actions.Any(IsDesignatedHumanEscalationAction))
+        {
+            return CaseStatus.Escalated;
+        }
+
         if (actions.Any(action => action.ActionType == RecommendedNextActionType.SupervisorReview && action.RequiresHumanApproval))
         {
             return CaseStatus.PendingApproval;
@@ -198,6 +213,12 @@ public static class WorkflowEndpoints
 
         return claimCase.Status == CaseStatus.New ? CaseStatus.InReview : claimCase.Status;
     }
+
+    private static bool IsDesignatedHumanEscalationAction(RecommendedNextAction action) =>
+        action.ActionType == RecommendedNextActionType.SupervisorReview
+        && action.RequiresHumanApproval
+        && (action.Label.Contains("Designated", StringComparison.OrdinalIgnoreCase)
+            || action.Evidence.Any(item => Enum.TryParse<ClaimEscalationTrigger>(item, ignoreCase: true, out _)));
 
     public static async Task<IResult> ListTasks(
         IWorkflowTaskRepository taskRepository,

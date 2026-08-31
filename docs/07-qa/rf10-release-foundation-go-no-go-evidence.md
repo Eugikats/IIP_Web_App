@@ -7,6 +7,7 @@
 | Tip (at publish) | `7afa7c8` (+ RF-10 docs commit on same branch) |
 | Authority | `AGENTS.md`, `IIP_IMPLEMENTATION_GUARDRAILS.md`, zero-simulation rule |
 | Decision date | 2026-08-04 |
+| Consolidated readiness record | [`release-1-candidate-readiness-record.md`](./release-1-candidate-readiness-record.md) — branch tip, `/api/infra-contracts/known-gaps` status, known-gaps registry, motor scope |
 
 ## Verdict (evidence-backed only)
 

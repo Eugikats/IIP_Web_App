@@ -55,6 +55,15 @@ public sealed class AgentWorkflowExecutionWorker(
                 $"Agent workflow worker principal '{workerUserId}' has no active membership for tenant/workspace.");
         }
 
+        // Envelope tenant/workspace are dispatch metadata, not authority. Membership is authority;
+        // reject confused-deputy cases where the store returns a different scope than the message.
+        if (!membership.TenantId.Equals(envelope.TenantId, StringComparison.OrdinalIgnoreCase)
+            || !membership.WorkspaceId.Equals(envelope.WorkspaceId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Agent workflow worker membership scope does not match the queue envelope tenant/workspace.");
+        }
+
         tenantContextSetter.SetCurrent(new TenantContext(
             membership.TenantId,
             membership.WorkspaceId,

@@ -78,6 +78,15 @@ export function isProviderConfigured(provider: ProviderHealthItem | null) {
   return status === "configured" || status === "healthy";
 }
 
+export function formatProviderStatusLabel(status: string) {
+  const normalized = normalizeProviderStatus(status);
+  if (normalized === "not configured" || normalized === "unconfigured") {
+    return "Not configured";
+  }
+
+  return status;
+}
+
 export function integrationActionAvailability(
   health: IntegrationHealth | null,
   action: string

@@ -444,6 +444,60 @@ public sealed class Phase7ProviderTests
     }
 
     [Fact]
+    public void ProductionStartupValidation_RejectsBlobConnectionStringAndDisabledManagedIdentity()
+    {
+        var errors = AzureProviderStartupValidator.ValidateProduction(
+            new InfrastructureOptions
+            {
+                AuthMode = "Entra",
+                StorageProvider = "SqlServer",
+                SqlServerConnectionString = "Server=prod;Database=iip;Authentication=Active Directory Managed Identity;",
+                BlobProvider = "AzureBlob",
+                DocumentProvider = "NotConfigured",
+                RetrievalProvider = "AzureAiSearch",
+                AiProvider = "NotConfigured",
+                QueueProvider = "AzureServiceBus",
+                EmailProvider = "Disabled",
+                CommunicationProvider = "Disabled",
+                NotificationProvider = "Disabled",
+                SmsProvider = "Disabled",
+                ChannelProvider = "Disabled",
+                ProvisionerProvider = "Disabled",
+                AzureBlob = new AzureBlobOptions
+                {
+                    AccountName = "stiipprod",
+                    UseManagedIdentity = false,
+                    ConnectionString = "DefaultEndpointsProtocol=https;AccountName=stiipprod;AccountKey=REDACTED;"
+                },
+                AzureAiSearch = new AzureAiSearchOptions
+                {
+                    Endpoint = "https://search.example.search.windows.net",
+                    IndexName = "insuranceintelligence-knowledge",
+                    UseManagedIdentity = false
+                },
+                ServiceBus = new ServiceBusOptions
+                {
+                    FullyQualifiedNamespace = "sb-prod.servicebus.windows.net",
+                    UseManagedIdentity = false
+                },
+                DataResidencyCountry = "UG",
+                DataResidencyGeography = "Africa",
+                AzureRegion = "southafricanorth",
+                DataResidencyMode = "regional",
+                DataResidencyAllowedAzureRegions = "southafricanorth",
+                DataResidencyApprovalReference = "RES-TEST-001"
+            },
+            "Production");
+
+        Assert.Contains(errors, error => error.Contains("AzureBlob:UseManagedIdentity", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("AzureBlob:ConnectionString", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("AzureAiSearch:UseManagedIdentity", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("ServiceBus:UseManagedIdentity", StringComparison.Ordinal));
+        Assert.DoesNotContain(errors, error => error.Contains("REDACTED", StringComparison.Ordinal));
+        Assert.DoesNotContain(errors, error => error.Contains("AccountKey", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ProductionStartupValidation_RejectsUnsafeLocalAndMockModes()
     {
         var errors = AzureProviderStartupValidator.ValidateProduction(
@@ -668,7 +722,10 @@ public sealed class Phase7ProviderTests
                 QueueProvider = "AzureServiceBus",
                 EmailProvider = "Disabled",
                 CommunicationProvider = "Disabled",
-                NotificationProvider = "Disabled"
+                NotificationProvider = "Disabled",
+                SmsProvider = "Disabled",
+                ChannelProvider = "Disabled",
+                ProvisionerProvider = "Disabled"
             },
             "Development");
 

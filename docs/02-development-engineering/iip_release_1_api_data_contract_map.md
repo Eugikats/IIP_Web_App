@@ -35,7 +35,7 @@ All `/api/v1` operations require server-resolved membership/permission unless a 
 | WhatsApp outbound/status | `POST /api/v1/channels/whatsapp/threads/{threadId}/messages`; signed status events on webhook | R1-WA-003–004 | Reviewed/idempotent Meta attempt and reconciliation source-complete; insurer template/policy/live callback evidence pending |
 | Review requests | case review-request list/acknowledge/resolve; client request-review | R1-FUN-017 | Implemented; insurer complaint/appeal process remains external policy |
 | Audit/evidence | audit events; compliance audit-events/posture/case audit-pack/export | R1-FUN-015, R1-PRI-004 | Implemented; tenant and safe-payload tests required |
-| Provider/capability state | provider-status, system capabilities, admin provider modes/health, health endpoints | R1-OPS-002, R1-SEC-004 | Implemented |
+| Provider/capability state | provider-status, system capabilities, admin provider modes/health, health endpoints | R1-OPS-002, R1-SEC-004 | Implemented. Capability booleans are true only for live providers; `NotConfigured`/`Disabled` stay inactive. Protected runtimes reject Mock/InMemory/placeholder modes at startup. |
 | Knowledge/grounding | knowledge document upload/list/get/approve/archive/reindex; policy question | R1-FUN-010, R1-AI-002 | Implemented surfaces; Release 1 activation conditional on approved sources/provider |
 | Workflow definitions/runs/work items | agent-workflow definitions/versions/publish/runs/nodes/work-items/decision | R1-AI-001–007, R1-OPS-003 | Implemented control plane; Release 1 allow-list and worker evidence apply |
 

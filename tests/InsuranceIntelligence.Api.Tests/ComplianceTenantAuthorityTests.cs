@@ -163,7 +163,7 @@ public sealed class ComplianceTenantAuthorityTests
     public async Task AuditPackExport_UsesResolvedMembershipContextInsteadOfBrowserAuthorityHeaders()
     {
         var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
-        var claimCase = Case(membershipScope);
+        var claimCase = Case(membershipScope) with { Status = CaseStatus.ReadyForExport };
         var caseRepository = new InMemoryCaseRepository();
         var auditRepository = new InMemoryAuditRepository();
         var storageProvider = new CapturingEvidencePackStorage();
@@ -195,6 +195,36 @@ public sealed class ComplianceTenantAuthorityTests
             auditEvent.ActionName == "evidence_pack.exported"
             && auditEvent.UserId == "membership-compliance-user"
             && auditEvent.AuditReason == auditReason);
+    }
+
+    [Fact]
+    public async Task ExportAuditPack_DeniesPublisherSupportWithoutExportPermission()
+    {
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var claimCase = Case(membershipScope) with { Status = CaseStatus.ReadyForExport };
+        var caseRepository = new InMemoryCaseRepository();
+        await caseRepository.SaveAsync(claimCase);
+
+        var context = MembershipContext(
+            membershipScope,
+            "publisher-support-user",
+            "attacker-tenant",
+            "attacker-workspace",
+            "Support read of audit pack.",
+            roleCode: "PublisherSupport");
+
+        var result = await ComplianceEndpoints.ExportAuditPack(
+            claimCase.CaseId,
+            CreateService(context, caseRepository: caseRepository),
+            Options(),
+            context,
+            CancellationToken.None);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.RequestServices = new ServiceCollection().AddLogging().AddProblemDetails().BuildServiceProvider();
+        httpContext.Response.Body = new MemoryStream();
+        await result.ExecuteAsync(httpContext);
+        Assert.Equal(StatusCodes.Status403Forbidden, httpContext.Response.StatusCode);
     }
 
     [Fact]
@@ -306,14 +336,15 @@ public sealed class ComplianceTenantAuthorityTests
         string membershipUserId,
         string spoofTenant,
         string spoofWorkspace,
-        string? auditReason = null)
+        string? auditReason = null,
+        string roleCode = "Admin")
     {
         var tenantContext = new TenantContextAccessor();
         tenantContext.SetCurrent(new TenantContext(
             membershipScope.TenantId,
             membershipScope.WorkspaceId,
             membershipUserId,
-            ["Admin"]));
+            [roleCode]));
         var context = HeaderOnlyContext();
         context.RequestServices = new ServiceCollection()
             .AddSingleton<ITenantContextAccessor>(tenantContext)
@@ -322,6 +353,7 @@ public sealed class ComplianceTenantAuthorityTests
         context.Request.Headers["X-Workspace-Id"] = spoofWorkspace;
         context.Request.Headers["X-User-Id"] = "attacker-user";
         context.Request.Headers["x-demo-user-id"] = "attacker-user";
+        context.Request.Headers["x-demo-role"] = roleCode;
         if (auditReason is not null)
         {
             context.Request.Headers["X-Audit-Reason"] = auditReason;

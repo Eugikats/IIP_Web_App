@@ -343,6 +343,68 @@ public sealed class CaseEndpointsTests
     }
 
     [Fact]
+    public async Task CreateCase_InjuryRoutesToDesignatedEscalationTeam()
+    {
+        var dependencies = CreateDependencies();
+        var result = await CaseEndpoints.CreateCase(
+            ValidRequest() with
+            {
+                ClaimType = "Bodily injury",
+                MotorFnolDetails = new MotorFnolDetails(null, null, null, null, null, null, "Yes", null, null, null)
+            },
+            dependencies.Service,
+            dependencies.AuditRepository,
+            ScopedContext(),
+            CancellationToken.None);
+        var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal(StatusCodes.Status201Created, statusCode);
+        Assert.Equal("Escalated", response!.Status);
+        Assert.Equal(ClaimRoutingPolicy.DesignatedInjuryEscalationTeam, response.AssignedTeam);
+    }
+
+    [Fact]
+    public async Task CreateCase_ThirdPartyRoutesToThirdPartyDesk()
+    {
+        var dependencies = CreateDependencies();
+        var result = await CaseEndpoints.CreateCase(
+            ValidRequest() with { ClaimType = "Third-party property damage" },
+            dependencies.Service,
+            dependencies.AuditRepository,
+            ScopedContext(),
+            CancellationToken.None);
+        var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal(StatusCodes.Status201Created, statusCode);
+        Assert.Equal("New", response!.Status);
+        Assert.Equal(ClaimRoutingPolicy.ThirdPartyDeskTeam, response.AssignedTeam);
+    }
+
+    [Fact]
+    public async Task EscalateCase_InjuryUsesDesignatedInjuryTeam()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(
+            ValidCommand() with { ClaimType = "Own damage" },
+            CancellationToken.None);
+        // Simulate later injury discovery via claim-type correction before escalate.
+        created = created with { ClaimType = "Bodily injury" };
+        await dependencies.CaseRepository.SaveAsync(created, CancellationToken.None);
+
+        var result = await CaseEndpoints.EscalateCase(
+            created.CaseId,
+            new EscalateCaseRequest("Injury confirmed — route to designated human.", null),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext("ClaimsSupervisor", "supervisor-1"),
+            CancellationToken.None);
+        var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal(ClaimRoutingPolicy.DesignatedInjuryEscalationTeam, response!.AssignedTeam);
+    }
+
+    [Fact]
     public async Task EscalateCase_RequiresAuditReason()
     {
         var dependencies = CreateDependencies();

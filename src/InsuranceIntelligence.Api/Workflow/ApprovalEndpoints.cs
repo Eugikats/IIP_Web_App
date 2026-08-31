@@ -215,6 +215,18 @@ public static class ApprovalEndpoints
                 requiresHumanDecision: true,
                 ApprovalDecisionGuard.ResolveActorType(executor),
                 requestedActionType: "executeApprovedNextStep");
+
+            var mappedAction = ClaimAuthorityPolicy.TryMapApprovalType(approval.ApprovalType);
+            if (mappedAction is { } consequential)
+            {
+                ClaimAuthorityPolicy.EnsureActorMayPerform(
+                    consequential,
+                    ApprovalDecisionGuard.ResolveActorType(executor));
+            }
+
+            ClaimAuthorityPolicy.EnsureMayAdvanceToReadyForExport(
+                claimCase,
+                ApprovalDecisionGuard.ResolveActorType(executor));
         }
         catch (DomainException exception)
         {

@@ -2,6 +2,7 @@ using System.Text.Json;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Onboarding;
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Approvals;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -135,12 +136,23 @@ public sealed class ComplianceQueryService(
         }
 
         var scope = RequireScope();
-        await permissionService.RequirePermissionAsync(Permission.ViewAuditLog, cancellationToken);
+        await permissionService.RequirePermissionAsync(Permission.ExportEvidencePack, cancellationToken);
 
         var claimCase = await caseRepository.GetAsync(command.CaseId, cancellationToken);
         if (claimCase is null || !claimCase.Scope.Matches(scope))
         {
             return null;
+        }
+
+        try
+        {
+            ClaimAuthorityPolicy.EnsureMayExportEvidencePack(
+                claimCase,
+                ApprovalDecisionGuard.ResolveActorType(command.ActorUserId));
+        }
+        catch (DomainException exception)
+        {
+            throw new ComplianceQueryValidationException("status", exception.Message);
         }
 
         var pack = await BuildAuditPackAsync(claimCase, scope, cancellationToken);
@@ -173,7 +185,9 @@ public sealed class ComplianceQueryService(
         }
         catch (InvalidOperationException ex) when (ex is not ComplianceQueryValidationException and not MissingTenantContextException)
         {
-            throw new ComplianceConfigurationException(ex.Message);
+            // Never surface raw provider/storage exception text to API clients.
+            throw new ComplianceConfigurationException(
+                "Evidence pack storage is unavailable. Verify blob identity, container configuration, and network access.");
         }
     }
 

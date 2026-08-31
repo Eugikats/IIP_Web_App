@@ -84,3 +84,15 @@ public sealed class NotConfiguredCommunicationProvider : ICommunicationProvider
         CancellationToken cancellationToken = default) =>
         throw new ProviderNotConfiguredException("Customer communication provider is not configured.");
 }
+
+public sealed class NotConfiguredDocumentStorageProvider : IDocumentStorageProvider
+{
+    public Task<DocumentStorageResult> StoreAsync(DocumentStorageRequest request, CancellationToken cancellationToken = default) =>
+        throw new ProviderNotConfiguredException("Document storage provider is not configured.");
+}
+
+public sealed class NotConfiguredKnowledgeStorageProvider : IKnowledgeStorageProvider
+{
+    public Task<KnowledgeStorageResult> StoreAsync(KnowledgeStorageRequest request, CancellationToken cancellationToken = default) =>
+        throw new ProviderNotConfiguredException("Knowledge storage provider is not configured.");
+}

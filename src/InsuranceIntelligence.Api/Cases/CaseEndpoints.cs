@@ -201,11 +201,16 @@ public static class CaseEndpoints
         }
 
         var before = claimCase.ToAuditSnapshot();
+        var routing = ClaimRoutingPolicy.Evaluate(claimCase);
+        var designatedTeam = NormalizeOptional(request.AssignedTeam)
+            ?? (routing.RequiresDesignatedHumanEscalation
+                ? ClaimRoutingPolicy.ResolveEscalationTeam(routing)
+                : ClaimRoutingPolicy.ClaimsSupervisionTeam);
         var updated = claimCase with
         {
             Status = CaseStatus.Escalated,
-            Priority = CasePriority.Urgent,
-            AssignedTeam = NormalizeOptional(request.AssignedTeam) ?? "Claims Supervision",
+            Priority = routing.Priority == CasePriority.Normal ? CasePriority.Urgent : routing.Priority,
+            AssignedTeam = designatedTeam,
             UpdatedAt = DateTimeOffset.UtcNow
         };
         var correlationId = GetCorrelationId(httpContext);

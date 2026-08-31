@@ -204,10 +204,16 @@ if (infrastructureOptions.BlobProvider.Equals("AzureBlob", StringComparison.Ordi
     builder.Services.AddSingleton<IKnowledgeStorageProvider, AzureBlobKnowledgeStorageProvider>();
     builder.Services.AddSingleton<IEvidencePackStorageProvider, AzureBlobEvidencePackStorageProvider>();
 }
-else
+else if (infrastructureOptions.BlobProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddSingleton<IDocumentStorageProvider, LocalMockDocumentStorageProvider>();
     builder.Services.AddSingleton<IKnowledgeStorageProvider, LocalMockKnowledgeStorageProvider>();
+    builder.Services.AddSingleton<IEvidencePackStorageProvider, NotConfiguredEvidencePackStorageProvider>();
+}
+else
+{
+    builder.Services.AddSingleton<IDocumentStorageProvider, NotConfiguredDocumentStorageProvider>();
+    builder.Services.AddSingleton<IKnowledgeStorageProvider, NotConfiguredKnowledgeStorageProvider>();
     builder.Services.AddSingleton<IEvidencePackStorageProvider, NotConfiguredEvidencePackStorageProvider>();
 }
 
@@ -250,9 +256,13 @@ if (infrastructureOptions.QueueProvider.Equals("AzureServiceBus", StringComparis
 {
     builder.Services.AddSingleton<IMessageQueueDispatcher, AzureServiceBusQueueDispatcher>();
 }
-else
+else if (infrastructureOptions.QueueProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddSingleton<IMessageQueueDispatcher, MockMessageQueueDispatcher>();
+}
+else
+{
+    builder.Services.AddSingleton<IMessageQueueDispatcher, NotConfiguredMessageQueueDispatcher>();
 }
 
 builder.Services.AddSingleton<IWorkflowRuleProvider, StaticWorkflowRuleProvider>();
@@ -264,13 +274,13 @@ else
 {
     builder.Services.AddSingleton<ICustomerUpdateDraftingProvider, NotConfiguredCustomerUpdateDraftingProvider>();
 }
-if (infrastructureOptions.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
+if (infrastructureOptions.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<ICommunicationProvider, NotConfiguredCommunicationProvider>();
+    builder.Services.AddSingleton<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
 }
 else
 {
-    builder.Services.AddSingleton<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
+    builder.Services.AddSingleton<ICommunicationProvider, NotConfiguredCommunicationProvider>();
 }
 builder.Services.AddSingleton<ISlaCalculator, BasicSlaCalculator>();
 
@@ -286,6 +296,7 @@ else
 
 builder.Services.AddScoped<ITeamsNotificationQueue, DefaultTeamsNotificationQueue>();
 builder.Services.AddScoped<CaseIntakeService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Claims.IClaimGovernedPathService, InsuranceIntelligence.Application.Claims.ClaimGovernedPathService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<TenantContextAccessor>();
 builder.Services.AddScoped<ITenantContextAccessor>(serviceProvider => serviceProvider.GetRequiredService<TenantContextAccessor>());
@@ -705,7 +716,7 @@ app.MapGet("/api/v1/compliance/posture", ComplianceEndpoints.GetCompliancePostur
 app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack", ComplianceEndpoints.GetAuditPack)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export", ComplianceEndpoints.ExportAuditPack)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/integrations/email/health", EmailIntegrationEndpoints.GetHealth)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.ListMailboxes)

@@ -1,3 +1,5 @@
+using InsuranceIntelligence.Domain.Cases;
+
 namespace InsuranceIntelligence.Domain.Documents;
 
 public sealed record DocumentChecklistRuleSet(
@@ -25,5 +27,30 @@ public static class DocumentChecklistRules
         return new DocumentChecklistRuleSet(
             [DocumentType.ClaimForm],
             [DocumentType.CustomerId]);
+    }
+
+    /// <summary>
+    /// Claim-type discriminator on the single governed path. Falls back to product-line rules
+    /// when the claim type is unknown.
+    /// </summary>
+    public static DocumentChecklistRuleSet ForCase(ClaimCase claimCase)
+    {
+        ArgumentNullException.ThrowIfNull(claimCase);
+
+        var kind = ClaimTypeClassifier.Classify(claimCase.ClaimType, claimCase.MotorFnolDetails);
+        return kind switch
+        {
+            ClaimTypeKind.OwnDamage => ForProductLine("Motor"),
+            ClaimTypeKind.ThirdPartyProperty => new DocumentChecklistRuleSet(
+                [DocumentType.ClaimForm, DocumentType.PoliceAbstract, DocumentType.PhotoEvidence, DocumentType.CustomerId],
+                [DocumentType.Invoice, DocumentType.GarageEstimate]),
+            ClaimTypeKind.TheftTotalLoss => new DocumentChecklistRuleSet(
+                [DocumentType.ClaimForm, DocumentType.PoliceAbstract, DocumentType.PhotoEvidence, DocumentType.CustomerId],
+                [DocumentType.Invoice, DocumentType.GarageEstimate]),
+            ClaimTypeKind.InjuryFatality => new DocumentChecklistRuleSet(
+                [DocumentType.ClaimForm, DocumentType.PoliceAbstract, DocumentType.PhotoEvidence, DocumentType.MedicalReport],
+                [DocumentType.CustomerId, DocumentType.Invoice]),
+            _ => ForProductLine(claimCase.ProductLine)
+        };
     }
 }

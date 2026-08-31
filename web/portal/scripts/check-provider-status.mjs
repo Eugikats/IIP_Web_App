@@ -20,7 +20,7 @@ runInNewContext(outputText, {
   module: loadedModule
 });
 
-const { isProviderHealthy, providerStatusTone } = loadedModule.exports;
+const { isProviderHealthy, providerStatusTone, formatProviderStatusLabel } = loadedModule.exports;
 
 for (const status of ["Configured", "Connected", "Healthy", "OK", "Operational", "Ready"]) {
   assert.equal(providerStatusTone(status), "success", status);
@@ -42,4 +42,8 @@ for (const status of [
   assert.equal(providerStatusTone(status), "warning", status);
   assert.equal(isProviderHealthy(status), false, status);
 }
+
+assert.equal(formatProviderStatusLabel("not_configured"), "Not configured");
+assert.equal(formatProviderStatusLabel("Not configured"), "Not configured");
+assert.equal(formatProviderStatusLabel("configured"), "configured");
 

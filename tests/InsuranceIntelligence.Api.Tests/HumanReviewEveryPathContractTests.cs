@@ -118,6 +118,78 @@ public sealed class HumanReviewEveryPathContractTests
     }
 
     [Fact]
+    public async Task ExecuteApprovedNextStep_Blocks_Theft_Without_Designated_Human_Path()
+    {
+        var deps = CreateWorkflowDeps();
+        var claimCase = await CreateCaseAsync(deps, claimType: "Theft");
+        // Mis-assign away from designated total-loss desk to prove the gate.
+        claimCase = claimCase with
+        {
+            AssignedTeam = ClaimRoutingPolicy.ClaimsIntakeTeam,
+            Status = CaseStatus.PendingApproval
+        };
+        await deps.CaseRepository.SaveAsync(claimCase, CancellationToken.None);
+        var approval = await CreatePendingApprovalAsync(deps, claimCase);
+
+        var approve = await ApprovalEndpoints.ApproveApproval(
+            approval.ApprovalId,
+            new ApprovalDecisionRequest("Human approved settlement pack for review."),
+            deps.ApprovalRepository,
+            deps.AuditRepository,
+            ActorContext("user-claims-1", "Human approve."),
+            CancellationToken.None);
+        Assert.Equal(StatusCodes.Status200OK, (await ExecuteAsync<ApprovalResponse>(approve)).StatusCode);
+
+        var execute = await ApprovalEndpoints.ExecuteApprovedNextStep(
+            approval.ApprovalId,
+            new ExecuteApprovedNextStepRequest("Advance theft without designated path."),
+            deps.ApprovalRepository,
+            deps.CaseRepository,
+            deps.AuditRepository,
+            ActorContext("user-claims-1", "Human execute without designated clearance."),
+            CancellationToken.None);
+        var (status, body) = await ExecuteAsync<JsonElement>(execute);
+
+        Assert.Equal(StatusCodes.Status403Forbidden, status);
+        Assert.Equal("human_decision_required", body.GetProperty("code").GetString());
+        Assert.Contains("designated-human escalation", body.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExecuteApprovedNextStep_Allows_Theft_After_Designated_Human_Ownership()
+    {
+        var deps = CreateWorkflowDeps();
+        var claimCase = await CreateCaseAsync(deps, claimType: "Theft");
+        Assert.Equal(ClaimRoutingPolicy.TotalLossDeskTeam, claimCase.AssignedTeam);
+        claimCase = claimCase with { Status = CaseStatus.Escalated };
+        await deps.CaseRepository.SaveAsync(claimCase, CancellationToken.None);
+        var approval = await CreatePendingApprovalAsync(deps, claimCase);
+
+        var approve = await ApprovalEndpoints.ApproveApproval(
+            approval.ApprovalId,
+            new ApprovalDecisionRequest("Designated human cleared total-loss pack for export readiness."),
+            deps.ApprovalRepository,
+            deps.AuditRepository,
+            ActorContext("user-claims-1", "Human approve."),
+            CancellationToken.None);
+        Assert.Equal(StatusCodes.Status200OK, (await ExecuteAsync<ApprovalResponse>(approve)).StatusCode);
+
+        var execute = await ApprovalEndpoints.ExecuteApprovedNextStep(
+            approval.ApprovalId,
+            new ExecuteApprovedNextStepRequest("Advance theft after designated clearance."),
+            deps.ApprovalRepository,
+            deps.CaseRepository,
+            deps.AuditRepository,
+            ActorContext("user-claims-1", "Human execute after designated clearance."),
+            CancellationToken.None);
+        var (status, _) = await ExecuteAsync<ApprovalResponse>(execute);
+        var saved = await deps.CaseRepository.GetAsync(claimCase.CaseId, CancellationToken.None);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal(CaseStatus.ReadyForExport, saved!.Status);
+    }
+
+    [Fact]
     public async Task SendCustomerUpdate_Blocks_System_Actor()
     {
         var deps = CreateWorkflowDeps();
@@ -268,7 +340,7 @@ public sealed class HumanReviewEveryPathContractTests
             new InMemoryCustomerUpdateRepository(),
             new MockCommunicationProvider());
 
-    private static async Task<ClaimCase> CreateCaseAsync(WorkflowDeps deps) =>
+    private static async Task<ClaimCase> CreateCaseAsync(WorkflowDeps deps, string claimType = "Accident") =>
         await new CaseIntakeService(deps.CaseRepository, deps.AuditRepository).CreateCaseAsync(
             new CreateCaseCommand(
                 TenantScope.Create("tenant-demo", "workspace-claims"),
@@ -277,7 +349,7 @@ public sealed class HumanReviewEveryPathContractTests
                 "+256700000000",
                 "POL-1001",
                 "Motor",
-                "Accident",
+                claimType,
                 "WebPortal",
                 new DateOnly(2026, 5, 24),
                 "Minor collision reported at branch intake.",

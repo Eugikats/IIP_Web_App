@@ -9,6 +9,11 @@ public enum Permission
     ViewAssignedClaims,
     ApproveSettlementWorkflowStep,
     ViewAuditLog,
+    /// <summary>
+    /// Consequential evidence-pack export (distinct from read-only audit viewing).
+    /// Publisher/support read paths must not silently inherit this permission.
+    /// </summary>
+    ExportEvidencePack,
     ManageKnowledgeBase,
     ConfigureIntegrations,
     ViewAiOutputs,

@@ -96,6 +96,31 @@ public sealed class AgentWorkflowExecutionWorkerContractTests
         Assert.DoesNotContain("raw", service.LastCompletion.OutputSummary, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_Rejects_Membership_Scope_Mismatch_With_Envelope()
+    {
+        var worker = new AgentWorkflowExecutionWorker(
+            new RecordingContextSetter(),
+            new FixedScopePermissionReadRepository("other-tenant", "other-workspace"),
+            new RecordingWorkflowService(BuildRun()),
+            new FixedExecutor(new CompleteAgentWorkflowNodeRequest(
+                Outcome: "ready",
+                OutputSummary: "ok",
+                Evidence: [],
+                Provider: "IIPFunctionsWorker",
+                ModelOrTool: "document-checker",
+                PromptVersion: "rf06-v1",
+                ErrorCode: null)),
+            NullLogger<AgentWorkflowExecutionWorker>.Instance,
+            new InfrastructureOptions
+            {
+                ServiceBus = new ServiceBusOptions { AgentWorkflowWorkerUserId = "system:agent-workflow-worker" }
+            });
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => worker.ExecuteAsync(BuildMessage()));
+        Assert.Contains("does not match the queue envelope", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static AgentWorkflowExecutionWorker CreateWorker(
         RecordingWorkflowService? workflowService = null,
         IAgentWorkflowNodeExecutor? executor = null) =>
@@ -202,6 +227,20 @@ public sealed class AgentWorkflowExecutionWorkerContractTests
             Task.FromResult<EffectiveMembership?>(new EffectiveMembership(
                 tenantHint ?? Scope.TenantId,
                 workspaceHint ?? Scope.WorkspaceId,
+                userId,
+                ["Admin"],
+                [Permission.ManageAgentWorkflows]));
+    }
+
+    private sealed class FixedScopePermissionReadRepository(string tenantId, string workspaceId) : IPermissionReadRepository
+    {
+        public Task<IReadOnlyCollection<Permission>> GetPermissionsAsync(string tenantIdArg, string workspaceIdArg, string userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Permission>>([Permission.ManageAgentWorkflows]);
+
+        public Task<EffectiveMembership?> GetEffectiveMembershipAsync(string userId, string? tenantHint, string? workspaceHint, CancellationToken cancellationToken = default) =>
+            Task.FromResult<EffectiveMembership?>(new EffectiveMembership(
+                tenantId,
+                workspaceId,
                 userId,
                 ["Admin"],
                 [Permission.ManageAgentWorkflows]));

@@ -32,5 +32,6 @@ row is CLOSED with evidence.
 
 ## Readiness status
 Do not maintain a readiness snapshot in this index. Use `docs/08-program-plan/IIP-CONSOLIDATED-ROADMAP.md`,
-`docs/07-qa/rf10-release-foundation-go-no-go-evidence.md`, and current deployment/test evidence. The current
-RF-10 production-candidate verdict is **NO**; revalidate before making any newer claim.
+`docs/07-qa/rf10-release-foundation-go-no-go-evidence.md`,
+`docs/07-qa/release-1-candidate-readiness-record.md` (candidate commit, known-gaps registry, motor scope),
+and current deployment/test evidence. The current RF-10 production-candidate verdict is **NO**; revalidate before making any newer claim.

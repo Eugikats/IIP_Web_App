@@ -28,11 +28,11 @@ public sealed class ProviderHealthCommunicationTests
         Assert.Equal("degraded", body.GetProperty("overallStatus").GetString());
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "communications"
-            && item.GetProperty("status").GetString() == "missing"
+            && item.GetProperty("status").GetString() == "not_configured"
             && item.GetProperty("detail").GetString()!.Contains("not configured", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "notifications"
-            && item.GetProperty("status").GetString() == "missing"
+            && item.GetProperty("status").GetString() == "not_configured"
             && item.GetProperty("detail").GetString()!.Contains("not configured", StringComparison.OrdinalIgnoreCase));
     }
 
