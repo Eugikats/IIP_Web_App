@@ -18,6 +18,91 @@ export interface RoleDef {
   landing: string;
 }
 
+export type Permission =
+  | "ViewCommandCenter"
+  | "CreateClaim"
+  | "UploadDocument"
+  | "ViewAllClaims"
+  | "ViewAssignedClaims"
+  | "ApproveSettlementWorkflowStep"
+  | "ViewAuditLog"
+  | "ManageKnowledgeBase"
+  | "ConfigureIntegrations"
+  | "ViewAiOutputs"
+  | "OverrideAiRecommendation"
+  | "ManageCustomerCommunications"
+  | "SendCustomerUpdate"
+  | "ManageTenantSettings"
+  | "ViewClientPortal"
+  | "ViewChannels"
+  | "ViewCustomers"
+  | "ViewSalesLeads"
+  | "ManageSalesLeads"
+  | "ViewFraudSignals"
+  | "ViewUnderwriting"
+  | "ManageAgents"
+  | "ViewAgentWorkflows"
+  | "RunAgentWorkflows"
+  | "ManageAgentWorkflows"
+  | "ReviewAgentWorkItems"
+  | "ViewBilling"
+  | "ManageTenantOnboarding";
+
+type RouteAccessRule = {
+  path: string;
+  requiredAny: Permission[];
+  exact?: boolean;
+};
+
+// Presentation visibility only. The API remains authoritative for every read and action.
+// Put specific child routes before their parent prefix.
+export const ROUTE_ACCESS: RouteAccessRule[] = [
+  { path: "/app/conversations", requiredAny: ["ViewCommandCenter"] },
+  { path: "/app/search", requiredAny: ["ViewAssignedClaims", "ViewAllClaims"] },
+  { path: "/app/claims/new", requiredAny: ["CreateClaim"], exact: true },
+  { path: "/app/claims", requiredAny: ["ViewAssignedClaims", "ViewAllClaims"] },
+  { path: "/app/channels", requiredAny: ["ViewChannels"] },
+  { path: "/app/customers", requiredAny: ["ViewCustomers"] },
+  { path: "/app/documents", requiredAny: ["ViewAllClaims"] },
+  { path: "/app/communications", requiredAny: ["ViewAssignedClaims", "ViewAllClaims"] },
+  { path: "/app/acquisition", requiredAny: ["ViewSalesLeads"] },
+  { path: "/app/policy", requiredAny: ["ViewAiOutputs", "ManageKnowledgeBase"] },
+  { path: "/app/fraud", requiredAny: ["ViewFraudSignals"] },
+  { path: "/app/underwriting", requiredAny: ["ViewUnderwriting"] },
+  { path: "/app/knowledge", requiredAny: ["ManageKnowledgeBase"] },
+  { path: "/app/executive", requiredAny: ["ViewCommandCenter"] },
+  { path: "/app/work-items", requiredAny: ["ViewAssignedClaims", "ViewAllClaims", "ReviewAgentWorkItems", "ApproveSettlementWorkflowStep", "ManageCustomerCommunications"] },
+  { path: "/app/workflows", requiredAny: ["ReviewAgentWorkItems", "ApproveSettlementWorkflowStep"] },
+  { path: "/app/flows", requiredAny: ["ViewAgentWorkflows"] },
+  { path: "/app/runs", requiredAny: ["ViewAgentWorkflows"] },
+  { path: "/app/integrations", requiredAny: ["ConfigureIntegrations", "ManageTenantSettings"] },
+  { path: "/app/support", requiredAny: ["ConfigureIntegrations", "ManageTenantSettings"] },
+  { path: "/app/audit", requiredAny: ["ViewAuditLog"] },
+  { path: "/app/admin/agents", requiredAny: ["ManageAgents"] },
+  { path: "/app/admin/billing", requiredAny: ["ViewBilling"] },
+  { path: "/app/admin/onboarding", requiredAny: ["ManageTenantOnboarding"] },
+  { path: "/app/admin/tenant-policy", requiredAny: ["ManageTenantSettings"] },
+  { path: "/app/admin", requiredAny: ["ManageTenantSettings"], exact: true },
+  { path: "/app/settings", requiredAny: ["ManageTenantSettings"] },
+  { path: "/app", requiredAny: ["ViewCommandCenter"], exact: true },
+];
+
+export function canAccessWithPermissions(permissions: readonly string[], path: string): boolean {
+  const rule = ROUTE_ACCESS.find((candidate) =>
+    candidate.exact ? path === candidate.path : path === candidate.path || path.startsWith(candidate.path + "/")
+  );
+  return Boolean(rule && rule.requiredAny.some((permission) => permissions.includes(permission)));
+}
+
+export function firstAccessibleRoute(permissions: readonly string[]): string | null {
+  const preferred = [
+    "/app", "/app/claims", "/app/channels", "/app/work-items", "/app/customers",
+    "/app/documents", "/app/communications", "/app/knowledge", "/app/audit",
+    "/app/integrations", "/app/admin",
+  ];
+  return preferred.find((path) => canAccessWithPermissions(permissions, path)) ?? null;
+}
+
 export const ALL_MODULES = [
   "/app",
   "/app/claims",
@@ -79,6 +164,12 @@ export const ROLES: Record<Role, RoleDef> = {
 };
 
 export function canAccess(role: Role, path: string): boolean {
+  if (path === "/app/conversations" || path.startsWith("/app/conversations/")) {
+    return ROLES[role].modules.includes("/app");
+  }
+  if (path === "/app/search" || path.startsWith("/app/search/")) {
+    return canUseGlobalSearchPreview(role);
+  }
   const def = ROLES[role];
   const all = [...def.modules, ...def.admin];
   const canonicalPath = path === "/app/workflows" || path.startsWith("/app/workflows/")
@@ -92,4 +183,8 @@ export function canAccess(role: Role, path: string): boolean {
     canonicalPath === m
     || (m !== "/app" && m !== "/app/admin" && canonicalPath.startsWith(m + "/"))
   );
+}
+
+export function canUseGlobalSearchPreview(role: Role): boolean {
+  return ["Admin", "ClaimsOfficer", "ClaimsSupervisor", "CustomerService", "Broker", "Compliance"].includes(role);
 }

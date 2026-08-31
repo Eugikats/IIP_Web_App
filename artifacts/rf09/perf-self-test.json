@@ -1,0 +1,101 @@
+{
+  "generatedAt": "2026-08-04T10:20:57.843Z",
+  "baseUrl": "http://127.0.0.1:65297",
+  "mode": "self-test",
+  "requests": 10,
+  "concurrency": 2,
+  "results": [
+    {
+      "id": "PERF-HEALTH-001",
+      "path": "/health/ready",
+      "requests": 10,
+      "concurrency": 2,
+      "elapsedMs": 41,
+      "requestsPerSecond": 241.38,
+      "errorRate": 0,
+      "p50Ms": 7,
+      "p95Ms": 12,
+      "p99Ms": 12,
+      "targetP95Ms": 300,
+      "statusCounts": {
+        "200": 10
+      },
+      "passed": true,
+      "errors": []
+    },
+    {
+      "id": "PERF-API-001",
+      "path": "/api/v1/claims",
+      "requests": 10,
+      "concurrency": 2,
+      "elapsedMs": 21,
+      "requestsPerSecond": 482.62,
+      "errorRate": 0,
+      "p50Ms": 3,
+      "p95Ms": 6,
+      "p99Ms": 6,
+      "targetP95Ms": 800,
+      "statusCounts": {
+        "200": 10
+      },
+      "passed": true,
+      "errors": []
+    },
+    {
+      "id": "PERF-ADMIN-001",
+      "path": "/api/v1/provider-status",
+      "requests": 10,
+      "concurrency": 2,
+      "elapsedMs": 16,
+      "requestsPerSecond": 628.69,
+      "errorRate": 0,
+      "p50Ms": 3,
+      "p95Ms": 5,
+      "p99Ms": 5,
+      "targetP95Ms": 800,
+      "statusCounts": {
+        "200": 10
+      },
+      "passed": true,
+      "errors": []
+    },
+    {
+      "id": "PERF-COMPLIANCE-001",
+      "path": "/api/v1/compliance/posture",
+      "requests": 10,
+      "concurrency": 2,
+      "elapsedMs": 15,
+      "requestsPerSecond": 675.39,
+      "errorRate": 0,
+      "p50Ms": 3,
+      "p95Ms": 4,
+      "p99Ms": 4,
+      "targetP95Ms": 1200,
+      "statusCounts": {
+        "200": 10
+      },
+      "passed": true,
+      "errors": []
+    },
+    {
+      "id": "PERF-API-002",
+      "path": "/api/v1/claims/self-test-claim",
+      "requests": 10,
+      "concurrency": 2,
+      "elapsedMs": 16,
+      "requestsPerSecond": 643.32,
+      "errorRate": 0,
+      "p50Ms": 3,
+      "p95Ms": 4,
+      "p99Ms": 4,
+      "targetP95Ms": 1200,
+      "statusCounts": {
+        "200": 10
+      },
+      "passed": true,
+      "errors": []
+    }
+  ],
+  "thresholdFailures": [],
+  "passed": true
+}

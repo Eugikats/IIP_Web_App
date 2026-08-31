@@ -1,132 +1,102 @@
-# IIP MVP Scope Control Register
+# IIP Release 1 Scope Control Register
 
 | Field | Value |
 |---|---|
-| Product | Insurance Intelligence Platform (IIP) |
-| Document Name | MVP Scope Control Register |
-| Version | 1.0 |
-| Status | Draft |
-| Audience | Product owners, engineering leads, delivery managers, pilot sponsors, QA leads |
-| Date | 2026-06-30 |
+| Version | 2.1 |
+| Date | 2026-08-05 |
+| Status | Proposed; stakeholder and target-insurer approval pending |
+| Decision horizon | Release 1 controlled pilot and production-candidate gate |
+| Normative requirements | `iip_release_1_requirements_baseline.md` |
 
+## Scope decision
 
-## 1. Purpose
+Select the smallest end-to-end slice that tests whether IIP can improve evidence-complete review of non-injury motor own-damage work without weakening insurer authority, privacy, security, accessibility, recovery, or operational control.
 
-This register protects the IIP MVP from scope creep. It defines what must be built for the first credible pilot, what is explicitly out of scope, what belongs in Phase 2, and what must not be built too early.
+## Inclusion criteria
 
+A capability is Release 1 only when it:
 
-This document uses the existing IIP project context and prior documentation pack: Master Product Context, PRD, FSD, Technical Architecture Document, System Integration Strategy, UI/UX Handoff, API Specification, Data Model, Security & Compliance Document, QA/Test Plan, Deployment Plan, User/Admin Guide, and Implementation Roadmap.
+1. is required to complete or safely recover the canonical intake → evidence → review/correction → completeness → proposal → human decision → controlled outcome → audit path;
+2. enforces a platform invariant or pilot/production obligation;
+3. produces evidence for a named Release 1 decision or risk;
+4. cannot be deferred without breaking the outcome, safety, support, or measurement;
+5. has an owner, requirement ID, acceptance evidence, and release gate.
 
-Confirmed project baseline:
-- Official product name: Insurance Intelligence Platform (IIP).
-- IIP is an Azure-native, human-reviewed insurance operations platform, not a replacement for core insurance systems.
-- MVP focus: motor claims and document intelligence for a mid-to-large insurer pilot.
-- Customer engagement is WhatsApp-first and channel-led; customers do not log into the internal staff application.
-- Internal modules include Command Center, Channels, Customers, Sales & Leads, Claims, Documents, Knowledge Base, Approvals, Compliance & Audit, Reports & Analytics, Integrations, Admin Settings, and Support & Health.
-- The internal UI is a role-aware staff workspace with persistent navigation, a top bar, global search, operational states, and a contextual Copilot panel.
-- The platform uses Next.js/React/TypeScript/Tailwind on the frontend and .NET 8/Azure services on the backend.
-- AI assists with extraction, summarization, classification, routing, drafting, risk signals, and evidence preparation; humans make regulated or consequential decisions.
+Stakeholder influence, legal obligations, and human-harm controls are not reduced to a numeric score.
 
+## Selected scope
 
-## 2. MVP Definition
+| Outcome/capability | Primary users | Evidence/value | Obligation | Dependencies | Effort | Reversibility | Requirement IDs |
+|---|---|---|---|---|---|---|---|
+| Server-authorized staff entry and scoped work | Claims staff, supervisors, admins | Existing code/invariant; prevents cross-tenant harm | Mandatory | Membership/permission store, Entra | Existing + hardening | Low | R1-FUN-001, R1-SEC-001–004 |
+| Structured motor FNOL/case and work queue | Claims staff/supervisors | Required operational entry and ownership | Core value | Case contracts, roles, rules | Existing + reconciliation | Medium | R1-FUN-002–004 |
+| Document intake, validation and real-provider extraction | Claims/document reviewers | Release 1 problem hypothesis | Core value + security | Blob/SQL, provider, document rules | Medium/high | Medium | R1-FUN-005–006 |
+| Source-side human review and correction | Reviewers | Safety, quality, rework reduction | Mandatory | Evidence viewer, audit, versioning | Medium | Low | R1-FUN-007, R1-DAT-003 |
+| Completeness and evidence-gap follow-up | Claims/customer service | Central wedge hypothesis | Core value | Approved tenant rules/templates | Medium | Medium | R1-FUN-008–010, R1-FUN-014 |
+| WhatsApp intake, case-linked conversation and reviewed follow-up | Customers, claims/customer-service staff | Required Release 1 operating channel | Mandatory | Approved provider/business account, server-side mapping, consent/legal basis, templates/languages, webhook security | High | Medium | R1-WA-001–004, R1-FUN-014 |
+| Downstream invalidation/re-evaluation | Reviewers/approvers | Prevents stale reliance | Mandatory | Dependency lineage/workflow | Existing remediation | Low | R1-FUN-009, R1-DAT-003 |
+| Grounded proposed action and human approval | Claims approvers | Human-accountable decision preparation | Mandatory | Current evidence, workflow/approval versions | High | Low | R1-FUN-010–013, R1-AI-001–007 |
+| Controlled execution/communication where approved | Authorized staff/operators | Proves outcome without fake success | Conditional core | Real provider, exact approval, reconciliation | High | Low after external effect | R1-FUN-013–014, R1-DAT-006 |
+| Contestability/review request | Claims/compliance/customer-facing staff | Correction and recourse | Pilot obligation | Review ownership/response policy | Medium | Medium | R1-FUN-017, R1-AI-003 |
+| Audit/evidence export | Claims/compliance/audit | Reconstruction and release evidence | Mandatory | Safe audit, scoped export | Existing + verification | Low | R1-FUN-015, R1-PRI-004 |
+| Accessibility, multilingual-safe data and low-bandwidth recovery | All users/affected parties | Research-backed risk; no participant validation yet | Cross-cutting | Design, content, contracts, QA | Medium | Medium | R1-A11Y-*, R1-L10N-*, R1-RES-001–002 |
+| Operations, recovery and release evidence | Support, security, delivery | Required for trustworthy pilot/production | Mandatory | Telemetry, runbooks, backup/restore, UAT | High | Medium | R1-OPS-*, R1-REL-* |
 
-The MVP is a motor claims and document intelligence workflow for insurer staff. It should prove that IIP can ingest claim context, organize documents, assist staff with AI-supported review, maintain auditability, and support pilot reporting without pretending to replace existing insurer systems.
+## Conditional activation
 
-## 3. In Scope for MVP
+These capabilities are in the architecture but activate for Release 1 only after the target insurer approves the dependency:
 
-| Scope Item | Included Capability | Acceptance Signal |
-| --- | --- | --- |
-| Core staff shell | Persistent navigation, top bar, tenant/workspace context, global search pattern, role-aware menu | Users can access role-appropriate modules and see current environment. |
-| Command Center | Operational metrics, quick links, SLA/document risk indicators, provider status | Users can quickly identify claims needing action. |
-| Claims Inbox | Dense table, filters, search, row preview/detail, assignment and escalation states | Claims can be found, opened, reviewed, and routed. |
-| Motor claim review | Claim summary, customer/policy context, timeline, documents, AI-assisted review | A claims officer can review a motor claim end-to-end. |
-| Document intelligence | Upload, classify, extract, validate, show confidence, identify missing documents | Document completeness can be assessed and reviewed. |
-| Channels context | WhatsApp/email conversation context for claim intake and follow-up | Staff can understand customer communication history. |
-| AI Copilot | Summaries, extraction assistance, missing-document support, draft updates, risk signals | AI outputs are reviewable, source-grounded, and audited. |
-| Approvals | Human review and approval gates for consequential actions | Claims decisions remain human-controlled. |
-| Audit and compliance | Audit events for claim, document, AI, approval, and export actions | An auditor can reconstruct who did what and why. |
-| Provider health | Health checks, configured/not configured/error states | No silent failed dependencies or fake success states. |
-| Pilot reporting | Basic operational and pilot KPIs | Pilot team can measure usage and value. |
+- document provider and supported language/document matrix;
+- exact required-document/completeness rules;
+- WhatsApp provider/business account, templates, languages, consent/legal basis, sender authority, webhook/callback policy and live credentials; the WhatsApp capability itself is mandatory;
+- core-system read/export/write-back depth;
+- deployment route, region, network, support access and data-transfer basis;
+- retention, deletion, legal hold and audit schedules;
+- approval expiry, delegation, two-person control and escalation rules;
+- algorithm evaluation corpus, severe-error thresholds and review workload;
+- pilot volume, performance load and recovery objectives.
 
+Unconfigured conditional capability remains `Not configured`; it is never simulated in a protected runtime.
 
+## Explicitly excluded
 
-## 4. Explicitly Out of Scope for MVP
+| Exclusion | Consequence/reason | Re-evaluation trigger |
+|---|---|---|
+| Bodily injury, fatality, medical, life, workers' compensation, reinsurance, contested-liability and specialist commercial claims | Different harms, evidence, authority and legal/operational model | Separate discovery, requirements, impact assessment and approval |
+| Autonomous consequential insurance outcomes | Violates platform ceiling | No planned trigger; invariant |
+| Core policy/claim/payment replacement | IIP is an operations layer | Separate product/architecture decision |
+| Customer self-service portal | Not needed for staff evidence-review wedge | Validated user/buyer need and safety/privacy design |
+| Sales/leads, full underwriting, fraud intelligence, early warning and billing | Disconnected from Release 1 outcome | Release 1 evidence plus separate discovery |
+| Full offline processing | Major consistency/security/operations expansion | Observed need, funded architecture and security model |
+| Additional customer channels as Release 1 dependencies | WhatsApp is the selected mandatory intake/follow-up channel; adding email/SMS/web as required paths expands validation and operations | Approved target-insurer need and change control |
+| Marketplace/Managed Application as mandatory first deployment | Procurement preference unvalidated | Qualified buyer requirement and account eligibility |
+| Broad analytics/ROI promises | Baselines and attribution absent | Finance-approved pilot evidence |
 
-| Out-of-Scope Item | Reason | Possible Future Phase |
-| --- | --- | --- |
-| Autonomous claim approval or rejection | Regulated and consequential decision requiring human accountability | Not planned as autonomous functionality. |
-| Policy administration replacement | IIP is not a core insurance system | Never as MVP; only integrations where needed. |
-| Payment release | High financial risk and controlled by insurer systems | Future integration only with human approval and controls. |
-| Full underwriting engine | MVP is motor claims-focused | Phase 2/3 underwriting support module. |
-| Full fraud determination engine | AI may flag signals but must not accuse or decide fraud | Future paid add-on with strong governance. |
-| Customer login portal | Customers use channels first; staff app is internal | Future self-service portal if required. |
-| Advanced BI/Fabric analytics | MVP needs operational metrics first | Phase 2 reporting and analytics expansion. |
-| Full offline platform | Can design resilient channel buffering, not full offline operations | Future resilience roadmap. |
-| Multi-country regulatory automation | Requires jurisdiction-specific validation | Future localization. |
+## Dependency sequence
 
+```mermaid
+flowchart LR
+  A["Approve problem, scope and role hypotheses"] --> B["Approve insurer rules, data, deployment and evaluation inputs"]
+  B --> C["Verify tenant authority, data ownership and zero simulation"]
+  C --> D["Verify intake, evidence, review and correction"]
+  D --> E["Verify grounding, invalidation and human approval"]
+  E --> F["Verify provider execution, reconciliation and recourse"]
+  F --> G["Verify performance, resilience, accessibility, usability and recovery"]
+  G --> H["UAT, risk acceptance and six-function release decision"]
+```
 
+## Scope-change control
 
-## 5. Phase 2 Candidate Scope
+Every proposed change records: requester; user/outcome; evidence IDs; legal/safety obligation; affected requirements; value; risk; dependency; effort range; reversibility; operational cost; excluded/deferred displacement; acceptance evidence; approvers; decision; and review date.
 
-| Candidate | Description | Dependency |
-| --- | --- | --- |
-| Customer acquisition module | Lead capture, quote assistance, conversion tracking | Commercial pilot demand and channel integration maturity. |
-| Early warning module | Signals for claims trends, provider patterns, operational bottlenecks | Sufficient data volume and validated signal definitions. |
-| Fraud signal add-on | Pattern-based signal detection, not final fraud decision | Governance, legal review, and evidence quality. |
-| Underwriting support | Risk summaries, document review, policy Q&A, decision support | Underwriting SME requirements and policy integration. |
-| Advanced reports | Power BI/Fabric integration and executive scorecards | Data model stabilization. |
-| Claims system write-back | Structured export or integration into client claims platform | Client system API availability and approval. |
+No P2 expansion enters Release 1 while any P0 traceability or approval gap remains unless the accountable owners explicitly record why the expansion is needed to close that gap.
 
+## Review and kill triggers
 
+Review scope at research synthesis, prototype result, target-insurer selection, architecture/security review, UAT entry, pilot midpoint and any material incident/regulatory/provider change.
 
-## 6. Build-Too-Early Guardrails
+Rethink or stop if the evidence-review problem is not material; a simpler configuration solves it at lower risk/cost; real human oversight is infeasible; data/provenance/recourse is unacceptable; required provider/deployment cannot be made safe; representative users cannot recover from critical errors; or no qualified buyer commits data, staff, security review and a paid/contracted next step.
 
-| Guardrail | Instruction |
-| --- | --- |
-| Do not optimize for every insurance line first | Motor claims must work before adding medical, life, property, or marine workflows. |
-| Do not make AI autonomous | Keep regulated decisions human-owned. |
-| Do not hide missing integrations | Use Not configured states and setup guidance. |
-| Do not build fake production screens | Use empty states or real API errors instead of mock data outside demo/dev. |
-| Do not overbuild analytics before workflow | Workflow completeness and auditability are higher priority than dashboards. |
-| Do not create frontend-only permissions | Authorization must be enforced server-side. |
+## Approval
 
-
-
-## 7. Open Questions
-
-| ID | Open Question | Decision Needed |
-| --- | --- | --- |
-| OQ-MVP-001 | Which motor claim document checklist is final for pilot? | Client/Claims SME sign-off. |
-| OQ-MVP-002 | Should Sales & Leads be MVP-light or Phase 2? | Pilot sponsor decision. |
-| OQ-MVP-003 | Is live WhatsApp required for MVP or can pilot use controlled channel simulation first? | Integration and pilot decision. |
-| OQ-MVP-004 | Which pilot KPIs are mandatory for success measurement? | Leadership and client agreement. |
-
-## 8. MVP Boundary Rules by Role
-
-| Role | Boundary Rule |
-| --- | --- |
-| Product Owner | May prioritize and clarify scope but must use change control for expansion. |
-| Engineering Lead | Must refuse unapproved build-too-early features that weaken MVP delivery. |
-| AI Agent/Coding Agent | Must follow AGENTS.md guardrails and avoid adding fake workflows or autonomous decisions. |
-| QA Lead | Must test against MVP acceptance criteria, not aspirational future scope. |
-| Pilot Sponsor | May request changes through change control; pilot-critical requests must be justified. |
-
-## 9. MVP Scope Decision Questions
-
-| Question | Use to Decide |
-| --- | --- |
-| Does this help a motor claim move through intake, document review, human decision support, audit, or reporting? | If yes, likely MVP candidate. |
-| Does this require full core-system replacement or payment control? | If yes, out of MVP scope. |
-| Can this be configured instead of custom-built? | If yes, treat as configuration requirement. |
-| Can the pilot succeed without it? | If yes, consider Phase 2 or backlog. |
-| Does this introduce legal, security, or AI governance risk? | If yes, require review before inclusion. |
-
-## 10. MVP Scope Sign-Off Checklist
-
-| Item | Status |
-| --- | --- |
-| MVP modules confirmed | To be completed by Product Owner. |
-| Out-of-scope items reviewed with stakeholders | To be completed before implementation sprint planning. |
-| Phase 2 items captured in backlog | To be completed by Delivery Lead. |
-| Open questions assigned owners | To be completed before UAT planning. |
-| Pilot-critical integrations confirmed | To be completed with client IT. |
+Scope is **not frozen**. Product, Insurance, Operations, Security/Privacy, Architecture and Delivery must each decide against baseline version 0.10; the approval record lives in the baseline. Target-insurer rules require separate client approval.

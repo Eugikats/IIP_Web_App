@@ -2,6 +2,8 @@
 
 Focused safety reference for Insurance Intelligence Platform (IIP) implementation. [`AGENTS.md`](AGENTS.md) is the canonical repository authority index and working contract. This file expands only the controls that warrant an explicit review checklist.
 
+Release 1 implementation and evidence must map to [`iip_release_1_requirements_baseline.md`](docs/01-strategy-requirements-roadmap/iip_release_1_requirements_baseline.md), its [acceptance register](docs/01-strategy-requirements-roadmap/iip_mvp_acceptance_criteria_register.md), [traceability matrix](docs/01-strategy-requirements-roadmap/iip_requirements_traceability_matrix.md), [API/data contract map](docs/02-development-engineering/iip_release_1_api_data_contract_map.md), and [algorithmic impact assessment](docs/04-testing-security-quality/iip_release_1_algorithmic_impact_assessment.md). Pending stakeholder or target-insurer decisions remain release gates, not invented defaults.
+
 Do not use this file to restore superseded architecture, UI, routes, providers, agent definitions, release gates or build order. Those belong to current code and their owning approved documents.
 
 ## Protected runtimes and honest behavior

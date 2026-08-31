@@ -28,7 +28,7 @@ Status keys: ✅ done · 🔄 partial/in-progress · ⬜ not started · 🔒 blo
 
 | Phase | Name | Status |
 |---|---|---|
-| 0 | Decision Lock & Docs Baseline | ✅ Done |
+| 0 | Decision Lock & Product Definition | 🔄 Core decisions defined; owner approval, baselines, and validation open |
 | 1 | App Foundation (secure, tenant-aware, local-runnable) | ✅ Done |
 | 2 | Core Workspaces & Shell | ✅ Done |
 | **3** | **Cloud Foundation** *(the previously-missing phase)* | ✅ Done for dev |
@@ -45,13 +45,51 @@ Track tags per item: **[APP]** app/module code · **[CLOUD]** Azure infra · **[
 
 ---
 
-## Phase 0 — Decision Lock & Docs Baseline ✅
+## Phase 0 — Decision Lock & Product Definition 🔄
+
+### 0A — Core decision lock ✅
 - ✅ Naming = **Insurance Intelligence Platform (IIP)**; ACIP superseded.
 - ✅ MVP wedge = **Motor Claims + Document Intelligence**.
 - ✅ AI boundary = *AI assists; humans make regulated decisions*.
 - ✅ Customer portal **out of scope** (internal insurer workspace only, per PRD).
 - ✅ UI = three-panel command center (Ambient Intelligence design system v1.2).
 - ✅ Repo guardrails (AGENTS.md / CLAUDE.md / IIP_IMPLEMENTATION_GUARDRAILS.md).
+
+### 0B — Product definition and validation 🔄
+- ✅ Current definition, Uganda-first Release 1 boundary, Africa-configurable obligation, strategy kernel, portfolio boundary, principles, metric contract, discovery plan, kill criteria, approval register, and legacy reconciliation documented in `docs/01-strategy-requirements-roadmap/iip_product_definition_and_validation_charter.md`.
+- ✅ Canonical product/claims language added at repository-root `CONTEXT.md`.
+- ✅ Current public market, regulatory, deployment, and competitor evidence captured in `docs/research/iip-market-regulatory-competitive-evidence-2026-08-05.md`, with source limits explicit.
+- ✅ Research repository governance, provenance schema, and seed register added under `docs/research/README.md` and `docs/research/iip-research-evidence-register.csv`.
+- ✅ Decision-led practitioner, contextual, buyer, survey, ROI/pricing, synthesis, and change-control protocol defined in `docs/research/iip-user-business-market-research-program.md`.
+- ✅ Unsupported illustrative ROI/payback claims and broad Release 1 packages withdrawn; evidence-gated commercial hypotheses now live in the owning commercial documents.
+- 🔄 Cross-functional approval open: named Product, Insurance, Operations, Security, and Engineering owners must approve or condition the definition and principles.
+- 🔒 Buyer/user validation open: no representative participant study, named design partner, willingness-to-pay evidence, or product usability result exists yet.
+- 🔒 Baselines open: target insurer must supply comparable case/workflow data before pilot targets can be signed.
+- 🔒 Reachable segment open: public license counts are not TAM/SAM/SOM; qualify named accounts by Release 1 fit, access, data, deployment, procurement, sponsor, and paid-pilot readiness.
+- 🔒 Regulatory validation open: desk interpretation requires insurer compliance and qualified legal review before production commitments.
+- **Exit gate:** five-function approval + target-institution evidence pack + pre-pilot baselines + representative practitioner/buyer validation + named reachable-account model + procurement/deployment/legal findings + paid-pilot or equivalent behavioral evidence + research-to-decision log showing retained/changed/killed assumptions.
+
+### 0C — Release 1 requirements and scope 🔄
+- ✅ Atomic Release 1 functional, business, decision/AI, data, security/privacy, accessibility/usability, multilingual, performance/resilience, operational and release obligations drafted in `iip_release_1_requirements_baseline.md`.
+- ✅ Release 1 journey/intelligence-layer pack drafted: evidence-labeled role journeys, ten stable task flows, source/state ownership, provider/reconciliation contracts, evidence decision tree, exception/recovery catalog, coordinated UI states, and permission/audit gaps. Source/runtime validation status remains separate from practitioner validation.
+- ✅ WhatsApp intake, case-linked context, human-reviewed outbound follow-up and delivery reconciliation selected as mandatory Release 1 capabilities (DEC-017; R1-WA-001–004); provider/legal/configuration/live proof remain gates.
+- ✅ Release 1 assessor channel scope selected (DEC-018): controlled manual versioned export/import is the baseline; Microsoft Graph email is an optional tenant-configured enhancement; external assessor portal and insurer-system integration/write-back are deferred. Architecture, flow, requirement, RTM and UAT contracts now distinguish purpose/item-level disclosure, claimant notice/contestability, export, staff attestation, provider acceptance/unknown, assessor acknowledgement, report receipt/late return, human evidence review and claim outcome. Runtime work remains separately gated by ethical/security review, external-professional terms, recipient/disclosure policy, permissions, audit events, tenant configuration, claimant/practitioner validation and approval.
+- ✅ Scope, acceptance gates, API/data ownership, algorithmic impact, open-decision disposition and one-row-per-requirement traceability artifacts upgraded/reconciled.
+- ✅ Legacy broad API/design documents marked non-authoritative where current code or Release 1 boundaries differ; current domain glossary added at repository root.
+- 🔄 Traceability mapping complete as a baseline, but many test/live/release cells remain gaps or blocked; RF-10 remains NO-GO evidence.
+- 🔒 Formal Product, Insurance, Operations, Security/Privacy, Architecture and Delivery approval pending for exact baseline/scope versions.
+- 🔒 Target-insurer configuration, WhatsApp provider/business account/consent/templates/languages/callback policy and outbound/live proof, practitioner/usability evidence, accessibility execution, multilingual corpus, protected staging, p95/p99, restore, UAT, legal/privacy, support and pilot gates remain open.
+- **Exit gate:** six named internal approvals + target-insurer conditional decisions + zero P0 traceability gap + G0 acceptance decision. This permits scope freeze; it does not imply pilot or production readiness.
+
+### 0D — Information architecture and navigation 🔄
+- ✅ Canonical object/findability model, operating modes, `/app/*` sitemap, route ownership, labels, aliases, permission visibility, search/recent-work contracts, handoffs, and 34-screen/9-state-profile inventory documented in `docs/03-design-architecture/iip_information_architecture_navigation_and_screen_inventory.md`.
+- ✅ Release 1 task catalog maps My Work, case, evidence, approval, channel and provider patterns to stable state families without creating competing routes or state enums.
+- ✅ Protected portal navigation and client-side route presentation now consume server-resolved effective permissions returned by `/api/v1/me`; browser role switching remains explicit local/demo preview only.
+- ✅ Current sidebar grouping and labels reconciled to Work, Records, Specialist work, Automation, Oversight, Platform, and Platform administration.
+- ✅ Permission-filtered global search and owner-scoped Recent Conversations route/persistence/portal baselines are implemented and locally build-tested; protected multi-role, interruption, accessibility and practitioner validation remain open.
+- ✅ Universal My Work five-source read projection, permission filtering, source-state preservation, owner/evidence/SLA metadata, filters, audited API, portal queue and local tests are implemented; protected multi-role, scale, accessibility, practitioner validation and named approval remain open. Recent Conversations advanced search/grouping, evidence-change summaries and retention/privacy governance also remain open.
+- 🔒 Tree testing/card sorting, terminology validation, multi-role authenticated walkthroughs, search/recent-work usability, accessibility state verification, and named IA approval remain open.
+- **Exit gate:** practitioner validation meets AC-USE-01 for critical tasks, permission/route checks pass in protected staging, search/recent work gaps are resolved or explicitly scoped, and named owners approve IA v1.0.
 
 ## Phase 1 — App Foundation ✅ *(AGENTS Gate 0 + Gate 1 code)*
 - ✅ .NET 8 API + Next.js portal (standalone); layered Domain/Application/Infrastructure/Api.
@@ -96,6 +134,7 @@ Track tags per item: **[APP]** app/module code · **[CLOUD]** Azure infra · **[
 - ✅ **Phase 4 unauthenticated live smoke (2026-07-08):** `GET https://app-api-dev-h5girbnzrayqe.azurewebsites.net/health/ready` returned `200`; unauthenticated `GET /api/v1/me` returned `401`; `GET https://app-portal-dev-h5girbnzrayqe.azurewebsites.net/app?smoke=phase4-20260708` returned `200`.
 - 🔒 **Remaining Phase 4 gate:** authenticated FNOL → queue → case review → approval/customer update → evidence-pack smoke path is not yet proven. `az account get-access-token --scope api://d55fe46b-1fba-4c5b-81e1-4ee1918ecf73/access_as_user` fails with `AADSTS65001 consent_required` for Microsoft Azure CLI, and Chrome landed on Microsoft sign-in rather than an authenticated portal session. Complete real Entra sign-in/consent, then run the functional smoke against live Azure SQL/Blob.
 - **Action:** verify each screen/endpoint against the FSD + `iip_implementation_roadmap.md` §8; complete gaps; all sensitive actions audited; no AI finalizes a claim.
+- 🔒 **Next approved-design slice, not yet runtime-authorized:** assessor referral domain/API/UI contract: immutable purpose/question/item-level disclosure manifest and pack version, accessible claimant notice/exception and mediated contestability, external-professional handling gates, manual export/attestation, due/expiry/reissue, returned-report quarantine/dedupe/match, `Contested` reliance pause/reconsideration, no-unapproved-reuse enforcement, human review, permissions, audit and fairness/burden monitoring. Add Graph attempt/unknown/reconciliation only after dedicated mailbox, consent/RBAC, retention and operating runbook approval. Do not add an external portal or assessor-path core write-back.
 - **Exit gate:** FNOL → Case Review → human-approved next step → export, end-to-end on the dev env.
 
 ## Phase 5 — Document Intelligence & AI Review 🔒

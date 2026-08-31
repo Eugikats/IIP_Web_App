@@ -28,12 +28,16 @@ export type CommandCenterAnswer = {
   blocks: CommandCenterBlock[];
   canTriggerDecision: boolean;
   generatedAt: string;
+  conversationId?: string;
+  turnId?: string;
 };
 
 type QueryResponseDto = {
   blocks: CommandCenterBlock[];
   canTriggerDecision: boolean;
   generatedAt: string;
+  conversationId?: string;
+  turnId?: string;
 };
 
 const PARITY_ANSWER = (question: string): CommandCenterAnswer => ({
@@ -56,7 +60,7 @@ export function useCommandCenterQuery() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ask = useCallback(async (question: string): Promise<CommandCenterAnswer | null> => {
+  const ask = useCallback(async (question: string, conversationId?: string): Promise<CommandCenterAnswer | null> => {
     const q = question.trim();
     if (!q) return null;
     setLoading(true);
@@ -71,12 +75,19 @@ export function useCommandCenterQuery() {
       const response = await fetch(`${apiBaseUrl}/api/v1/command-center/query`, {
         method: "POST",
         headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, conversationId: conversationId || null }),
       });
       if (response.status === 403) throw new Error("You do not have permission to query the Command Center.");
       if (!response.ok) throw new Error(`Command Center query failed with HTTP ${response.status}.`);
       const dto = (await response.json()) as QueryResponseDto;
-      const result: CommandCenterAnswer = { question: q, blocks: dto.blocks ?? [], canTriggerDecision: Boolean(dto.canTriggerDecision), generatedAt: dto.generatedAt };
+      const result: CommandCenterAnswer = {
+        question: q,
+        blocks: dto.blocks ?? [],
+        canTriggerDecision: Boolean(dto.canTriggerDecision),
+        generatedAt: dto.generatedAt,
+        conversationId: dto.conversationId,
+        turnId: dto.turnId,
+      };
       setAnswer(result);
       return result;
     } catch (err) {

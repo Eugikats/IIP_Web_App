@@ -107,6 +107,13 @@ public sealed class WhatsAppInboundDocumentIngestionService(
                 continue;
             }
 
+            var correlationId = $"whatsapp-{message.ProviderMessageId}";
+            var existingDocuments = await documentRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken);
+            if (existingDocuments.Any(document => string.Equals(document.CorrelationId, correlationId, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
             try
             {
                 var documents = await attachmentProcessor.ProcessAsync(claimCase, message, actor, cancellationToken);

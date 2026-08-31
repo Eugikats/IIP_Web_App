@@ -6,7 +6,7 @@ namespace InsuranceIntelligence.Application.CommandCenter;
 /// Request body for <c>POST /api/v1/command-center/query</c>. Tenant, workspace, and role are
 /// resolved server-side from Entra claims or dev headers and are never trusted from this body.
 /// </summary>
-public sealed record CommandCenterQueryRequest(string? Question);
+public sealed record CommandCenterQueryRequest(string? Question, Guid? ConversationId = null);
 
 /// <summary>
 /// Governed response envelope for the chat-first Command Center query endpoint.
@@ -23,7 +23,11 @@ public sealed record CommandCenterQueryResponse(
     string PromptVersion,
     string Visibility,
     bool CanTriggerDecision,
-    DateTimeOffset GeneratedAt);
+    DateTimeOffset GeneratedAt)
+{
+    public Guid? ConversationId { get; init; }
+    public Guid? TurnId { get; init; }
+}
 
 /// <summary>
 /// Discriminated union of Command Center answer blocks. Serialized with a lowercase snake_case

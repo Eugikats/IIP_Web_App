@@ -48,6 +48,8 @@ Confirmed project baseline:
 | DEC-014 | Fraud Intelligence and Underwriting Intelligence use deterministic rule engines for v1, not an LLM | Confirmed | Rule output is auditable/defensible if disputed, requires no live Azure OpenAI dependency (pre-Gate-1 at time of decision), is unit-testable, and structurally keeps AI out of the fraud/underwriting decision seat. | Build rule engines against real case/customer data now; revisit layering Azure OpenAI narration on top once Gate 3 activates real providers (tracked separately for follow-up, do not silently upgrade). |
 | DEC-015 | The Lovable-parity implementation is delivered as the canonical `/app/*` route tree (LovableVisualParity mode), superseding DEC-012's incremental real-route rework | Confirmed | The migration (`47ed7a8`, ADR-2026-07-04) mounted the full Lovable prototype under `/app/*` with dev-only fixtures, which the owner adopted as canonical; reconciling each screen to real `/api/v1` data is cleaner than reworking each legacy route in place. | Reconcile `/app/*` screens off fixtures onto real APIs (per-screen `lib/lovable-parity/data/*` hooks); the 20 pre-migration top-level routes + the IIP `AppShell`/`roleUiConfig`/`RoleContext` become dead and are removed once nav fully covers `/app/*`; consolidate the `globals.css`+`lovable.css` token systems; resolve the prod parity-gate. Backlog: `docs/06-decisions/lovable-parity-migration-audit.md`. |
 | DEC-016 | Provide two deployed review modes — a `Demo` synthetic-data sandbox and live `Production` — as distinct runtime profiles rather than a toggle inside Production | Confirmed | Owner wants to review the system both fully-populated (for demos/pilots) and against real data, without ever letting synthetic data masquerade as live. Making `Demo` a first-class profile keeps the existing guardrail intact: a `Production`/`Staging`/`ManagedApplicationReviewer` boot with seeded data is impossible by construction. | `Demo` profile validated with Production-grade strictness (real Entra/SQL/providers, no mock escape hatch) except `SEED_DEMO_DATA` is permitted into the isolated `tenant-demo`; server-side review-mode classification on `GET /api/v1/me`; mandatory `EnvironmentBanner` (amber for synthetic, silent for live, fail-closed "unverified"). Both modes run identical real code paths — no mock runtime, no fake success. Designed to map onto two deployed Azure environments once Gate 2 lands. See `iip_environment_variables_secrets_guide.md` §"Review modes". |
+| DEC-017 | WhatsApp intake and reviewed customer follow-up are mandatory Release 1 capabilities | Confirmed | Owner identified WhatsApp as necessary to the intended insurance operating workflow and customer access model. | Add atomic inbound, thread, outbound-review and delivery-reconciliation requirements. Provider/business account, consent/legal basis, templates, languages, sender identity, webhook policy, credentials and live proof remain approval gates. No protected-runtime simulated success. |
+| DEC-018 | Use controlled manual assessor export/import as the Release 1 baseline; permit Microsoft Graph email only as a tenant-configured enhancement; defer external assessor portal and insurer-system integration/write-back | Confirmed | This preserves versioned evidence movement and a complete human-reviewed handoff with the lowest external identity and integration risk. Graph adds automation only after mailbox scope, consent, operating ownership and reconciliation are approved. | Implement the referral/pack/attempt/acknowledgement/report lineage contract first. Manual attestation, Graph acceptance, assessor acknowledgement, report receipt, evidence acceptance and claim outcome remain distinct. This decision authorizes documentation and backlog gaps, not new runtime routes, permissions, events or provider activation. See `ADR-2026-08-10-release-1-assessor-handoff-channel-scope.md`. |
 
 
 
@@ -60,7 +62,7 @@ Confirmed project baseline:
 | AI governance | DEC-005 |
 | Architecture/deployment | DEC-006, DEC-007, DEC-016 |
 | Engineering guardrails | DEC-008, DEC-009 |
-| Integration sequencing | DEC-010 |
+| Integration sequencing | DEC-010, DEC-017, DEC-018 |
 | Visual/UX parity (Lovable reference) | DEC-011, DEC-012, DEC-015 |
 | Feature scope expansion (Agent Registry, Fraud, Underwriting, Billing) | DEC-013, DEC-014 |
 
@@ -81,7 +83,7 @@ A decision should be reviewed only when one of the following occurs:
 | ID | Open Question | Affected Decisions |
 | --- | --- | --- |
 | OQ-DEC-001 | Which deployment path will the first client pilot use? | DEC-007 |
-| OQ-DEC-002 | Which integrations are mandatory for pilot launch rather than Phase 2? | DEC-010 |
+| OQ-DEC-002 | Will the target insurer activate the optional Graph assessor-mail enhancement for Release 1, and if so which dedicated mailbox, consent, Exchange Application RBAC scope, retention and operating owners apply? | DEC-010, DEC-017, DEC-018 |
 | OQ-DEC-003 | What support model will be offered during the pilot? | DEC-007, DEC-010 |
 
 ## 6. Decision Record Template

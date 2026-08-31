@@ -189,6 +189,75 @@ public sealed class DisabledWhatsAppInboundProvider : IWhatsAppInboundProvider
 /// <summary>Parses Meta Cloud API webhook JSON into provider-neutral media messages.</summary>
 public static class WhatsAppWebhookParser
 {
+    public static IReadOnlyList<WhatsAppInboundMessage> ParseMessages(string jsonPayload)
+    {
+        var results = new List<WhatsAppInboundMessage>();
+        foreach (var value in EnumerateValues(jsonPayload))
+        {
+            var phoneNumberId = ReadPhoneNumberId(value);
+            if (phoneNumberId is null || !value.TryGetProperty("messages", out var messages) || messages.ValueKind != JsonValueKind.Array) continue;
+            foreach (var message in messages.EnumerateArray())
+            {
+                var id = ReadString(message, "id");
+                var from = ReadString(message, "from");
+                var type = ReadString(message, "type");
+                if (id is null || from is null || type is null) continue;
+                var contentType = type switch
+                {
+                    "text" => WhatsAppContentType.Text,
+                    "image" => WhatsAppContentType.Image,
+                    "document" => WhatsAppContentType.Document,
+                    _ => WhatsAppContentType.Unsupported
+                };
+                var body = type switch
+                {
+                    "text" when message.TryGetProperty("text", out var text) => ReadString(text, "body") ?? string.Empty,
+                    "image" when message.TryGetProperty("image", out var image) => ReadString(image, "caption") ?? "[Image received]",
+                    "document" when message.TryGetProperty("document", out var document) => ReadString(document, "caption") ?? ReadString(document, "filename") ?? "[Document received]",
+                    _ => $"[Unsupported WhatsApp message type: {type}]"
+                };
+                var replyTo = message.TryGetProperty("context", out var context) ? ReadString(context, "id") : null;
+                results.Add(new WhatsAppInboundMessage(id, phoneNumberId, from, contentType, body, replyTo, ReadTimestamp(message)));
+            }
+        }
+        return results;
+    }
+
+    public static IReadOnlyList<WhatsAppDeliveryEvent> ParseDeliveryEvents(string jsonPayload)
+    {
+        var results = new List<WhatsAppDeliveryEvent>();
+        foreach (var value in EnumerateValues(jsonPayload))
+        {
+            var phoneNumberId = ReadPhoneNumberId(value);
+            if (phoneNumberId is null) continue;
+            if (!value.TryGetProperty("statuses", out var statuses) || statuses.ValueKind != JsonValueKind.Array) continue;
+            foreach (var status in statuses.EnumerateArray())
+            {
+                var id = ReadString(status, "id");
+                var rawState = ReadString(status, "status");
+                if (id is null || rawState is null) continue;
+                var state = rawState switch
+                {
+                    "sent" => WhatsAppDeliveryState.ProviderAccepted,
+                    "delivered" => WhatsAppDeliveryState.Delivered,
+                    "read" => WhatsAppDeliveryState.Read,
+                    "failed" => WhatsAppDeliveryState.Failed,
+                    _ => WhatsAppDeliveryState.Unknown
+                };
+                string? errorCode = null;
+                if (status.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
+                {
+                    var first = errors.EnumerateArray().FirstOrDefault();
+                    if (first.ValueKind == JsonValueKind.Object && first.TryGetProperty("code", out var code)) errorCode = code.ToString();
+                }
+                results.Add(new WhatsAppDeliveryEvent(
+                    id, phoneNumberId, state, ReadTimestamp(status), errorCode,
+                    state == WhatsAppDeliveryState.Failed ? "WhatsApp reported that delivery failed." : null));
+            }
+        }
+        return results;
+    }
+
     public static IReadOnlyList<WhatsAppInboundMediaMessage> ParseMediaMessages(string jsonPayload)
     {
         if (string.IsNullOrWhiteSpace(jsonPayload))
@@ -301,4 +370,27 @@ public static class WhatsAppWebhookParser
         var fileName = mediaElement.TryGetProperty("filename", out var fileNameElement) ? fileNameElement.GetString() : null;
         return (mediaId!, type, mimeType, fileName, caption);
     }
+
+    private static IEnumerable<JsonElement> EnumerateValues(string jsonPayload)
+    {
+        if (string.IsNullOrWhiteSpace(jsonPayload)) yield break;
+        using var document = JsonDocument.Parse(jsonPayload);
+        if (!document.RootElement.TryGetProperty("entry", out var entries) || entries.ValueKind != JsonValueKind.Array) yield break;
+        foreach (var entry in entries.EnumerateArray())
+        {
+            if (!entry.TryGetProperty("changes", out var changes) || changes.ValueKind != JsonValueKind.Array) continue;
+            foreach (var change in changes.EnumerateArray())
+                if (change.TryGetProperty("value", out var value)) yield return value.Clone();
+        }
+    }
+
+    private static string? ReadPhoneNumberId(JsonElement value) =>
+        value.TryGetProperty("metadata", out var metadata) ? ReadString(metadata, "phone_number_id") : null;
+    private static string? ReadString(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    private static DateTimeOffset ReadTimestamp(JsonElement element) =>
+        element.TryGetProperty("timestamp", out var timestamp)
+        && long.TryParse(timestamp.GetString(), out var unix)
+            ? DateTimeOffset.FromUnixTimeSeconds(unix)
+            : DateTimeOffset.UtcNow;
 }

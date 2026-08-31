@@ -13,6 +13,8 @@ web/portal/playwright-report/
 web/portal/test-results/
 web/portal/tests/visual/test-results/
 web/portal/next-dev-*.log
+web/portal/*-dev.log
+web/portal/.next*/
 /IIP_Docs_*.zip
 /artifacts/documentation-archives/
 

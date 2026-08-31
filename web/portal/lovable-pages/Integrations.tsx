@@ -6,7 +6,9 @@ import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import ProviderHealthGrid from "@/components/iip/ProviderHealthGrid";
 import { Badge, GlassCard, SectionHeader } from "@/components/iip/Primitives";
 import { useUI } from "@/context/UIStateContext";
-import { canAccess } from "@/lib/roles";
+import { canAccess, canAccessWithPermissions } from "@/lib/roles";
+import { useRuntimeContext } from "@/lib/runtimeContext";
+import { canUseLocalTestDoubles } from "@/lib/config";
 
 const PORTS = [
   { name: "Inbound channels", detail: "Graph, Gmail, Zoho, or IMAP/SMTP adapters; polling remains the baseline guarantee." },
@@ -19,8 +21,14 @@ const PORTS = [
 
 export default function Integrations() {
   const { roleDef } = useUI();
-  const canOpenOnboarding = canAccess(roleDef.key, "/app/admin/onboarding");
-  const canOpenAgentGovernance = canAccess(roleDef.key, "/app/admin/agents");
+  const { runtimeContext, parityMode } = useRuntimeContext();
+  const usePreviewRole = canUseLocalTestDoubles || parityMode;
+  const canOpen = (path: string) => usePreviewRole
+    ? canAccess(roleDef.key, path)
+    : canAccessWithPermissions(runtimeContext?.permissions ?? [], path);
+  const canOpenOnboarding = canOpen("/app/admin/onboarding");
+  const canOpenAgentGovernance = canOpen("/app/admin/agents");
+  const canOpenAdmin = canOpen("/app/admin");
 
   return (
     <>
@@ -65,7 +73,7 @@ export default function Integrations() {
             <div className="mt-3 flex flex-wrap gap-2">
               {canOpenOnboarding ? <Link href="/app/admin/onboarding" className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring"><Building2 className="h-3.5 w-3.5" /> Tenant onboarding</Link> : null}
               {canOpenAgentGovernance ? <Link href="/app/admin/agents" className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring"><ShieldCheck className="h-3.5 w-3.5" /> Agent governance</Link> : null}
-              {!canOpenOnboarding && !canOpenAgentGovernance ? <Link href="/app/admin" className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring"><ShieldCheck className="h-3.5 w-3.5" /> Administration</Link> : null}
+              {!canOpenOnboarding && !canOpenAgentGovernance && canOpenAdmin ? <Link href="/app/admin" className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring"><ShieldCheck className="h-3.5 w-3.5" /> Administration</Link> : null}
             </div>
           </GlassCard>
         </div>

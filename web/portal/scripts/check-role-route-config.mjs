@@ -11,6 +11,8 @@ const roleKeys = [...source.matchAll(/^\s{2}([A-Za-z0-9]+):\s*\{/gm)].map((match
 const moduleList = source.match(/export const ALL_MODULES = \[([\s\S]*?)\];/)?.[1] ?? "";
 const adminList = source.match(/export const ALL_ADMIN = \[([\s\S]*?)\];/)?.[1] ?? "";
 const canonicalPaths = [...`${moduleList}\n${adminList}`.matchAll(/"\/app(?:\/[^"]*)?"/g)].map((match) => match[0].slice(1, -1));
+const permissionRouteBlock = source.match(/export const ROUTE_ACCESS[\s\S]*?\n\];/)?.[0] ?? "";
+const permissionPaths = [...permissionRouteBlock.matchAll(/path:\s*"([^\"]+)"/g)].map((match) => match[1]);
 const expectedRoles = [
   "Admin",
   "ClaimsOfficer",
@@ -41,6 +43,17 @@ for (const href of sidebarPaths) {
   if (!covered) {
     findings.push(`Sidebar route "${href}" is not present in role access config.`);
   }
+  if (!permissionPaths.includes(href)) {
+    findings.push(`Sidebar route "${href}" has no server-permission visibility rule.`);
+  }
+}
+
+if (!source.includes("canAccessWithPermissions") || !source.includes("requiredAny")) {
+  findings.push("Permission-derived route visibility is missing.");
+}
+
+if (!sidebar.includes("runtimeContext?.permissions") || !sidebar.includes("canAccessWithPermissions")) {
+  findings.push("Protected navigation must consume server-returned effective permissions.");
 }
 
 for (const role of roleKeys) {

@@ -16,7 +16,7 @@ public static class CommandCenterQueryEndpoints
 {
     public static async Task<IResult> RunQuery(
         CommandCenterQueryRequest request,
-        ICommandCenterQueryService queryService,
+        ICommandCenterConversationService conversationService,
         ITenantContextSetter tenantContextSetter,
         InfrastructureOptions options,
         HttpContext httpContext,
@@ -29,7 +29,7 @@ public static class CommandCenterQueryEndpoints
 
         try
         {
-            return Results.Ok(await queryService.QueryAsync(request, GetCorrelationId(httpContext), cancellationToken));
+            return Results.Ok(await conversationService.QueryAsync(request, GetCorrelationId(httpContext), cancellationToken));
         }
         catch (CommandCenterValidationException ex)
         {
@@ -42,9 +42,17 @@ public static class CommandCenterQueryEndpoints
         {
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
+        catch (CommandCenterConversationNotFoundException)
+        {
+            return Results.NotFound();
+        }
+        catch (CommandCenterConversationConflictException)
+        {
+            return Results.Conflict(new { code = "conversation_conflict", message = "The conversation changed or cannot be continued in its current state." });
+        }
     }
 
-    private static bool TrySetTenantContext(
+    internal static bool TrySetTenantContext(
         HttpContext httpContext,
         ITenantContextSetter tenantContextSetter,
         InfrastructureOptions options,
@@ -89,7 +97,7 @@ public static class CommandCenterQueryEndpoints
         return true;
     }
 
-    private static string GetCorrelationId(HttpContext httpContext)
+    internal static string GetCorrelationId(HttpContext httpContext)
     {
         if (httpContext.Request.Headers.TryGetValue("X-Correlation-ID", out var header)
             && !string.IsNullOrWhiteSpace(header))

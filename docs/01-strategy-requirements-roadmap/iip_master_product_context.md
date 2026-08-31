@@ -1,5 +1,7 @@
 # Insurance Intelligence Platform (IIP) - Master Product Context
 
+> **Authority note — 2026-08-04:** This remains the June historical baseline and detailed source compendium. Use `iip_product_definition_and_validation_charter.md` for the current product frame, Release 1 boundary, evidence status, metric contract, validation gates, and legacy reconciliation. `AGENTS.md` remains highest authority.
+
 **Document type:** Master Product Context / Source-of-Truth Baseline  
 **Product name:** Insurance Intelligence Platform  
 **Acronym:** IIP  
@@ -1064,4 +1066,3 @@ This master context should now be used to generate the following formal document
 ## 23. Final Canonical Statement
 
 > **Insurance Intelligence Platform (IIP)** is an Azure-native, human-reviewed insurance operations platform that helps insurers acquire customers, process claims, review documents, support underwriting, detect risk signals, manage customer interactions, and maintain auditable insurance workflows through AI-assisted, source-grounded, role-aware workspaces. IIP does not replace insurers' core systems or human decision-makers. It prepares the work, links evidence, recommends next actions, and keeps the process auditable while humans remain accountable for regulated insurance decisions.
-

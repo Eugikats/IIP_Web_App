@@ -6,7 +6,7 @@ import type { CommandCenterAnswer, CommandCenterBlock } from "@/lib/lovable-pari
 
 // Renders one governed answer from POST /api/v1/command-center/query. Every block type has an
 // explicit renderer; anything unknown falls through to a safe "unsupported" note (never raw JSON).
-function Block({ block }: { block: CommandCenterBlock }) {
+function Block({ block, historical = false }: { block: CommandCenterBlock; historical?: boolean }) {
   switch (block.type) {
     case "text":
       return <p className="text-[13.5px] text-slate2 leading-relaxed">{String((block as { markdown?: string }).markdown ?? "")}</p>;
@@ -92,7 +92,9 @@ function Block({ block }: { block: CommandCenterBlock }) {
           {(block as Extract<CommandCenterBlock, { type: "action_proposal" }>).actions.map((a, i) => (
             <div key={i} className="flex items-center justify-between gap-3 rounded-xl border border-cloud bg-white/70 px-3 py-2.5">
               <div><div className="text-[12.5px] text-navy">{a.label}</div><div className="text-[11.5px] text-stone">{a.description}</div></div>
-              <Link to={a.targetHref || "/app"} className="text-[12px] text-info hover:underline shrink-0">Review →</Link>
+              {historical
+                ? <Badge tone="neutral">Historical proposal</Badge>
+                : <Link to={a.targetHref || "/app"} className="text-[12px] text-info hover:underline shrink-0">Review →</Link>}
             </div>
           ))}
         </div>
@@ -127,8 +129,8 @@ function Block({ block }: { block: CommandCenterBlock }) {
 }
 
 // Renders just the governed answer blocks (no outer card) — used inside chat bubbles.
-export function CommandCenterBlocks({ blocks }: { blocks: CommandCenterBlock[] }) {
-  return <div className="space-y-4">{blocks.map((b, i) => <Block key={i} block={b} />)}</div>;
+export function CommandCenterBlocks({ blocks, historical = false }: { blocks: CommandCenterBlock[]; historical?: boolean }) {
+  return <div className="space-y-4">{blocks.map((b, i) => <Block key={i} block={b} historical={historical} />)}</div>;
 }
 
 export default function CommandCenterAnswerView({ answer }: { answer: CommandCenterAnswer }) {

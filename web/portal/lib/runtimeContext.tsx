@@ -5,7 +5,7 @@ import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { getEntraApiAccessToken } from "@/lib/entraAuth";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
-import { ROLES, type Role } from "@/lib/roles";
+import { ROLES, type Permission, type Role } from "@/lib/roles";
 
 export type ReviewMode = "Production" | "Demo" | "LocalDevelopment";
 
@@ -27,6 +27,7 @@ export type RuntimeContextView = {
   displayName: string;
   role: Role;
   roleLabel: string;
+  permissions: Permission[];
   tenantId: string;
   workspaceId: string;
   source: string;
@@ -48,6 +49,7 @@ type MeDto = {
   displayName?: string | null;
   role?: string;
   roleLabel?: string;
+  permissions?: string[];
   tenantId?: string;
   workspaceId?: string;
   source?: string;
@@ -76,6 +78,14 @@ const PARITY_CONTEXT: RuntimeContextView = {
   displayName: "Visual parity user",
   role: "Admin",
   roleLabel: "Workspace Administrator",
+  permissions: [
+    "ViewCommandCenter", "CreateClaim", "UploadDocument", "ViewAllClaims", "ViewAssignedClaims",
+    "ApproveSettlementWorkflowStep", "ViewAuditLog", "ManageKnowledgeBase", "ConfigureIntegrations",
+    "ViewAiOutputs", "OverrideAiRecommendation", "ManageCustomerCommunications", "SendCustomerUpdate",
+    "ManageTenantSettings", "ViewClientPortal", "ViewChannels", "ViewCustomers", "ViewSalesLeads",
+    "ManageSalesLeads", "ViewFraudSignals", "ViewUnderwriting", "ManageAgents", "ViewAgentWorkflows",
+    "RunAgentWorkflows", "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling", "ManageTenantOnboarding",
+  ],
   tenantId: "visual-parity-tenant",
   workspaceId: "visual-parity-workspace",
   source: "LovableVisualParity",
@@ -130,6 +140,7 @@ function toRuntimeContext(body: MeDto, fallbackRole: Role): RuntimeContextView |
     displayName,
     role,
     roleLabel: body.roleLabel || ROLES[role].title,
+    permissions: (body.permissions ?? []).filter(Boolean) as Permission[],
     tenantId: body.tenantId,
     workspaceId: body.workspaceId,
     source: body.source || "Unknown",

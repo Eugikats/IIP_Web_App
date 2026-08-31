@@ -1,0 +1,41 @@
+﻿{
+    "generatedAt":  "2026-08-07T13:36:39.8120105+00:00",
+    "apiBaseUrl":  "https://app-api-stg-cus-vyhhymwydvai2.azurewebsites.net",
+    "portalBaseUrl":  "https://app-portal-stg-cus-vyhhymwydvai2.azurewebsites.net",
+    "requireAuthenticated":  true,
+    "includeClaimsList":  false,
+    "includeProviderStatus":  false,
+    "includeCompliancePosture":  false,
+    "expectedRole":  "",
+    "expectedMeSource":  "",
+    "expectedTenantId":  "",
+    "expectedWorkspaceId":  "",
+    "deniedApiPath":  "",
+    "results":  [
+                    {
+                        "Check":  "API readiness",
+                        "Result":  "FAIL",
+                        "Detail":  "Exception calling \"GetResult\" with \"0\" argument(s): \"An error occurred while sending the request.\"",
+                        "StatusCode":  0
+                    },
+                    {
+                        "Check":  "Unauthenticated /me denial",
+                        "Result":  "FAIL",
+                        "Detail":  "Exception calling \"GetResult\" with \"0\" argument(s): \"An error occurred while sending the request.\"",
+                        "StatusCode":  0
+                    },
+                    {
+                        "Check":  "Portal app route",
+                        "Result":  "FAIL",
+                        "Detail":  "Exception calling \"GetResult\" with \"0\" argument(s): \"An error occurred while sending the request.\"",
+                        "StatusCode":  0
+                    },
+                    {
+                        "Check":  "Authenticated /me",
+                        "Result":  "FAIL",
+                        "Detail":  "No access token supplied and -SkipAzToken was set.",
+                        "StatusCode":  0
+                    }
+                ],
+    "passed":  false
+}

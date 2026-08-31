@@ -6,7 +6,7 @@ import { Search, MessageCircle, Mail, Globe, Phone, Users2, MonitorPlay, Plus, S
 import { GlassCard, SectionHeader, Badge, StatusBadge } from "@/components/iip/Primitives";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { type Channel } from "@/lib/lovable-parity/mock";
-import { useChannelConversations } from "@/lib/lovable-parity/data/channels";
+import { useChannelConversations, useWhatsAppThread } from "@/lib/lovable-parity/data/channels";
 
 const ICON: Record<Channel, any> = {
   WhatsApp: MessageCircle, Email: Mail, Web: Globe, SMS: Phone, Broker: Users2, Teams: MonitorPlay,
@@ -17,12 +17,50 @@ export default function Channels() {
   const { conversations, loading, error, source, parityMode } = useChannelConversations();
   const [filter, setFilter] = useState<"All" | Channel>("All");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [purpose, setPurpose] = useState("claim_status_update");
+  const [consentBasis, setConsentBasis] = useState("");
+  const [language, setLanguage] = useState("en");
+  const [templateName, setTemplateName] = useState("");
+  const [approved, setApproved] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const list = useMemo(
     () => (filter === "All" ? conversations : conversations.filter((c) => c.channel === filter)),
     [conversations, filter]
   );
   const active = useMemo(() => list.find((c) => c.id === activeId) ?? list[0] ?? null, [list, activeId]);
+  const whatsapp = useWhatsAppThread(!parityMode && active?.channel === "WhatsApp" ? active.id : null);
+  const linkedCaseId = whatsapp.messages.find((message) => message.caseId)?.caseId ?? null;
+
+  async function sendWhatsApp() {
+    if (!active || !linkedCaseId) return;
+    setSending(true);
+    try {
+      const result = await whatsapp.send({
+        caseId: linkedCaseId,
+        recipientWaId: whatsapp.messages[0]?.contactWaId ?? "",
+        customerSafeBody: draft,
+        purpose,
+        consentBasis,
+        language,
+        templateName,
+        humanApproved: approved,
+      });
+      const copy = result.deliveryState === "ProviderAccepted"
+        ? "Accepted by WhatsApp. Delivery is not confirmed yet."
+        : result.deliveryState === "Unknown"
+          ? "Provider response unknown. Reconcile before retrying."
+          : `WhatsApp state: ${result.deliveryState}.`;
+      toast(result.deliveryState === "Failed" ? "WhatsApp did not accept the message" : "WhatsApp attempt recorded", { description: copy });
+      if (result.deliveryState !== "Unknown") setDraft("");
+      setApproved(false);
+    } catch (error) {
+      toast.error("WhatsApp message not sent", { description: error instanceof Error ? error.message : "Review the preflight and try again." });
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <>
@@ -124,14 +162,52 @@ export default function Channels() {
                     <div className="ml-auto rounded-xl gradient-primary text-white px-3 py-2 text-[13px] max-w-[80%]">Thank you. Please share your driving permit, national ID, vehicle photos, and the police report if available.</div>
                     <div className="rounded-xl bg-cloud/40 px-3 py-2 text-[13px] text-navy max-w-[80%]">{active.snippet}</div>
                   </>
+                ) : active.channel === "WhatsApp" ? (
+                  whatsapp.loading ? <div className="text-[12.5px] text-stone">Loading WhatsApp thread…</div>
+                  : whatsapp.error ? <div className="text-[12.5px] text-red-700">{whatsapp.error}</div>
+                  : whatsapp.messages.length === 0 ? <div className="text-[12.5px] text-stone">No retained messages are available for this thread.</div>
+                  : whatsapp.messages.map((message) => (
+                    <div key={message.messageId} className={message.direction === "Outbound" ? "ml-auto max-w-[80%]" : "max-w-[80%]"}>
+                      <div className={`rounded-xl px-3 py-2 text-[13px] ${message.direction === "Outbound" ? "gradient-primary text-white" : "bg-cloud/40 text-navy"}`}>
+                        {message.customerSafeBody}
+                      </div>
+                      <div className="mt-1 text-[10.5px] text-stone">
+                        {message.direction === "Outbound" ? deliveryCopy(message.deliveryState) : "Received"} · {new Date(message.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                  ))
                 ) : (
                   <>
                     <div className="rounded-xl bg-cloud/40 px-3 py-2 text-[13px] text-navy max-w-[80%]">{active.snippet || "No message content available."}</div>
                     <div className="text-[12px] text-stone">{active.updated}</div>
-                    <p className="text-[12px] text-stone">Full conversation timeline appears here once the channel thread API is connected. Until then, only the latest triaged message is shown.</p>
+                    <p className="text-[12px] text-stone">This channel does not yet expose a retained thread contract. Only the latest permitted message is shown.</p>
                   </>
                 )}
               </div>
+
+              {!parityMode && active.channel === "WhatsApp" ? (
+                <div className="mt-3 rounded-2xl border border-cloud bg-white/70 p-4 space-y-3">
+                  <div>
+                    <div className="text-[13px] font-semibold text-navy">Reviewed WhatsApp reply</div>
+                    <p className="text-[11.5px] text-stone">Exact content, recipient, purpose, policy basis, language and template are recorded before one provider attempt.</p>
+                  </div>
+                  {!linkedCaseId ? <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-900">Link this thread to an authorized case before replying.</div> : null}
+                  <textarea aria-label="Customer-safe WhatsApp message" value={draft} onChange={(event) => setDraft(event.target.value)} rows={4} maxLength={4096} placeholder="Write only customer-safe content…" className="w-full rounded-xl border border-cloud bg-white px-3 py-2 text-[13px] text-navy" />
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    <input aria-label="Communication purpose" value={purpose} onChange={(event) => setPurpose(event.target.value)} placeholder="Purpose" className="rounded-xl border border-cloud bg-white px-3 py-2 text-[12.5px]" />
+                    <input aria-label="Consent or legal basis" value={consentBasis} onChange={(event) => setConsentBasis(event.target.value)} placeholder="Consent or legal basis reference" className="rounded-xl border border-cloud bg-white px-3 py-2 text-[12.5px]" />
+                    <input aria-label="Message language" value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="Language code" className="rounded-xl border border-cloud bg-white px-3 py-2 text-[12.5px]" />
+                    <input aria-label="Approved template name" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Approved template (required outside 24h)" className="rounded-xl border border-cloud bg-white px-3 py-2 text-[12.5px]" />
+                  </div>
+                  <label className="flex items-start gap-2 text-[12px] text-slate2">
+                    <input type="checkbox" checked={approved} onChange={(event) => setApproved(event.target.checked)} className="mt-0.5" />
+                    I reviewed the exact recipient and customer-safe message and authorize this provider attempt.
+                  </label>
+                  <button onClick={() => void sendWhatsApp()} disabled={!linkedCaseId || !draft.trim() || !consentBasis.trim() || !approved || sending} className="rounded-2xl gradient-primary text-white px-4 py-2 text-[12.5px] disabled:opacity-50">
+                    {sending ? "Requesting provider acceptance…" : "Send reviewed WhatsApp message"}
+                  </button>
+                </div>
+              ) : null}
 
               <div className="mt-3 grid sm:grid-cols-4 gap-2">
                 <button onClick={() => router.push("/app/claims/new")} className="rounded-2xl bg-white border border-cloud px-3 py-2 text-[12.5px] text-navy hover-lift">Create claim</button>
@@ -159,4 +235,16 @@ export default function Channels() {
       </div>
     </>
   );
+}
+
+function deliveryCopy(state: string) {
+  switch (state) {
+    case "Queued": return "Queued internally";
+    case "ProviderAccepted": return "Accepted by WhatsApp — delivery not confirmed";
+    case "Delivered": return "Delivered";
+    case "Read": return "Read";
+    case "Failed": return "Delivery failed";
+    case "Unknown": return "Provider response unknown — reconcile before retrying";
+    default: return state;
+  }
 }

@@ -153,6 +153,6 @@ public sealed record WhatsAppOptions
     public string? WorkspaceId { get; init; }
     /// <summary>Integration principal used for audit/actor when ingesting asynchronously.</summary>
     public string? IntegrationUserId { get; init; }
-    public string GraphBaseUrl { get; init; } = "https://graph.facebook.com/v21.0";
+    public string GraphBaseUrl { get; init; } = "https://graph.facebook.com/v24.0";
     public int RequestTimeoutSeconds { get; init; } = 20;
 }

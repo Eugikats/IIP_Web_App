@@ -191,6 +191,11 @@ public sealed class WhatsAppInboundProviderTests
         Assert.Equal(0, result.ManualReviewRequired);
         Assert.Single(documents.Saved);
         Assert.NotNull(storage.LastRequest);
+
+        var replay = await service.IngestWebhookPayloadAsync(body, Sign("app-secret", body));
+        Assert.Equal("Accepted", replay.Status);
+        Assert.Equal(0, replay.DocumentsStored);
+        Assert.Single(documents.Saved);
     }
 
     [Fact]

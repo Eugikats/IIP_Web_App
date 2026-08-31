@@ -10,6 +10,10 @@ test("Gate 9 Review and Approvals separates prepared work from consequential wor
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByRole("heading", { name: "Human review workspace" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "My Work" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Verify repair estimate" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Review repair-estimate\.pdf.*Document review/ })).toBeVisible();
+  await expect(page.getByText("Current projection · 3")).toBeVisible();
   await expect(page.getByRole("button", { name: "Prepared work" })).toBeVisible();
   await page.getByRole("button", { name: "Consequential approvals" }).click();
   await expect(page.getByText(/Approval actions advance a governed workflow only/)).toBeVisible();
