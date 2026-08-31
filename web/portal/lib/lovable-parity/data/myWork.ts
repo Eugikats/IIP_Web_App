@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
+import { failedState, loadingState, settledState, UiServiceError, type UiLoadState } from "@/lib/uiLoadState";
 
 export type MyWorkSourceType = "WorkflowTask" | "Approval" | "DocumentReview" | "CommunicationReview" | "AgentWorkItem";
 export type MyWorkOwnership = "Mine" | "Unassigned" | "All";
@@ -45,24 +46,17 @@ type MyWorkFilters = {
   state?: MyWorkState;
 };
 
-async function readError(response: Response) {
-  try {
-    const body = await response.json() as { title?: string; detail?: string; errors?: Record<string, string[]> };
-    return (body.errors ? Object.values(body.errors).flat()[0] : null) ?? body.detail ?? body.title ?? `My Work failed with HTTP ${response.status}.`;
-  } catch {
-    return `My Work failed with HTTP ${response.status}.`;
-  }
-}
-
 export function useMyWork(filters: MyWorkFilters) {
   const { roleDef } = useUI();
   const [response, setResponse] = useState<MyWorkResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiServiceError | null>(null);
+  const [loadState, setLoadState] = useState<UiLoadState<MyWorkResponse>>(loadingState());
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setLoadState(loadingState());
     const query = new URLSearchParams({ ownership: filters.ownership, limit: "100" });
     if (filters.sourceType) query.set("sourceType", filters.sourceType);
     if (filters.state) query.set("state", filters.state);
@@ -72,19 +66,23 @@ export function useMyWork(filters: MyWorkFilters) {
         cache: "no-store",
       });
       if (!result.ok) {
-        setResponse(null);
-        setError(await readError(result));
+        const serviceError = await UiServiceError.fromResponse(result, `My Work is unavailable (HTTP ${result.status}).`);
+        setError(serviceError);
+        setLoadState(failedState(serviceError));
       } else {
-        setResponse(await result.json() as MyWorkResponse);
+        const nextResponse = await result.json() as MyWorkResponse;
+        setResponse(nextResponse);
+        setLoadState(settledState(nextResponse, nextResponse.items.length === 0));
       }
     } catch (requestError) {
-      setResponse(null);
-      setError(requestError instanceof Error ? requestError.message : "My Work is unavailable.");
+      const serviceError = UiServiceError.fromUnknown(requestError, "My Work service could not be reached.");
+      setError(serviceError);
+      setLoadState(failedState(serviceError));
     } finally {
       setLoading(false);
     }
   }, [filters.ownership, filters.sourceType, filters.state, roleDef.key]);
 
   useEffect(() => { void refresh(); }, [refresh]);
-  return { response, loading, error, refresh };
+  return { response, loading, error, loadState, refresh };
 }

@@ -49,7 +49,8 @@ export default function EnvironmentBanner() {
       <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
       <span>
         Environment unverified — treat all data with caution until the runtime confirms its mode.
-        {error ? ` Runtime context error: ${error}` : ""}
+        {error ? ` ${error.message}` : ""}
+        {error?.correlationId ? ` Reference ${error.correlationId}.` : ""}
       </span>
     </div>
   );

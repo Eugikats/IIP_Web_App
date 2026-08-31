@@ -73,6 +73,10 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:5167
+          NEXT_PUBLIC_AUTH_MODE: Development
+          NEXT_PUBLIC_RUNTIME_PROFILE: Development
 
   infra:
     name: Infra (bicep compile)

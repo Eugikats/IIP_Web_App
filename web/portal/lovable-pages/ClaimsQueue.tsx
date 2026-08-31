@@ -19,7 +19,10 @@ const quickFilters = [
 type QuickFilter = (typeof quickFilters)[number];
 
 export default function ClaimsQueue() {
-  const { claims, loading, error, assignCase, escalateCase } = useClaims();
+  const { claims, loadState, refresh, assignCase, escalateCase } = useClaims();
+  const loading = loadState.status === "loading";
+  const error = "error" in loadState ? loadState.error : null;
+  const snapshotAvailable = loadState.status === "success" || loadState.status === "empty";
   const { runtimeContext } = useRuntimeContext();
   const [f, setF] = useState<QuickFilter>("All");
   const [q, setQ] = useState("");
@@ -104,7 +107,7 @@ export default function ClaimsQueue() {
         <div className="flex flex-wrap gap-1.5">
           {quickFilters.map(x => (
             <button key={x} onClick={() => setF(x)} className={`text-[12px] rounded-full px-3 py-1.5 border transition ${f === x ? "border-info/30 bg-[hsl(var(--info)/0.08)] text-info" : "border-cloud bg-white/70 text-slate2 hover:bg-white"}`}>
-              {x} <span className="ml-1 text-[10px] opacity-70">{quickCounts.get(x) ?? 0}</span>
+              {x} <span className="ml-1 text-[10px] opacity-70">{snapshotAvailable ? quickCounts.get(x) ?? 0 : "—"}</span>
             </button>
           ))}
         </div>
@@ -129,12 +132,24 @@ export default function ClaimsQueue() {
 
       {loading ? (
         <GlassCard><div className="p-6 text-center text-[13px] text-stone">Loading claims…</div></GlassCard>
+      ) : error ? (
+        <GlassCard>
+          <div className="flex flex-col items-center gap-2 p-10 text-center">
+            <ClipboardList className="h-6 w-6 text-stone" />
+            <div className="font-medium text-navy">Claims could not be loaded</div>
+            <div className="max-w-md text-[12.5px] text-stone">{error.message}</div>
+            <div className="max-w-md text-[12px] text-stone">{error.recovery}</div>
+            {error.correlationId ? <div className="font-mono text-[11px] text-stone">Reference {error.correlationId}</div> : null}
+            <div className="text-[11px] text-stone">Attempted {new Date(error.occurredAt).toLocaleString()}</div>
+            {error.retryable ? <button type="button" onClick={() => void refresh()} className="mt-2 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Try again</button> : <Link to="/app" className="mt-2 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Return to Command Center</Link>}
+          </div>
+        </GlassCard>
       ) : claims.length === 0 ? (
         <GlassCard>
           <div className="p-10 text-center flex flex-col items-center gap-2">
             <ClipboardList className="h-6 w-6 text-stone" />
             <div className="text-navy font-medium">No claims in this workspace</div>
-            <div className="text-[12.5px] text-stone max-w-md">{error ? error : "Claims appear here once created from FNOL intake or channel conversations."}</div>
+            <div className="text-[12.5px] text-stone max-w-md">Claims appear here once created from FNOL intake or channel conversations.</div>
           </div>
         </GlassCard>
       ) : (

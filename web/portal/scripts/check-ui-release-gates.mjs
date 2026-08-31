@@ -51,6 +51,9 @@ rejectPattern("lovable-pages/Login.tsx", /Authority tenant|Resolved after sign-i
 requireText("lib/runtimeContext.tsx", "/api/v1/me", "runtime context must come from the governed /api/v1/me endpoint.");
 requireText("lib/runtimeContext.tsx", "permissions: (body.permissions", "runtime context must retain server-returned effective permissions.");
 requireText("lib/runtimeContext.tsx", "LovableVisualParity", "visual parity identity must stay explicitly marked when the dev fixture mode is enabled.");
+requireText("lib/runtimeContext.tsx", "UiServiceError.fromUnknown", "runtime context failures must not expose raw browser or provider errors.");
+requireText("next.config.ts", "NEXT_PUBLIC_API_BASE_URL is required for protected portal builds", "protected builds must fail closed when the API origin is missing.");
+requireText("next.config.ts", "if (protectedRuntime) return [];", "protected runtimes must not proxy missing API configuration to localhost.");
 rejectPattern("lib/runtimeContext.tsx", /headers:\s*\{[\s\S]*?(X-Tenant-Id|X-Workspace-Id|X-User-Id)/, "runtime context fetch must not send browser-owned authority headers.");
 
 requireText("components/iip/Sidebar.tsx", "canAccessWithPermissions(runtimeContext?.permissions", "protected navigation must be effective-permission-filtered.");
@@ -80,6 +83,8 @@ requireText("lib/lovable-parity/data/claims.ts", "/api/v1/cases/${caseId}/escala
 rejectPattern("lib/lovable-parity/data/claims.ts", /tenantId\s*:|workspaceId\s*:|createdByUserId\s*:/, "claims queue actions must not send browser-owned tenant/workspace/creator authority.");
 
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/claims/${claimId}", "claim review must load claim details from the governed endpoint.");
+requireText("lib/lovable-parity/data/claimReview.ts", "LOVABLE_VISUAL_PARITY_MODE", "development parity claim rows must open a matching parity detail without calling the live-only endpoint.");
+requireText("lib/lovable-parity/data/claimReview.ts", "fixtureClaims.find", "parity claim detail must resolve the selected fixture claim rather than substituting another record.");
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/cases/${claimId}/timeline", "claim review must load timeline from the governed endpoint.");
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/cases/${claimId}/customer-updates/draft", "customer-update drafting must use the governed backend endpoint.");
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/customer-updates/${updateId}/approve", "customer-update approval must use the governed backend endpoint.");
@@ -101,6 +106,14 @@ rejectPattern("lib/lovable-parity/data/knowledge.ts", /uploadedByUserId\s*:|tena
 
 requireText("lib/lovable-parity/data/approvals.ts", "execute-next-step", "approved workflow next steps must execute through the backend.");
 requireText("lib/providerHealth.ts", "not configured", "communication/provider utilities must preserve honest not-configured states.");
+requireText("lib/uiLoadState.ts", "export type UiLoadState<T>", "shared UI load states must distinguish loading, success, empty, authority, configuration, offline, retryable, and terminal outcomes.");
+requireText("lib/uiLoadState.ts", "export class UiServiceError", "service failures must use a safe structured UI error model.");
+requireText("lovable-pages/UniversalMyWork.tsx", 'value={error ? "—"', "My Work summaries must not render numeric zero when the request failed.");
+requireText("next.config.ts", 'phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next"', "development and production servers must use isolated Next.js output directories.");
+requireText("package.json", '"dev": "node scripts/run-next-dev.mjs"', "all development servers must use the shared compiler lock.");
+requireText("package.json", '"build": "node scripts/run-next-build.mjs"', "all production builds must use fail-closed configuration validation.");
+requireText("next.config.ts", "NEXT_PUBLIC_RUNTIME_PROFILE and NEXT_PUBLIC_AUTH_MODE are required", "production builds must fail closed when runtime authority configuration is missing.");
+requireText("scripts/run-runtime-recovery-production.mjs", 'NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:5167"', "the production recovery gate must set its API origin explicitly at build time.");
 requirePattern("next.config.ts", /outputFileTracingExcludes[\s\S]*node_modules\/sharp\/\*\*\//, "standalone builds must exclude unused native image optimization packages.");
 
 if (findings.length > 0) {

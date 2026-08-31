@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
+import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
+import { claims as fixtureClaims, documentLibrary } from "@/lib/lovable-parity/mock";
+import { failedState, loadingState, settledState, UiServiceError, type UiLoadState } from "@/lib/uiLoadState";
 
 async function readSafeApiError(response: Response, fallback: string): Promise<string> {
   try {
@@ -73,6 +76,39 @@ export type ReviewRequestView = {
   resolutionNote: string | null;
 };
 
+function parityClaimDetail(claimId: string): ClaimDetailView | null {
+  const claim = fixtureClaims.find((item) => item.id === claimId);
+  if (!claim) return null;
+
+  return {
+    claimId: claim.id,
+    customerName: claim.customer,
+    customerEmail: null,
+    customerPhone: null,
+    policyNumber: claim.policy,
+    productLine: claim.productLine,
+    claimType: claim.claimType,
+    channel: claim.channel,
+    incidentDate: "Not captured in synthetic fixture",
+    incidentDescription: claim.incident,
+    motorFnolDetails: null,
+    status: claim.status,
+    completenessScore: Math.round(claim.confidence * 100),
+    riskLevel: claim.risk,
+    priority: claim.sla === "Breached" ? "High" : claim.sla === "At Risk" ? "Medium" : "Normal",
+    slaDueAt: null,
+    assignedUserId: claim.officer === "Unassigned" ? null : claim.officer,
+    documents: documentLibrary
+      .filter((document) => document.claim === claim.id)
+      .map((document) => ({
+        documentId: document.id,
+        documentType: document.type,
+        processingStatus: document.status,
+        classificationConfidence: document.confidence ?? 0,
+      })),
+  };
+}
+
 export function useClaimReview(claimId: string) {
   const { roleDef } = useUI();
   const role = roleDef.key;
@@ -81,13 +117,14 @@ export function useClaimReview(claimId: string) {
   const [customerUpdates, setCustomerUpdates] = useState<CustomerUpdateView[]>([]);
   const [reviewRequests, setReviewRequests] = useState<ReviewRequestView[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiServiceError | null>(null);
+  const [loadState, setLoadState] = useState<UiLoadState<ClaimDetailView>>(loadingState());
   const [drafting, setDrafting] = useState(false);
   const [requestingApproval, setRequestingApproval] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const loadCustomerUpdates = useCallback(async () => {
-    if (!claimId) { setCustomerUpdates([]); return; }
+    if (!claimId || LOVABLE_VISUAL_PARITY_MODE) { setCustomerUpdates([]); return; }
     const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/customer-updates`, {
       headers: scopedHeaders(role, ""),
     });
@@ -112,7 +149,7 @@ export function useClaimReview(claimId: string) {
   }, [claimId, role]);
 
   const loadReviewRequests = useCallback(async () => {
-    if (!claimId) { setReviewRequests([]); return; }
+    if (!claimId || LOVABLE_VISUAL_PARITY_MODE) { setReviewRequests([]); return; }
     try {
       const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/review-requests`, {
         headers: scopedHeaders(role, ""),
@@ -142,13 +179,41 @@ export function useClaimReview(claimId: string) {
     if (!claimId) { setLoading(false); return; }
     setLoading(true);
     setError(null);
+    setLoadState(loadingState());
     try {
+      if (LOVABLE_VISUAL_PARITY_MODE) {
+        const fixtureDetail = parityClaimDetail(claimId);
+        if (!fixtureDetail) {
+          const serviceError = new UiServiceError({
+            kind: "terminal_failure",
+            message: "This synthetic claim is not available in the current fixture workspace.",
+          });
+          setError(serviceError);
+          setDetail(null);
+          setLoadState(failedState(serviceError));
+          return;
+        }
+        setDetail(fixtureDetail);
+        setTimeline([]);
+        setCustomerUpdates([]);
+        setReviewRequests([]);
+        setLoadState(settledState(fixtureDetail, false));
+        return;
+      }
       const headers = scopedHeaders(role, "");
       const detailRes = await fetch(`${apiBaseUrl}/api/v1/claims/${claimId}`, { headers });
-      if (detailRes.status === 404) { setError("This claim was not found in the current workspace."); setDetail(null); return; }
-      if (!detailRes.ok) throw new Error(`Claim failed with HTTP ${detailRes.status}.`);
+      if (!detailRes.ok) {
+        const serviceError = await UiServiceError.fromResponse(
+          detailRes,
+          detailRes.status === 404 ? "This claim was not found in the current workspace." : `Claim is unavailable (HTTP ${detailRes.status}).`,
+        );
+        setError(serviceError);
+        setDetail(null);
+        setLoadState(failedState(serviceError));
+        return;
+      }
       const d = await detailRes.json();
-      setDetail({
+      const nextDetail: ClaimDetailView = {
         claimId: d.claimId, customerName: d.customerName, customerEmail: d.customerEmail, customerPhone: d.customerPhone,
         policyNumber: d.policyNumber, productLine: d.productLine, claimType: d.claimType, channel: d.channel,
         incidentDate: d.incidentDate, incidentDescription: d.incidentDescription, status: d.status,
@@ -156,7 +221,9 @@ export function useClaimReview(claimId: string) {
         completenessScore: d.completenessScore, riskLevel: d.riskLevel, priority: d.priority, slaDueAt: d.slaDueAt,
         assignedUserId: d.assignedUserId,
         documents: (d.documents ?? []).map((x: ClaimDocumentView) => ({ ...x })),
-      });
+      };
+      setDetail(nextDetail);
+      setLoadState(settledState(nextDetail, false));
 
       // Timeline is best-effort — a claim can be valid without timeline events.
       try {
@@ -170,10 +237,12 @@ export function useClaimReview(claimId: string) {
       await loadCustomerUpdates();
       await loadReviewRequests();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Claim failed to load.");
+      const serviceError = UiServiceError.fromUnknown(err, "Claim service could not be reached.");
+      setError(serviceError);
       setDetail(null);
       setCustomerUpdates([]);
       setReviewRequests([]);
+      setLoadState(failedState(serviceError));
     } finally {
       setLoading(false);
     }
@@ -355,6 +424,7 @@ export function useClaimReview(claimId: string) {
     reviewRequests,
     loading,
     error,
+    loadState,
     drafting,
     requestingApproval,
     exporting,

@@ -23,7 +23,9 @@ export default function UniversalMyWork({ onOpenSpecialist }: { onOpenSpecialist
   const [ownership, setOwnership] = useState<OwnershipFilter>("mine");
   const [sourceType, setSourceType] = useState<MyWorkSourceType | undefined>();
   const [state, setState] = useState<MyWorkState | undefined>();
-  const { response, loading, error, refresh } = useMyWork({ ownership, sourceType, state });
+  const { response, loadState, refresh } = useMyWork({ ownership, sourceType, state });
+  const loading = loadState.status === "loading";
+  const error = "error" in loadState ? loadState.error : null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const items = useMemo(() => response?.items ?? [], [response]);
 
@@ -36,15 +38,15 @@ export default function UniversalMyWork({ onOpenSpecialist }: { onOpenSpecialist
   }, [canViewAll, ownership]);
 
   const selected = items.find((item) => item.id === selectedId) ?? null;
-  const summary = response?.summary ?? { total: 0, overdue: 0, unassigned: 0, approvalRequired: 0 };
+  const summary = response?.summary;
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Summary label="Visible work" value={summary.total} icon={<Inbox className="h-4 w-4" />} />
-        <Summary label="Overdue" value={summary.overdue} icon={<Clock3 className="h-4 w-4" />} tone="warning" />
-        <Summary label="Unassigned" value={summary.unassigned} icon={<Users className="h-4 w-4" />} />
-        <Summary label="Needs approval" value={summary.approvalRequired} icon={<ClipboardCheck className="h-4 w-4" />} tone="violet" />
+        <Summary label="Visible work" value={error ? "—" : summary?.total ?? "—"} icon={<Inbox className="h-4 w-4" />} />
+        <Summary label="Overdue" value={error ? "—" : summary?.overdue ?? "—"} icon={<Clock3 className="h-4 w-4" />} tone="warning" />
+        <Summary label="Unassigned" value={error ? "—" : summary?.unassigned ?? "—"} icon={<Users className="h-4 w-4" />} />
+        <Summary label="Needs approval" value={error ? "—" : summary?.approvalRequired ?? "—"} icon={<ClipboardCheck className="h-4 w-4" />} tone="violet" />
       </div>
 
       <GlassCard className="!p-4">
@@ -73,7 +75,7 @@ export default function UniversalMyWork({ onOpenSpecialist }: { onOpenSpecialist
       </GlassCard>
 
       {loading ? <GlassCard><div className="flex items-center justify-center gap-2 py-16 text-sm text-stone"><Loader2 className="h-4 w-4 animate-spin" /> Loading current work…</div></GlassCard>
-      : error ? <GlassCard><div className="py-14 text-center"><AlertTriangle className="mx-auto h-6 w-6 text-warning" /><div className="mt-3 font-medium text-navy">My Work could not be loaded</div><div className="mt-1 text-[12px] text-stone">{error}</div><button type="button" onClick={() => void refresh()} className="mt-4 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Try again</button></div></GlassCard>
+      : error ? <GlassCard><div className="py-14 text-center"><AlertTriangle className="mx-auto h-6 w-6 text-warning" /><div className="mt-3 font-medium text-navy">My Work could not be loaded</div><div className="mt-1 text-[12px] text-stone">{error.message}</div><div className="mt-1 text-[12px] text-stone">{error.recovery}</div>{error.correlationId ? <div className="mt-2 font-mono text-[11px] text-stone">Reference {error.correlationId}</div> : null}<div className="mt-1 text-[11px] text-stone">Attempted {new Date(error.occurredAt).toLocaleString()}</div>{error.retryable ? <button type="button" onClick={() => void refresh()} className="mt-4 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Try again</button> : <Link href="/app" className="mt-4 inline-flex rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Return to Command Center</Link>}</div></GlassCard>
       : items.length === 0 ? <GlassCard><div className="py-16 text-center"><FileCheck2 className="mx-auto h-7 w-7 text-success" /><div className="mt-3 font-medium text-navy">No matching work</div><div className="mt-1 text-[12px] text-stone">Nothing authorized matches these ownership, type, and state filters.</div></div></GlassCard>
       : <div className="grid min-h-[560px] gap-4 xl:grid-cols-[390px_minmax(0,1fr)]">
           <GlassCard className="!p-2 overflow-hidden">
@@ -88,7 +90,7 @@ export default function UniversalMyWork({ onOpenSpecialist }: { onOpenSpecialist
   );
 }
 
-function Summary({ label, value, icon, tone = "neutral" }: { label: string; value: number; icon: React.ReactNode; tone?: "neutral" | "warning" | "violet" }) {
+function Summary({ label, value, icon, tone = "neutral" }: { label: string; value: number | string; icon: React.ReactNode; tone?: "neutral" | "warning" | "violet" }) {
   const color = tone === "warning" ? "text-warning-text bg-warning/10" : tone === "violet" ? "text-violet bg-violet/10" : "text-info bg-info/10";
   return <GlassCard className="!p-4"><div className="flex items-center justify-between"><div><div className="text-[10.5px] uppercase tracking-[0.12em] text-stone">{label}</div><div className="mt-1 text-2xl font-semibold text-navy">{value}</div></div><span className={`grid h-9 w-9 place-items-center rounded-xl ${color}`}>{icon}</span></div></GlassCard>;
 }

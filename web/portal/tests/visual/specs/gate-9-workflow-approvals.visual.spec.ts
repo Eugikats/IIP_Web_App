@@ -50,3 +50,28 @@ test("Gate 9 deployed profile exposes no final claim decision controls @deployed
   await expect(page.getByRole("button", { name: /deny claim/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /confirm fraud/i })).toHaveCount(0);
 });
+
+test("Gate 9 My Work reports an unavailable snapshot without false zero metrics", async ({ page }) => {
+  await page.route("**/api/v1/my-work**", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/problem+json",
+      headers: {
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "x-correlation-id",
+        "x-correlation-id": "corr-runtime-recovery",
+      },
+      body: JSON.stringify({ title: "Service unavailable" }),
+    });
+  });
+
+  await page.goto("/app/work-items");
+  await expect(page.getByText("My Work could not be loaded")).toBeVisible();
+  await expect(page.getByText("Reference corr-runtime-recovery")).toBeVisible();
+
+  for (const label of ["Visible work", "Overdue", "Unassigned", "Needs approval"]) {
+    await expect(page.getByText(label).locator("..").getByText("—", { exact: true })).toBeVisible();
+  }
+
+  await expect(page.getByText("Failed to fetch", { exact: true })).toHaveCount(0);
+});
