@@ -38,8 +38,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     timeline,
     customerUpdates,
     reviewRequests,
-    loading,
-    error,
+    loadState,
     drafting,
     requestingApproval,
     exporting,
@@ -53,6 +52,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     requestSupervisorReview,
     reload,
   } = useClaimReview(claimId);
+  const loading = loadState.status === "loading";
+  const error = "error" in loadState ? loadState.error : null;
   const { roleDef } = useUI();
   const [pendingCustomerUpdateAction, setPendingCustomerUpdateAction] = useState<PendingCustomerUpdateAction | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -205,7 +206,14 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <div className="flex flex-col items-center gap-2 p-10 text-center">
             <FileText className="h-6 w-6 text-stone" />
             <div className="font-medium text-navy">Claim unavailable</div>
-            <div className="max-w-md text-[12.5px] text-stone">{error ?? "No claim found for this workspace."}</div>
+            <div className="max-w-md text-[12.5px] text-stone">{error?.message ?? "No claim found for this workspace."}</div>
+            {error?.recovery ? <div className="max-w-md text-[12px] text-stone">{error.recovery}</div> : null}
+            {error ? <div className="text-[11px] text-stone">Attempted {new Date(error.occurredAt).toLocaleString()}</div> : null}
+            {error?.correlationId ? <div className="font-mono text-[11px] text-stone">Reference {error.correlationId}</div> : null}
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
+              {error?.retryable ? <button type="button" onClick={() => void reload()} className="rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Try again</button> : null}
+              <Link to="/app/claims" className="rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Return to claims</Link>
+            </div>
           </div>
         </GlassCard>
       </>

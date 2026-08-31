@@ -6,6 +6,7 @@ import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { getEntraApiAccessToken } from "@/lib/entraAuth";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { ROLES, type Permission, type Role } from "@/lib/roles";
+import { UiServiceError } from "@/lib/uiLoadState";
 
 export type ReviewMode = "Production" | "Demo" | "LocalDevelopment";
 
@@ -39,7 +40,7 @@ type RuntimeContextState = {
   runtimeContext: RuntimeContextView | null;
   environment: EnvironmentView | null;
   loading: boolean;
-  error: string | null;
+  error: UiServiceError | null;
   parityMode: boolean;
   refresh: () => Promise<void>;
 };
@@ -163,7 +164,7 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
     LOVABLE_VISUAL_PARITY_MODE ? PARITY_CONTEXT : null,
   );
   const [loading, setLoading] = useState(!LOVABLE_VISUAL_PARITY_MODE);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiServiceError | null>(null);
 
   const refresh = useCallback(async () => {
     if (LOVABLE_VISUAL_PARITY_MODE) {
@@ -184,7 +185,7 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
         },
       });
       if (!response.ok) {
-        throw new Error(`/api/v1/me failed with HTTP ${response.status}.`);
+        throw await UiServiceError.fromResponse(response, `Workspace access is unavailable (HTTP ${response.status}).`);
       }
 
       const next = toRuntimeContext((await response.json()) as MeDto, role);
@@ -194,7 +195,7 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
       }
     } catch (err) {
       setRuntimeContext(null);
-      setError(err instanceof Error ? err.message : "Runtime context unavailable.");
+      setError(UiServiceError.fromUnknown(err, "Workspace access service could not be reached."));
     } finally {
       setLoading(false);
     }

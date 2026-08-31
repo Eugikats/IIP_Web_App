@@ -63,3 +63,29 @@ test("Gate 5 Claims Intelligence deployed profile shows no simulation controls @
   await expect(page.getByRole("button", { name: /approve payout/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /deny claim/i })).toHaveCount(0);
 });
+
+test("Gate 5 Claims Intelligence does not present zero counts for an unavailable snapshot", async ({ page }) => {
+  await page.route("**/api/v1/claims", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/problem+json",
+      headers: {
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "x-correlation-id",
+        "x-correlation-id": "corr-claims-recovery",
+      },
+      body: JSON.stringify({ title: "Service unavailable" }),
+    });
+  });
+
+  await page.goto("/app/claims");
+  await expect(page.getByText("Claims could not be loaded")).toBeVisible();
+  await expect(page.getByText("Reference corr-claims-recovery")).toBeVisible();
+  await expect(page.getByRole("button", { name: "All —" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "SLA attention —" })).toBeVisible();
+
+  const search = page.getByRole("textbox", { name: "Search claim, customer, policy, assignment..." });
+  await search.fill("CLM-1048");
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(search).toHaveValue("CLM-1048");
+});

@@ -1,9 +1,13 @@
-export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:5167";
+const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+// Same-origin is the safe default: Next proxies /api to the local API in
+// development, while deployed runtimes must provide their approved API origin.
+export const apiBaseUrl = configuredApiBaseUrl ? configuredApiBaseUrl.replace(/\/$/, "") : "";
 export const defaultTenantId = process.env.NEXT_PUBLIC_TENANT_ID || "";
 export const defaultWorkspaceId = process.env.NEXT_PUBLIC_WORKSPACE_ID || "";
 export const localDevelopmentUserId = process.env.NEXT_PUBLIC_LOCAL_USER_ID || "";
-export const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || "Development";
-export const runtimeProfile = process.env.NEXT_PUBLIC_RUNTIME_PROFILE || "Development";
+const developmentBuild = process.env.NODE_ENV === "development";
+export const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || (developmentBuild ? "Development" : "NotConfigured");
+export const runtimeProfile = process.env.NEXT_PUBLIC_RUNTIME_PROFILE || (developmentBuild ? "Development" : "Unknown");
 export const entraTenantId = process.env.NEXT_PUBLIC_ENTRA_TENANT_ID || "";
 export const entraClientId =
   process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID || process.env.NEXT_PUBLIC_ENTRA_PORTAL_CLIENT_ID || "";

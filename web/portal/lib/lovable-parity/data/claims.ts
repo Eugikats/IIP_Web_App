@@ -5,6 +5,7 @@ import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { claims as fixtureClaims } from "@/lib/lovable-parity/mock";
+import { failedState, loadingState, settledState, UiServiceError, type UiLoadState } from "@/lib/uiLoadState";
 
 export type ClaimRowView = {
   id: string;
@@ -92,21 +93,33 @@ export function useClaims() {
   const role = roleDef.key;
   const [claims, setClaims] = useState<ClaimRowView[]>(LOVABLE_VISUAL_PARITY_MODE ? PARITY_ROWS : []);
   const [loading, setLoading] = useState(!LOVABLE_VISUAL_PARITY_MODE);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiServiceError | null>(null);
+  const [loadState, setLoadState] = useState<UiLoadState<ClaimRowView[]>>(
+    LOVABLE_VISUAL_PARITY_MODE ? settledState(PARITY_ROWS, PARITY_ROWS.length === 0) : loadingState(),
+  );
 
   const load = useCallback(async () => {
     if (LOVABLE_VISUAL_PARITY_MODE) return;
     setLoading(true);
     setError(null);
+    setLoadState(loadingState());
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/claims`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Claims failed with HTTP ${response.status}.`);
+      if (!response.ok) {
+        const serviceError = await UiServiceError.fromResponse(response, `Claims are unavailable (HTTP ${response.status}).`);
+        setError(serviceError);
+        setLoadState(failedState(serviceError));
+        return;
+      }
       const payload = (await response.json()) as ClaimListItemDto[] | { items?: ClaimListItemDto[] };
       const list = Array.isArray(payload) ? payload : payload.items ?? [];
-      setClaims(list.map(mapDto));
+      const nextClaims = list.map(mapDto);
+      setClaims(nextClaims);
+      setLoadState(settledState(nextClaims, nextClaims.length === 0));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Claims failed to load.");
-      setClaims([]);
+      const serviceError = UiServiceError.fromUnknown(err, "Claims service could not be reached.");
+      setError(serviceError);
+      setLoadState(failedState(serviceError));
     } finally {
       setLoading(false);
     }
@@ -157,5 +170,5 @@ export function useClaims() {
     [load, role],
   );
 
-  return { claims, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, refresh: load, assignCase, escalateCase };
+  return { claims, loading, error, loadState, parityMode: LOVABLE_VISUAL_PARITY_MODE, refresh: load, assignCase, escalateCase };
 }
