@@ -11,25 +11,50 @@ export type ConversationSummary = {
   createdAt: string;
   lastActivityAt: string;
   version: number;
+  ownerUserId: string;
+  primaryFocus: { type: string; reference: string; label: string; href: string } | null;
+  grounding: ConversationGroundingSummary;
+};
+
+export type ConversationGroundingSummary = {
+  historicalTimestamp: string;
+  historicalVersion: string;
+  currentTimestamp: string | null;
+  currentVersion: string | null;
+  status: "current" | "changed" | "unavailable";
+  safeChangeSummary: string;
 };
 
 export type ConversationDetail = ConversationSummary & {
   turns: Array<{ turnId: string; question: string; response: CommandCenterAnswer; createdAt: string }>;
-  groundingStatus: "required_before_next_turn";
+  groundingStatus: "current" | "changed" | "unavailable";
   canContinue: boolean;
 };
 
 export type ConversationList = { items: ConversationSummary[]; total: number; hasMore: boolean };
 
+export class ConversationRequestError extends Error {
+  constructor(public readonly kind: "not_found" | "unauthorized" | "conflict" | "offline" | "unavailable", message: string) {
+    super(message);
+    this.name = "ConversationRequestError";
+  }
+}
+
 async function request<T>(path: string, role: Role, userId: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    headers: { ...scopedHeaders(role, userId), ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers },
-  });
-  if (response.status === 404) throw new Error("Conversation not found or no longer accessible.");
-  if (response.status === 403) throw new Error("You do not have permission to view this conversation.");
-  if (response.status === 409) throw new Error("This conversation changed. Refresh before trying again.");
-  if (!response.ok) throw new Error(`Conversation request failed with HTTP ${response.status}.`);
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...init,
+      headers: { ...scopedHeaders(role, userId), ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers },
+    });
+  } catch (reason) {
+    if (reason instanceof DOMException && reason.name === "AbortError") throw reason;
+    throw new ConversationRequestError("offline", "Conversations could not be reached. Check the connection and retry.");
+  }
+  if (response.status === 404) throw new ConversationRequestError("not_found", "Conversation not found or no longer accessible.");
+  if (response.status === 401 || response.status === 403) throw new ConversationRequestError("unauthorized", "You do not have permission to view this conversation.");
+  if (response.status === 409) throw new ConversationRequestError("conflict", "This conversation changed. Refresh before trying again.");
+  if (!response.ok) throw new ConversationRequestError("unavailable", `Conversation request failed with HTTP ${response.status}.`);
   return response.json() as Promise<T>;
 }
 

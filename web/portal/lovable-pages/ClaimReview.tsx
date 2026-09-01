@@ -26,6 +26,7 @@ import { DocumentUploadWidget } from "@/components/iip/DocumentUploadWidget";
 import { useClaimReview } from "@/lib/lovable-parity/data/claimReview";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
 import { useUI } from "@/context/UIStateContext";
+import { extractionHref } from "@/lib/workItemLinks";
 
 export default function ClaimReview() {
   const { id } = useParams();
@@ -227,6 +228,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     present: document.processingStatus !== "Missing" && document.processingStatus !== "MissingDocuments",
     lowConfidence: document.classificationConfidence > 0 && document.classificationConfidence < 0.75,
   }));
+  const firstExtractionHref = extractionHref(claimId, detail.documents[0]?.documentId);
 
   return (
     <>
@@ -350,7 +352,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
               <div className="text-[14px] font-semibold text-navy">Documents received</div>
-              {detail.documents.length > 0 ? <Link to={`/app/claims/${claimId}/extraction?documentId=${detail.documents[0].documentId}`} className="text-[12px] text-info hover:underline">
+              {firstExtractionHref ? <Link to={firstExtractionHref} className="text-[12px] text-info hover:underline">
                 Open extraction review
               </Link> : null}
             </div>

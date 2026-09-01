@@ -4,6 +4,7 @@ import { Link } from "@/components/iip/NextRouterCompat";
 import { Badge } from "@/components/iip/Primitives";
 import { MarkdownText } from "@/components/iip/MarkdownText";
 import type { CommandCenterAnswer, CommandCenterBlock } from "@/lib/lovable-parity/data/commandCenterQuery";
+import { safeInternalWorkHref } from "@/lib/workItemLinks";
 
 // Renders one governed answer from POST /api/v1/command-center/query. Every block type has an
 // explicit renderer; anything unknown falls through to a safe "unsupported" note (never raw JSON).
@@ -32,7 +33,7 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
       return (
         <div className="divide-y divide-cloud/80">
           {(block as Extract<CommandCenterBlock, { type: "claims_table" }>).rows.map((r) => (
-            <Link key={r.caseId} to={r.href || "/app/claims"} className="py-2.5 flex items-center gap-3 hover:bg-white/50 rounded-lg px-1">
+            <Link key={r.caseId} to={safeInternalWorkHref(r.href, "/app/claims")} className="py-2.5 flex items-center gap-3 hover:bg-white/50 rounded-lg px-1">
               <div className="w-28 shrink-0 text-[12px] font-medium text-navy truncate">{r.caseId}</div>
               <div className="flex-1 min-w-0 text-[12.5px] text-navy truncate">{r.customer}</div>
               <div className="text-[11.5px] text-stone hidden md:block">{r.productLine}</div>
@@ -67,7 +68,7 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
       return (
         <div className="divide-y divide-cloud/80">
           {(block as Extract<CommandCenterBlock, { type: "approval_queue" }>).items.map((a) => (
-            <Link key={a.approvalId} to={a.href || "/app/work-items"} className="py-2.5 flex items-center justify-between hover:bg-white/50 rounded-lg px-1">
+            <Link key={a.approvalId} to={safeInternalWorkHref(a.href, "/app/work-items")} className="py-2.5 flex items-center justify-between hover:bg-white/50 rounded-lg px-1">
               <span className="text-[12.5px] text-navy">{a.title}</span>
               <Badge tone="neutral">{a.status}</Badge>
             </Link>
@@ -100,7 +101,7 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
               <div><div className="text-[12.5px] text-navy">{a.label}</div><div className="text-[11.5px] text-stone">{a.description}</div></div>
               {historical
                 ? <Badge tone="neutral">Historical proposal</Badge>
-                : <Link to={a.targetHref || "/app"} className="text-[12px] text-info hover:underline shrink-0">Review →</Link>}
+                : <Link to={safeInternalWorkHref(a.targetHref, "/app")} className="text-[12px] text-info hover:underline shrink-0">Review →</Link>}
             </div>
           ))}
         </div>

@@ -6,7 +6,10 @@ namespace InsuranceIntelligence.Application.CommandCenter;
 /// Request body for <c>POST /api/v1/command-center/query</c>. Tenant, workspace, and role are
 /// resolved server-side from Entra claims or dev headers and are never trusted from this body.
 /// </summary>
-public sealed record CommandCenterQueryRequest(string? Question, Guid? ConversationId = null);
+public sealed record CommandCenterQueryRequest(
+    string? Question,
+    Guid? ConversationId = null,
+    Guid? ClientRequestId = null);
 
 /// <summary>
 /// Governed response envelope for the chat-first Command Center query endpoint.

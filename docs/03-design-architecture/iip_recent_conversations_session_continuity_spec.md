@@ -1,6 +1,6 @@
 # IIP Recent Conversations and Session Continuity Specification
 
-**Status:** Release 1 route/persistence baseline implemented locally on 2026-08-07; privacy/retention approval, advanced findability, accessibility, usability, and protected-staging validation remain open.
+**Status:** Release 1 route/persistence baseline plus claim-focused evidence-version comparison and retry reconciliation implemented locally; privacy/retention approval, advanced findability, accessibility, usability, and protected-staging validation remain open.
 
 > **Release 1 boundary:** Conversation/session state is not evidence, permission or audit. It may retain bounded work pointers and supported user-authored draft state, but not raw claim/policy/document/OCR/email evidence, prompts, provider payloads or long model responses. Resume must re-resolve authority and re-retrieve current evidence under R1-FUN-016 and R1-DAT-005.
 
@@ -33,22 +33,22 @@ The experience must distinguish three layers:
 
 Reopening a conversation must never silently reuse an old answer as current insurance truth. IIP must revalidate the user's current tenant, workspace, permissions, linked-record access, provider state, and live evidence before enabling continuation or action.
 
-The implemented baseline uses an owner-, tenant-, and workspace-scoped SQL conversation repository, structured displayable turns, current-permission checks on every route, safe lifecycle audit metadata, and optimistic version conflicts. It does not make conversation history evidence or authority. Retention, legal hold, deletion, export, sharing, sensitive transcript indexing, supervisor access, and automatic change summaries remain unapproved and unimplemented.
+The implemented baseline uses an owner-, tenant-, and workspace-scoped SQL conversation repository, structured displayable turns, current-permission checks on every route, safe lifecycle audit metadata, optimistic version conflicts, and claim/document version comparison for claim-focused answers. It does not make conversation history evidence or authority. Retention, legal hold, deletion, export, sharing, sensitive transcript indexing, supervisor access, and unrestricted transcript search remain unapproved and unimplemented.
 
 ### Implemented Release 1 route contract
 
 | Method | Route | Current behavior |
 |---|---|---|
-| `POST` | `/api/v1/command-center/query` | Runs the existing live grounded query; optional `conversationId` continues an owned active conversation; response adds server-issued `conversationId` and `turnId`. |
+| `POST` | `/api/v1/command-center/query` | Runs the existing live grounded query; optional `conversationId` continues an owned active conversation; optional client-issued `clientRequestId` safely reconciles an uncertain retry; response adds server-issued `conversationId` and `turnId`. |
 | `GET` | `/api/v1/command-center/conversations?archived={bool}&limit={1..100}` | Lists safe metadata for the authenticated owner in the current tenant/workspace; empty conversations are not listed. |
-| `GET` | `/api/v1/command-center/conversations/{conversationId}` | Returns owned history and `groundingStatus=required_before_next_turn`; inaccessible identifiers return no transcript metadata. |
+| `GET` | `/api/v1/command-center/conversations/{conversationId}` | Returns owned history plus a `current`, `changed`, or `unavailable` grounding summary; inaccessible identifiers return no transcript metadata. |
 | `PATCH` | `/api/v1/command-center/conversations/{conversationId}` | Renames with `expectedVersion`; title is trimmed, required, control-character-free, and limited to 120 characters. |
 | `POST` | `/api/v1/command-center/conversations/{conversationId}/archive` | Archives with `expectedVersion`; archive is not deletion. |
 | `POST` | `/api/v1/command-center/conversations/{conversationId}/restore` | Restores with `expectedVersion`; the next turn still runs current authorization and grounding. |
 
 The portal mounts `/app/conversations` and `/app/conversations/[id]`, adds a bounded sidebar recent list, exposes active/archived views, and labels reopened answers as historical. No automatic turn expiry or deletion is applied before an approved records policy exists.
 
-Local synthetic browser verification on 2026-08-07 covered the identity-failure recovery state, populated list/sidebar, deep-link reopen, historical labeling, archive row removal, and `expectedVersion` request body. Historical `action_proposal` blocks render without an active review link. This is implementation evidence only: it is not protected-staging, WCAG conformance, usability, insurer-policy, retention/privacy, or practitioner-validation evidence.
+Local synthetic browser verification covers populated, true-empty, filtered-empty, archived, restore, deep-link reopen, historical labeling, changed-evidence warning, and bounded invalid extraction links across desktop, tablet, and mobile. Backend tests cover owner/scope isolation, optimistic lifecycle conflicts, claim-version changes, and idempotent uncertain-query retry. Historical `action_proposal` blocks render without an active review link. This is implementation evidence only: it is not protected-staging, WCAG conformance, usability, insurer-policy, retention/privacy, or practitioner-validation evidence.
 
 ### Strategy, User Needs, and Non-Goals
 
@@ -291,13 +291,13 @@ Avoid `Memory`, `AI remembers`, `Delete forever`, `Shared with everyone`, or `Up
 |---|---|---:|---|---|
 | CONV-REQ-001 | When an authenticated user opens Recent Conversations, IIP shall return only conversations authorized for the current tenant, workspace, and user. | Must | Cross-tenant/workspace/user tests return no metadata leakage; deep links recheck authorization. | Implemented locally; protected multi-role proof pending |
 | CONV-REQ-002 | When a user returns to prior work, IIP shall show enough safe metadata to recognize the task without opening each conversation. | Must | Item shows safe title, last activity, focus reference where authorized, and actionable status. | Partial: safe title/time/status/turn count implemented; focus/pending-work metadata pending |
-| CONV-REQ-003 | When a conversation is reopened, IIP shall re-retrieve or revalidate live evidence before enabling consequential actions. | Must | Stale action controls remain disabled; changed evidence produces a change summary. | Partial: next turn reauthorizes and reloads live data; automatic linked-evidence comparison/change summary pending |
+| CONV-REQ-003 | When a conversation is reopened, IIP shall re-retrieve or revalidate live evidence before enabling consequential actions. | Must | Stale action controls remain disabled; changed evidence produces a change summary. | Claim-focused version comparison and safe change summary implemented locally; non-claim focus types and protected-staging proof pending |
 | CONV-REQ-004 | When access changed, IIP shall withhold restricted transcript content and explain the available recovery path. | Must | Permission-revocation tests expose no title, snippet, linked party, or evidence. | Implemented owner/scope non-disclosure locally; revoked-membership staging test pending |
-| CONV-REQ-005 | When history is large, users shall be able to find an authorized conversation through search, filters, and predictable time grouping. | Should | Representative users find target conversations without scanning the full list; query/filter state survives return navigation. | Search/index decision required |
+| CONV-REQ-005 | When history is large, users shall be able to find an authorized conversation through search, filters, and predictable time grouping. | Should | Representative users find target conversations without scanning the full list; query/filter state survives return navigation. | Local bounded title/focus/owner filter and retained state implemented; server index, date/grouping, and participant proof pending |
 | CONV-REQ-006 | When a conversation is archived, IIP shall remove it from active history without representing it as deleted. | Should | Archive, undo, archived view, and restore states are distinguishable and auditable. | Archive/archived view/restore/audit implemented; timed undo pending |
 | CONV-REQ-007 | When deletion is requested, IIP shall accurately apply retention, hold, audit, and privacy policy. | Must | UI wording matches actual lifecycle; blocked and pending outcomes are visible; no false immediate-deletion claim. | Legal/compliance decision required |
 | CONV-REQ-008 | When users operate Recent Conversations without a pointer device or with assistive technology, all critical tasks shall remain perceivable and operable. | Must | Keyboard, screen-reader, zoom/reflow, focus, and announcement tests pass approved criteria. | Semantic snapshots/local controls reviewed; keyboard, screen-reader, zoom/reflow and named accessibility evidence pending |
-| CONV-REQ-009 | When current grounding is unavailable, IIP shall preserve read access where permitted while blocking actions that depend on current evidence. | Must | History remains readable; composer/action state explains verification failure and supports retry. | Capability-state contract required |
+| CONV-REQ-009 | When current grounding is unavailable, IIP shall preserve read access where permitted while blocking actions that depend on current evidence. | Must | History remains readable; composer/action state explains verification failure and supports retry. | Current/changed/unavailable grounding contract implemented locally; protected provider/evidence outage proof pending |
 | CONV-REQ-010 | When conversation metadata changes concurrently, IIP shall preserve safe user work and resolve conflicts visibly. | Should | Rename/archive tests do not silently overwrite newer state. | SQL concurrency token and `409` contract implemented locally; rename UI conflict recovery pending |
 
 ### Research and Validation Plan
