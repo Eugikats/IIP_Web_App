@@ -102,5 +102,5 @@
 - [x] Run `pnpm test`, `pnpm lint`, TypeScript no-emit, protected-profile `pnpm build`, affected visual tests, and deployed-DOM checks.
 - [x] Run the applicable backend Release build/tests only if shared contracts changed.
 - [x] Review the diff for authority loss, duplicate state, hidden actions, inaccessible names, unsupported conformance claims, and accidental prototype/runtime coupling.
-- [ ] Commit on `harry/ux-r1-responsive-accessibility`, push, open a PR to `main`, and wait for all three CI jobs.
-- [ ] Leave maintainer approval, physical-device/assistive-technology verification, protected staging, and practicing-staff usability as explicit external gates.
+- [x] Commit on `harry/ux-r1-responsive-accessibility`, push, and open a PR to `main`; wait for all three CI jobs before merge.
+- [x] Leave maintainer approval, physical-device/assistive-technology verification, protected staging, and practicing-staff usability as explicit external gates.
