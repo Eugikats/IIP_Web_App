@@ -177,7 +177,7 @@ public static class RuntimeContextEndpoints
             PlatformRole.CustomerService => "Customer Service Agent",
             PlatformRole.ITAdmin => "Integration Admin",
             PlatformRole.Compliance => "Compliance Auditor",
-            PlatformRole.Admin => "Tenant Admin",
+            PlatformRole.Admin => "Workspace Administrator",
             _ => role.ToString()
         };
 }

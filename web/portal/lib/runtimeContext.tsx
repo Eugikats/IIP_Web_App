@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useUI } from "@/context/UIStateContext";
-import { apiBaseUrl, scopedHeaders } from "@/lib/config";
+import { apiBaseUrl, canUseLocalTestDoubles, scopedHeaders } from "@/lib/config";
 import { getEntraApiAccessToken } from "@/lib/entraAuth";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { ROLES, type Permission, type Role } from "@/lib/roles";
@@ -81,7 +81,7 @@ const PARITY_CONTEXT: RuntimeContextView = {
   roleLabel: "Workspace Administrator",
   permissions: [
     "ViewCommandCenter", "CreateClaim", "UploadDocument", "ViewAllClaims", "ViewAssignedClaims",
-    "ApproveSettlementWorkflowStep", "ViewAuditLog", "ManageKnowledgeBase", "ConfigureIntegrations",
+    "ApproveSettlementWorkflowStep", "ViewAuditLog", "ExportEvidencePack", "ManageKnowledgeBase", "ConfigureIntegrations",
     "ViewAiOutputs", "OverrideAiRecommendation", "ManageCustomerCommunications", "SendCustomerUpdate",
     "ManageTenantSettings", "ViewClientPortal", "ViewChannels", "ViewCustomers", "ViewSalesLeads",
     "ManageSalesLeads", "ViewFraudSignals", "ViewUnderwriting", "ManageAgents", "ViewAgentWorkflows",
@@ -180,7 +180,7 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
       const token = await getEntraApiAccessToken();
       const response = await fetch(`${apiBaseUrl}/api/v1/me`, {
         headers: {
-          ...scopedHeaders(role, ""),
+          ...scopedHeaders(canUseLocalTestDoubles ? "Admin" : role, ""),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
@@ -188,9 +188,10 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
         throw await UiServiceError.fromResponse(response, `Workspace access is unavailable (HTTP ${response.status}).`);
       }
 
-      const next = toRuntimeContext((await response.json()) as MeDto, role);
+      const authorityRole = canUseLocalTestDoubles ? "Admin" : role;
+      const next = toRuntimeContext((await response.json()) as MeDto, authorityRole);
       setRuntimeContext(next);
-      if (next && next.role !== role) {
+      if (!canUseLocalTestDoubles && next && next.role !== role) {
         setRole(next.role);
       }
     } catch (err) {

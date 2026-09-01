@@ -25,6 +25,11 @@ function readLS<T>(k: string, fallback: T): T {
   }
 }
 
+function readStoredRole(): Role {
+  const stored = readLS<string>("iip.role", "Admin");
+  return stored in ROLES ? stored as Role : "Admin";
+}
+
 export function UIStateProvider({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [copilotOpen, setCopilotOpen] = useState(true);
@@ -35,7 +40,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
     const mobileViewport = window.matchMedia("(max-width: 767px)").matches;
     setSidebarOpen(mobileViewport ? false : readLS("iip.sidebarOpen", true));
     setCopilotOpen(readLS("iip.copilotOpen", true));
-    setRole(readLS<Role>("iip.role", "Admin"));
+    setRole(readStoredRole());
     setHydrated(true);
   }, []);
 

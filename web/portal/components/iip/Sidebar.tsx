@@ -10,7 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
 import { runtimeInitials, useRuntimeContext } from "@/lib/runtimeContext";
-import { canAccessWithPermissions, canUseGlobalSearchPreview } from "@/lib/roles";
+import { canAccess, canAccessWithPermissions, canUseGlobalSearchPreview } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useEffect, useState } from "react";
 import { listConversations, type ConversationSummary } from "@/lib/lovable-parity/data/commandCenterConversations";
@@ -90,14 +90,14 @@ export default function Sidebar() {
       ...group,
       items: group.items.filter((item) =>
         usePreviewRole
-          ? roleDef.modules.includes(item.to)
+          ? canAccess(roleDef.key, item.to)
           : canAccessWithPermissions(runtimeContext?.permissions ?? [], item.to)
       ),
     }))
     .filter((group) => group.items.length > 0);
   const admin = ALL_ADMIN.filter((item) =>
     usePreviewRole
-      ? roleDef.admin.includes(item.to)
+      ? canAccess(roleDef.key, item.to)
       : canAccessWithPermissions(runtimeContext?.permissions ?? [], item.to)
   );
   const activeWorkspace = runtimeContext?.availableWorkspaces.find(
@@ -107,10 +107,10 @@ export default function Sidebar() {
   const workspaceKind = activeWorkspace?.kind ?? runtimeContext?.source ?? "Not configured";
   const environmentLabel = runtimeContext?.environment.name ?? (loading ? "Checking" : "Unverified");
   const displayName = runtimeContext?.displayName ?? (loading ? "Resolving user" : "User unavailable");
-  const roleLabel = runtimeContext?.roleLabel ?? roleDef.title;
+  const roleLabel = runtimeContext?.roleLabel ?? (loading ? "Authority resolving" : "Authority unavailable");
   const userInitials = runtimeInitials(displayName);
   const commandCenterAvailable = usePreviewRole
-    ? roleDef.modules.includes("/app")
+    ? canAccess(roleDef.key, "/app")
     : (runtimeContext?.permissions ?? []).includes("ViewCommandCenter");
   const [recentConversations, setRecentConversations] = useState<ConversationSummary[]>([]);
 
@@ -213,7 +213,7 @@ export default function Sidebar() {
           <div className="h-9 w-9 rounded-full bg-gradient-secondary grid place-items-center text-white text-[12px] font-semibold">{userInitials}</div>
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-medium text-navy truncate">{displayName}</div>
-            <div className="text-[11px] text-stone truncate">{roleLabel}</div>
+            <div className="text-[11px] text-stone truncate">Signed in as {roleLabel}</div>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-success"><Circle className="h-2 w-2 fill-current" /> Auth</div>
         </div>

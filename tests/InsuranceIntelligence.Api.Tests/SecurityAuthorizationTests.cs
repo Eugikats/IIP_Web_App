@@ -28,6 +28,27 @@ public sealed class SecurityAuthorizationTests
     private static readonly Microsoft.Extensions.Hosting.IHostEnvironment ProductionHost = new TestHostEnvironment("Production");
     private static readonly InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService EmptyWorkspaceCatalog = new StubWorkspaceCatalog();
 
+    public static IEnumerable<object[]> ConsequentialPermissionCases()
+    {
+        var consequentialPermissions = new[]
+        {
+            Permission.ApproveSettlementWorkflowStep,
+            Permission.OverrideAiRecommendation,
+            Permission.ExportEvidencePack,
+            Permission.SendCustomerUpdate,
+            Permission.ManageAgentWorkflows,
+            Permission.ManageTenantOnboarding
+        };
+
+        foreach (var role in Enum.GetValues<PlatformRole>())
+        {
+            foreach (var permission in consequentialPermissions)
+            {
+                yield return [role, permission, RolePermissionMap.HasPermission(role, permission)];
+            }
+        }
+    }
+
     private sealed class StubWorkspaceCatalog : InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService
     {
         public Task<IReadOnlyList<InsuranceIntelligence.Application.Tenants.WorkspaceSummaryDto>> ListForTenantAsync(
@@ -87,6 +108,28 @@ public sealed class SecurityAuthorizationTests
         var role = DemoAuthorization.GetRole(context);
 
         Assert.Equal(PlatformRole.ClaimsSupervisor, role);
+    }
+
+    [Theory]
+    [MemberData(nameof(ConsequentialPermissionCases))]
+    public async Task PermissionFilter_EnforcesEveryRoleConsequentialPermission(
+        PlatformRole role,
+        Permission permission,
+        bool expectedAllowed)
+    {
+        var filter = new PermissionEndpointFilter(permission);
+        var context = CreateFilterContext(DevelopmentOptions, demoRole: role.ToString());
+
+        var result = await filter.InvokeAsync(context, _ => ValueTask.FromResult<object?>("handler-ran"));
+
+        if (expectedAllowed)
+        {
+            Assert.Equal("handler-ran", result);
+        }
+        else
+        {
+            Assert.Equal(StatusCodes.Status403Forbidden, await ExecuteStatusAsync((IResult)result!));
+        }
     }
 
     [Fact]
@@ -412,6 +455,22 @@ public sealed class SecurityAuthorizationTests
         Assert.Equal("tenant-a", root.GetProperty("tenantId").GetString());
         Assert.Equal("workspace-a", root.GetProperty("workspaceId").GetString());
         Assert.Contains(root.GetProperty("permissions").EnumerateArray(), item => item.GetString() == "OverrideAiRecommendation");
+    }
+
+    [Fact]
+    public async Task RuntimeContext_UsesFullWorkspaceAdministratorLabel()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers["x-demo-role"] = "Admin";
+        context.Request.Headers["x-demo-user-id"] = "dev-admin";
+        context.Request.Headers["X-Tenant-Id"] = "tenant-a";
+        context.Request.Headers["X-Workspace-Id"] = "workspace-a";
+
+        var result = await RuntimeContextEndpoints.GetMe(context, DevelopmentOptions, DevelopmentHost, EmptyWorkspaceCatalog, NoTenantContext, CancellationToken.None);
+
+        var (status, json) = await ExecuteJsonAsync(result);
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal("Workspace Administrator", json.RootElement.GetProperty("roleLabel").GetString());
     }
 
     [Fact]
