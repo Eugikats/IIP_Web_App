@@ -14,7 +14,7 @@ const rolePermissions: Record<RuntimeRole, string[]> = {
 };
 
 const roleLabels: Record<RuntimeRole, string> = {
-  Admin: "Tenant Admin",
+  Admin: "Workspace Administrator",
   ClaimsOfficer: "Claims Officer",
   ClaimsSupervisor: "Claims Supervisor",
   CustomerService: "Customer Service",

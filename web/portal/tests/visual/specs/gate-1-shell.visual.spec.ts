@@ -15,7 +15,7 @@ test("Gate 1 shell uses the approved light-only MVP foundation", async ({ page }
   await expect(page.getByText("Insurance Intelligence Platform")).toBeVisible();
   await expect(page.getByText("Platform · IIP")).toBeVisible();
   await expect(page.getByRole("link", { name: /Command Center/i })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Claims Intelligence/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Claims", exact: true })).toBeVisible();
 
   const headerHeight = await page.locator("header").evaluate((element) => element.getBoundingClientRect().height);
   expect(Math.round(headerHeight)).toBe(64);

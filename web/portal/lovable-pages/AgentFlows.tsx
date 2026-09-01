@@ -9,6 +9,9 @@ import { Badge, GlassCard, SectionHeader, StatusBadge } from "@/components/iip/P
 import WorkflowCanvas from "@/components/iip/WorkflowCanvas";
 import { useAgentWorkflows, type WorkflowDefinition, type WorkflowNode } from "@/lib/agentWorkflows";
 import { useUI } from "@/context/UIStateContext";
+import { canPreviewPermission } from "@/lib/roles";
+import { useRuntimeContext } from "@/lib/runtimeContext";
+import { canUseLocalTestDoubles } from "@/lib/config";
 
 function releaseLabel(flow: WorkflowDefinition) {
   return flow.release > 0 ? `Release ${flow.release}` : "Custom";
@@ -17,7 +20,10 @@ function releaseLabel(flow: WorkflowDefinition) {
 export default function AgentFlows() {
   const { definitions, runs, loading, error, startRun } = useAgentWorkflows();
   const { roleDef } = useUI();
-  const canManage = roleDef.key === "Admin" || roleDef.key === "ITAdmin";
+  const { runtimeContext, parityMode } = useRuntimeContext();
+  const canManage = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "ManageAgentWorkflows")
+    : (runtimeContext?.permissions ?? []).includes("ManageAgentWorkflows");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null);
   const [referenceType, setReferenceType] = useState("");

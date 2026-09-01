@@ -748,7 +748,7 @@ export async function installVisualApiFixtures(page: Page) {
           tenantId: "tenant-visual-fixture",
           workspaceId: "workspace-visual-fixture",
           role: "Admin",
-          roleLabel: "Tenant Admin",
+          roleLabel: "Workspace Administrator",
           permissions: ["all"],
           authMode: "Development",
           source: "Development",
