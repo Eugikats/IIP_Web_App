@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AlertTriangle, ArrowRight, ClipboardList, Filter, Loader2, Search, UserCheck, X } from "lucide-react";
 import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge, ConfidenceBadge } from "@/components/iip/Primitives";
 import { useClaims } from "@/lib/lovable-parity/data/claims";
+import type { ClaimRowView } from "@/lib/lovable-parity/data/claims";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 
 const quickFilters = [
@@ -95,18 +96,19 @@ export default function ClaimsQueue() {
         eyebrow="Claims Intelligence"
         title="Work Queue"
         sub="Claims requiring officer attention across Motor Operations. AI has pre-processed extractions, evidence, and risk signals — officers decide."
-        action={<Link to="/app/claims/new" className="rounded-2xl gradient-primary text-white text-[13px] font-medium px-4 py-2.5 shadow-l2 hover-lift">+ New Claim (FNOL)</Link>}
+        action={<Link to="/app/claims/new" className="inline-flex min-h-11 items-center rounded-2xl gradient-primary px-4 py-2.5 text-[13px] font-medium text-white shadow-l2 hover-lift focus-ring">+ New Claim (FNOL)</Link>}
       />
 
       <div className="glass-subtle p-3 mb-4 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 rounded-xl bg-white/80 border border-cloud px-3 py-2 min-w-[280px] flex-1 max-w-md">
+        <label className="flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-xl border border-cloud bg-white/80 px-3 py-2 sm:min-w-[280px] sm:max-w-md">
           <Search className="h-3.5 w-3.5 text-stone" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search claim, customer, policy, assignment..." className="bg-transparent outline-none text-[13px] flex-1 placeholder:text-stone text-navy" />
-        </div>
+          <span className="sr-only">Search claims</span>
+          <input name="claim-search" autoComplete="off" value={q} onChange={e => setQ(e.target.value)} placeholder="Search claim, customer, policy, assignment…" className="min-w-0 flex-1 bg-transparent text-[13px] text-navy outline-none placeholder:text-stone" />
+        </label>
         <div className="flex flex-wrap gap-1.5">
           {quickFilters.map(x => (
-            <button key={x} onClick={() => setF(x)} className={`text-[12px] rounded-full px-3 py-1.5 border transition ${f === x ? "border-info/30 bg-[hsl(var(--info)/0.08)] text-info" : "border-cloud bg-white/70 text-slate2 hover:bg-white"}`}>
+            <button key={x} onClick={() => setF(x)} className={`min-h-11 rounded-full border px-3 py-2 text-[12px] transition-colors ${f === x ? "border-info/30 bg-[hsl(var(--info)/0.08)] text-info" : "border-cloud bg-white/70 text-slate2 hover:bg-white"}`}>
               {x} <span className="ml-1 text-[10px] opacity-70">{snapshotAvailable ? quickCounts.get(x) ?? 0 : "—"}</span>
             </button>
           ))}
@@ -115,7 +117,7 @@ export default function ClaimsQueue() {
           type="button"
           onClick={clearFilters}
           disabled={f === "All" && q.length === 0 && activeStructuredFilters === 0}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-cloud bg-white/70 px-3 py-2 text-[12px] text-slate2 disabled:cursor-not-allowed disabled:opacity-45"
+          className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-cloud bg-white/70 px-3 py-2 text-[12px] text-slate2 disabled:cursor-not-allowed disabled:opacity-45"
         >
           <X className="h-3.5 w-3.5" />
           Clear
@@ -153,9 +155,43 @@ export default function ClaimsQueue() {
           </div>
         </GlassCard>
       ) : (
-        <GlassCard className="p-0 overflow-hidden">
-          <div className="overflow-x-auto">
+        <GlassCard className="!p-0 overflow-hidden">
+          <div data-testid="claims-card-list" className="divide-y divide-cloud/70 md:hidden">
+            {rows.map((claim) => (
+              <article key={claim.id} data-testid="claim-card" className="space-y-3 p-4">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="break-words text-[14px] font-semibold text-navy">{claim.id}</h2>
+                    <p className="mt-0.5 break-words text-[12.5px] text-slate2">{claim.customer} · {claim.policy}</p>
+                  </div>
+                  <StatusBadge status={claim.status} />
+                </div>
+                <div className="flex flex-wrap gap-2"><SLABadge sla={claim.sla} /><RiskBadge risk={claim.risk} /></div>
+                <dl className="grid gap-2 text-[12px] text-slate2 min-[360px]:grid-cols-2">
+                  <div><dt className="text-stone">Evidence</dt><dd>{claim.complete ? "Documents complete" : "Documents incomplete"}</dd></div>
+                  <div><dt className="text-stone">Owner</dt><dd className="break-words">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</dd></div>
+                  <div><dt className="text-stone">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div>
+                  <div><dt className="text-stone">Updated</dt><dd>{claim.updated}</dd></div>
+                </dl>
+                <ClaimActions claim={claim} busy={busyCaseId === claim.id} onAssign={assignToMe} onEscalate={escalate} compact />
+              </article>
+            ))}
+          </div>
+
+          <div data-testid="claims-tablet-table" className="hidden overflow-x-auto md:block xl:hidden">
             <table className="w-full text-[13px]">
+              <caption className="sr-only">Claims priority queue with expandable details</caption>
+              <thead><tr className="border-b border-cloud text-left text-[11px] uppercase tracking-[0.12em] text-stone"><th className="px-4 py-3">Claim & details</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">SLA</th><th className="px-3 py-3">Owner</th><th className="px-3 py-3">Action</th></tr></thead>
+              <tbody>{rows.map((claim) => <tr key={claim.id} className="border-b border-cloud/60 align-top">
+                <td className="px-4 py-3"><div className="font-medium text-navy">{claim.id}</div><div className="text-[11px] text-stone">{claim.customer}</div><details className="mt-2"><summary className="min-h-6 cursor-pointer text-[11.5px] text-info focus-ring">More details</summary><dl className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate2"><div><dt className="text-stone">Evidence</dt><dd>{claim.complete ? "Complete" : "Incomplete"}</dd></div><div><dt className="text-stone">Risk</dt><dd>{claim.risk}</dd></div><div><dt className="text-stone">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div><div><dt className="text-stone">Updated</dt><dd>{claim.updated}</dd></div></dl></details></td>
+                <td className="px-3 py-3"><StatusBadge status={claim.status} /></td><td className="px-3 py-3"><SLABadge sla={claim.sla} /></td><td className="max-w-40 break-words px-3 py-3 text-slate2">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</td><td className="px-3 py-3"><Link to={`/app/claims/${claim.id}`} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-cloud bg-white px-3 py-2 text-info focus-ring">Review <ArrowRight className="h-3.5 w-3.5" /></Link></td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+
+          <div data-testid="claims-desktop-table" className="hidden overflow-x-auto xl:block">
+            <table className="w-full text-[13px]">
+              <caption className="sr-only">Complete claims work queue</caption>
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-[0.12em] text-stone border-b border-cloud">
                   {["Claim","Customer","Product","Status","Docs","SLA","Risk","Confidence","Assigned","Updated","Actions"].map(h => (
@@ -185,29 +221,7 @@ export default function ClaimsQueue() {
                     </td>
                     <td className="px-4 py-3 text-stone whitespace-nowrap">{c.updated}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Link to={`/app/claims/${c.id}`} className="inline-flex items-center gap-1 rounded-lg border border-cloud bg-white px-2 py-1.5 text-[12px] text-info">
-                          Review <ArrowRight className="h-3 w-3" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => assignToMe(c.id)}
-                          disabled={busyCaseId === c.id}
-                          className="inline-flex items-center gap-1 rounded-lg border border-cloud bg-white px-2 py-1.5 text-[12px] text-navy disabled:opacity-50"
-                        >
-                          {busyCaseId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserCheck className="h-3 w-3" />}
-                          Assign
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => escalate(c.id)}
-                          disabled={busyCaseId === c.id || c.status === "Escalated"}
-                          className="inline-flex items-center gap-1 rounded-lg border border-[hsl(var(--warning)/0.32)] bg-[hsl(var(--warning)/0.08)] px-2 py-1.5 text-[12px] text-[hsl(38_92%_36%)] disabled:opacity-50"
-                        >
-                          <AlertTriangle className="h-3 w-3" />
-                          Escalate
-                        </button>
-                      </div>
+                      <ClaimActions claim={c} busy={busyCaseId === c.id} onAssign={assignToMe} onEscalate={escalate} />
                     </td>
                   </tr>
                 ))}
@@ -264,7 +278,7 @@ function QueueSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white/70 px-3 py-2 text-[12px] text-slate2">
+    <label className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cloud bg-white/70 px-3 py-2 text-[12px] text-slate2">
       <span className="text-stone">{label}</span>
       <select
         value={value}
@@ -278,4 +292,12 @@ function QueueSelect({
       </select>
     </label>
   );
+}
+
+function ClaimActions({ claim, busy, onAssign, onEscalate, compact = false }: { claim: ClaimRowView; busy: boolean; onAssign: (id: string) => Promise<void>; onEscalate: (id: string) => Promise<void>; compact?: boolean }) {
+  return <div className={`flex flex-wrap items-center gap-2 ${compact ? "border-t border-cloud/70 pt-3" : ""}`}>
+    <Link to={`/app/claims/${claim.id}`} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-cloud bg-white px-3 py-2 text-[12px] font-medium text-info focus-ring">Review <ArrowRight className="h-3.5 w-3.5" /></Link>
+    <button type="button" onClick={() => void onAssign(claim.id)} disabled={busy} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-cloud bg-white px-3 py-2 text-[12px] text-navy focus-ring disabled:opacity-50">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}Assign</button>
+    <button type="button" onClick={() => void onEscalate(claim.id)} disabled={busy || claim.status === "Escalated"} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[hsl(var(--warning)/0.32)] bg-[hsl(var(--warning)/0.08)] px-3 py-2 text-[12px] text-[hsl(38_92%_36%)] focus-ring disabled:opacity-50"><AlertTriangle className="h-3.5 w-3.5" />Escalate</button>
+  </div>;
 }

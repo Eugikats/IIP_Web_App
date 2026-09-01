@@ -195,6 +195,23 @@ input, select, textarea {
   font: inherit;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+p,
+dd,
+li {
+  overflow-wrap: anywhere;
+}
+
 /* ─── Focus & selection ────────────────────────────────────── */
 button:focus-visible,
 a:focus-visible,
@@ -261,6 +278,14 @@ textarea:focus-visible {
 
 /* Respect reduced-motion preferences for the lift interaction. */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
   .hover-lift {
     transition: none;
   }

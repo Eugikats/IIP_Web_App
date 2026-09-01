@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, X } from "lucide-react";
 
@@ -32,6 +32,7 @@ export function GovernedActionDialog({
   const [mounted, setMounted] = useState(false);
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -44,9 +45,20 @@ export function GovernedActionDialog({
 
   useEffect(() => {
     if (!open) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') ?? []);
+    window.requestAnimationFrame(() => focusable()[0]?.focus());
 
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !isSubmitting) onClose();
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) { event.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
     document.addEventListener("keydown", onKey);
     const previousOverflow = document.body.style.overflow;
@@ -54,10 +66,11 @@ export function GovernedActionDialog({
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
+      window.requestAnimationFrame(() => previousFocus?.focus());
     };
   }, [isSubmitting, onClose, open]);
 
-  if (!mounted) return null;
+  if (!mounted || !open) return null;
 
   const trimmedReason = reason.trim();
   const canConfirm = trimmedReason.length >= 8 && !isSubmitting;
@@ -66,21 +79,17 @@ export function GovernedActionDialog({
     : "border-azure/40 bg-azure text-white hover:brightness-110";
 
   return createPortal(
-    <div aria-hidden={!open}>
+    <div>
       <div
-        className={`fixed inset-0 z-[120] bg-ink/45 backdrop-blur-sm transition-opacity duration-200 ${
-          open ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className="fixed inset-0 z-[120] bg-ink/45 opacity-100 backdrop-blur-sm"
         onClick={isSubmitting ? undefined : onClose}
       />
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-hidden={!open}
         aria-labelledby="governed-action-title"
-        className={`fixed left-1/2 top-1/2 z-[121] flex max-h-[calc(100dvh-24px)] w-[min(560px,92vw)] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-float transition-all duration-200 ${
-          open ? "-translate-y-1/2 opacity-100" : "pointer-events-none -translate-y-[45%] opacity-0"
-        }`}
+        className="fixed left-1/2 top-1/2 z-[121] flex max-h-[calc(100dvh-24px)] w-[min(560px,92vw)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-line bg-surface opacity-100 shadow-float"
       >
         <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
           <div className="min-w-0">
@@ -91,7 +100,7 @@ export function GovernedActionDialog({
             <h3 id="governed-action-title" className="mt-2 break-words text-xl font-semibold text-ink">{title}</h3>
           </div>
           <button
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-mist hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-mist hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onClose}
             disabled={isSubmitting}
             aria-label="Close confirmation"
@@ -111,6 +120,7 @@ export function GovernedActionDialog({
           <label className="block text-sm font-medium text-muted">
             Reason for audit trail
             <textarea
+              aria-label="Reason for audit trail"
               className="mt-2 min-h-28 w-full resize-y rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none transition-all placeholder:text-muted-soft focus:border-accent focus:ring-1 focus:ring-accent"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
@@ -124,14 +134,14 @@ export function GovernedActionDialog({
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-line bg-surface px-6 py-4">
           <button
-            className="rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-muted transition-all hover:border-accent/50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-11 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-muted transition-colors hover:border-accent/50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onClose}
             disabled={isSubmitting}
           >
             Cancel
           </button>
           <button
-            className={`rounded-full border px-4 py-2.5 text-sm font-semibold shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-50 ${confirmClass}`}
+            className={`min-h-11 rounded-full border px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${confirmClass}`}
             disabled={!canConfirm}
             onClick={async () => {
               setIsSubmitting(true);

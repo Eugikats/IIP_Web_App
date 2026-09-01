@@ -118,6 +118,7 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
       <input
         ref={inputRef}
         type="file"
+        aria-label="Upload claim photos or documents"
         accept="image/*,.pdf,.tif,.tiff,.txt,image/jpeg,image/png,application/pdf"
         capture="environment"
         multiple
@@ -131,7 +132,7 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
         type="button"
         disabled={uploading}
         onClick={() => inputRef.current?.click()}
-        className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+        className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50 focus-ring"
       >
         {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
         {uploading ? "Uploading…" : "Upload photo or document"}

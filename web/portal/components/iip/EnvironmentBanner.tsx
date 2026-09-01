@@ -24,7 +24,7 @@ export default function EnvironmentBanner() {
       >
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
         <span className="uppercase tracking-[0.12em]">Synthetic demo data</span>
-        <span className="text-amber-800/80 normal-case tracking-normal">
+        <span className="text-amber-950 normal-case tracking-normal">
           {environment.name} — not production. {environment.dataClassification}
         </span>
       </div>

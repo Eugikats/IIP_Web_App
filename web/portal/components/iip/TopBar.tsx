@@ -50,13 +50,13 @@ export default function TopBar() {
   }
 
   return (
-    <header className="h-16 shrink-0 border-b border-cloud/70 bg-white/60 backdrop-blur-xl px-2 sm:px-4 flex items-center gap-2 sm:gap-3">
+    <header className="min-h-16 shrink-0 border-b border-cloud/70 bg-white/60 px-2 backdrop-blur-xl sm:px-4 flex items-center gap-1.5 sm:gap-3">
       <div className="flex items-center gap-1">
         {sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            aria-label="Collapse sidebar"
-            className="h-9 w-9 grid place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy"
+            aria-label="Collapse sidebar from header"
+            className="h-11 w-11 grid place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy focus-ring"
           >
             <PanelLeftClose className="h-4 w-4" />
           </button>
@@ -64,12 +64,17 @@ export default function TopBar() {
         <RoleSwitcher />
       </div>
 
+      <div className="min-w-0 flex-1 leading-tight sm:hidden">
+        <span className="block text-[9px] uppercase tracking-[0.12em] text-stone">Workspace</span>
+        <span className="block truncate text-[11px] font-medium text-navy">{workspaceName}</span>
+      </div>
+
       <div className="hidden lg:flex min-w-0 max-w-[240px] flex-col leading-tight rounded-xl border border-cloud bg-white/70 px-3 py-1.5">
         <span className="text-[10.5px] uppercase tracking-[0.14em] text-stone">Workspace</span>
         <span className="truncate text-[12.5px] font-medium text-navy">{workspaceName}</span>
       </div>
 
-      <form role="search" onSubmit={submitSearch} className="flex-1 min-w-0 max-w-2xl mx-auto">
+      <form role="search" onSubmit={submitSearch} className="hidden flex-1 min-w-0 max-w-2xl mx-auto sm:block">
         <label className="flex items-center gap-2 rounded-2xl bg-white/80 border border-cloud px-3.5 py-2 text-[13px] text-stone shadow-l1 focus-within:ring-2 focus-within:ring-info/30">
           <Search className="h-4 w-4" />
           <input
@@ -89,8 +94,9 @@ export default function TopBar() {
       </form>
 
       <div className="flex items-center gap-1.5">
-        <button aria-label="Help" className="hidden sm:grid h-9 w-9 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition"><HelpCircle className="h-4 w-4" /></button>
-        <button aria-label="Notifications" className="relative hidden sm:grid h-9 w-9 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition">
+        <button type="button" aria-label={searchAvailable ? "Open search" : "Search unavailable"} title={searchAvailable ? "Open search" : searchGuidance} disabled={!searchAvailable} onClick={() => router.push("/app/search")} className="grid h-11 w-11 place-items-center rounded-xl text-stone hover:bg-white/70 hover:text-navy disabled:opacity-50 sm:hidden focus-ring"><Search className="h-4 w-4" /></button>
+        <button type="button" aria-label="Help" className="hidden h-11 w-11 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition-colors focus-ring lg:grid"><HelpCircle className="h-4 w-4" /></button>
+        <button type="button" aria-label="Notifications" className="relative hidden h-11 w-11 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition-colors focus-ring lg:grid">
           <Bell className="h-4 w-4" />
           <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-error" />
         </button>
@@ -98,7 +104,7 @@ export default function TopBar() {
           <button
             onClick={toggleCopilot}
             aria-label="Collapse Copilot"
-            className="hidden xl:grid h-9 w-9 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition"
+            className="hidden xl:grid h-11 w-11 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition-colors focus-ring"
           >
             <PanelRightClose className="h-4 w-4" />
           </button>
@@ -108,7 +114,7 @@ export default function TopBar() {
             <div className="text-[12.5px] font-medium text-navy">{displayName}</div>
             <div className="text-[10.5px] text-stone">Signed in as {roleLabel}</div>
           </div>
-          <div className="h-8 w-8 rounded-full bg-gradient-secondary grid place-items-center text-white text-[11px] font-semibold">{userInitials}</div>
+          <div role="img" aria-label={`${displayName}. Signed in as ${roleLabel}`} className="h-11 w-11 shrink-0 rounded-full bg-gradient-secondary grid place-items-center text-white text-[11px] font-semibold">{userInitials}</div>
         </div>
       </div>
     </header>

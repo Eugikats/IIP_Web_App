@@ -39,7 +39,8 @@ requireText("app/app/layout.tsx", "@/components/iip/AppShell", "/app routes must
 requireText("components/iip/AppShell.tsx", "RuntimeContextProvider", "must resolve runtime identity through the shared runtime context provider.");
 requireText("components/iip/AppShell.tsx", "canAccessWithPermissions(runtimeContext?.permissions", "protected /app presentation must use server-returned effective permissions.");
 requireText("components/iip/AppShell.tsx", "firstAccessibleRoute(runtimeContext?.permissions", "denied routes must fall back to an actually permitted destination.");
-requireText("components/iip/AppShell.tsx", "<Sidebar />", "must render role-aware left navigation.");
+requireText("components/iip/AppShell.tsx", "<Sidebar modal={mobileDrawerOpen}", "must render role-aware adaptive left navigation.");
+requireText("components/iip/AppShell.tsx", "onNavigate={() => mobileDrawerOpen", "mobile navigation must close after route selection.");
 requireText("components/iip/AppShell.tsx", "<CopilotPanel />", "must render the right evidence/context rail.");
 requireText("components/iip/AppShell.tsx", "<StatusBar />", "must render the environment/status footer.");
 requireText("components/iip/AppShell.tsx", "!runtimeContext", "must withhold protected shell content until /api/v1/me resolves.");

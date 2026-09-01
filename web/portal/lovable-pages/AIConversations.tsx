@@ -129,7 +129,7 @@ export default function AIConversations({ conversationId: requestedConversationI
   }
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] flex flex-col -mt-2">
+    <div className="min-h-[calc(100dvh-8rem)] flex flex-col -mt-2">
       {!hasContent && (
         <div className="max-w-[780px] mx-auto w-full text-center py-10 animate-fade-in">
           <div className="inline-flex items-center gap-2 rounded-full bg-[hsl(var(--violet)/0.08)] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet2 mb-4">
@@ -158,7 +158,7 @@ export default function AIConversations({ conversationId: requestedConversationI
         )}
         <div className="flex flex-wrap gap-2 justify-center">
           {STARTERS.map((s) => (
-            <button key={s} onClick={() => send(s)} className="text-[12.5px] text-slate2 rounded-full border border-cloud bg-white/80 px-3 py-1.5 hover:bg-white hover-lift transition">{s}</button>
+            <button key={s} onClick={() => send(s)} className="min-h-11 text-[12.5px] text-slate2 rounded-full border border-cloud bg-white/80 px-3 py-1.5 hover:bg-white hover-lift transition-colors">{s}</button>
           ))}
         </div>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -211,7 +211,7 @@ export default function AIConversations({ conversationId: requestedConversationI
 
       {/* Opaque backdrop: the composer is sticky, so a transparent background let long
           answers scroll visibly underneath the input and the guardrail footnote. */}
-      <div className="max-w-[780px] mx-auto w-full space-y-2 pt-4 pb-2 sticky bottom-0 bg-bg/95 backdrop-blur-sm">
+      <div className="sticky bottom-0 z-20 mx-auto w-full max-w-[780px] space-y-2 bg-bg/95 pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
         <Composer value={input} onChange={setInput} onSend={() => send()} disabled={loading || historyLoading || !canContinue || Boolean(historyError) || Boolean(pendingRequest)} />
         <div className="text-[10.5px] text-stone text-center">IIP Operations assists — it never settles, denies, repudiates, pays, or accuses fraud. Human reviewers approve regulated decisions.</div>
       </div>

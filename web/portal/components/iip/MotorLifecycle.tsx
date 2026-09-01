@@ -38,7 +38,7 @@ export default function MotorLifecycle({ current, status }: { current?: number; 
         <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Motor claim lifecycle</div>
         <div className="text-[11px] text-stone">Stage {stage + 1} of {STAGES.length}</div>
       </div>
-      <div className="flex items-center gap-1 overflow-x-auto pb-1">
+      <div tabIndex={0} aria-label="Motor claim lifecycle stages" className="flex items-center gap-1 overflow-x-auto pb-1 focus-ring">
         {STAGES.map((s, i) => (
           <div key={s} className="flex items-center gap-1 shrink-0">
             <div

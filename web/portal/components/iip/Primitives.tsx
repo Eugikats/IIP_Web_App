@@ -8,13 +8,13 @@ export function GlassCard({ className, children, level = 2 }: { className?: stri
 
 export function SectionHeader({ eyebrow, title, sub, action }: { eyebrow?: string; title: string; sub?: string; action?: ReactNode }) {
   return (
-    <div className="flex items-end justify-between gap-4 mb-6">
-      <div>
+    <div className="mb-6 flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+      <div className="min-w-0">
         {eyebrow && <div className="text-[11px] uppercase tracking-[0.14em] text-stone mb-2">{eyebrow}</div>}
-        <h1 className="text-[28px] leading-[36px] font-semibold text-navy">{title}</h1>
-        {sub && <p className="text-sm text-stone mt-1.5 max-w-2xl">{sub}</p>}
+        <h1 className="break-words text-[26px] leading-[34px] font-semibold text-navy sm:text-[28px] sm:leading-[36px]">{title}</h1>
+        {sub && <p className="mt-1.5 max-w-2xl break-words text-sm text-stone">{sub}</p>}
       </div>
-      {action}
+      {action ? <div className="w-full min-w-0 sm:w-auto">{action}</div> : null}
     </div>
   );
 }
