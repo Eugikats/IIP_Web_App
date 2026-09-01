@@ -4,6 +4,7 @@ import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGri
 import { Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useOperationsSummary } from "@/lib/lovable-parity/data/reports";
+import DataProvenance from "@/components/iip/DataProvenance";
 
 export default function Executive() {
   const { summary, loading, error, parityMode } = useOperationsSummary();
@@ -11,6 +12,11 @@ export default function Executive() {
   function exportCsv() {
     if (!summary) { toast("Nothing to export"); return; }
     const rows = [
+      ["Source", summary.source],
+      ["Data as of", summary.dataAsOf],
+      ["Snapshot ID", summary.snapshotId],
+      ["Limitations", summary.limitations],
+      [],
       ["Metric", "Value"],
       ["Open claims", summary.openClaims],
       ["New claims today", summary.newClaimsToday],
@@ -35,7 +41,7 @@ export default function Executive() {
       <SectionHeader
         eyebrow="Operations Intelligence"
         title="Management operations view"
-        sub="Claims volume, SLA state, approvals, and document completeness from real workspace aggregates. Unavailable financial or loss measures are omitted rather than estimated."
+        sub="Claims volume, SLA state, approvals, and document completeness from timestamped workspace aggregates or a labelled development snapshot. Unavailable financial or loss measures are omitted rather than estimated."
         action={<button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-2xl gradient-primary text-white text-[13px] px-4 py-2 shadow-l2 hover-lift"><Download className="h-4 w-4" /> Export CSV</button>}
       />
 
@@ -45,6 +51,7 @@ export default function Executive() {
         <GlassCard><div className="p-10 text-center text-stone"><div className="text-navy font-medium">Operations summary unavailable</div><div className="text-[12.5px] mt-1">{error ?? "No operations data for this workspace yet."}</div></div></GlassCard>
       ) : (
         <>
+          <DataProvenance source={summary.source} dataAsOf={summary.dataAsOf} snapshotId={summary.snapshotId} limitations={summary.limitations} className="mb-4" />
           <div className="grid md:grid-cols-4 gap-3 mb-6">
             {[
               { l: "Open claims", v: summary.openClaims },
@@ -68,15 +75,15 @@ export default function Executive() {
               </div>
             </div>
             {parityMode ? (
-              <p className="text-[13.5px] leading-[21px] text-slate2">Claims turnaround improved this period. SLA-at-risk claims dropped. Document completeness across intake channels rose, driven mostly by WhatsApp intake with prompted uploads. No regulator-facing incidents this week.</p>
+              <p className="text-[13.5px] leading-[21px] text-slate2">This synthetic snapshot contains {summary.openClaims} open claims, including {summary.slaAtRisk} at risk and {summary.slaBreached} breached. It demonstrates the management layout only; it does not establish trends, provider performance, financial outcomes, or regulatory status.</p>
             ) : (
-              <p className="text-[12.5px] leading-[20px] text-slate2">A grounded executive narrative appears here once the summary-generation service is configured. Until then, the metric tiles and the claims-by-status breakdown below are live from operations data; no narrative is fabricated.</p>
+              <p className="text-[12.5px] leading-[20px] text-slate2">A source-cited executive narrative appears here once the summary-generation service is configured. Until then, this view shows only the timestamped operational aggregates returned by the reports service.</p>
             )}
           </div>
 
           <GlassCard>
             <div className="text-[14px] font-semibold text-navy mb-1">Claims by status</div>
-            <div className="text-[11.5px] text-stone mb-4">Live distribution across the current workspace</div>
+            <div className="text-[11.5px] text-stone mb-4">{summary.source === "synthetic" ? "Illustrative distribution in the labelled development snapshot" : "Distribution at the snapshot time shown above"}</div>
             <div className="h-64">
               <ResponsiveContainer>
                 <BarChart data={summary.claimsByStatus}>

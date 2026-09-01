@@ -21,7 +21,7 @@ export default function Documents() {
           <div className="p-10 text-center flex flex-col items-center gap-2">
             <FileText className="h-6 w-6 text-stone" />
             <div className="text-navy font-medium">No documents yet</div>
-            <div className="text-[12.5px] text-stone max-w-md">{error ? error : "Documents appear here once uploaded against a claim. Nothing is fabricated."}</div>
+            <div className="text-[12.5px] text-stone max-w-md">{error ? error : "Only documents uploaded to a tenant-scoped claim appear here."}</div>
           </div>
         </GlassCard>
       ) : (

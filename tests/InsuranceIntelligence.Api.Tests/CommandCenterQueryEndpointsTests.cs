@@ -38,6 +38,8 @@ public sealed class CommandCenterQueryEndpointsTests
         Assert.Equal("Internal", body.GetProperty("visibility").GetString());
         Assert.NotEqual(Guid.Empty, body.GetProperty("conversationId").GetGuid());
         Assert.NotEqual(Guid.Empty, body.GetProperty("turnId").GetGuid());
+        Assert.NotEqual(default, body.GetProperty("dataAsOf").GetDateTimeOffset());
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("snapshotId").GetString()));
 
         var types = BlockTypes(body);
         Assert.Contains("metric_pills", types);

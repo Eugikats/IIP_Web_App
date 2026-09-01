@@ -60,7 +60,7 @@ export default function CustomerAcquisition() {
           <div className="p-10 text-center flex flex-col items-center gap-2">
             <Inbox className="h-6 w-6 text-stone" />
             <div className="text-navy font-medium">{error ? "Leads unavailable" : "No leads yet"}</div>
-            <div className="text-[12.5px] text-stone max-w-md">{error ? error : "Capture a lead with “New lead”, or connect a channel/import source in a later gate. Nothing is fabricated."}</div>
+            <div className="text-[12.5px] text-stone max-w-md">{error ? error : "Capture a lead with “New lead”. Connected channel and import sources appear only after configuration."}</div>
           </div>
         </GlassCard>
       ) : (

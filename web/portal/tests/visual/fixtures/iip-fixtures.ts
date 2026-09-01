@@ -626,6 +626,8 @@ const responses: Record<string, unknown> = {
   },
   "/api/v1/approvals": approvals,
   "/api/v1/reports/operations-summary": {
+    dataAsOf: now,
+    snapshotId: "visual-operations-snapshot",
     openClaims: 124,
     newClaimsToday: 18,
     incompleteClaims: 32,
@@ -813,7 +815,9 @@ export async function installVisualApiFixtures(page: Page) {
           }
         ],
         canTriggerDecision: false,
-        generatedAt: now
+        generatedAt: now,
+        dataAsOf: now,
+        snapshotId: "visual-command-center-snapshot"
       });
       return;
     }

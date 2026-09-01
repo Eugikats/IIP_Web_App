@@ -84,7 +84,7 @@ rejectPattern("lib/lovable-parity/data/claims.ts", /tenantId\s*:|workspaceId\s*:
 
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/claims/${claimId}", "claim review must load claim details from the governed endpoint.");
 requireText("lib/lovable-parity/data/claimReview.ts", "LOVABLE_VISUAL_PARITY_MODE", "development parity claim rows must open a matching parity detail without calling the live-only endpoint.");
-requireText("lib/lovable-parity/data/claimReview.ts", "fixtureClaims.find", "parity claim detail must resolve the selected fixture claim rather than substituting another record.");
+requireText("lib/lovable-parity/data/claimReview.ts", "syntheticWorkspaceSnapshot.claims.find", "parity claim detail must resolve the selected shared-snapshot claim rather than substituting another record.");
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/cases/${claimId}/timeline", "claim review must load timeline from the governed endpoint.");
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/cases/${claimId}/customer-updates/draft", "customer-update drafting must use the governed backend endpoint.");
 requireText("lib/lovable-parity/data/claimReview.ts", "/api/v1/customer-updates/${updateId}/approve", "customer-update approval must use the governed backend endpoint.");
@@ -114,6 +114,13 @@ requireText("package.json", '"dev": "node scripts/run-next-dev.mjs"', "all devel
 requireText("package.json", '"build": "node scripts/run-next-build.mjs"', "all production builds must use fail-closed configuration validation.");
 requireText("next.config.ts", "NEXT_PUBLIC_RUNTIME_PROFILE and NEXT_PUBLIC_AUTH_MODE are required", "production builds must fail closed when runtime authority configuration is missing.");
 requireText("scripts/run-runtime-recovery-production.mjs", 'NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:5167"', "the production recovery gate must set its API origin explicitly at build time.");
+requireText("lib/lovable-parity/syntheticWorkspaceSnapshot.ts", "satisfies SyntheticWorkspaceSnapshot", "development parity data must declare one typed synthetic workspace snapshot.");
+requireText("lib/lovable-parity/data/reports.ts", "syntheticWorkspaceSnapshot.operationsSummary", "reports parity metrics must consume the shared synthetic snapshot.");
+requireText("lib/lovable-parity/data/claims.ts", "syntheticWorkspaceSnapshot.claims", "claims parity rows must consume the shared synthetic snapshot.");
+requireText("lib/lovable-parity/data/providerHealth.ts", "syntheticWorkspaceSnapshot.providerHealth.providers", "provider parity status must consume the shared synthetic snapshot.");
+requireText("lib/lovable-parity/syntheticCommandCenterAnswer.ts", "snapshot.operationsSummary.openClaims", "Command Center parity metrics must consume the shared synthetic snapshot.");
+rejectPattern("lib/lovable-parity/data/reports.ts", /openClaims:\s*148/, "reports must not retain contradictory standalone parity metrics.");
+rejectPattern("lib/lovable-parity/data/commandCenterQuery.ts", /Open claims[\s\S]*value:\s*"24"/, "Command Center must not retain contradictory standalone parity metrics.");
 requirePattern("next.config.ts", /outputFileTracingExcludes[\s\S]*node_modules\/sharp\/\*\*\//, "standalone builds must exclude unused native image optimization packages.");
 
 if (findings.length > 0) {

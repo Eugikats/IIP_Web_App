@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
-import { claims as fixtureClaims } from "@/lib/lovable-parity/mock";
+import { syntheticWorkspaceSnapshot } from "@/lib/lovable-parity/syntheticWorkspaceSnapshot";
 import { failedState, loadingState, settledState, UiServiceError, type UiLoadState } from "@/lib/uiLoadState";
 
 export type ClaimRowView = {
@@ -70,7 +70,7 @@ function mapDto(dto: ClaimListItemDto): ClaimRowView {
 }
 
 // Fixture claims use a slightly different shape; project them into the view.
-const PARITY_ROWS: ClaimRowView[] = fixtureClaims.map((c) => ({
+const PARITY_ROWS: ClaimRowView[] = syntheticWorkspaceSnapshot.claims.map((c) => ({
   id: c.id,
   customer: c.customer,
   policy: c.policy,

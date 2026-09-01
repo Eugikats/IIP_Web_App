@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
-import { claims as fixtureClaims, documentLibrary } from "@/lib/lovable-parity/mock";
+import { documentLibrary } from "@/lib/lovable-parity/mock";
+import { syntheticWorkspaceSnapshot } from "@/lib/lovable-parity/syntheticWorkspaceSnapshot";
 import { failedState, loadingState, settledState, UiServiceError, type UiLoadState } from "@/lib/uiLoadState";
 
 async function readSafeApiError(response: Response, fallback: string): Promise<string> {
@@ -77,7 +78,7 @@ export type ReviewRequestView = {
 };
 
 function parityClaimDetail(claimId: string): ClaimDetailView | null {
-  const claim = fixtureClaims.find((item) => item.id === claimId);
+  const claim = syntheticWorkspaceSnapshot.claims.find((item) => item.id === claimId);
   if (!claim) return null;
 
   return {

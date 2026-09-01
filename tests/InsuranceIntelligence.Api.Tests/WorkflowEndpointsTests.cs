@@ -822,6 +822,8 @@ public sealed class WorkflowEndpointsTests
         Assert.Equal(StatusCodes.Status200OK, statusCode);
         Assert.Equal(1, summary!.OpenClaims);
         Assert.True(summary.OpenTasks > 0);
+        Assert.NotEqual(default, summary.DataAsOf);
+        Assert.False(string.IsNullOrWhiteSpace(summary.SnapshotId));
     }
 
     [Fact]
