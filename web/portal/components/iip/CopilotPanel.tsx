@@ -144,7 +144,7 @@ function blocksFor(pathname: string): Ctx {
     title: "Execution guidance",
     blocks: [
       { icon: Sparkles, label: "What you can ask", text: "Claims, documents, SLA, approvals, and missing information across this workspace." },
-      { icon: ShieldCheck, label: "Grounding", text: "Answers are grounded in this workspace's real data — nothing is fabricated." },
+      { icon: ShieldCheck, label: "Grounding", text: "Answers show whether they use a current, historical, or synthetic workspace snapshot, with timestamp and limits." },
       { icon: TrendingUp, label: "Evidence", text: "Data answers cite the records and evidence they draw from." },
     ],
     footer: "AI prepares work. Regulated decisions remain with the reviewing officer.",
@@ -154,7 +154,7 @@ function blocksFor(pathname: string): Ctx {
 export default function CopilotPanel() {
   const loc = useLocation();
   const { toggleCopilot } = useUI();
-  const { providers, loading } = useProviderHealth();
+  const { providers, loading, source, dataAsOf } = useProviderHealth();
   const ctx = blocksFor(loc.pathname);
 
   return (
@@ -191,6 +191,7 @@ export default function CopilotPanel() {
             <div className="text-[12px] text-stone">Not configured — no provider health reported for this workspace.</div>
           ) : (
             <div className="space-y-1.5 text-[12px]">
+              {source && dataAsOf ? <div className="pb-1 text-[10.5px] text-stone">{source === "synthetic" ? "Synthetic snapshot" : "Runtime response"} · {new Date(dataAsOf).toLocaleString()}</div> : null}
               {providers.map((p) => (
                 <div key={p.name} className="flex items-center justify-between gap-2">
                   <span className="text-slate2 truncate">{p.name}</span>

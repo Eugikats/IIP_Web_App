@@ -13,6 +13,8 @@ public sealed record OperationsSummaryResponse(
     int SlaAtRisk,
     int SlaBreached,
     IReadOnlyCollection<StatusCountResponse> ClaimsByStatus,
-    IReadOnlyCollection<StatusCountResponse> WorkQueueSummary);
+    IReadOnlyCollection<StatusCountResponse> WorkQueueSummary,
+    DateTimeOffset DataAsOf,
+    string SnapshotId);
 
 public sealed record StatusCountResponse(string Label, int Count);

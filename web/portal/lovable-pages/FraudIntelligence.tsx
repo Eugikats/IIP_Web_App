@@ -49,7 +49,7 @@ export default function FraudIntelligence() {
             <div className="text-[12.5px] text-stone max-w-md">
               {error
                 ? error
-                : "The rule engine found no advisory patterns in the current claims for this workspace. Signals appear here as claims accumulate — nothing is fabricated."}
+                : "The rule engine found no advisory patterns in the current tenant-scoped claims. No signal is shown without a matching rule result and evidence reference."}
             </div>
           </div>
         </GlassCard>

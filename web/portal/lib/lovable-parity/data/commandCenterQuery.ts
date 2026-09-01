@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
+import { buildSyntheticCommandCenterAnswer } from "@/lib/lovable-parity/syntheticCommandCenterAnswer";
 
 // Mirrors src/InsuranceIntelligence.Application/CommandCenter/CommandCenterQueryContracts.cs.
 // Blocks are a discriminated union keyed by `type` (frozen snake_case contract). Unknown
@@ -28,6 +29,10 @@ export type CommandCenterAnswer = {
   blocks: CommandCenterBlock[];
   canTriggerDecision: boolean;
   generatedAt: string;
+  dataAsOf: string;
+  snapshotId: string;
+  source: "live" | "synthetic" | "historical";
+  limitations: string;
   conversationId?: string;
   turnId?: string;
 };
@@ -38,20 +43,9 @@ type QueryResponseDto = {
   generatedAt: string;
   conversationId?: string;
   turnId?: string;
+  dataAsOf?: string;
+  snapshotId?: string;
 };
-
-const PARITY_ANSWER = (question: string): CommandCenterAnswer => ({
-  question,
-  canTriggerDecision: false,
-  generatedAt: new Date().toISOString(),
-  blocks: [
-    { type: "text", markdown: "Prototype answer — grounded query runs against `/api/v1/command-center/query` in real-data mode." },
-    { type: "metric_pills", items: [
-      { label: "Open claims", value: "24", tone: "info" },
-      { label: "SLA at risk", value: "5", tone: "warning" },
-    ] },
-  ],
-});
 
 export function useCommandCenterQuery() {
   const { roleDef } = useUI();
@@ -66,7 +60,7 @@ export function useCommandCenterQuery() {
     setLoading(true);
     setError(null);
     if (LOVABLE_VISUAL_PARITY_MODE) {
-      const parity = PARITY_ANSWER(q);
+      const parity = buildSyntheticCommandCenterAnswer(q);
       setAnswer(parity);
       setLoading(false);
       return parity;
@@ -85,6 +79,10 @@ export function useCommandCenterQuery() {
         blocks: dto.blocks ?? [],
         canTriggerDecision: Boolean(dto.canTriggerDecision),
         generatedAt: dto.generatedAt,
+        dataAsOf: dto.dataAsOf ?? dto.generatedAt,
+        snapshotId: dto.snapshotId ?? `command-center-${dto.generatedAt}`,
+        source: "live",
+        limitations: "Prepared from the current tenant-scoped snapshot. Confirm cited evidence before consequential use.",
         conversationId: dto.conversationId,
         turnId: dto.turnId,
       };

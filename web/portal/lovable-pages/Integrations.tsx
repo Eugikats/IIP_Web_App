@@ -38,11 +38,11 @@ export default function Integrations() {
         sub="One operational surface for provider health, adapter boundaries, identity onboarding, and safe diagnostics."
       />
 
-      <div className="mb-5"><GuardrailBanner text="Provider health is read from the runtime. IIP does not show invented connection success, queue depth, webhook delivery, or support-ticket status." /></div>
+      <div className="mb-5"><GuardrailBanner text={parityMode ? "Provider states below are a labelled development snapshot for UI verification. They do not establish a live connection or provider availability." : "Provider health is read from the runtime. IIP does not show invented connection success, queue depth, webhook delivery, or support-ticket status."} /></div>
 
       <div className="mb-2 flex items-center justify-between gap-3">
-        <div><div className="text-[11px] uppercase tracking-[0.14em] text-stone">Live provider health</div><div className="mt-1 text-[12px] text-slate2">Protected runtimes fail closed when required providers are missing or simulated.</div></div>
-        <Badge tone="info"><Activity className="mr-1 inline h-3 w-3" /> Runtime reported</Badge>
+        <div><div className="text-[11px] uppercase tracking-[0.14em] text-stone">{parityMode ? "Synthetic provider-health states" : "Live provider health"}</div><div className="mt-1 text-[12px] text-slate2">Protected runtimes fail closed when required providers are missing or simulated.</div></div>
+        <Badge tone="info"><Activity className="mr-1 inline h-3 w-3" /> {parityMode ? "Development snapshot" : "Runtime reported"}</Badge>
       </div>
       <ProviderHealthGrid />
 

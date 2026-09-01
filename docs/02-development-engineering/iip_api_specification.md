@@ -63,6 +63,8 @@ The frontend must not compute or invent operational metrics. All deployed Comman
 
 The current query body is `{ "question": "...", "conversationId": "optional-guid" }`. The response retains the typed-block envelope and adds server-issued `conversationId` and `turnId`. Browser tenant, workspace, user, and role values are never authority in protected runtimes.
 
+Command Center query responses also include additive `dataAsOf` and `snapshotId` fields. `dataAsOf` identifies when the operational data was evaluated; `snapshotId` lets the UI and audit evidence distinguish separate generated snapshots. These fields describe freshness and provenance only: they are not evidence, permission, or authority to take a consequential action.
+
 ### Current Universal My Work contract — 2026-08-07
 
 `GET /api/v1/my-work?ownership={mine|unassigned|all}&sourceType={WorkflowTask|Approval|DocumentReview|CommunicationReview|AgentWorkItem}&state={Ready|InProgress|Escalated|Completed|Closed}&limit={1..100}` returns a no-store, server-scope and permission-filtered read projection. Defaults are `mine` and `50`. Each row retains source type, ID and status plus owner provenance, required action, priority, case SLA/due state, evidence readiness, approval-needed flag, handoff and update time. It creates no universal persistence or action endpoint; actions remain with source-owned contracts. `unassigned` and `all` require all-claims visibility in the current baseline.
@@ -2172,6 +2174,11 @@ Metrics:
 - Human review completion rate.
 - Fraud signals raised.
 - Customer update backlog.
+
+The response also includes additive `dataAsOf` and `snapshotId` fields. Clients must display
+freshness with operational metrics and must not imply that separate snapshots are identical.
+`snapshotId` identifies the response snapshot; it is not evidence, authority, or a durable
+business-record identifier.
 
 ### 24.2 Get AI Quality Metrics
 

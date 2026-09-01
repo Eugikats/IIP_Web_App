@@ -3,51 +3,10 @@
 // or customer-facing deployments. Replace with /api/v1 contracts as each slice
 // is backend-backed.
 
-export type ClaimStatus = "New" | "Assigned" | "Awaiting Documents" | "In Review" | "Missing Documents" | "Human Review Required" | "Pending Approval" | "Escalated" | "Approved" | "Rejected" | "Ready for Export" | "Closed";
-export type SLAState = "Normal" | "At Risk" | "Breached";
-export type RiskState = "Low" | "Medium" | "High" | "Advisory Signal";
-
-export interface Claim {
-  id: string;
-  customer: string;
-  policy: string;
-  productLine: string;
-  claimType: string;
-  incident: string;
-  status: ClaimStatus;
-  missingDocs: number;
-  sla: SLAState;
-  risk: RiskState;
-  officer: string;
-  channel: "WhatsApp" | "Email" | "Web" | "Broker" | "Branch" | "Mobile" | "SMS";
-  updated: string;
-  confidence: number;
-  amount: string;
-  region: string;
-}
-
-export const claims: Claim[] = [
-  { id: "CLM-1048", customer: "Aisha Nakato", policy: "MTR-8821", productLine: "Motor", claimType: "Collision", incident: "Rear-end collision, Kampala Rd", status: "Human Review Required", missingDocs: 0, sla: "At Risk", risk: "Medium", officer: "T. Okello", channel: "WhatsApp", updated: "12 min ago", confidence: 0.86, amount: "UGX 4.2M", region: "Central" },
-  { id: "CLM-1052", customer: "David Mensah", policy: "MTR-1930", productLine: "Motor", claimType: "Collision", incident: "Side-swipe, parked vehicle", status: "Missing Documents", missingDocs: 3, sla: "Normal", risk: "Low", officer: "S. Achieng", channel: "Email", updated: "1 hr ago", confidence: 0.72, amount: "UGX 1.8M", region: "Eastern" },
-  { id: "CLM-1061", customer: "Grace Wanjiku", policy: "MTR-7712", productLine: "Motor", claimType: "Windscreen", incident: "Windscreen damage, hail", status: "In Review", missingDocs: 1, sla: "Normal", risk: "Low", officer: "T. Okello", channel: "Web", updated: "3 hr ago", confidence: 0.91, amount: "UGX 620K", region: "Central" },
-  { id: "CLM-1064", customer: "Samuel Otieno", policy: "MTR-4402", productLine: "Motor", claimType: "Third-party BI", incident: "Third-party bodily injury", status: "Escalated", missingDocs: 2, sla: "Breached", risk: "High", officer: "J. Mugisha", channel: "Broker", updated: "5 hr ago", confidence: 0.64, amount: "UGX 12.4M", region: "Western" },
-  { id: "CLM-1071", customer: "Fatima Suleiman", policy: "MTR-5591", productLine: "Motor", claimType: "Total loss", incident: "Total loss, fire", status: "New", missingDocs: 4, sla: "Normal", risk: "Advisory Signal", officer: "Unassigned", channel: "WhatsApp", updated: "just now", confidence: 0.58, amount: "UGX 22.0M", region: "Northern" },
-  { id: "CLM-1074", customer: "Peter Kagwa", policy: "MTR-9902", productLine: "Motor", claimType: "Collision", incident: "Minor collision, taxi park", status: "In Review", missingDocs: 0, sla: "Normal", risk: "Low", officer: "S. Achieng", channel: "Branch", updated: "yesterday", confidence: 0.94, amount: "UGX 780K", region: "Central" },
-  { id: "CLM-1082", customer: "Lydia Namutebi", policy: "MTR-3308", productLine: "Motor", claimType: "Collision", incident: "Boda-boda impact", status: "Awaiting Documents", missingDocs: 2, sla: "At Risk", risk: "Medium", officer: "T. Okello", channel: "WhatsApp", updated: "2 hr ago", confidence: 0.77, amount: "UGX 1.1M", region: "Central" },
-  { id: "CLM-1090", customer: "John Ekakoro", policy: "MTR-6650", productLine: "Motor", claimType: "Vandalism", incident: "Vandalism", status: "Ready for Export", missingDocs: 0, sla: "Normal", risk: "Low", officer: "J. Mugisha", channel: "Email", updated: "yesterday", confidence: 0.96, amount: "UGX 2.3M", region: "Eastern" },
-  { id: "CLM-2025-00928", customer: "Rachel Auma", policy: "MTR-2210", productLine: "Motor", claimType: "Collision", incident: "Front-end collision, Jinja Rd", status: "Pending Approval", missingDocs: 1, sla: "At Risk", risk: "Medium", officer: "S. Achieng", channel: "WhatsApp", updated: "35 min ago", confidence: 0.83, amount: "UGX 6.8M", region: "Central" },
-];
-
-export const metrics = [
-  { label: "Open claims", value: 148, delta: "+6", tone: "info" },
-  { label: "New claims today", value: 23, delta: "+3", tone: "info" },
-  { label: "Incomplete claims", value: 41, delta: "-2", tone: "warning" },
-  { label: "SLA at risk", value: 12, delta: "+1", tone: "warning" },
-  { label: "Pending approvals", value: 9, delta: "0", tone: "violet" },
-  { label: "Customer update backlog", value: 17, delta: "-4", tone: "info" },
-  { label: "AI questions answered", value: 1284, delta: "+128", tone: "violet" },
-  { label: "Escalations required", value: 4, delta: "+1", tone: "error" },
-];
+import { syntheticWorkspaceSnapshot } from "@/lib/lovable-parity/syntheticWorkspaceSnapshot";
+import type { RiskState } from "@/lib/lovable-parity/syntheticWorkspaceSnapshot";
+export type { Claim, ClaimStatus, SLAState, RiskState } from "@/lib/lovable-parity/syntheticWorkspaceSnapshot";
+export const claims = syntheticWorkspaceSnapshot.claims;
 
 export const activityStream = [
   { time: "09:42", actor: "AI Copilot", text: "Prepared claim summary for CLM-1048 — 3 evidence links, medium-risk advisory.", type: "ai" },

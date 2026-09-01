@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node scripts/run-next-dev.mjs",
     "build": "node scripts/run-next-build.mjs",
-    "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:ui-release-gates",
+    "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:ui-release-gates && pnpm test:trust-truth",
     "check:runtime-data": "node scripts/check-runtime-data-hygiene.mjs",
     "check:provider-status": "node scripts/check-provider-status.mjs",
     "check:role-routes": "node scripts/check-role-route-config.mjs",
@@ -14,6 +14,7 @@
     "test:deployed-dom": "playwright test --config playwright.deployed.config.ts",
     "test:runtime-recovery": "playwright test --config tests/runtime-recovery/playwright.config.ts",
     "test:runtime-recovery:production": "node scripts/run-runtime-recovery-production.mjs",
+    "test:trust-truth": "playwright test --config tests/trust-truth/playwright.config.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "start": "next start",

@@ -43,12 +43,8 @@ const WARNING_PROVIDER_STATUSES = new Set([
   "unconfigured"
 ]);
 const HEALTHY_PROVIDER_STATUSES = new Set([
-  "configured",
-  "connected",
   "healthy",
-  "ok",
-  "operational",
-  "ready"
+  "operational"
 ]);
 
 function normalizeProviderStatus(status: string) {
@@ -66,7 +62,8 @@ export function providerStatusTone(status: string): ProviderStatusTone {
 }
 
 export function isProviderHealthy(status: string) {
-  return providerStatusTone(status) === "success";
+  const normalized = normalizeProviderStatus(status);
+  return normalized === "healthy" || normalized === "operational";
 }
 
 export function providerByName(health: ProviderHealth | null, name: string) {
@@ -80,11 +77,11 @@ export function isProviderConfigured(provider: ProviderHealthItem | null) {
 
 export function formatProviderStatusLabel(status: string) {
   const normalized = normalizeProviderStatus(status);
+  if (normalized === "healthy") return "Operational";
   if (normalized === "not configured" || normalized === "unconfigured") {
     return "Not configured";
   }
-
-  return status;
+  return normalized.replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 export function integrationActionAvailability(

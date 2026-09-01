@@ -10,7 +10,7 @@ test("Gate 10 Command Center exposes provenance and source-grounded answers", as
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByRole("heading", { name: /Good morning,/ })).toBeVisible();
-  await expect(page.getByRole("main").getByText(/Answers are grounded in this workspace's real data/)).toBeVisible();
+  await expect(page.getByRole("main").getByText(/Answers identify their source, snapshot time, and limits/)).toBeVisible();
   if ((page.viewportSize()?.width ?? 0) >= 640) {
     await expect(page.getByRole("main").getByText("Open claims")).toBeVisible();
     await expect(page.getByRole("main").getByText("SLA at risk")).toBeVisible();

@@ -31,9 +31,10 @@ public static class ReportsEndpoints
         var approvals = await approvalRepository.ListAsync(scope, cancellationToken);
         var updates = await updateRepository.ListAsync(scope, cancellationToken);
         var actionLogs = await actionLogRepository.ListAsync(scope, cancellationToken);
-        var today = DateTimeOffset.UtcNow.Date;
+        var dataAsOf = DateTimeOffset.UtcNow;
+        var today = dataAsOf.Date;
         var averageCompleteness = cases.Count == 0 ? 0m : Math.Round(cases.Average(claimCase => claimCase.CompletenessScore), 2);
-        var slaStatuses = cases.Select(claimCase => slaCalculator.Calculate(claimCase, DateTimeOffset.UtcNow)).ToArray();
+        var slaStatuses = cases.Select(claimCase => slaCalculator.Calculate(claimCase, dataAsOf)).ToArray();
 
         return Results.Ok(new OperationsSummaryResponse(
             cases.Count(claimCase => claimCase.Status != CaseStatus.Closed),
@@ -48,6 +49,8 @@ public static class ReportsEndpoints
             slaStatuses.Count(status => status == SlaStatus.AtRisk),
             slaStatuses.Count(status => status == SlaStatus.Breached),
             cases.GroupBy(claimCase => claimCase.Status.ToString()).Select(group => new StatusCountResponse(group.Key, group.Count())).ToArray(),
-            tasks.GroupBy(task => task.TaskType.ToString()).Select(group => new StatusCountResponse(group.Key, group.Count())).ToArray()));
+            tasks.GroupBy(task => task.TaskType.ToString()).Select(group => new StatusCountResponse(group.Key, group.Count())).ToArray(),
+            dataAsOf,
+            $"operations-{dataAsOf.ToUnixTimeMilliseconds()}"));
     }
 }

@@ -10,6 +10,7 @@ import { useOperationsSummary } from "@/lib/lovable-parity/data/reports";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 import { useUI } from "@/context/UIStateContext";
 import { getConversation } from "@/lib/lovable-parity/data/commandCenterConversations";
+import DataProvenance from "@/components/iip/DataProvenance";
 
 type Msg =
   | { id: string; role: "user"; text: string }
@@ -103,20 +104,23 @@ export default function AIConversations({ conversationId: requestedConversationI
             <Sparkles className="h-3 w-3" /> IIP Operations · Command Center
           </div>
           <h1 className="text-[32px] leading-[40px] font-semibold text-navy tracking-tight">{givenName ? `Good morning, ${givenName}.` : "What needs attention in this workspace?"}</h1>
-          <p className="text-[14px] text-stone mt-2">Ask about claims, documents, SLA, approvals, or missing information. Answers are grounded in this workspace's real data — every regulated decision remains with a human.</p>
+          <p className="text-[14px] text-stone mt-2">Ask about claims, documents, SLA, approvals, or missing information. Answers identify their source, snapshot time, and limits; every regulated decision remains with a human.</p>
         </div>
       )}
 
       <div className={"max-w-[780px] mx-auto w-full transition-all duration-300 " + (hasContent ? "opacity-0 -translate-y-2 pointer-events-none h-0 overflow-hidden" : "opacity-100 translate-y-0 mb-8")}>
-        {metrics.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-            {metrics.map((m) => (
-              <div key={m.label} className="glass-subtle p-4 hover-lift">
-                <div className="flex items-center gap-1.5 text-[11.5px] text-stone"><m.icon className="h-3.5 w-3.5 text-info" />{m.label}</div>
-                <div className="mt-1.5 text-[24px] leading-none font-semibold text-navy tracking-tight">{Number(m.value).toLocaleString()}</div>
-              </div>
-            ))}
-          </div>
+        {summary && metrics.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+              {metrics.map((m) => (
+                <div key={m.label} className="glass-subtle p-4 hover-lift">
+                  <div className="flex items-center gap-1.5 text-[11.5px] text-stone"><m.icon className="h-3.5 w-3.5 text-info" />{m.label}</div>
+                  <div className="mt-1.5 text-[24px] leading-none font-semibold text-navy tracking-tight">{Number(m.value).toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+            <DataProvenance source={summary.source} dataAsOf={summary.dataAsOf} snapshotId={summary.snapshotId} limitations={summary.limitations} className="mb-5 text-left" />
+          </>
         ) : (
           <div className="glass-subtle p-4 mb-5 text-center text-[12px] text-stone">Operational metrics load from the reports service for this workspace.</div>
         )}
@@ -144,7 +148,16 @@ export default function AIConversations({ conversationId: requestedConversationI
             m.role === "user" ? (
               <UserMessageBubble key={m.id} text={m.text} />
             ) : m.role === "ai" ? (
-              <AIMessageBubble key={m.id}><CommandCenterBlocks blocks={m.answer.blocks} historical={m.historical} /></AIMessageBubble>
+              <AIMessageBubble key={m.id}>
+                <CommandCenterBlocks blocks={m.answer.blocks} historical={m.historical} />
+                <DataProvenance
+                  source={m.historical ? "historical" : (m.answer.source ?? "live")}
+                  dataAsOf={m.answer.dataAsOf ?? m.answer.generatedAt}
+                  snapshotId={m.answer.snapshotId ?? `historical-${m.answer.generatedAt}`}
+                  limitations={m.answer.limitations ?? "This saved response may not reflect current evidence or permissions."}
+                  className="mt-3"
+                />
+              </AIMessageBubble>
             ) : (
               <AIMessageBubble key={m.id}><p className="text-[13px] text-error">{m.text}</p></AIMessageBubble>
             )

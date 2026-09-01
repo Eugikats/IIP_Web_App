@@ -4,17 +4,20 @@ import { useProviderHealth } from "@/lib/lovable-parity/data/providerHealth";
 import { isProviderHealthy } from "@/lib/providerHealth";
 
 export default function StatusBar() {
-  const { providers, loading } = useProviderHealth();
+  const { providers, loading, source } = useProviderHealth();
   const degraded = providers.filter((p) => !isProviderHealthy(p.status));
   const ok = providers.length > 0 && degraded.length === 0;
 
-  const summary = loading
+  const providerSummary = loading
     ? "Checking provider health…"
     : providers.length === 0
       ? "Provider health · Not configured"
       : degraded.length === 0
         ? `All ${providers.length} providers healthy`
         : `${degraded.length} of ${providers.length} providers need attention`;
+  const summary = source === "synthetic" && !loading
+    ? `Synthetic snapshot · ${providerSummary}`
+    : providerSummary;
 
   return (
     <div className="h-8 shrink-0 border-t border-cloud/70 bg-white/60 backdrop-blur-xl px-4 flex items-center gap-5 text-[11px] text-stone">

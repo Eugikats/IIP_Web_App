@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
+import { syntheticWorkspaceSnapshot } from "@/lib/lovable-parity/syntheticWorkspaceSnapshot";
 
 export type OperationsSummaryView = {
   openClaims: number;
@@ -17,6 +18,10 @@ export type OperationsSummaryView = {
   slaAtRisk: number;
   slaBreached: number;
   claimsByStatus: { label: string; count: number }[];
+  dataAsOf: string;
+  snapshotId: string;
+  source: "live" | "synthetic";
+  limitations: string;
 };
 
 type OperationsSummaryDto = {
@@ -33,17 +38,16 @@ type OperationsSummaryDto = {
   slaBreached: number;
   claimsByStatus: { label: string; count: number }[];
   workQueueSummary: { label: string; count: number }[];
+  dataAsOf?: string;
+  snapshotId?: string;
 };
 
 const PARITY: OperationsSummaryView = {
-  openClaims: 148, newClaimsToday: 23, incompleteClaims: 41, averageCompletenessScore: 92,
-  pendingApprovals: 9, customerUpdatesPending: 17, assistantQuestionsAnswered: 1284,
-  escalationsRequired: 4, slaAtRisk: 6, slaBreached: 2,
-  claimsByStatus: [
-    { label: "In Review", count: 42 }, { label: "Missing Documents", count: 41 },
-    { label: "Human Review Required", count: 28 }, { label: "Pending Approval", count: 9 },
-    { label: "Ready for Export", count: 18 },
-  ],
+  ...syntheticWorkspaceSnapshot.operationsSummary,
+  dataAsOf: syntheticWorkspaceSnapshot.dataAsOf,
+  snapshotId: syntheticWorkspaceSnapshot.snapshotId,
+  source: syntheticWorkspaceSnapshot.source,
+  limitations: syntheticWorkspaceSnapshot.limitations,
 };
 
 export function useOperationsSummary() {
@@ -61,6 +65,7 @@ export function useOperationsSummary() {
       const response = await fetch(`${apiBaseUrl}/api/v1/reports/operations-summary`, { headers: scopedHeaders(role, "") });
       if (!response.ok) throw new Error(`Operations summary failed with HTTP ${response.status}.`);
       const dto = (await response.json()) as OperationsSummaryDto;
+      const receivedAt = new Date().toISOString();
       setSummary({
         openClaims: dto.openClaims,
         newClaimsToday: dto.newClaimsToday,
@@ -73,6 +78,10 @@ export function useOperationsSummary() {
         slaAtRisk: dto.slaAtRisk,
         slaBreached: dto.slaBreached,
         claimsByStatus: dto.claimsByStatus ?? [],
+        dataAsOf: dto.dataAsOf ?? receivedAt,
+        snapshotId: dto.snapshotId ?? `operations-received-${receivedAt}`,
+        source: "live",
+        limitations: "Tenant-scoped operational aggregates. Values can change after this timestamp.",
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Operations summary failed to load.");

@@ -27,6 +27,8 @@ public sealed record CommandCenterQueryResponse(
 {
     public Guid? ConversationId { get; init; }
     public Guid? TurnId { get; init; }
+    public DateTimeOffset DataAsOf => GeneratedAt;
+    public string SnapshotId => $"command-center-{AgentActionLogId:N}";
 }
 
 /// <summary>
