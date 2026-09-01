@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, ExternalLink, FileSearch, FileText, Loader2, Save, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -9,11 +9,16 @@ import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { Badge, ConfidenceBadge, GlassCard, SectionHeader, StatusBadge } from "@/components/iip/Primitives";
 import { documentContractLabel, type DocumentItem } from "@/lib/documentContracts";
 import { useDocumentExtraction } from "@/lib/documentExtraction";
+import { isValidWorkReference } from "@/lib/workItemLinks";
 
 export default function DocumentExtraction() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const caseId = String(params.id ?? "");
-  const { documents, loading, error, correctField, approve, preview } = useDocumentExtraction(caseId);
+  const requestedDocumentId = searchParams.get("documentId");
+  const validCaseId = isValidWorkReference(caseId, "CLM");
+  const validDocumentId = isValidWorkReference(requestedDocumentId, "DOC");
+  const { documents, loading, error, errorKind, correctField, approve, preview } = useDocumentExtraction(validCaseId ? caseId : "");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [auditReason, setAuditReason] = useState("");
@@ -22,9 +27,9 @@ export default function DocumentExtraction() {
 
   useEffect(() => {
     if (selectedId && documents.some((document) => document.documentId === selectedId)) return;
-    const requested = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("documentId");
-    setSelectedId(documents.find((document) => document.documentId === requested)?.documentId ?? documents[0]?.documentId ?? null);
-  }, [documents, selectedId]);
+    if (!validDocumentId) { setSelectedId(null); return; }
+    setSelectedId(documents.find((document) => document.documentId === requestedDocumentId)?.documentId ?? null);
+  }, [documents, requestedDocumentId, selectedId, validDocumentId]);
 
   const selected = documents.find((document) => document.documentId === selectedId) ?? null;
 
@@ -83,7 +88,7 @@ export default function DocumentExtraction() {
       <div className="mb-5"><GuardrailBanner text="This screen reviews extracted document facts only. Approval does not approve a claim, coverage position, settlement, payment, or fraud conclusion." /></div>
 
       {loading ? <GlassCard><div className="flex items-center justify-center gap-2 py-16 text-[13px] text-stone"><Loader2 className="h-4 w-4 animate-spin" /> Loading case documents…</div></GlassCard> : null}
-      {!loading && !selected ? <GlassCard><div className="py-16 text-center"><FileSearch className="mx-auto h-7 w-7 text-stone" /><div className="mt-3 font-medium text-navy">No document available for extraction review</div><div className="mt-1 text-[12.5px] text-stone">{error ?? "Upload a real claim document before opening Release 1 review."}</div><Link href={`/app/claims/${caseId}`} className="mt-4 inline-flex rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy">Return to claim</Link></div></GlassCard> : null}
+      {!loading && !selected ? <GlassCard><div className="py-16 text-center"><FileSearch className="mx-auto h-7 w-7 text-stone" /><div className="mt-3 font-medium text-navy">{errorKind === "unauthorized" ? "Extraction review unavailable" : "Document not available for extraction review"}</div><div className="mt-1 text-[12.5px] text-stone">{!validCaseId ? "This claim link is invalid." : !validDocumentId ? "This document link is invalid or incomplete." : error ?? "The document was not found on this claim, or is no longer accessible."}</div><Link href={validCaseId ? `/app/claims/${caseId}` : "/app/claims"} className="mt-4 inline-flex rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy">{validCaseId ? "Return to claim" : "Return to claims"}</Link></div></GlassCard> : null}
 
       {selected ? <>
         {documents.length > 1 ? <div className="mb-4 flex flex-wrap items-center gap-2"><span className="text-[11px] uppercase tracking-[0.12em] text-stone">Document</span><select value={selected.documentId} onChange={(event) => setSelectedId(event.target.value)} className="rounded-xl border border-cloud bg-white px-3 py-2 text-[12px] text-navy">{documents.map((document) => <option key={document.documentId} value={document.documentId}>{document.originalFileName} · {documentContractLabel(document.documentType)}</option>)}</select></div> : null}

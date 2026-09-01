@@ -47,6 +47,10 @@ type QueryResponseDto = {
   snapshotId?: string;
 };
 
+export type CommandCenterQueryResult =
+  | { ok: true; answer: CommandCenterAnswer }
+  | { ok: false; kind: "unauthorized" | "reconcile"; message: string };
+
 export function useCommandCenterQuery() {
   const { roleDef } = useUI();
   const role = roleDef.key;
@@ -54,24 +58,28 @@ export function useCommandCenterQuery() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ask = useCallback(async (question: string, conversationId?: string): Promise<CommandCenterAnswer | null> => {
+  const ask = useCallback(async (question: string, conversationId?: string, clientRequestId?: string): Promise<CommandCenterQueryResult> => {
     const q = question.trim();
-    if (!q) return null;
+    if (!q) return { ok: false, kind: "reconcile", message: "Enter a question before sending." };
     setLoading(true);
     setError(null);
     if (LOVABLE_VISUAL_PARITY_MODE) {
       const parity = buildSyntheticCommandCenterAnswer(q);
       setAnswer(parity);
       setLoading(false);
-      return parity;
+      return { ok: true, answer: parity };
     }
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/command-center/query`, {
         method: "POST",
         headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, conversationId: conversationId || null }),
+        body: JSON.stringify({ question: q, conversationId: conversationId || null, clientRequestId: clientRequestId || null }),
       });
-      if (response.status === 403) throw new Error("You do not have permission to query the Command Center.");
+      if (response.status === 403) {
+        const message = "You do not have permission to query the Command Center.";
+        setError(message);
+        return { ok: false, kind: "unauthorized", message };
+      }
       if (!response.ok) throw new Error(`Command Center query failed with HTTP ${response.status}.`);
       const dto = (await response.json()) as QueryResponseDto;
       const result: CommandCenterAnswer = {
@@ -87,11 +95,12 @@ export function useCommandCenterQuery() {
         turnId: dto.turnId,
       };
       setAnswer(result);
-      return result;
+      return { ok: true, answer: result };
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Command Center query failed.");
+      const message = err instanceof Error ? err.message : "Command Center query failed.";
+      setError(message);
       setAnswer(null);
-      return null;
+      return { ok: false, kind: "reconcile", message: "IIP could not confirm whether this request was saved. Retry safely to reconcile it before sending another request." };
     } finally {
       setLoading(false);
     }

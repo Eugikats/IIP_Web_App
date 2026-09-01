@@ -18,7 +18,26 @@ public sealed record CommandCenterConversationTurn(
     Guid TurnId,
     string Question,
     CommandCenterQueryResponse Response,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? ClientRequestId = null);
+
+public sealed record ConversationFocusReference(
+    string Type,
+    string Reference,
+    string Label,
+    string Href);
+
+public sealed record ConversationEvidenceSnapshot(
+    DateTimeOffset Timestamp,
+    string Version);
+
+public sealed record ConversationGroundingSummary(
+    DateTimeOffset HistoricalTimestamp,
+    string HistoricalVersion,
+    DateTimeOffset? CurrentTimestamp,
+    string? CurrentVersion,
+    string Status,
+    string SafeChangeSummary);
 
 public sealed record CommandCenterConversation
 {
@@ -32,6 +51,8 @@ public sealed record CommandCenterConversation
     public required DateTimeOffset CreatedAt { get; init; }
     public required DateTimeOffset LastActivityAt { get; init; }
     public required int Version { get; init; }
+    public ConversationFocusReference? PrimaryFocus { get; init; }
+    public ConversationEvidenceSnapshot? EvidenceSnapshot { get; init; }
 }
 
 public interface ICommandCenterConversationRepository
@@ -49,7 +70,10 @@ public sealed record ConversationSummaryDto(
     int TurnCount,
     DateTimeOffset CreatedAt,
     DateTimeOffset LastActivityAt,
-    int Version);
+    int Version,
+    string OwnerUserId,
+    ConversationFocusReference? PrimaryFocus,
+    ConversationGroundingSummary Grounding);
 
 public sealed record ConversationTurnDto(
     Guid TurnId,
@@ -67,7 +91,10 @@ public sealed record ConversationDetailDto(
     DateTimeOffset LastActivityAt,
     int Version,
     string GroundingStatus,
-    bool CanContinue);
+    bool CanContinue,
+    string OwnerUserId,
+    ConversationFocusReference? PrimaryFocus,
+    ConversationGroundingSummary Grounding);
 
 public sealed record ConversationListResponse(
     IReadOnlyList<ConversationSummaryDto> Items,

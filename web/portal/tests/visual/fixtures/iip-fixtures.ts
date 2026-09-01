@@ -648,6 +648,68 @@ const responses: Record<string, unknown> = {
       { label: "Document verification", queueName: "Document Verification", count: 32 }
     ]
   },
+  "/api/v1/command-center/conversations": {
+    items: [
+      {
+        conversationId: "11111111-1111-4111-8111-111111111111",
+        title: "Review motor claim evidence",
+        titleSource: "system_generated",
+        status: "active",
+        turnCount: 1,
+        createdAt: now,
+        lastActivityAt: now,
+        version: 1,
+        ownerUserId: "usr-visual-supervisor",
+        primaryFocus: { type: "claim", reference: caseId, label: `Claim ${caseId}`, href: `/app/claims/${caseId}` },
+        grounding: {
+          historicalTimestamp: now,
+          historicalVersion: "claim-saved-version",
+          currentTimestamp: now,
+          currentVersion: "claim-current-version",
+          status: "changed",
+          safeChangeSummary: "Claim or document evidence changed after this answer was saved. Recheck cited evidence before acting."
+        }
+      }
+    ],
+    total: 1,
+    hasMore: false
+  },
+  "/api/v1/command-center/conversations/11111111-1111-4111-8111-111111111111": {
+    conversationId: "11111111-1111-4111-8111-111111111111",
+    title: "Review motor claim evidence",
+    titleSource: "system_generated",
+    status: "active",
+    turnCount: 1,
+    createdAt: now,
+    lastActivityAt: now,
+    version: 1,
+    ownerUserId: "usr-visual-supervisor",
+    primaryFocus: { type: "claim", reference: caseId, label: `Claim ${caseId}`, href: `/app/claims/${caseId}` },
+    groundingStatus: "changed",
+    canContinue: true,
+    grounding: {
+      historicalTimestamp: now,
+      historicalVersion: "claim-saved-version",
+      currentTimestamp: now,
+      currentVersion: "claim-current-version",
+      status: "changed",
+      safeChangeSummary: "Claim or document evidence changed after this answer was saved. Recheck cited evidence before acting."
+    },
+    turns: [
+      {
+        turnId: "22222222-2222-4222-8222-222222222222",
+        question: "What evidence is missing?",
+        createdAt: now,
+        response: {
+          blocks: [{ type: "text", markdown: "The police report was missing when this answer was saved." }],
+          canTriggerDecision: false,
+          generatedAt: now,
+          dataAsOf: now,
+          snapshotId: "claim-saved-version"
+        }
+      }
+    ]
+  },
   "/api/v1/admin/provider-modes": providerModes,
   "/api/v1/admin/provider-health": providerHealth,
   "/api/v1/provider-status": providerStatus,
@@ -734,6 +796,7 @@ async function fulfillJson(route: Route, value: unknown, status = 200) {
 }
 
 export async function installVisualApiFixtures(page: Page) {
+  let conversationArchived = false;
   await page.route("http://127.0.0.1:5167/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -819,6 +882,26 @@ export async function installVisualApiFixtures(page: Page) {
         dataAsOf: now,
         snapshotId: "visual-command-center-snapshot"
       });
+      return;
+    }
+
+    if (path === "/api/v1/command-center/conversations" && route.request().method() === "GET") {
+      const archived = url.searchParams.get("archived") === "true";
+      const fixture = responses["/api/v1/command-center/conversations"] as { items: Array<Record<string, unknown>> };
+      const visible = archived === conversationArchived ? [{ ...fixture.items[0], status: archived ? "archived" : "active", version: archived ? 2 : 1 }] : [];
+      await fulfillJson(route, { items: visible, total: visible.length, hasMore: false });
+      return;
+    }
+
+    if (path.endsWith("/archive") && route.request().method() === "POST") {
+      conversationArchived = true;
+      await fulfillJson(route, { ...(responses["/api/v1/command-center/conversations"] as { items: Array<Record<string, unknown>> }).items[0], status: "archived", version: 2 });
+      return;
+    }
+
+    if (path.endsWith("/restore") && route.request().method() === "POST") {
+      conversationArchived = false;
+      await fulfillJson(route, { ...(responses["/api/v1/command-center/conversations"] as { items: Array<Record<string, unknown>> }).items[0], status: "active", version: 3 });
       return;
     }
 

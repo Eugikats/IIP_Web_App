@@ -26,18 +26,22 @@ export function useDocumentExtraction(caseId: string) {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<"not_found" | "unauthorized" | "unavailable" | null>(null);
 
   const load = useCallback(async () => {
-    if (!caseId) { setDocuments([]); setLoading(false); return; }
+    if (!caseId) { setDocuments([]); setErrorKind("not_found"); setLoading(false); return; }
     setLoading(true);
     setError(null);
+    setErrorKind(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/cases/${caseId}/documents`, { headers: scopedHeaders(role, "") });
-      if (response.status === 404) { setDocuments([]); setError("This claim was not found in the current workspace."); return; }
+      if (response.status === 404) { setDocuments([]); setErrorKind("not_found"); setError("This claim was not found in the current workspace."); return; }
+      if (response.status === 401 || response.status === 403) { setDocuments([]); setErrorKind("unauthorized"); setError("You do not have permission to review documents for this claim."); return; }
       if (!response.ok) throw new Error(await safeError(response, `Documents failed with HTTP ${response.status}.`));
       setDocuments((await response.json()) as DocumentItem[]);
     } catch (reason) {
       setDocuments([]);
+      setErrorKind("unavailable");
       setError(reason instanceof Error ? reason.message : "Documents failed to load.");
     } finally {
       setLoading(false);
@@ -87,5 +91,5 @@ export function useDocumentExtraction(caseId: string) {
     }
   }, [role]);
 
-  return { documents, loading, error, load, correctField, approve, preview };
+  return { documents, loading, error, errorKind, load, correctField, approve, preview };
 }

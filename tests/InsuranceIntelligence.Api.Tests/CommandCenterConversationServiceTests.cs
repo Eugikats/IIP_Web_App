@@ -24,10 +24,41 @@ public sealed class CommandCenterConversationServiceTests
         Assert.Equal("Review SLA status", summary.Title);
 
         var detail = await harness.Service.GetAsync(conversationId, "corr-2");
-        Assert.Equal("required_before_next_turn", detail.GroundingStatus);
+        Assert.Equal("current", detail.GroundingStatus);
         Assert.True(detail.CanContinue);
         Assert.Equal("Show SLA breaches.", Assert.Single(detail.Turns).Question);
         Assert.Contains(harness.AuditRepositoryEvents(), item => item.ActionName == "conversation.viewed");
+    }
+
+    [Fact]
+    public async Task ReopenReportsChangedEvidenceWithoutMakingHistoricalAnswerAuthoritative()
+    {
+        var grounding = new StubGroundingService();
+        var harness = new Harness("owner-1", grounding: grounding);
+        var response = await harness.Service.QueryAsync(new CommandCenterQueryRequest("Show claims needing attention."), "corr-create");
+        grounding.Status = "changed";
+
+        var detail = await harness.Service.GetAsync(Assert.IsType<Guid>(response.ConversationId), "corr-reopen");
+
+        Assert.Equal("changed", detail.Grounding.Status);
+        Assert.Contains("changed", detail.Grounding.SafeChangeSummary, StringComparison.OrdinalIgnoreCase);
+        Assert.True(detail.CanContinue);
+    }
+
+    [Fact]
+    public async Task RetryWithSameClientRequestIdReturnsStoredTurnWithoutDuplicateQuery()
+    {
+        var queryService = new StubQueryService();
+        var harness = new Harness("owner-1", queryService: queryService);
+        var requestId = Guid.NewGuid();
+        var request = new CommandCenterQueryRequest("Show SLA breaches.", ClientRequestId: requestId);
+
+        var first = await harness.Service.QueryAsync(request, "corr-first");
+        var reconciled = await harness.Service.QueryAsync(request, "corr-retry");
+
+        Assert.Equal(first.TurnId, reconciled.TurnId);
+        Assert.Equal(1, queryService.CallCount);
+        Assert.Single((await harness.Service.GetAsync(Assert.IsType<Guid>(first.ConversationId), "corr-get")).Turns);
     }
 
     [Fact]
@@ -69,12 +100,23 @@ public sealed class CommandCenterConversationServiceTests
     {
         private readonly InMemoryAuditRepository auditRepository = new();
 
-        public Harness(string userId, InMemoryCommandCenterConversationRepository? repository = null, TenantScope? scope = null)
+        public Harness(
+            string userId,
+            InMemoryCommandCenterConversationRepository? repository = null,
+            TenantScope? scope = null,
+            StubGroundingService? grounding = null,
+            StubQueryService? queryService = null)
         {
             var context = new TenantContextAccessor();
             context.SetCurrent(new TenantContext((scope ?? Scope).TenantId, (scope ?? Scope).WorkspaceId, userId, ["ClaimsSupervisor"]));
             var permissions = new PermissionService(context, new LocalTestPermissionReadRepository());
-            Service = new CommandCenterConversationService(context, permissions, new StubQueryService(), repository ?? new InMemoryCommandCenterConversationRepository(), auditRepository);
+            Service = new CommandCenterConversationService(
+                context,
+                permissions,
+                queryService ?? new StubQueryService(),
+                repository ?? new InMemoryCommandCenterConversationRepository(),
+                auditRepository,
+                grounding ?? new StubGroundingService());
         }
 
         public ICommandCenterConversationService Service { get; }
@@ -85,8 +127,15 @@ public sealed class CommandCenterConversationServiceTests
 
     private sealed class StubQueryService : ICommandCenterQueryService
     {
+        public int CallCount { get; private set; }
+
         public Task<CommandCenterQueryResponse> QueryAsync(CommandCenterQueryRequest request, string correlationId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new CommandCenterQueryResponse(
+            Task.FromResult(CreateResponse(request, correlationId));
+
+        private CommandCenterQueryResponse CreateResponse(CommandCenterQueryRequest request, string correlationId)
+        {
+            CallCount++;
+            return new CommandCenterQueryResponse(
                 [new TextBlock("Current workspace data checked.")],
                 Guid.NewGuid(),
                 correlationId,
@@ -94,6 +143,32 @@ public sealed class CommandCenterConversationServiceTests
                 "command-center-query-v1",
                 "Internal",
                 CanTriggerDecision: false,
-                DateTimeOffset.UtcNow));
+                DateTimeOffset.UtcNow);
+        }
+    }
+
+    private sealed class StubGroundingService : IConversationGroundingService
+    {
+        public string Status { get; set; } = "current";
+
+        public Task<(ConversationFocusReference? Focus, ConversationEvidenceSnapshot Snapshot)> CaptureAsync(
+            CommandCenterQueryResponse response,
+            TenantScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<(ConversationFocusReference?, ConversationEvidenceSnapshot)>((
+                new ConversationFocusReference("claim", Guid.Empty.ToString(), "Claim test", "/app/claims/test"),
+                new ConversationEvidenceSnapshot(response.DataAsOf, response.SnapshotId)));
+
+        public Task<ConversationGroundingSummary> CompareAsync(CommandCenterConversation conversation, CancellationToken cancellationToken = default)
+        {
+            var historical = conversation.EvidenceSnapshot ?? new ConversationEvidenceSnapshot(conversation.LastActivityAt, "snapshot-test");
+            return Task.FromResult(new ConversationGroundingSummary(
+                historical.Timestamp,
+                historical.Version,
+                DateTimeOffset.UtcNow,
+                Status == "changed" ? "snapshot-changed" : historical.Version,
+                Status,
+                Status == "changed" ? "Claim evidence changed after this answer was saved." : "No recorded changes."));
+        }
     }
 }

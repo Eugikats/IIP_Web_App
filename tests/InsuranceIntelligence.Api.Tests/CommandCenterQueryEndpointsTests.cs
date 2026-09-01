@@ -426,9 +426,10 @@ public sealed class CommandCenterQueryEndpointsTests
             var conversationService = new CommandCenterConversationService(
                 TenantContextAccessor,
                 permissionService,
-                queryService,
-                ConversationRepository,
-                AuditRepository);
+                 queryService,
+                 ConversationRepository,
+                 AuditRepository,
+                 new ConversationGroundingService(CaseRepository, DocumentRepository));
 
             var result = await CommandCenterQueryEndpoints.RunQuery(
                 new CommandCenterQueryRequest(question),
@@ -476,9 +477,10 @@ public sealed class CommandCenterQueryEndpointsTests
             var conversationService = new CommandCenterConversationService(
                 TenantContextAccessor,
                 permissionService,
-                queryService,
-                ConversationRepository,
-                AuditRepository);
+                 queryService,
+                 ConversationRepository,
+                 AuditRepository,
+                 new ConversationGroundingService(CaseRepository, DocumentRepository));
 
             var result = await CommandCenterQueryEndpoints.RunQuery(
                 new CommandCenterQueryRequest(question),

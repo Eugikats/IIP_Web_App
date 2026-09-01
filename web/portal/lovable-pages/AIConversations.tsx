@@ -9,13 +9,13 @@ import { useCommandCenterQuery, type CommandCenterAnswer } from "@/lib/lovable-p
 import { useOperationsSummary } from "@/lib/lovable-parity/data/reports";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 import { useUI } from "@/context/UIStateContext";
-import { getConversation } from "@/lib/lovable-parity/data/commandCenterConversations";
+import { getConversation, type ConversationGroundingSummary } from "@/lib/lovable-parity/data/commandCenterConversations";
 import DataProvenance from "@/components/iip/DataProvenance";
 
 type Msg =
   | { id: string; role: "user"; text: string }
   | { id: string; role: "ai"; answer: CommandCenterAnswer; historical?: boolean }
-  | { id: string; role: "ai-error"; text: string };
+  | { id: string; role: "ai-error"; text: string; requestId?: string; question?: string };
 
 const STARTERS = [
   "Show claims that need attention.",
@@ -36,14 +36,38 @@ export default function AIConversations({ conversationId: requestedConversationI
   const [historyLoading, setHistoryLoading] = useState(Boolean(requestedConversationId));
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [canContinue, setCanContinue] = useState(true);
+  const [grounding, setGrounding] = useState<ConversationGroundingSummary | null>(null);
+  const [pendingRequest, setPendingRequest] = useState<{ question: string; requestId: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const restoredScrollRef = useRef(false);
+  const skipDraftWriteRef = useRef(true);
+  const storageKey = `iip.conversation.${requestedConversationId ?? conversationId ?? "new"}`;
 
   const hasContent = messages.length > 0 || input.length > 0 || loading;
   const givenName = runtimeContext?.displayName?.trim().split(/\s+/)[0];
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
+    skipDraftWriteRef.current = true;
+    try { setInput(sessionStorage.getItem(`${storageKey}.draft`) ?? ""); } catch { /* best effort */ }
+    restoredScrollRef.current = false;
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (skipDraftWriteRef.current) { skipDraftWriteRef.current = false; return; }
+    try { sessionStorage.setItem(`${storageKey}.draft`, input); } catch { /* best effort */ }
+  }, [input, storageKey]);
+
+  useEffect(() => () => {
+    try { sessionStorage.setItem(`${storageKey}.scroll`, String(scrollRef.current?.scrollTop ?? 0)); } catch { /* best effort */ }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (historyLoading || restoredScrollRef.current || !scrollRef.current) return;
+    let saved = 0;
+    try { saved = Number(sessionStorage.getItem(`${storageKey}.scroll`) ?? 0); } catch { /* best effort */ }
+    scrollRef.current.scrollTo({ top: saved > 0 ? saved : scrollRef.current.scrollHeight });
+    restoredScrollRef.current = true;
+  }, [historyLoading, messages.length, storageKey]);
 
   useEffect(() => {
     if (!requestedConversationId || !runtimeContext) return;
@@ -59,6 +83,7 @@ export default function AIConversations({ conversationId: requestedConversationI
         setMessages(restored);
         setConversationId(conversation.conversationId);
         setCanContinue(conversation.canContinue);
+        setGrounding(conversation.grounding);
       })
       .catch((reason: unknown) => {
         if (reason instanceof DOMException && reason.name === "AbortError") return;
@@ -79,21 +104,28 @@ export default function AIConversations({ conversationId: requestedConversationI
       ]
     : [];
 
-  async function send(question?: string) {
+  async function send(question?: string, retryRequestId?: string) {
     const q = (question ?? input).trim();
     if (!q || loading) return;
-    setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text: q }]);
-    setInput("");
-    const answer = await ask(q, conversationId);
+    const requestId = retryRequestId ?? crypto.randomUUID();
+    setPendingRequest({ question: q, requestId });
+    setMessages((current) => retryRequestId
+      ? current.filter((message) => !(message.role === "ai-error" && message.requestId === retryRequestId))
+      : [...current, { id: crypto.randomUUID(), role: "user", text: q }]);
+    const result = await ask(q, conversationId, requestId);
+    if (!result.ok) {
+      setMessages((current) => [...current, { id: crypto.randomUUID(), role: "ai-error", text: result.message, requestId: result.kind === "reconcile" ? requestId : undefined, question: q }]);
+      if (result.kind !== "reconcile") setPendingRequest(null);
+      return;
+    }
+    const answer = result.answer;
     if (answer?.conversationId && !conversationId) {
       setConversationId(answer.conversationId);
       router.replace(`/app/conversations/${answer.conversationId}`);
     }
-    setMessages((m) =>
-      answer
-        ? [...m, { id: crypto.randomUUID(), role: "ai", answer }]
-        : [...m, { id: crypto.randomUUID(), role: "ai-error", text: "That request could not be answered against this workspace right now." }]
-    );
+    setMessages((current) => [...current, { id: crypto.randomUUID(), role: "ai", answer }]);
+    setInput("");
+    setPendingRequest(null);
   }
 
   return (
@@ -144,6 +176,13 @@ export default function AIConversations({ conversationId: requestedConversationI
               Historical responses are shown for continuity. IIP checks current permissions and live workspace data again when you continue.
             </div>
           )}
+          {grounding && !historyLoading && !historyError ? (
+            <div role={grounding.status === "changed" ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-[12px] ${grounding.status === "changed" ? "border-warning/40 bg-warning/5 text-warning-text" : "border-cloud bg-white/70 text-slate2"}`}>
+              <div className="font-medium">{grounding.status === "current" ? "Evidence checked — no recorded changes" : grounding.status === "changed" ? "Evidence changed since this answer" : "Current evidence could not be checked"}</div>
+              <div className="mt-1">{grounding.safeChangeSummary}</div>
+              <div className="mt-1 text-[10.5px] text-stone">Saved {new Date(grounding.historicalTimestamp).toLocaleString()} · version {grounding.historicalVersion}{grounding.currentVersion ? ` · current ${grounding.currentVersion}` : ""}</div>
+            </div>
+          ) : null}
           {messages.map((m) =>
             m.role === "user" ? (
               <UserMessageBubble key={m.id} text={m.text} />
@@ -159,7 +198,7 @@ export default function AIConversations({ conversationId: requestedConversationI
                 />
               </AIMessageBubble>
             ) : (
-              <AIMessageBubble key={m.id}><p className="text-[13px] text-error">{m.text}</p></AIMessageBubble>
+              <AIMessageBubble key={m.id}><p className="text-[13px] text-error">{m.text}</p>{m.requestId && m.question ? <button type="button" onClick={() => void send(m.question, m.requestId)} className="mt-3 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Retry safely</button> : null}</AIMessageBubble>
             )
           )}
           {loading && (
@@ -173,7 +212,7 @@ export default function AIConversations({ conversationId: requestedConversationI
       {/* Opaque backdrop: the composer is sticky, so a transparent background let long
           answers scroll visibly underneath the input and the guardrail footnote. */}
       <div className="max-w-[780px] mx-auto w-full space-y-2 pt-4 pb-2 sticky bottom-0 bg-bg/95 backdrop-blur-sm">
-        <Composer value={input} onChange={setInput} onSend={() => send()} disabled={loading || historyLoading || !canContinue || Boolean(historyError)} />
+        <Composer value={input} onChange={setInput} onSend={() => send()} disabled={loading || historyLoading || !canContinue || Boolean(historyError) || Boolean(pendingRequest)} />
         <div className="text-[10.5px] text-stone text-center">IIP Operations assists — it never settles, denies, repudiates, pays, or accuses fraud. Human reviewers approve regulated decisions.</div>
       </div>
     </div>

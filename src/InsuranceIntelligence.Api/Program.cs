@@ -311,6 +311,7 @@ builder.Services.AddSingleton<IProviderRequirementResolver, ProviderRequirementR
 builder.Services.AddScoped<INotificationDraftService, CustomerUpdateNotificationDraftService>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
 builder.Services.AddScoped<ICommandCenterConversationService, CommandCenterConversationService>();
+builder.Services.AddScoped<IConversationGroundingService, ConversationGroundingService>();
 // W2.5: Phase 2 core-workspace query services.
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();

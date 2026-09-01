@@ -3,6 +3,7 @@ import Link from "next/link";
 import { GlassCard, SectionHeader, Badge, StatusBadge, ConfidenceBadge } from "@/components/iip/Primitives";
 import { ExternalLink, FileText } from "lucide-react";
 import { useDocuments } from "@/lib/lovable-parity/data/documents";
+import { extractionHref } from "@/lib/workItemLinks";
 
 export default function Documents() {
   const { documents, loading, error } = useDocuments();
@@ -33,7 +34,9 @@ export default function Documents() {
               </tr>
             </thead>
             <tbody>
-              {documents.map((d) => (
+              {documents.map((d) => {
+                const reviewHref = extractionHref(d.claim, d.id);
+                return (
                 <tr key={d.id} className="border-t border-cloud/70 hover:bg-white/50">
                   <td className="p-3"><div className="flex items-center gap-2 text-navy"><FileText className="h-4 w-4 text-info" />{d.name}</div><div className="text-[10.5px] text-stone">{d.id}</div></td>
                   <td className="p-3 text-slate2">{d.type}</td>
@@ -42,10 +45,10 @@ export default function Documents() {
                   <td className="p-3">{d.confidence > 0 ? <ConfidenceBadge value={d.confidence} /> : <Badge tone="neutral">—</Badge>}</td>
                   <td className="p-3 text-stone">{d.uploaded}</td>
                   <td className="p-3">
-                    <Link href={`/app/claims/${d.claim}/extraction?documentId=${d.id}`} className="inline-flex items-center gap-1 rounded-lg border border-cloud bg-white px-2 py-1 text-[11.5px] font-medium text-navy focus-ring"><ExternalLink className="h-3 w-3" /> Review</Link>
+                    {reviewHref ? <Link href={reviewHref} className="inline-flex items-center gap-1 rounded-lg border border-cloud bg-white px-2 py-1 text-[11.5px] font-medium text-navy focus-ring"><ExternalLink className="h-3 w-3" /> Review</Link> : <span className="text-[11px] text-stone">Review unavailable</span>}
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </GlassCard>
