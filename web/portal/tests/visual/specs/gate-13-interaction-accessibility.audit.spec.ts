@@ -55,6 +55,7 @@ test("Gate 13 records keyboard, focus-return and dialog semantics evidence", asy
     name: document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent?.trim().slice(0, 100),
     insideDialog: Boolean(document.activeElement?.closest('[role="dialog"]')),
   }));
+  expect(initialFocus.insideDialog).toBe(true);
 
   const tabTrail: Array<{ tag?: string; name?: string; insideDialog: boolean }> = [];
   for (let index = 0; index < 8; index += 1) {
@@ -65,9 +66,11 @@ test("Gate 13 records keyboard, focus-return and dialog semantics evidence", asy
       insideDialog: Boolean(document.activeElement?.closest('[role="dialog"]')),
     })));
   }
+  expect(tabTrail.every((entry) => entry.insideDialog)).toBe(true);
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
   const focusAfterEscape = await page.evaluate(() => ({
     tag: document.activeElement?.tagName,
     name: document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent?.trim().slice(0, 100),

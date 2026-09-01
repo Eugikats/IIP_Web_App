@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
   await installVisualApiFixtures(page);
 });
 
-test("Gate 7 Document Checker exposes split verification workspace and blocked extraction state", async ({ page }, testInfo) => {
+test("Gate 7 Document Checker exposes adaptive verification workspace and blocked extraction state", async ({ page }, testInfo) => {
   await page.goto(documentPath);
   await page.waitForLoadState("networkidle");
 
@@ -20,6 +20,9 @@ test("Gate 7 Document Checker exposes split verification workspace and blocked e
   await expect(page.getByText("Garage Name")).toBeVisible();
   await expect(page.getByRole("button", { name: "Approve extraction" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Save corrections" })).toBeDisabled();
+  if ((page.viewportSize()?.width ?? 1440) < 1280) {
+    await page.getByRole("tab", { name: "Source document" }).click();
+  }
   await expect(page.getByAltText("Authorized preview of repair_estimate.pdf")).toBeVisible();
 
   await testInfo.attach(`gate-7-document-checker-${testInfo.project.name}.png`, {

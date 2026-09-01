@@ -1,6 +1,6 @@
 "use client";
 import { useLocation, Navigate } from "@/components/iip/NextRouterCompat";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
@@ -17,6 +17,51 @@ function ShellInner({ children }: { children: ReactNode }) {
   const { sidebarOpen, copilotOpen, setSidebarOpen, toggleSidebar, toggleCopilot, roleDef } = useUI();
   const { runtimeContext, loading, error, parityMode, refresh } = useRuntimeContext();
   const loc = useLocation();
+  const [mobileViewport, setMobileViewport] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const copilotRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
+  const openSidebarRef = useRef<HTMLButtonElement>(null);
+  const mobileDrawerOpen = mobileViewport && sidebarOpen;
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+    const update = () => setMobileViewport(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    const background = [contentRef.current, copilotRef.current, statusRef.current];
+    background.forEach((element) => { if (element) element.inert = mobileDrawerOpen; });
+    if (!mobileDrawerOpen) return;
+
+    const drawer = drawerRef.current;
+    const focusable = () => Array.from(drawer?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []);
+    focusable()[0]?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSidebarOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) { event.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      background.forEach((element) => { if (element) element.inert = false; });
+      window.requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[aria-label="Open navigation"]')?.focus());
+    };
+  }, [mobileDrawerOpen, setSidebarOpen]);
 
   if (!canUseLocalTestDoubles && !parityMode && loading) {
     return (
@@ -64,35 +109,41 @@ function ShellInner({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="h-screen w-full ambient-bg flex flex-col overflow-hidden">
+    <div className="h-[100dvh] w-full ambient-bg flex flex-col overflow-hidden">
       <EnvironmentBanner />
       <div className="flex-1 flex overflow-hidden relative">
         {sidebarOpen && (
           <button
             type="button"
-            aria-label="Close sidebar overlay"
+            aria-label="Close navigation backdrop"
             onClick={() => setSidebarOpen(false)}
+            tabIndex={-1}
             className="absolute inset-y-0 left-[min(264px,calc(100vw-48px))] right-0 z-30 bg-navy/20 backdrop-blur-[1px] md:hidden"
           />
         )}
         <div
+          ref={drawerRef}
+          role={mobileDrawerOpen ? "dialog" : undefined}
+          aria-modal={mobileDrawerOpen ? true : undefined}
+          aria-label={mobileDrawerOpen ? "Primary navigation" : undefined}
           className={
-            "absolute inset-y-0 left-0 z-40 w-[264px] max-w-[calc(100vw-48px)] overflow-hidden shadow-l4 transition-[width,transform] duration-300 ease-out md:relative md:inset-auto md:z-auto md:max-w-none md:shrink-0 md:shadow-none " +
+            "absolute inset-y-0 left-0 z-40 w-[264px] max-w-[calc(100vw-48px)] overflow-hidden overscroll-contain shadow-l4 transition-[width,transform] duration-300 ease-out motion-reduce:transition-none md:relative md:inset-auto md:z-auto md:max-w-none md:shrink-0 md:shadow-none " +
             (sidebarOpen ? "translate-x-0 md:w-[264px]" : "-translate-x-full md:w-0 md:translate-x-0")
           }
         >
           <div className="h-full w-[264px] max-w-full">
-            <Sidebar />
+            <Sidebar modal={mobileDrawerOpen} onNavigate={() => mobileDrawerOpen && setSidebarOpen(false)} />
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
+        <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
           <TopBar />
           {!sidebarOpen && (
             <button
+              ref={openSidebarRef}
               onClick={toggleSidebar}
-              aria-label="Open sidebar"
-              className="absolute left-2 top-20 z-10 h-8 w-8 grid place-items-center rounded-xl border border-cloud bg-white/80 backdrop-blur text-slate2 hover-lift"
+              aria-label="Open navigation"
+              className="absolute left-2 top-20 z-10 h-11 w-11 grid place-items-center rounded-xl border border-cloud bg-white/90 backdrop-blur text-slate2 hover-lift focus-ring"
             >
               <PanelLeftOpen className="h-4 w-4" />
             </button>
@@ -101,7 +152,7 @@ function ShellInner({ children }: { children: ReactNode }) {
             <button
               onClick={toggleCopilot}
               aria-label="Open Copilot"
-              className="absolute right-2 top-20 z-10 h-8 w-8 grid place-items-center rounded-xl border border-cloud bg-white/80 backdrop-blur text-slate2 hover-lift"
+              className="absolute right-2 top-20 z-10 hidden h-11 w-11 place-items-center rounded-xl border border-cloud bg-white/90 backdrop-blur text-slate2 hover-lift focus-ring xl:grid"
             >
               <PanelRightOpen className="h-4 w-4" />
             </button>
@@ -115,16 +166,16 @@ function ShellInner({ children }: { children: ReactNode }) {
 
         <div
           className={
-            "hidden xl:block transition-all duration-300 ease-out overflow-hidden shrink-0 " +
+            "hidden xl:block transition-[width] duration-300 ease-out motion-reduce:transition-none overflow-hidden shrink-0 " +
             (copilotOpen ? "w-[340px]" : "w-0")
           }
         >
-          <div className="w-[340px] h-full">
+          <div ref={copilotRef} className="w-[340px] h-full">
             <CopilotPanel />
           </div>
         </div>
       </div>
-      <StatusBar />
+      <div ref={statusRef} className="shrink-0"><StatusBar /></div>
     </div>
   );
 }

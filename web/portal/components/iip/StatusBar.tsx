@@ -20,14 +20,14 @@ export default function StatusBar() {
     : providerSummary;
 
   return (
-    <div className="h-8 shrink-0 border-t border-cloud/70 bg-white/60 backdrop-blur-xl px-4 flex items-center gap-5 text-[11px] text-stone">
-      <span className="inline-flex items-center gap-1.5">
+    <footer aria-label="System status" className="min-h-8 shrink-0 border-t border-cloud/70 bg-white/60 px-2 py-1 backdrop-blur-xl sm:px-4 flex items-center gap-2 sm:gap-5 text-[10px] sm:text-[11px] text-stone">
+      <span role="status" className="inline-flex min-w-0 items-center gap-1.5">
         {loading ? <Activity className="h-3 w-3" /> : ok ? <CheckCircle2 className="h-3 w-3 text-success" /> : <AlertTriangle className="h-3 w-3 text-warning" />}
-        {summary}
+        <span className="truncate">{summary}</span>
       </span>
-      <span className="ml-auto inline-flex items-center gap-1.5">
-        <ShieldCheck className="h-3 w-3 text-violet2" /> AI prepares work · humans approve regulated decisions
+      <span className="ml-auto inline-flex shrink-0 items-center gap-1.5">
+        <ShieldCheck className="h-3 w-3 text-violet2" /> <span className="sm:hidden">Human authority</span><span className="hidden sm:inline">AI prepares work · humans approve regulated decisions</span>
       </span>
-    </div>
+    </footer>
   );
 }

@@ -53,15 +53,16 @@ const ALL_ADMIN = [
   { to: "/app/admin/billing", label: "Billing & Usage", icon: CreditCard },
 ];
 
-function Item({ to, label, icon: Icon }: { to: string; label: string; icon: any }) {
+function Item({ to, label, icon: Icon, onNavigate }: { to: string; label: string; icon: any; onNavigate?: () => void }) {
   const loc = useLocation();
   const active = to === "/app" ? loc.pathname === "/app" : loc.pathname === to || loc.pathname.startsWith(to + "/");
   return (
     <NavLink
       to={to}
       end={to === "/app"}
+      onClick={onNavigate}
       className={cn(
-        "group relative flex items-center gap-3 rounded-2xl px-3 py-2 text-[13px] transition-all focus-ring",
+        "group relative flex min-h-11 items-center gap-3 rounded-2xl px-3 py-2 text-[13px] transition-[background-color,color] focus-ring",
         active ? "text-navy font-medium" : "text-slate2/80 hover:text-navy hover:bg-white/60"
       )}
       style={active ? {
@@ -76,7 +77,7 @@ function Item({ to, label, icon: Icon }: { to: string; label: string; icon: any 
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean; onNavigate?: () => void }) {
   const { roleDef, toggleSidebar } = useUI();
   const { runtimeContext, loading, parityMode } = useRuntimeContext();
   const usePreviewRole = canUseLocalTestDoubles || parityMode;
@@ -127,7 +128,7 @@ export default function Sidebar() {
   }, [commandCenterAvailable, parityMode, roleDef.key, runtimeContext]);
 
   return (
-    <aside className="h-full flex flex-col border-r border-cloud/70 bg-white/60 backdrop-blur-xl">
+    <aside aria-label="Primary sidebar" className="h-full flex flex-col border-r border-cloud/70 bg-white/60 backdrop-blur-xl">
       <div className="px-5 pt-5 pb-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="relative h-9 w-9 rounded-xl bg-white grid place-items-center shadow-l2 ring-1 ring-cloud/70 overflow-hidden">
@@ -139,7 +140,7 @@ export default function Sidebar() {
             <div className="text-[10.5px] uppercase tracking-[0.14em] text-stone">Platform · IIP</div>
           </div>
         </div>
-        <button onClick={toggleSidebar} aria-label="Collapse sidebar" className="h-7 w-7 grid place-items-center rounded-lg text-stone hover:text-navy hover:bg-white/70">
+        <button onClick={toggleSidebar} aria-label={modal ? "Close navigation" : "Collapse sidebar navigation"} className="h-11 w-11 shrink-0 grid place-items-center rounded-lg text-stone hover:text-navy hover:bg-white/70 focus-ring">
           <PanelLeftClose className="h-4 w-4" />
         </button>
       </div>
@@ -158,7 +159,7 @@ export default function Sidebar() {
       </div>
 
       {searchAvailable && <div className="px-4">
-        <NavLink to="/app/search" className="flex items-center gap-2 rounded-2xl bg-white/70 border border-cloud px-3 py-2 text-[12.5px] text-stone hover:text-navy hover:bg-white focus-ring">
+        <NavLink to="/app/search" onClick={onNavigate} className="flex min-h-11 items-center gap-2 rounded-2xl bg-white/70 border border-cloud px-3 py-2 text-[12.5px] text-stone hover:text-navy hover:bg-white focus-ring">
           <Search className="h-3.5 w-3.5" />
           <span className="flex-1">Search IIP</span>
           <span className="text-[10px] rounded bg-cloud/80 px-1.5 py-0.5 text-slate2">Ctrl K</span>
@@ -166,7 +167,7 @@ export default function Sidebar() {
       </div>}
 
       <div className="px-4 mt-3">
-        <NavLink to="/app" className="w-full inline-flex items-center justify-center gap-2 rounded-2xl gradient-primary text-white text-[13px] font-medium py-2.5 shadow-l2 hover-lift focus-ring">
+        <NavLink to="/app" onClick={onNavigate} className="w-full min-h-11 inline-flex items-center justify-center gap-2 rounded-2xl gradient-primary text-white text-[13px] font-medium py-2.5 shadow-l2 hover-lift focus-ring">
           <Plus className="h-4 w-4" /> New Conversation
         </NavLink>
       </div>
@@ -175,12 +176,12 @@ export default function Sidebar() {
         <div className="px-4 pt-4">
           <div className="flex items-center justify-between px-1 text-[10.5px] uppercase tracking-[0.14em] text-stone">
             <span>Recent conversations</span>
-            <NavLink to="/app/conversations" className="normal-case tracking-normal text-info hover:underline focus-ring">All</NavLink>
+            <NavLink to="/app/conversations" onClick={onNavigate} className="inline-flex min-h-11 items-center normal-case tracking-normal text-info hover:underline focus-ring">All</NavLink>
           </div>
           {recentConversations.length > 0 ? (
             <div className="mt-2 space-y-1">
               {recentConversations.map((conversation) => (
-                <NavLink key={conversation.conversationId} to={`/app/conversations/${conversation.conversationId}`} className="block truncate rounded-lg px-2 py-1.5 text-[11.5px] text-slate2 hover:bg-white/70 hover:text-navy focus-ring">
+                <NavLink key={conversation.conversationId} to={`/app/conversations/${conversation.conversationId}`} onClick={onNavigate} className="flex min-h-11 items-center truncate rounded-lg px-2 py-1.5 text-[11.5px] text-slate2 hover:bg-white/70 hover:text-navy focus-ring">
                   {conversation.title}
                 </NavLink>
               ))}
@@ -195,14 +196,14 @@ export default function Sidebar() {
         {groups.map((group, index) => (
           <div key={group.label} className={index === 0 ? "" : "mt-5"}>
             <div className="px-2 text-[10.5px] uppercase tracking-[0.14em] text-stone mb-2">{group.label}</div>
-            <div className="space-y-0.5">{group.items.map((item) => <Item key={item.to} {...item} />)}</div>
+            <div className="space-y-0.5">{group.items.map((item) => <Item key={item.to} {...item} onNavigate={onNavigate} />)}</div>
           </div>
         ))}
         {admin.length > 0 && (
           <>
             <div className="px-2 mt-6 text-[10.5px] uppercase tracking-[0.14em] text-stone mb-2">Platform administration</div>
             <div className="space-y-0.5">
-              {admin.map(m => <Item key={m.to} {...m} />)}
+              {admin.map(m => <Item key={m.to} {...m} onNavigate={onNavigate} />)}
             </div>
           </>
         )}

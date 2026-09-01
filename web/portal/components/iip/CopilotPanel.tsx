@@ -158,7 +158,7 @@ export default function CopilotPanel() {
   const ctx = blocksFor(loc.pathname);
 
   return (
-    <aside className="h-full flex flex-col border-l border-cloud/70 bg-white/50 backdrop-blur-xl">
+    <aside aria-label="IIP Copilot" className="h-full flex flex-col border-l border-cloud/70 bg-white/50 backdrop-blur-xl">
       <div className="p-5 border-b border-cloud/70 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 rounded-xl gradient-primary grid place-items-center shadow-l2">
@@ -172,7 +172,7 @@ export default function CopilotPanel() {
         <button onClick={toggleCopilot} className="text-[11px] text-stone hover:text-navy" aria-label="Collapse Copilot">Hide</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div tabIndex={0} aria-label="Copilot conversation" className="flex-1 overflow-y-auto p-4 space-y-3 focus-ring">
         {ctx.blocks.map((b, i) => (
           <div key={i} className="glass-subtle p-4 hover-lift">
             <div className="flex items-center gap-2 mb-1.5">

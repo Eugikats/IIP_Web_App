@@ -28,8 +28,8 @@ test("Gate 1 shell uses the approved light-only MVP foundation", async ({ page }
   const railWidth = await rightRail.evaluate((element) => element.getBoundingClientRect().width);
   expect(Math.round(railWidth)).toBe(340);
 
-  await page.getByRole("complementary").filter({ hasText: "Insurance Intelligence Platform" }).getByRole("button", { name: "Collapse sidebar" }).click();
-  await expect(page.getByRole("button", { name: "Open sidebar" })).toBeVisible();
+  await page.getByRole("complementary").filter({ hasText: "Insurance Intelligence Platform" }).getByRole("button", { name: "Collapse sidebar navigation" }).click();
+  await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
 });
 
 test("Gate 1 shell exposes no delivered dark or system theme toggle", async ({ page }) => {
@@ -52,7 +52,7 @@ test("Gate 1 mobile shell keeps the workspace visible and uses an off-canvas sid
   await page.goto("/app/integrations");
   await page.waitForLoadState("networkidle");
 
-  const openSidebar = page.getByRole("button", { name: "Open sidebar" });
+  const openSidebar = page.getByRole("button", { name: "Open navigation" });
   await expect(openSidebar).toBeVisible();
 
   const geometry = await page.evaluate(() => ({
@@ -65,11 +65,21 @@ test("Gate 1 mobile shell keeps the workspace visible and uses an off-canvas sid
   expect(geometry.mainLeft).toBeLessThanOrEqual(1);
 
   await openSidebar.click();
+  const drawer = page.getByRole("dialog", { name: "Primary navigation" });
+  await expect(drawer).toHaveAttribute("aria-modal", "true");
   const sidebar = page.getByRole("complementary").filter({ hasText: "Insurance Intelligence Platform" });
   await expect(sidebar).toBeVisible();
-  const closeOverlay = page.getByRole("button", { name: "Close sidebar overlay" });
-  await expect(closeOverlay).toBeVisible();
-  await closeOverlay.click();
+  await expect(sidebar.getByRole("button", { name: "Close navigation" })).toBeFocused();
+  expect(await page.locator("main").evaluate((main) => main.closest("[inert]") !== null)).toBe(true);
+  await page.keyboard.press("Shift+Tab");
+  expect(await page.evaluate(() => document.activeElement?.closest('[role="dialog"]')?.getAttribute("aria-label"))).toBe("Primary navigation");
+  await page.keyboard.press("Escape");
+  await expect(openSidebar).toBeVisible();
+  await expect(openSidebar).toBeFocused();
+
+  await openSidebar.click();
+  await sidebar.getByRole("link", { name: "Claims", exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/claims$/);
   await expect(openSidebar).toBeVisible();
   expect(consoleErrors.filter((message) => message.includes("Hydration failed"))).toEqual([]);
 });

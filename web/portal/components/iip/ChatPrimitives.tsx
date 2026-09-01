@@ -91,6 +91,7 @@ export function Composer({ value, onChange, onSend, disabled, placeholder }: {
   return (
     <div className="glass-elevated p-3 flex items-end gap-2">
       <textarea
+        aria-label="Message IIP Operations"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
@@ -101,12 +102,12 @@ export function Composer({ value, onChange, onSend, disabled, placeholder }: {
         }}
         rows={1}
         placeholder={placeholder ?? "Ask IIP anything — claims, documents, customers, policies, workflows…"}
-        className="flex-1 resize-none bg-transparent outline-none text-[14.5px] placeholder:text-stone text-navy py-2 px-2 max-h-40"
+        className="min-h-11 flex-1 resize-none bg-transparent outline-none text-[14.5px] placeholder:text-stone text-navy py-2.5 px-2 max-h-40"
       />
       <button
         onClick={onSend}
         disabled={disabled || !value.trim()}
-        className="h-10 w-10 grid place-items-center rounded-2xl gradient-primary text-white shadow-l2 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="h-11 w-11 shrink-0 grid place-items-center rounded-2xl gradient-primary text-white shadow-l2 disabled:opacity-40 disabled:cursor-not-allowed focus-ring"
         aria-label="Send"
       >
         <ArrowUp className="h-4 w-4" />
