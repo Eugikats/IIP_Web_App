@@ -58,6 +58,19 @@ public static class InfrastructureRegistration
                 db.UseSqlServer(options.SqlServerConnectionString));
             AddEfRepositories(services);
         }
+        else if (options.StorageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
+            && IsLocalOnlyRuntime(options, environment))
+        {
+            // Isolated local/test execution only, exactly as the SQLite guard above directs.
+            // Data lives for the lifetime of the process and is never durable. This branch is
+            // unreachable in every deployed profile twice over: the runtime-profile check here,
+            // and AzureProviderStartupValidator.ValidateProduction, which independently refuses
+            // to boot Staging/Production/ManagedApplicationReviewer/Demo on non-SqlServer
+            // storage. It exists so the team can run the platform with no Azure credentials.
+            services.AddDbContext<InsuranceIntelligenceDbContext>(db =>
+                db.UseInMemoryDatabase("insuranceintelligence-localtest"));
+            AddEfRepositories(services);
+        }
         else
         {
             throw new InvalidOperationException($"Unsupported storage provider '{options.StorageProvider}'. Deployable runtime requires SqlServer; use explicit LocalTest projects for test doubles.");
@@ -193,6 +206,24 @@ public static class InfrastructureRegistration
         services.AddScoped<IProviderHealthCheck, ProviderHealthCheckEf>();
     }
 
+
+    /// <summary>
+    /// True only for developer-machine execution (LocalTest / Development / Test), where
+    /// non-durable in-memory storage is permitted. Deny-by-default: any profile that is not
+    /// explicitly one of these — including anything unrecognised — is treated as deployed and
+    /// refused, so a typo or a new profile name can never silently unlock in-memory storage
+    /// in an environment that may hold real data.
+    /// </summary>
+    private static bool IsLocalOnlyRuntime(InfrastructureOptions options, IHostEnvironment environment)
+    {
+        var profile = string.IsNullOrWhiteSpace(options.RuntimeProfile)
+            ? environment.EnvironmentName
+            : options.RuntimeProfile;
+
+        return profile.Equals("LocalTest", StringComparison.OrdinalIgnoreCase)
+            || profile.Equals("Development", StringComparison.OrdinalIgnoreCase)
+            || profile.Equals("Test", StringComparison.OrdinalIgnoreCase);
+    }
 
     public static InfrastructureOptions BindOptions(IConfiguration configuration) =>
         new()

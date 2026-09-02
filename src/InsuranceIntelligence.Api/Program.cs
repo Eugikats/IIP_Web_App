@@ -188,13 +188,26 @@ else
     builder.Services.AddAuthentication();
 }
 
+// In-memory storage is permitted only for developer-machine execution, so the team can run
+// the platform with no Azure account. Deny-by-default on the runtime profile: anything that
+// is not explicitly a local profile — including an unrecognised value — is refused. This is
+// one of three independent blocks; AddInsuranceIntelligenceInfrastructure applies the same
+// profile test, and AzureProviderStartupValidator.ValidateProduction separately refuses to
+// boot Staging/Production/ManagedApplicationReviewer/Demo on non-SqlServer storage.
 var storageProvider = infrastructureOptions.StorageProvider;
-if (storageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase))
+if (storageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
+    && !IsLocalDeveloperRuntime(runtimeProfile))
 {
     throw new InvalidOperationException(
-        "InsuranceIntelligence.Api cannot run with INSURANCEINTELLIGENCE_STORAGE_PROVIDER=InMemory. " +
-        "Use InsuranceIntelligence.Api.LocalTestHost or test projects for LocalTest execution.");
+        $"InsuranceIntelligence.Api cannot run with INSURANCEINTELLIGENCE_STORAGE_PROVIDER=InMemory under the "
+        + $"'{runtimeProfile}' runtime profile. In-memory storage is limited to LocalTest/Development execution; "
+        + "deployed profiles require Azure SQL.");
 }
+
+static bool IsLocalDeveloperRuntime(string profile) =>
+    profile.Equals("LocalTest", StringComparison.OrdinalIgnoreCase)
+    || profile.Equals("Development", StringComparison.OrdinalIgnoreCase)
+    || profile.Equals("Test", StringComparison.OrdinalIgnoreCase);
 
 builder.Services.AddInsuranceIntelligenceInfrastructure(builder.Configuration, builder.Environment);
 
@@ -360,6 +373,25 @@ builder.Configuration["INSURANCEINTELLIGENCE_LOCAL_KNOWLEDGE_MAX_BYTES"] ??= Kno
 var app = builder.Build();
 
 await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Environment);
+
+// Offline developer mode: with in-memory storage the database starts empty on every run, so
+// seed the demo dataset at boot to give the app something to show without any Azure account.
+// Guarded to in-memory storage only — this can never run against SqlServer, and the storage
+// provider itself is already restricted to local runtimes.
+if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
+    && infrastructureOptions.SeedDemoData)
+{
+    using var seedScope = app.Services.CreateScope();
+    var seedService = seedScope.ServiceProvider
+        .GetRequiredService<InsuranceIntelligence.Application.DemoSeeding.DemoSeedService>();
+    var seedScopeIds = InsuranceIntelligence.Domain.Common.TenantScope.Create(
+        string.IsNullOrWhiteSpace(infrastructureOptions.TenantId) ? "tenant-demo" : infrastructureOptions.TenantId,
+        string.IsNullOrWhiteSpace(infrastructureOptions.WorkspaceId) ? "workspace-operations" : infrastructureOptions.WorkspaceId);
+    var seedResult = await seedService.SeedAsync(seedScopeIds, "system:local-seed");
+    app.Logger.LogInformation(
+        "Offline mode: seeded {Cases} demo claims, {Documents} documents, {Approvals} approvals into in-memory storage.",
+        seedResult.Cases, seedResult.Documents, seedResult.Approvals);
+}
 
 // Always return a generic RFC 7807 response. Exception details and request headers stay server-side.
 app.UseExceptionHandler();
