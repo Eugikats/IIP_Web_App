@@ -2,8 +2,10 @@ using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Approvals;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
@@ -202,6 +204,22 @@ public static class CommunicationEndpoints
         if (string.IsNullOrWhiteSpace(actor))
         {
             return Validation("userId", "Authenticated user context is required to send a customer communication.");
+        }
+
+        try
+        {
+            var actorType = ApprovalDecisionGuard.ResolveActorType(actor);
+            ApprovalDecisionGuard.EnsureHumanForConsequentialDecision(
+                requiresHumanDecision: true,
+                actorType,
+                requestedActionType: channel == CommunicationChannel.Email ? "sendCustomerEmail" : "sendCustomerSms");
+            ClaimAuthorityPolicy.EnsureActorMayPerform(
+                ClaimConsequentialAction.CustomerCommunicationSend,
+                actorType);
+        }
+        catch (DomainException exception)
+        {
+            return WorkflowEndpoints.HumanDecisionRequired(exception.Message);
         }
 
         var result = await send(new CommunicationSendRequest(scope, request.CaseId, channel, request.Recipient, request.MessageBody, actor, request.Approved, request.LowRisk, httpContext.TraceIdentifier), cancellationToken);

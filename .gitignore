@@ -33,3 +33,4 @@ Thumbs.db
 # Local runtime storage artifacts (LocalMock providers write here)
 .local/
 **/.local/
+"**/artifacts/" 

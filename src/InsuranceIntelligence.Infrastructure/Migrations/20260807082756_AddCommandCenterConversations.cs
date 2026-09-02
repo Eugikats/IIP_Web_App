@@ -12,22 +12,6 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "AgentActionLogs",
-                columns: table => new
-                {
-                    AgentActionLogId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    CaseId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    TenantId = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
-                    WorkspaceId = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
-                    PayloadJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AgentActionLogs", x => x.AgentActionLogId);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AgentStates",
                 columns: table => new
                 {
@@ -529,15 +513,7 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                     table.PrimaryKey("PK_Workspaces", x => x.WorkspaceRecordId);
                 });
 
-            migrationBuilder.CreateIndex(
-                name: "IX_AgentActionLogs_TenantId_WorkspaceId",
-                table: "AgentActionLogs",
-                columns: new[] { "TenantId", "WorkspaceId" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AgentActionLogs_TenantId_WorkspaceId_CaseId",
-                table: "AgentActionLogs",
-                columns: new[] { "TenantId", "WorkspaceId", "CaseId" });
+            
 
             migrationBuilder.CreateIndex(
                 name: "IX_AgentStates_TenantId_WorkspaceId",
@@ -767,9 +743,6 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "AgentActionLogs");
-
             migrationBuilder.DropTable(
                 name: "AgentStates");
 

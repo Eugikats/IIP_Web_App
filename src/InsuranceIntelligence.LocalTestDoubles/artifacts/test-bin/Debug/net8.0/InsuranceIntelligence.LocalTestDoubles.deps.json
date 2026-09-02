@@ -1,0 +1,56 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "InsuranceIntelligence.LocalTestDoubles/1.0.0": {
+        "dependencies": {
+          "InsuranceIntelligence.Application": "1.0.0",
+          "InsuranceIntelligence.Domain": "1.0.0"
+        },
+        "runtime": {
+          "InsuranceIntelligence.LocalTestDoubles.dll": {}
+        }
+      },
+      "InsuranceIntelligence.Application/1.0.0": {
+        "dependencies": {
+          "InsuranceIntelligence.Domain": "1.0.0"
+        },
+        "runtime": {
+          "InsuranceIntelligence.Application.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "InsuranceIntelligence.Domain/1.0.0": {
+        "runtime": {
+          "InsuranceIntelligence.Domain.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "InsuranceIntelligence.LocalTestDoubles/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "InsuranceIntelligence.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "InsuranceIntelligence.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

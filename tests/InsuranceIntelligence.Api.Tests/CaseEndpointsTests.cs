@@ -289,6 +289,130 @@ public sealed class CaseEndpointsTests
     }
 
     [Fact]
+    public async Task CaseEndpoints_RejectCrossTenantCaseAccessAndActions()
+    {
+        var dependencies = CreateDependencies();
+        var tenantAContext = ScopedContext("Admin", "user-a", "tenant-a", "workspace-a");
+        var tenantBContext = ScopedContext("Admin", "user-b", "tenant-b", "workspace-b");
+
+        var createA = await CaseEndpoints.CreateCase(
+            ValidRequest() with { CustomerName = "Tenant A Customer", PolicyNumber = "POL-TENANT-A-001" },
+            dependencies.Service,
+            dependencies.AuditRepository,
+            tenantAContext,
+            CancellationToken.None);
+        var (createAStatus, caseA) = await ExecuteAsync<CaseResponse>(createA);
+
+        var createB = await CaseEndpoints.CreateCase(
+            ValidRequest() with { CustomerName = "Tenant B Customer", PolicyNumber = "POL-TENANT-B-001" },
+            dependencies.Service,
+            dependencies.AuditRepository,
+            tenantBContext,
+            CancellationToken.None);
+        var (createBStatus, caseB) = await ExecuteAsync<CaseResponse>(createB);
+
+        Assert.Equal(StatusCodes.Status201Created, createAStatus);
+        Assert.Equal(StatusCodes.Status201Created, createBStatus);
+        Assert.NotEqual(Guid.Empty, caseA!.CaseId);
+        Assert.NotEqual(Guid.Empty, caseB!.CaseId);
+
+        var listA = await CaseEndpoints.ListCases(
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.ChecklistProvider,
+            dependencies.AuditRepository,
+            dependencies.SlaCalculator,
+            ScopedContext("Admin", "user-a", "tenant-a", "workspace-a"),
+            CancellationToken.None);
+        var (listAStatus, casesForA) = await ExecuteAsync<ClaimInboxItemResponse[]>(listA);
+
+        var listB = await CaseEndpoints.ListCases(
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.ChecklistProvider,
+            dependencies.AuditRepository,
+            dependencies.SlaCalculator,
+            ScopedContext("Admin", "user-b", "tenant-b", "workspace-b"),
+            CancellationToken.None);
+        var (listBStatus, casesForB) = await ExecuteAsync<ClaimInboxItemResponse[]>(listB);
+
+        Assert.Equal(StatusCodes.Status200OK, listAStatus);
+        Assert.Equal(StatusCodes.Status200OK, listBStatus);
+        Assert.Contains(casesForA!, item => item.CaseId == caseA.CaseId);
+        Assert.DoesNotContain(casesForA!, item => item.CaseId == caseB.CaseId);
+        Assert.Contains(casesForB!, item => item.CaseId == caseB.CaseId);
+        Assert.DoesNotContain(casesForB!, item => item.CaseId == caseA.CaseId);
+
+        var tenantAReadsTenantB = await CaseEndpoints.GetCase(
+            caseB.CaseId,
+            dependencies.Service,
+            dependencies.AuditRepository,
+            ScopedContext("Admin", "user-a", "tenant-a", "workspace-a"),
+            CancellationToken.None);
+        var (tenantAReadsTenantBStatus, _) = await ExecuteAsync<JsonElement>(tenantAReadsTenantB);
+
+        var tenantBReadsTenantA = await CaseEndpoints.GetCase(
+            caseA.CaseId,
+            dependencies.Service,
+            dependencies.AuditRepository,
+            ScopedContext("Admin", "user-b", "tenant-b", "workspace-b"),
+            CancellationToken.None);
+        var (tenantBReadsTenantAStatus, _) = await ExecuteAsync<JsonElement>(tenantBReadsTenantA);
+
+        Assert.Equal(StatusCodes.Status404NotFound, tenantAReadsTenantBStatus);
+        Assert.Equal(StatusCodes.Status404NotFound, tenantBReadsTenantAStatus);
+
+        var tenantAAssignsTenantB = await CaseEndpoints.AssignCase(
+            caseB.CaseId,
+            new AssignCaseRequest("user-a", "Tenant A Team", "cross-tenant assign attempt"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext("Admin", "user-a", "tenant-a", "workspace-a"),
+            CancellationToken.None);
+        var (tenantAAssignsTenantBStatus, _) = await ExecuteAsync<JsonElement>(tenantAAssignsTenantB);
+
+        var tenantBAssignsTenantA = await CaseEndpoints.AssignCase(
+            caseA.CaseId,
+            new AssignCaseRequest("user-b", "Tenant B Team", "cross-tenant assign attempt"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext("Admin", "user-b", "tenant-b", "workspace-b"),
+            CancellationToken.None);
+        var (tenantBAssignsTenantAStatus, _) = await ExecuteAsync<JsonElement>(tenantBAssignsTenantA);
+
+        Assert.Equal(StatusCodes.Status404NotFound, tenantAAssignsTenantBStatus);
+        Assert.Equal(StatusCodes.Status404NotFound, tenantBAssignsTenantAStatus);
+
+        var tenantAEscalatesTenantB = await CaseEndpoints.EscalateCase(
+            caseB.CaseId,
+            new EscalateCaseRequest("cross-tenant escalate attempt", null),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext("Admin", "user-a", "tenant-a", "workspace-a"),
+            CancellationToken.None);
+        var (tenantAEscalatesTenantBStatus, _) = await ExecuteAsync<JsonElement>(tenantAEscalatesTenantB);
+
+        var tenantBEscalatesTenantA = await CaseEndpoints.EscalateCase(
+            caseA.CaseId,
+            new EscalateCaseRequest("cross-tenant escalate attempt", null),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext("Admin", "user-b", "tenant-b", "workspace-b"),
+            CancellationToken.None);
+        var (tenantBEscalatesTenantAStatus, _) = await ExecuteAsync<JsonElement>(tenantBEscalatesTenantA);
+
+        Assert.Equal(StatusCodes.Status404NotFound, tenantAEscalatesTenantBStatus);
+        Assert.Equal(StatusCodes.Status404NotFound, tenantBEscalatesTenantAStatus);
+
+        var savedA = await dependencies.CaseRepository.GetAsync(caseA.CaseId, CancellationToken.None);
+        var savedB = await dependencies.CaseRepository.GetAsync(caseB.CaseId, CancellationToken.None);
+        Assert.Equal(CaseStatus.New, savedA!.Status);
+        Assert.Equal(CaseStatus.New, savedB!.Status);
+        Assert.Null(savedA.AssignedUserId);
+        Assert.Null(savedB.AssignedUserId);
+    }
+
+    [Fact]
     public async Task AssignCase_UpdatesAssignmentAndWritesAudit()
     {
         var dependencies = CreateDependencies();

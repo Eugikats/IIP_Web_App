@@ -141,15 +141,7 @@ public static class InfrastructureRegistration
         IHostEnvironment environment,
         CancellationToken cancellationToken = default)
     {
-        using var scope = serviceProvider.CreateScope();
-        var options = scope.ServiceProvider.GetRequiredService<InfrastructureOptions>();
-        if (options.StorageProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase)
-            && (environment.IsDevelopment() || options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)))
-        {
-            var dbContext = scope.ServiceProvider.GetRequiredService<InsuranceIntelligenceDbContext>();
-            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-        }
-
+        await Task.CompletedTask;
     }
 
     private static void AddEfRepositories(IServiceCollection services)

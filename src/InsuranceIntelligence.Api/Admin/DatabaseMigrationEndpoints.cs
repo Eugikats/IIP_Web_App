@@ -29,7 +29,12 @@ public static class DatabaseMigrationEndpoints
         "202605240001_InitialPersistence",
         "20260624083822_AddTeamsNotifications",
         "20260624164818_Phase4RelationalDomain",
-        "202607020001_AddCorePortPermissionTables"
+        "202607020001_AddCorePortPermissionTables",
+        "20260716123910_AddAgentWorkflowControlPlane",
+        "20260803142731_AddClaimReviewRequests",
+        "20260803214500_AgentWorkflowVersionLineage",
+        "20260807082756_AddCommandCenterConversations",
+        "20260807120533_AddWhatsAppMessagingContracts"
     ];
 
     private const string EfCoreProductVersion = "8.0.11";
@@ -187,7 +192,9 @@ public static class DatabaseMigrationEndpoints
     [
         "20260716123910_AddAgentWorkflowControlPlane",
         "20260803142731_AddClaimReviewRequests",
-        "20260803214500_AgentWorkflowVersionLineage"
+        "20260803214500_AgentWorkflowVersionLineage",
+        "20260807082756_AddCommandCenterConversations",
+        "20260807120533_AddWhatsAppMessagingContracts"
     ];
 
     public static async Task<IResult> ForceReconcileSchema(
