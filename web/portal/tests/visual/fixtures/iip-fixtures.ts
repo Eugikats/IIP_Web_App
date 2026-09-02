@@ -784,7 +784,47 @@ const responses: Record<string, unknown> = {
       validationResult: "accepted",
       correlationId: "corr-audit-visual"
     }
-  ]
+  ],
+  "/api/v1/audit/events": [
+    {
+      id: "AUD-2026-11903",
+      eventType: "DocumentVerificationRequested",
+      actorUserId: "Jane Namusoke",
+      targetType: "document",
+      targetId: "DOC-2026-00215",
+      summary: "Document verification requested",
+      occurredAt: now,
+      correlationId: "corr-audit-visual"
+    }
+  ],
+  "/api/v1/compliance/posture": {
+    retention: { auditRetentionDays: 2555, meetsMinimum: true, lastUpdatedAt: now },
+    consent: { onboardingRecords: 1, consentedRecords: 1, pendingConsent: false, blockedConsent: false, lastConsentedAt: now },
+    sla: { totalOpenClaims: 3, onTrack: 1, atRisk: 1, breached: 1 },
+    dataResidency: {
+      tenantCountry: "Uganda",
+      tenantRegion: "East Africa",
+      residencyCountry: "Not configured",
+      azureGeography: "Not configured",
+      azureRegion: "Not configured",
+      mode: "regional",
+      azureOpenAiDeploymentType: "Not configured",
+      allowedAzureRegions: [],
+      approvalReference: "Not configured",
+      isConfigured: false,
+      isDeploymentRegionApproved: false,
+      isAzureOpenAiDeploymentTypeApproved: false,
+      status: "Not configured"
+    },
+    providers: {
+      authMode: "Development",
+      storageProvider: "NotConfigured",
+      aiProvider: "NotConfigured",
+      documentProvider: "NotConfigured",
+      retrievalProvider: "NotConfigured",
+      seedDemoData: false
+    }
+  }
 };
 
 async function fulfillJson(route: Route, value: unknown, status = 200) {

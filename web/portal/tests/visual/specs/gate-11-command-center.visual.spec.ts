@@ -19,7 +19,7 @@ test("Gate 11 Command Center summarizes implemented workflow state", async ({ pa
   }
   await expect(page.getByRole("button", { name: "Show claims that need attention." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Which claims are missing documents?" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Ask IIP anything — claims, documents, customers, policies, workflows…" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Message IIP Operations" })).toBeVisible();
   await expect(page.getByText("IIP Operations assists — it never settles, denies, repudiates, pays, or accuses fraud.")).toBeVisible();
 
   const viewportWidth = page.viewportSize()?.width ?? 0;

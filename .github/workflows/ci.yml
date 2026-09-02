@@ -78,6 +78,12 @@ jobs:
           NEXT_PUBLIC_AUTH_MODE: Development
           NEXT_PUBLIC_RUNTIME_PROFILE: Development
 
+      - name: Install release-gate browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Release 1 browser gates
+        run: pnpm test:release-gates
+
   infra:
     name: Infra (bicep compile)
     runs-on: ubuntu-latest

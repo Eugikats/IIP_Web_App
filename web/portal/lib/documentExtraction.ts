@@ -8,6 +8,13 @@ import type { DocumentItem } from "@/lib/documentContracts";
 type ActionResult = { ok: boolean; message?: string };
 type PreviewResult = ActionResult & { url?: string; contentType?: string };
 
+function safeNetworkFailure(reason: unknown, fallback: string) {
+  if (reason instanceof TypeError || (reason instanceof Error && /failed to fetch|networkerror/i.test(reason.message))) {
+    return "Document service could not be reached. Check the connection.";
+  }
+  return fallback;
+}
+
 async function safeError(response: Response, fallback: string) {
   try {
     const payload = await response.json() as { message?: string; errors?: Record<string, string[]> };
@@ -37,12 +44,17 @@ export function useDocumentExtraction(caseId: string) {
       const response = await fetch(`${apiBaseUrl}/api/v1/cases/${caseId}/documents`, { headers: scopedHeaders(role, "") });
       if (response.status === 404) { setDocuments([]); setErrorKind("not_found"); setError("This claim was not found in the current workspace."); return; }
       if (response.status === 401 || response.status === 403) { setDocuments([]); setErrorKind("unauthorized"); setError("You do not have permission to review documents for this claim."); return; }
-      if (!response.ok) throw new Error(await safeError(response, `Documents failed with HTTP ${response.status}.`));
+      if (!response.ok) {
+        setDocuments([]);
+        setErrorKind("unavailable");
+        setError(await safeError(response, `Documents failed with HTTP ${response.status}.`));
+        return;
+      }
       setDocuments((await response.json()) as DocumentItem[]);
     } catch (reason) {
       setDocuments([]);
       setErrorKind("unavailable");
-      setError(reason instanceof Error ? reason.message : "Documents failed to load.");
+      setError(safeNetworkFailure(reason, "Documents failed to load."));
     } finally {
       setLoading(false);
     }
@@ -61,7 +73,7 @@ export function useDocumentExtraction(caseId: string) {
       await load();
       return { ok: true };
     } catch (reason) {
-      return { ok: false, message: reason instanceof Error ? reason.message : "Correction failed." };
+      return { ok: false, message: safeNetworkFailure(reason, "Correction failed.") };
     }
   }, [caseId, load, role]);
 
@@ -76,7 +88,7 @@ export function useDocumentExtraction(caseId: string) {
       await load();
       return { ok: true };
     } catch (reason) {
-      return { ok: false, message: reason instanceof Error ? reason.message : "Approval failed." };
+      return { ok: false, message: safeNetworkFailure(reason, "Approval failed.") };
     }
   }, [caseId, load, role]);
 
@@ -87,7 +99,7 @@ export function useDocumentExtraction(caseId: string) {
       const blob = await response.blob();
       return { ok: true, url: URL.createObjectURL(blob), contentType: blob.type || document.contentType };
     } catch (reason) {
-      return { ok: false, message: reason instanceof Error ? reason.message : "Preview failed." };
+      return { ok: false, message: safeNetworkFailure(reason, "Preview failed.") };
     }
   }, [role]);
 

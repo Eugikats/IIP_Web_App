@@ -5,6 +5,7 @@ const baseURL = process.env.IIP_DEPLOYED_PROFILE_BASE_URL ?? `http://127.0.0.1:$
 
 export default defineConfig({
   testDir: "./tests/deployed-profile",
+  globalSetup: "./tests/deployed-profile/global-setup.ts",
   outputDir: "./test-results/deployed-profile",
   timeout: 90_000,
   expect: {
@@ -26,19 +27,5 @@ export default defineConfig({
       name: "deployed-mobile",
       use: { ...devices["Pixel 7"], browserName: "chromium", viewport: { width: 375, height: 900 } }
     }
-  ],
-  webServer: {
-    command: `pnpm dev --hostname 127.0.0.1 --port ${port}`,
-    url: baseURL,
-    reuseExistingServer: false,
-    timeout: 120_000,
-    env: {
-      NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:5167",
-      NEXT_PUBLIC_AUTH_MODE: "EntraId",
-      NEXT_PUBLIC_RUNTIME_PROFILE: "Staging",
-      NEXT_PUBLIC_TENANT_ID: "tenant-deployed",
-      NEXT_PUBLIC_WORKSPACE_ID: "workspace-deployed",
-      NEXT_PUBLIC_LOCAL_USER_ID: ""
-    }
-  }
+  ]
 });
