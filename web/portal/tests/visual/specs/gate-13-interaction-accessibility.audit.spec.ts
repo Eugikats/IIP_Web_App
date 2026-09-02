@@ -50,6 +50,7 @@ test("Gate 13 records keyboard, focus-return and dialog semantics evidence", asy
 
   const dialog = page.getByRole("dialog", { name: "Export claim evidence pack" });
   await expect(dialog).toBeVisible();
+  await expect(page.locator('[role="dialog"] :focus')).toHaveCount(1);
   const initialFocus = await page.evaluate(() => ({
     tag: document.activeElement?.tagName,
     name: document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent?.trim().slice(0, 100),

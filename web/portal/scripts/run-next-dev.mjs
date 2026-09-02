@@ -63,8 +63,12 @@ child.on("error", (error) => {
 
 child.on("exit", (code, signal) => {
   releaseLock();
-  if (signal) process.kill(process.pid, signal);
-  else process.exit(code ?? 1);
+  if (signal) {
+    process.removeAllListeners(signal);
+    process.kill(process.pid, signal);
+    return;
+  }
+  process.exit(code ?? 1);
 });
 
 process.on("exit", releaseLock);

@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.0 |
-| Date | 2026-08-14 |
+| Version | 1.1 |
+| Date | 2026-09-02 |
 | Status | Evidence-backed snapshot; production-candidate **NO** |
 | Owner | Product / Engineering (Release) |
 | Authority | `AGENTS.md`, `docs/08-program-plan/IIP-CONSOLIDATED-ROADMAP.md`, `docs/07-qa/rf10-release-foundation-go-no-go-evidence.md` |
@@ -202,6 +202,12 @@ From scope register and charter:
 | Product, Insurance, Operations, Security/Privacy, Architecture, Delivery (G0) | **Pending** — baseline and scope registers remain **Proposed** |
 | Target-insurer configuration (rules, templates, languages, deployment) | **Conditional** — unconfigured capability stays `Not configured` |
 
+### 4.6 UX release-gate evidence (2026-09-02)
+
+The Release 1 staff UX remediation is source-complete and locally verified on `harry/ux-r1-release-gates`. The portal gates cover responsive workflows, role preview without authority escalation, evidence currentness, recovery and unknown-result handling, automated axe checks, keyboard/focus behavior, 200% text, 320/390/768/1024/1440 CSS-pixel layouts, and protected-profile DOM assertions. A live Computer Use walkthrough passed the running portal's API-offline recovery and compact-drawer paths and produced one extraction-recovery fix. Runtime-backed role preview, populated evidence and provider actions were unavailable and remain open for protected UAT. Exact local results are recorded in `docs/07-qa/uat-script.md`.
+
+This evidence does **not** change the production-candidate verdict. CI and maintainer review are pending, and local fixtures/emulation do not replace protected authenticated multi-role UAT, live provider and low-bandwidth evidence, practicing Ugandan insurance-staff usability, physical-device or assistive-technology testing, staging validation, or the named go/no-go approvals.
+
 ---
 
 ## 5. Record maintenance
@@ -213,4 +219,4 @@ Update this document when:
 3. RF-10 is re-issued with new evidence.
 4. Motor scope changes through approved scope control (`iip_mvp_scope_control_register.md`).
 
-**Last verified:** 2026-08-14 — repository search, `Program.cs` route inventory, git branch tip `e84e36c`, RF-10 pack `1f33081`.
+**Last verified:** 2026-09-02 — Release 1 UX local gates added; production-candidate verdict and RF-10 authority unchanged.

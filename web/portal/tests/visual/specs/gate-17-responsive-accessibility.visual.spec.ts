@@ -70,7 +70,11 @@ test("Gate 17 critical surfaces pass axe and 200% text reflow", async ({ page },
   for (const route of ["/app/claims", claimPath, extractionPath, "/app"]) {
     await page.goto(route);
     const axe = await new AxeBuilder({ page }).analyze();
-    expect(axe.violations, `${route}: ${axe.violations.map((item) => item.id).join(", ")}`).toEqual([]);
+    const violationSummary = axe.violations.map((item) => ({
+      id: item.id,
+      nodes: item.nodes.map((node) => ({ target: node.target, html: node.html, failure: node.failureSummary })),
+    }));
+    expect(axe.violations, `${route}: ${JSON.stringify(violationSummary)}`).toEqual([]);
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   }
