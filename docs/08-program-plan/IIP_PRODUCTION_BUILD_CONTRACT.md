@@ -898,7 +898,7 @@ Append one row per work order on completion. Real output only (A9).
 
 | WO | Status | Commit | Verification output | Notes |
 |---|---|---|---|---|
-| WO-01 | | | | |
+| WO-01 | DONE | (pending) | `pnpm lint` → No ESLint warnings or errors. `pnpm build` (NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5167 NEXT_PUBLIC_AUTH_MODE=Development NEXT_PUBLIC_RUNTIME_PROFILE=Development) → 35/35 static pages, `/app/policy` 1.78 kB, no errors. | Audited every module-level literal in `lovable-pages/`+`components/iip/`. One real violation found and fixed: `PolicyIntelligence.tsx` — fabricated AI answer, fake excess figure, 4 fake clause citations, fake 0.88 confidence badge, fake regulatory reference, 2 dead buttons. Rewired to the real `POST /command-center/query` path via `useCommandCenterQuery` + `CommandCenterBlocks` (same path `AIConversations.tsx` uses) — real grounding, real citations, honest refusal, no dead buttons. All other literal-data hits classified KEEP as legitimate UI configuration (icon/tone/label maps keyed to real enums, filter/nav lists, empty form defaults, workflow-builder blank-canvas template, integration capability descriptions) or explicitly deferred: `FNOL.tsx` hardcoded 7-item document list is real content not derived from `DocumentChecklistRules` — deferred to WO-15 by design, noted here rather than silently left. `OperationalIntelligencePrototype.tsx` / `Release1LowFidelityPrototype.tsx` keep hardcoded/synthetic content — both self-disclose ("Development-only prototype · synthetic data · no production workflow or decision behavior"), live under an isolated `/prototype/` route tree, and are not linked from any real app navigation. |
 | WO-02 | | | | |
 | WO-03 | | | | |
 | CP-A | | | | |
