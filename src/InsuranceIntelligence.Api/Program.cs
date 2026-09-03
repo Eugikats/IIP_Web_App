@@ -96,6 +96,10 @@ var developmentDiagnosticsEnabled = builder.Environment.IsDevelopment()
         || runtimeProfile.Equals("LocalTest", StringComparison.OrdinalIgnoreCase));
 
 builder.Services.AddAuthorization();
+// Handles ProviderNotConfiguredException with a structured, capability-aware response instead
+// of the generic 500 below; must be registered before AddProblemDetails' fallback so it runs
+// first (ASP.NET Core tries handlers in registration order).
+builder.Services.AddExceptionHandler<InsuranceIntelligence.Api.Local.ProviderNotConfiguredExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 // OpenAPI/Swagger. The generated document is the machine-checkable API contract map

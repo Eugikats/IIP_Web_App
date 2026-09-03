@@ -6,24 +6,31 @@ using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Api.Local;
 
-public sealed class ProviderNotConfiguredException(string message) : InvalidOperationException(message);
+// Capability is a stable machine-readable identifier for the missing provider (e.g.
+// "DocumentStorage"), distinct from the human-readable message. The exception boundary
+// (see ProviderNotConfiguredExceptionHandler) uses it to build a structured, honest
+// response instead of letting a raw provider error reach the client (AGENTS.md I9).
+public sealed class ProviderNotConfiguredException(string capability, string message) : InvalidOperationException(message)
+{
+    public string Capability { get; } = capability;
+}
 
 public sealed class NotConfiguredDocumentProcessingProvider : IDocumentProcessingProvider
 {
     public Task<DocumentProcessingResult> ProcessAsync(DocumentProcessingRequest request, CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("Document processing provider is not configured.");
+        throw new ProviderNotConfiguredException("DocumentProcessing", "Document processing provider is not configured.");
 }
 
 public sealed class NotConfiguredKnowledgeIndexProvider : IKnowledgeIndexProvider
 {
     public Task IndexAsync(KnowledgeDocument document, CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("Knowledge indexing provider is not configured.");
+        throw new ProviderNotConfiguredException("KnowledgeIndexing", "Knowledge indexing provider is not configured.");
 
     public Task RemoveAsync(Guid knowledgeDocumentId, TenantScope scope, CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("Knowledge indexing provider is not configured.");
+        throw new ProviderNotConfiguredException("KnowledgeIndexing", "Knowledge indexing provider is not configured.");
 
     public Task RebuildAsync(TenantScope scope, IReadOnlyCollection<KnowledgeDocument> approvedDocuments, CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("Knowledge indexing provider is not configured.");
+        throw new ProviderNotConfiguredException("KnowledgeIndexing", "Knowledge indexing provider is not configured.");
 
     public Task<IReadOnlyCollection<KnowledgeChunk>> SearchAsync(
         TenantScope scope,
@@ -72,7 +79,7 @@ public sealed class NotConfiguredCustomerUpdateDraftingProvider : ICustomerUpdat
         string createdByUserId,
         string correlationId,
         CancellationToken cancellationToken = default) =>
-        throw new ProviderNotConfiguredException("Customer update drafting provider is not configured.");
+        throw new ProviderNotConfiguredException("CustomerUpdateDrafting", "Customer update drafting provider is not configured.");
 }
 
 public sealed class NotConfiguredCommunicationProvider : ICommunicationProvider
@@ -82,17 +89,17 @@ public sealed class NotConfiguredCommunicationProvider : ICommunicationProvider
         string sentByUserId,
         string? recipient = null,
         CancellationToken cancellationToken = default) =>
-        throw new ProviderNotConfiguredException("Customer communication provider is not configured.");
+        throw new ProviderNotConfiguredException("CustomerCommunication", "Customer communication provider is not configured.");
 }
 
 public sealed class NotConfiguredDocumentStorageProvider : IDocumentStorageProvider
 {
     public Task<DocumentStorageResult> StoreAsync(DocumentStorageRequest request, CancellationToken cancellationToken = default) =>
-        throw new ProviderNotConfiguredException("Document storage provider is not configured.");
+        throw new ProviderNotConfiguredException("DocumentStorage", "Document storage provider is not configured.");
 }
 
 public sealed class NotConfiguredKnowledgeStorageProvider : IKnowledgeStorageProvider
 {
     public Task<KnowledgeStorageResult> StoreAsync(KnowledgeStorageRequest request, CancellationToken cancellationToken = default) =>
-        throw new ProviderNotConfiguredException("Knowledge storage provider is not configured.");
+        throw new ProviderNotConfiguredException("KnowledgeStorage", "Knowledge storage provider is not configured.");
 }

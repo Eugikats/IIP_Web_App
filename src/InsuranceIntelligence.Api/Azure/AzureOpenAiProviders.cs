@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Core;
+using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Documents;
@@ -93,7 +94,7 @@ public sealed class NotConfiguredChatCompletionProvider : IChatCompletionProvide
     public Task<ChatCompletionResult> CompleteAsync(
         ChatCompletionRequest request,
         CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("Chat completion provider is not configured.");
+        throw new ProviderNotConfiguredException("ChatCompletion", "Chat completion provider is not configured.");
 }
 
 public sealed class AzureOpenAiAssistantProvider(

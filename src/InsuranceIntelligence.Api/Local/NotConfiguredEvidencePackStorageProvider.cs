@@ -7,5 +7,5 @@ public sealed class NotConfiguredEvidencePackStorageProvider : IEvidencePackStor
     public Task<EvidencePackStorageResult> StoreAsync(
         EvidencePackStorageRequest request,
         CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("Evidence pack storage provider is not configured.");
+        throw new ProviderNotConfiguredException("EvidencePackStorage", "Evidence pack storage provider is not configured.");
 }

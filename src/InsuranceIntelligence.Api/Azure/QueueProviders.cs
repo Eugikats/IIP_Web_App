@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Azure.Messaging.ServiceBus;
+using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Domain.Queue;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
@@ -20,7 +21,7 @@ public sealed class MockMessageQueueDispatcher(ILogger<MockMessageQueueDispatche
 public sealed class NotConfiguredMessageQueueDispatcher : IMessageQueueDispatcher
 {
     public Task DispatchAsync(QueueMessageEnvelope envelope, CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("Message queue provider is not configured.");
+        throw new ProviderNotConfiguredException("MessageQueue", "Message queue provider is not configured.");
 }
 
 public sealed class AzureServiceBusQueueDispatcher(InfrastructureOptions options, ILogger<AzureServiceBusQueueDispatcher> logger) : IMessageQueueDispatcher

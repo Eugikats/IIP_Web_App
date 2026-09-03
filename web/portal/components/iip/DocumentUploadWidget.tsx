@@ -15,12 +15,27 @@ type DocumentUploadWidgetProps = {
  * Low-bandwidth claim document upload: camera/file picker, client JPEG downscale for photos,
  * progress via XHR, honest offline/error states (no fake queued success).
  */
+// Human-readable labels for the stable capability identifiers the API's
+// ProviderNotConfiguredExceptionHandler returns (see AGENTS.md I9 — never let a raw provider
+// error reach a user; render an honest, actionable not-configured state instead).
+const CAPABILITY_LABELS: Record<string, string> = {
+  DocumentStorage: "Document storage",
+  DocumentProcessing: "Document processing",
+};
+
+class NotConfiguredError extends Error {
+  constructor(public readonly capability: string) {
+    super(`${capability} is not configured.`);
+  }
+}
+
 export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploadWidgetProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notConfiguredCapability, setNotConfiguredCapability] = useState<string | null>(null);
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) {
@@ -29,6 +44,7 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
 
     setError(null);
     setStatus(null);
+    setNotConfiguredCapability(null);
 
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       setError(offlineUploadMessage());
@@ -71,7 +87,15 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
               errors?: Record<string, string[]>;
               title?: string;
               detail?: string;
+              capability?: string;
             };
+            // 503 + capability is the structured shape ProviderNotConfiguredExceptionHandler
+            // returns (see src/InsuranceIntelligence.Api/Local) — render it as an honest
+            // not-configured state, distinct from an ordinary upload failure.
+            if (xhr.status === 503 && typeof body.capability === "string" && body.capability.trim()) {
+              reject(new NotConfiguredError(body.capability));
+              return;
+            }
             if (typeof body.message === "string" && body.message.trim()) {
               message = body.message;
             } else if (body.errors) {
@@ -103,7 +127,11 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
       setProgress(100);
       await onUploaded();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
+      if (err instanceof NotConfiguredError) {
+        setNotConfiguredCapability(err.capability);
+      } else {
+        setError(err instanceof Error ? err.message : "Upload failed.");
+      }
       setProgress(null);
     } finally {
       setUploading(false);
@@ -149,7 +177,13 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
         </div>
       ) : null}
       {status ? <div className="text-[12px] text-navy">{status}</div> : null}
-      {error ? <div className="text-[12px] text-[hsl(var(--danger))]">{error}</div> : null}
+      {notConfiguredCapability ? (
+        <div className="text-[12px] text-warning">
+          {CAPABILITY_LABELS[notConfiguredCapability] ?? notConfiguredCapability} is not configured for this workspace. Ask a workspace administrator to configure it.
+        </div>
+      ) : error ? (
+        <div className="text-[12px] text-[hsl(var(--danger))]">{error}</div>
+      ) : null}
     </div>
   );
 }

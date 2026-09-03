@@ -162,7 +162,9 @@ public sealed class ProtectedRuntimeReconciliationTests
             "correlation",
             new { });
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => dispatcher.DispatchAsync(envelope));
+        var exception = await Assert.ThrowsAsync<ProviderNotConfiguredException>(() => dispatcher.DispatchAsync(envelope));
+
+        Assert.Equal("MessageQueue", exception.Capability);
     }
 
     [Fact]
