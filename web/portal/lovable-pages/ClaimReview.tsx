@@ -23,7 +23,9 @@ import CompletenessCard from "@/components/iip/CompletenessCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import MotorLifecycle from "@/components/iip/MotorLifecycle";
 import { DocumentUploadWidget } from "@/components/iip/DocumentUploadWidget";
+import { MarkdownText } from "@/components/iip/MarkdownText";
 import { useClaimReview } from "@/lib/lovable-parity/data/claimReview";
+import { useClaimsSummary } from "@/lib/lovable-parity/data/claimsSummary";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
 import { useUI } from "@/context/UIStateContext";
 import { extractionHref } from "@/lib/workItemLinks";
@@ -59,6 +61,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const loading = loadState.status === "loading";
   const error = "error" in loadState ? loadState.error : null;
   const { roleDef } = useUI();
+  const { summary: claimsSummary, loading: summarizing, error: summaryError, generate: generateSummary } = useClaimsSummary(claimId, roleDef.key);
   const { runtimeContext, parityMode } = useRuntimeContext();
   // Gates the upload control on the signed-in user's real permission, never on the preview role
   // switcher — a role without UploadDocument (e.g. ITAdmin, Compliance) must not see a button
@@ -430,6 +433,63 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             ) : (
               <div className="mt-3 text-[11.5px] text-stone">
                 Your role does not include document upload.
+              </div>
+            )}
+          </GlassCard>
+
+          <GlassCard>
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[14px] font-semibold text-navy">Claim summary</div>
+                <div className="mt-1 text-[11.5px] text-stone">
+                  Prepared from this claim&apos;s facts, documents, policy, and approved knowledge. Required before decision use — not a decision itself.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { void generateSummary(); }}
+                disabled={summarizing}
+                className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-2.5 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+              >
+                {summarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />}
+                {claimsSummary ? "Regenerate summary" : "Generate summary"}
+              </button>
+            </div>
+            {summaryError ? (
+              <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-[12.5px] text-[hsl(38_92%_36%)]">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{summaryError}</span>
+              </div>
+            ) : claimsSummary ? (
+              <div className="space-y-3">
+                <MarkdownText className="text-[13px] text-slate2 leading-relaxed" content={claimsSummary.summary} />
+                {claimsSummary.openQuestions.length > 0 ? (
+                  <div>
+                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-stone">Open questions</div>
+                    <ul className="space-y-1 text-[12.5px] text-slate2">
+                      {claimsSummary.openQuestions.map((question) => (
+                        <li key={question}>- {question}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {claimsSummary.knowledgeSources.length > 0 ? (
+                  <div>
+                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-stone">Sources</div>
+                    <div className="space-y-1">
+                      {claimsSummary.knowledgeSources.map((source) => (
+                        <div key={source.chunkId} className="flex items-center gap-2 text-[12px] text-stone">
+                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                          {source.label}: {source.documentName}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-cloud bg-white/70 p-4 text-[12.5px] text-stone">
+                No summary generated yet.
               </div>
             )}
           </GlassCard>

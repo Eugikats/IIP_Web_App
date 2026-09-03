@@ -4,5 +4,6 @@ public enum AssistantMode
 {
     PolicyQnA,
     CustomerUpdateDrafting,
-    OperationalSummary
+    OperationalSummary,
+    ClaimsSummary
 }
