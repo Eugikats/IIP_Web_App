@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "node scripts/run-next-dev.mjs",
     "build": "node scripts/run-next-build.mjs",
-    "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:ui-release-gates && pnpm test:trust-truth && pnpm test:authority-permissions",
+    "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:action-permission-parity && pnpm check:ui-release-gates && pnpm test:trust-truth && pnpm test:authority-permissions",
     "check:runtime-data": "node scripts/check-runtime-data-hygiene.mjs",
     "check:provider-status": "node scripts/check-provider-status.mjs",
     "check:role-routes": "node scripts/check-role-route-config.mjs",
+    "check:action-permission-parity": "node scripts/check-action-permission-parity.mjs",
     "check:ui-release-gates": "node scripts/check-ui-release-gates.mjs",
     "test:visual:update": "playwright test --update-snapshots",
     "test:deployed-dom": "playwright test --config playwright.deployed.config.ts",

@@ -27,6 +27,9 @@ import { useClaimReview } from "@/lib/lovable-parity/data/claimReview";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
 import { useUI } from "@/context/UIStateContext";
 import { extractionHref } from "@/lib/workItemLinks";
+import { canPreviewPermission, hasPermission } from "@/lib/roles";
+import { canUseLocalTestDoubles } from "@/lib/config";
+import { useRuntimeContext } from "@/lib/runtimeContext";
 
 export default function ClaimReview() {
   const { id } = useParams();
@@ -56,6 +59,33 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const loading = loadState.status === "loading";
   const error = "error" in loadState ? loadState.error : null;
   const { roleDef } = useUI();
+  const { runtimeContext, parityMode } = useRuntimeContext();
+  // Gates the upload control on the signed-in user's real permission, never on the preview role
+  // switcher — a role without UploadDocument (e.g. ITAdmin, Compliance) must not see a button
+  // that the server will refuse with 403.
+  const canUploadDocuments = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "UploadDocument")
+    : hasPermission(runtimeContext?.permissions ?? [], "UploadDocument");
+  // "Draft customer update" and "Draft document follow-up" both call
+  // POST /cases/{id}/customer-updates/draft, which requires ManageCustomerCommunications —
+  // a role that can view the claim (e.g. Compliance) does not necessarily hold it.
+  const canDraftCustomerUpdates = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "ManageCustomerCommunications")
+    : hasPermission(runtimeContext?.permissions ?? [], "ManageCustomerCommunications");
+  // "Export claim pack" calls POST /compliance/cases/{id}/audit-pack/export, which requires
+  // ExportEvidencePack — most claim-viewing roles (ClaimsOfficer, CustomerService, Broker) do
+  // not hold it; only ClaimsSupervisor and Compliance do.
+  const canExportEvidencePack = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "ExportEvidencePack")
+    : hasPermission(runtimeContext?.permissions ?? [], "ExportEvidencePack");
+  // CustomerUpdatePanel's allowedActions/blockedActions reflect the update's workflow state
+  // only (see CaseActions.cs — it does not know the caller's permission); approve/send must be
+  // gated here too, on the same permissions POST /customer-updates/{id}/approve and /send
+  // actually require server-side.
+  const canApproveCustomerUpdate = canDraftCustomerUpdates; // both require ManageCustomerCommunications
+  const canSendCustomerUpdate = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "SendCustomerUpdate")
+    : hasPermission(runtimeContext?.permissions ?? [], "SendCustomerUpdate");
   const [pendingCustomerUpdateAction, setPendingCustomerUpdateAction] = useState<PendingCustomerUpdateAction | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
@@ -262,15 +292,17 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               <div className="text-[11.5px] text-stone">Only wired actions execute. Unwired actions report Not configured.</div>
             </div>
             <div className="grid gap-2.5 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={handleDraftCustomerUpdate}
-                disabled={drafting}
-                className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
-              >
-                {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />}
-                Draft customer update
-              </button>
+              {canDraftCustomerUpdates ? (
+                <button
+                  type="button"
+                  onClick={handleDraftCustomerUpdate}
+                  disabled={drafting}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+                >
+                  {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />}
+                  Draft customer update
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={handleSupervisorReview}
@@ -281,25 +313,38 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 Request supervisor review
               </button>
               <UnavailableAction icon={CheckCircle2} label="Mark evidence reviewed" onClick={unavailable} />
-              <button
-                type="button"
-                onClick={handleDraftDocumentFollowUp}
-                disabled={drafting}
-                className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
-              >
-                {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Draft document follow-up
-              </button>
-              <button
-                type="button"
-                onClick={() => setExportDialogOpen(true)}
-                disabled={exporting}
-                className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
-              >
-                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                Export claim pack
-              </button>
+              {canDraftCustomerUpdates ? (
+                <button
+                  type="button"
+                  onClick={handleDraftDocumentFollowUp}
+                  disabled={drafting}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+                >
+                  {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Draft document follow-up
+                </button>
+              ) : null}
+              {canExportEvidencePack ? (
+                <button
+                  type="button"
+                  onClick={() => setExportDialogOpen(true)}
+                  disabled={exporting}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+                >
+                  {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Export claim pack
+                </button>
+              ) : null}
             </div>
+            {!canDraftCustomerUpdates || !canExportEvidencePack ? (
+              <div className="mt-2.5 text-[11.5px] text-stone">
+                {!canDraftCustomerUpdates && !canExportEvidencePack
+                  ? "Your role does not include drafting customer updates or exporting the claim pack."
+                  : !canDraftCustomerUpdates
+                    ? "Your role does not include drafting customer updates."
+                    : "Your role does not include exporting the claim pack."}
+              </div>
+            ) : null}
           </GlassCard>
 
           <GlassCard>
@@ -313,8 +358,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             </div>
             <CustomerUpdatePanel
               updates={customerUpdates}
-              onApprove={(update) => setPendingCustomerUpdateAction({ action: "approve", update })}
-              onSend={(update) => {
+              onApprove={canApproveCustomerUpdate ? (update) => setPendingCustomerUpdateAction({ action: "approve", update }) : undefined}
+              onSend={canSendCustomerUpdate ? (update) => {
                 const availability = sendAvailability(update);
                 setPendingCustomerUpdateAction({
                   action: "send",
@@ -322,7 +367,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                   recipient: availability.recipientField === "email" ? detail.customerEmail : availability.recipientField === "phone" ? detail.customerPhone : null,
                   availability,
                 });
-              }}
+              } : undefined}
               getSendAvailability={sendAvailability}
             />
           </GlassCard>
@@ -380,7 +425,13 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 ))}
               </div>
             )}
-            <DocumentUploadWidget caseId={claimId} role={roleDef.key} onUploaded={reload} />
+            {canUploadDocuments ? (
+              <DocumentUploadWidget caseId={claimId} role={roleDef.key} onUploaded={reload} />
+            ) : (
+              <div className="mt-3 text-[11.5px] text-stone">
+                Your role does not include document upload.
+              </div>
+            )}
           </GlassCard>
 
           <GlassCard>

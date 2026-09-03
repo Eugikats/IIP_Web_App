@@ -198,6 +198,16 @@ export function canPreviewPermission(role: Role, permission: Permission): boolea
   return PREVIEW_PERMISSIONS[role].includes(permission);
 }
 
+// Gates a single action control (a button, not a whole route) on the signed-in user's REAL
+// server-resolved permissions. Never gate an action on the preview role switcher — it changes
+// what a user sees, never their actual authority (RoleSwitcher.tsx). Callers follow the same
+// usePreviewRole pattern as canAccess/canAccessWithPermissions for route gating: in local-test
+// or visual-parity mode, check canPreviewPermission(role, permission) instead — that mirrors
+// what the backend's x-demo-role header would actually grant in that mode.
+export function hasPermission(permissions: readonly string[], permission: Permission): boolean {
+  return permissions.includes(permission);
+}
+
 export function previewLandingRoute(role: Role): string {
   const configured = ROLES[role].landing;
   return canAccess(role, configured) ? configured : firstAccessibleRoute(PREVIEW_PERMISSIONS[role]) ?? "/unauthorized";
