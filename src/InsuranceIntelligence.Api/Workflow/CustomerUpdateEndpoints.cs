@@ -25,9 +25,11 @@ public static class CustomerUpdateEndpoints
         IAgentActionLogRepository actionLogRepository,
         IAuditRepository auditRepository,
         IAgentGate agentGate,
+        IAgentRunRecorder agentRunRecorder,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
+        var startedAt = DateTimeOffset.UtcNow;
         if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return WorkflowEndpoints.Validation("tenantScope", validationError);
@@ -94,6 +96,18 @@ public static class CustomerUpdateEndpoints
                     AuditReason: gate.RefusalMessage,
                     CorrelationId: correlationId),
                 cancellationToken);
+            await agentRunRecorder.RecordAsync(
+                scope,
+                "customer-update-drafting",
+                "customer_update_draft",
+                [$"{reasonCategory} update for case {caseId}"],
+                InsuranceIntelligence.Domain.Agents.AgentRunStatus.Refused,
+                startedAt,
+                correlationId,
+                actor,
+                caseId,
+                "agent_disabled",
+                cancellationToken: cancellationToken);
 
             return Results.Json(
                 new
@@ -142,6 +156,17 @@ public static class CustomerUpdateEndpoints
         };
         await actionLogRepository.SaveAsync(actionLog, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.CustomerUpdateDrafted(update), cancellationToken);
+        await agentRunRecorder.RecordAsync(
+            scope,
+            "customer-update-drafting",
+            "customer_update_draft",
+            [$"{reasonCategory} update for case {caseId}"],
+            InsuranceIntelligence.Domain.Agents.AgentRunStatus.Completed,
+            startedAt,
+            correlationId,
+            actor,
+            caseId,
+            cancellationToken: cancellationToken);
 
         return Results.Created($"/api/v1/customer-updates/{update.UpdateId}", WorkflowMapper.ToResponse(update));
     }

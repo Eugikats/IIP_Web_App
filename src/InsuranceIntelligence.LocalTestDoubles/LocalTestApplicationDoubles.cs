@@ -103,6 +103,48 @@ public sealed class LocalTestProviderHealthCheck : IProviderHealthCheck
 /// to simulate a workspace administrator having disabled specific agents, for tests asserting the
 /// refusal path.
 /// </summary>
+/// <summary>
+/// WO-07 test double: records AgentRuns in memory so tests can assert on them (or ignore them,
+/// for tests unrelated to agent-run auditing).
+/// </summary>
+public sealed class LocalTestAgentRunRecorder : IAgentRunRecorder
+{
+    private readonly List<AgentRun> recorded = [];
+
+    public IReadOnlyList<AgentRun> Recorded => recorded;
+
+    public Task RecordAsync(
+        TenantScope scope,
+        string agentKey,
+        string triggerType,
+        IReadOnlyCollection<string> inputRefs,
+        AgentRunStatus status,
+        DateTimeOffset startedAt,
+        string correlationId,
+        string? userId,
+        Guid? caseId,
+        string? errorCategory = null,
+        IReadOnlyCollection<AgentRunToolTraceEntry>? toolTrace = null,
+        CancellationToken cancellationToken = default)
+    {
+        recorded.Add(new AgentRun(
+            Guid.NewGuid(),
+            scope,
+            agentKey,
+            triggerType,
+            inputRefs,
+            status,
+            startedAt,
+            DateTimeOffset.UtcNow,
+            errorCategory,
+            correlationId,
+            userId,
+            caseId,
+            toolTrace ?? Array.Empty<AgentRunToolTraceEntry>()));
+        return Task.CompletedTask;
+    }
+}
+
 public sealed class LocalTestAgentGate(params string[] disabledAgentKeys) : IAgentGate
 {
     private readonly HashSet<string> disabled = new(disabledAgentKeys, StringComparer.OrdinalIgnoreCase);

@@ -2,6 +2,7 @@ using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Documents;
@@ -38,7 +39,8 @@ public sealed class CommandCenterQueryService(
     IChatCompletionProvider chatCompletionProvider,
     IAiOutputValidator aiOutputValidator,
     INotificationDraftService notificationDraftService,
-    IAgentGate agentGate) : ICommandCenterQueryService
+    IAgentGate agentGate,
+    IAgentRunRecorder agentRunRecorder) : ICommandCenterQueryService
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
@@ -73,6 +75,24 @@ public sealed class CommandCenterQueryService(
         await RequireIntentPermissionAsync(intent, cancellationToken);
 
         var now = DateTimeOffset.UtcNow;
+
+        // WO-07: every AI execution — completed or refused — is reconstructable as a single
+        // AgentRun (docs §11). Shares scope/correlation/user across all branches below; only
+        // the agent key, outcome, and trigger differ per branch.
+        Task RecordRun(string agentKey, AgentRunStatus status, string triggerType, string? errorCategory = null) =>
+            agentRunRecorder.RecordAsync(
+                context.Scope,
+                agentKey,
+                triggerType,
+                [SummarizeInput(question)],
+                status,
+                now,
+                correlationId,
+                context.UserId,
+                caseId: null,
+                errorCategory,
+                cancellationToken: cancellationToken);
+
         var providerGate = await EnsureRequiredProvidersAsync(intent.Intent, cancellationToken);
         if (providerGate is not null)
         {
@@ -90,16 +110,19 @@ public sealed class CommandCenterQueryService(
             var draftGate = await agentGate.CheckAsync("customer-update-drafting", cancellationToken);
             if (!draftGate.Enabled)
             {
+                await RecordRun("customer-update-drafting", AgentRunStatus.Refused, "command_center_query", "agent_disabled");
                 return await BuildAgentDisabledResponseAsync(question, context, draftGate, correlationId, now, cancellationToken);
             }
 
-            return await BuildCustomerUpdateDraftResponseAsync(
+            var draftResponse = await BuildCustomerUpdateDraftResponseAsync(
                 question,
                 context,
                 intent.Parameters,
                 correlationId,
                 now,
                 cancellationToken);
+            await RecordRun("customer-update-drafting", AgentRunStatus.Completed, "command_center_query");
+            return draftResponse;
         }
 
         if (intent.Intent == IntentType.AnswerPolicyQuestion)
@@ -107,15 +130,18 @@ public sealed class CommandCenterQueryService(
             var policyGate = await agentGate.CheckAsync("policy-intelligence", cancellationToken);
             if (!policyGate.Enabled)
             {
+                await RecordRun("policy-intelligence", AgentRunStatus.Refused, "command_center_query", "agent_disabled");
                 return await BuildAgentDisabledResponseAsync(question, context, policyGate, correlationId, now, cancellationToken);
             }
 
-            return await BuildPolicyAnswerResponseAsync(
+            var policyResponse = await BuildPolicyAnswerResponseAsync(
                 question,
                 context,
                 correlationId,
                 now,
                 cancellationToken);
+            await RecordRun("policy-intelligence", AgentRunStatus.Completed, "command_center_query");
+            return policyResponse;
         }
 
         var scope = context.Scope;
@@ -126,10 +152,11 @@ public sealed class CommandCenterQueryService(
             var reportGate = await agentGate.CheckAsync("report-insight", cancellationToken);
             if (!reportGate.Enabled)
             {
+                await RecordRun("report-insight", AgentRunStatus.Refused, "command_center_query", "agent_disabled");
                 return await BuildAgentDisabledResponseAsync(question, context, reportGate, correlationId, now, cancellationToken);
             }
 
-            return await BuildManagementSummaryResponseAsync(
+            var summaryResponse = await BuildManagementSummaryResponseAsync(
                 question,
                 context,
                 intent.Parameters,
@@ -137,11 +164,14 @@ public sealed class CommandCenterQueryService(
                 correlationId,
                 now,
                 cancellationToken);
+            await RecordRun("report-insight", AgentRunStatus.Completed, "command_center_query");
+            return summaryResponse;
         }
 
         var commandCenterGate = await agentGate.CheckAsync("command-center", cancellationToken);
         if (!commandCenterGate.Enabled)
         {
+            await RecordRun("command-center", AgentRunStatus.Refused, "command_center_query", "agent_disabled");
             return await BuildAgentDisabledResponseAsync(question, context, commandCenterGate, correlationId, now, cancellationToken);
         }
 
@@ -171,6 +201,7 @@ public sealed class CommandCenterQueryService(
 
         await actionLogRepository.SaveAsync(actionLog, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+        await RecordRun("command-center", AgentRunStatus.Completed, "command_center_query");
 
         return new CommandCenterQueryResponse(
             blocks,

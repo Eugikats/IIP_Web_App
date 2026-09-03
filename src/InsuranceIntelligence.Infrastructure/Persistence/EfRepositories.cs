@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -120,6 +121,41 @@ public sealed class EfAgentActionLogRepository(InsuranceIntelligenceDbContext db
         await Scoped(DbContext.AgentActionLogs.AsNoTracking(), scope)
             .Where(record => record.CaseId == caseId)
             .Select(record => Deserialize<AgentActionLog>(record.PayloadJson))
+            .ToArrayAsync(cancellationToken);
+}
+
+public sealed class EfAgentRunRepository(InsuranceIntelligenceDbContext dbContext)
+    : JsonRepositoryBase(dbContext), IAgentRunRepository
+{
+    public Task SaveAsync(AgentRun run, CancellationToken cancellationToken = default) =>
+        UpsertAsync(
+            DbContext.AgentRuns,
+            run.AgentRunId,
+            run.Scope,
+            Serialize(run),
+            record =>
+            {
+                record.AgentKey = run.AgentKey;
+                record.CaseId = run.CaseId;
+            },
+            cancellationToken);
+
+    public async Task<AgentRun?> GetAsync(Guid agentRunId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var record = await Scoped(DbContext.AgentRuns.AsNoTracking(), scope)
+            .FirstOrDefaultAsync(item => item.Id == agentRunId, cancellationToken);
+        return record is null ? null : Deserialize<AgentRun>(record.PayloadJson);
+    }
+
+    public async Task<IReadOnlyCollection<AgentRun>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+        await Scoped(DbContext.AgentRuns.AsNoTracking(), scope)
+            .Select(record => Deserialize<AgentRun>(record.PayloadJson))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<AgentRun>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default) =>
+        await Scoped(DbContext.AgentRuns.AsNoTracking(), scope)
+            .Where(record => record.CaseId == caseId)
+            .Select(record => Deserialize<AgentRun>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
 }
 

@@ -284,6 +284,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.AuditRepository,
             dependencies.CaseRepository,
             new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, answer) = await ExecuteAsync<PolicyQuestionResponse>(result);
@@ -315,6 +316,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.AuditRepository,
             dependencies.CaseRepository,
             new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
             context,
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<PolicyQuestionResponse>(result);
@@ -341,6 +343,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.AuditRepository,
             dependencies.CaseRepository,
             new LocalTestAgentGate("policy-intelligence"),
+            new LocalTestAgentRunRecorder(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, answer) = await ExecuteAsync<PolicyQuestionResponse>(result);
@@ -375,6 +378,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.AuditRepository,
             dependencies.CaseRepository,
             new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
             context,
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
@@ -398,6 +402,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.AuditRepository,
             dependencies.CaseRepository,
             new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
             ScopedContext(workspaceId: "wrong-workspace"),
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
@@ -471,6 +476,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.AuditRepository,
             dependencies.CaseRepository,
             new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<PolicyQuestionResponse>(result);

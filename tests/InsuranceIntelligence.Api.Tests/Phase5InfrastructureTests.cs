@@ -58,6 +58,49 @@ public sealed class Phase5InfrastructureTests
     }
 
     [Fact]
+    public async Task EfAgentRunRepository_RoundTripsAndIsolatesByTenantAndCase()
+    {
+        // WO-07: proves the AgentRun persistence layer through real EF Core machinery (the
+        // AddAgentRuns migration's model), not only the in-memory test double.
+        await using var fixture = await EfFixture.CreateAsync();
+        var repository = new EfAgentRunRepository(fixture.DbContext);
+        var scope = TenantScope.Create("tenant-a", "workspace-a");
+        var caseId = Guid.NewGuid();
+        var run = new InsuranceIntelligence.Domain.Agents.AgentRun(
+            Guid.NewGuid(),
+            scope,
+            "command-center",
+            "command_center_query",
+            ["What needs my attention today?"],
+            InsuranceIntelligence.Domain.Agents.AgentRunStatus.Completed,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            ErrorCategory: null,
+            "corr-agent-run-001",
+            "user-claims-1",
+            caseId,
+            [new InsuranceIntelligence.Domain.Agents.AgentRunToolTraceEntry("claims.attention.read", DateTimeOffset.UtcNow, "ok")]);
+
+        await repository.SaveAsync(run);
+
+        var fetched = await repository.GetAsync(run.AgentRunId, scope);
+        var sameScope = await repository.ListAsync(scope);
+        var otherScope = await repository.ListAsync(TenantScope.Create("tenant-b", "workspace-a"));
+        var forCase = await repository.ListForCaseAsync(caseId, scope);
+        var forOtherCase = await repository.ListForCaseAsync(Guid.NewGuid(), scope);
+
+        Assert.NotNull(fetched);
+        Assert.Equal("command-center", fetched!.AgentKey);
+        Assert.Equal(InsuranceIntelligence.Domain.Agents.AgentRunStatus.Completed, fetched.Status);
+        Assert.Single(fetched.ToolTrace);
+        Assert.Equal("claims.attention.read", fetched.ToolTrace.First().ToolName);
+        Assert.Single(sameScope);
+        Assert.Empty(otherScope);
+        Assert.Single(forCase);
+        Assert.Empty(forOtherCase);
+    }
+
+    [Fact]
     public async Task AdminTenantConfigUpdate_WorksForAdmin()
     {
         var repository = new InMemoryTenantConfigurationRepository();

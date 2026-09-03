@@ -17,9 +17,11 @@ public static class AssistantEndpoints
         IAuditRepository auditRepository,
         ICaseRepository caseRepository,
         IAgentGate agentGate,
+        IAgentRunRecorder agentRunRecorder,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
+        var startedAt = DateTimeOffset.UtcNow;
         if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
@@ -98,6 +100,18 @@ public static class AssistantEndpoints
 
         await actionLogRepository.SaveAsync(actionLog, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.AssistantPolicyQuestionAnswered(actionLog), cancellationToken);
+        await agentRunRecorder.RecordAsync(
+            scope,
+            "policy-intelligence",
+            "assistant_policy_question",
+            [SummarizeInput(question.Question)],
+            gate.Enabled ? InsuranceIntelligence.Domain.Agents.AgentRunStatus.Completed : InsuranceIntelligence.Domain.Agents.AgentRunStatus.Refused,
+            startedAt,
+            correlationId,
+            actor,
+            question.CaseId,
+            gate.Enabled ? null : "agent_disabled",
+            cancellationToken: cancellationToken);
 
         return Results.Ok(new PolicyQuestionResponse(
             answer.AnswerText,

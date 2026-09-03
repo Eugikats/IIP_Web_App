@@ -197,6 +197,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
@@ -223,6 +224,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
@@ -256,6 +258,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             new LocalTestAgentGate("customer-update-drafting"),
+            new LocalTestAgentRunRecorder(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
@@ -677,6 +680,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
             AuthenticatedScopedContext("entra-service-agent", "Authenticated draft context."),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CustomerUpdateResponse>(result);
@@ -942,6 +946,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CustomerUpdateResponse>(result);

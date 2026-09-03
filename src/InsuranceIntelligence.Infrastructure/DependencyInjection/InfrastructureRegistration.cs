@@ -181,6 +181,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingRepository, EfTenantOnboardingRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantMembershipWriter, EfTenantMembershipWriter>();
         services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentStateRepository, EfAgentStateRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Agents.IAgentRunRepository, EfAgentRunRepository>();
         services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowDefinitionRepository, EfAgentWorkflowDefinitionRepository>();
         services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowRunRepository, EfAgentWorkflowRunRepository>();
         services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkItemRepository, EfAgentWorkItemRepository>();

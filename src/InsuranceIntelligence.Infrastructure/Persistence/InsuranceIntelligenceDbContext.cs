@@ -39,6 +39,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedTenantOnboarding> TenantOnboardings => Set<PersistedTenantOnboarding>();
     public DbSet<PersistedCommandCenterConversation> CommandCenterConversations => Set<PersistedCommandCenterConversation>();
     public DbSet<PersistedWhatsAppMessage> WhatsAppMessages => Set<PersistedWhatsAppMessage>();
+    public DbSet<PersistedAgentRun> AgentRuns => Set<PersistedAgentRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -108,6 +109,10 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ThreadId, entity.CreatedAt });
         modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ProviderMessageId }).IsUnique();
         modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.IdempotencyKey }).IsUnique();
+        ConfigureScopedJson(modelBuilder.Entity<PersistedAgentRun>(), "AgentRuns", "AgentRunId");
+        modelBuilder.Entity<PersistedAgentRun>().Property(entity => entity.AgentKey).HasMaxLength(80).IsRequired();
+        modelBuilder.Entity<PersistedAgentRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.AgentKey });
+        modelBuilder.Entity<PersistedAgentRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)
@@ -247,6 +252,11 @@ public sealed class PersistedWhatsAppMessage : PersistedScopedJson
     public string? ProviderMessageId { get; set; }
     public string? IdempotencyKey { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+}
+public sealed class PersistedAgentRun : PersistedScopedJson
+{
+    public string AgentKey { get; set; } = string.Empty;
+    public Guid? CaseId { get; set; }
 }
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;

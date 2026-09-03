@@ -6,6 +6,7 @@ using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.LocalTestDoubles;
+using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Knowledge;
@@ -68,6 +69,15 @@ public sealed class CommandCenterQueryEndpointsTests
         var auditEvents = await harness.AuditRepository.ListAsync(Scope);
         Assert.Contains(actionLogs, log => log.AgentActionLogId == actionLogId && !log.CanTriggerDecision);
         Assert.Contains(auditEvents, evt => evt.ActionName == "assistant.command_center.answered");
+
+        // WO-07: the AI execution is also reconstructable as a single AgentRun with correct
+        // scope, user, correlation, and outcome — not only as an AgentActionLog/AuditEvent.
+        var run = Assert.Single(harness.RecordedAgentRuns);
+        Assert.Equal("command-center", run.AgentKey);
+        Assert.Equal(AgentRunStatus.Completed, run.Status);
+        Assert.Equal(Scope, run.Scope);
+        Assert.NotNull(run.CompletedAt);
+        Assert.NotEqual(default, run.StartedAt);
     }
 
     [Fact]
@@ -171,6 +181,12 @@ public sealed class CommandCenterQueryEndpointsTests
             && log.RiskFlag == "agent_disabled"
             && !log.CanTriggerDecision);
         Assert.Contains(auditEvents, evt => evt.ActionName == "assistant.command_center.answered");
+
+        // WO-07: a refusal is still reconstructable as an AgentRun, not just as an AgentActionLog.
+        var run = Assert.Single(harness.RecordedAgentRuns);
+        Assert.Equal("command-center", run.AgentKey);
+        Assert.Equal(AgentRunStatus.Refused, run.Status);
+        Assert.Equal("agent_disabled", run.ErrorCategory);
     }
 
     [Fact]
@@ -397,6 +413,7 @@ public sealed class CommandCenterQueryEndpointsTests
         private readonly IChatCompletionProvider _chatCompletionProvider;
         private readonly IRetrievalProvider _retrievalProvider;
         private readonly IAgentGate _agentGate;
+        private readonly IAgentRunRecorder _agentRunRecorder = new LocalTestAgentRunRecorder();
 
         public Harness(
             InfrastructureOptions? options = null,
@@ -413,6 +430,8 @@ public sealed class CommandCenterQueryEndpointsTests
             _retrievalProvider = retrievalProvider ?? new EmptyRetrievalProvider();
             _agentGate = agentGate ?? new LocalTestAgentGate();
         }
+
+        public IReadOnlyList<AgentRun> RecordedAgentRuns => ((LocalTestAgentRunRecorder)_agentRunRecorder).Recorded;
 
         public InMemoryCaseRepository CaseRepository { get; } = new();
         public InMemoryCaseDocumentRepository DocumentRepository { get; } = new();
@@ -499,7 +518,8 @@ public sealed class CommandCenterQueryEndpointsTests
                 _chatCompletionProvider,
                 new DeterministicAiOutputValidator(),
                 new CustomerUpdateNotificationDraftService(CustomerUpdateRepository),
-                _agentGate);
+                _agentGate,
+                _agentRunRecorder);
             var conversationService = new CommandCenterConversationService(
                 TenantContextAccessor,
                 permissionService,
@@ -551,7 +571,8 @@ public sealed class CommandCenterQueryEndpointsTests
                 _chatCompletionProvider,
                 new DeterministicAiOutputValidator(),
                 new CustomerUpdateNotificationDraftService(CustomerUpdateRepository),
-                _agentGate);
+                _agentGate,
+                _agentRunRecorder);
             var conversationService = new CommandCenterConversationService(
                 TenantContextAccessor,
                 permissionService,
