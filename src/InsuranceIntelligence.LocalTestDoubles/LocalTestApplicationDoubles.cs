@@ -1,6 +1,8 @@
+using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Claims;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -93,4 +95,30 @@ public sealed class LocalTestProviderHealthCheck : IProviderHealthCheck
 {
     public Task<ProviderStatus> CheckAsync(string providerCode, CancellationToken cancellationToken = default) =>
         Task.FromResult(new ProviderStatus(providerCode, "not_configured", "LocalTest provider health does not simulate live Azure connectivity.", DateTimeOffset.UtcNow));
+}
+
+/// <summary>
+/// Test double for the WO-06 agent kill-switch gate. Defaults to every agent enabled, matching
+/// AgentGate's own "absence means enabled" convention. Pass <paramref name="disabledAgentKeys"/>
+/// to simulate a workspace administrator having disabled specific agents, for tests asserting the
+/// refusal path.
+/// </summary>
+public sealed class LocalTestAgentGate(params string[] disabledAgentKeys) : IAgentGate
+{
+    private readonly HashSet<string> disabled = new(disabledAgentKeys, StringComparer.OrdinalIgnoreCase);
+
+    public Task<AgentGateResult> CheckAsync(string agentKey, CancellationToken cancellationToken = default)
+    {
+        var descriptor = AgentCatalog.Find(agentKey)
+            ?? throw new ArgumentException($"Unknown agent key: {agentKey}", nameof(agentKey));
+        var enabled = !disabled.Contains(agentKey);
+
+        return Task.FromResult(new AgentGateResult(
+            enabled,
+            descriptor.Key,
+            descriptor.Name,
+            enabled ? null : "test-admin",
+            enabled ? null : DateTimeOffset.UtcNow,
+            enabled ? null : "Disabled for test."));
+    }
 }

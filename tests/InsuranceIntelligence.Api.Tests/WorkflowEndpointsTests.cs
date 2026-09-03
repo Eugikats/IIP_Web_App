@@ -196,6 +196,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.CustomerUpdateRepository,
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
+            new LocalTestAgentGate(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
@@ -221,6 +222,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.CustomerUpdateRepository,
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
+            new LocalTestAgentGate(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
@@ -231,6 +233,43 @@ public sealed class WorkflowEndpointsTests
         Assert.Empty(await dependencies.CustomerUpdateRepository.ListForCaseAsync(
             claimCase.CaseId,
             TenantScope.Create("tenant-demo", "workspace-claims")));
+    }
+
+    [Fact]
+    public async Task DraftCustomerUpdate_DisabledCustomerUpdateDraftingAgent_RefusesInsteadOfDrafting()
+    {
+        // WO-06: this is the endpoint entry point CustomerUpdateEndpoints.DraftCustomerUpdate
+        // uses — also directly reachable from the portal's "Draft customer update" button
+        // (ClaimReview.tsx, WO-05). Distinct from, but the same agent key as, the draft path
+        // Command Center reaches through BuildCustomerUpdateDraftResponseAsync.
+        var dependencies = CreateDependencies();
+        var claimCase = await CreateCaseAsync(dependencies);
+
+        var result = await CustomerUpdateEndpoints.DraftCustomerUpdate(
+            claimCase.CaseId,
+            new DraftCustomerUpdateRequest("MissingDocuments", "Portal"),
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.ChecklistProvider,
+            new ThrowsIfCalledCustomerUpdateDraftingProvider(),
+            dependencies.CustomerUpdateRepository,
+            dependencies.ActionLogRepository,
+            dependencies.AuditRepository,
+            new LocalTestAgentGate("customer-update-drafting"),
+            ScopedContext(),
+            CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, statusCode);
+        Assert.Equal("AgentDisabled", body.GetProperty("status").GetString());
+        Assert.Equal("customer-update-drafting", body.GetProperty("agentKey").GetString());
+        Assert.Contains("disabled for this workspace", body.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await dependencies.CustomerUpdateRepository.ListForCaseAsync(
+            claimCase.CaseId,
+            TenantScope.Create("tenant-demo", "workspace-claims")));
+        Assert.Contains(
+            await dependencies.AuditRepository.ListForCaseAsync(claimCase.CaseId),
+            evt => evt.ActionName == "agent.killswitch.refused");
     }
 
     [Fact]
@@ -637,6 +676,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.CustomerUpdateRepository,
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
+            new LocalTestAgentGate(),
             AuthenticatedScopedContext("entra-service-agent", "Authenticated draft context."),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CustomerUpdateResponse>(result);
@@ -901,6 +941,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.CustomerUpdateRepository,
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
+            new LocalTestAgentGate(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CustomerUpdateResponse>(result);
@@ -1055,6 +1096,25 @@ public sealed class WorkflowEndpointsTests
             : await JsonSerializer.DeserializeAsync<T>(httpContext.Response.Body, JsonOptions);
 
         return (httpContext.Response.StatusCode, body);
+    }
+
+    /// <summary>
+    /// WO-06 proof: if the kill-switch check in CustomerUpdateEndpoints.DraftCustomerUpdate is
+    /// bypassed and the drafting provider gets called anyway, this fails the test loudly instead
+    /// of silently returning a plausible-looking draft.
+    /// </summary>
+    private sealed class ThrowsIfCalledCustomerUpdateDraftingProvider : ICustomerUpdateDraftingProvider
+    {
+        public Task<CustomerUpdateDraft> DraftAsync(
+            ClaimCase claimCase,
+            DocumentCompletenessChecklist checklist,
+            CustomerUpdateReasonCategory reasonCategory,
+            CommunicationChannel channel,
+            string createdByUserId,
+            string correlationId,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "The drafting provider was invoked despite the agent being disabled — the kill switch was bypassed.");
     }
 
     private sealed record Dependencies(

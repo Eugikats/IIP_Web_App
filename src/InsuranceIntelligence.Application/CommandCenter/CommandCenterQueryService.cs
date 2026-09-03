@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
@@ -36,7 +37,8 @@ public sealed class CommandCenterQueryService(
     IProviderHealthCheck providerHealthCheck,
     IChatCompletionProvider chatCompletionProvider,
     IAiOutputValidator aiOutputValidator,
-    INotificationDraftService notificationDraftService) : ICommandCenterQueryService
+    INotificationDraftService notificationDraftService,
+    IAgentGate agentGate) : ICommandCenterQueryService
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
@@ -85,6 +87,12 @@ public sealed class CommandCenterQueryService(
 
         if (intent.Intent == IntentType.PrepareCustomerUpdateDraft)
         {
+            var draftGate = await agentGate.CheckAsync("customer-update-drafting", cancellationToken);
+            if (!draftGate.Enabled)
+            {
+                return await BuildAgentDisabledResponseAsync(question, context, draftGate, correlationId, now, cancellationToken);
+            }
+
             return await BuildCustomerUpdateDraftResponseAsync(
                 question,
                 context,
@@ -96,6 +104,12 @@ public sealed class CommandCenterQueryService(
 
         if (intent.Intent == IntentType.AnswerPolicyQuestion)
         {
+            var policyGate = await agentGate.CheckAsync("policy-intelligence", cancellationToken);
+            if (!policyGate.Enabled)
+            {
+                return await BuildAgentDisabledResponseAsync(question, context, policyGate, correlationId, now, cancellationToken);
+            }
+
             return await BuildPolicyAnswerResponseAsync(
                 question,
                 context,
@@ -109,6 +123,12 @@ public sealed class CommandCenterQueryService(
 
         if (intent.Intent == IntentType.GenerateManagementSummary)
         {
+            var reportGate = await agentGate.CheckAsync("report-insight", cancellationToken);
+            if (!reportGate.Enabled)
+            {
+                return await BuildAgentDisabledResponseAsync(question, context, reportGate, correlationId, now, cancellationToken);
+            }
+
             return await BuildManagementSummaryResponseAsync(
                 question,
                 context,
@@ -117,6 +137,12 @@ public sealed class CommandCenterQueryService(
                 correlationId,
                 now,
                 cancellationToken);
+        }
+
+        var commandCenterGate = await agentGate.CheckAsync("command-center", cancellationToken);
+        if (!commandCenterGate.Enabled)
+        {
+            return await BuildAgentDisabledResponseAsync(question, context, commandCenterGate, correlationId, now, cancellationToken);
         }
 
         var blocks = CommandCenterQueryPlanner.Plan(question, data);
@@ -497,6 +523,28 @@ public sealed class CommandCenterQueryService(
             CanTriggerDecision: false,
             generatedAt);
     }
+
+    /// <summary>
+    /// The kill-switch refusal path (WO-06). Reuses the existing safe-error block/audit
+    /// machinery — same as BuildErrorResponseAsync — rather than adding a new response shape,
+    /// since the frontend's ErrorBlock already renders a distinguishable, honest refusal with a
+    /// correlation reference and no risk of falling through to the "unsupported block" default.
+    /// </summary>
+    private Task<CommandCenterQueryResponse> BuildAgentDisabledResponseAsync(
+        string question,
+        TenantContext context,
+        AgentGateResult gate,
+        string correlationId,
+        DateTimeOffset generatedAt,
+        CancellationToken cancellationToken) =>
+        BuildErrorResponseAsync(
+            question,
+            context,
+            "agent_disabled",
+            gate.RefusalMessage,
+            correlationId,
+            generatedAt,
+            cancellationToken);
 
     private async Task<CommandCenterQueryResponse> BuildCustomerUpdateDraftResponseAsync(
         string question,

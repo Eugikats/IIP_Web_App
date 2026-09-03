@@ -283,6 +283,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             dependencies.CaseRepository,
+            new LocalTestAgentGate(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, answer) = await ExecuteAsync<PolicyQuestionResponse>(result);
@@ -313,6 +314,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             dependencies.CaseRepository,
+            new LocalTestAgentGate(),
             context,
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<PolicyQuestionResponse>(result);
@@ -320,6 +322,39 @@ public sealed class KnowledgeAssistantEndpointsTests
 
         Assert.Equal(StatusCodes.Status200OK, statusCode);
         Assert.Equal("entra-policy-reviewer", action.UserId);
+    }
+
+    [Fact]
+    public async Task PolicyQuestion_DisabledPolicyIntelligenceAgent_RefusesInsteadOfAnswering()
+    {
+        // WO-06: this is the endpoint entry point AssistantEndpoints.AskPolicyQuestion uses,
+        // distinct from — but the same agent key as — the policy-answer path Command Center
+        // reaches through BuildPolicyAnswerResponseAsync. Both must be gated.
+        var dependencies = CreateDependencies();
+        await UploadAndApproveAsync(dependencies);
+
+        var result = await AssistantEndpoints.AskPolicyQuestion(
+            new PolicyQuestionRequest(null, "Is windscreen damage covered?", "Motor", "InternalUser"),
+            dependencies.RetrievalProvider,
+            new ThrowsIfCalledAssistantProvider(),
+            dependencies.ActionLogRepository,
+            dependencies.AuditRepository,
+            dependencies.CaseRepository,
+            new LocalTestAgentGate("policy-intelligence"),
+            ScopedContext(),
+            CancellationToken.None);
+        var (statusCode, answer) = await ExecuteAsync<PolicyQuestionResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal("agent_disabled", answer!.RiskFlag);
+        Assert.True(answer.EscalationRequired);
+        Assert.Contains("disabled for this workspace", answer.Answer, StringComparison.OrdinalIgnoreCase);
+
+        var log = Assert.Single(await dependencies.ActionLogRepository.ListAsync(TenantScope.Create("tenant-demo", "workspace-claims")));
+        Assert.Equal("agent_disabled", log.RiskFlag);
+        Assert.Contains(
+            await dependencies.AuditRepository.ListAsync(TenantScope.Create("tenant-demo", "workspace-claims")),
+            evt => evt.ActionName == "assistant.policy_question.answered");
     }
 
     [Fact]
@@ -339,6 +374,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             dependencies.CaseRepository,
+            new LocalTestAgentGate(),
             context,
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
@@ -361,6 +397,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             dependencies.CaseRepository,
+            new LocalTestAgentGate(),
             ScopedContext(workspaceId: "wrong-workspace"),
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
@@ -433,6 +470,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.ActionLogRepository,
             dependencies.AuditRepository,
             dependencies.CaseRepository,
+            new LocalTestAgentGate(),
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<PolicyQuestionResponse>(result);
@@ -477,6 +515,21 @@ public sealed class KnowledgeAssistantEndpointsTests
             new InMemoryAgentActionLogRepository(),
             new InMemoryAuditRepository(),
             new InMemoryCaseRepository());
+    }
+
+    /// <summary>
+    /// WO-06 proof: if the kill-switch check in AssistantEndpoints.AskPolicyQuestion is bypassed
+    /// and the assistant provider gets called anyway, this fails the test loudly instead of
+    /// silently returning a plausible-looking answer.
+    /// </summary>
+    private sealed class ThrowsIfCalledAssistantProvider : IAiAssistantProvider
+    {
+        public Task<AssistantAnswer> AnswerPolicyQuestionAsync(
+            AssistantQuestion question,
+            RetrievalResult retrievalResult,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "The assistant provider was invoked despite the agent being disabled — the kill switch was bypassed.");
     }
 
     private sealed class NeedsReviewAssistantProvider : IAiAssistantProvider

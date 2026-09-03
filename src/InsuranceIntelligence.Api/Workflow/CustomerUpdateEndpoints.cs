@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Domain.Approvals;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -23,6 +24,7 @@ public static class CustomerUpdateEndpoints
         ICustomerUpdateRepository updateRepository,
         IAgentActionLogRepository actionLogRepository,
         IAuditRepository auditRepository,
+        IAgentGate agentGate,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -66,6 +68,43 @@ public static class CustomerUpdateEndpoints
         }
 
         var correlationId = WorkflowEndpoints.GetCorrelationId(httpContext);
+
+        // WO-06: fail closed if a workspace administrator disabled the customer-update-drafting
+        // agent, before the drafting provider (and therefore any model) runs.
+        var gate = await agentGate.CheckAsync("customer-update-drafting", cancellationToken);
+        if (!gate.Enabled)
+        {
+            await auditRepository.WriteAsync(
+                new AuditEvent(
+                    Guid.NewGuid(),
+                    scope,
+                    caseId,
+                    DocumentId: null,
+                    UserId: actor,
+                    ActorType.User,
+                    "agent.killswitch.refused",
+                    DateTimeOffset.UtcNow,
+                    BeforeStatus: null,
+                    AfterStatus: "refused",
+                    EvidenceIds: ["customer-update-drafting"],
+                    ModelProvider: "AgentGate",
+                    Confidence: null,
+                    ValidationResult: "refused",
+                    ApprovalId: null,
+                    AuditReason: gate.RefusalMessage,
+                    CorrelationId: correlationId),
+                cancellationToken);
+
+            return Results.Json(
+                new
+                {
+                    status = "AgentDisabled",
+                    agentKey = "customer-update-drafting",
+                    message = gate.RefusalMessage
+                },
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
         CustomerUpdateDraft update;
         try
         {

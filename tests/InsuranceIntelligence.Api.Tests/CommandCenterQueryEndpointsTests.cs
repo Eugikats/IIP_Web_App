@@ -1,6 +1,7 @@
 using System.Text.Json;
 using InsuranceIntelligence.Api.CommandCenter;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Core;
@@ -141,6 +142,78 @@ public sealed class CommandCenterQueryEndpointsTests
             && log.RiskFlag == "provider_not_configured"
             && !log.CanTriggerDecision);
         Assert.Contains(auditEvents, evt => evt.ActionName == "assistant.command_center.answered");
+    }
+
+    [Fact]
+    public async Task DisabledCommandCenterAgent_RefusesInsteadOfAnsweringAndWritesAudit()
+    {
+        // "What needs my attention today?" reaches the deterministic default path (no provider
+        // dependency), so this proves the kill switch gates the whole agent, not only its
+        // model-calling branches.
+        var harness = new Harness(agentGate: new LocalTestAgentGate("command-center"));
+        await harness.SeedIncompleteCaseAsync("Grace Nabirye", SlaState.OnTrack);
+
+        var (statusCode, body) = await harness.RunAsync("What needs my attention today?");
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var types = BlockTypes(body);
+        Assert.DoesNotContain("metric_pills", types);
+        Assert.DoesNotContain("claims_table", types);
+        var block = Block(body, "error");
+        Assert.Equal("agent_disabled", block.GetProperty("code").GetString());
+        Assert.Contains("disabled for this workspace", block.GetProperty("safeMessage").GetString());
+
+        var actionLogId = body.GetProperty("agentActionLogId").GetGuid();
+        var actionLogs = await harness.ActionLogRepository.ListAsync(Scope);
+        var auditEvents = await harness.AuditRepository.ListAsync(Scope);
+        Assert.Contains(actionLogs, log =>
+            log.AgentActionLogId == actionLogId
+            && log.RiskFlag == "agent_disabled"
+            && !log.CanTriggerDecision);
+        Assert.Contains(auditEvents, evt => evt.ActionName == "assistant.command_center.answered");
+    }
+
+    [Fact]
+    public async Task DisabledReportInsightAgent_RefusesBeforeCallingTheModel()
+    {
+        // Providers must be healthy here specifically so the request reaches the agent gate
+        // rather than being refused earlier by the provider-not-configured gate (see
+        // AiDependentIntentReturnsNotConfiguredAndWritesAudit for that path). The chat provider
+        // throws if invoked — proof the model genuinely never runs, not just that the response
+        // happens to look like a refusal.
+        var harness = new Harness(
+            providerHealthCheck: new AlwaysReadyProviderHealthCheck(),
+            chatCompletionProvider: new ThrowsIfCalledChatCompletionProvider(),
+            agentGate: new LocalTestAgentGate("report-insight"));
+        await harness.SeedIncompleteCaseAsync("Grace Nabirye", SlaState.OnTrack);
+
+        var (statusCode, body) = await harness.RunAsync("Prepare a management summary for today's claims.");
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var block = Block(body, "error");
+        Assert.Equal("agent_disabled", block.GetProperty("code").GetString());
+
+        var actionLogs = await harness.ActionLogRepository.ListAsync(Scope);
+        Assert.Contains(actionLogs, log => log.RiskFlag == "agent_disabled");
+    }
+
+    [Fact]
+    public async Task EnabledReportInsightAgent_StillReachesTheModel()
+    {
+        // Negative control for the test above: with the same healthy providers and the agent
+        // enabled, the request must actually reach the model — proving the prior test's refusal
+        // came from the kill switch, not from some other reason the model was never called.
+        var harness = new Harness(
+            providerHealthCheck: new AlwaysReadyProviderHealthCheck(),
+            chatCompletionProvider: new CapturingChatCompletionProvider("Summary content."),
+            agentGate: new LocalTestAgentGate());
+        await harness.SeedIncompleteCaseAsync("Grace Nabirye", SlaState.OnTrack);
+
+        var (statusCode, body) = await harness.RunAsync("Prepare a management summary for today's claims.");
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var types = BlockTypes(body);
+        Assert.DoesNotContain("error", types);
     }
 
     [Fact]
@@ -323,19 +396,22 @@ public sealed class CommandCenterQueryEndpointsTests
         private readonly IProviderHealthCheck _providerHealthCheck;
         private readonly IChatCompletionProvider _chatCompletionProvider;
         private readonly IRetrievalProvider _retrievalProvider;
+        private readonly IAgentGate _agentGate;
 
         public Harness(
             InfrastructureOptions? options = null,
             string role = "ClaimsSupervisor",
             IProviderHealthCheck? providerHealthCheck = null,
             IChatCompletionProvider? chatCompletionProvider = null,
-            IRetrievalProvider? retrievalProvider = null)
+            IRetrievalProvider? retrievalProvider = null,
+            IAgentGate? agentGate = null)
         {
             _options = options ?? new InfrastructureOptions { AuthMode = "Development" };
             _role = role;
             _providerHealthCheck = providerHealthCheck ?? new LocalTestProviderHealthCheck();
             _chatCompletionProvider = chatCompletionProvider ?? new CapturingChatCompletionProvider("Configured chat provider was not invoked.");
             _retrievalProvider = retrievalProvider ?? new EmptyRetrievalProvider();
+            _agentGate = agentGate ?? new LocalTestAgentGate();
         }
 
         public InMemoryCaseRepository CaseRepository { get; } = new();
@@ -422,7 +498,8 @@ public sealed class CommandCenterQueryEndpointsTests
                 _providerHealthCheck,
                 _chatCompletionProvider,
                 new DeterministicAiOutputValidator(),
-                new CustomerUpdateNotificationDraftService(CustomerUpdateRepository));
+                new CustomerUpdateNotificationDraftService(CustomerUpdateRepository),
+                _agentGate);
             var conversationService = new CommandCenterConversationService(
                 TenantContextAccessor,
                 permissionService,
@@ -473,7 +550,8 @@ public sealed class CommandCenterQueryEndpointsTests
                 _providerHealthCheck,
                 _chatCompletionProvider,
                 new DeterministicAiOutputValidator(),
-                new CustomerUpdateNotificationDraftService(CustomerUpdateRepository));
+                new CustomerUpdateNotificationDraftService(CustomerUpdateRepository),
+                _agentGate);
             var conversationService = new CommandCenterConversationService(
                 TenantContextAccessor,
                 permissionService,
@@ -548,6 +626,25 @@ public sealed class CommandCenterQueryEndpointsTests
                 "AzureOpenAI",
                 "chat-test",
                 DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>
+    /// WO-06 proof: if the kill switch is bypassed and the model gets called anyway, this fails
+    /// the test loudly instead of silently returning a plausible-looking answer.
+    /// </summary>
+    private sealed class ThrowsIfCalledChatCompletionProvider : IChatCompletionProvider
+    {
+        public Task<ChatCompletionResult> CompleteAsync(
+            ChatCompletionRequest request,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "The chat completion provider was invoked despite the agent being disabled — the kill switch was bypassed.");
+    }
+
+    private sealed class AlwaysReadyProviderHealthCheck : IProviderHealthCheck
+    {
+        public Task<ProviderStatus> CheckAsync(string providerCode, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ProviderStatus(providerCode, "ready", string.Empty, DateTimeOffset.UtcNow));
     }
 
     private sealed class EmptyRetrievalProvider : IRetrievalProvider

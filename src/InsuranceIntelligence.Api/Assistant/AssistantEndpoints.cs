@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Auth;
+using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Knowledge;
@@ -15,6 +16,7 @@ public static class AssistantEndpoints
         IAgentActionLogRepository actionLogRepository,
         IAuditRepository auditRepository,
         ICaseRepository caseRepository,
+        IAgentGate agentGate,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -54,8 +56,23 @@ public static class AssistantEndpoints
             NormalizeAudience(request.Audience),
             actor,
             correlationId);
-        var retrieval = await retrievalProvider.RetrieveAsync(question, cancellationToken);
-        var answer = await assistantProvider.AnswerPolicyQuestionAsync(question, retrieval, cancellationToken);
+        // WO-06: fail closed if a workspace administrator disabled the policy-intelligence agent,
+        // before retrieval or the model runs. Mirrors NotConfiguredAiAssistantProvider's shape so
+        // the refusal flows through the exact same actionLog/audit/response path as a real answer.
+        var gate = await agentGate.CheckAsync("policy-intelligence", cancellationToken);
+        var answer = gate.Enabled
+            ? await AnswerAsync(retrievalProvider, assistantProvider, question, cancellationToken)
+            : new AssistantAnswer(
+                gate.RefusalMessage,
+                AiConfidenceScore.Create(0m),
+                EscalationRequired: true,
+                Array.Empty<SourceCitation>(),
+                gate.RefusalMessage,
+                "agent_disabled",
+                "AgentDisabled",
+                null,
+                "not-configured",
+                string.Equals(question.Audience, "Customer", StringComparison.OrdinalIgnoreCase) ? "CustomerSafe" : "Internal");
         var actionLog = new AgentActionLog
         {
             AgentActionLogId = Guid.NewGuid(),
@@ -136,6 +153,16 @@ public static class AssistantEndpoints
 
         var actionLogs = await actionLogRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         return Results.Ok(actionLogs.Select(AssistantMapper.ToResponse).ToArray());
+    }
+
+    private static async Task<AssistantAnswer> AnswerAsync(
+        IRetrievalProvider retrievalProvider,
+        IAiAssistantProvider assistantProvider,
+        AssistantQuestion question,
+        CancellationToken cancellationToken)
+    {
+        var retrieval = await retrievalProvider.RetrieveAsync(question, cancellationToken);
+        return await assistantProvider.AnswerPolicyQuestionAsync(question, retrieval, cancellationToken);
     }
 
     private static IResult Validation(string key, string message) =>

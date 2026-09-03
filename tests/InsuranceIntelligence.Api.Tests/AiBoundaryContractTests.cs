@@ -208,6 +208,7 @@ public sealed class AiBoundaryContractTests
             actionLogs,
             audit,
             cases,
+            new LocalTestAgentGate(),
             context,
             CancellationToken.None);
         var (status, body) = await ExecuteAsync<PolicyQuestionResponse>(result);
@@ -234,6 +235,7 @@ public sealed class AiBoundaryContractTests
             deps.CustomerUpdateRepository,
             deps.ActionLogRepository,
             deps.AuditRepository,
+            new LocalTestAgentGate(),
             ActorContext("agent:runtime", "Draft only."),
             CancellationToken.None);
         var (status, _) = await ExecuteAsync<CustomerUpdateResponse>(result);

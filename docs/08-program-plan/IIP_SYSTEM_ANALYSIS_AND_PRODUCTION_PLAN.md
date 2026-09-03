@@ -237,9 +237,9 @@ Mapping the 10 catalogued agents to reality:
 | `risk-fraud-signal` | ✅ | ⚠️ **Deterministic** | `FraudRuleEngine` — rules, no model |
 | `underwriting-intelligence` | ✅ | ⚠️ **Deterministic** | `UnderwritingRuleEngine` — rules, no model |
 | `claims-summary` | ✅ | ❌ **Nothing** | No provider, no service, no call site |
-| `report-insight` | ✅ | ❌ **Nothing** | Reports are plain SQL aggregates |
+| `report-insight` | ✅ | ✅ **Real** *(correction, see below)* | `CommandCenterQueryService.BuildManagementSummaryResponseAsync` calls `chatCompletionProvider.CompleteAsync` for `GenerateManagementSummary` intent |
 
-**Two of ten agents have no implementation whatsoever. Three more are deterministic rule engines presented as AI agents.**
+**Correction (found during WO-06 of the build contract, which gates every model call site):** the original pass through this file missed the third `chatCompletionProvider.CompleteAsync` call site and concluded `report-insight` had no implementation at all. It does — `BuildManagementSummaryResponseAsync` is a real, model-backed path, reached by questions like "Prepare a management summary for today's claims." **Only one of ten agents (`claims-summary`) has no implementation whatsoever.** Three are deterministic rule engines presented as AI agents.
 
 ### 3.4 The governance hole
 

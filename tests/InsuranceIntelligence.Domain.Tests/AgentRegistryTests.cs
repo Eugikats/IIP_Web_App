@@ -90,6 +90,35 @@ public sealed class AgentRegistryTests
         await Assert.ThrowsAsync<AgentRegistryValidationException>(() => service.SetKillSwitchAsync(AgentCatalog.Agents[0].Key, true, "  "));
     }
 
+    [Fact]
+    public async Task KillSwitch_WrittenByAdminService_IsReadByRuntimeGate()
+    {
+        // WO-06 end-to-end proof: the same write path Admin > Agents uses
+        // (AgentRegistryService.SetKillSwitchAsync) against the same persisted state an
+        // AgentGate reads at invocation time. Before AgentGate existed, this loop was open —
+        // disabling an agent in the admin UI wrote a row that no runtime code ever consulted.
+        var repo = new InMemoryAgentStateRepository();
+        var registryService = new AgentRegistryService(Context(), new AllowPermissionService(), repo, new NullAuditWriter(), NoOpOperationalTelemetry.Instance);
+        var gate = new AgentGate(Context(), repo);
+        var key = AgentCatalog.Agents[0].Key;
+
+        var beforeDisable = await gate.CheckAsync(key);
+        Assert.True(beforeDisable.Enabled);
+
+        await registryService.SetKillSwitchAsync(key, enabled: false, "verifying end-to-end enforcement");
+        var afterDisable = await gate.CheckAsync(key);
+
+        Assert.False(afterDisable.Enabled);
+        Assert.Equal("user-1", afterDisable.DisabledByUserId);
+        Assert.Equal("verifying end-to-end enforcement", afterDisable.Reason);
+        Assert.Contains("disabled for this workspace", afterDisable.RefusalMessage, StringComparison.OrdinalIgnoreCase);
+
+        await registryService.SetKillSwitchAsync(key, enabled: true, "re-enabling after drill");
+        var afterReenable = await gate.CheckAsync(key);
+
+        Assert.True(afterReenable.Enabled);
+    }
+
     private static ITenantContextAccessor Context() => new FixedContext();
 
     private sealed class FixedContext : ITenantContextAccessor
