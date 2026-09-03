@@ -19,28 +19,30 @@ public interface ICommandCenterQueryService
         CancellationToken cancellationToken = default);
 }
 
+// WO-09: knowledgeRepository, approvalRepository, taskRepository, updateRepository,
+// slaCalculator, and providerHealthCheck are no longer injected here — their data access moved
+// into the WO-08 tool registry (claims.attention.read, approvals.queue.read, metrics.read,
+// provider_health.read). caseRepository/caseDocumentRepository/retrievalProvider/
+// actionLogRepository remain: they're still used directly for single-case lookups
+// (BuildCustomerUpdateDraftResponseAsync) and the management-summary guidance retrieval
+// (BuildManagementSummaryResponseAsync), neither of which this work order routed through a tool.
 public sealed class CommandCenterQueryService(
     ITenantContextAccessor tenantContextAccessor,
     IPermissionService permissionService,
     ICaseRepository caseRepository,
     ICaseDocumentRepository caseDocumentRepository,
     IDocumentChecklistProvider checklistProvider,
-    IKnowledgeDocumentRepository knowledgeRepository,
     IRetrievalProvider retrievalProvider,
     IAgentActionLogRepository actionLogRepository,
-    IApprovalRepository approvalRepository,
-    IWorkflowTaskRepository taskRepository,
-    ICustomerUpdateRepository updateRepository,
     IAuditRepository auditRepository,
-    ISlaCalculator slaCalculator,
     IIntentClassifier intentClassifier,
     IProviderRequirementResolver providerRequirementResolver,
-    IProviderHealthCheck providerHealthCheck,
     IChatCompletionProvider chatCompletionProvider,
     IAiOutputValidator aiOutputValidator,
     INotificationDraftService notificationDraftService,
     IAgentGate agentGate,
-    IAgentRunRecorder agentRunRecorder) : ICommandCenterQueryService
+    IAgentRunRecorder agentRunRecorder,
+    Agents.Tools.IAgentToolRegistry agentToolRegistry) : ICommandCenterQueryService
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
@@ -76,6 +78,10 @@ public sealed class CommandCenterQueryService(
 
         var now = DateTimeOffset.UtcNow;
 
+        // WO-09: every tool call this request makes goes through the registry and lands here,
+        // so the AgentRun recorded below carries a real tool trace instead of an empty one.
+        var toolTrace = new List<AgentRunToolTraceEntry>();
+
         // WO-07: every AI execution — completed or refused — is reconstructable as a single
         // AgentRun (docs §11). Shares scope/correlation/user across all branches below; only
         // the agent key, outcome, and trigger differ per branch.
@@ -91,9 +97,10 @@ public sealed class CommandCenterQueryService(
                 context.UserId,
                 caseId: null,
                 errorCategory,
+                toolTrace: toolTrace,
                 cancellationToken: cancellationToken);
 
-        var providerGate = await EnsureRequiredProvidersAsync(intent.Intent, cancellationToken);
+        var providerGate = await EnsureRequiredProvidersAsync(intent.Intent, context, toolTrace, cancellationToken);
         if (providerGate is not null)
         {
             return await BuildNotConfiguredResponseAsync(
@@ -139,13 +146,14 @@ public sealed class CommandCenterQueryService(
                 context,
                 correlationId,
                 now,
+                toolTrace,
                 cancellationToken);
             await RecordRun("policy-intelligence", AgentRunStatus.Completed, "command_center_query");
             return policyResponse;
         }
 
         var scope = context.Scope;
-        var data = await LoadQueryDataAsync(scope, now, cancellationToken);
+        var data = await LoadQueryDataAsync(scope, context, now, toolTrace, cancellationToken);
 
         if (intent.Intent == IntentType.GenerateManagementSummary)
         {
@@ -214,39 +222,47 @@ public sealed class CommandCenterQueryService(
             now);
     }
 
+    /// <summary>
+    /// WO-09: data access now goes through the WO-08 tool registry (claims.attention.read,
+    /// approvals.queue.read, metrics.read) instead of calling repositories directly. Every
+    /// downstream shape (CommandCenterCaseView, CommandCenterApprovalView, CommandCenterQueryData)
+    /// is unchanged — only how the data is fetched changed, not the response.
+    /// </summary>
     private async Task<CommandCenterQueryData> LoadQueryDataAsync(
         Domain.Common.TenantScope scope,
+        TenantContext context,
         DateTimeOffset now,
+        List<AgentRunToolTraceEntry> toolTrace,
         CancellationToken cancellationToken)
     {
-        var metrics = await LoadMetricsAsync(scope, now, cancellationToken);
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
+        var metrics = await LoadMetricsAsync(scope, context, toolTrace, cancellationToken);
 
-        var caseViews = new List<CommandCenterCaseView>(cases.Count);
-        foreach (var claimCase in cases)
+        var snapshots = await CallToolAsync<IReadOnlyList<Agents.Tools.ClaimSnapshot>>(
+            "claims.attention.read", scope, context, toolTrace, parameters: null, cancellationToken)
+            ?? Array.Empty<Agents.Tools.ClaimSnapshot>();
+
+        var caseViews = new List<CommandCenterCaseView>(snapshots.Count);
+        foreach (var snapshot in snapshots)
         {
-            var documents = await caseDocumentRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken);
-            var checklist = await checklistProvider.BuildChecklistAsync(claimCase, documents, cancellationToken);
-            var missing = checklist.MissingRequiredDocuments.Select(item => item.Label).ToList();
-            var slaStatus = slaCalculator.Calculate(claimCase, now);
-            var (token, dueLabel) = CommandCenterQueryPlanner.ResolveSla(claimCase, slaStatus, now);
+            var (token, dueLabel) = CommandCenterQueryPlanner.ResolveSla(snapshot.SlaDueAt, snapshot.SlaStatus, now);
 
             caseViews.Add(new CommandCenterCaseView(
-                claimCase.CaseId,
-                claimCase.CustomerName,
-                claimCase.ProductLine,
-                claimCase.Status.ToString(),
-                slaStatus,
+                snapshot.CaseId,
+                snapshot.CustomerName,
+                snapshot.ProductLine,
+                snapshot.Status,
+                snapshot.SlaStatus,
                 token,
                 dueLabel,
-                claimCase.CompletenessScore,
-                claimCase.AssignedUserId ?? claimCase.AssignedTeam ?? "Unassigned",
-                missing));
+                snapshot.CompletenessScore,
+                snapshot.AssignedTo,
+                snapshot.MissingDocuments.ToList()));
         }
 
-        var approvals = await approvalRepository.ListAsync(scope, cancellationToken);
-        var pendingApprovals = approvals
-            .Where(approval => approval.Status == ApprovalStatus.Pending)
+        var pendingApprovalRequests = await CallToolAsync<IReadOnlyList<ApprovalRequest>>(
+            "approvals.queue.read", scope, context, toolTrace, parameters: null, cancellationToken)
+            ?? Array.Empty<ApprovalRequest>();
+        var pendingApprovals = pendingApprovalRequests
             .Select(approval => new CommandCenterApprovalView(
                 approval.ApprovalId,
                 approval.CaseId,
@@ -261,45 +277,48 @@ public sealed class CommandCenterQueryService(
             Array.Empty<CommandCenterProviderStatusItem>());
     }
 
+    /// <summary>Calls a read-tier tool as the command-center agent and appends its outcome to the
+    /// run's tool trace. Returns null (never throws) if the tool was denied — callers already
+    /// treat "no data" as the honest empty case, matching AGENTS.md I9.</summary>
+    private async Task<T?> CallToolAsync<T>(
+        string toolName,
+        Domain.Common.TenantScope scope,
+        TenantContext context,
+        List<AgentRunToolTraceEntry> toolTrace,
+        IReadOnlyDictionary<string, string>? parameters,
+        CancellationToken cancellationToken)
+        where T : class
+    {
+        var result = await agentToolRegistry.ExecuteAsync(
+            toolName,
+            new Agents.Tools.AgentToolInvocation(scope, "command-center", context.UserId, parameters),
+            cancellationToken);
+
+        toolTrace.Add(new AgentRunToolTraceEntry(
+            toolName,
+            DateTimeOffset.UtcNow,
+            result.Success ? "ok" : "denied"));
+
+        return result.Success ? result.Data as T : null;
+    }
+
     private async Task<CommandCenterMetricsResponse> LoadMetricsAsync(
         Domain.Common.TenantScope scope,
-        DateTimeOffset now,
+        TenantContext context,
+        List<AgentRunToolTraceEntry> toolTrace,
         CancellationToken cancellationToken)
     {
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
-        var documentCount = 0;
-        foreach (var claimCase in cases)
+        var metrics = await CallToolAsync<CommandCenterMetricsResponse>(
+            "metrics.read", scope, context, toolTrace, parameters: null, cancellationToken);
+        if (metrics is not null)
         {
-            var documents = await caseDocumentRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken);
-            documentCount += documents.Count;
+            return metrics;
         }
 
-        var knowledgeDocuments = await knowledgeRepository.ListAsync(scope, cancellationToken);
-        var actionLogs = await actionLogRepository.ListAsync(scope, cancellationToken);
-        var approvals = await approvalRepository.ListAsync(scope, cancellationToken);
-        var tasks = await taskRepository.ListAsync(scope, cancellationToken);
-        var updates = await updateRepository.ListAsync(scope, cancellationToken);
-        var slaStatuses = cases.Select(claimCase => slaCalculator.Calculate(claimCase, now)).ToArray();
-        var today = now.Date;
-        var averageCompleteness = cases.Count == 0
-            ? 0m
-            : Math.Round(cases.Average(claimCase => claimCase.CompletenessScore), 2);
-
-        return new CommandCenterMetricsResponse(
-            cases.Count,
-            documentCount,
-            averageCompleteness,
-            knowledgeDocuments.Count(document => document.ApprovalStatus == KnowledgeDocumentStatus.Approved),
-            actionLogs.Count,
-            actionLogs.Count(actionLog => actionLog.RiskFlag is "no_source" or "needs_review"),
-            cases.Count(claimCase => claimCase.Status != CaseStatus.Closed),
-            cases.Count(claimCase => claimCase.CreatedAt.Date == today),
-            cases.Count(claimCase => claimCase.CompletenessScore < 100m),
-            approvals.Count(approval => approval.Status == ApprovalStatus.Pending),
-            tasks.Count(task => task.Status is WorkflowTaskStatus.Open or WorkflowTaskStatus.InProgress),
-            updates.Count(update => update.Status is CustomerUpdateStatus.Draft or CustomerUpdateStatus.PendingApproval or CustomerUpdateStatus.Approved),
-            slaStatuses.Count(status => status == SlaStatus.AtRisk),
-            slaStatuses.Count(status => status == SlaStatus.Breached));
+        // Honest fallback if metrics.read is denied for this caller (should not happen in
+        // practice — the command-center agent always holds ViewCommandCenter, the same
+        // permission the outer QueryAsync call already required): zeroed, not fabricated.
+        return new CommandCenterMetricsResponse(0, 0, 0m, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     /// <summary>
@@ -314,19 +333,23 @@ public sealed class CommandCenterQueryService(
         TenantContext context,
         string correlationId,
         DateTimeOffset now,
+        List<AgentRunToolTraceEntry> toolTrace,
         CancellationToken cancellationToken)
     {
         var scope = context.Scope;
-        var assistantQuestion = new AssistantQuestion(
-            scope,
-            CaseId: null,
-            question,
-            ProductLine: null,
-            Audience: "Internal",
-            context.UserId,
-            correlationId);
 
-        var retrieval = await retrievalProvider.RetrieveAsync(assistantQuestion, cancellationToken);
+        // WO-09: routed through knowledge.search (WO-08) instead of calling IRetrievalProvider
+        // directly. Audience is not a retrieval input — no provider implementation branches on
+        // it — so passing it through the tool's fixed "InternalUser" default does not change
+        // retrieval behaviour; only .Chunks/.Citations are consumed below, both preserved exactly.
+        var retrieval = await CallToolAsync<RetrievalResult>(
+            "knowledge.search",
+            scope,
+            context,
+            toolTrace,
+            new Dictionary<string, string> { ["query"] = question },
+            cancellationToken)
+            ?? new RetrievalResult(question, ProductLine: null, Array.Empty<KnowledgeChunk>(), Array.Empty<SourceCitation>());
 
         if (retrieval.Chunks.Count == 0)
         {
@@ -492,17 +515,29 @@ public sealed class CommandCenterQueryService(
 
     private async Task<ProviderGateResult?> EnsureRequiredProvidersAsync(
         IntentType intent,
+        TenantContext context,
+        List<AgentRunToolTraceEntry> toolTrace,
         CancellationToken cancellationToken)
     {
         foreach (var provider in providerRequirementResolver.GetRequiredProviders(intent))
         {
-            var health = await providerHealthCheck.CheckAsync(provider.ProviderCode, cancellationToken);
-            if (!health.Status.Equals("ready", StringComparison.OrdinalIgnoreCase))
+            // WO-09: routed through provider_health.read (WO-08). Permission is already
+            // guaranteed (ViewCommandCenter, required at the top of QueryAsync before this
+            // runs), so a null here only ever means "provider not ready", never "denied".
+            var health = await CallToolAsync<ProviderStatus>(
+                "provider_health.read",
+                context.Scope,
+                context,
+                toolTrace,
+                new Dictionary<string, string> { ["providerCode"] = provider.ProviderCode },
+                cancellationToken);
+
+            if (health is null || !health.Status.Equals("ready", StringComparison.OrdinalIgnoreCase))
             {
                 return new ProviderGateResult(
                     provider.DisplayName,
                     $"{provider.DisplayName} is not configured or not ready.",
-                    string.IsNullOrWhiteSpace(health.Detail) ? "Configure the provider in Admin > Integrations." : health.Detail);
+                    string.IsNullOrWhiteSpace(health?.Detail) ? "Configure the provider in Admin > Integrations." : health.Detail);
             }
         }
 

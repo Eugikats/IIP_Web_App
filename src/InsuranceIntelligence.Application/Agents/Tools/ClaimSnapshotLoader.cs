@@ -19,6 +19,7 @@ public sealed record ClaimSnapshot(
     string ProductLine,
     string Status,
     SlaStatus SlaStatus,
+    DateTimeOffset? SlaDueAt,
     decimal CompletenessScore,
     string AssignedTo,
     IReadOnlyCollection<string> MissingDocuments);
@@ -46,6 +47,7 @@ public sealed class ClaimSnapshotLoader(
                 claimCase.ProductLine,
                 claimCase.Status.ToString(),
                 slaStatus,
+                claimCase.SlaDueAt,
                 claimCase.CompletenessScore,
                 claimCase.AssignedUserId ?? claimCase.AssignedTeam ?? "Unassigned",
                 checklist.MissingRequiredDocuments.Select(item => item.Label).ToArray()));

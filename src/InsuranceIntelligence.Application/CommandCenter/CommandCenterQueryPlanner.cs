@@ -39,22 +39,25 @@ public sealed record CommandCenterProviderStatusItem(string Name, string Status,
 /// </summary>
 public static class CommandCenterQueryPlanner
 {
-    /// <summary>Maps the SLA enum plus due date to the contract's four-state SLA vocabulary.</summary>
-    public static (string Token, string DueLabel) ResolveSla(ClaimCase claimCase, SlaStatus status, DateTimeOffset now)
+    /// <summary>Maps the SLA enum plus due date to the contract's four-state SLA vocabulary.
+    /// Takes the due date directly (not a ClaimCase) so both the case-repository path and the
+    /// WO-08 tool-registry path (ClaimSnapshot) can call it without one depending on the other's
+    /// type.</summary>
+    public static (string Token, string DueLabel) ResolveSla(DateTimeOffset? slaDueAt, SlaStatus status, DateTimeOffset now)
     {
         switch (status)
         {
             case SlaStatus.Breached:
-                return (Vocab.SlaBreached, DueLabel(claimCase.SlaDueAt, now, "Overdue"));
+                return (Vocab.SlaBreached, DueLabel(slaDueAt, now, "Overdue"));
             case SlaStatus.AtRisk:
-                return (Vocab.SlaAtRisk, DueLabel(claimCase.SlaDueAt, now, "Due soon"));
+                return (Vocab.SlaAtRisk, DueLabel(slaDueAt, now, "Due soon"));
             default:
-                if (claimCase.SlaDueAt is { } due && due.UtcDateTime.Date == now.UtcDateTime.Date)
+                if (slaDueAt is { } due && due.UtcDateTime.Date == now.UtcDateTime.Date)
                 {
                     return (Vocab.SlaDueToday, "Due today");
                 }
 
-                return (Vocab.SlaOnTrack, DueLabel(claimCase.SlaDueAt, now, "On track"));
+                return (Vocab.SlaOnTrack, DueLabel(slaDueAt, now, "On track"));
         }
     }
 

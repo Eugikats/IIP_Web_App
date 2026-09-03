@@ -2,6 +2,7 @@ using System.Text.Json;
 using InsuranceIntelligence.Api.CommandCenter;
 using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Application.Agents;
+using InsuranceIntelligence.Application.Agents.Tools;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Core;
@@ -78,6 +79,14 @@ public sealed class CommandCenterQueryEndpointsTests
         Assert.Equal(Scope, run.Scope);
         Assert.NotNull(run.CompletedAt);
         Assert.NotEqual(default, run.StartedAt);
+
+        // WO-09: data access is now real tool calls, so the trace is no longer empty — it names
+        // the exact WO-08 tools this request's data actually came from.
+        var toolNames = run.ToolTrace.Select(entry => entry.ToolName).ToArray();
+        Assert.Contains("claims.attention.read", toolNames);
+        Assert.Contains("approvals.queue.read", toolNames);
+        Assert.Contains("metrics.read", toolNames);
+        Assert.All(run.ToolTrace, entry => Assert.Equal("ok", entry.Outcome));
     }
 
     [Fact]
@@ -495,6 +504,37 @@ public sealed class CommandCenterQueryEndpointsTests
             });
         }
 
+        /// <summary>WO-09: CommandCenterQueryService now reaches its data through the WO-08 tool
+        /// registry rather than repositories directly, so the harness must build one backed by
+        /// the exact same in-memory repositories the tests seed via SeedIncompleteCaseAsync /
+        /// SeedPendingApprovalAsync — otherwise the tools would see empty state and every
+        /// data-dependent assertion in this file would break. Mirrors Program.cs's real
+        /// registration set.</summary>
+        private InsuranceIntelligence.Application.Agents.Tools.IAgentToolRegistry BuildToolRegistry(IPermissionService permissionService)
+        {
+            var loader = new ClaimSnapshotLoader(CaseRepository, DocumentRepository, ChecklistProvider, SlaCalculator);
+            return new AgentToolRegistry(
+            [
+                new ClaimsAttentionReadTool(loader, permissionService),
+                new ClaimsSlaReadTool(loader, permissionService),
+                new DocumentsGapsReadTool(loader, permissionService),
+                new ApprovalsQueueReadTool(ApprovalRepository, permissionService),
+                new KnowledgeSearchTool(_retrievalProvider, permissionService),
+                new AuditReadTool(AuditRepository, permissionService),
+                new ProviderHealthReadTool(_providerHealthCheck, permissionService),
+                new MetricsReadTool(
+                    CaseRepository,
+                    DocumentRepository,
+                    KnowledgeRepository,
+                    ActionLogRepository,
+                    ApprovalRepository,
+                    WorkflowTaskRepository,
+                    CustomerUpdateRepository,
+                    SlaCalculator,
+                    permissionService),
+            ]);
+        }
+
         public async Task<(int? StatusCode, JsonElement Body)> RunAsync(string question)
         {
             var permissionService = new PermissionService(TenantContextAccessor, new LocalTestPermissionReadRepository());
@@ -504,22 +544,17 @@ public sealed class CommandCenterQueryEndpointsTests
                 CaseRepository,
                 DocumentRepository,
                 ChecklistProvider,
-                KnowledgeRepository,
                 _retrievalProvider,
                 ActionLogRepository,
-                ApprovalRepository,
-                WorkflowTaskRepository,
-                CustomerUpdateRepository,
                 AuditRepository,
-                SlaCalculator,
                 new DeterministicThenAiIntentClassifier(),
                 new ProviderRequirementResolver(),
-                _providerHealthCheck,
                 _chatCompletionProvider,
                 new DeterministicAiOutputValidator(),
                 new CustomerUpdateNotificationDraftService(CustomerUpdateRepository),
                 _agentGate,
-                _agentRunRecorder);
+                _agentRunRecorder,
+                BuildToolRegistry(permissionService));
             var conversationService = new CommandCenterConversationService(
                 TenantContextAccessor,
                 permissionService,
@@ -557,22 +592,17 @@ public sealed class CommandCenterQueryEndpointsTests
                 CaseRepository,
                 DocumentRepository,
                 ChecklistProvider,
-                KnowledgeRepository,
                 _retrievalProvider,
                 ActionLogRepository,
-                ApprovalRepository,
-                WorkflowTaskRepository,
-                CustomerUpdateRepository,
                 AuditRepository,
-                SlaCalculator,
                 new DeterministicThenAiIntentClassifier(),
                 new ProviderRequirementResolver(),
-                _providerHealthCheck,
                 _chatCompletionProvider,
                 new DeterministicAiOutputValidator(),
                 new CustomerUpdateNotificationDraftService(CustomerUpdateRepository),
                 _agentGate,
-                _agentRunRecorder);
+                _agentRunRecorder,
+                BuildToolRegistry(permissionService));
             var conversationService = new CommandCenterConversationService(
                 TenantContextAccessor,
                 permissionService,
