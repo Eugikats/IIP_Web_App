@@ -186,15 +186,44 @@ public static class DatabaseMigrationEndpoints
             IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AgentWorkflowRuns_TenantId_WorkspaceId_DefinitionId' AND object_id = OBJECT_ID('AgentWorkflowRuns'))
                 CREATE INDEX IX_AgentWorkflowRuns_TenantId_WorkspaceId_DefinitionId ON AgentWorkflowRuns (TenantId, WorkspaceId, DefinitionId);
         END;
+
+        -- 20260807082756_AddCommandCenterConversations was generated against a stale local
+        -- database: its Up() recreates ~28 tables that already exist here (identical
+        -- CreateTable calls to migrations already applied above) alongside the one genuinely
+        -- new table, CommandCenterConversations. Database.Migrate() cannot run that migration
+        -- as-is against this database — it fails on the very first already-present table.
+        -- Only the new table is created here; the migration is then recorded as applied
+        -- below, exactly as the AgentWorkflowControlPlane partial-migration case is.
+        IF OBJECT_ID('CommandCenterConversations', 'U') IS NULL
+        BEGIN
+            CREATE TABLE CommandCenterConversations (
+                ConversationId uniqueidentifier NOT NULL CONSTRAINT PK_CommandCenterConversations PRIMARY KEY,
+                OwnerUserId nvarchar(240) NOT NULL,
+                Status nvarchar(40) NOT NULL,
+                LastActivityAt datetimeoffset NOT NULL,
+                Version int NOT NULL,
+                TenantId nvarchar(120) NOT NULL,
+                WorkspaceId nvarchar(120) NOT NULL,
+                PayloadJson nvarchar(max) NOT NULL,
+                UpdatedAt datetimeoffset NOT NULL
+            );
+            CREATE INDEX IX_CommandCenterConversations_TenantId_WorkspaceId ON CommandCenterConversations (TenantId, WorkspaceId);
+            CREATE INDEX IX_CommandCenterConversations_TenantId_WorkspaceId_OwnerUserId_Status_LastActivityAt
+                ON CommandCenterConversations (TenantId, WorkspaceId, OwnerUserId, Status, LastActivityAt);
+        END;
         """;
 
+    // 20260807120533_AddWhatsAppMessagingContracts is deliberately NOT here: unlike the
+    // migrations above, its target table (WhatsAppMessages) does not exist yet and its Up()
+    // is clean (no duplicate CreateTable calls), so it must go through ApplyPending's real
+    // Database.MigrateAsync() and actually run — recording it here without creating the
+    // table would silently mark it "applied" while the table stays missing.
     private static readonly string[] RemainingMigrationsCoveredByReconcile =
     [
         "20260716123910_AddAgentWorkflowControlPlane",
         "20260803142731_AddClaimReviewRequests",
         "20260803214500_AgentWorkflowVersionLineage",
-        "20260807082756_AddCommandCenterConversations",
-        "20260807120533_AddWhatsAppMessagingContracts"
+        "20260807082756_AddCommandCenterConversations"
     ];
 
     public static async Task<IResult> ForceReconcileSchema(
