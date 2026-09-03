@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Search, HelpCircle, PanelLeftClose, PanelRightClose } from "lucide-react";
+import { Bell, Search, PanelLeftClose, PanelRightClose } from "lucide-react";
 import { useUI } from "@/context/UIStateContext";
 import RoleSwitcher from "./RoleSwitcher";
 import { runtimeInitials, useRuntimeContext } from "@/lib/runtimeContext";
@@ -95,7 +95,10 @@ export default function TopBar() {
 
       <div className="flex items-center gap-1.5">
         <button type="button" aria-label={searchAvailable ? "Open search" : "Search unavailable"} title={searchAvailable ? "Open search" : searchGuidance} disabled={!searchAvailable} onClick={() => router.push("/app/search")} className="grid h-11 w-11 place-items-center rounded-xl text-stone hover:bg-white/70 hover:text-navy disabled:opacity-50 sm:hidden focus-ring"><Search className="h-4 w-4" /></button>
-        <button type="button" aria-label="Help" className="hidden h-11 w-11 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition-colors focus-ring lg:grid"><HelpCircle className="h-4 w-4" /></button>
+        {/* Help removed — no handler existed and there is no help-content system to link to.
+            /app/support was an orphaned redirect stub to /app/integrations, not real help
+            content; not wired to here for the same reason. Reinstate only once real help
+            content or a support flow exists. */}
         {/* Notifications: unread indicator removed — there is no in-app notification domain yet
             to back it (WO-14). It previously rendered an unconditional "unread" dot regardless
             of real state. Do not reinstate any dot here without a real unread count behind it. */}

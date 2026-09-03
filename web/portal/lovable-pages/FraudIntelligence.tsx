@@ -77,7 +77,10 @@ export default function FraudIntelligence() {
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <div className="inline-flex items-center gap-1.5 text-[11.5px] text-[hsl(38_92%_36%)]"><AlertTriangle className="h-3 w-3" /> Advisory only · human review required</div>
-                <button className="text-[12px] text-info hover:underline">Open investigation →</button>
+                {/* Disposition workflow (triage/assign/outcome/close) is not built yet — see
+                    WO-19. Disabled rather than dead: no handler exists, so it must not look
+                    clickable. */}
+                <button disabled title="Investigation disposition is not available yet." className="text-[12px] text-stone cursor-not-allowed">Open investigation →</button>
               </div>
             </GlassCard>
           ))}

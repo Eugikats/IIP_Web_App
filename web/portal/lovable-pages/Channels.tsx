@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Search, MessageCircle, Mail, Globe, Phone, Users2, MonitorPlay, Plus, Send, ShieldAlert, Inbox } from "lucide-react";
+import { Search, MessageCircle, Mail, Globe, Phone, Users2, MonitorPlay, Send, ShieldAlert, Inbox } from "lucide-react";
 import { GlassCard, SectionHeader, Badge, StatusBadge } from "@/components/iip/Primitives";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { type Channel } from "@/lib/lovable-parity/mock";
@@ -68,7 +68,6 @@ export default function Channels() {
         eyebrow="Integrations & Channels"
         title="Channels inbox"
         sub="Unified customer, broker, and internal channel traffic routed into the platform. AI drafts responses — humans approve sensitive replies."
-        action={<button className="text-[13px] rounded-2xl gradient-primary text-white px-4 py-2 shadow-l2 hover-lift"><Plus className="h-4 w-4 inline -mt-0.5 mr-1" /> Connect new channel</button>}
       />
 
       <div className="mb-4"><GuardrailBanner text="Sensitive outbound messages route through approval before send. Nothing dispatches automatically." /></div>
