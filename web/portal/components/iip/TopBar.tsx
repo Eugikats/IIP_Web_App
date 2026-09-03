@@ -96,9 +96,11 @@ export default function TopBar() {
       <div className="flex items-center gap-1.5">
         <button type="button" aria-label={searchAvailable ? "Open search" : "Search unavailable"} title={searchAvailable ? "Open search" : searchGuidance} disabled={!searchAvailable} onClick={() => router.push("/app/search")} className="grid h-11 w-11 place-items-center rounded-xl text-stone hover:bg-white/70 hover:text-navy disabled:opacity-50 sm:hidden focus-ring"><Search className="h-4 w-4" /></button>
         <button type="button" aria-label="Help" className="hidden h-11 w-11 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition-colors focus-ring lg:grid"><HelpCircle className="h-4 w-4" /></button>
+        {/* Notifications: unread indicator removed — there is no in-app notification domain yet
+            to back it (WO-14). It previously rendered an unconditional "unread" dot regardless
+            of real state. Do not reinstate any dot here without a real unread count behind it. */}
         <button type="button" aria-label="Notifications" className="relative hidden h-11 w-11 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition-colors focus-ring lg:grid">
           <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-error" />
         </button>
         {copilotOpen && (
           <button

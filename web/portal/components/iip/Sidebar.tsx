@@ -133,7 +133,6 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
         <div className="flex items-center gap-2.5">
           <div className="relative h-9 w-9 rounded-xl bg-white grid place-items-center shadow-l2 ring-1 ring-cloud/70 overflow-hidden">
             <Image src={iipLogo.url} alt="IIP logo" width={28} height={28} className="h-7 w-7 object-contain" priority />
-            <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-success ring-2 ring-white" />
           </div>
           <div className="leading-tight">
             <div className="text-[13px] font-semibold tracking-tight text-navy">Insurance Intelligence Platform</div>
