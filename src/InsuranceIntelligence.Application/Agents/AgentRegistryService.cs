@@ -36,7 +36,8 @@ public sealed class AgentRegistryService(
     {
         await permissionService.RequirePermissionAsync(Permission.ManageAgents, cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(agentKey) || AgentCatalog.Find(agentKey) is null)
+        var descriptorForValidation = AgentCatalog.Find(agentKey);
+        if (string.IsNullOrWhiteSpace(agentKey) || descriptorForValidation is null)
         {
             throw new AgentRegistryValidationException(nameof(agentKey), "Unknown agent key.");
         }
@@ -44,6 +45,13 @@ public sealed class AgentRegistryService(
         if (string.IsNullOrWhiteSpace(reason))
         {
             throw new AgentRegistryValidationException(nameof(reason), "A reason is required for a kill-switch change.");
+        }
+
+        // WO-11: an agent with no real implementation cannot be enabled — the admin surface must
+        // not offer a switch that appears to control something that does not exist.
+        if (enabled && descriptorForValidation.ImplementationKind == AgentImplementationKind.NotImplemented)
+        {
+            throw new AgentRegistryValidationException(nameof(enabled), $"\"{descriptorForValidation.Name}\" has no implementation and cannot be enabled.");
         }
 
         var context = tenantContextAccessor.Current;
@@ -94,7 +102,11 @@ public sealed class AgentRegistryService(
             entry.Descriptor.Purpose,
             entry.Descriptor.RiskLevel,
             entry.Descriptor.HumanApprovalRequired,
-            entry.Enabled,
+            entry.Descriptor.ImplementationKind.ToString(),
+            entry.Descriptor.Tools,
+            // WO-11: an unimplemented agent is never shown enabled, regardless of what stale
+            // persisted state says — the switch controls nothing real for it.
+            entry.Descriptor.ImplementationKind == AgentImplementationKind.NotImplemented ? false : entry.Enabled,
             entry.UpdatedByUserId,
             entry.UpdatedAt?.ToString("O"),
             entry.Reason);

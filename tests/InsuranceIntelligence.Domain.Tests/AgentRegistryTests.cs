@@ -67,6 +67,75 @@ public sealed class AgentRegistryTests
     }
 
     [Fact]
+    public async Task SetKillSwitch_CannotEnableNotImplementedAgent()
+    {
+        // WO-11: the admin surface must not offer a switch that appears to control an agent that
+        // has no real implementation. knowledge-assistant is the one such agent found by the
+        // build's own call-site inventory.
+        var service = new AgentRegistryService(
+            Context(),
+            new AllowPermissionService(),
+            new InMemoryAgentStateRepository(),
+            new NullAuditWriter(),
+            NoOpOperationalTelemetry.Instance);
+
+        var exception = await Assert.ThrowsAsync<AgentRegistryValidationException>(
+            () => service.SetKillSwitchAsync("knowledge-assistant", enabled: true, "attempting to enable an unimplemented agent"));
+
+        Assert.Contains("cannot be enabled", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SetKillSwitch_CanStillDisableAnAlreadyDisabledNotImplementedAgent()
+    {
+        // Disabling is always safe — it only ever tightens what runs (ADR-0002).
+        var service = new AgentRegistryService(
+            Context(),
+            new AllowPermissionService(),
+            new InMemoryAgentStateRepository(),
+            new NullAuditWriter(),
+            NoOpOperationalTelemetry.Instance);
+
+        var result = await service.SetKillSwitchAsync("knowledge-assistant", enabled: false, "explicit disable for clarity");
+
+        Assert.False(result.Enabled);
+    }
+
+    [Fact]
+    public async Task ListAsync_NeverShowsANotImplementedAgentAsEnabled()
+    {
+        // Even if a stale persisted state somehow says enabled=true (e.g. written before this
+        // agent was reclassified), the API-facing DTO must not claim it is running.
+        var repo = new InMemoryAgentStateRepository();
+        repo.Saved.Add(new AgentKillSwitchStateDto("knowledge-assistant", Enabled: true, "user-1", DateTimeOffset.UtcNow, "stale"));
+        var service = new AgentRegistryService(Context(), new AllowPermissionService(), repo, new NullAuditWriter(), NoOpOperationalTelemetry.Instance);
+
+        var listed = await service.ListAsync();
+
+        var entry = Assert.Single(listed, e => e.Key == "knowledge-assistant");
+        Assert.False(entry.Enabled);
+        Assert.Equal("NotImplemented", entry.ImplementationKind);
+    }
+
+    [Fact]
+    public void AgentCatalog_EveryEntry_HasToolsConsistentWithImplementationKind()
+    {
+        // Sanity check on the catalog itself: an agent that calls no AI service or model has no
+        // business claiming tools it never invokes, and a real agent should name at least one.
+        foreach (var descriptor in AgentCatalog.Agents)
+        {
+            if (descriptor.ImplementationKind == AgentImplementationKind.NotImplemented)
+            {
+                Assert.Empty(descriptor.Tools);
+            }
+            else
+            {
+                Assert.NotEmpty(descriptor.Tools);
+            }
+        }
+    }
+
+    [Fact]
     public async Task SetKillSwitch_UnknownAgent_Throws()
     {
         var service = new AgentRegistryService(

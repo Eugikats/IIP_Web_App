@@ -523,14 +523,36 @@ No IIP agent may:
 
 ---
 
-## 15. Phase 1-4 agent alignment
+## 15. Current implementation status
 
-| Phase | Agent work |
-|---|---|
-| Phase 1 | Define agent contracts, response block schemas, core tool registry, AgentRun/AIInteraction records, and UI rendering. Implement Command Center, Claims Summary, Document Checker, Policy Intelligence, Customer Update Drafting, Knowledge Assistant. |
-| Phase 2 | Add read-only real tools for briefing, metrics, claims attention, SLA, documents, approvals, provider health, customer profile, claims history, and audit access. Add Risk & Fraud Signal and Underwriting Intelligence in advisory mode. |
-| Phase 3 | Add RAG-backed synthesis, customer-update drafts, report drafts, underwriting referral notes, risk/fraud signal memos, and human action proposals. |
-| Phase 4 | Add agent evaluations, red-team tests, audit verification, sensitivity-gate testing, no-fake-provider checks, and production-readiness evidence. |
+This section is verified against real code, not aspiration — it is generated from
+`InsuranceIntelligence.Domain.Agents.AgentCatalog` (`ImplementationKind`, `Tools`) and the actual
+call-site inventory found while building `docs/08-program-plan/IIP_PRODUCTION_BUILD_CONTRACT.md`
+(WO-06 through WO-11). §5's canonical registry above is the **target state** — what this platform
+is meant to have. This table is **current state** — what exists in the repository today. The two
+will diverge as work proceeds; when they do, trust this table and the code it is generated from,
+not the target-state registry, for "is X built." Update this table whenever `AgentCatalog` changes.
+
+| # | Agent | Implementation kind | Real tools it calls | Notes |
+|---:|---|---|---|---|
+| 1 | Command Center Agent | **AI agent (model-backed)** | `claims.attention.read`, `claims.sla.read`, `documents.gaps.read`, `approvals.queue.read`, `knowledge.search`, `provider_health.read`, `metrics.read` | `CommandCenterQueryService`; a deterministic keyword classifier routes to either a real model call or a real backend aggregate, never both invented. |
+| 2 | Claims Summary Agent | **AI agent (model-backed)** | `claim.read`, `document.read`, `policy.read`, `knowledge.search`, `claims.attention.read`, `audit.read` | `ClaimsSummaryService`; every statement traces to a retrieved tool result, never model memory. Surfaced on the claim review page. |
+| 3 | Document Checker Agent | AI service (non-chat) | `document.read`, `documents.gaps.read`, `provider_health.read` | Calls Azure Document Intelligence (OCR/field extraction) plus `DocumentChecklistRules`; no chat/LLM completion call site exists. Genuinely AI-backed, not a rule engine — output quality depends on a live cloud AI service — but distinct from the five model-backed agents above. |
+| 4 | Policy Intelligence Agent | **AI agent (model-backed)** | `knowledge.search`, `policy.read` | Shares `CommandCenterQueryService`'s grounded retrieval path (`AnswerPolicyQuestion` intent) and the standalone `POST /api/v1/assistant/policy-questions` endpoint; both gated under this agent key. |
+| 5 | Risk & Fraud Signal Agent | Rule-based (no AI call) | `claim.read`, `document.read`, `audit.read` | `FraudRuleEngine` — duplicate contact, claim velocity, duplicate policy, low-completeness signals. No chat/LLM call site exists. |
+| 6 | Customer Update Drafting Agent | **AI agent (model-backed)** | `claim.read` | `AzureOpenAiCustomerUpdateDraftingProvider`, reached via `POST /cases/{id}/customer-updates/draft` and `CommandCenterQueryService`'s `PrepareCustomerUpdateDraft` intent. |
+| 7 | Routing Agent | Rule-based (no AI call) | `claims.attention.read`, `claims.sla.read`, `claim.read` | `ClaimRoutingPolicy` — deterministic assignment/escalation rules. No chat/LLM call site exists. |
+| 8 | Knowledge Assistant | **Not implemented** | — | No code path in this repository invokes a model, provider, or service under this agent key. Staff policy/knowledge questions are currently answered by the Policy Intelligence agent instead. Cannot be enabled (`AgentRegistryService.SetKillSwitchAsync` rejects it). |
+| 9 | Report Insight Agent | **AI agent (model-backed)** | `claims.sla.read`, `audit.read`, `provider_health.read`, `metrics.read` | `CommandCenterQueryService.BuildManagementSummaryResponseAsync`, reached via the `GenerateManagementSummary` intent. |
+| 10 | Underwriting Intelligence Agent | Rule-based (no AI call) | `knowledge.search`, `document.read`, `policy.read` | `UnderwritingRuleEngine`. No chat/LLM call site exists; no submission intake or decision endpoint exists either (out of scope — see the build contract's §7 scope boundary). |
+
+**Summary: 5 of 10 catalogued agents are real, model-backed AI agents. 1 is AI-service-backed
+without a chat model. 3 are deterministic rule engines with no AI call of any kind. 1
+(Knowledge Assistant) has no implementation and cannot be enabled.** This is not a defect list —
+several of the "target state" capabilities in §6/§9 above (write-tier tools, additional read tools
+for agents with no current consumer) are legitimately not yet built; this table exists so that
+"agentic by architecture" claims about this platform can be checked against reality rather than
+against this document's aspiration alone.
 
 ---
 

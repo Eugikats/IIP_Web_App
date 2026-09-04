@@ -39,6 +39,8 @@ public sealed record AgentRegistryEntryDto(
     string Purpose,
     string RiskLevel,
     bool HumanApprovalRequired,
+    string ImplementationKind,
+    IReadOnlyCollection<string> Tools,
     bool Enabled,
     string? UpdatedByUserId,
     string? UpdatedAt,
