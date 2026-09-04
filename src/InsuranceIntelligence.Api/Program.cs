@@ -373,6 +373,13 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgent
 builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgentTool, InsuranceIntelligence.Application.Agents.Tools.PolicyReadTool>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgentToolRegistry, InsuranceIntelligence.Application.Agents.Tools.AgentToolRegistry>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.ClaimsSummary.IClaimsSummaryService, InsuranceIntelligence.Application.ClaimsSummary.ClaimsSummaryService>();
+// WO-14: one instance backs both the emitter (called from the 5 real event sites) and the
+// recipient's own feed (list/read-state) — same underlying repository either way.
+builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.NotificationService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.INotificationEmitter>(
+    sp => sp.GetRequiredService<InsuranceIntelligence.Application.Notifications.NotificationService>());
+builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.INotificationFeedService>(
+    sp => sp.GetRequiredService<InsuranceIntelligence.Application.Notifications.NotificationService>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowService, InsuranceIntelligence.Application.AgentWorkflows.AgentWorkflowService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.MyWork.IMyWorkService, InsuranceIntelligence.Application.MyWork.MyWorkService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.IWhatsAppMessagingService, InsuranceIntelligence.Application.WhatsApp.WhatsAppMessagingService>();
@@ -533,6 +540,13 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "live" }));
 app.MapGet("/health/ready", HealthEndpoints.Ready);
 
 app.MapGet("/api/v1/me", RuntimeContextEndpoints.GetMe);
+
+// WO-14: the recipient's own feed — self-scoped like /api/v1/me, no extra permission (any
+// authenticated tenant member can see their own notifications).
+app.MapGet("/api/v1/notifications", InsuranceIntelligence.Api.Notifications.NotificationEndpoints.GetFeed);
+app.MapPost("/api/v1/notifications/{notificationId:guid}/read", InsuranceIntelligence.Api.Notifications.NotificationEndpoints.MarkRead);
+app.MapPost("/api/v1/notifications/read-all", InsuranceIntelligence.Api.Notifications.NotificationEndpoints.MarkAllRead);
+
 app.MapGet("/api/v1/search", SearchEndpoints.Search)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 

@@ -2,10 +2,12 @@ using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Application.AgentWorkflows;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http.Features;
 namespace InsuranceIntelligence.Api.Documents;
@@ -23,6 +25,7 @@ public static class DocumentEndpoints
         IDocumentProcessingProvider processingProvider,
         IDocumentChecklistProvider checklistProvider,
         IAuditRepository auditRepository,
+        INotificationEmitter notificationEmitter,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -109,6 +112,21 @@ public static class DocumentEndpoints
 
             await documentRepository.SaveAsync(processedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentProcessed(processedDocument, correlationId), cancellationToken);
+
+            // Reuses the exact same low-confidence/warned/not-yet-approved condition that blocks
+            // ApproveExtraction (DocumentActionState.BlockedActions) — a document only notifies here
+            // when it genuinely needs a human to verify it, not on every upload.
+            if (DocumentActionState.BlockedActions(processedDocument).Count > 0)
+            {
+                await notificationEmitter.NotifyAsync(
+                    scope,
+                    claimCase.AssignedUserId ?? string.Empty,
+                    NotificationType.DocumentReviewNeeded,
+                    "A document needs review before it can be used as evidence.",
+                    caseId,
+                    cancellationToken);
+            }
+
             documents.Add(processedDocument);
         }
 

@@ -785,6 +785,52 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                     b.ToTable("MailboxConnections", (string)null);
                 });
 
+            modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("NotificationRecordId");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RecipientUserId")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("WorkspaceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "WorkspaceId");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "RecipientUserId", "CreatedAt");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "RecipientUserId", "IsRead");
+
+                    b.ToTable("Notifications", (string)null);
+                });
+
             modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedPolicy", b =>
                 {
                     b.Property<Guid>("Id")

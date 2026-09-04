@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text;
 using System.Security.Claims;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Api.ClientPortal;
 using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.LocalTestDoubles;
@@ -232,6 +233,7 @@ public sealed class ClientPortalEndpointTests
             cases,
             reviewRequests,
             audit,
+            new NotificationService(new TenantContextAccessor(), new InMemoryNotificationRepository()),
             Context("sarah@example.com"),
             CancellationToken.None);
 
@@ -260,6 +262,7 @@ public sealed class ClientPortalEndpointTests
             cases,
             new InMemoryClaimReviewRequestRepository(),
             new InMemoryAuditRepository(),
+            new NotificationService(new TenantContextAccessor(), new InMemoryNotificationRepository()),
             Context("intruder@example.com"),
             CancellationToken.None);
 
@@ -280,6 +283,7 @@ public sealed class ClientPortalEndpointTests
             cases,
             new InMemoryClaimReviewRequestRepository(),
             new InMemoryAuditRepository(),
+            new NotificationService(new TenantContextAccessor(), new InMemoryNotificationRepository()),
             Context("sarah@example.com"),
             CancellationToken.None);
 

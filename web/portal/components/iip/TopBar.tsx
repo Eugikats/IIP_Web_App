@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Search, PanelLeftClose, PanelRightClose } from "lucide-react";
+import { Search, PanelLeftClose, PanelRightClose } from "lucide-react";
 import { useUI } from "@/context/UIStateContext";
 import RoleSwitcher from "./RoleSwitcher";
 import ProfileMenu from "./ProfileMenu";
+import NotificationBell from "./NotificationBell";
 import { runtimeInitials, useRuntimeContext } from "@/lib/runtimeContext";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { canUseGlobalSearchPreview, searchPreviewGuidance } from "@/lib/roles";
@@ -100,12 +101,7 @@ export default function TopBar() {
             /app/support was an orphaned redirect stub to /app/integrations, not real help
             content; not wired to here for the same reason. Reinstate only once real help
             content or a support flow exists. */}
-        {/* Notifications: unread indicator removed — there is no in-app notification domain yet
-            to back it (WO-14). It previously rendered an unconditional "unread" dot regardless
-            of real state. Do not reinstate any dot here without a real unread count behind it. */}
-        <button type="button" aria-label="Notifications" className="relative hidden h-11 w-11 place-items-center rounded-xl hover:bg-white/70 text-stone hover:text-navy transition-colors focus-ring lg:grid">
-          <Bell className="h-4 w-4" />
-        </button>
+        <NotificationBell />
         {copilotOpen && (
           <button
             onClick={toggleCopilot}

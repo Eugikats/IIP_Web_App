@@ -2,11 +2,13 @@ using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
+using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Api.Workflow;
@@ -82,6 +84,7 @@ public static class WorkflowEndpoints
         IWorkflowTaskRepository taskRepository,
         IApprovalRepository approvalRepository,
         IAuditRepository auditRepository,
+        INotificationEmitter notificationEmitter,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -153,6 +156,17 @@ public static class WorkflowEndpoints
                         ? routing.OperatorExplanation
                         : "Workflow evaluation updated case lifecycle status."),
                 cancellationToken);
+
+            if (nextStatus == CaseStatus.Escalated)
+            {
+                await notificationEmitter.NotifyAsync(
+                    claimForWorkflow.Scope,
+                    claimForWorkflow.AssignedUserId ?? string.Empty,
+                    NotificationType.ClaimEscalated,
+                    "This claim was automatically escalated.",
+                    claimForWorkflow.CaseId,
+                    cancellationToken);
+            }
         }
 
         var createdTasks = new List<WorkflowTask>();
@@ -272,6 +286,7 @@ public static class WorkflowEndpoints
         IWorkflowTaskRepository taskRepository,
         ICaseRepository caseRepository,
         IAuditRepository auditRepository,
+        INotificationEmitter notificationEmitter,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -303,6 +318,19 @@ public static class WorkflowEndpoints
 
         await taskRepository.SaveAsync(updated, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.WorkflowTaskAssigned(updated, assignedBy, task.Status.ToString()), cancellationToken);
+
+        // WO-14: only the approval-flavored task types are "an approval assigned" — other task
+        // types (document requests, case review, etc.) are out of this notification's scope.
+        if (updated.TaskType is WorkflowTaskType.SupervisorApproval or WorkflowTaskType.CustomerUpdateApproval)
+        {
+            await notificationEmitter.NotifyAsync(
+                updated.Scope,
+                updated.AssignedUserId ?? string.Empty,
+                NotificationType.ApprovalAssigned,
+                "You were assigned an approval task.",
+                updated.CaseId,
+                cancellationToken);
+        }
 
         return Results.Ok(WorkflowMapper.ToResponse(updated));
     }

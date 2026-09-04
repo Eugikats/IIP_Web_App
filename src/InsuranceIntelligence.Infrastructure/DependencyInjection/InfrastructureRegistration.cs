@@ -161,6 +161,7 @@ public static class InfrastructureRegistration
         services.AddScoped<IMailboxConnectionRepository, EfMailboxConnectionRepository>();
         services.AddScoped<IInboundEmailRepository, EfInboundEmailRepository>();
         services.AddScoped<ITeamsNotificationRepository, EfTeamsNotificationRepository>();
+        services.AddScoped<INotificationRepository, EfNotificationRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Customers.ICustomerRepository, EfCustomerRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.IPolicyRepository, EfPolicyRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.ICoverageRepository, EfCoverageRepository>();

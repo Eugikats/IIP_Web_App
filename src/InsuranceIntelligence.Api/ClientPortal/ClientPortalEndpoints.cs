@@ -2,11 +2,13 @@ using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Workflow;
+using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Notifications;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace InsuranceIntelligence.Api.ClientPortal;
@@ -169,6 +171,7 @@ public static class ClientPortalEndpoints
         ICaseRepository caseRepository,
         IClaimReviewRequestRepository reviewRequestRepository,
         IAuditRepository auditRepository,
+        INotificationEmitter notificationEmitter,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -203,6 +206,14 @@ public static class ClientPortalEndpoints
 
         await reviewRequestRepository.SaveAsync(request, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.ClaimReviewRequested(request), cancellationToken);
+
+        await notificationEmitter.NotifyAsync(
+            scope,
+            claimCase.AssignedUserId ?? string.Empty,
+            NotificationType.ReviewRequested,
+            "The customer requested a human review of this claim.",
+            caseId,
+            cancellationToken);
 
         return Results.Ok(new ClientPortalReviewRequestResponse(
             request.RequestId,

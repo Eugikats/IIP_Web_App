@@ -3,12 +3,14 @@ using System.Security.Claims;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http;
@@ -250,6 +252,7 @@ public sealed class CaseEndpointsTests
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
             dependencies.SlaCalculator,
+            dependencies.NotificationEmitter,
             listContext,
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<ClaimInboxItemResponse[]>(listResult);
@@ -278,6 +281,7 @@ public sealed class CaseEndpointsTests
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
             dependencies.SlaCalculator,
+            dependencies.NotificationEmitter,
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<ClaimInboxItemResponse[]>(listResult);
@@ -322,6 +326,7 @@ public sealed class CaseEndpointsTests
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
             dependencies.SlaCalculator,
+            dependencies.NotificationEmitter,
             ScopedContext("Admin", "user-a", "tenant-a", "workspace-a"),
             CancellationToken.None);
         var (listAStatus, casesForA) = await ExecuteAsync<ClaimInboxItemResponse[]>(listA);
@@ -332,6 +337,7 @@ public sealed class CaseEndpointsTests
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
             dependencies.SlaCalculator,
+            dependencies.NotificationEmitter,
             ScopedContext("Admin", "user-b", "tenant-b", "workspace-b"),
             CancellationToken.None);
         var (listBStatus, casesForB) = await ExecuteAsync<ClaimInboxItemResponse[]>(listB);
@@ -388,6 +394,7 @@ public sealed class CaseEndpointsTests
             new EscalateCaseRequest("cross-tenant escalate attempt", null),
             dependencies.CaseRepository,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             ScopedContext("Admin", "user-a", "tenant-a", "workspace-a"),
             CancellationToken.None);
         var (tenantAEscalatesTenantBStatus, _) = await ExecuteAsync<JsonElement>(tenantAEscalatesTenantB);
@@ -397,6 +404,7 @@ public sealed class CaseEndpointsTests
             new EscalateCaseRequest("cross-tenant escalate attempt", null),
             dependencies.CaseRepository,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             ScopedContext("Admin", "user-b", "tenant-b", "workspace-b"),
             CancellationToken.None);
         var (tenantBEscalatesTenantAStatus, _) = await ExecuteAsync<JsonElement>(tenantBEscalatesTenantA);
@@ -453,6 +461,7 @@ public sealed class CaseEndpointsTests
             new EscalateCaseRequest("SLA breach needs supervisor action", null),
             dependencies.CaseRepository,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             context,
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -464,6 +473,83 @@ public sealed class CaseEndpointsTests
 
         var saved = await dependencies.CaseRepository.GetAsync(created.CaseId, CancellationToken.None);
         Assert.Equal(CasePriority.Urgent, saved!.Priority);
+    }
+
+    [Fact]
+    public async Task EscalateCase_NotifiesTheAssignedOfficer_ButNotAnotherUser()
+    {
+        // WO-14: proves the real "claim escalated" event actually creates a real, recipient-scoped
+        // in-app notification — not just an audit row.
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+        await CaseEndpoints.AssignCase(
+            created.CaseId,
+            new AssignCaseRequest("handler-42", "Motor Review", "Supervisor allocation"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext("ClaimsSupervisor", "supervisor-1"),
+            CancellationToken.None);
+
+        await CaseEndpoints.EscalateCase(
+            created.CaseId,
+            new EscalateCaseRequest("SLA breach needs supervisor action", null),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
+            ScopedContext("ClaimsSupervisor", "supervisor-1"),
+            CancellationToken.None);
+
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var assignedOfficerFeed = await dependencies.NotificationRepository.ListForUserAsync(scope, "handler-42", 20, CancellationToken.None);
+        var notification = Assert.Single(assignedOfficerFeed);
+        Assert.Equal(NotificationType.ClaimEscalated, notification.Type);
+        Assert.Equal(created.CaseId, notification.CaseId);
+        Assert.False(notification.IsRead);
+
+        var supervisorFeed = await dependencies.NotificationRepository.ListForUserAsync(scope, "supervisor-1", 20, CancellationToken.None);
+        Assert.Empty(supervisorFeed);
+    }
+
+    [Fact]
+    public async Task ListCases_NotifiesTheAssignedOfficerOnceForABreachedSla_NotOnEveryList()
+    {
+        // WO-14: SLA breach has no one-shot event — it's recomputed on every list read — so this
+        // proves NotifyOnceAsync's dedup actually works end to end through the real endpoint.
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+        await CaseEndpoints.AssignCase(
+            created.CaseId,
+            new AssignCaseRequest("handler-42", "Motor Review", "Supervisor allocation"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            ScopedContext("ClaimsSupervisor", "supervisor-1"),
+            CancellationToken.None);
+        var saved = await dependencies.CaseRepository.GetAsync(created.CaseId, CancellationToken.None);
+        await dependencies.CaseRepository.SaveAsync(saved! with { SlaDueAt = DateTimeOffset.UtcNow.AddHours(-1) }, CancellationToken.None);
+
+        await CaseEndpoints.ListCases(
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.ChecklistProvider,
+            dependencies.AuditRepository,
+            dependencies.SlaCalculator,
+            dependencies.NotificationEmitter,
+            ScopedContext(),
+            CancellationToken.None);
+        await CaseEndpoints.ListCases(
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.ChecklistProvider,
+            dependencies.AuditRepository,
+            dependencies.SlaCalculator,
+            dependencies.NotificationEmitter,
+            ScopedContext(),
+            CancellationToken.None);
+
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var feed = await dependencies.NotificationRepository.ListForUserAsync(scope, "handler-42", 20, CancellationToken.None);
+        var notification = Assert.Single(feed);
+        Assert.Equal(NotificationType.SlaBreach, notification.Type);
     }
 
     [Fact]
@@ -520,6 +606,7 @@ public sealed class CaseEndpointsTests
             new EscalateCaseRequest("Injury confirmed — route to designated human.", null),
             dependencies.CaseRepository,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             ScopedContext("ClaimsSupervisor", "supervisor-1"),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -539,6 +626,7 @@ public sealed class CaseEndpointsTests
             new EscalateCaseRequest("", null),
             dependencies.CaseRepository,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             ScopedContext("ClaimsSupervisor", "supervisor-1"),
             CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
@@ -560,6 +648,7 @@ public sealed class CaseEndpointsTests
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
             dependencies.SlaCalculator,
+            dependencies.NotificationEmitter,
             ScopedContext("ClaimsOfficer", "user-claims-1"),
             CancellationToken.None);
         var (_, assignedCases) = await ExecuteAsync<ClaimInboxItemResponse[]>(assignedResult);
@@ -570,6 +659,7 @@ public sealed class CaseEndpointsTests
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
             dependencies.SlaCalculator,
+            dependencies.NotificationEmitter,
             ScopedContext("ClaimsSupervisor", "supervisor-1"),
             CancellationToken.None);
         var (_, supervisorCases) = await ExecuteAsync<ClaimInboxItemResponse[]>(supervisorResult);
@@ -602,13 +692,16 @@ public sealed class CaseEndpointsTests
         var caseRepository = new InMemoryCaseRepository();
         var auditRepository = new InMemoryAuditRepository();
         var scoringService = new CompletenessScoringService();
+        var notificationRepository = new InMemoryNotificationRepository();
         return new Dependencies(
             new CaseIntakeService(caseRepository, auditRepository),
             caseRepository,
             new InMemoryCaseDocumentRepository(),
             new StaticDocumentChecklistProvider(scoringService),
             auditRepository,
-            new BasicSlaCalculator());
+            new BasicSlaCalculator(),
+            new NotificationService(new TenantContextAccessor(), notificationRepository),
+            notificationRepository);
     }
 
     private static CreateCaseRequest ValidRequest() =>
@@ -721,5 +814,7 @@ public sealed class CaseEndpointsTests
         InMemoryCaseDocumentRepository DocumentRepository,
         IDocumentChecklistProvider ChecklistProvider,
         IAuditRepository AuditRepository,
-        ISlaCalculator SlaCalculator);
+        ISlaCalculator SlaCalculator,
+        INotificationEmitter NotificationEmitter,
+        InMemoryNotificationRepository NotificationRepository);
 }

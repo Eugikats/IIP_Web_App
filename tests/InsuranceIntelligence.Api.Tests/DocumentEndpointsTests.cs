@@ -5,6 +5,7 @@ using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Application.AgentWorkflows;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Domain.AgentWorkflows;
 using InsuranceIntelligence.Domain.Cases;
@@ -57,6 +58,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             context,
             CancellationToken.None);
 
@@ -89,6 +91,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
         var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
@@ -134,6 +137,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
         var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
@@ -167,6 +171,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
         var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
@@ -201,6 +206,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
         var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
@@ -236,6 +242,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
         var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
@@ -311,6 +318,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             context,
             CancellationToken.None);
 
@@ -334,6 +342,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             context,
             CancellationToken.None);
 
@@ -372,6 +381,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             context,
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<DocumentUploadResponse>(result);
@@ -412,6 +422,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             context,
             CancellationToken.None);
 
@@ -435,6 +446,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             context,
             CancellationToken.None);
 
@@ -473,6 +485,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
 
@@ -498,6 +511,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
         var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
@@ -546,6 +560,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
         var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
@@ -591,6 +606,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
         var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
@@ -626,6 +642,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<DocumentUploadResponse>(result);
@@ -643,6 +660,7 @@ public sealed class DocumentEndpointsTests
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             UploadContext("repair-estimate.pdf"),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<DocumentUploadResponse>(result);
@@ -690,7 +708,8 @@ public sealed class DocumentEndpointsTests
             storageProvider ?? new StubDocumentStorageProvider(),
             processingProvider ?? new MockDocumentProcessingProvider(),
             new StaticDocumentChecklistProvider(scoringService),
-            new NoOpAgentWorkflowService());
+            new NoOpAgentWorkflowService(),
+            new NotificationService(new TenantContextAccessor(), new InMemoryNotificationRepository()));
     }
 
     private static DefaultHttpContext ScopedContext(
@@ -799,7 +818,8 @@ public sealed class DocumentEndpointsTests
         IDocumentStorageProvider StorageProvider,
         IDocumentProcessingProvider ProcessingProvider,
         IDocumentChecklistProvider ChecklistProvider,
-        IAgentWorkflowService AgentWorkflowService);
+        IAgentWorkflowService AgentWorkflowService,
+        INotificationEmitter NotificationEmitter);
 
     private sealed class NoOpAgentWorkflowService : IAgentWorkflowService
     {

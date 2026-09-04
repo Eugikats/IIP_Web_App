@@ -101,6 +101,51 @@ public sealed class Phase5InfrastructureTests
     }
 
     [Fact]
+    public async Task EfNotificationRepository_RoundTripsAndIsolatesByTenantAndRecipient()
+    {
+        // WO-14: proves the Notification persistence layer through real EF Core machinery (the
+        // AddNotifications migration's model), not only the in-memory test double.
+        await using var fixture = await EfFixture.CreateAsync();
+        var repository = new InsuranceIntelligence.Infrastructure.Notifications.EfNotificationRepository(fixture.DbContext);
+        var scope = TenantScope.Create("tenant-a", "workspace-a");
+        var caseId = Guid.NewGuid();
+        var notification = new InsuranceIntelligence.Domain.Notifications.Notification(
+            Guid.NewGuid(),
+            scope,
+            "user-claims-1",
+            InsuranceIntelligence.Domain.Notifications.NotificationType.ClaimEscalated,
+            "This claim was escalated.",
+            caseId,
+            DateTimeOffset.UtcNow,
+            IsRead: false,
+            ReadAt: null);
+
+        await repository.SaveAsync(notification);
+
+        var fetched = await repository.GetAsync(notification.NotificationId, scope, "user-claims-1");
+        var forRecipient = await repository.ListForUserAsync(scope, "user-claims-1", 20);
+        var forOtherRecipient = await repository.ListForUserAsync(scope, "someone-else", 20);
+        var forOtherTenant = await repository.ListForUserAsync(TenantScope.Create("tenant-b", "workspace-a"), "user-claims-1", 20);
+        var unreadCount = await repository.CountUnreadForUserAsync(scope, "user-claims-1");
+        var existsSameType = await repository.ExistsAsync(
+            scope, "user-claims-1", InsuranceIntelligence.Domain.Notifications.NotificationType.ClaimEscalated, caseId);
+        var existsOtherType = await repository.ExistsAsync(
+            scope, "user-claims-1", InsuranceIntelligence.Domain.Notifications.NotificationType.SlaBreach, caseId);
+
+        Assert.NotNull(fetched);
+        Assert.Equal("This claim was escalated.", fetched!.Message);
+        Assert.Single(forRecipient);
+        Assert.Empty(forOtherRecipient);
+        Assert.Empty(forOtherTenant);
+        Assert.Equal(1, unreadCount);
+        Assert.True(existsSameType);
+        Assert.False(existsOtherType);
+
+        await repository.SaveAsync(notification with { IsRead = true, ReadAt = DateTimeOffset.UtcNow });
+        Assert.Equal(0, await repository.CountUnreadForUserAsync(scope, "user-claims-1"));
+    }
+
+    [Fact]
     public async Task AdminTenantConfigUpdate_WorksForAdmin()
     {
         var repository = new InMemoryTenantConfigurationRepository();

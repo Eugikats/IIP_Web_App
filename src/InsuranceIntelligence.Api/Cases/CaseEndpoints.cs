@@ -1,10 +1,12 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Api.Cases;
@@ -159,6 +161,7 @@ public static class CaseEndpoints
         EscalateCaseRequest request,
         ICaseRepository caseRepository,
         IAuditRepository auditRepository,
+        INotificationEmitter notificationEmitter,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -220,6 +223,16 @@ public static class CaseEndpoints
             AuditEvent.CaseEscalated(before, updated.ToAuditSnapshot(), userId, correlationId, request.AuditReason.Trim()),
             cancellationToken);
 
+        // Notify the officer already assigned to this claim — escalation doesn't reassign it,
+        // it changes its priority/queue, so they need to know their claim's status changed.
+        await notificationEmitter.NotifyAsync(
+            updated.Scope,
+            updated.AssignedUserId ?? string.Empty,
+            NotificationType.ClaimEscalated,
+            "This claim was escalated.",
+            updated.CaseId,
+            cancellationToken);
+
         var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
         return Results.Ok(CaseMapper.ToResponse(updated, auditEvents));
     }
@@ -230,6 +243,7 @@ public static class CaseEndpoints
         IDocumentChecklistProvider checklistProvider,
         IAuditRepository auditRepository,
         ISlaCalculator slaCalculator,
+        INotificationEmitter notificationEmitter,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -258,6 +272,21 @@ public static class CaseEndpoints
                     ? "Missing Documents"
                     : "Ready For Review";
             var slaStatus = slaCalculator.Calculate(claimCase, DateTimeOffset.UtcNow);
+
+            // WO-14: SLA breach has no one-shot write-time event in this codebase — it's a pure,
+            // recomputed-on-every-read calculation (BasicSlaCalculator). NotifyOnceAsync makes the
+            // first observation of a breach for this case/officer durable without spamming a new
+            // notification on every subsequent list load.
+            if (slaStatus == SlaStatus.Breached)
+            {
+                await notificationEmitter.NotifyOnceAsync(
+                    claimCase.Scope,
+                    claimCase.AssignedUserId ?? string.Empty,
+                    NotificationType.SlaBreach,
+                    "This claim's SLA has been breached.",
+                    claimCase.CaseId,
+                    cancellationToken);
+            }
 
             responses.Add(new ClaimInboxItemResponse(
                 claimCase.CaseId,

@@ -88,6 +88,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.WorkflowTaskRepository,
             dependencies.ApprovalRepository,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             context,
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<WorkflowEvaluationResponse>(result);
@@ -913,6 +914,7 @@ public sealed class WorkflowEndpointsTests
             dependencies.WorkflowTaskRepository,
             dependencies.ApprovalRepository,
             dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
             ScopedContext(),
             CancellationToken.None);
 
@@ -1014,7 +1016,9 @@ public sealed class WorkflowEndpointsTests
             new CaseTimelineProvider(),
             new MockCustomerUpdateDraftingProvider(workflowRuleProvider),
             communicationProvider ?? new MockCommunicationProvider(),
-            new FakeTeamsNotificationQueue());
+            new FakeTeamsNotificationQueue(),
+            new InsuranceIntelligence.Application.Notifications.NotificationService(
+                new TenantContextAccessor(), new InMemoryNotificationRepository()));
     }
 
     private static DefaultHttpContext ScopedContext(
@@ -1137,7 +1141,8 @@ public sealed class WorkflowEndpointsTests
         ICaseTimelineProvider TimelineProvider,
         ICustomerUpdateDraftingProvider DraftingProvider,
         ICommunicationProvider CommunicationProvider,
-        InsuranceIntelligence.Domain.Notifications.ITeamsNotificationQueue TeamsNotificationQueue);
+        InsuranceIntelligence.Domain.Notifications.ITeamsNotificationQueue TeamsNotificationQueue,
+        InsuranceIntelligence.Application.Notifications.INotificationEmitter NotificationEmitter);
 
     private sealed class FakeCommunicationSendingProvider : ICommunicationSendingProvider
     {
