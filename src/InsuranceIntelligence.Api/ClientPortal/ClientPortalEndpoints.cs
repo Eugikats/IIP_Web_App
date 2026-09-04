@@ -2,13 +2,16 @@ using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Workflow;
+using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.ClientPortal;
 using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Notifications;
+using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace InsuranceIntelligence.Api.ClientPortal;
@@ -22,10 +25,11 @@ public static class ClientPortalEndpoints
         IDocumentChecklistProvider checklistProvider,
         ICommunicationRepository communicationRepository,
         IClaimReviewRequestRepository reviewRequestRepository,
+        InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -34,7 +38,7 @@ public static class ClientPortalEndpoints
         }
 
         var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
-        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext))
+        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext, options))
         {
             return Results.NotFound(new { message = "Claim was not found for the signed-in customer." });
         }
@@ -57,10 +61,11 @@ public static class ClientPortalEndpoints
         IDocumentFieldValidationRuleRepository fieldValidationRuleRepository,
         ICommunicationRepository communicationRepository,
         IAuditRepository auditRepository,
+        InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -69,7 +74,7 @@ public static class ClientPortalEndpoints
         }
 
         var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
-        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext))
+        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext, options))
         {
             return Results.NotFound(new { message = "Claim was not found for the signed-in customer." });
         }
@@ -101,7 +106,7 @@ public static class ClientPortalEndpoints
             }
         }
 
-        var actor = WorkflowEndpoints.GetActor(httpContext, "client-portal-user");
+        var actor = ResolveActor(httpContext);
         var correlationId = httpContext.TraceIdentifier;
         foreach (var file in files)
         {
@@ -180,10 +185,11 @@ public static class ClientPortalEndpoints
         IClaimReviewRequestRepository reviewRequestRepository,
         IAuditRepository auditRepository,
         INotificationEmitter notificationEmitter,
+        InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -197,12 +203,12 @@ public static class ClientPortalEndpoints
         }
 
         var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
-        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext))
+        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext, options))
         {
             return Results.NotFound(new { message = "Claim was not found for the signed-in customer." });
         }
 
-        var actor = WorkflowEndpoints.GetActor(httpContext, "client-portal-user");
+        var actor = ResolveActor(httpContext);
         var correlationId = httpContext.TraceIdentifier;
         var request = ClaimReviewRequest.Create(
             scope,
@@ -325,25 +331,59 @@ public static class ClientPortalEndpoints
         ];
     }
 
-    private static bool BelongsToCustomer(ClaimCase claimCase, HttpContext httpContext)
+    /// <summary>
+    /// Resolves tenant scope for a claimant-facing request. Tries the staff resolution path first
+    /// (Entra claims in protected mode, or demo headers in Development) — this preserves every
+    /// existing behavior unchanged. A claimant reaching the portal through a magic link carries
+    /// neither, so this falls back to reading X-Tenant-Id/X-Workspace-Id headers directly
+    /// (ClientPortalScopeReader): safe here because knowing a tenant id alone grants no case
+    /// access — BelongsToCustomer below is the actual gate.
+    /// </summary>
+    private static bool ResolveScope(HttpContext httpContext, out InsuranceIntelligence.Domain.Common.TenantScope scope, out string validationError) =>
+        WorkflowEndpoints.TryResolveScope(httpContext, out scope, out _, out validationError)
+        || ClientPortalScopeReader.TryGetFromHeaders(httpContext, out scope, out validationError);
+
+    /// <summary>
+    /// The claimant identity for this request, preferring a server-verified magic-link session
+    /// (stashed by ClaimantSessionEndpointFilter) over anything the browser sent as a header.
+    /// </summary>
+    private static string ResolveActor(HttpContext httpContext) =>
+        httpContext.Items.TryGetValue(ClaimantSessionEndpointFilter.ContactValueItemKey, out var stashed) && stashed is string verified
+            ? verified
+            : WorkflowEndpoints.GetActor(httpContext, "client-portal-user");
+
+    /// <summary>
+    /// Three trust tiers, highest first: (1) a verified magic-link session (stashed by
+    /// ClaimantSessionEndpointFilter) — the intended path for a real claimant; (2) a genuinely
+    /// authenticated principal or a server-resolved ITenantContextAccessor, neither of which a
+    /// browser can spoof by sending a header; (3) outside Development, nothing else is trusted — a
+    /// raw X-User-Id/x-demo-user-id header is never sufficient on its own, mirroring
+    /// DemoAuthorization.RequireAny's fail-closed treatment of demo headers outside Development.
+    /// Before this method took `options`, WorkflowEndpoints.GetActor's raw-header fallback was
+    /// reachable unconditionally — an unauthenticated request could set X-User-Id to any claimant's
+    /// email and read their case in any AuthMode. Tier 3 closes that.
+    /// </summary>
+    private static bool BelongsToCustomer(ClaimCase claimCase, HttpContext httpContext, InfrastructureOptions options)
     {
-        var userId = WorkflowEndpoints.GetActor(httpContext, string.Empty);
-        if (string.IsNullOrWhiteSpace(userId))
+        if (httpContext.Items.TryGetValue(ClaimantSessionEndpointFilter.ContactValueItemKey, out var stashed) && stashed is string verified)
+        {
+            return ClaimantContactMatcher.Matches(verified, claimCase.CustomerEmail, claimCase.CustomerPhone, claimCase.CreatedByUserId);
+        }
+
+        var isAuthenticated = httpContext.User.Identity?.IsAuthenticated == true;
+        var hasResolvedTenantContext = httpContext.RequestServices.GetService(typeof(ITenantContextAccessor))
+            is ITenantContextAccessor { HasCurrent: true };
+        if (!options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)
+            && !isAuthenticated
+            && !hasResolvedTenantContext)
         {
             return false;
         }
 
-        return EqualsNormalized(userId, claimCase.CustomerEmail)
-            || EqualsNormalized(userId, claimCase.CustomerPhone)
-            || EqualsNormalized(userId, claimCase.CreatedByUserId);
+        var userId = WorkflowEndpoints.GetActor(httpContext, string.Empty);
+        return !string.IsNullOrWhiteSpace(userId)
+            && ClaimantContactMatcher.Matches(userId, claimCase.CustomerEmail, claimCase.CustomerPhone, claimCase.CreatedByUserId);
     }
-
-    private static bool EqualsNormalized(string left, string? right) =>
-        !string.IsNullOrWhiteSpace(right)
-        && Normalize(left) == Normalize(right);
-
-    private static string Normalize(string value) =>
-        new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 
     private static bool IsCustomerSafeMessage(string value) =>
         !new[] { "raw prompt", "system message", "internal note", "fraud flag", "reserve", "hidden risk", "secret", "confidence" }

@@ -164,6 +164,8 @@ public static class InfrastructureRegistration
         services.AddScoped<INotificationRepository, EfNotificationRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Fraud.IFraudSignalDispositionRepository, InsuranceIntelligence.Infrastructure.Fraud.EfFraudSignalDispositionRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Documents.IDocumentFieldValidationRuleRepository, InsuranceIntelligence.Infrastructure.Documents.EfDocumentFieldValidationRuleRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.ClientPortal.IClaimantMagicLinkTokenRepository, InsuranceIntelligence.Infrastructure.ClientPortal.EfClaimantMagicLinkTokenRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.ClientPortal.IClaimantPortalSessionRepository, InsuranceIntelligence.Infrastructure.ClientPortal.EfClaimantPortalSessionRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Customers.ICustomerRepository, EfCustomerRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.IPolicyRepository, EfPolicyRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.ICoverageRepository, EfCoverageRepository>();
@@ -238,6 +240,7 @@ public static class InfrastructureRegistration
             EntraClientId = configuration["INSURANCEINTELLIGENCE_ENTRA_CLIENT_ID"],
             EntraAudience = configuration["INSURANCEINTELLIGENCE_ENTRA_AUDIENCE"],
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
+            ClientPortalBaseUrl = configuration["INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL"],
             AzureRegion = configuration["INSURANCEINTELLIGENCE_AZURE_REGION"],
             DataResidencyCountry = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY"],
             DataResidencyGeography = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY"],

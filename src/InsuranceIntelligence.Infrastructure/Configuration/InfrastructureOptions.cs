@@ -15,6 +15,10 @@ public sealed record InfrastructureOptions
     public string? EntraClientId { get; init; }
     public string? EntraAudience { get; init; }
     public string? EntraIssuer { get; init; }
+    /// <summary>Public origin of the customer-facing client portal (e.g. https://portal.example.com),
+    /// used to build magic-link URLs sent to claimants. Required outside Development for
+    /// magic-link issuance to work — see ClaimantAuthenticationEndpoints.</summary>
+    public string? ClientPortalBaseUrl { get; init; }
     public string? AzureRegion { get; init; }
     public string? DataResidencyCountry { get; init; }
     public string? DataResidencyGeography { get; init; }

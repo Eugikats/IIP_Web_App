@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Domain.ClientPortal;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
@@ -295,6 +296,49 @@ public sealed record AuditEvent(
             ValidationResult: "accepted",
             ApprovalId: null,
             AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ClaimantMagicLinkRequested(TenantScope scope, Guid caseId, bool matched, string channel, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            DocumentId: null,
+            UserId: null,
+            ActorType.System,
+            "client_portal.magic_link.requested",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            // Never let AfterStatus/logs distinguish "matched" from "not matched" in anything a
+            // caller could observe over the API — this field exists only for staff investigating
+            // abuse in the audit log, not as an enumeration side-channel.
+            AfterStatus: matched ? "Issued" : "NoMatch",
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: channel,
+            Confidence: null,
+            ValidationResult: matched ? "issued" : "no_match",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ClaimantSessionEstablished(ClaimantPortalSession session, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            session.Scope,
+            session.CaseId,
+            DocumentId: null,
+            UserId: session.ContactValue,
+            ActorType.User,
+            "client_portal.session.established",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: "Active",
+            EvidenceIds: [session.SessionId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: null,
             CorrelationId: correlationId);
 
     public static AuditEvent AssistantPolicyQuestionAnswered(AgentActionLog actionLog) =>

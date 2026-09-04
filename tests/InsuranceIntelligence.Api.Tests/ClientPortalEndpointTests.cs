@@ -65,6 +65,7 @@ public sealed class ClientPortalEndpointTests
             new StaticDocumentChecklistProvider(new CompletenessScoringService()),
             communications,
             new InMemoryClaimReviewRequestRepository(),
+            DevelopmentOptions(),
             Context("sarah@example.com"),
             CancellationToken.None);
 
@@ -100,6 +101,7 @@ public sealed class ClientPortalEndpointTests
             new StaticDocumentChecklistProvider(new CompletenessScoringService()),
             new InMemoryCommunicationRepository(),
             new InMemoryClaimReviewRequestRepository(),
+            DevelopmentOptions(),
             Context("other@example.com"),
             CancellationToken.None);
 
@@ -120,6 +122,12 @@ public sealed class ClientPortalEndpointTests
         var communications = new InMemoryCommunicationRepository();
         await cases.SaveAsync(Case(caseId, authenticatedScope, "sarah@example.com"));
 
+        var protectedOptions = new InfrastructureOptions
+        {
+            AuthMode = "Entra",
+            TenantId = authenticatedScope.TenantId,
+            WorkspaceId = authenticatedScope.WorkspaceId
+        };
         var result = await ClientPortalEndpoints.GetClaim(
             caseId,
             cases,
@@ -127,13 +135,49 @@ public sealed class ClientPortalEndpointTests
             new StaticDocumentChecklistProvider(new CompletenessScoringService()),
             communications,
             new InMemoryClaimReviewRequestRepository(),
-            ProtectedContext("sarah@example.com", authenticatedScope, spoofedHeaderScope),
+            protectedOptions,
+            ProtectedContext("sarah@example.com", authenticatedScope, spoofedHeaderScope, protectedOptions),
             CancellationToken.None);
 
         var (status, body) = await ExecuteAsync<JsonElement>(result);
 
         Assert.Equal(StatusCodes.Status200OK, status);
         Assert.Equal(caseId, body.GetProperty("caseId").GetGuid());
+    }
+
+    [Fact]
+    public async Task GetClaim_InProtectedRuntimeWithoutAVerifiedIdentityIsRejectedEvenWithMatchingHeaders()
+    {
+        var caseId = Guid.NewGuid();
+        var scope = TenantScope.Create("tenant-protected", "workspace-protected");
+        var cases = new InMemoryCaseRepository();
+        await cases.SaveAsync(Case(caseId, scope, "sarah@example.com"));
+
+        // An unauthenticated request (no JwtBearer principal, no ITenantContextAccessor, no
+        // magic-link session) that merely sends the right headers must never be treated as the
+        // claimant, even outside Development — this is the gap magic-link auth closes.
+        var context = new DefaultHttpContext { TraceIdentifier = "trace-client-portal-unauth" };
+        context.Request.Headers["X-Tenant-Id"] = scope.TenantId;
+        context.Request.Headers["X-Workspace-Id"] = scope.WorkspaceId;
+        context.Request.Headers["X-User-Id"] = "sarah@example.com";
+        context.Request.Headers["x-demo-user-id"] = "sarah@example.com";
+        var options = new InfrastructureOptions { AuthMode = "Entra", TenantId = scope.TenantId, WorkspaceId = scope.WorkspaceId };
+        context.RequestServices = new ServiceCollection().AddLogging().AddProblemDetails().AddSingleton(options).BuildServiceProvider();
+
+        var result = await ClientPortalEndpoints.GetClaim(
+            caseId,
+            cases,
+            new InMemoryCaseDocumentRepository(),
+            new StaticDocumentChecklistProvider(new CompletenessScoringService()),
+            new InMemoryCommunicationRepository(),
+            new InMemoryClaimReviewRequestRepository(),
+            options,
+            context,
+            CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status404NotFound, status);
     }
 
     [Fact]
@@ -157,6 +201,7 @@ public sealed class ClientPortalEndpointTests
             new InMemoryDocumentFieldValidationRuleRepository(),
             communications,
             audit,
+            DevelopmentOptions(),
             UploadContext("sarah@example.com"),
             CancellationToken.None);
 
@@ -197,6 +242,7 @@ public sealed class ClientPortalEndpointTests
             new InMemoryDocumentFieldValidationRuleRepository(),
             communications,
             audit,
+            DevelopmentOptions(),
             UploadContext(
                 "sarah@example.com",
                 context => ApplyMembershipScope(context, membershipScope, spoofedScope, "sarah@example.com", "spoofed-user")),
@@ -236,6 +282,7 @@ public sealed class ClientPortalEndpointTests
             reviewRequests,
             audit,
             new NotificationService(new TenantContextAccessor(), new InMemoryNotificationRepository()),
+            DevelopmentOptions(),
             Context("sarah@example.com"),
             CancellationToken.None);
 
@@ -265,6 +312,7 @@ public sealed class ClientPortalEndpointTests
             new InMemoryClaimReviewRequestRepository(),
             new InMemoryAuditRepository(),
             new NotificationService(new TenantContextAccessor(), new InMemoryNotificationRepository()),
+            DevelopmentOptions(),
             Context("intruder@example.com"),
             CancellationToken.None);
 
@@ -286,6 +334,7 @@ public sealed class ClientPortalEndpointTests
             new InMemoryClaimReviewRequestRepository(),
             new InMemoryAuditRepository(),
             new NotificationService(new TenantContextAccessor(), new InMemoryNotificationRepository()),
+            DevelopmentOptions(),
             Context("sarah@example.com"),
             CancellationToken.None);
 
@@ -331,10 +380,13 @@ public sealed class ClientPortalEndpointTests
         return context;
     }
 
+    private static InfrastructureOptions DevelopmentOptions() => new();
+
     private static DefaultHttpContext ProtectedContext(
         string userId,
         TenantScope authenticatedScope,
-        TenantScope spoofedHeaderScope)
+        TenantScope spoofedHeaderScope,
+        InfrastructureOptions options)
     {
         var context = new DefaultHttpContext { TraceIdentifier = "trace-client-portal-protected" };
         context.Request.Headers["X-Tenant-Id"] = spoofedHeaderScope.TenantId;
@@ -350,12 +402,7 @@ public sealed class ClientPortalEndpointTests
         context.RequestServices = new ServiceCollection()
             .AddLogging()
             .AddProblemDetails()
-            .AddSingleton(new InfrastructureOptions
-            {
-                AuthMode = "Entra",
-                TenantId = authenticatedScope.TenantId,
-                WorkspaceId = authenticatedScope.WorkspaceId
-            })
+            .AddSingleton(options)
             .BuildServiceProvider();
         return context;
     }

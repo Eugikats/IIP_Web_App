@@ -555,12 +555,18 @@ app.MapPost("/api/v1/notifications/read-all", InsuranceIntelligence.Api.Notifica
 app.MapGet("/api/v1/search", SearchEndpoints.Search)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 
+// A claimant is never a tenant member, so these cannot be gated by PermissionEndpointFilter (which
+// requires resolved membership permissions outside Development — no claimant will ever have one).
+// ClaimantSessionEndpointFilter is the real gate: a verified magic-link session outside
+// Development, or the existing demo-header trust inside it.
 app.MapGet("/api/v1/client-portal/claims/{caseId:guid}", ClientPortalEndpoints.GetClaim)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents", ClientPortalEndpoints.UploadDocuments)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/request-review", ClientPortalEndpoints.RequestReview)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewClientPortal));
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/magic-links", InsuranceIntelligence.Api.ClientPortal.ClaimantAuthenticationEndpoints.RequestMagicLink);
+app.MapPost("/api/v1/client-portal/magic-links/redeem", InsuranceIntelligence.Api.ClientPortal.ClaimantAuthenticationEndpoints.RedeemMagicLink);
 
 app.MapPost("/api/v1/cases", CaseEndpoints.CreateCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim));

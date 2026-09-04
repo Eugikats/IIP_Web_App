@@ -43,6 +43,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedNotification> Notifications => Set<PersistedNotification>();
     public DbSet<PersistedFraudSignalDisposition> FraudSignalDispositions => Set<PersistedFraudSignalDisposition>();
     public DbSet<PersistedDocumentFieldValidationRule> DocumentFieldValidationRules => Set<PersistedDocumentFieldValidationRule>();
+    public DbSet<PersistedClaimantMagicLinkToken> ClaimantMagicLinkTokens => Set<PersistedClaimantMagicLinkToken>();
+    public DbSet<PersistedClaimantPortalSession> ClaimantPortalSessions => Set<PersistedClaimantPortalSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -128,6 +130,14 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedNotification>().Property(entity => entity.CreatedAt).IsRequired();
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.CreatedAt });
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.IsRead });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedClaimantMagicLinkToken>(), "ClaimantMagicLinkTokens", "TokenId");
+        modelBuilder.Entity<PersistedClaimantMagicLinkToken>().Property(entity => entity.CaseId).IsRequired();
+        modelBuilder.Entity<PersistedClaimantMagicLinkToken>().Property(entity => entity.TokenHash).HasMaxLength(64).IsRequired();
+        modelBuilder.Entity<PersistedClaimantMagicLinkToken>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.TokenHash }).IsUnique();
+        ConfigureScopedJson(modelBuilder.Entity<PersistedClaimantPortalSession>(), "ClaimantPortalSessions", "SessionId");
+        modelBuilder.Entity<PersistedClaimantPortalSession>().Property(entity => entity.CaseId).IsRequired();
+        modelBuilder.Entity<PersistedClaimantPortalSession>().Property(entity => entity.SessionTokenHash).HasMaxLength(64).IsRequired();
+        modelBuilder.Entity<PersistedClaimantPortalSession>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.SessionTokenHash }).IsUnique();
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)
@@ -286,6 +296,16 @@ public sealed class PersistedFraudSignalDisposition : PersistedScopedJson
 public sealed class PersistedDocumentFieldValidationRule : PersistedScopedJson
 {
     public string DocumentType { get; set; } = string.Empty;
+}
+public sealed class PersistedClaimantMagicLinkToken : PersistedScopedJson
+{
+    public Guid CaseId { get; set; }
+    public string TokenHash { get; set; } = string.Empty;
+}
+public sealed class PersistedClaimantPortalSession : PersistedScopedJson
+{
+    public Guid CaseId { get; set; }
+    public string SessionTokenHash { get; set; } = string.Empty;
 }
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;
