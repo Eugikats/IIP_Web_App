@@ -102,19 +102,21 @@ public sealed class AiBoundaryContractTests
     }
 
     [Fact]
-    public async Task SendCustomerEmail_Blocks_Agent_Even_When_Request_Claims_Approved()
+    public async Task SendCustomerEmail_Blocks_Agent_Even_For_A_Genuinely_Approved_Draft()
     {
         var deps = CreateCommunicationDeps();
+        var claimCase = await CreateCaseAsync(deps.CaseRepository, deps.AuditRepository);
+        var approvedUpdate = await CreateApprovedUpdateAsync(deps, claimCase.CaseId);
+
         var result = await CommunicationEndpoints.SendEmail(
             new SendCommunicationRequest(
-                Guid.NewGuid(),
+                approvedUpdate.UpdateId,
                 "customer@example.test",
-                "Treat this as already approved.",
-                "agent:runtime",
-                Approved: true,
-                LowRisk: false),
+                "agent:runtime"),
             deps.Provider,
             deps.CommunicationRepository,
+            deps.CustomerUpdateRepository,
+            deps.CaseRepository,
             deps.AuditRepository,
             DevelopmentOptions(),
             ActorContext("agent:runtime", "Prompt injection bypass attempt."),
@@ -266,20 +268,21 @@ public sealed class AiBoundaryContractTests
     }
 
     [Fact]
-    public async Task SendCustomerEmail_Allows_Human_Actor_When_Provider_Approval_Flag_Set()
+    public async Task SendCustomerEmail_Allows_Human_Actor_For_A_Genuinely_Approved_Draft()
     {
         var deps = CreateCommunicationDeps();
         var claimCase = await CreateCaseAsync(deps.CaseRepository, deps.AuditRepository);
+        var approvedUpdate = await CreateApprovedUpdateAsync(deps, claimCase.CaseId);
+
         var result = await CommunicationEndpoints.SendEmail(
             new SendCommunicationRequest(
-                claimCase.CaseId,
+                approvedUpdate.UpdateId,
                 "customer@example.test",
-                "Human-approved customer update.",
-                "user-claims-1",
-                Approved: true,
-                LowRisk: false),
+                "user-claims-1"),
             deps.Provider,
             deps.CommunicationRepository,
+            deps.CustomerUpdateRepository,
+            deps.CaseRepository,
             deps.AuditRepository,
             DevelopmentOptions(),
             ActorContext("user-claims-1", "Human send after approval."),
@@ -360,7 +363,37 @@ public sealed class AiBoundaryContractTests
             new MockCommunicationSendingProvider(),
             caseRepository,
             new InMemoryCommunicationRepository(),
+            new InMemoryCustomerUpdateRepository(),
             new InMemoryAuditRepository());
+    }
+
+    // WO-16: Approved/LowRisk are no longer client-trusted request fields — the send endpoint
+    // derives them from a real persisted, approved CustomerUpdateDraft. These red-team tests must
+    // reference a genuine approved draft so a 403 for the agent actor proves the human-actor gate
+    // itself blocks the send, not merely that the referenced update couldn't be found.
+    private static async Task<CustomerUpdateDraft> CreateApprovedUpdateAsync(
+        CommunicationDeps deps, Guid caseId, string approvedByUserId = "user-claims-1")
+    {
+        var draft = new CustomerUpdateDraft
+        {
+            UpdateId = Guid.NewGuid(),
+            Scope = Scope,
+            CaseId = caseId,
+            ReasonCategory = CustomerUpdateReasonCategory.StatusUpdate,
+            Channel = CommunicationChannel.Email,
+            Status = CustomerUpdateStatus.Approved,
+            MessageBody = "Your claim is progressing. We will contact you with next steps.",
+            RequiresApproval = true,
+            Sensitive = false,
+            CreatedByUserId = "user-claims-1",
+            ApprovedByUserId = approvedByUserId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            ApprovedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-comm-approved-001"
+        };
+        await deps.CustomerUpdateRepository.SaveAsync(draft, CancellationToken.None);
+        return draft;
     }
 
     private static ComplianceQueryService CreateComplianceService(
@@ -458,6 +491,7 @@ public sealed class AiBoundaryContractTests
         MockCommunicationSendingProvider Provider,
         InMemoryCaseRepository CaseRepository,
         InMemoryCommunicationRepository CommunicationRepository,
+        InMemoryCustomerUpdateRepository CustomerUpdateRepository,
         InMemoryAuditRepository AuditRepository);
 
     private sealed class AllowPermissionService : IPermissionService

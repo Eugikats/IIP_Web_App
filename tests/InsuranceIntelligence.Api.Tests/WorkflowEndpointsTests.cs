@@ -586,6 +586,47 @@ public sealed class WorkflowEndpointsTests
     }
 
     [Fact]
+    public async Task ListAllCustomerUpdates_AggregatesAcrossCases_ButNotAcrossTenants()
+    {
+        // WO-16: backs Communications.tsx's tenant-wide queue — the per-case listing endpoint
+        // (ListCustomerUpdates) can't power a cross-case screen at all.
+        var dependencies = CreateDependencies();
+        var caseA = await CreateCaseAsync(dependencies, createdByUserId: "user-claims-1");
+        var caseB = await CreateCaseAsync(dependencies, createdByUserId: "user-claims-1");
+        var otherTenantCase = await CreateCaseAsync(
+            dependencies, createdByUserId: "other-user", scope: TenantScope.Create("tenant-other", "workspace-other"));
+        var draftA = await DraftUpdateAsync(dependencies, caseA.CaseId);
+        var draftB = await DraftUpdateAsync(dependencies, caseB.CaseId, reasonCategory: "ReadyForReview");
+        await CustomerUpdateEndpoints.DraftCustomerUpdate(
+            otherTenantCase.CaseId,
+            new DraftCustomerUpdateRequest("MissingDocuments", "Portal"),
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.ChecklistProvider,
+            dependencies.DraftingProvider,
+            dependencies.CustomerUpdateRepository,
+            dependencies.ActionLogRepository,
+            dependencies.AuditRepository,
+            new LocalTestAgentGate(),
+            new LocalTestAgentRunRecorder(),
+            ScopedContext(tenantId: "tenant-other", workspaceId: "workspace-other"),
+            CancellationToken.None);
+
+        var result = await CustomerUpdateEndpoints.ListAllCustomerUpdates(
+            dependencies.CaseRepository,
+            dependencies.CustomerUpdateRepository,
+            ScopedContext(),
+            CancellationToken.None);
+        var (statusCode, updates) = await ExecuteAsync<CustomerUpdateWithCaseResponse[]>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal(2, updates!.Length);
+        Assert.Contains(updates, item => item.Update.UpdateId == draftA.UpdateId && item.CustomerName == "Amina Okello");
+        Assert.Contains(updates, item => item.Update.UpdateId == draftB.UpdateId);
+        Assert.DoesNotContain(updates, item => item.Update.CaseId == otherTenantCase.CaseId);
+    }
+
+    [Fact]
     public async Task ApprovalRequiredCustomerUpdate_RequiresReasonAndBlocksRepeatDecision()
     {
         var dependencies = CreateDependencies();

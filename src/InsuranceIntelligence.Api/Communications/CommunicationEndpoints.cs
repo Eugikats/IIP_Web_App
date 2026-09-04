@@ -19,21 +19,25 @@ public static class CommunicationEndpoints
         SendCommunicationRequest request,
         ICommunicationSendingProvider provider,
         ICommunicationRepository repository,
+        ICustomerUpdateRepository updateRepository,
+        ICaseRepository caseRepository,
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken) =>
-        Send(request, CommunicationChannel.Email, provider.SendEmailAsync, repository, auditRepository, options, httpContext, cancellationToken);
+        Send(request, CommunicationChannel.Email, provider.SendEmailAsync, repository, updateRepository, caseRepository, auditRepository, options, httpContext, cancellationToken);
 
     public static Task<IResult> SendSms(
         SendCommunicationRequest request,
         ICommunicationSendingProvider provider,
         ICommunicationRepository repository,
+        ICustomerUpdateRepository updateRepository,
+        ICaseRepository caseRepository,
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken) =>
-        Send(request, CommunicationChannel.SMS, provider.SendSmsAsync, repository, auditRepository, options, httpContext, cancellationToken);
+        Send(request, CommunicationChannel.SMS, provider.SendSmsAsync, repository, updateRepository, caseRepository, auditRepository, options, httpContext, cancellationToken);
 
     public static async Task<IResult> SendTeamsNotification(
         SendTeamsNotificationRequest request,
@@ -175,6 +179,8 @@ public static class CommunicationEndpoints
         CommunicationChannel channel,
         Func<CommunicationSendRequest, CancellationToken, Task<CommunicationSendResult>> send,
         ICommunicationRepository repository,
+        ICustomerUpdateRepository updateRepository,
+        ICaseRepository caseRepository,
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
@@ -200,6 +206,26 @@ public static class CommunicationEndpoints
             });
         }
 
+        // The approved draft this send is for. Approved/LowRisk/MessageBody/CaseId all come from
+        // this persisted record — never from the request — so a caller cannot dispatch an
+        // unapproved or arbitrary message by pointing at an approved update's id (I4).
+        var update = await updateRepository.GetAsync(request.CustomerUpdateId, scope, cancellationToken);
+        if (update is null)
+        {
+            return Results.NotFound(new { message = "Customer update was not found for the requested tenant workspace." });
+        }
+
+        if (update.Channel != channel)
+        {
+            return Validation("channel", $"This customer update was drafted for {update.Channel}, not {channel}.");
+        }
+
+        var claimCase = await caseRepository.GetAsync(update.CaseId, cancellationToken);
+        if (claimCase is null || !claimCase.Scope.Matches(scope) || !ClaimAccessGuard.CanViewCase(httpContext, claimCase))
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
         var actor = WorkflowEndpoints.GetActor(httpContext, request.SentByUserId);
         if (string.IsNullOrWhiteSpace(actor))
         {
@@ -222,7 +248,18 @@ public static class CommunicationEndpoints
             return WorkflowEndpoints.HumanDecisionRequired(exception.Message);
         }
 
-        var result = await send(new CommunicationSendRequest(scope, request.CaseId, channel, request.Recipient, request.MessageBody, actor, request.Approved, request.LowRisk, httpContext.TraceIdentifier), cancellationToken);
+        var result = await send(
+            new CommunicationSendRequest(
+                scope,
+                update.CaseId,
+                channel,
+                request.Recipient,
+                update.MessageBody,
+                actor,
+                Approved: update.Status == CustomerUpdateStatus.Approved,
+                LowRisk: !update.RequiresApproval,
+                httpContext.TraceIdentifier),
+            cancellationToken);
         if (result.DeliveryStatus is "ApprovalRequired" or "ConfigurationRequired" or "Failed")
         {
             return Results.BadRequest(new { deliveryStatus = result.DeliveryStatus, message = result.SafeError });
@@ -232,10 +269,10 @@ public static class CommunicationEndpoints
         {
             CommunicationId = Guid.NewGuid(),
             Scope = scope,
-            CaseId = request.CaseId,
+            CaseId = update.CaseId,
             Channel = channel,
             Direction = "Outbound",
-            MessageBody = request.MessageBody,
+            MessageBody = update.MessageBody,
             SentBy = actor,
             DeliveryStatus = result.DeliveryStatus,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -247,7 +284,7 @@ public static class CommunicationEndpoints
             new AuditEvent(
                 Guid.NewGuid(),
                 scope,
-                request.CaseId,
+                update.CaseId,
                 communication.CommunicationId.ToString(),
                 actor,
                 ActorType.Integration,
@@ -263,6 +300,20 @@ public static class CommunicationEndpoints
                 AuditReasonReader.Read(httpContext),
                 httpContext.TraceIdentifier),
             cancellationToken);
+
+        // Keep the draft's own status consistent with reality — it was just sent through this
+        // path, not through customer-updates/{id}/send, so nothing else would mark it Sent.
+        await updateRepository.SaveAsync(
+            update with
+            {
+                Status = CustomerUpdateStatus.Sent,
+                DeliveryStatus = result.DeliveryStatus,
+                SentByUserId = actor,
+                SentAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            },
+            cancellationToken);
+
         return Results.Ok(Sanitize([communication]).Single());
     }
 

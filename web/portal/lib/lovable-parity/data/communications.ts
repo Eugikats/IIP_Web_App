@@ -4,71 +4,116 @@ import { useCallback, useEffect, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
-import { communications as fixtureComms, type CommStatus } from "@/lib/lovable-parity/mock";
+import { communications as fixtureComms } from "@/lib/lovable-parity/mock";
 
-export type { CommStatus };
+// WO-16: real client for the tenant-wide customer-update queue (GET /api/v1/customer-updates) and
+// its governed approve/reject/send actions — the drafting -> approve -> reject -> send chain
+// already existed server-side (CustomerUpdateEndpoints) and was already wired per-case inside
+// ClaimReview.tsx; this screen previously showed an unrelated, always-terminal Communication
+// ledger mislabeled with a Draft/Approval status vocabulary that never actually applied to it.
+// Only an approved draft is ever sendable — enforced server-side, never bypassed from here (I4).
 
-export type CommunicationView = {
-  id: string;
-  claim: string;
-  customer: string;
+export type ActionState = { action: string; label: string; requiredPermission: string; reason: string | null };
+
+export type CustomerUpdateQueueItem = {
+  updateId: string;
+  caseId: string;
+  customerName: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  policyNumber: string;
+  reasonCategory: string;
   channel: string;
-  subject: string;
-  preview: string;
-  status: CommStatus;
-  drafted: string;
-  reviewer?: string;
-};
-
-type CommunicationDto = {
-  communicationId: string;
-  caseId?: string | null;
-  channel: string;
+  status: string;
   messageBody: string;
-  sentBy?: string | null;
-  deliveryStatus?: string | null;
-  createdAt: string;
+  requiresApproval: boolean;
+  updatedAt: string;
+  allowedActions: ActionState[];
+  blockedActions: ActionState[];
 };
 
-function mapStatus(raw?: string | null): CommStatus {
-  const s = (raw ?? "").toLowerCase().replace(/[^a-z]/g, "");
-  if (s.includes("approv") && !s.includes("pending")) return "Approved";
-  if (s.includes("sendfail") || s.includes("failed")) return "Send Failed";
-  if (s === "sent" || s.includes("delivered")) return "Sent";
-  if (s.includes("reject")) return "Rejected";
-  return "Pending Approval";
+type CustomerUpdateResponseDto = {
+  updateId: string;
+  caseId: string;
+  reasonCategory: string;
+  channel: string;
+  status: string;
+  messageBody: string;
+  requiresApproval: boolean;
+  updatedAt: string;
+  allowedActions?: ActionState[];
+  blockedActions?: ActionState[];
+};
+
+type CustomerUpdateWithCaseDto = {
+  update: CustomerUpdateResponseDto;
+  customerName: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  policyNumber: string;
+};
+
+async function readSafeApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { message?: unknown };
+    if (typeof body.message === "string" && body.message.trim()) return body.message;
+  } catch {
+    // The fallback remains safe for non-JSON or empty error responses.
+  }
+  return fallback;
 }
 
-function relTime(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return iso || "—";
-  return new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
+const STATUS_LABELS: Record<string, string> = {
+  Draft: "Draft",
+  PendingApproval: "Pending Approval",
+  Approved: "Approved",
+  Rejected: "Rejected",
+  Sent: "Sent",
+  SimulatedSent: "Sent",
+  ConfigurationRequired: "Send Failed",
+  Failed: "Send Failed",
+};
 
-const PARITY: CommunicationView[] = fixtureComms.map((c) => ({
-  id: c.id, claim: c.claim ?? "—", customer: c.customer, channel: String(c.channel),
-  subject: c.subject, preview: c.preview, status: c.status, drafted: c.drafted, reviewer: c.reviewer,
-}));
-
-function mapDto(dto: CommunicationDto): CommunicationView {
-  const body = dto.messageBody ?? "";
+function mapDto(dto: CustomerUpdateWithCaseDto): CustomerUpdateQueueItem {
   return {
-    id: dto.communicationId,
-    claim: dto.caseId ?? "—",
-    customer: "—",
-    channel: dto.channel,
-    subject: body.split("\n")[0]?.slice(0, 60) || "Customer update",
-    preview: body,
-    status: mapStatus(dto.deliveryStatus),
-    drafted: relTime(dto.createdAt),
-    reviewer: dto.sentBy ?? undefined,
+    updateId: dto.update.updateId,
+    caseId: dto.update.caseId,
+    customerName: dto.customerName,
+    customerEmail: dto.customerEmail,
+    customerPhone: dto.customerPhone,
+    policyNumber: dto.policyNumber,
+    reasonCategory: dto.update.reasonCategory,
+    channel: dto.update.channel,
+    status: STATUS_LABELS[dto.update.status] ?? dto.update.status,
+    messageBody: dto.update.messageBody,
+    requiresApproval: dto.update.requiresApproval,
+    updatedAt: dto.update.updatedAt,
+    allowedActions: dto.update.allowedActions ?? [],
+    blockedActions: dto.update.blockedActions ?? [],
   };
 }
 
-export function useCommunications() {
+const PARITY: CustomerUpdateQueueItem[] = fixtureComms.map((c, index) => ({
+  updateId: c.id,
+  caseId: c.claim ?? `case-${index}`,
+  customerName: c.customer,
+  customerEmail: null,
+  customerPhone: null,
+  policyNumber: "—",
+  reasonCategory: "StatusUpdate",
+  channel: String(c.channel),
+  status: c.status,
+  messageBody: `${c.subject} — ${c.preview}`,
+  requiresApproval: c.status !== "Sent",
+  updatedAt: c.drafted,
+  allowedActions: [],
+  blockedActions: [],
+}));
+
+export function useCustomerUpdateQueue() {
   const { roleDef } = useUI();
   const role = roleDef.key;
-  const [items, setItems] = useState<CommunicationView[]>(LOVABLE_VISUAL_PARITY_MODE ? PARITY : []);
+  const [items, setItems] = useState<CustomerUpdateQueueItem[]>(LOVABLE_VISUAL_PARITY_MODE ? PARITY : []);
   const [loading, setLoading] = useState(!LOVABLE_VISUAL_PARITY_MODE);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,12 +122,12 @@ export function useCommunications() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/communications/history`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Communications failed with HTTP ${response.status}.`);
-      const rows = (await response.json()) as CommunicationDto[];
+      const response = await fetch(`${apiBaseUrl}/api/v1/customer-updates`, { headers: scopedHeaders(role, "") });
+      if (!response.ok) throw new Error(await readSafeApiError(response, `Customer updates failed with HTTP ${response.status}.`));
+      const rows = (await response.json()) as CustomerUpdateWithCaseDto[];
       setItems(rows.map(mapDto));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Communications failed to load.");
+      setError(err instanceof Error ? err.message : "Customer updates failed to load.");
       setItems([]);
     } finally {
       setLoading(false);
@@ -93,5 +138,48 @@ export function useCommunications() {
     void load();
   }, [load]);
 
-  return { items, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  const approve = useCallback(async (updateId: string, auditReason: string): Promise<{ ok: boolean; message?: string }> => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/customer-updates/${encodeURIComponent(updateId)}/approve`, {
+      method: "POST",
+      headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Approve failed with HTTP ${response.status}.`) };
+    await load();
+    return { ok: true };
+  }, [role, load]);
+
+  const reject = useCallback(async (updateId: string, auditReason: string): Promise<{ ok: boolean; message?: string }> => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/customer-updates/${encodeURIComponent(updateId)}/reject`, {
+      method: "POST",
+      headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Reject failed with HTTP ${response.status}.`) };
+    await load();
+    return { ok: true };
+  }, [role, load]);
+
+  const send = useCallback(async (item: CustomerUpdateQueueItem, auditReason: string): Promise<{ ok: boolean; message?: string }> => {
+    const channel = item.channel.toLowerCase();
+    const recipient = channel === "email"
+      ? item.customerEmail
+      : channel === "sms" || channel === "whatsapp"
+        ? item.customerPhone
+        : null;
+    if (!recipient) {
+      return { ok: false, message: `No ${channel} contact is on file for this customer.` };
+    }
+
+    const response = await fetch(`${apiBaseUrl}/api/v1/customer-updates/${encodeURIComponent(item.updateId)}/send`, {
+      method: "POST",
+      headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
+      body: JSON.stringify({ recipient }),
+    });
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Send failed with HTTP ${response.status}.`) };
+    await load();
+    return { ok: true };
+  }, [role, load]);
+
+  return { items, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, approve, reject, send, reload: load };
 }

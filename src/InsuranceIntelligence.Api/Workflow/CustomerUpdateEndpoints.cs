@@ -171,6 +171,42 @@ public static class CustomerUpdateEndpoints
         return Results.Created($"/api/v1/customer-updates/{update.UpdateId}", WorkflowMapper.ToResponse(update));
     }
 
+    // WO-16: tenant-wide view backing Communications.tsx — the previous ListCustomerUpdates below
+    // is per-case only. Each row is filtered through the same ClaimAccessGuard that gates every
+    // other cross-case read (e.g. CommunicationEndpoints.ListHistory), so an officer scoped to only
+    // their assigned claims never sees another officer's customer updates.
+    public static async Task<IResult> ListAllCustomerUpdates(
+        ICaseRepository caseRepository,
+        ICustomerUpdateRepository updateRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return WorkflowEndpoints.Validation("tenantScope", validationError);
+        }
+
+        var updates = await updateRepository.ListAsync(scope, cancellationToken);
+        var responses = new List<CustomerUpdateWithCaseResponse>();
+        foreach (var update in updates)
+        {
+            var claimCase = await caseRepository.GetAsync(update.CaseId, cancellationToken);
+            if (claimCase is null || !claimCase.Scope.Matches(scope) || !ClaimAccessGuard.CanViewCase(httpContext, claimCase))
+            {
+                continue;
+            }
+
+            responses.Add(new CustomerUpdateWithCaseResponse(
+                WorkflowMapper.ToResponse(update),
+                claimCase.CustomerName,
+                claimCase.CustomerEmail,
+                claimCase.CustomerPhone,
+                claimCase.PolicyNumber));
+        }
+
+        return Results.Ok(responses.OrderByDescending(item => item.Update.UpdatedAt).ToArray());
+    }
+
     public static async Task<IResult> ListCustomerUpdates(
         Guid caseId,
         ICaseRepository caseRepository,

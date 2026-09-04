@@ -625,20 +625,27 @@ public sealed class Phase6IntegrationTests
         var options = GraphOptions() with { CommunicationProvider = "GraphEmail" };
         var provider = new GraphCommunicationSendingProvider(options, graphClient);
         var deps = CreateDeps(options, graphClient, provider);
+        var claimCase = await CreateCaseAsync(deps);
+        var pendingUpdate = await CreateUpdateAsync(deps, claimCase.CaseId, CommunicationChannel.Email, CustomerUpdateStatus.PendingApproval);
+        var approvedUpdate = await CreateUpdateAsync(deps, claimCase.CaseId, CommunicationChannel.Email, CustomerUpdateStatus.Approved);
         const string auditReason = "Customer approved Graph email update after human review.";
 
         var blocked = await CommunicationEndpoints.SendEmail(
-            new SendCommunicationRequest(Guid.NewGuid(), "customer@example.test", "Sensitive update", "local-service-agent", Approved: false, LowRisk: false),
+            new SendCommunicationRequest(pendingUpdate.UpdateId, "customer@example.test", "local-service-agent"),
             provider,
             deps.Communications,
+            deps.CustomerUpdates,
+            deps.Cases,
             deps.Audit,
             options,
             Context(),
             CancellationToken.None);
         var sent = await CommunicationEndpoints.SendEmail(
-            new SendCommunicationRequest(Guid.NewGuid(), "customer@example.test", "Approved update", "local-service-agent", Approved: true, LowRisk: false),
+            new SendCommunicationRequest(approvedUpdate.UpdateId, "customer@example.test", "local-service-agent"),
             provider,
             deps.Communications,
+            deps.CustomerUpdates,
+            deps.Cases,
             deps.Audit,
             options,
             Context(auditReason: auditReason),
@@ -707,10 +714,14 @@ public sealed class Phase6IntegrationTests
     public async Task CommunicationSend_RequiresApprovalForSensitiveMessage()
     {
         var deps = CreateDeps();
+        var claimCase = await CreateCaseAsync(deps);
+        var pendingUpdate = await CreateUpdateAsync(deps, claimCase.CaseId, CommunicationChannel.Email, CustomerUpdateStatus.PendingApproval);
         var result = await CommunicationEndpoints.SendEmail(
-            new SendCommunicationRequest(Guid.NewGuid(), "customer@example.test", "Sensitive update", "local-service-agent", Approved: false, LowRisk: false),
+            new SendCommunicationRequest(pendingUpdate.UpdateId, "customer@example.test", "local-service-agent"),
             deps.CommunicationProvider,
             deps.Communications,
+            deps.CustomerUpdates,
+            deps.Cases,
             deps.Audit,
             Options(),
             Context(),
@@ -725,19 +736,26 @@ public sealed class Phase6IntegrationTests
     public async Task MockEmailAndSmsSend_CreateCommunicationRecords()
     {
         var deps = CreateDeps();
-        var caseId = Guid.NewGuid();
+        var claimCase = await CreateCaseAsync(deps);
+        var caseId = claimCase.CaseId;
+        var emailUpdate = await CreateUpdateAsync(deps, caseId, CommunicationChannel.Email, CustomerUpdateStatus.Approved);
+        var smsUpdate = await CreateUpdateAsync(deps, caseId, CommunicationChannel.SMS, CustomerUpdateStatus.Approved);
         await CommunicationEndpoints.SendEmail(
-            new SendCommunicationRequest(caseId, "customer@example.test", "Approved customer update", "local-service-agent", Approved: true, LowRisk: false),
+            new SendCommunicationRequest(emailUpdate.UpdateId, "customer@example.test", "local-service-agent"),
             deps.CommunicationProvider,
             deps.Communications,
+            deps.CustomerUpdates,
+            deps.Cases,
             deps.Audit,
             Options(),
             Context(),
             CancellationToken.None);
         await CommunicationEndpoints.SendSms(
-            new SendCommunicationRequest(caseId, "+256700000000", "Approved SMS update", "local-service-agent", Approved: true, LowRisk: false),
+            new SendCommunicationRequest(smsUpdate.UpdateId, "+256700000000", "local-service-agent"),
             deps.CommunicationProvider,
             deps.Communications,
+            deps.CustomerUpdates,
+            deps.Cases,
             deps.Audit,
             Options(),
             Context(),
@@ -758,12 +776,52 @@ public sealed class Phase6IntegrationTests
         var deps = CreateDeps();
         var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
         var spoofedScope = TenantScope.Create("tenant-spoofed", "workspace-spoofed");
-        var caseId = Guid.NewGuid();
+        var claimCase = new ClaimCase
+        {
+            CaseId = Guid.NewGuid(),
+            Scope = membershipScope,
+            CustomerName = "Amina Okello",
+            PolicyNumber = "POL-1001",
+            ProductLine = "Motor",
+            ClaimType = "Own damage",
+            Channel = "WebPortal",
+            IncidentDate = new DateOnly(2026, 5, 24),
+            IncidentDescription = "Minor collision reported at branch intake.",
+            Status = CaseStatus.New,
+            CompletenessScore = 0m,
+            CreatedByUserId = "user-claims-1",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-comm-membership-case"
+        };
+        await deps.Cases.SaveAsync(claimCase, CancellationToken.None);
+        var caseId = claimCase.CaseId;
+        var update = new CustomerUpdateDraft
+        {
+            UpdateId = Guid.NewGuid(),
+            Scope = membershipScope,
+            CaseId = caseId,
+            ReasonCategory = CustomerUpdateReasonCategory.StatusUpdate,
+            Channel = CommunicationChannel.Email,
+            Status = CustomerUpdateStatus.Approved,
+            MessageBody = "Your claim is progressing. We will contact you with next steps.",
+            RequiresApproval = true,
+            Sensitive = false,
+            CreatedByUserId = "user-claims-1",
+            ApprovedByUserId = "supervisor-1",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            ApprovedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-comm-membership-update"
+        };
+        await deps.CustomerUpdates.SaveAsync(update, CancellationToken.None);
 
         var result = await CommunicationEndpoints.SendEmail(
-            new SendCommunicationRequest(caseId, "customer@example.test", "Approved customer update", "request-body-user", Approved: true, LowRisk: false),
+            new SendCommunicationRequest(update.UpdateId, "customer@example.test", "request-body-user"),
             deps.CommunicationProvider,
             deps.Communications,
+            deps.CustomerUpdates,
+            deps.Cases,
             deps.Audit,
             Options(),
             MembershipScopedContext(membershipScope, "membership-communications-user", spoofedScope.TenantId, spoofedScope.WorkspaceId, "spoofed-user"),
@@ -792,10 +850,14 @@ public sealed class Phase6IntegrationTests
         var deps = CreateDeps(
             new InfrastructureOptions { CommunicationProvider = "GraphEmail" },
             communicationSendingProvider: new DisabledCommunicationSendingProvider());
+        var claimCase = await CreateCaseAsync(deps);
+        var approvedUpdate = await CreateUpdateAsync(deps, claimCase.CaseId, CommunicationChannel.Email, CustomerUpdateStatus.Approved);
         var result = await CommunicationEndpoints.SendEmail(
-            new SendCommunicationRequest(Guid.NewGuid(), "customer@example.test", "Approved update", "local-service-agent", Approved: true, LowRisk: false),
+            new SendCommunicationRequest(approvedUpdate.UpdateId, "customer@example.test", "local-service-agent"),
             deps.CommunicationProvider,
             deps.Communications,
+            deps.CustomerUpdates,
+            deps.Cases,
             deps.Audit,
             new InfrastructureOptions { AuthMode = "Development", CommunicationProvider = "GraphEmail" },
             Context(),
@@ -814,9 +876,11 @@ public sealed class Phase6IntegrationTests
         var deps = CreateDeps(options);
 
         var result = await CommunicationEndpoints.SendEmail(
-            new SendCommunicationRequest(Guid.NewGuid(), "customer@example.test", "Approved update", "broker-user", Approved: true, LowRisk: false),
+            new SendCommunicationRequest(Guid.NewGuid(), "customer@example.test", "broker-user"),
             deps.CommunicationProvider,
             deps.Communications,
+            deps.CustomerUpdates,
+            deps.Cases,
             deps.Audit,
             options,
             AuthenticatedContext("Broker"),
@@ -833,9 +897,11 @@ public sealed class Phase6IntegrationTests
         var options = new InfrastructureOptions { AuthMode = "Entra", CommunicationProvider = "Mock" };
         var deps = CreateDeps(options);
         var result = await CommunicationEndpoints.SendEmail(
-            new SendCommunicationRequest(Guid.NewGuid(), "customer@example.test", "Approved update", "entra-user", Approved: true, LowRisk: false),
+            new SendCommunicationRequest(Guid.NewGuid(), "customer@example.test", "entra-user"),
             deps.CommunicationProvider,
             deps.Communications,
+            deps.CustomerUpdates,
+            deps.Cases,
             deps.Audit,
             options,
             AuthenticatedContext("Admin"),
@@ -947,7 +1013,63 @@ public sealed class Phase6IntegrationTests
             attachmentProcessor,
             new InMemoryAuditRepository(),
             new InMemoryCommunicationRepository(),
-            communicationProvider);
+            communicationProvider,
+            new InMemoryCustomerUpdateRepository());
+    }
+
+    private static async Task<ClaimCase> CreateCaseAsync(Deps deps)
+    {
+        var claimCase = new ClaimCase
+        {
+            CaseId = Guid.NewGuid(),
+            Scope = Scope(),
+            CustomerName = "Amina Okello",
+            PolicyNumber = "POL-1001",
+            ProductLine = "Motor",
+            ClaimType = "Own damage",
+            Channel = "WebPortal",
+            IncidentDate = new DateOnly(2026, 5, 24),
+            IncidentDescription = "Minor collision reported at branch intake.",
+            Status = CaseStatus.New,
+            CompletenessScore = 0m,
+            CreatedByUserId = "user-claims-1",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-comm-integration-case"
+        };
+        await deps.Cases.SaveAsync(claimCase, CancellationToken.None);
+        return claimCase;
+    }
+
+    // WO-16: Approved/LowRisk are no longer client-trusted request fields — CommunicationEndpoints
+    // now derives them from a real persisted, approved (or not-yet-approved) CustomerUpdateDraft.
+    private static async Task<CustomerUpdateDraft> CreateUpdateAsync(
+        Deps deps,
+        Guid caseId,
+        CommunicationChannel channel,
+        CustomerUpdateStatus status,
+        bool requiresApproval = true)
+    {
+        var draft = new CustomerUpdateDraft
+        {
+            UpdateId = Guid.NewGuid(),
+            Scope = Scope(),
+            CaseId = caseId,
+            ReasonCategory = CustomerUpdateReasonCategory.StatusUpdate,
+            Channel = channel,
+            Status = status,
+            MessageBody = "Your claim is progressing. We will contact you with next steps.",
+            RequiresApproval = requiresApproval,
+            Sensitive = false,
+            CreatedByUserId = "user-claims-1",
+            ApprovedByUserId = status == CustomerUpdateStatus.Approved ? "supervisor-1" : null,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            ApprovedAt = status == CustomerUpdateStatus.Approved ? DateTimeOffset.UtcNow : null,
+            CorrelationId = "corr-comm-integration-001"
+        };
+        await deps.CustomerUpdates.SaveAsync(draft, CancellationToken.None);
+        return draft;
     }
 
     private static InfrastructureOptions Options() => new() { AuthMode = "Development", CommunicationProvider = "Mock" };
@@ -1100,7 +1222,8 @@ public sealed class Phase6IntegrationTests
         IEmailAttachmentProcessor AttachmentProcessor,
         InMemoryAuditRepository Audit,
         InMemoryCommunicationRepository Communications,
-        ICommunicationSendingProvider CommunicationProvider);
+        ICommunicationSendingProvider CommunicationProvider,
+        InMemoryCustomerUpdateRepository CustomerUpdates);
 
     private sealed class FakeGraphMailClient : IGraphMailClient
     {

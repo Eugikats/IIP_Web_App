@@ -680,6 +680,8 @@ app.MapPost("/api/v1/cases/{caseId:guid}/summary", InsuranceIntelligence.Api.Cla
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}/customer-updates", CustomerUpdateEndpoints.ListCustomerUpdates)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims));
+app.MapGet("/api/v1/customer-updates", CustomerUpdateEndpoints.ListAllCustomerUpdates)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/customer-updates/{updateId:guid}/approve", CustomerUpdateEndpoints.ApproveCustomerUpdate)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 app.MapPost("/api/v1/customer-updates/{updateId:guid}/reject", CustomerUpdateEndpoints.RejectCustomerUpdate)
