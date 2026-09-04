@@ -14,7 +14,9 @@ namespace InsuranceIntelligence.Application.Fraud;
 /// </summary>
 public sealed class FraudQueryService(
     IClaimsReadRepository claimsReadRepository,
-    IPermissionService permissionService) : IFraudQueryService
+    IPermissionService permissionService,
+    ITenantContextAccessor tenantContextAccessor,
+    IFraudSignalDispositionRepository dispositionRepository) : IFraudQueryService
 {
     // Analyse a bounded, recent window of claims. Fraud patterns are cross-claim,
     // so we pull a generous page rather than a single-claim view.
@@ -28,7 +30,14 @@ public sealed class FraudQueryService(
         var inputs = claims.Select(ToFraudInput).ToArray();
 
         var signals = FraudRuleEngine.Evaluate(inputs);
-        return signals.Select(ToDto).ToArray();
+        // WO-19: signals are recomputed fresh every call — join each one to its persisted
+        // disposition (if any) by the same deterministic id the disposition service uses, so the
+        // workflow state survives even though the signal itself is never stored.
+        var scope = tenantContextAccessor.Current.Scope;
+        var dispositions = (await dispositionRepository.ListAsync(scope, cancellationToken))
+            .ToDictionary(d => d.SignalId);
+
+        return signals.Select(signal => ToDto(signal, dispositions)).ToArray();
     }
 
     private static FraudClaimInput ToFraudInput(ClaimCase claim) =>
@@ -43,13 +52,24 @@ public sealed class FraudQueryService(
             claim.CompletenessScore / 100m,
             claim.CreatedAt);
 
-    private static FraudSignalDto ToDto(FraudAdvisorySignal signal) =>
-        new(
+    private static FraudSignalDto ToDto(
+        FraudAdvisorySignal signal, IReadOnlyDictionary<Guid, FraudSignalDisposition> dispositions)
+    {
+        var signalId = FraudSignalDisposition.DeterministicId(signal.RuleId, signal.RelatedCaseIds);
+        var disposition = dispositions.TryGetValue(signalId, out var found) ? found : null;
+        return new(
+            signalId,
             signal.RuleId,
             signal.SignalType,
             signal.Title,
             signal.Description,
             signal.Severity.ToString(),
             signal.RelatedCaseIds.Select(id => id.ToString()).ToArray(),
-            signal.Evidence);
+            signal.Evidence,
+            disposition is null
+                ? new FraudDispositionDto(
+                    "NotTriaged", null, null, null, string.Empty, default, default,
+                    FraudDispositionMapper.AllowedForUntriaged(), FraudDispositionMapper.BlockedForUntriaged())
+                : FraudDispositionMapper.ToDto(disposition));
+    }
 }

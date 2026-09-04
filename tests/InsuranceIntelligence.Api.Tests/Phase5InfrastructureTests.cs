@@ -146,6 +146,55 @@ public sealed class Phase5InfrastructureTests
     }
 
     [Fact]
+    public async Task EfFraudSignalDispositionRepository_RoundTripsAndIsolatesByTenant()
+    {
+        // WO-19: proves the disposition persistence layer through real EF Core machinery (the
+        // AddFraudSignalDispositions migration's model), not only the in-memory test double.
+        await using var fixture = await EfFixture.CreateAsync();
+        var repository = new InsuranceIntelligence.Infrastructure.Fraud.EfFraudSignalDispositionRepository(fixture.DbContext);
+        var scope = TenantScope.Create("tenant-a", "workspace-a");
+        var caseId = Guid.NewGuid();
+        var signalId = InsuranceIntelligence.Domain.Fraud.FraudSignalDisposition.DeterministicId("R-VELOCITY", [caseId]);
+        var disposition = new InsuranceIntelligence.Domain.Fraud.FraudSignalDisposition
+        {
+            SignalId = signalId,
+            Scope = scope,
+            RuleId = "R-VELOCITY",
+            RelatedCaseIds = [caseId],
+            Status = InsuranceIntelligence.Domain.Fraud.FraudDispositionStatus.Triaged,
+            CreatedByUserId = "supervisor-1",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-fraud-001"
+        };
+
+        await repository.SaveAsync(disposition);
+
+        var fetched = await repository.GetAsync(signalId, scope);
+        var listed = await repository.ListAsync(scope);
+        var otherTenantFetch = await repository.GetAsync(signalId, TenantScope.Create("tenant-b", "workspace-a"));
+        var otherTenantList = await repository.ListAsync(TenantScope.Create("tenant-b", "workspace-a"));
+
+        Assert.NotNull(fetched);
+        Assert.Equal("R-VELOCITY", fetched!.RuleId);
+        Assert.Equal(InsuranceIntelligence.Domain.Fraud.FraudDispositionStatus.Triaged, fetched.Status);
+        Assert.Single(listed);
+        Assert.Null(otherTenantFetch);
+        Assert.Empty(otherTenantList);
+
+        var reassigned = disposition with
+        {
+            Status = InsuranceIntelligence.Domain.Fraud.FraudDispositionStatus.UnderInvestigation,
+            AssignedToUserId = "investigator-1",
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        await repository.SaveAsync(reassigned);
+        var updated = await repository.GetAsync(signalId, scope);
+        Assert.Equal(InsuranceIntelligence.Domain.Fraud.FraudDispositionStatus.UnderInvestigation, updated!.Status);
+        Assert.Equal("investigator-1", updated.AssignedToUserId);
+    }
+
+    [Fact]
     public async Task AdminTenantConfigUpdate_WorksForAdmin()
     {
         var repository = new InMemoryTenantConfigurationRepository();

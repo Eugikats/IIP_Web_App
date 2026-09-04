@@ -41,6 +41,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedWhatsAppMessage> WhatsAppMessages => Set<PersistedWhatsAppMessage>();
     public DbSet<PersistedAgentRun> AgentRuns => Set<PersistedAgentRun>();
     public DbSet<PersistedNotification> Notifications => Set<PersistedNotification>();
+    public DbSet<PersistedFraudSignalDisposition> FraudSignalDispositions => Set<PersistedFraudSignalDisposition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -114,6 +115,9 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedAgentRun>().Property(entity => entity.AgentKey).HasMaxLength(80).IsRequired();
         modelBuilder.Entity<PersistedAgentRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.AgentKey });
         modelBuilder.Entity<PersistedAgentRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedFraudSignalDisposition>(), "FraudSignalDispositions", "SignalId");
+        modelBuilder.Entity<PersistedFraudSignalDisposition>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedFraudSignalDisposition>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Status });
         ConfigureScopedJson(modelBuilder.Entity<PersistedNotification>(), "Notifications", "NotificationRecordId");
         modelBuilder.Entity<PersistedNotification>().Property(entity => entity.RecipientUserId).HasMaxLength(240).IsRequired();
         modelBuilder.Entity<PersistedNotification>().Property(entity => entity.IsRead).IsRequired();
@@ -270,6 +274,10 @@ public sealed class PersistedNotification : PersistedScopedJson
     public string RecipientUserId { get; set; } = string.Empty;
     public bool IsRead { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+}
+public sealed class PersistedFraudSignalDisposition : PersistedScopedJson
+{
+    public string Status { get; set; } = string.Empty;
 }
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;

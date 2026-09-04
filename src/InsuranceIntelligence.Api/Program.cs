@@ -350,6 +350,7 @@ builder.Services.AddSingleton<IComplianceResidencySettings>(_ => new ComplianceR
 builder.Services.AddScoped<IComplianceQueryService, ComplianceQueryService>();
 // Initiative LP: rule-based advisory domains + admin domains (Fraud/Underwriting/Agents/Billing).
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudQueryService, InsuranceIntelligence.Application.Fraud.FraudQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudDispositionService, InsuranceIntelligence.Application.Fraud.FraudDispositionService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingQueryService, InsuranceIntelligence.Application.Underwriting.UnderwritingQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Underwriting.IUnderwritingSubmissionSource, InsuranceIntelligence.Api.Underwriting.NotConfiguredUnderwritingSubmissionSource>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.IAgentRegistryService, InsuranceIntelligence.Application.Agents.AgentRegistryService>();
@@ -753,6 +754,15 @@ app.MapGet("/api/v1/audit/events", AuditEndpoints.ListEvents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 // Initiative LP: rule-based fraud advisory signals (deterministic, tenant-scoped, advisory-only).
 app.MapGet("/api/v1/fraud/signals", InsuranceIntelligence.Api.Fraud.FraudEndpoints.GetSignals)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
+// WO-19: fraud signal disposition — triage, assign for investigation, record outcome, close.
+app.MapPost("/api/v1/fraud/signals/triage", InsuranceIntelligence.Api.Fraud.FraudDispositionEndpoints.Triage)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
+app.MapPost("/api/v1/fraud/signals/{signalId:guid}/assign", InsuranceIntelligence.Api.Fraud.FraudDispositionEndpoints.Assign)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
+app.MapPost("/api/v1/fraud/signals/{signalId:guid}/outcome", InsuranceIntelligence.Api.Fraud.FraudDispositionEndpoints.RecordOutcome)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
+app.MapPost("/api/v1/fraud/signals/{signalId:guid}/close", InsuranceIntelligence.Api.Fraud.FraudDispositionEndpoints.Close)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
 // Initiative LP: rule-based underwriting advisory reviews (deterministic, advisory-only).
 app.MapGet("/api/v1/underwriting/reviews", InsuranceIntelligence.Api.Underwriting.UnderwritingEndpoints.GetReviews)

@@ -692,6 +692,44 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                     b.ToTable("CustomerUpdates", (string)null);
                 });
 
+            modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedFraudSignalDisposition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("SignalId");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("WorkspaceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "WorkspaceId");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "Status");
+
+                    b.ToTable("FraudSignalDispositions", (string)null);
+                });
+
             modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedInboundEmail", b =>
                 {
                     b.Property<Guid>("Id")
