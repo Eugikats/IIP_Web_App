@@ -157,7 +157,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
                 caseId: "CLM-1001",
                 title: "Settlement step review",
                 status: "Pending",
-                href: "/approvals"
+                href: "/app/work-items"
               }
             ]
           }

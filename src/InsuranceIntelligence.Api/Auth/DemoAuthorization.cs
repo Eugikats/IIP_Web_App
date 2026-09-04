@@ -81,7 +81,14 @@ public static class DemoAuthorization
             ? GetAuthenticatedRole(httpContext)
             : GetRole(httpContext);
 
-    public static string GetUserId(HttpContext httpContext, string fallback = "local-admin")
+    /// <summary>
+    /// The identity a local/offline operator is treated as when no explicit user is supplied.
+    /// Shared with the offline demo seeder so seeded work is assigned to the same user who will
+    /// actually be signed in — see Program.cs's offline seeding block.
+    /// </summary>
+    public const string DefaultLocalUserId = "local-admin";
+
+    public static string GetUserId(HttpContext httpContext, string fallback = DefaultLocalUserId)
     {
         if (httpContext.User.Identity?.IsAuthenticated == true)
         {

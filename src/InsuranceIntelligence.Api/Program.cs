@@ -413,10 +413,14 @@ if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.Or
     var seedScopeIds = InsuranceIntelligence.Domain.Common.TenantScope.Create(
         string.IsNullOrWhiteSpace(infrastructureOptions.TenantId) ? "tenant-demo" : infrastructureOptions.TenantId,
         string.IsNullOrWhiteSpace(infrastructureOptions.WorkspaceId) ? "workspace-operations" : infrastructureOptions.WorkspaceId);
-    var seedResult = await seedService.SeedAsync(seedScopeIds, "system:local-seed");
+    // Provenance stays with the system seeder; assignment goes to the identity an offline operator
+    // actually signs in as (the same default DemoAuthorization.GetUserId falls back to), so "My Work"
+    // and the notification feed — both filtered by the current user — are populated on a fresh run
+    // instead of showing empty states over a workspace that visibly has 46 claims in it.
+    var seedResult = await seedService.SeedAsync(seedScopeIds, "system:local-seed", DemoAuthorization.DefaultLocalUserId);
     app.Logger.LogInformation(
-        "Offline mode: seeded {Cases} demo claims, {Documents} documents, {Approvals} approvals into in-memory storage.",
-        seedResult.Cases, seedResult.Documents, seedResult.Approvals);
+        "Offline mode: seeded {Cases} demo claims, {Documents} documents, {Approvals} approvals into in-memory storage, assigned to {Assignee}.",
+        seedResult.Cases, seedResult.Documents, seedResult.Approvals, DemoAuthorization.DefaultLocalUserId);
 }
 
 // Always return a generic RFC 7807 response. Exception details and request headers stay server-side.

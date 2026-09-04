@@ -36,13 +36,25 @@ public sealed class DemoSeedService(
 {
     private const int Seed = 42;
 
+    /// <param name="assignedToUserId">
+    /// Who the seeded work is currently assigned to. Defaults to <paramref name="seededByUserId"/>
+    /// for callers that don't care, but offline/demo runs pass the identity the operator actually
+    /// signs in as — otherwise every seeded claim is owned by a synthetic id nobody signs in as, and
+    /// "My Work" (which filters on assignment) and the notification feed (which is per-recipient)
+    /// both render empty on a freshly seeded workspace. Assignment is current state, so pointing it
+    /// at the demo user is truthful; provenance fields (created-by, audit actor, who approved what)
+    /// deliberately stay on <paramref name="seededByUserId"/> — the system did seed them, and a demo
+    /// user must never appear in the audit trail as having taken an action they did not take.
+    /// </param>
     public async Task<DemoSeedResult> SeedAsync(
         TenantScope scope,
         string seededByUserId,
+        string? assignedToUserId = null,
         CancellationToken cancellationToken = default)
     {
         var rng = new Random(Seed);
         var now = DateTimeOffset.UtcNow;
+        var assignee = string.IsNullOrWhiteSpace(assignedToUserId) ? seededByUserId : assignedToUserId.Trim();
 
         var branches = BuildBranches(scope);
         foreach (var branch in branches)
@@ -109,7 +121,7 @@ public sealed class DemoSeedService(
                 RiskLevel = risk,
                 Priority = priority,
                 SlaDueAt = slaDueAt,
-                AssignedUserId = slot.Status is CaseStatus.New ? null : seededByUserId,
+                AssignedUserId = slot.Status is CaseStatus.New ? null : assignee,
                 AssignedTeam = line.ReviewTeam,
                 CreatedByUserId = seededByUserId,
                 CreatedAt = createdAt,
@@ -159,7 +171,9 @@ public sealed class DemoSeedService(
 
             if (slot.Status is CaseStatus.PendingApproval or CaseStatus.Escalated or CaseStatus.ReadyForExport)
             {
-                var approval = BuildApproval(scope, caseId, line, slot.Status, seededByUserId, createdAt, correlationId, rng);
+                var approval = BuildApproval(
+                    scope, caseId, line, slot.Status, seededByUserId, assignee,
+                    assignToReviewer: approvalCount % 2 == 0, createdAt, correlationId, rng);
                 await approvalRepository.SaveAsync(approval, cancellationToken);
                 approvalCount++;
 
@@ -609,7 +623,8 @@ public sealed class DemoSeedService(
 
     private static ApprovalRequest BuildApproval(
         TenantScope scope, Guid caseId, ProductLineTemplate line, CaseStatus status,
-        string userId, DateTimeOffset createdAt, string correlationId, Random rng)
+        string userId, string assignee, bool assignToReviewer, DateTimeOffset createdAt,
+        string correlationId, Random rng)
     {
         var approvalCreatedAt = createdAt.AddHours(4);
         var isDecided = status is CaseStatus.ReadyForExport;
@@ -625,7 +640,11 @@ public sealed class DemoSeedService(
             EvidenceSummary = $"AI-prepared {line.Name} claim summary with evidence references pending human sign-off. Not a final decision.",
             SourceReferences = [$"case:{caseId}"],
             RequestedByUserId = "system:agent-workflow-worker",
-            ReviewerUserId = isDecided ? userId : null,
+            // Decided approvals keep the seeder as the decider (never attribute a decision to a demo
+            // operator who did not make it). Undecided ones are current state, not history: some are
+            // picked up by the assignee, the rest stay in the unassigned team queue — so both "Mine"
+            // and "Unassigned" in My Work have something real to show on a freshly seeded workspace.
+            ReviewerUserId = isDecided ? userId : assignToReviewer ? assignee : null,
             Decision = isDecided ? ApprovalDecision.Approved : null,
             Comments = isDecided ? "Reviewed and approved for export." : null,
             ExecutedByUserId = null,

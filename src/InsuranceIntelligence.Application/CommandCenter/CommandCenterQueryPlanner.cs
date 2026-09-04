@@ -167,7 +167,7 @@ public static class CommandCenterQueryPlanner
                 approval.CaseId.ToString(),
                 approval.Title,
                 approval.Status,
-                "/approvals"))
+                ApprovalsHref))
             .ToList());
 
     private static void AddActionProposals(
@@ -184,7 +184,7 @@ public static class CommandCenterQueryPlanner
             actions.Add(new ProposedAction(
                 "Review pending approvals",
                 $"{data.PendingApprovals.Count} approval(s) need a human decision before anything proceeds.",
-                "/approvals"));
+                ApprovalsHref));
         }
 
         if (includeDocs)
@@ -246,7 +246,15 @@ public static class CommandCenterQueryPlanner
     private static bool Mentions(string haystack, params string[] needles) =>
         needles.Any(needle => haystack.Contains(needle, StringComparison.Ordinal));
 
-    private static string CaseHref(Guid caseId) => $"/cases/{caseId}";
+    // Response-block hrefs are a UI navigation contract, not an API path: the portal's
+    // safeInternalWorkHref() only accepts links under /app/ and silently falls back to a
+    // generic list page for anything else. Emitting the API-shaped "/cases/{id}" here meant
+    // every AI-surfaced claim row, evidence source, and action proposal dropped the operator
+    // on the claims list instead of the claim they clicked.
+    private static string CaseHref(Guid caseId) => $"/app/claims/{caseId}";
+
+    // The approvals surface in the portal is My Work (/app/work-items); there is no /approvals route.
+    private const string ApprovalsHref = "/app/work-items";
 
     private static string ShortId(Guid caseId) => caseId.ToString()[..8];
 

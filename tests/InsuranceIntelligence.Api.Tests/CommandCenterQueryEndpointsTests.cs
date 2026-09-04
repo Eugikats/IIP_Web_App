@@ -103,7 +103,53 @@ public sealed class CommandCenterQueryEndpointsTests
         Assert.NotEmpty(approvalBlock.GetProperty("items").EnumerateArray());
         Assert.All(
             approvalBlock.GetProperty("items").EnumerateArray(),
-            item => Assert.Equal("/approvals", item.GetProperty("href").GetString()));
+            item => Assert.Equal("/app/work-items", item.GetProperty("href").GetString()));
+    }
+
+    // Response-block hrefs are a portal navigation contract: the portal only follows links under
+    // /app/ (safeInternalWorkHref) and silently drops anything else onto a generic list page.
+    // "/cases/{id}" and "/approvals" both shipped here once and both dropped operators on the wrong
+    // screen from the AI surface, so every href this contract emits is pinned to a real route.
+    [Fact]
+    public async Task EveryResponseHrefTargetsARealPortalRoute()
+    {
+        var harness = new Harness();
+        var claimCase = await harness.SeedIncompleteCaseAsync("Brian Mukasa", SlaState.Breached);
+        await harness.SeedPendingApprovalAsync();
+
+        var (statusCode, body) = await harness.RunAsync("What needs my attention today?");
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+
+        var hrefs = new List<string>();
+        CollectHrefs(body, hrefs);
+        Assert.NotEmpty(hrefs);
+        Assert.All(hrefs, href => Assert.StartsWith("/app/", href, StringComparison.Ordinal));
+        Assert.Contains($"/app/claims/{claimCase.CaseId}", hrefs);
+
+        static void CollectHrefs(JsonElement element, List<string> hrefs)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        if (property.NameEquals("href") || property.NameEquals("targetHref"))
+                        {
+                            var value = property.Value.GetString();
+                            if (!string.IsNullOrWhiteSpace(value)) hrefs.Add(value);
+                        }
+                        else
+                        {
+                            CollectHrefs(property.Value, hrefs);
+                        }
+                    }
+                    break;
+                case JsonValueKind.Array:
+                    foreach (var item in element.EnumerateArray()) CollectHrefs(item, hrefs);
+                    break;
+            }
+        }
     }
 
     [Fact]

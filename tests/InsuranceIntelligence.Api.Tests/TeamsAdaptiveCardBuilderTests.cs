@@ -33,7 +33,7 @@ public class TeamsAdaptiveCardBuilderTests
             CaseId = caseId,
             NotificationType = TeamsNotificationType.ApprovalRequired,
             PayloadJson = payloadJson,
-            DeepLinkUrl = "http://localhost:3000/approvals"
+            DeepLinkUrl = "https://iip.example.com/app/work-items"
         };
 
         // Act
@@ -44,9 +44,38 @@ public class TeamsAdaptiveCardBuilderTests
         Assert.Contains("AdaptiveCard", cardJson);
         Assert.Contains(caseId.ToString(), cardJson);
         Assert.Contains("Approval Required", cardJson);
-        Assert.Contains("http://localhost:3000/approvals", cardJson);
+        Assert.Contains("https://iip.example.com/app/work-items", cardJson);
         Assert.Contains("Settlement", cardJson);
         Assert.Contains("High", cardJson);
         Assert.Contains("nic.kings@example.com", cardJson);
+    }
+
+    // No production caller sets DeepLinkUrl today and the property defaults to string.Empty, so the
+    // builder's old `?? "https://localhost:3000/approvals"` fallback never fired and every real card
+    // shipped a "View in Portal" button whose url was "". A button that opens nothing is a dead
+    // control (I2) — the card must simply omit the action until a real deep link exists.
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("/app/work-items")] // relative: not openable from a Teams client
+    public void BuildCard_OmitsTheViewAction_WhenThereIsNoAbsoluteDeepLink(string deepLinkUrl)
+    {
+        var notification = new TeamsNotification
+        {
+            Id = Guid.NewGuid(),
+            Scope = TenantScope.Create("tenant-demo", "workspace-claims"),
+            CaseId = Guid.NewGuid(),
+            NotificationType = TeamsNotificationType.ApprovalRequired,
+            PayloadJson = JsonSerializer.Serialize(new { ApprovalType = "Settlement" }),
+            DeepLinkUrl = deepLinkUrl
+        };
+
+        var cardJson = TeamsAdaptiveCardBuilder.BuildCard(notification);
+
+        Assert.DoesNotContain("Action.OpenUrl", cardJson);
+        Assert.DoesNotContain("View in Portal", cardJson);
+        Assert.DoesNotContain("localhost", cardJson);
+        // The card itself still renders — only the dead button is withheld.
+        Assert.Contains("Approval Required", cardJson);
     }
 }
