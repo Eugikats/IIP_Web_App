@@ -18,6 +18,10 @@ public sealed record KnowledgeDocument
     public required string ObjectKey { get; init; }
     public required KnowledgeDocumentStatus ApprovalStatus { get; init; }
     public required KnowledgeIndexedStatus IndexedStatus { get; init; }
+    // WO-17: unclassified by default — never retrieval-eligible until a human explicitly
+    // classifies it as part of approval (KnowledgeEndpoints.ApproveKnowledgeDocument). Fail closed.
+    public KnowledgeSensitivity Sensitivity { get; init; } = KnowledgeSensitivity.Unknown;
+    public string? GovernanceReason { get; init; }
     public required IReadOnlyCollection<KnowledgeChunk> Chunks { get; init; }
     public required string UploadedByUserId { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
@@ -27,6 +31,7 @@ public sealed record KnowledgeDocument
     public bool IsActiveOn(DateOnly date) =>
         ApprovalStatus == KnowledgeDocumentStatus.Approved
         && IndexedStatus == KnowledgeIndexedStatus.Indexed
+        && Sensitivity != KnowledgeSensitivity.Unknown
         && (EffectiveDate is null || EffectiveDate.Value <= date)
         && (ExpiryDate is null || ExpiryDate.Value >= date);
 }

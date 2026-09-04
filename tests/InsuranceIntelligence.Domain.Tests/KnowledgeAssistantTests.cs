@@ -11,10 +11,27 @@ public sealed class KnowledgeAssistantTests
         var document = ValidDocument() with
         {
             ApprovalStatus = KnowledgeDocumentStatus.Approved,
-            IndexedStatus = KnowledgeIndexedStatus.Indexed
+            IndexedStatus = KnowledgeIndexedStatus.Indexed,
+            Sensitivity = KnowledgeSensitivity.Approved
         };
 
         Assert.True(document.IsActiveOn(new DateOnly(2026, 5, 24)));
+    }
+
+    [Fact]
+    public void UnknownSensitivityIsNotRetrievalEligible_EvenWhenApprovedAndIndexed()
+    {
+        // WO-17: unknown sensitivity must stay blocked from retrieval by default — the approval
+        // workflow now requires a classification, but this is the fail-closed backstop for any
+        // legacy or otherwise-inconsistent record that is Approved/Indexed without one.
+        var document = ValidDocument() with
+        {
+            ApprovalStatus = KnowledgeDocumentStatus.Approved,
+            IndexedStatus = KnowledgeIndexedStatus.Indexed,
+            Sensitivity = KnowledgeSensitivity.Unknown
+        };
+
+        Assert.False(document.IsActiveOn(new DateOnly(2026, 5, 24)));
     }
 
     [Fact]

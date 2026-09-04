@@ -20,6 +20,8 @@ public static class KnowledgeMapper
             document.FileSizeBytes,
             document.ApprovalStatus.ToString(),
             document.IndexedStatus.ToString(),
+            document.Sensitivity.ToString(),
+            document.GovernanceReason,
             document.Chunks.Count,
             document.CreatedAt,
             document.UpdatedAt,

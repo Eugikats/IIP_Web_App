@@ -20,7 +20,10 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
 
     public async Task IndexAsync(KnowledgeDocument document, CancellationToken cancellationToken = default)
     {
-        if (document.ApprovalStatus != KnowledgeDocumentStatus.Approved)
+        // WO-17: unclassified (or never-eligible) sensitivity must never reach the search index,
+        // not just be filtered at query time — fail closed at the point of publication.
+        if (document.ApprovalStatus != KnowledgeDocumentStatus.Approved
+            || document.Sensitivity == KnowledgeSensitivity.Unknown)
         {
             return;
         }
@@ -66,7 +69,10 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
 
     public async Task RebuildAsync(TenantScope scope, IReadOnlyCollection<KnowledgeDocument> approvedDocuments, CancellationToken cancellationToken = default)
     {
-        foreach (var document in approvedDocuments.Where(document => document.Scope.Matches(scope) && document.ApprovalStatus == KnowledgeDocumentStatus.Approved))
+        foreach (var document in approvedDocuments.Where(document =>
+            document.Scope.Matches(scope)
+            && document.ApprovalStatus == KnowledgeDocumentStatus.Approved
+            && document.Sensitivity != KnowledgeSensitivity.Unknown))
         {
             await IndexAsync(document, cancellationToken);
         }

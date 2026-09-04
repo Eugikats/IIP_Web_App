@@ -10,7 +10,8 @@ public sealed class InMemoryKnowledgeIndexProvider : IKnowledgeIndexProvider
 
     public Task IndexAsync(KnowledgeDocument document, CancellationToken cancellationToken = default)
     {
-        if (document.ApprovalStatus == KnowledgeDocumentStatus.Approved)
+        if (document.ApprovalStatus == KnowledgeDocumentStatus.Approved
+            && document.Sensitivity != KnowledgeSensitivity.Unknown)
         {
             indexedDocuments[document.KnowledgeDocumentId] = document with { IndexedStatus = KnowledgeIndexedStatus.Indexed };
         }
@@ -34,7 +35,10 @@ public sealed class InMemoryKnowledgeIndexProvider : IKnowledgeIndexProvider
             indexedDocuments.TryRemove(documentId, out _);
         }
 
-        foreach (var document in approvedDocuments.Where(document => document.Scope.Matches(scope) && document.ApprovalStatus == KnowledgeDocumentStatus.Approved))
+        foreach (var document in approvedDocuments.Where(document =>
+            document.Scope.Matches(scope)
+            && document.ApprovalStatus == KnowledgeDocumentStatus.Approved
+            && document.Sensitivity != KnowledgeSensitivity.Unknown))
         {
             indexedDocuments[document.KnowledgeDocumentId] = document with { IndexedStatus = KnowledgeIndexedStatus.Indexed };
         }

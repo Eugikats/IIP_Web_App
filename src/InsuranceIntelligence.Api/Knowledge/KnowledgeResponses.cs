@@ -15,6 +15,8 @@ public sealed record KnowledgeDocumentResponse(
     long FileSizeBytes,
     string ApprovalStatus,
     string IndexedStatus,
+    string Sensitivity,
+    string? GovernanceReason,
     int ChunkCount,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
@@ -33,4 +35,5 @@ public sealed record KnowledgeChunkResponse(
 
 public sealed record KnowledgeGovernanceRequest(
     string? ActorUserId,
-    string? GovernanceReason);
+    string? GovernanceReason,
+    string? Sensitivity = null);

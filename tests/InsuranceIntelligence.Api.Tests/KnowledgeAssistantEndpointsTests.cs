@@ -70,6 +70,83 @@ public sealed class KnowledgeAssistantEndpointsTests
     }
 
     [Fact]
+    public async Task ApproveKnowledgeDocument_RejectsUnknownOrMissingSensitivity()
+    {
+        var dependencies = CreateDependencies();
+        var uploadResult = await UploadKnowledgeAsync(dependencies);
+        var (_, uploaded) = await ExecuteAsync<KnowledgeDocumentResponse>(uploadResult);
+
+        var missingResult = await KnowledgeEndpoints.ApproveKnowledgeDocument(
+            uploaded!.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            KnowledgeGovernanceContext("Approve without a real sensitivity label.", sensitivity: null),
+            CancellationToken.None);
+        var (missingStatus, missingBody) = await ExecuteAsync<JsonElement>(missingResult);
+
+        var unknownResult = await KnowledgeEndpoints.ApproveKnowledgeDocument(
+            uploaded.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            KnowledgeGovernanceContext("Approve with explicit Unknown sensitivity.", sensitivity: "Unknown"),
+            CancellationToken.None);
+        var (unknownStatus, _) = await ExecuteAsync<JsonElement>(unknownResult);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, missingStatus);
+        Assert.True(missingBody.GetProperty("errors").TryGetProperty("sensitivity", out _));
+        Assert.Equal(StatusCodes.Status400BadRequest, unknownStatus);
+    }
+
+    [Theory]
+    [InlineData("ContainsSecrets")]
+    [InlineData("ContainsUnapprovedPii")]
+    public async Task ApproveKnowledgeDocument_NeverApprovesSecretsOrUnapprovedPii(string sensitivity)
+    {
+        var dependencies = CreateDependencies();
+        var uploadResult = await UploadKnowledgeAsync(dependencies);
+        var (_, uploaded) = await ExecuteAsync<KnowledgeDocumentResponse>(uploadResult);
+
+        var result = await KnowledgeEndpoints.ApproveKnowledgeDocument(
+            uploaded!.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            KnowledgeGovernanceContext("An approver mistakenly tries to approve unsafe content.", sensitivity: sensitivity),
+            CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status409Conflict, statusCode);
+        Assert.Equal("approveKnowledgeDocument", body.GetProperty("blockedAction").GetString());
+
+        var stored = await dependencies.KnowledgeRepository.GetAsync(uploaded.KnowledgeDocumentId, TenantScope.Create("tenant-demo", "workspace-claims"), CancellationToken.None);
+        Assert.Equal(KnowledgeDocumentStatus.Draft, stored!.ApprovalStatus);
+    }
+
+    [Fact]
+    public async Task ApproveKnowledgeDocument_PersistsSensitivityAndGovernanceReason()
+    {
+        var dependencies = CreateDependencies();
+        const string reason = "Legal confirmed this policy wording is safe for staff-only grounding.";
+        var uploadResult = await UploadKnowledgeAsync(dependencies);
+        var (_, uploaded) = await ExecuteAsync<KnowledgeDocumentResponse>(uploadResult);
+
+        var result = await KnowledgeEndpoints.ApproveKnowledgeDocument(
+            uploaded!.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            KnowledgeGovernanceContext(reason, sensitivity: "StaffOnly"),
+            CancellationToken.None);
+        var (statusCode, approved) = await ExecuteAsync<KnowledgeDocumentResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal("StaffOnly", approved!.Sensitivity);
+        Assert.Equal(reason, approved.GovernanceReason);
+    }
+
+    [Fact]
     public async Task ArchiveKnowledgeDocument_RemovesDocumentFromRetrieval()
     {
         var dependencies = CreateDependencies();
@@ -105,7 +182,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.KnowledgeRepository,
             dependencies.IndexProvider,
             dependencies.AuditRepository,
-            ScopedContext(auditReason: approvalReason),
+            KnowledgeGovernanceContext(approvalReason),
             CancellationToken.None);
         var (approveStatus, approved) = await ExecuteAsync<KnowledgeDocumentResponse>(approveResult);
 
@@ -142,19 +219,19 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.KnowledgeRepository,
             dependencies.IndexProvider,
             dependencies.AuditRepository,
-            ScopedContext(),
+            KnowledgeGovernanceContext(governanceReason: null),
             CancellationToken.None);
         var (approveStatus, approveBody) = await ExecuteAsync<JsonElement>(approveWithoutReason);
 
         Assert.Equal(StatusCodes.Status400BadRequest, approveStatus);
-        Assert.True(approveBody.GetProperty("errors").TryGetProperty("auditReason", out _));
+        Assert.True(approveBody.GetProperty("errors").TryGetProperty("governanceReason", out _));
 
         var approveWithReason = await KnowledgeEndpoints.ApproveKnowledgeDocument(
             uploaded.KnowledgeDocumentId,
             dependencies.KnowledgeRepository,
             dependencies.IndexProvider,
             dependencies.AuditRepository,
-            ScopedContext(auditReason: "Approve source before archive reason validation."),
+            KnowledgeGovernanceContext("Approve source before archive reason validation."),
             CancellationToken.None);
         var (_, approved) = await ExecuteAsync<KnowledgeDocumentResponse>(approveWithReason);
 
@@ -446,7 +523,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             dependencies.KnowledgeRepository,
             dependencies.IndexProvider,
             dependencies.AuditRepository,
-            ScopedContext(auditReason: "Approve policy wording for grounded test answers."),
+            KnowledgeGovernanceContext("Approve policy wording for grounded test answers."),
             CancellationToken.None);
         var (statusCode, approved) = await ExecuteAsync<KnowledgeDocumentResponse>(approveResult);
 
@@ -583,11 +660,13 @@ public sealed class KnowledgeAssistantEndpointsTests
         return context;
     }
 
-    private static DefaultHttpContext KnowledgeGovernanceContext(string? governanceReason, string actorUserId = "user-claims-1")
+    private static DefaultHttpContext KnowledgeGovernanceContext(
+        string? governanceReason, string actorUserId = "user-claims-1", string? sensitivity = "Approved")
     {
         var context = ScopedContext();
         context.Request.ContentType = "application/json";
-        context.Request.Body = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new KnowledgeGovernanceRequest(actorUserId, governanceReason), JsonOptions));
+        context.Request.Body = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(
+            new KnowledgeGovernanceRequest(actorUserId, governanceReason, sensitivity), JsonOptions));
         return context;
     }
 

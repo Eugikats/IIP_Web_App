@@ -170,16 +170,39 @@ public static class KnowledgeEndpoints
             return Validation("userId", "Authenticated user context is required to approve knowledge.");
         }
 
-        var auditReason = AuditReasonReader.Read(httpContext);
-        if (string.IsNullOrWhiteSpace(auditReason))
+        // WO-17: sensitivity is captured atomically with approval — a document can never become
+        // Approved without a human explicitly classifying it (I3: no half-finished governance
+        // state). Secrets/unapproved-PII classifications can never be approved for AI grounding at
+        // all, regardless of reason — those categories describe content that should never be in
+        // the corpus, not content pending a milder review.
+        var (governanceRequest, governanceValidation) = await ReadGovernanceRequestAsync(httpContext, cancellationToken);
+        if (governanceValidation is not null)
         {
-            return Validation("auditReason", "An audit reason is required to approve knowledge for AI grounding.");
+            return governanceValidation;
         }
 
+        if (!Enum.TryParse<KnowledgeSensitivity>(governanceRequest!.Sensitivity, ignoreCase: true, out var sensitivity)
+            || sensitivity == KnowledgeSensitivity.Unknown)
+        {
+            return Validation("sensitivity", "A sensitivity classification is required to approve knowledge for AI grounding. Unknown sensitivity cannot be approved.");
+        }
+
+        if (sensitivity is KnowledgeSensitivity.ContainsSecrets or KnowledgeSensitivity.ContainsUnapprovedPii)
+        {
+            return Results.Conflict(new
+            {
+                message = "Content classified as containing secrets or unapproved PII can never be approved for AI grounding. Archive or replace this document instead.",
+                blockedAction = "approveKnowledgeDocument"
+            });
+        }
+
+        var auditReason = governanceRequest.GovernanceReason!;
         var approved = document with
         {
             ApprovalStatus = KnowledgeDocumentStatus.Approved,
             IndexedStatus = KnowledgeIndexedStatus.NotIndexed,
+            Sensitivity = sensitivity,
+            GovernanceReason = auditReason,
             UpdatedAt = DateTimeOffset.UtcNow
         };
         await repository.SaveAsync(approved, cancellationToken);
@@ -267,7 +290,7 @@ public static class KnowledgeEndpoints
 
         var documents = await repository.ListAsync(scope, cancellationToken);
         var approved = documents
-            .Where(document => document.ApprovalStatus == KnowledgeDocumentStatus.Approved)
+            .Where(document => document.ApprovalStatus == KnowledgeDocumentStatus.Approved && document.Sensitivity != KnowledgeSensitivity.Unknown)
             .Select(document => document with
             {
                 IndexedStatus = KnowledgeIndexedStatus.Indexed,
