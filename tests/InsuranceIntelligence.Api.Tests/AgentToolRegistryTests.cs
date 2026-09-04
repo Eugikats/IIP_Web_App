@@ -2,8 +2,11 @@ using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Application.Agents.Tools;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.LocalTestDoubles;
 
@@ -157,15 +160,60 @@ public sealed class AgentToolRegistryTests
     }
 
     [Fact]
-    public async Task AuditReadTool_ReturnsScopedEventsAndDeniesWithoutPermission()
+    public async Task AuditReadTool_IsolatesByTenantAndDeniesWithoutPermission()
     {
         var repository = new InMemoryAuditRepository();
-        var allowed = await new AuditReadTool(repository, AllowAll())
+        await repository.WriteAsync(AuditEventFor(TenantA));
+        await repository.WriteAsync(AuditEventFor(TenantB));
+
+        var resultA = await new AuditReadTool(repository, AllowAll())
             .ExecuteAsync(Invocation(TenantA, "risk-fraud-signal"), CancellationToken.None);
         var denied = await new AuditReadTool(repository, DenyAll())
             .ExecuteAsync(Invocation(TenantA, "risk-fraud-signal"), CancellationToken.None);
 
+        var eventsA = Assert.IsAssignableFrom<IReadOnlyCollection<AuditEvent>>(resultA.Data);
+        Assert.True(resultA.Success);
+        Assert.Single(eventsA);
+        Assert.False(denied.Success);
+    }
+
+    [Fact]
+    public async Task DocumentReadTool_IsolatesByTenantAndDeniesWithoutPermission()
+    {
+        var caseRepository = new InMemoryCaseRepository();
+        var documentRepository = new InMemoryCaseDocumentRepository();
+        var caseId = await SeedCaseAsync(caseRepository, TenantA);
+        await documentRepository.SaveAsync(DocumentFor(caseId, TenantA));
+
+        var allowed = await new DocumentReadTool(documentRepository, AllowAll())
+            .ExecuteAsync(Invocation(TenantA, "claims-summary", new Dictionary<string, string> { ["caseId"] = caseId.ToString() }), CancellationToken.None);
+        var isolated = await new DocumentReadTool(documentRepository, AllowAll())
+            .ExecuteAsync(Invocation(TenantB, "claims-summary", new Dictionary<string, string> { ["caseId"] = caseId.ToString() }), CancellationToken.None);
+        var denied = await new DocumentReadTool(documentRepository, DenyAll())
+            .ExecuteAsync(Invocation(TenantA, "claims-summary", new Dictionary<string, string> { ["caseId"] = caseId.ToString() }), CancellationToken.None);
+
+        var documentsA = Assert.IsAssignableFrom<IReadOnlyCollection<CaseDocument>>(allowed.Data);
+        var documentsB = Assert.IsAssignableFrom<IReadOnlyCollection<CaseDocument>>(isolated.Data);
+        Assert.Single(documentsA);
+        Assert.Empty(documentsB);
+        Assert.False(denied.Success);
+    }
+
+    [Fact]
+    public async Task PolicyReadTool_IsolatesByTenantAndDeniesWithoutPermission()
+    {
+        var repository = new InMemoryPolicyRepository();
+        await repository.UpsertAsync(new Policy("policy-a", TenantA.TenantId, TenantA.WorkspaceId, "POL-1001", "Motor", "Comprehensive", null, null, null, null));
+
+        var allowed = await new PolicyReadTool(repository, AllowAll())
+            .ExecuteAsync(Invocation(TenantA, "policy-intelligence", new Dictionary<string, string> { ["policyNumber"] = "POL-1001" }), CancellationToken.None);
+        var isolated = await new PolicyReadTool(repository, AllowAll())
+            .ExecuteAsync(Invocation(TenantB, "policy-intelligence", new Dictionary<string, string> { ["policyNumber"] = "POL-1001" }), CancellationToken.None);
+        var denied = await new PolicyReadTool(repository, DenyAll())
+            .ExecuteAsync(Invocation(TenantA, "policy-intelligence", new Dictionary<string, string> { ["policyNumber"] = "POL-1001" }), CancellationToken.None);
+
         Assert.True(allowed.Success);
+        Assert.False(isolated.Success);
         Assert.False(denied.Success);
     }
 
@@ -187,7 +235,7 @@ public sealed class AgentToolRegistryTests
     }
 
     [Fact]
-    public async Task MetricsReadTool_ReturnsRealAggregateAndDeniesWithoutPermission()
+    public async Task MetricsReadTool_ReturnsRealAggregateIsolatedByTenantAndDeniesWithoutPermission()
     {
         var caseRepository = new InMemoryCaseRepository();
         await SeedCaseAsync(caseRepository, TenantA);
@@ -212,12 +260,17 @@ public sealed class AgentToolRegistryTests
             new BasicSlaCalculator(),
             DenyAll());
 
-        var result = await tool.ExecuteAsync(Invocation(TenantA, "command-center"), CancellationToken.None);
+        var resultA = await tool.ExecuteAsync(Invocation(TenantA, "command-center"), CancellationToken.None);
+        var resultB = await tool.ExecuteAsync(Invocation(TenantB, "command-center"), CancellationToken.None);
         var denied = await deniedTool.ExecuteAsync(Invocation(TenantA, "command-center"), CancellationToken.None);
 
-        Assert.True(result.Success);
+        var metricsA = Assert.IsType<InsuranceIntelligence.Application.CommandCenter.CommandCenterMetricsResponse>(resultA.Data);
+        var metricsB = Assert.IsType<InsuranceIntelligence.Application.CommandCenter.CommandCenterMetricsResponse>(resultB.Data);
+        Assert.True(resultA.Success);
+        Assert.Equal(1, metricsA.TotalCases);
+        Assert.Equal(0, metricsB.TotalCases);
         Assert.False(denied.Success);
-        Assert.NotEmpty(result.EvidenceRefs);
+        Assert.NotEmpty(resultA.EvidenceRefs);
     }
 
     [Fact]
@@ -290,6 +343,31 @@ public sealed class AgentToolRegistryTests
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow,
         CorrelationId = "corr-approval-001",
+    };
+
+    private static AuditEvent AuditEventFor(TenantScope scope) => new(
+        Guid.NewGuid(), scope, CaseId: null, DocumentId: null, UserId: "user-claims-1", ActorType.User,
+        "test.event", DateTimeOffset.UtcNow, BeforeStatus: null, AfterStatus: "recorded", EvidenceIds: [],
+        ModelProvider: null, Confidence: null, ValidationResult: "recorded", ApprovalId: null,
+        AuditReason: null, CorrelationId: "corr-audit-tool-001");
+
+    private static CaseDocument DocumentFor(Guid caseId, TenantScope scope) => new()
+    {
+        DocumentId = Guid.NewGuid(),
+        CaseId = caseId,
+        Scope = scope,
+        OriginalFileName = "claim-form.pdf",
+        ContentType = "application/pdf",
+        FileSizeBytes = 1024,
+        ObjectKey = $"{scope.TenantId}/{scope.WorkspaceId}/{caseId}/doc",
+        DocumentType = DocumentType.ClaimForm,
+        ProcessingStatus = DocumentProcessingStatus.Processed,
+        Classification = new DocumentClassificationResult(DocumentType.ClaimForm, 0.95m, "test", DateTimeOffset.UtcNow),
+        Extraction = new DocumentExtractionResult(new Dictionary<string, string>(), new Dictionary<string, decimal>(), "test", DateTimeOffset.UtcNow, true, "user-claims-1", DateTimeOffset.UtcNow),
+        ValidationWarnings = [],
+        UploadedByUserId = "user-claims-1",
+        UploadedAt = DateTimeOffset.UtcNow,
+        CorrelationId = "corr-doc-tool-001",
     };
 
     private static IPermissionService AllowAll() => new StubPermissionService(Enum.GetValues<Permission>());
