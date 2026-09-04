@@ -62,14 +62,10 @@ It must not improvise policy explanations, claim obligations, settlement expecta
 
 Customer messages, emails, uploaded documents, claim forms, and retrieved knowledge may contain malicious or misleading instructions. The system must treat retrieved content as evidence only. Retrieved content must never override system policy, tool policy, tenant boundaries, or human-approval requirements.
 
-## Phase 1-4 RAG Alignment
+## Implementation status
 
-| Phase | RAG Work |
-|---|---|
-| Phase 1 | Define evidence rail payloads and no-source UX states. |
-| Phase 2 | Connect command responses to approved knowledge and operational evidence with tenant/workspace filters. |
-| Phase 3 | Add grounded command answers, citations, uncertainty handling, and action drafting from approved templates. |
-| Phase 4 | Add RAG evaluation tests, hallucination checks, prompt-injection tests, source freshness checks, and audit review. |
+The phased build sequence formerly described here is complete. See `docs/03-design-architecture/iip_ai_agent_architecture_tool_registry_updated.md` §15 for the authoritative, code-verified per-agent implementation status (grounded retrieval and citations are live via the Policy Intelligence Agent and Command Center) and `docs/08-program-plan/IIP_PRODUCTION_BUILD_CONTRACT.md` WO-17 for the knowledge-governance workflow (upload, approval, sensitivity classification, archive, re-index). The remainder of this document is target-state design; dedicated RAG evaluation test suites, hallucination checks, and automated source-freshness checks are not yet built as automated tests — where this document's design has not yet been built, §15 and the build contract say so explicitly rather than this document.
+
 This document defines knowledge upload, approval, chunking, indexing, embeddings, retrieval, citations, confidence handling, and re-indexing rules for IIP.
 
 

@@ -116,14 +116,10 @@ These records must be tenant-scoped, workspace-aware, role-aware, and linked to 
 - Proposed actions are not decisions. They must link to `Approval`, `Task`, or `CustomerUpdateDraft` before execution.
 - Command metrics must be snapshots of backend-computed values and must never be hardcoded frontend values.
 
-## Phase 1-4 Data Alignment
+## Implementation status
 
-| Phase | Data Work |
-|---|---|
-| Phase 1 | Define response block DTOs and non-persistent local UI models. |
-| Phase 2 | Add command sessions/messages/blocks/evidence tables and API DTOs. |
-| Phase 3 | Link command messages to AgentRun, AuditEvent, Approval, CustomerUpdateDraft, and KnowledgeQuery records. |
-| Phase 4 | Add retention, masking, export, audit review, and security tests for command conversation data. |
+The phased build sequence formerly described here is complete for command conversation data: session/message/block/evidence persistence and the `AgentRun`/`AuditEvent`/`Approval`/`CustomerUpdateDraft` links are implemented — see `docs/03-design-architecture/iip_ai_agent_architecture_tool_registry_updated.md` §15 for the authoritative, code-verified per-agent status and `docs/08-program-plan/IIP_PRODUCTION_BUILD_CONTRACT.md` for the full verified build history. Retention, masking, and export automation specifically for command conversation data are target-state and not yet built as dedicated jobs. Where this document's design has not yet been built, §15 and the build contract say so explicitly rather than this document.
+
 This document defines the canonical data model for the **Insurance Intelligence Platform (IIP)**.
 
 It is intended to be used by:

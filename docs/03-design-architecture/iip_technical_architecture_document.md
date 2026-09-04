@@ -104,14 +104,10 @@ type CommandCenterResponseBlock =
 - Missing providers must return `not_configured` blocks, not fake success.
 - Every command query that uses AI or operational tools must create an `AgentRun` and related `AuditEvent` where applicable.
 
-## Phase 1-4 Technical Alignment
+## Implementation status
 
-| Phase | Technical Work |
-|---|---|
-| Phase 1 | Build chat workspace layout and typed frontend block renderer with mocked local fixtures only in isolated `LocalTest`. |
-| Phase 2 | Implement real briefing, metrics, claims attention, SLA risk, provider health, and evidence endpoints. |
-| Phase 3 | Implement orchestrated command query flow with scoped tools, RAG, action proposals, and human review gates. |
-| Phase 4 | Harden auth, audit, observability, provider validation, security tests, UI QA, and no-simulation deployment checks. |
+The phased build sequence formerly described here is complete. The command query flow — chat workspace, typed block renderer, scoped-tool orchestration, RAG-grounded answers, human-review gates, `AgentRun`/`AuditEvent` recording — is implemented; see `docs/03-design-architecture/iip_ai_agent_architecture_tool_registry_updated.md` §15 for the authoritative, code-verified per-agent status and `docs/08-program-plan/IIP_PRODUCTION_BUILD_CONTRACT.md` (Checkpoints B and C) for the verified build history. The remainder of this document is target-state design; where it has not yet been built, §15 and the build contract say so explicitly rather than this document.
+
 The **Insurance Intelligence Platform (IIP)** is an Azure-native insurance operations platform that helps insurers process claims, review documents, manage customer interactions, support acquisition workflows, and maintain auditable human-reviewed AI workflows.
 
 The first technical baseline supports a **Motor Claims and Document Intelligence MVP** for a mid-to-large insurance company pilot. The MVP must receive customer and broker inputs from WhatsApp, email, web forms, call center notes, broker submissions, and internal uploads; convert them into structured work items; process documents with Azure AI Document Intelligence; retrieve approved knowledge through Azure AI Search; generate evidence-linked AI summaries through Azure OpenAI; route work to human reviewers; maintain audit trails; and export or hand off reviewed claim packs to downstream insurer systems.

@@ -60,14 +60,10 @@ When the user asks an operational question, the Command Center should be able to
 - Duplicate channel events must be idempotently handled.
 - Customer communications prepared by the Command Center must remain drafts until approved or explicitly configured as low-risk.
 
-## Phase 1-4 Integration Alignment
+## Implementation status
 
-| Phase | Integration Focus |
-|---|---|
-| Phase 1 | Define command data contracts and UI states for configured, not configured, degraded, and error providers. |
-| Phase 2 | Connect Command Center briefing and metric blocks to Azure SQL, provider health, claims, documents, approvals, and channel summaries. |
-| Phase 3 | Add scoped command tools for Graph/Outlook, WhatsApp, documents, knowledge retrieval, and draft communications. |
-| Phase 4 | Validate end-to-end integration evidence, audit trails, retries, DLQs, no fake success paths, and production readiness. |
+The phased build sequence formerly described here is complete for the areas it covers. Command Center's data contracts and provider-state UI (configured/not-configured/degraded/error) are implemented; WhatsApp (inbound/outbound) and Microsoft Graph mail integrations exist as real provider implementations (`InsuranceIntelligence.Infrastructure.WhatsApp`, `InsuranceIntelligence.Infrastructure.Graph`) used by the claims/communications workflows. See `docs/03-design-architecture/iip_ai_agent_architecture_tool_registry_updated.md` §9/§15 for the canonical tool registry, which Command Center's own agent tool-calling flow currently draws on, and `docs/08-program-plan/IIP_PRODUCTION_BUILD_CONTRACT.md` for the full verified build history. Where this document's design has not yet been built, §15 and the build contract say so explicitly rather than this document; end-to-end DLQ/retry validation against a live deployed environment has not been run in this development sandbox.
+
 This document defines the integration strategy for the **Insurance Intelligence Platform (IIP)**. It consolidates the integration direction discussed across the project context, PRD, FSD, technical architecture, UI/UX notes, client feedback, and implementation-agent findings.
 
 IIP is an Azure-native, human-reviewed insurance operations platform. It does not replace an insurer's policy administration system, claims system, CRM, finance system, document repository, broker portal, or Microsoft 365 environment. Instead, IIP acts as an **intelligent integration and workflow layer** above those systems.
