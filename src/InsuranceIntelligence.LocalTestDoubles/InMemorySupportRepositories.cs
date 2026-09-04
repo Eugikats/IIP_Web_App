@@ -181,6 +181,14 @@ public sealed class InMemoryPolicyRepository : InsuranceIntelligence.Domain.Poli
         return Task.FromResult(item);
     }
 
+    public Task<InsuranceIntelligence.Domain.Policies.Policy?> GetByPolicyNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var match = items.Values.FirstOrDefault(i =>
+            i.TenantId == scope.TenantId && i.WorkspaceId == scope.WorkspaceId
+            && string.Equals(i.PolicyNumber, policyNumber, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(match);
+    }
+
     public Task<IReadOnlyCollection<InsuranceIntelligence.Domain.Policies.Policy>> ListByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default)
     {
         var matches = items.Values.Where(i => i.TenantId == scope.TenantId && i.WorkspaceId == scope.WorkspaceId && i.CustomerId == customerId).ToArray();

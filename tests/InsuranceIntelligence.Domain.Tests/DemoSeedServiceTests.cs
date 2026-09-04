@@ -154,6 +154,11 @@ file sealed class InMemoryPolicyRepository : IPolicyRepository
     public Task<Policy?> GetAsync(string policyId, TenantScope scope, CancellationToken cancellationToken) =>
         Task.FromResult(policies.TryGetValue(policyId, out var p) ? p : null);
 
+    public Task<Policy?> GetByPolicyNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken) =>
+        Task.FromResult(policies.Values.FirstOrDefault(p =>
+            p.TenantId == scope.TenantId && p.WorkspaceId == scope.WorkspaceId
+            && string.Equals(p.PolicyNumber, policyNumber, StringComparison.OrdinalIgnoreCase)));
+
     public Task<IReadOnlyCollection<Policy>> ListAsync(TenantScope scope, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyCollection<Policy>>(
             policies.Values.Where(p => p.TenantId == scope.TenantId && p.WorkspaceId == scope.WorkspaceId).ToArray());

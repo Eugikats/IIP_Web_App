@@ -407,6 +407,10 @@ public sealed class EfPolicyRepository(InsuranceIntelligenceDbContext dbContext)
             .Select(record => Deserialize<InsuranceIntelligence.Domain.Policies.Policy>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
 
+    public async Task<InsuranceIntelligence.Domain.Policies.Policy?> GetByPolicyNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default) =>
+        (await ListAsync(scope, cancellationToken))
+            .FirstOrDefault(p => string.Equals(p.PolicyNumber, policyNumber, StringComparison.OrdinalIgnoreCase));
+
     public async Task<IReadOnlyCollection<InsuranceIntelligence.Domain.Policies.Policy>> ListByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default) =>
         (await ListAsync(scope, cancellationToken)).Where(p => p.CustomerId == customerId).ToList();
 }
