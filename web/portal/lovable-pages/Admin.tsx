@@ -8,6 +8,7 @@ import { useRuntimeContext } from "@/lib/runtimeContext";
 import { canUseLocalTestDoubles } from "@/lib/config";
 
 const cards = [
+  { to: "/app/admin/users", icon: Users, title: "Users & roles", desc: "Add users, resolved from server-side membership and permission data. Role changes are audited." },
   { to: "/app/admin/agents", icon: Bot, title: "Agents", desc: "Registry · versions · permissions · kill switch · run logs · feedback." },
   { to: "/app/admin/tenant-policy", icon: Gavel, title: "Agent Policy", desc: "Baseline guardrails inherited by all agents in this workspace." },
   { to: "/app/flows", icon: Workflow, title: "Flows", desc: "Governed Releases 1–5, tenant workflow drafts, publication, and run inspection." },
@@ -16,8 +17,10 @@ const cards = [
   { to: "/app/integrations", icon: Plug, title: "Integrations & Health", desc: "Live provider health, adapter boundaries, identity paths, and safe diagnostics." },
 ];
 
+// Informational only — deliberately not clickable. None of these has a management surface yet
+// (see the build contract's scope boundary); they describe where the underlying state comes from
+// rather than implying a page exists.
 const inline = [
-  { icon: Users, title: "Users & roles", desc: "Resolved from server-side membership and permission data." },
   { icon: FileText, title: "Document templates", desc: "Managed by tenant configuration; absent templates remain empty." },
   { icon: Workflow, title: "Workflow rules", desc: "Configured workflow rules apply human-review boundaries." },
   { icon: Sparkles, title: "AI providers", desc: "Provider state is reported by runtime health checks." },
