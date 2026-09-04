@@ -57,6 +57,10 @@ export default function ClaimAccessStatus() {
       router.replace("/access");
       return;
     }
+    if (!stored.caseId) {
+      router.replace("/access/new-claim");
+      return;
+    }
     setSession(stored);
     void load(stored);
   }, [load, router]);

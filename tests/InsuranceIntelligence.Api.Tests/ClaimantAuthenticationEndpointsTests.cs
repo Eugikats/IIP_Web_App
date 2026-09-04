@@ -150,7 +150,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var rawToken = ExtractToken(communications.EmailsSent.Single().MessageBody);
 
         var redeemResult = await ClaimantAuthenticationEndpoints.RedeemMagicLink(
-            new ClaimantMagicLinkRedeemRequest(rawToken), tokens, sessions, audit, Context(), CancellationToken.None);
+            new ClaimantMagicLinkRedeemRequest(rawToken), tokens, sessions, new InMemoryPolicyRepository(), audit, Context(), CancellationToken.None);
         var (status, body) = await ExecuteAsync<ClaimantMagicLinkRedeemResponse>(redeemResult);
 
         Assert.Equal(StatusCodes.Status200OK, status);
@@ -167,7 +167,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
 
         // The token was single-use: redeeming it again must fail even though it hasn't expired yet.
         var secondRedeem = await ClaimantAuthenticationEndpoints.RedeemMagicLink(
-            new ClaimantMagicLinkRedeemRequest(rawToken), tokens, sessions, new InMemoryAuditRepository(), Context(), CancellationToken.None);
+            new ClaimantMagicLinkRedeemRequest(rawToken), tokens, sessions, new InMemoryPolicyRepository(), new InMemoryAuditRepository(), Context(), CancellationToken.None);
         var (secondStatus, _) = await ExecuteAsync<JsonElement>(secondRedeem);
         Assert.Equal(StatusCodes.Status400BadRequest, secondStatus);
     }
@@ -179,6 +179,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             new ClaimantMagicLinkRedeemRequest("not-a-real-token"),
             new InMemoryClaimantMagicLinkTokenRepository(),
             new InMemoryClaimantPortalSessionRepository(),
+            new InMemoryPolicyRepository(),
             new InMemoryAuditRepository(),
             Context(),
             CancellationToken.None);
@@ -213,6 +214,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             new ClaimantMagicLinkRedeemRequest(rawToken),
             tokens,
             new InMemoryClaimantPortalSessionRepository(),
+            new InMemoryPolicyRepository(),
             new InMemoryAuditRepository(),
             Context(),
             CancellationToken.None);

@@ -29,7 +29,7 @@ export default function ClaimAccessVerify() {
         return;
       }
       storeSession(result.session);
-      router.replace("/access/claim");
+      router.replace(result.session.caseId ? "/access/claim" : "/access/new-claim");
     })();
   }, [token, router]);
 

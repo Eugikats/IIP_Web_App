@@ -6,7 +6,10 @@ const SESSION_STORAGE_KEY = "iip.client-portal-session";
 
 export type ClientPortalSession = {
   sessionToken: string;
-  caseId: string;
+  /** Null means: verified policyholder, no claim submitted yet — see createClaim. */
+  caseId: string | null;
+  policyNumber: string;
+  productLine: string | null;
   expiresAt: string;
 };
 
@@ -79,7 +82,7 @@ export function loadStoredSession(): ClientPortalSession | null {
     const raw = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ClientPortalSession;
-    if (!parsed.sessionToken || !parsed.caseId || !parsed.expiresAt) return null;
+    if (!parsed.sessionToken || !parsed.policyNumber || !parsed.expiresAt) return null;
     if (new Date(parsed.expiresAt).getTime() <= Date.now()) {
       window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
       return null;
@@ -129,12 +132,12 @@ function safeNetworkFailure(reason: unknown, fallback: string): string {
 
 export type RequestMagicLinkResult = { ok: true; message: string } | { ok: false; error: string };
 
-export async function requestMagicLink(caseReference: string, contactValue: string): Promise<RequestMagicLinkResult> {
+export async function requestMagicLink(policyNumber: string, contactValue: string): Promise<RequestMagicLinkResult> {
   try {
     const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/magic-links`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...clientPortalHeaders() },
-      body: JSON.stringify({ caseId: caseReference, contactValue }),
+      body: JSON.stringify({ policyNumber, contactValue }),
     });
     if (!response.ok) {
       return { ok: false, error: await safeError(response, "We could not process that request. Try again shortly.") };
@@ -158,8 +161,23 @@ export async function redeemMagicLink(token: string): Promise<RedeemMagicLinkRes
     if (!response.ok) {
       return { ok: false, error: await safeError(response, "This link is invalid or has expired. Request a new one.") };
     }
-    const payload = (await response.json()) as { sessionToken: string; caseId: string; expiresAt: string };
-    return { ok: true, session: { sessionToken: payload.sessionToken, caseId: payload.caseId, expiresAt: payload.expiresAt } };
+    const payload = (await response.json()) as {
+      sessionToken: string;
+      caseId: string | null;
+      expiresAt: string;
+      policyNumber: string;
+      productLine: string | null;
+    };
+    return {
+      ok: true,
+      session: {
+        sessionToken: payload.sessionToken,
+        caseId: payload.caseId,
+        expiresAt: payload.expiresAt,
+        policyNumber: payload.policyNumber,
+        productLine: payload.productLine,
+      },
+    };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "This link could not be verified. Try again shortly.") };
   }
@@ -168,6 +186,9 @@ export async function redeemMagicLink(token: string): Promise<RedeemMagicLinkRes
 export type GetClaimResult = { ok: true; claim: ClientPortalClaim } | { ok: false; errorKind: "unauthorized" | "unavailable"; error: string };
 
 export async function getClaim(session: ClientPortalSession): Promise<GetClaimResult> {
+  if (!session.caseId) {
+    return { ok: false, errorKind: "unavailable", error: "No claim has been submitted on this access link yet." };
+  }
   try {
     const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claims/${session.caseId}`, {
       headers: clientPortalHeaders(session.sessionToken),
@@ -187,6 +208,9 @@ export async function getClaim(session: ClientPortalSession): Promise<GetClaimRe
 export type UploadDocumentsResult = { ok: true; claim: ClientPortalClaim } | { ok: false; error: string };
 
 export async function uploadClaimDocuments(session: ClientPortalSession, files: File[]): Promise<UploadDocumentsResult> {
+  if (!session.caseId) {
+    return { ok: false, error: "No claim has been submitted on this access link yet." };
+  }
   try {
     const form = new FormData();
     files.forEach((file) => form.append("files", file));
@@ -207,6 +231,9 @@ export async function uploadClaimDocuments(session: ClientPortalSession, files: 
 export type RequestReviewResult = { ok: true } | { ok: false; error: string };
 
 export async function requestClaimReview(session: ClientPortalSession, reason: string): Promise<RequestReviewResult> {
+  if (!session.caseId) {
+    return { ok: false, error: "No claim has been submitted on this access link yet." };
+  }
   try {
     const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claims/${session.caseId}/request-review`, {
       method: "POST",
@@ -219,5 +246,43 @@ export async function requestClaimReview(session: ClientPortalSession, reason: s
     return { ok: true };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "We could not submit your request.") };
+  }
+}
+
+export type MotorFnolDetails = {
+  vehicleRegistration?: string;
+  accidentTime?: string;
+  accidentLocation?: string;
+  driverName?: string;
+  drivingPermitNumber?: string;
+  thirdPartyInvolved?: string;
+  injuryIndicator?: string;
+  policeReportStatus?: string;
+};
+
+export type CreateClaimRequest = {
+  productLine: string;
+  claimType: string;
+  incidentDate: string;
+  incidentDescription: string;
+  motorFnolDetails?: MotorFnolDetails;
+};
+
+export type CreateClaimResult = { ok: true; caseId: string } | { ok: false; error: string };
+
+export async function createClaim(session: ClientPortalSession, request: CreateClaimRequest): Promise<CreateClaimResult> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claims`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...clientPortalHeaders(session.sessionToken) },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "We could not submit your claim. Try again shortly.") };
+    }
+    const payload = (await response.json()) as { caseId: string };
+    return { ok: true, caseId: payload.caseId };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "We could not submit your claim.") };
   }
 }

@@ -131,6 +131,7 @@ public static class ClaimantAuthenticationEndpoints
         ClaimantMagicLinkRedeemRequest request,
         IClaimantMagicLinkTokenRepository tokenRepository,
         IClaimantPortalSessionRepository sessionRepository,
+        IPolicyRepository policyRepository,
         IAuditRepository auditRepository,
         HttpContext httpContext,
         CancellationToken cancellationToken)
@@ -172,7 +173,18 @@ public static class ClaimantAuthenticationEndpoints
         await sessionRepository.SaveAsync(session, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.ClaimantSessionEstablished(session, correlationId), cancellationToken);
 
-        return Results.Ok(new ClaimantMagicLinkRedeemResponse(rawSessionToken, token.CaseId, session.ExpiresAt));
+        // A new-claim session has nothing for the claimant to view yet — hand back the policy's
+        // product line so the intake form can prefill/lock it instead of asking a verified
+        // policyholder a question IIP already knows the answer to.
+        string? productLine = null;
+        if (token.CaseId is null)
+        {
+            var policy = await policyRepository.GetByPolicyNumberAsync(token.PolicyNumber, scope, cancellationToken);
+            productLine = policy?.ProductLine;
+        }
+
+        return Results.Ok(new ClaimantMagicLinkRedeemResponse(
+            rawSessionToken, token.CaseId, session.ExpiresAt, token.PolicyNumber, productLine));
     }
 
     /// <summary>
@@ -343,7 +355,12 @@ public sealed record ClaimantMagicLinkRequestResponse(string Message);
 
 public sealed record ClaimantMagicLinkRedeemRequest(string Token);
 
-public sealed record ClaimantMagicLinkRedeemResponse(string SessionToken, Guid? CaseId, DateTimeOffset ExpiresAt);
+public sealed record ClaimantMagicLinkRedeemResponse(
+    string SessionToken,
+    Guid? CaseId,
+    DateTimeOffset ExpiresAt,
+    string PolicyNumber,
+    string? ProductLine);
 
 public sealed record ClaimantCreateClaimRequest(
     string ProductLine,
