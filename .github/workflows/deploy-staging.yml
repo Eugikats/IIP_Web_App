@@ -110,21 +110,45 @@ jobs:
       - name: Build (standalone)
         run: pnpm build
 
-      # Assemble the Next.js standalone bundle: server.js + traced node_modules live in
-      # .next/standalone; static assets and /public must be copied alongside them.
+      # Assemble the Next.js standalone bundle: server.js lives at the .next/standalone root,
+      # static assets and /public must be copied alongside it.
+      #
+      # This step previously located the server with `find deploy -maxdepth 3 -name server.js |
+      # head -1`. That matches node_modules/next/server.js (sorted before the real one) and copied
+      # Next's package internals over the bundle root, producing a server.js that starts nothing
+      # and exits 0. The standalone root is a known path, so it is used directly and asserted.
+      #
+      # pnpm's traced node_modules is also NOT shipped: it is a .pnpm store plus symlinks, and
+      # symlinks do not survive zipping, so the App Service receives a half-dereferenced tree and
+      # Next dies on "Cannot find module 'styled-jsx/package.json'". Dependencies are installed
+      # flat with npm from the standalone package.json, which is self-contained by design.
       - name: Assemble standalone bundle
         run: |
           set -e
           rm -rf deploy && mkdir -p deploy
-          cp -r .next/standalone/. deploy/
-          # server.js may be at the standalone root or nested (monorepo tracing). Locate it.
-          SERVER_DIR=$(dirname "$(find deploy -maxdepth 3 -name server.js | head -1)")
-          echo "standalone server dir: $SERVER_DIR"
-          mkdir -p "$SERVER_DIR/.next"
-          cp -r .next/static "$SERVER_DIR/.next/static"
-          if [ -d public ]; then cp -r public "$SERVER_DIR/public"; fi
-          # Normalize so the deployed root always has server.js (App Service runs `node server.js`).
-          if [ "$SERVER_DIR" != "deploy" ]; then cp -r "$SERVER_DIR"/. deploy/; fi
+          cp -r .next/standalone/. deploy/   # `/.` copies the hidden .next/ (BUILD_ID, server/) too
+          rm -rf deploy/node_modules
+          mkdir -p deploy/.next
+          cp -r .next/static deploy/.next/static
+          if [ -d public ]; then cp -r public deploy/public; fi
+          ( cd deploy && npm install --omit=dev --no-audit --no-fund --ignore-scripts --silent )
+
+      - name: Verify bundle
+        run: |
+          set -e
+          fail() { echo "ERROR: $1" >&2; exit 1; }
+          [ -f deploy/server.js ] || fail "server.js missing from bundle root"
+          grep -q "currentPort" deploy/server.js || fail "root server.js is not the Next standalone server"
+          [ -f deploy/.next/BUILD_ID ] || fail ".next/BUILD_ID missing — Next will refuse to start"
+          [ -d deploy/.next/server ] || fail ".next/server missing — Next will refuse to start"
+          [ -d deploy/.next/static ] || fail ".next/static missing"
+          [ -f deploy/node_modules/next/package.json ] || fail "node_modules/next missing"
+          [ -f deploy/node_modules/styled-jsx/package.json ] \
+            || [ -f deploy/node_modules/next/node_modules/styled-jsx/package.json ] \
+            || fail "styled-jsx not resolvable from next"
+          [ -e deploy/amp.js ] && fail "Next package internals leaked into the bundle root"
+          find deploy -type l | head -1 | grep -q . && fail "bundle contains symlinks; they will not survive zipping"
+          echo "bundle verified"
 
       # Deploys to the EXISTING Portal App Service. Its startup command must be
       # `node server.js` (set once — see the deploy runbook).
