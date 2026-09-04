@@ -72,5 +72,5 @@ export function useDocuments() {
     void load();
   }, [load]);
 
-  return { documents, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  return { documents, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, reload: load };
 }
