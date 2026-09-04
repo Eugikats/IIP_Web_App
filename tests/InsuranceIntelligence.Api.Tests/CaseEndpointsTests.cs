@@ -67,6 +67,46 @@ public sealed class CaseEndpointsTests
     }
 
     [Fact]
+    public async Task CreateCase_MedicalClaim_PersistsMedicalFnolDetails_AndDoesNotForceEscalate()
+    {
+        // WO-15: proves the second product line round-trips end to end through the real endpoint,
+        // and that it no longer force-escalates on the word "medical" in the claim type.
+        var dependencies = CreateDependencies();
+        var httpContext = ScopedContext();
+        httpContext.Request.Headers["X-Correlation-ID"] = "corr-api-medical-001";
+
+        var result = await CaseEndpoints.CreateCase(
+            new CreateCaseRequest(
+                "Amina Okello",
+                "amina@example.test",
+                "+256700000000",
+                "POL-2001",
+                "Medical",
+                "Medical reimbursement",
+                "WebPortal",
+                new DateOnly(2026, 5, 24),
+                "Outpatient malaria treatment reimbursement.",
+                MedicalFnolDetails: new MedicalFnolDetails(
+                    "Amina Okello", "Self", "2026-05-20", "Nakasero Hospital", "Outpatient",
+                    "Dr. Kintu", "Malaria treatment", "Phone", null)),
+            dependencies.Service,
+            dependencies.AuditRepository,
+            httpContext,
+            CancellationToken.None);
+
+        var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal(StatusCodes.Status201Created, statusCode);
+        Assert.Equal("Medical", response!.ProductLine);
+        Assert.Equal("New", response.Status);
+        Assert.Equal("Normal", response.Priority);
+        Assert.Null(response.MotorFnolDetails);
+        Assert.NotNull(response.MedicalFnolDetails);
+        Assert.Equal("Nakasero Hospital", response.MedicalFnolDetails!.ProviderName);
+        Assert.Equal("Dr. Kintu", response.MedicalFnolDetails.TreatingDoctor);
+    }
+
+    [Fact]
     public async Task CreateCase_ReturnsValidationProblemForMissingRequiredFields()
     {
         var dependencies = CreateDependencies();

@@ -86,6 +86,31 @@ public sealed class ClaimRoutingPolicyTests
         Assert.Contains(ClaimEscalationTrigger.InjuryFatality, decision.EscalationTriggers);
     }
 
+    [Fact]
+    public void Classify_ReturnsUnknown_ForNonMotorProductLine_EvenWhenClaimTypeMatchesMotorKeywords()
+    {
+        // WO-15: the own-damage/third-party/theft/injury taxonomy is motor-specific. Before this
+        // fix, a Medical claim's type text (routinely containing "medical") matched the
+        // InjuryFatality keyword list and force-escalated every medical claim regardless of
+        // severity — proven below via ClaimRoutingPolicy.Evaluate too.
+        Assert.Equal(ClaimTypeKind.InjuryFatality, ClaimTypeClassifier.Classify("Medical reimbursement", productLine: "Motor"));
+        Assert.Equal(ClaimTypeKind.Unknown, ClaimTypeClassifier.Classify("Medical reimbursement", productLine: "Medical"));
+        Assert.Equal(ClaimTypeKind.InjuryFatality, ClaimTypeClassifier.Classify("Medical reimbursement"));
+    }
+
+    [Fact]
+    public void MedicalClaim_DoesNotForceEscalate_EvenThoughClaimTypeTextContainsMedical()
+    {
+        var decision = ClaimRoutingPolicy.Evaluate("Medical reimbursement", productLine: "Medical");
+
+        Assert.Equal(ClaimTypeKind.Unknown, decision.ClaimTypeKind);
+        Assert.Equal(ClaimPathMode.HappyPath, decision.PathMode);
+        Assert.Equal(CaseStatus.New, decision.InitialStatus);
+        Assert.Equal(ClaimRoutingPolicy.ClaimsIntakeTeam, decision.AssignedTeam);
+        Assert.Equal(CasePriority.Normal, decision.Priority);
+        Assert.False(decision.RequiresDesignatedHumanEscalation);
+    }
+
     [Theory]
     [InlineData(true, false, false, false, ClaimEscalationTrigger.ContestedLiability)]
     [InlineData(false, true, false, false, ClaimEscalationTrigger.FraudSignal)]

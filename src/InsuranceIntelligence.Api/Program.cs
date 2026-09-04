@@ -559,6 +559,8 @@ app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/request-review", ClientP
 
 app.MapPost("/api/v1/cases", CaseEndpoints.CreateCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim));
+app.MapGet("/api/v1/document-checklist/preview", InsuranceIntelligence.Api.Documents.DocumentEndpoints.PreviewChecklist)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim));
 app.MapGet("/api/v1/cases", CaseEndpoints.ListCases)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}", CaseEndpoints.GetCase)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, Check, FileText, Loader2, Upload } from "lucide-react";
@@ -8,26 +8,20 @@ import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 
-const requiredDocuments = [
-  "Claim form",
-  "Police report",
-  "National ID",
-  "Driving permit",
-  "Vehicle photos",
-  "Repair quotation",
-  "Policy schedule",
-];
+// WO-15: FNOL was hardcoded to Motor — a fixed productLine/claimType, motor-only fields, and a
+// hardcoded seven-item document list. The backend was never motor-limited (CreateCaseCommand.
+// ProductLine is a free string and DocumentChecklistRules already branches by product line); this
+// generalises intake to a schema per product line and adds Medical as the second real line.
+// The document checklist is never a client constant (A1) — it's always fetched from
+// GET /api/v1/document-checklist/preview, the same DocumentChecklistRules the rest of the
+// platform uses once a case exists.
 
-type FnolForm = {
-  customerName: string;
-  customerContact: string;
-  customerEmail: string;
-  policyNumber: string;
+type ProductLine = "Motor" | "Medical";
+
+type MotorFields = {
   vehicleRegistration: string;
-  accidentDate: string;
   accidentTime: string;
   accidentLocation: string;
-  incidentDescription: string;
   driverName: string;
   drivingPermitNumber: string;
   thirdPartyInvolved: string;
@@ -37,60 +31,161 @@ type FnolForm = {
   uploadedDocuments: string;
 };
 
-type CreateCaseResponse = {
-  caseId?: string;
+type MedicalFields = {
+  patientName: string;
+  relationshipToPolicyholder: string;
+  treatmentDate: string;
+  providerName: string;
+  admissionType: string;
+  treatingDoctor: string;
+  diagnosisSummary: string;
+  preferredCommunicationChannel: string;
+  uploadedDocuments: string;
 };
+
+type FnolForm = {
+  customerName: string;
+  customerContact: string;
+  customerEmail: string;
+  policyNumber: string;
+  claimType: string;
+  accidentDate: string;
+  incidentDescription: string;
+  motor: MotorFields;
+  medical: MedicalFields;
+};
+
+type CreateCaseResponse = { caseId?: string };
+type ChecklistDocumentPreview = { documentType: string; label: string };
+type ChecklistPreviewResponse = { requiredDocuments: ChecklistDocumentPreview[]; optionalDocuments: ChecklistDocumentPreview[] };
+
+const PRODUCT_LINES: { value: ProductLine; label: string; defaultClaimType: string }[] = [
+  { value: "Motor", label: "Motor", defaultClaimType: "Own damage" },
+  { value: "Medical", label: "Medical", defaultClaimType: "Medical reimbursement" },
+];
+
+const MOTOR_CLAIM_TYPES = ["Own damage", "Third-party property", "Theft", "Bodily injury"];
+const MEDICAL_CLAIM_TYPES = ["Medical reimbursement", "Hospitalisation", "Outpatient treatment"];
 
 const initialForm: FnolForm = {
   customerName: "",
   customerContact: "",
   customerEmail: "",
   policyNumber: "",
-  vehicleRegistration: "",
+  claimType: PRODUCT_LINES[0].defaultClaimType,
   accidentDate: "",
-  accidentTime: "",
-  accidentLocation: "",
   incidentDescription: "",
-  driverName: "",
-  drivingPermitNumber: "",
-  thirdPartyInvolved: "Unknown",
-  injuryIndicator: "Unknown",
-  policeReportStatus: "Unknown",
-  preferredCommunicationChannel: "Phone",
-  uploadedDocuments: "",
+  motor: {
+    vehicleRegistration: "",
+    accidentTime: "",
+    accidentLocation: "",
+    driverName: "",
+    drivingPermitNumber: "",
+    thirdPartyInvolved: "Unknown",
+    injuryIndicator: "Unknown",
+    policeReportStatus: "Unknown",
+    preferredCommunicationChannel: "Phone",
+    uploadedDocuments: "",
+  },
+  medical: {
+    patientName: "",
+    relationshipToPolicyholder: "Self",
+    treatmentDate: "",
+    providerName: "",
+    admissionType: "Outpatient",
+    treatingDoctor: "",
+    diagnosisSummary: "",
+    preferredCommunicationChannel: "Phone",
+    uploadedDocuments: "",
+  },
 };
 
 export default function FNOL() {
   const router = useRouter();
   const { roleDef } = useUI();
+  const [productLine, setProductLine] = useState<ProductLine>("Motor");
   const [form, setForm] = useState<FnolForm>(initialForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checklist, setChecklist] = useState<ChecklistPreviewResponse | null>(null);
+  const [checklistLoading, setChecklistLoading] = useState(true);
+  const [checklistError, setChecklistError] = useState<string | null>(null);
 
-  const missingRequired = useMemo(
-    () =>
-      [
-        ["Customer name", form.customerName],
-        ["Customer contact", form.customerContact],
-        ["Policy number", form.policyNumber],
-        ["Vehicle registration", form.vehicleRegistration],
-        ["Accident date", form.accidentDate],
-        ["Accident time", form.accidentTime],
-        ["Accident location", form.accidentLocation],
-        ["Incident description", form.incidentDescription],
-        ["Driver name", form.driverName],
-        ["Driving permit number", form.drivingPermitNumber],
-        ["Preferred communication channel", form.preferredCommunicationChannel],
-      ]
-        .filter(([, value]) => !String(value).trim())
-        .map(([label]) => label),
-    [form],
-  );
+  function selectProductLine(next: ProductLine) {
+    setProductLine(next);
+    setForm((current) => ({
+      ...current,
+      claimType: PRODUCT_LINES.find((line) => line.value === next)!.defaultClaimType,
+    }));
+  }
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadChecklist() {
+      setChecklistLoading(true);
+      setChecklistError(null);
+      try {
+        const params = new URLSearchParams({ productLine, claimType: form.claimType });
+        if (productLine === "Motor" && form.motor.injuryIndicator !== "Unknown") {
+          params.set("injuryIndicator", form.motor.injuryIndicator);
+        }
+        const response = await fetch(`${apiBaseUrl}/api/v1/document-checklist/preview?${params.toString()}`, {
+          headers: scopedHeaders(roleDef.key, ""),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`Checklist preview failed with HTTP ${response.status}.`);
+        setChecklist((await response.json()) as ChecklistPreviewResponse);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setChecklistError(err instanceof Error ? err.message : "Required documents could not be loaded.");
+        setChecklist(null);
+      } finally {
+        if (!controller.signal.aborted) setChecklistLoading(false);
+      }
+    }
+    void loadChecklist();
+    return () => controller.abort();
+  }, [productLine, form.claimType, form.motor.injuryIndicator, roleDef.key]);
+
+  const missingRequired = useMemo(() => {
+    const common: [string, string][] = [
+      ["Customer name", form.customerName],
+      ["Customer contact", form.customerContact],
+      ["Policy number", form.policyNumber],
+      ["Incident/treatment date", form.accidentDate],
+      ["Description", form.incidentDescription],
+    ];
+    const perLine: [string, string][] =
+      productLine === "Motor"
+        ? [
+            ["Vehicle registration", form.motor.vehicleRegistration],
+            ["Driver name", form.motor.driverName],
+            ["Driving permit number", form.motor.drivingPermitNumber],
+            ["Accident time", form.motor.accidentTime],
+            ["Accident location", form.motor.accidentLocation],
+            ["Preferred communication channel", form.motor.preferredCommunicationChannel],
+          ]
+        : [
+            ["Patient name", form.medical.patientName],
+            ["Treatment provider", form.medical.providerName],
+            ["Treatment date", form.medical.treatmentDate],
+            ["Preferred communication channel", form.medical.preferredCommunicationChannel],
+          ];
+    return [...common, ...perLine].filter(([, value]) => !value.trim()).map(([label]) => label);
+  }, [form, productLine]);
 
   const canSubmit = missingRequired.length === 0 && !submitting;
 
-  function update<K extends keyof FnolForm>(key: K, value: FnolForm[K]) {
+  function updateCommon<K extends keyof Omit<FnolForm, "motor" | "medical">>(key: K, value: FnolForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateMotor<K extends keyof MotorFields>(key: K, value: string) {
+    setForm((current) => ({ ...current, motor: { ...current.motor, [key]: value } }));
+  }
+
+  function updateMedical<K extends keyof MedicalFields>(key: K, value: string) {
+    setForm((current) => ({ ...current, medical: { ...current.medical, [key]: value } }));
   }
 
   async function submit() {
@@ -107,23 +202,13 @@ export default function FNOL() {
           customerEmail: form.customerEmail || null,
           customerPhone: form.customerContact,
           policyNumber: form.policyNumber,
-          productLine: "Motor",
-          claimType: "Motor Accident",
+          productLine,
+          claimType: form.claimType,
           channel: "StaffEntry",
           incidentDate: form.accidentDate,
           incidentDescription: form.incidentDescription,
-          motorFnolDetails: {
-            vehicleRegistration: form.vehicleRegistration,
-            accidentTime: form.accidentTime,
-            accidentLocation: form.accidentLocation,
-            driverName: form.driverName,
-            drivingPermitNumber: form.drivingPermitNumber,
-            thirdPartyInvolved: form.thirdPartyInvolved,
-            injuryIndicator: form.injuryIndicator,
-            policeReportStatus: form.policeReportStatus,
-            preferredCommunicationChannel: form.preferredCommunicationChannel,
-            uploadedDocuments: form.uploadedDocuments || null,
-          },
+          motorFnolDetails: productLine === "Motor" ? { ...form.motor, uploadedDocuments: form.motor.uploadedDocuments || null } : null,
+          medicalFnolDetails: productLine === "Medical" ? { ...form.medical, uploadedDocuments: form.medical.uploadedDocuments || null } : null,
         }),
       });
 
@@ -152,15 +237,33 @@ export default function FNOL() {
       <SectionHeader
         eyebrow="Claims Intelligence"
         title="New Claim · First Notice of Loss"
-        sub="Structured motor FNOL intake. Required fields must be captured before the claim can enter review."
+        sub="Structured FNOL intake. Fields and required documents follow the selected product line."
       />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {PRODUCT_LINES.map((line) => (
+          <button
+            key={line.value}
+            type="button"
+            onClick={() => selectProductLine(line.value)}
+            className={
+              "rounded-2xl border px-4 py-2 text-[13px] font-medium transition-colors " +
+              (productLine === line.value
+                ? "border-info bg-[hsl(var(--info)/0.08)] text-info"
+                : "border-cloud bg-white/70 text-slate2 hover:bg-white")
+            }
+          >
+            {line.label}
+          </button>
+        ))}
+      </div>
 
       <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-4">
         <GlassCard>
           <div className="flex items-start justify-between gap-4 border-b border-cloud pb-4">
             <div>
-              <div className="text-[14px] font-semibold text-navy">Motor FNOL details</div>
-              <div className="mt-1 text-[12.5px] text-slate2">Motor-specific FNOL fields are persisted as structured case data.</div>
+              <div className="text-[14px] font-semibold text-navy">{productLine} FNOL details</div>
+              <div className="mt-1 text-[12.5px] text-slate2">{productLine}-specific FNOL fields are persisted as structured case data.</div>
             </div>
             <Badge tone={missingRequired.length === 0 ? "success" : "warning"}>
               {missingRequired.length === 0 ? "Ready" : `${missingRequired.length} missing`}
@@ -175,52 +278,72 @@ export default function FNOL() {
           )}
 
           <div className="mt-5 grid md:grid-cols-2 gap-4">
-            <Field label="Customer name" value={form.customerName} onChange={(value) => update("customerName", value)} required />
-            <Field label="Customer contact" value={form.customerContact} onChange={(value) => update("customerContact", value)} required />
-            <Field label="Customer email" value={form.customerEmail} onChange={(value) => update("customerEmail", value)} type="email" />
-            <Field label="Policy number" value={form.policyNumber} onChange={(value) => update("policyNumber", value)} required />
-            <Field label="Vehicle registration" value={form.vehicleRegistration} onChange={(value) => update("vehicleRegistration", value)} required />
-            <Field label="Driver name" value={form.driverName} onChange={(value) => update("driverName", value)} required />
-            <Field label="Driving permit number" value={form.drivingPermitNumber} onChange={(value) => update("drivingPermitNumber", value)} required />
-            <Field label="Accident date" value={form.accidentDate} onChange={(value) => update("accidentDate", value)} type="date" required />
-            <Field label="Accident time" value={form.accidentTime} onChange={(value) => update("accidentTime", value)} type="time" required />
-            <Field label="Accident location" value={form.accidentLocation} onChange={(value) => update("accidentLocation", value)} required />
+            <Field label="Customer name" value={form.customerName} onChange={(value) => updateCommon("customerName", value)} required />
+            <Field label="Customer contact" value={form.customerContact} onChange={(value) => updateCommon("customerContact", value)} required />
+            <Field label="Customer email" value={form.customerEmail} onChange={(value) => updateCommon("customerEmail", value)} type="email" />
+            <Field label="Policy number" value={form.policyNumber} onChange={(value) => updateCommon("policyNumber", value)} required />
             <SelectField
-              label="Third party involved"
-              value={form.thirdPartyInvolved}
-              onChange={(value) => update("thirdPartyInvolved", value)}
-              options={["Unknown", "No", "Yes"]}
-            />
-            <SelectField
-              label="Injury indicator"
-              value={form.injuryIndicator}
-              onChange={(value) => update("injuryIndicator", value)}
-              options={["Unknown", "No injuries reported", "Injury reported"]}
-            />
-            <SelectField
-              label="Police report status"
-              value={form.policeReportStatus}
-              onChange={(value) => update("policeReportStatus", value)}
-              options={["Unknown", "Not available", "Requested", "Received"]}
-            />
-            <SelectField
-              label="Preferred communication channel"
-              value={form.preferredCommunicationChannel}
-              onChange={(value) => update("preferredCommunicationChannel", value)}
-              options={["Phone", "Email", "WhatsApp", "Broker", "Branch"]}
+              label="Claim type"
+              value={form.claimType}
+              onChange={(value) => updateCommon("claimType", value)}
+              options={productLine === "Motor" ? MOTOR_CLAIM_TYPES : MEDICAL_CLAIM_TYPES}
               required
             />
+            <Field
+              label={productLine === "Motor" ? "Accident date" : "Treatment date"}
+              value={form.accidentDate}
+              onChange={(value) => updateCommon("accidentDate", value)}
+              type="date"
+              required
+            />
+
+            {productLine === "Motor" ? (
+              <>
+                <Field label="Vehicle registration" value={form.motor.vehicleRegistration} onChange={(value) => updateMotor("vehicleRegistration", value)} required />
+                <Field label="Driver name" value={form.motor.driverName} onChange={(value) => updateMotor("driverName", value)} required />
+                <Field label="Driving permit number" value={form.motor.drivingPermitNumber} onChange={(value) => updateMotor("drivingPermitNumber", value)} required />
+                <Field label="Accident time" value={form.motor.accidentTime} onChange={(value) => updateMotor("accidentTime", value)} type="time" required />
+                <Field label="Accident location" value={form.motor.accidentLocation} onChange={(value) => updateMotor("accidentLocation", value)} required />
+                <SelectField label="Third party involved" value={form.motor.thirdPartyInvolved} onChange={(value) => updateMotor("thirdPartyInvolved", value)} options={["Unknown", "No", "Yes"]} />
+                <SelectField label="Injury indicator" value={form.motor.injuryIndicator} onChange={(value) => updateMotor("injuryIndicator", value)} options={["Unknown", "No injuries reported", "Injury reported"]} />
+                <SelectField label="Police report status" value={form.motor.policeReportStatus} onChange={(value) => updateMotor("policeReportStatus", value)} options={["Unknown", "Not available", "Requested", "Received"]} />
+                <SelectField
+                  label="Preferred communication channel"
+                  value={form.motor.preferredCommunicationChannel}
+                  onChange={(value) => updateMotor("preferredCommunicationChannel", value)}
+                  options={["Phone", "Email", "WhatsApp", "Broker", "Branch"]}
+                  required
+                />
+              </>
+            ) : (
+              <>
+                <Field label="Patient name" value={form.medical.patientName} onChange={(value) => updateMedical("patientName", value)} required />
+                <SelectField label="Relationship to policyholder" value={form.medical.relationshipToPolicyholder} onChange={(value) => updateMedical("relationshipToPolicyholder", value)} options={["Self", "Spouse", "Child", "Other dependent"]} />
+                <Field label="Treatment provider (hospital/clinic)" value={form.medical.providerName} onChange={(value) => updateMedical("providerName", value)} required />
+                <Field label="Treating doctor" value={form.medical.treatingDoctor} onChange={(value) => updateMedical("treatingDoctor", value)} />
+                <SelectField label="Admission type" value={form.medical.admissionType} onChange={(value) => updateMedical("admissionType", value)} options={["Outpatient", "Inpatient", "Day case"]} />
+                <SelectField
+                  label="Preferred communication channel"
+                  value={form.medical.preferredCommunicationChannel}
+                  onChange={(value) => updateMedical("preferredCommunicationChannel", value)}
+                  options={["Phone", "Email", "WhatsApp", "Broker", "Branch"]}
+                  required
+                />
+                <TextArea label="Diagnosis / treatment summary" value={form.medical.diagnosisSummary} onChange={(value) => updateMedical("diagnosisSummary", value)} className="md:col-span-2" />
+              </>
+            )}
+
             <TextArea
               label="Incident description"
               value={form.incidentDescription}
-              onChange={(value) => update("incidentDescription", value)}
+              onChange={(value) => updateCommon("incidentDescription", value)}
               required
               className="md:col-span-2"
             />
             <TextArea
               label="Uploaded documents or document notes"
-              value={form.uploadedDocuments}
-              onChange={(value) => update("uploadedDocuments", value)}
+              value={productLine === "Motor" ? form.motor.uploadedDocuments : form.medical.uploadedDocuments}
+              onChange={(value) => (productLine === "Motor" ? updateMotor("uploadedDocuments", value) : updateMedical("uploadedDocuments", value))}
               className="md:col-span-2"
             />
           </div>
@@ -247,14 +370,26 @@ export default function FNOL() {
               <FileText className="h-3.5 w-3.5 text-info" />
               <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Required documents</div>
             </div>
-            <ul className="space-y-1.5">
-              {requiredDocuments.map((document) => (
-                <li key={document} className="flex items-center justify-between gap-3 text-[13px]">
-                  <span className="text-slate2">{document}</span>
-                  <Badge tone="warning">Required</Badge>
-                </li>
-              ))}
-            </ul>
+            {checklistLoading ? (
+              <div className="flex items-center gap-2 text-[12.5px] text-stone"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
+            ) : checklistError ? (
+              <div className="text-[12.5px] text-stone">{checklistError}</div>
+            ) : (
+              <ul className="space-y-1.5">
+                {checklist?.requiredDocuments.map((document) => (
+                  <li key={document.documentType} className="flex items-center justify-between gap-3 text-[13px]">
+                    <span className="text-slate2">{document.label}</span>
+                    <Badge tone="warning">Required</Badge>
+                  </li>
+                ))}
+                {checklist?.optionalDocuments.map((document) => (
+                  <li key={document.documentType} className="flex items-center justify-between gap-3 text-[13px]">
+                    <span className="text-slate2">{document.label}</span>
+                    <Badge tone="neutral">Optional</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
             <div className="mt-3 flex items-center gap-2 rounded-xl border border-cloud bg-white/70 px-3 py-2 text-[12.5px] text-slate2">
               <Upload className="h-3.5 w-3.5 shrink-0" />
               Document upload remains on the claim review document flow after claim creation.

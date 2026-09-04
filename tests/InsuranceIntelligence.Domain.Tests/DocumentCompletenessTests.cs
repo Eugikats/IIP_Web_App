@@ -84,6 +84,41 @@ public sealed class DocumentCompletenessTests
     }
 
     [Fact]
+    public void MedicalCase_UsesMedicalChecklist_EvenThoughClaimTypeTextContainsMedical()
+    {
+        // WO-15: ClaimTypeClassifier's motor taxonomy previously ran unconditionally regardless of
+        // product line — a Medical claim's own claim-type text (e.g. "Medical reimbursement")
+        // matched the InjuryFatality keyword "medical" and pulled in PoliceAbstract/PhotoEvidence,
+        // documents that make no sense for a medical claim. Product line now gates that taxonomy.
+        var claimCase = new ClaimCase
+        {
+            CaseId = Guid.NewGuid(),
+            Scope = TenantScope.Create("tenant-demo", "workspace-claims"),
+            CustomerName = "Amina Okello",
+            PolicyNumber = "POL-2001",
+            ProductLine = "Medical",
+            ClaimType = "Medical reimbursement",
+            Channel = "WebPortal",
+            IncidentDate = new DateOnly(2026, 5, 24),
+            IncidentDescription = "Outpatient treatment reimbursement",
+            Status = CaseStatus.New,
+            CompletenessScore = 0m,
+            CreatedByUserId = "user-1",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-doc-medical"
+        };
+
+        var rules = DocumentChecklistRules.ForCase(claimCase);
+
+        Assert.Equal(
+            [DocumentType.ClaimForm, DocumentType.MedicalReport, DocumentType.Invoice],
+            rules.RequiredDocuments);
+        Assert.DoesNotContain(DocumentType.PoliceAbstract, rules.RequiredDocuments);
+        Assert.DoesNotContain(DocumentType.PhotoEvidence, rules.RequiredDocuments);
+    }
+
+    [Fact]
     public void CompletenessScoreUpdatesFromRequiredDocumentsReceived()
     {
         var score = CompletenessScore.Calculate(

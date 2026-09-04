@@ -14,7 +14,8 @@ public interface IClaimGovernedPathService
     ClaimRoutingDecision Route(
         string? claimType,
         MotorFnolDetails? motorFnolDetails = null,
-        ClaimRoutingSignals? signals = null);
+        ClaimRoutingSignals? signals = null,
+        string? productLine = null);
 
     ClaimRoutingDecision Route(ClaimCase claimCase, ClaimRoutingSignals? signals = null);
 
@@ -38,8 +39,9 @@ public sealed class ClaimGovernedPathService : IClaimGovernedPathService
     public ClaimRoutingDecision Route(
         string? claimType,
         MotorFnolDetails? motorFnolDetails = null,
-        ClaimRoutingSignals? signals = null) =>
-        ClaimRoutingPolicy.Evaluate(claimType, motorFnolDetails, signals);
+        ClaimRoutingSignals? signals = null,
+        string? productLine = null) =>
+        ClaimRoutingPolicy.Evaluate(claimType, motorFnolDetails, signals, productLine);
 
     public ClaimRoutingDecision Route(ClaimCase claimCase, ClaimRoutingSignals? signals = null) =>
         ClaimRoutingPolicy.Evaluate(claimCase, signals);

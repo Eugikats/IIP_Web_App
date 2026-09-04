@@ -52,7 +52,8 @@ public static class CaseEndpoints
                 request.IncidentDescription ?? string.Empty,
                 userId,
                 correlationId,
-                request.MotorFnolDetails);
+                request.MotorFnolDetails,
+                request.MedicalFnolDetails);
 
             var claimCase = await service.CreateCaseAsync(command, cancellationToken);
             var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);

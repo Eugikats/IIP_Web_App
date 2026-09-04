@@ -18,6 +18,7 @@ public sealed record ClaimCase
     public required DateOnly IncidentDate { get; init; }
     public required string IncidentDescription { get; init; }
     public MotorFnolDetails? MotorFnolDetails { get; init; }
+    public MedicalFnolDetails? MedicalFnolDetails { get; init; }
     public required CaseStatus Status { get; init; }
     public required decimal CompletenessScore { get; init; }
     public string RiskLevel { get; init; } = "Low";

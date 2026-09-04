@@ -15,4 +15,5 @@ public sealed record CreateCaseCommand(
     string IncidentDescription,
     string CreatedByUserId,
     string CorrelationId,
-    MotorFnolDetails? MotorFnolDetails = null);
+    MotorFnolDetails? MotorFnolDetails = null,
+    MedicalFnolDetails? MedicalFnolDetails = null);

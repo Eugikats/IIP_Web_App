@@ -11,6 +11,7 @@ using InsuranceIntelligence.Domain.AgentWorkflows;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
@@ -41,6 +42,69 @@ public sealed class DocumentEndpointsTests
         Assert.NotNull(extraction);
         Assert.Equal("POL-100", extraction.Fields["policyNumber"]);
         Assert.Null(extraction.FieldCorrections);
+    }
+
+    [Fact]
+    public void PreviewChecklist_ReturnsMotorRules_ForMotorProductLine()
+    {
+        var result = DocumentEndpoints.PreviewChecklist(
+            "Motor",
+            "Accident",
+            null,
+            ScopedContext(),
+            new InfrastructureOptions { AuthMode = "Development" });
+
+        var response = ExecuteSync<ChecklistPreviewResponse>(result);
+
+        Assert.Contains(response.RequiredDocuments, item => item.DocumentType == "ClaimForm");
+        Assert.Contains(response.RequiredDocuments, item => item.DocumentType == "PoliceAbstract");
+        Assert.Contains(response.RequiredDocuments, item => item.DocumentType == "PhotoEvidence");
+    }
+
+    [Fact]
+    public void PreviewChecklist_ReturnsMedicalRules_NotInjuryRules_ForMedicalProductLine()
+    {
+        // WO-15: the exact regression this work order fixes — before, this returned the
+        // motor InjuryFatality checklist (PoliceAbstract/PhotoEvidence) because the claim type
+        // text contained "medical".
+        var result = DocumentEndpoints.PreviewChecklist(
+            "Medical",
+            "Medical reimbursement",
+            null,
+            ScopedContext(),
+            new InfrastructureOptions { AuthMode = "Development" });
+
+        var response = ExecuteSync<ChecklistPreviewResponse>(result);
+
+        Assert.Contains(response.RequiredDocuments, item => item.DocumentType == "ClaimForm");
+        Assert.Contains(response.RequiredDocuments, item => item.DocumentType == "MedicalReport");
+        Assert.Contains(response.RequiredDocuments, item => item.DocumentType == "Invoice");
+        Assert.DoesNotContain(response.RequiredDocuments, item => item.DocumentType == "PoliceAbstract");
+        Assert.DoesNotContain(response.RequiredDocuments, item => item.DocumentType == "PhotoEvidence");
+    }
+
+    [Fact]
+    public async Task PreviewChecklist_RequiresProductLine()
+    {
+        var result = DocumentEndpoints.PreviewChecklist(
+            null,
+            "Accident",
+            null,
+            ScopedContext(),
+            new InfrastructureOptions { AuthMode = "Development" });
+
+        var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, statusCode);
+    }
+
+    private static T ExecuteSync<T>(IResult result)
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.RequestServices = new ServiceCollection().AddLogging().AddProblemDetails().BuildServiceProvider();
+        httpContext.Response.Body = new MemoryStream();
+        result.ExecuteAsync(httpContext).GetAwaiter().GetResult();
+        httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+        return JsonSerializer.Deserialize<T>(httpContext.Response.Body, JsonOptions)!;
     }
 
     [Fact]

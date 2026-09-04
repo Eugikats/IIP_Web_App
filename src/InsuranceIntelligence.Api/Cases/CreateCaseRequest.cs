@@ -12,4 +12,5 @@ public sealed record CreateCaseRequest(
     string? Channel,
     DateOnly? IncidentDate,
     string? IncidentDescription,
-    MotorFnolDetails? MotorFnolDetails = null);
+    MotorFnolDetails? MotorFnolDetails = null,
+    MedicalFnolDetails? MedicalFnolDetails = null);

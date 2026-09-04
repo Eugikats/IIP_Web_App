@@ -70,6 +70,36 @@ public sealed class CaseIntakeServiceTests
     }
 
     [Fact]
+    public async Task CreateCaseAsync_MedicalClaim_PersistsMedicalFnolDetails_AndDoesNotForceEscalate()
+    {
+        // WO-15: proves the second product line end to end through the same intake path Motor
+        // uses — including that it no longer force-escalates on the word "medical" (the bug fixed
+        // alongside this work order).
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
+        var medicalDetails = new MedicalFnolDetails(
+            "Amina Okello", "Self", "2026-05-20", "Nakasero Hospital", "Outpatient",
+            "Dr. Kintu", "Malaria treatment", "Phone", null);
+        var command = ValidCommand() with
+        {
+            ProductLine = "Medical",
+            ClaimType = "Medical reimbursement",
+            MotorFnolDetails = null,
+            MedicalFnolDetails = medicalDetails,
+        };
+
+        var claimCase = await service.CreateCaseAsync(command);
+
+        Assert.Equal("Medical", claimCase.ProductLine);
+        Assert.NotNull(claimCase.MedicalFnolDetails);
+        Assert.Equal("Amina Okello", claimCase.MedicalFnolDetails!.PatientName);
+        Assert.Equal("Nakasero Hospital", claimCase.MedicalFnolDetails.ProviderName);
+        Assert.Null(claimCase.MotorFnolDetails);
+        Assert.Equal(CaseStatus.New, claimCase.Status);
+        Assert.Equal(CasePriority.Normal, claimCase.Priority);
+        Assert.Equal(ClaimRoutingPolicy.ClaimsIntakeTeam, claimCase.AssignedTeam);
+    }
+
+    [Fact]
     public async Task GetCaseAsync_ReturnsNullForWrongWorkspace()
     {
         var caseRepository = new RecordingCaseRepository();

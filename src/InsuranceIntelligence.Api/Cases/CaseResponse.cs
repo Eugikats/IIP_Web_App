@@ -17,6 +17,7 @@ public sealed record CaseResponse(
     DateOnly IncidentDate,
     string IncidentDescription,
     MotorFnolDetails? MotorFnolDetails,
+    MedicalFnolDetails? MedicalFnolDetails,
     string Status,
     decimal CompletenessScore,
     string RiskLevel,

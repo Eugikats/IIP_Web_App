@@ -19,9 +19,10 @@ public static class ClaimRoutingPolicy
     public static ClaimRoutingDecision Evaluate(
         string? claimType,
         MotorFnolDetails? motorFnolDetails = null,
-        ClaimRoutingSignals? signals = null)
+        ClaimRoutingSignals? signals = null,
+        string? productLine = null)
     {
-        var kind = ClaimTypeClassifier.Classify(claimType, motorFnolDetails);
+        var kind = ClaimTypeClassifier.Classify(claimType, motorFnolDetails, productLine);
         var activeSignals = signals ?? new ClaimRoutingSignals();
         var triggers = new List<ClaimEscalationTrigger>();
 
@@ -75,7 +76,7 @@ public static class ClaimRoutingPolicy
     }
 
     public static ClaimRoutingDecision Evaluate(ClaimCase claimCase, ClaimRoutingSignals? signals = null) =>
-        Evaluate(claimCase.ClaimType, claimCase.MotorFnolDetails, signals);
+        Evaluate(claimCase.ClaimType, claimCase.MotorFnolDetails, signals, claimCase.ProductLine);
 
     public static string ResolveEscalationTeam(ClaimRoutingDecision decision)
     {

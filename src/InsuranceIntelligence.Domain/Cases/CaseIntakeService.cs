@@ -12,7 +12,8 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
 
         var now = DateTimeOffset.UtcNow;
         var motorFnol = command.MotorFnolDetails?.Normalize();
-        var routing = ClaimRoutingPolicy.Evaluate(command.ClaimType, motorFnol);
+        var medicalFnol = command.MedicalFnolDetails?.Normalize();
+        var routing = ClaimRoutingPolicy.Evaluate(command.ClaimType, motorFnol, productLine: command.ProductLine);
         var claimCase = new ClaimCase
         {
             CaseId = Guid.NewGuid(),
@@ -27,6 +28,7 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             IncidentDate = command.IncidentDate,
             IncidentDescription = command.IncidentDescription.Trim(),
             MotorFnolDetails = motorFnol,
+            MedicalFnolDetails = medicalFnol,
             Status = routing.InitialStatus,
             CompletenessScore = 0m,
             RiskLevel = routing.InitialRiskLevel,

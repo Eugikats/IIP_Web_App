@@ -572,6 +572,39 @@ public static class DocumentEndpoints
         };
     }
 
+    // WO-15: lets FNOL intake show the real required-documents checklist for the selected product
+    // line before a case exists, instead of a hardcoded client list (A1) — reuses the exact same
+    // DocumentChecklistRules the platform uses everywhere else once a case is created.
+    public static IResult PreviewChecklist(
+        string? productLine,
+        string? claimType,
+        string? injuryIndicator,
+        HttpContext httpContext,
+        InfrastructureOptions options)
+    {
+        if (!TryResolveScope(httpContext, out _, out _, out var validationError))
+        {
+            return Validation("tenantScope", validationError);
+        }
+
+        if (string.IsNullOrWhiteSpace(productLine))
+        {
+            return Validation("productLine", "A product line is required to preview the required documents.");
+        }
+
+        var motorFnolDetails = string.IsNullOrWhiteSpace(injuryIndicator)
+            ? null
+            : new MotorFnolDetails(null, null, null, null, null, null, injuryIndicator, null, null, null);
+        var ruleSet = DocumentChecklistRules.Resolve(productLine, claimType, motorFnolDetails);
+
+        return Results.Ok(new ChecklistPreviewResponse(
+            ruleSet.RequiredDocuments.Select(ToPreview).ToArray(),
+            ruleSet.OptionalDocuments.Select(ToPreview).ToArray()));
+    }
+
+    private static ChecklistDocumentPreview ToPreview(DocumentType documentType) =>
+        new(documentType.ToString(), DocumentMapper.LabelFor(documentType));
+
     private static string? ValidateFile(IFormFile file) =>
         DocumentUploadValidation.Validate(file.Length, file.FileName);
 

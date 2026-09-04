@@ -67,6 +67,12 @@ public sealed record ReclassifyDocumentRequest(
     string? DocumentType,
     string? UpdatedByUserId);
 
+public sealed record ChecklistDocumentPreview(string DocumentType, string Label);
+
+public sealed record ChecklistPreviewResponse(
+    IReadOnlyCollection<ChecklistDocumentPreview> RequiredDocuments,
+    IReadOnlyCollection<ChecklistDocumentPreview> OptionalDocuments);
+
 public sealed record ApproveExtractionRequest(string? ApprovedByUserId);
 
 public sealed record CorrectExtractionFieldRequest(

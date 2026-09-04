@@ -24,6 +24,7 @@ public static class CaseMapper
             claimCase.IncidentDate,
             claimCase.IncidentDescription,
             claimCase.MotorFnolDetails,
+            claimCase.MedicalFnolDetails,
             claimCase.Status.ToString(),
             claimCase.CompletenessScore,
             claimCase.RiskLevel,
