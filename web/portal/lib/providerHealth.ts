@@ -42,9 +42,18 @@ const WARNING_PROVIDER_STATUSES = new Set([
   "unavailable",
   "unconfigured"
 ]);
+// "configured" is a genuinely good state, not a lesser one — it means the provider's required
+// settings are present, whether or not it has an active health ping (database/blobStorage/
+// documentIntelligence/aiSearch report "configured" rather than "healthy" precisely because they
+// have no such ping). The backend's own overall-status aggregate (AdminEndpoints.
+// BuildProviderHealth) agrees: only "missing" and "not_configured" count as degraded there.
+// isProviderHealthy previously excluded "configured", so a fully-configured workspace could
+// render "9 of 9 providers need attention" next to a panel showing every provider as Configured —
+// this was a real, live contradiction, not a hypothetical one.
 const HEALTHY_PROVIDER_STATUSES = new Set([
   "healthy",
-  "operational"
+  "operational",
+  "configured"
 ]);
 
 function normalizeProviderStatus(status: string) {
@@ -62,8 +71,7 @@ export function providerStatusTone(status: string): ProviderStatusTone {
 }
 
 export function isProviderHealthy(status: string) {
-  const normalized = normalizeProviderStatus(status);
-  return normalized === "healthy" || normalized === "operational";
+  return HEALTHY_PROVIDER_STATUSES.has(normalizeProviderStatus(status));
 }
 
 export function providerByName(health: ProviderHealth | null, name: string) {

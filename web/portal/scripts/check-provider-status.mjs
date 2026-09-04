@@ -22,13 +22,19 @@ runInNewContext(outputText, {
 
 const { isProviderHealthy, providerStatusTone, formatProviderStatusLabel } = loadedModule.exports;
 
-for (const status of ["Healthy", "Operational"]) {
+// "Configured" is a genuinely good state, not a lesser one — the backend's own overall-status
+// aggregate (AdminEndpoints.BuildProviderHealth in the API) only treats "missing"/"not_configured"
+// as degraded, and several real providers (database, blobStorage, documentIntelligence, aiSearch)
+// report "configured" rather than "healthy" because they have no active health ping. This script
+// previously asserted the opposite — grouping "Configured" with genuinely bad states like
+// "Degraded"/"Missing"/"Unavailable" — which is exactly the bug that shipped live as "9 of 9
+// providers need attention" next to a panel showing every provider as Configured.
+for (const status of ["Healthy", "Operational", "Configured"]) {
   assert.equal(providerStatusTone(status), "success", status);
   assert.equal(isProviderHealthy(status), true, status);
 }
 
 for (const status of [
-  "Configured",
   "Connected",
   "Degraded",
   "Disabled",
