@@ -299,12 +299,12 @@ public sealed class PersistedDocumentFieldValidationRule : PersistedScopedJson
 }
 public sealed class PersistedClaimantMagicLinkToken : PersistedScopedJson
 {
-    public Guid CaseId { get; set; }
+    public Guid? CaseId { get; set; }
     public string TokenHash { get; set; } = string.Empty;
 }
 public sealed class PersistedClaimantPortalSession : PersistedScopedJson
 {
-    public Guid CaseId { get; set; }
+    public Guid? CaseId { get; set; }
     public string SessionTokenHash { get; set; } = string.Empty;
 }
 public sealed class PersistedPolicy : PersistedScopedJson;

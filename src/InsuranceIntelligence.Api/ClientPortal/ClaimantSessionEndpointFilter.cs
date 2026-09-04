@@ -17,6 +17,7 @@ namespace InsuranceIntelligence.Api.ClientPortal;
 public sealed class ClaimantSessionEndpointFilter : IEndpointFilter
 {
     public const string ContactValueItemKey = "iip.claimant-contact-value";
+    public const string SessionItemKey = "iip.claimant-session";
     public const string SessionHeaderName = "X-Client-Portal-Session";
 
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
@@ -52,6 +53,7 @@ public sealed class ClaimantSessionEndpointFilter : IEndpointFilter
         }
 
         httpContext.Items[ContactValueItemKey] = session.ContactValue;
+        httpContext.Items[SessionItemKey] = session;
         return await next(context);
     }
 }

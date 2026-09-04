@@ -29,6 +29,8 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var result = await ClaimantAuthenticationEndpoints.RequestMagicLink(
             new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"),
             cases,
+            new InMemoryPolicyRepository(),
+            new InMemoryCustomerRepository(),
             tokens,
             communications,
             audit,
@@ -62,6 +64,8 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var matchResult = await ClaimantAuthenticationEndpoints.RequestMagicLink(
             new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"),
             cases,
+            new InMemoryPolicyRepository(),
+            new InMemoryCustomerRepository(),
             new InMemoryClaimantMagicLinkTokenRepository(),
             communications,
             audit,
@@ -71,6 +75,8 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var mismatchResult = await ClaimantAuthenticationEndpoints.RequestMagicLink(
             new ClaimantMagicLinkRequest("POL-2025-10024", "attacker@example.com"),
             cases,
+            new InMemoryPolicyRepository(),
+            new InMemoryCustomerRepository(),
             new InMemoryClaimantMagicLinkTokenRepository(),
             communications,
             audit,
@@ -80,6 +86,8 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var noSuchCaseResult = await ClaimantAuthenticationEndpoints.RequestMagicLink(
             new ClaimantMagicLinkRequest("POL-DOES-NOT-EXIST", "sarah@example.com"),
             cases,
+            new InMemoryPolicyRepository(),
+            new InMemoryCustomerRepository(),
             new InMemoryClaimantMagicLinkTokenRepository(),
             communications,
             audit,
@@ -109,6 +117,8 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var result = await ClaimantAuthenticationEndpoints.RequestMagicLink(
             new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"),
             cases,
+            new InMemoryPolicyRepository(),
+            new InMemoryCustomerRepository(),
             new InMemoryClaimantMagicLinkTokenRepository(),
             new RecordingCommunicationSendingProvider(),
             new InMemoryAuditRepository(),
@@ -135,7 +145,8 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var audit = new InMemoryAuditRepository();
 
         await ClaimantAuthenticationEndpoints.RequestMagicLink(
-            new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"), cases, tokens, communications, audit, Options(), Context(), CancellationToken.None);
+            new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"),
+            cases, new InMemoryPolicyRepository(), new InMemoryCustomerRepository(), tokens, communications, audit, Options(), Context(), CancellationToken.None);
         var rawToken = ExtractToken(communications.EmailsSent.Single().MessageBody);
 
         var redeemResult = await ClaimantAuthenticationEndpoints.RedeemMagicLink(
@@ -189,6 +200,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             TokenId = Guid.NewGuid(),
             Scope = scope,
             CaseId = caseId,
+            PolicyNumber = "POL-2025-10024",
             ContactValue = "sarah@example.com",
             Channel = InsuranceIntelligence.Domain.ClientPortal.ClaimantContactChannel.Email,
             TokenHash = InsuranceIntelligence.Domain.ClientPortal.ClaimantTokenGenerator.Hash(rawToken),
@@ -208,6 +220,140 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var (status, _) = await ExecuteAsync<JsonElement>(result);
 
         Assert.Equal(StatusCodes.Status400BadRequest, status);
+    }
+
+    [Fact]
+    public async Task RequestMagicLink_WhenPolicyholderHasNoClaimYet_IssuesANewClaimTokenAndSendsAStartMessage()
+    {
+        var scope = Scope();
+        var cases = new InMemoryCaseRepository();
+        var policies = new InMemoryPolicyRepository();
+        var customers = new InMemoryCustomerRepository();
+        await customers.UpsertAsync(new InsuranceIntelligence.Domain.Customers.Customer(
+            "cust-1", scope.TenantId, scope.WorkspaceId, "Grace Auma", "grace@example.com", "+256711000000"));
+        await policies.UpsertAsync(new InsuranceIntelligence.Domain.Policies.Policy(
+            "policy-1", scope.TenantId, scope.WorkspaceId, "POL-2026-00099", "Motor", "Comprehensive", "cust-1", null, null, null));
+        var tokens = new InMemoryClaimantMagicLinkTokenRepository();
+        var communications = new RecordingCommunicationSendingProvider();
+        var audit = new InMemoryAuditRepository();
+
+        var result = await ClaimantAuthenticationEndpoints.RequestMagicLink(
+            new ClaimantMagicLinkRequest("POL-2026-00099", "grace@example.com"),
+            cases, policies, customers, tokens, communications, audit, Options(), Context(), CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status200OK, status);
+
+        var sent = Assert.Single(communications.EmailsSent);
+        Assert.Equal("grace@example.com", sent.Recipient);
+        Assert.Contains("start your claim", sent.MessageBody);
+
+        var rawToken = ExtractToken(sent.MessageBody);
+        var storedToken = await tokens.GetByTokenHashAsync(
+            InsuranceIntelligence.Domain.ClientPortal.ClaimantTokenGenerator.Hash(rawToken), scope, CancellationToken.None);
+        Assert.NotNull(storedToken);
+        Assert.Null(storedToken!.CaseId);
+        Assert.Equal("POL-2026-00099", storedToken.PolicyNumber);
+    }
+
+    [Fact]
+    public async Task CreateClaim_WithANewClaimSession_CreatesTheCaseAndUpgradesTheSessionInPlace()
+    {
+        var scope = Scope();
+        var policies = new InMemoryPolicyRepository();
+        var customers = new InMemoryCustomerRepository();
+        await customers.UpsertAsync(new InsuranceIntelligence.Domain.Customers.Customer(
+            "cust-1", scope.TenantId, scope.WorkspaceId, "Grace Auma", "grace@example.com", "+256711000000"));
+        await policies.UpsertAsync(new InsuranceIntelligence.Domain.Policies.Policy(
+            "policy-1", scope.TenantId, scope.WorkspaceId, "POL-2026-00099", "Motor", "Comprehensive", "cust-1", null, null, null));
+        var sessions = new InMemoryClaimantPortalSessionRepository();
+        var audit = new InMemoryAuditRepository();
+        var caseIntakeService = new CaseIntakeService(new InMemoryCaseRepository(), audit);
+
+        var session = new InsuranceIntelligence.Domain.ClientPortal.ClaimantPortalSession
+        {
+            SessionId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = null,
+            PolicyNumber = "POL-2026-00099",
+            ContactValue = "grace@example.com",
+            SessionTokenHash = "irrelevant-for-this-test",
+            ExpiresAt = DateTimeOffset.UtcNow.AddHours(1),
+            CreatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-new-claim"
+        };
+        await sessions.SaveAsync(session, CancellationToken.None);
+        var context = Context();
+        context.Items[ClaimantSessionEndpointFilter.SessionItemKey] = session;
+
+        var result = await ClaimantAuthenticationEndpoints.CreateClaim(
+            new ClaimantCreateClaimRequest("Motor", "Accident", new DateOnly(2026, 8, 1), "Rear-ended at a junction."),
+            policies,
+            customers,
+            caseIntakeService,
+            sessions,
+            audit,
+            context,
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<ClaimantCreateClaimResponse>(result);
+        Assert.Equal(StatusCodes.Status201Created, status);
+        Assert.NotEqual(Guid.Empty, body!.CaseId);
+
+        var upgradedSession = await sessions.GetByTokenHashAsync("irrelevant-for-this-test", scope, CancellationToken.None);
+        Assert.Equal(body.CaseId, upgradedSession!.CaseId);
+    }
+
+    [Fact]
+    public async Task CreateClaim_WithAnExistingClaimSession_IsRejected()
+    {
+        var scope = Scope();
+        var session = new InsuranceIntelligence.Domain.ClientPortal.ClaimantPortalSession
+        {
+            SessionId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = Guid.NewGuid(),
+            PolicyNumber = "POL-2026-00099",
+            ContactValue = "grace@example.com",
+            SessionTokenHash = "hash",
+            ExpiresAt = DateTimeOffset.UtcNow.AddHours(1),
+            CreatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "corr-existing"
+        };
+        var context = Context();
+        context.Items[ClaimantSessionEndpointFilter.SessionItemKey] = session;
+        var audit = new InMemoryAuditRepository();
+
+        var result = await ClaimantAuthenticationEndpoints.CreateClaim(
+            new ClaimantCreateClaimRequest("Motor", "Accident", new DateOnly(2026, 8, 1), "Rear-ended at a junction."),
+            new InMemoryPolicyRepository(),
+            new InMemoryCustomerRepository(),
+            new CaseIntakeService(new InMemoryCaseRepository(), audit),
+            new InMemoryClaimantPortalSessionRepository(),
+            audit,
+            context,
+            CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status409Conflict, status);
+    }
+
+    [Fact]
+    public async Task CreateClaim_WithoutAVerifiedSession_IsRejected()
+    {
+        var audit = new InMemoryAuditRepository();
+        var result = await ClaimantAuthenticationEndpoints.CreateClaim(
+            new ClaimantCreateClaimRequest("Motor", "Accident", new DateOnly(2026, 8, 1), "Rear-ended at a junction."),
+            new InMemoryPolicyRepository(),
+            new InMemoryCustomerRepository(),
+            new CaseIntakeService(new InMemoryCaseRepository(), audit),
+            new InMemoryClaimantPortalSessionRepository(),
+            audit,
+            Context(),
+            CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status401Unauthorized, status);
     }
 
     private static string ExtractToken(string messageBody)

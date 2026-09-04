@@ -16,7 +16,16 @@ public sealed record ClaimantMagicLinkToken
 {
     public required Guid TokenId { get; init; }
     public required TenantScope Scope { get; init; }
-    public required Guid CaseId { get; init; }
+
+    /// <summary>Null means this token authenticates a verified policyholder who has no claim yet
+    /// — redeeming it issues a session that can only be used to submit a new claim on
+    /// <see cref="PolicyNumber"/>, never to read or modify anyone's existing case.</summary>
+    public Guid? CaseId { get; init; }
+
+    /// <summary>The policy this token was verified against. Always set — even for an
+    /// existing-case token — so redemption can re-verify identity independently of the case
+    /// record.</summary>
+    public required string PolicyNumber { get; init; }
 
     /// <summary>The normalized email or phone the token was issued to — checked again at
     /// redemption so a token can never authenticate a different contact channel than it was sent
@@ -35,13 +44,17 @@ public sealed record ClaimantMagicLinkToken
 /// <summary>
 /// The credential a claimant's browser holds after redeeming a magic link. Scoped to exactly one
 /// case — a session for one claim never grants access to another, even for the same contact
-/// value, so a compromised session has the smallest possible blast radius.
+/// value, so a compromised session has the smallest possible blast radius. A session with no
+/// <see cref="CaseId"/> yet can only submit a new claim on <see cref="PolicyNumber"/>; once that
+/// claim exists the session is upgraded in place (see ClaimantAuthenticationEndpoints.CreateClaim)
+/// so the claimant never needs a second link to see what they just submitted.
 /// </summary>
 public sealed record ClaimantPortalSession
 {
     public required Guid SessionId { get; init; }
     public required TenantScope Scope { get; init; }
-    public required Guid CaseId { get; init; }
+    public Guid? CaseId { get; init; }
+    public required string PolicyNumber { get; init; }
     public required string ContactValue { get; init; }
     public required string SessionTokenHash { get; init; }
     public required DateTimeOffset ExpiresAt { get; init; }

@@ -1,7 +1,10 @@
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.ClientPortal;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Customers;
+using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
@@ -23,6 +26,8 @@ public static class ClaimantAuthenticationEndpoints
     public static async Task<IResult> RequestMagicLink(
         ClaimantMagicLinkRequest request,
         ICaseRepository caseRepository,
+        IPolicyRepository policyRepository,
+        ICustomerRepository customerRepository,
         IClaimantMagicLinkTokenRepository tokenRepository,
         ICommunicationSendingProvider communicationProvider,
         IAuditRepository auditRepository,
@@ -56,6 +61,7 @@ public static class ClaimantAuthenticationEndpoints
         }
 
         var correlationId = GetCorrelationId(httpContext);
+        var policyNumber = request.PolicyNumber.Trim();
 
         // Constant-shape response regardless of match: an unknown policy number or a contact value
         // that doesn't match must look identical to the caller as a real match, or this becomes an
@@ -65,15 +71,47 @@ public static class ClaimantAuthenticationEndpoints
         // same tie-break PolicyLookupEndpoints already uses for duplicate detection at intake.
         var allCases = await caseRepository.ListAsync(scope, cancellationToken);
         var claimCase = allCases
-            .Where(c => string.Equals(c.PolicyNumber, request.PolicyNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+            .Where(c => string.Equals(c.PolicyNumber, policyNumber, StringComparison.OrdinalIgnoreCase))
             .Where(c => ClaimantContactMatcher.Matches(request.ContactValue, c.CustomerEmail, c.CustomerPhone))
             .OrderByDescending(c => c.CreatedAt)
             .FirstOrDefault();
-        var matched = claimCase is not null;
 
-        if (matched)
+        // No existing claim on that policy for this contact — check whether they're a verified
+        // policyholder who simply hasn't filed one yet. If so, issue a token scoped to that policy
+        // with no case id: it can only ever be redeemed into a "start a new claim" session (see
+        // CreateClaim), never used to read or touch anyone's existing case.
+        Policy? policy = null;
+        if (claimCase is null)
         {
-            await IssueAndSendAsync(claimCase!, scope, communicationProvider, tokenRepository, options, correlationId, cancellationToken);
+            var candidatePolicy = await policyRepository.GetByPolicyNumberAsync(policyNumber, scope, cancellationToken);
+            if (candidatePolicy is not null)
+            {
+                var customer = string.IsNullOrWhiteSpace(candidatePolicy.CustomerId)
+                    ? null
+                    : await customerRepository.GetAsync(candidatePolicy.CustomerId, scope, cancellationToken);
+                if (customer is not null && ClaimantContactMatcher.Matches(request.ContactValue, customer.Email, customer.Phone))
+                {
+                    policy = candidatePolicy;
+                }
+            }
+        }
+
+        var matched = claimCase is not null || policy is not null;
+
+        if (claimCase is not null)
+        {
+            await IssueAndSendAsync(
+                policyNumber, claimCase.CaseId, request.ContactValue, claimCase.CustomerEmail, claimCase.CustomerPhone,
+                scope, communicationProvider, tokenRepository, options, correlationId, cancellationToken);
+        }
+        else if (policy is not null)
+        {
+            var customer = string.IsNullOrWhiteSpace(policy.CustomerId)
+                ? null
+                : await customerRepository.GetAsync(policy.CustomerId, scope, cancellationToken);
+            await IssueAndSendAsync(
+                policyNumber, caseId: null, request.ContactValue, customer?.Email, customer?.Phone,
+                scope, communicationProvider, tokenRepository, options, correlationId, cancellationToken);
         }
 
         await auditRepository.WriteAsync(
@@ -86,7 +124,7 @@ public static class ClaimantAuthenticationEndpoints
             cancellationToken);
 
         return Results.Ok(new ClaimantMagicLinkRequestResponse(
-            "If that policy number and contact value match a claim on file, we've sent a secure access link."));
+            "If that policy number and contact value match a claim on file — or a policy you hold — we've sent a secure access link."));
     }
 
     public static async Task<IResult> RedeemMagicLink(
@@ -124,6 +162,7 @@ public static class ClaimantAuthenticationEndpoints
             SessionId = Guid.NewGuid(),
             Scope = scope,
             CaseId = token.CaseId,
+            PolicyNumber = token.PolicyNumber,
             ContactValue = token.ContactValue,
             SessionTokenHash = ClaimantTokenGenerator.Hash(rawSessionToken),
             ExpiresAt = now.Add(SessionLifetime),
@@ -136,17 +175,107 @@ public static class ClaimantAuthenticationEndpoints
         return Results.Ok(new ClaimantMagicLinkRedeemResponse(rawSessionToken, token.CaseId, session.ExpiresAt));
     }
 
+    /// <summary>
+    /// Submits a new claim from a verified "no claim yet" session (see RequestMagicLink / policy
+    /// match branch). Requires ClaimantSessionEndpointFilter to have run — this route has no
+    /// {caseId} segment, so the filter's route-match check never fires; the CaseId is null check
+    /// below is what stops a session for an existing claim from being reused to spam-create
+    /// unrelated ones.
+    /// </summary>
+    public static async Task<IResult> CreateClaim(
+        ClaimantCreateClaimRequest request,
+        IPolicyRepository policyRepository,
+        ICustomerRepository customerRepository,
+        CaseIntakeService caseIntakeService,
+        IClaimantPortalSessionRepository sessionRepository,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (httpContext.Items.TryGetValue(ClaimantSessionEndpointFilter.SessionItemKey, out var stashed) is false
+            || stashed is not ClaimantPortalSession session)
+        {
+            return Results.Unauthorized();
+        }
+
+        if (session.CaseId is not null)
+        {
+            return Results.Conflict(new { message = "This access link is for an existing claim. Use the claim status page instead." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ProductLine)
+            || string.IsNullOrWhiteSpace(request.ClaimType)
+            || request.IncidentDate is null
+            || string.IsNullOrWhiteSpace(request.IncidentDescription))
+        {
+            return Validation("request", "Product line, claim type, incident date, and a description are all required.");
+        }
+
+        var policy = await policyRepository.GetByPolicyNumberAsync(session.PolicyNumber, session.Scope, cancellationToken);
+        if (policy is null)
+        {
+            return Results.Conflict(new { message = "The policy on this access link could no longer be verified." });
+        }
+
+        var customer = string.IsNullOrWhiteSpace(policy.CustomerId)
+            ? null
+            : await customerRepository.GetAsync(policy.CustomerId, session.Scope, cancellationToken);
+
+        var correlationId = GetCorrelationId(httpContext);
+        var command = new CreateCaseCommand(
+            session.Scope,
+            customer?.FullName ?? session.ContactValue,
+            customer?.Email ?? (session.ContactValue.Contains('@') ? session.ContactValue : null),
+            customer?.Phone ?? (!session.ContactValue.Contains('@') ? session.ContactValue : null),
+            session.PolicyNumber,
+            request.ProductLine.Trim(),
+            request.ClaimType.Trim(),
+            "WebPortal",
+            request.IncidentDate.Value,
+            request.IncidentDescription.Trim(),
+            session.ContactValue,
+            correlationId,
+            request.MotorFnolDetails);
+
+        ClaimCase claimCase;
+        try
+        {
+            claimCase = await caseIntakeService.CreateCaseAsync(command, cancellationToken);
+        }
+        catch (ArgumentException ex)
+        {
+            return Validation(ex.ParamName ?? "request", ex.Message);
+        }
+
+        // Upgrade the session in place so the claimant lands straight on their new claim's status
+        // page with the same link — no second magic link needed for the thing they just did.
+        var upgraded = session with { CaseId = claimCase.CaseId };
+        await sessionRepository.SaveAsync(upgraded, cancellationToken);
+        await auditRepository.WriteAsync(
+            AuditEvent.ClaimantMagicLinkRequested(session.Scope, claimCase.CaseId, matched: true, "PortalSubmission", correlationId),
+            cancellationToken);
+
+        return Results.Created($"/api/v1/client-portal/claims/{claimCase.CaseId}", new ClaimantCreateClaimResponse(claimCase.CaseId));
+    }
+
     private static async Task IssueAndSendAsync(
-        ClaimCase claimCase,
-        InsuranceIntelligence.Domain.Common.TenantScope scope,
+        string policyNumber,
+        Guid? caseId,
+        string requestedContactValue,
+        string? verifiedEmail,
+        string? verifiedPhone,
+        TenantScope scope,
         ICommunicationSendingProvider communicationProvider,
         IClaimantMagicLinkTokenRepository tokenRepository,
         InfrastructureOptions options,
         string correlationId,
         CancellationToken cancellationToken)
     {
-        var channel = ClaimantContactMatcher.ClassifyChannel(claimCase.CustomerEmail ?? claimCase.CustomerPhone ?? string.Empty);
-        var recipient = channel == ClaimantContactChannel.Email ? claimCase.CustomerEmail : claimCase.CustomerPhone;
+        var channel = ClaimantContactMatcher.ClassifyChannel(requestedContactValue);
+        // Deliver to the value verified on file, not whatever the requester typed — the requester
+        // is unauthenticated at this point, so the recipient must always be the record's own
+        // stored contact, never attacker-supplied input.
+        var recipient = channel == ClaimantContactChannel.Email ? verifiedEmail : verifiedPhone;
         if (string.IsNullOrWhiteSpace(recipient))
         {
             return;
@@ -158,7 +287,8 @@ public static class ClaimantAuthenticationEndpoints
         {
             TokenId = Guid.NewGuid(),
             Scope = scope,
-            CaseId = claimCase.CaseId,
+            CaseId = caseId,
+            PolicyNumber = policyNumber,
             ContactValue = recipient,
             Channel = channel,
             TokenHash = ClaimantTokenGenerator.Hash(rawToken),
@@ -172,11 +302,13 @@ public static class ClaimantAuthenticationEndpoints
             ? "http://localhost:3000"
             : options.ClientPortalBaseUrl!.TrimEnd('/');
         var link = $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}";
-        var messageBody = $"Use this secure link to view your claim. It expires in 15 minutes and can only be used once: {link}";
+        var messageBody = caseId is null
+            ? $"Use this secure link to start your claim on policy {policyNumber}. It expires in 15 minutes and can only be used once: {link}"
+            : $"Use this secure link to view your claim. It expires in 15 minutes and can only be used once: {link}";
 
         var sendRequest = new CommunicationSendRequest(
             scope,
-            claimCase.CaseId,
+            caseId ?? Guid.Empty,
             channel == ClaimantContactChannel.Email ? CommunicationChannel.Email : CommunicationChannel.SMS,
             recipient,
             messageBody,
@@ -211,4 +343,13 @@ public sealed record ClaimantMagicLinkRequestResponse(string Message);
 
 public sealed record ClaimantMagicLinkRedeemRequest(string Token);
 
-public sealed record ClaimantMagicLinkRedeemResponse(string SessionToken, Guid CaseId, DateTimeOffset ExpiresAt);
+public sealed record ClaimantMagicLinkRedeemResponse(string SessionToken, Guid? CaseId, DateTimeOffset ExpiresAt);
+
+public sealed record ClaimantCreateClaimRequest(
+    string ProductLine,
+    string ClaimType,
+    DateOnly? IncidentDate,
+    string IncidentDescription,
+    MotorFnolDetails? MotorFnolDetails = null);
+
+public sealed record ClaimantCreateClaimResponse(Guid CaseId);

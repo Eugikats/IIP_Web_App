@@ -515,7 +515,8 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("TokenId");
 
-                    b.Property<Guid>("CaseId")
+                    b.Property<Guid?>("CaseId")
+                        .IsRequired()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PayloadJson")
@@ -557,7 +558,8 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("SessionId");
 
-                    b.Property<Guid>("CaseId")
+                    b.Property<Guid?>("CaseId")
+                        .IsRequired()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PayloadJson")
