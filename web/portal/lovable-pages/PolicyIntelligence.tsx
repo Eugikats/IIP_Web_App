@@ -41,7 +41,7 @@ export default function PolicyIntelligence() {
             void submit();
           }}
         >
-          <Search className="h-4 w-4 text-stone shrink-0" />
+          <Search className="h-4 w-4 text-muted shrink-0" />
           <input
             value={question}
             onChange={(event) => {
@@ -50,7 +50,7 @@ export default function PolicyIntelligence() {
             }}
             placeholder="Is rear-end collision covered? What is the excess on this policy?"
             disabled={loading}
-            className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-stone text-navy disabled:opacity-60"
+            className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-muted text-ink disabled:opacity-60"
           />
           <button
             type="submit"
@@ -76,17 +76,17 @@ export default function PolicyIntelligence() {
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-3 space-y-4">
             <GlassCard level={3}>
-              <div className="flex items-center gap-2 mb-3 text-[11px] uppercase tracking-[0.14em] text-stone">
+              <div className="flex items-center gap-2 mb-3 text-[11px] uppercase tracking-[0.14em] text-muted">
                 <ShieldCheck className="h-3.5 w-3.5 text-info" /> Prepared for review · AI does not decide
               </div>
-              <div className="text-[12.5px] text-navy font-medium mb-3">&ldquo;{asked}&rdquo;</div>
+              <div className="text-[12.5px] text-ink font-medium mb-3">&ldquo;{asked}&rdquo;</div>
               <CommandCenterBlocks blocks={answer.blocks} />
             </GlassCard>
           </div>
         </div>
       ) : !loading && !error ? (
         <GlassCard>
-          <div className="text-[12.5px] text-stone">
+          <div className="text-[12.5px] text-muted">
             Ask a coverage or policy-wording question above. Answers cite the approved policy sources they come from; if nothing approved and current supports an answer, IIP will say so rather than guess.
           </div>
         </GlassCard>

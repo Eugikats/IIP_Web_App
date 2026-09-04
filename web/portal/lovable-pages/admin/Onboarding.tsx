@@ -43,7 +43,7 @@ export default function Onboarding() {
       />
 
       <div className="flex items-center justify-between mb-4">
-        <div className="text-[12px] text-stone inline-flex items-center gap-1.5">
+        <div className="text-[12px] text-muted inline-flex items-center gap-1.5">
           <Info className="h-3.5 w-3.5" /> Admin consent uses the insurer's own Entra tenant (never “common”). The consent link is Not configured until Microsoft Entra is set up.
         </div>
         <button onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-2 rounded-2xl gradient-primary text-white text-[13px] font-medium px-4 py-2 shadow-l2 hover-lift">
@@ -61,7 +61,7 @@ export default function Onboarding() {
             <Field label="Azure subscription id(s) for Managed App (comma-separated)" value={form.azureSubscriptionIds} onChange={(v) => setForm({ ...form, azureSubscriptionIds: v })} />
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => setOpen(false)} className="text-[12.5px] rounded-xl border border-cloud bg-white px-3 py-1.5 text-navy">Cancel</button>
+            <button onClick={() => setOpen(false)} className="text-[12.5px] rounded-xl border border-line bg-white px-3 py-1.5 text-ink">Cancel</button>
             <button onClick={submit} disabled={creating || !form.customerName.trim() || !form.adminContactEmail.trim()} className="inline-flex items-center gap-2 text-[12.5px] rounded-xl gradient-primary text-white px-4 py-1.5 disabled:opacity-50">
               {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Create pending tenant
             </button>
@@ -70,13 +70,13 @@ export default function Onboarding() {
       )}
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-stone">Loading onboarding records…</div></GlassCard>
+        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading onboarding records…</div></GlassCard>
       ) : records.length === 0 ? (
         <GlassCard>
           <div className="p-10 text-center flex flex-col items-center gap-2">
-            <Building2 className="h-6 w-6 text-stone" />
-            <div className="text-navy font-medium">{error ? "Onboarding unavailable" : "No onboarding sessions yet"}</div>
-            <div className="text-[12.5px] text-stone max-w-md">{error ? error : "Create a pending insurer tenant with “New onboarding” to begin the admin-consent flow."}</div>
+            <Building2 className="h-6 w-6 text-muted" />
+            <div className="text-ink font-medium">{error ? "Onboarding unavailable" : "No onboarding sessions yet"}</div>
+            <div className="text-[12.5px] text-muted max-w-md">{error ? error : "Create a pending insurer tenant with “New onboarding” to begin the admin-consent flow."}</div>
           </div>
         </GlassCard>
       ) : (
@@ -87,25 +87,25 @@ export default function Onboarding() {
                 <div className="h-11 w-11 rounded-2xl bg-gradient-secondary grid place-items-center text-white"><Building2 className="h-5 w-5" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="text-[14px] font-semibold text-navy">{r.customerName}</div>
-                    <div className="break-all text-[11.5px] text-stone">· {r.onboardingId}</div>
+                    <div className="text-[14px] font-semibold text-ink">{r.customerName}</div>
+                    <div className="break-all text-[11.5px] text-muted">· {r.onboardingId}</div>
                     <Badge tone={r.status === "Consented" || r.status === "Active" ? "success" : r.status === "Blocked" ? "error" : "warning"}>{r.status}</Badge>
                   </div>
-                  <div className="break-words text-[12.5px] text-slate2 mt-0.5">{r.adminContactEmail} · {r.expectedEntraTenantOrDomain || "tenant TBD"}</div>
-                  <div className="break-words text-[11.5px] text-stone mt-1">Internal tenant: <span className="font-mono break-all">{r.internalTenantId}</span> · Workspaces: {r.targetWorkspaces.join(", ") || "—"}{r.externalEntraTenantId ? <> · External Entra: <span className="font-mono break-all">{r.externalEntraTenantId}</span></> : null}</div>
-                  <div className="break-words text-[11.5px] text-stone mt-1">Azure subscriptions: <span className="font-mono break-all">{r.azureSubscriptionIds.join(", ") || "not provided"}</span></div>
+                  <div className="break-words text-[12.5px] text-ink-soft mt-0.5">{r.adminContactEmail} · {r.expectedEntraTenantOrDomain || "tenant TBD"}</div>
+                  <div className="break-words text-[11.5px] text-muted mt-1">Internal tenant: <span className="font-mono break-all">{r.internalTenantId}</span> · Workspaces: {r.targetWorkspaces.join(", ") || "—"}{r.externalEntraTenantId ? <> · External Entra: <span className="font-mono break-all">{r.externalEntraTenantId}</span></> : null}</div>
+                  <div className="break-words text-[11.5px] text-muted mt-1">Azure subscriptions: <span className="font-mono break-all">{r.azureSubscriptionIds.join(", ") || "not provided"}</span></div>
                   {consent[r.onboardingId] && (
                     <div className="mt-2 text-[12px]">
                       {consent[r.onboardingId].configured && consent[r.onboardingId].url ? (
                         <a href={consent[r.onboardingId].url!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-info hover:underline"><ExternalLink className="h-3.5 w-3.5" /> Admin consent link</a>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-stone"><ShieldCheck className="h-3.5 w-3.5" /> {consent[r.onboardingId].message}</span>
+                        <span className="inline-flex items-center gap-1 text-muted"><ShieldCheck className="h-3.5 w-3.5" /> {consent[r.onboardingId].message}</span>
                       )}
                     </div>
                   )}
                 </div>
                 {r.status === "Pending" && (
-                  <button onClick={() => loadConsent(r.onboardingId)} className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl border border-cloud bg-white px-3 py-1.5 text-[12.5px] text-navy sm:w-auto"><ShieldCheck className="h-3.5 w-3.5" /> Get consent link</button>
+                  <button onClick={() => loadConsent(r.onboardingId)} className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3 py-1.5 text-[12.5px] text-ink sm:w-auto"><ShieldCheck className="h-3.5 w-3.5" /> Get consent link</button>
                 )}
               </div>
             </GlassCard>
@@ -123,8 +123,8 @@ function split(v: string): string[] {
 function Field({ label, value, onChange, className }: { label: string; value: string; onChange: (v: string) => void; className?: string }) {
   return (
     <label className={"block " + (className ?? "")}>
-      <span className="text-[11.5px] text-stone">{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-xl border border-cloud bg-white/80 px-3 py-2 text-[13px] text-navy outline-none focus:border-info" />
+      <span className="text-[11.5px] text-muted">{label}</span>
+      <input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-white/80 px-3 py-2 text-[13px] text-ink outline-none focus:border-info" />
     </label>
   );
 }

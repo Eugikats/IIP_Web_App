@@ -63,7 +63,7 @@ function Item({ to, label, icon: Icon, onNavigate }: { to: string; label: string
       onClick={onNavigate}
       className={cn(
         "group relative flex min-h-11 items-center gap-3 rounded-2xl px-3 py-2 text-[13px] transition-[background-color,color] focus-ring",
-        active ? "text-navy font-medium" : "text-slate2/80 hover:text-navy hover:bg-white/60"
+        active ? "text-ink font-medium" : "text-ink-soft/80 hover:text-ink hover:bg-white/60"
       )}
       style={active ? {
         background: "linear-gradient(135deg, rgba(37,99,255,0.10), rgba(124,77,255,0.12))",
@@ -71,7 +71,7 @@ function Item({ to, label, icon: Icon, onNavigate }: { to: string; label: string
       } : undefined}
     >
       {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-gradient-primary" />}
-      <Icon className={cn("h-[16px] w-[16px]", active ? "text-info" : "text-stone")} strokeWidth={active ? 2.2 : 1.7} />
+      <Icon className={cn("h-[16px] w-[16px]", active ? "text-info" : "text-muted")} strokeWidth={active ? 2.2 : 1.7} />
       <span className="truncate">{label}</span>
     </NavLink>
   );
@@ -128,40 +128,40 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   }, [commandCenterAvailable, parityMode, roleDef.key, runtimeContext]);
 
   return (
-    <aside aria-label="Primary sidebar" className="h-full flex flex-col border-r border-cloud/70 bg-white/60 backdrop-blur-xl">
+    <aside aria-label="Primary sidebar" className="h-full flex flex-col border-r border-line/70 bg-white/60 backdrop-blur-xl">
       <div className="px-5 pt-5 pb-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="relative h-9 w-9 rounded-xl bg-white grid place-items-center shadow-l2 ring-1 ring-cloud/70 overflow-hidden">
+          <div className="relative h-9 w-9 rounded-xl bg-white grid place-items-center shadow-l2 ring-1 ring-line/70 overflow-hidden">
             <Image src={iipLogo.url} alt="IIP logo" width={28} height={28} className="h-7 w-7 object-contain" priority />
           </div>
           <div className="leading-tight">
-            <div className="text-[13px] font-semibold tracking-tight text-navy">Insurance Intelligence Platform</div>
-            <div className="text-[10.5px] uppercase tracking-[0.14em] text-stone">Platform · IIP</div>
+            <div className="text-[13px] font-semibold tracking-tight text-ink">Insurance Intelligence Platform</div>
+            <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted">Platform · IIP</div>
           </div>
         </div>
-        <button onClick={toggleSidebar} aria-label={modal ? "Close navigation" : "Collapse sidebar navigation"} className="h-11 w-11 shrink-0 grid place-items-center rounded-lg text-stone hover:text-navy hover:bg-white/70 focus-ring">
+        <button onClick={toggleSidebar} aria-label={modal ? "Close navigation" : "Collapse sidebar navigation"} className="h-11 w-11 shrink-0 grid place-items-center rounded-lg text-muted hover:text-ink hover:bg-white/70 focus-ring">
           <PanelLeftClose className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="mx-4 mb-3 rounded-2xl border border-cloud/80 bg-white/70 p-3">
-        <div className="text-[10.5px] uppercase tracking-[0.14em] text-stone">Workspace</div>
+      <div className="mx-4 mb-3 rounded-2xl border border-line/80 bg-white/70 p-3">
+        <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted">Workspace</div>
         <div className="mt-1 flex items-center justify-between">
           <div className="min-w-0">
-            <div className="text-[13px] font-medium text-navy truncate">{workspaceName}</div>
-            <div className="text-[11px] text-stone truncate">{workspaceKind}</div>
+            <div className="text-[13px] font-medium text-ink truncate">{workspaceName}</div>
+            <div className="text-[11px] text-muted truncate">{workspaceKind}</div>
           </div>
-          <span className="text-[10px] font-medium rounded-full px-2 py-0.5 text-info ring-1 ring-[hsl(var(--info)/0.2)] bg-[hsl(var(--info)/0.08)]">
+          <span className="text-[10px] font-medium rounded-full px-2 py-0.5 text-info ring-1 ring-info/20 bg-info/8">
             {environmentLabel}
           </span>
         </div>
       </div>
 
       {searchAvailable && <div className="px-4">
-        <NavLink to="/app/search" onClick={onNavigate} className="flex min-h-11 items-center gap-2 rounded-2xl bg-white/70 border border-cloud px-3 py-2 text-[12.5px] text-stone hover:text-navy hover:bg-white focus-ring">
+        <NavLink to="/app/search" onClick={onNavigate} className="flex min-h-11 items-center gap-2 rounded-2xl bg-white/70 border border-line px-3 py-2 text-[12.5px] text-muted hover:text-ink hover:bg-white focus-ring">
           <Search className="h-3.5 w-3.5" />
           <span className="flex-1">Search IIP</span>
-          <span className="text-[10px] rounded bg-cloud/80 px-1.5 py-0.5 text-slate2">Ctrl K</span>
+          <span className="text-[10px] rounded bg-line/80 px-1.5 py-0.5 text-ink-soft">Ctrl K</span>
         </NavLink>
       </div>}
 
@@ -173,20 +173,20 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
 
       {commandCenterAvailable && (
         <div className="px-4 pt-4">
-          <div className="flex items-center justify-between px-1 text-[10.5px] uppercase tracking-[0.14em] text-stone">
+          <div className="flex items-center justify-between px-1 text-[10.5px] uppercase tracking-[0.14em] text-muted">
             <span>Recent conversations</span>
             <NavLink to="/app/conversations" onClick={onNavigate} className="inline-flex min-h-11 items-center normal-case tracking-normal text-info hover:underline focus-ring">All</NavLink>
           </div>
           {recentConversations.length > 0 ? (
             <div className="mt-2 space-y-1">
               {recentConversations.map((conversation) => (
-                <NavLink key={conversation.conversationId} to={`/app/conversations/${conversation.conversationId}`} onClick={onNavigate} className="flex min-h-11 items-center truncate rounded-lg px-2 py-1.5 text-[11.5px] text-slate2 hover:bg-white/70 hover:text-navy focus-ring">
+                <NavLink key={conversation.conversationId} to={`/app/conversations/${conversation.conversationId}`} onClick={onNavigate} className="flex min-h-11 items-center truncate rounded-lg px-2 py-1.5 text-[11.5px] text-ink-soft hover:bg-white/70 hover:text-ink focus-ring">
                   {conversation.title}
                 </NavLink>
               ))}
             </div>
           ) : (
-            <div className="mt-2 px-2 text-[11px] text-stone">No recent conversations</div>
+            <div className="mt-2 px-2 text-[11px] text-muted">No recent conversations</div>
           )}
         </div>
       )}
@@ -194,13 +194,13 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
       <nav className="flex-1 overflow-y-auto px-3 pt-5 pb-4">
         {groups.map((group, index) => (
           <div key={group.label} className={index === 0 ? "" : "mt-5"}>
-            <div className="px-2 text-[10.5px] uppercase tracking-[0.14em] text-stone mb-2">{group.label}</div>
+            <div className="px-2 text-[10.5px] uppercase tracking-[0.14em] text-muted mb-2">{group.label}</div>
             <div className="space-y-0.5">{group.items.map((item) => <Item key={item.to} {...item} onNavigate={onNavigate} />)}</div>
           </div>
         ))}
         {admin.length > 0 && (
           <>
-            <div className="px-2 mt-6 text-[10.5px] uppercase tracking-[0.14em] text-stone mb-2">Platform administration</div>
+            <div className="px-2 mt-6 text-[10.5px] uppercase tracking-[0.14em] text-muted mb-2">Platform administration</div>
             <div className="space-y-0.5">
               {admin.map(m => <Item key={m.to} {...m} onNavigate={onNavigate} />)}
             </div>
@@ -208,12 +208,12 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
         )}
       </nav>
 
-      <div className="border-t border-cloud/80 p-3 mx-2 mb-2 rounded-2xl">
+      <div className="border-t border-line/80 p-3 mx-2 mb-2 rounded-2xl">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-full bg-gradient-secondary grid place-items-center text-white text-[12px] font-semibold">{userInitials}</div>
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-navy truncate">{displayName}</div>
-            <div className="text-[11px] text-stone truncate">Signed in as {roleLabel}</div>
+            <div className="text-[13px] font-medium text-ink truncate">{displayName}</div>
+            <div className="text-[11px] text-muted truncate">Signed in as {roleLabel}</div>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-success"><Circle className="h-2 w-2 fill-current" /> Auth</div>
         </div>

@@ -158,18 +158,18 @@ export default function CopilotPanel() {
   const ctx = blocksFor(loc.pathname);
 
   return (
-    <aside aria-label="IIP Copilot" className="h-full flex flex-col border-l border-cloud/70 bg-white/50 backdrop-blur-xl">
-      <div className="p-5 border-b border-cloud/70 flex items-center justify-between">
+    <aside aria-label="IIP Copilot" className="h-full flex flex-col border-l border-line/70 bg-white/50 backdrop-blur-xl">
+      <div className="p-5 border-b border-line/70 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 rounded-xl gradient-primary grid place-items-center shadow-l2">
             <Sparkles className="h-4 w-4 text-white" />
           </div>
           <div>
-            <div className="text-[13px] font-semibold text-navy">{ctx.title}</div>
-            <div className="text-[11px] text-stone">Human-reviewed intelligence</div>
+            <div className="text-[13px] font-semibold text-ink">{ctx.title}</div>
+            <div className="text-[11px] text-muted">Human-reviewed intelligence</div>
           </div>
         </div>
-        <button onClick={toggleCopilot} className="text-[11px] text-stone hover:text-navy" aria-label="Collapse Copilot">Hide</button>
+        <button onClick={toggleCopilot} className="text-[11px] text-muted hover:text-ink" aria-label="Collapse Copilot">Hide</button>
       </div>
 
       <div tabIndex={0} aria-label="Copilot conversation" className="flex-1 overflow-y-auto p-4 space-y-3 focus-ring">
@@ -177,24 +177,24 @@ export default function CopilotPanel() {
           <div key={i} className="glass-subtle p-4 hover-lift">
             <div className="flex items-center gap-2 mb-1.5">
               <b.icon className="h-3.5 w-3.5 text-info" />
-              <div className="text-[11px] uppercase tracking-[0.12em] text-stone">{b.label}</div>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-muted">{b.label}</div>
             </div>
-            <div className="text-[13px] leading-[19px] text-slate2">{b.text}</div>
+            <div className="text-[13px] leading-[19px] text-ink-soft">{b.text}</div>
           </div>
         ))}
 
         <div className="glass-subtle p-4">
-          <div className="text-[11px] uppercase tracking-[0.12em] text-stone mb-2">Provider health</div>
+          <div className="text-[11px] uppercase tracking-[0.12em] text-muted mb-2">Provider health</div>
           {loading ? (
-            <div className="text-[12px] text-stone">Checking provider health…</div>
+            <div className="text-[12px] text-muted">Checking provider health…</div>
           ) : providers.length === 0 ? (
-            <div className="text-[12px] text-stone">Not configured — no provider health reported for this workspace.</div>
+            <div className="text-[12px] text-muted">Not configured — no provider health reported for this workspace.</div>
           ) : (
             <div className="space-y-1.5 text-[12px]">
-              {source && dataAsOf ? <div className="pb-1 text-[10.5px] text-stone">{source === "synthetic" ? "Synthetic snapshot" : "Runtime response"} · {new Date(dataAsOf).toLocaleString()}</div> : null}
+              {source && dataAsOf ? <div className="pb-1 text-[10.5px] text-muted">{source === "synthetic" ? "Synthetic snapshot" : "Runtime response"} · {new Date(dataAsOf).toLocaleString()}</div> : null}
               {providers.map((p) => (
                 <div key={p.name} className="flex items-center justify-between gap-2">
-                  <span className="text-slate2 truncate">{p.name}</span>
+                  <span className="text-ink-soft truncate">{p.name}</span>
                   <span className={isProviderHealthy(p.status) ? "text-success shrink-0" : "text-warning shrink-0"}>{p.status}</span>
                 </div>
               ))}
@@ -203,9 +203,9 @@ export default function CopilotPanel() {
         </div>
 
         {ctx.footer && (
-          <div className="rounded-2xl border border-[hsl(var(--violet)/0.24)] bg-[hsl(var(--violet)/0.06)] p-4">
-            <div className="text-[11px] uppercase tracking-[0.12em] text-violet2 mb-1">Human review reminder</div>
-            <p className="text-[13px] leading-[19px] text-slate2">{ctx.footer}</p>
+          <div className="rounded-2xl border border-violet/24 bg-violet/6 p-4">
+            <div className="text-[11px] uppercase tracking-[0.12em] text-violet mb-1">Human review reminder</div>
+            <p className="text-[13px] leading-[19px] text-ink-soft">{ctx.footer}</p>
           </div>
         )}
       </div>

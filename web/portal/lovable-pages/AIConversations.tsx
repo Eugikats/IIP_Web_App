@@ -132,11 +132,11 @@ export default function AIConversations({ conversationId: requestedConversationI
     <div className="min-h-[calc(100dvh-8rem)] flex flex-col -mt-2">
       {!hasContent && (
         <div className="max-w-[780px] mx-auto w-full text-center py-10 animate-fade-in">
-          <div className="inline-flex items-center gap-2 rounded-full bg-[hsl(var(--violet)/0.08)] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet2 mb-4">
+          <div className="inline-flex items-center gap-2 rounded-full bg-violet/8 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet mb-4">
             <Sparkles className="h-3 w-3" /> IIP Operations · Command Center
           </div>
-          <h1 className="text-[32px] leading-[40px] font-semibold text-navy tracking-tight">{givenName ? `Good morning, ${givenName}.` : "What needs attention in this workspace?"}</h1>
-          <p className="text-[14px] text-stone mt-2">Ask about claims, documents, SLA, approvals, or missing information. Answers identify their source, snapshot time, and limits; every regulated decision remains with a human.</p>
+          <h1 className="text-[32px] leading-[40px] font-semibold text-ink tracking-tight">{givenName ? `Good morning, ${givenName}.` : "What needs attention in this workspace?"}</h1>
+          <p className="text-[14px] text-muted mt-2">Ask about claims, documents, SLA, approvals, or missing information. Answers identify their source, snapshot time, and limits; every regulated decision remains with a human.</p>
         </div>
       )}
 
@@ -146,41 +146,41 @@ export default function AIConversations({ conversationId: requestedConversationI
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
               {metrics.map((m) => (
                 <div key={m.label} className="glass-subtle p-4 hover-lift">
-                  <div className="flex items-center gap-1.5 text-[11.5px] text-stone"><m.icon className="h-3.5 w-3.5 text-info" />{m.label}</div>
-                  <div className="mt-1.5 text-[24px] leading-none font-semibold text-navy tracking-tight">{Number(m.value).toLocaleString()}</div>
+                  <div className="flex items-center gap-1.5 text-[11.5px] text-muted"><m.icon className="h-3.5 w-3.5 text-info" />{m.label}</div>
+                  <div className="mt-1.5 text-[24px] leading-none font-semibold text-ink tracking-tight">{Number(m.value).toLocaleString()}</div>
                 </div>
               ))}
             </div>
             <DataProvenance source={summary.source} dataAsOf={summary.dataAsOf} snapshotId={summary.snapshotId} limitations={summary.limitations} className="mb-5 text-left" />
           </>
         ) : (
-          <div className="glass-subtle p-4 mb-5 text-center text-[12px] text-stone">Operational metrics load from the reports service for this workspace.</div>
+          <div className="glass-subtle p-4 mb-5 text-center text-[12px] text-muted">Operational metrics load from the reports service for this workspace.</div>
         )}
         <div className="flex flex-wrap gap-2 justify-center">
           {STARTERS.map((s) => (
-            <button key={s} onClick={() => send(s)} className="min-h-11 text-[12.5px] text-slate2 rounded-full border border-cloud bg-white/80 px-3 py-1.5 hover:bg-white hover-lift transition-colors">{s}</button>
+            <button key={s} onClick={() => send(s)} className="min-h-11 text-[12.5px] text-ink-soft rounded-full border border-line bg-white/80 px-3 py-1.5 hover:bg-white hover-lift transition-colors">{s}</button>
           ))}
         </div>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
-          <Link href="/app/work-items" className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white/75 px-3 py-2 text-[11.5px] font-medium text-navy focus-ring"><ListChecks className="h-3.5 w-3.5 text-info" /> Review & approvals</Link>
-          <Link href="/app/flows" className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white/75 px-3 py-2 text-[11.5px] font-medium text-navy focus-ring"><Bot className="h-3.5 w-3.5 text-violet" /> Automation Studio</Link>
+          <Link href="/app/work-items" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white/75 px-3 py-2 text-[11.5px] font-medium text-ink focus-ring"><ListChecks className="h-3.5 w-3.5 text-info" /> Review & approvals</Link>
+          <Link href="/app/flows" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white/75 px-3 py-2 text-[11.5px] font-medium text-ink focus-ring"><Bot className="h-3.5 w-3.5 text-violet" /> Automation Studio</Link>
         </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-[780px] mx-auto w-full space-y-6 pb-6">
-          {historyLoading && <div className="glass-subtle p-4 text-[12.5px] text-stone" role="status">Loading conversation history…</div>}
-          {historyError && <div className="glass-subtle p-4 text-[12.5px] text-error" role="alert">{historyError}</div>}
+          {historyLoading && <div className="glass-subtle p-4 text-[12.5px] text-muted" role="status">Loading conversation history…</div>}
+          {historyError && <div className="glass-subtle p-4 text-[12.5px] text-danger" role="alert">{historyError}</div>}
           {requestedConversationId && !historyLoading && !historyError && (
-            <div className="rounded-xl border border-info/20 bg-info/5 px-4 py-3 text-[12px] text-slate2">
+            <div className="rounded-xl border border-info/20 bg-info/5 px-4 py-3 text-[12px] text-ink-soft">
               Historical responses are shown for continuity. IIP checks current permissions and live workspace data again when you continue.
             </div>
           )}
           {grounding && !historyLoading && !historyError ? (
-            <div role={grounding.status === "changed" ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-[12px] ${grounding.status === "changed" ? "border-warning/40 bg-warning/5 text-warning-text" : "border-cloud bg-white/70 text-slate2"}`}>
+            <div role={grounding.status === "changed" ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-[12px] ${grounding.status === "changed" ? "border-warning/40 bg-warning/5 text-warning-text" : "border-line bg-white/70 text-ink-soft"}`}>
               <div className="font-medium">{grounding.status === "current" ? "Evidence checked — no recorded changes" : grounding.status === "changed" ? "Evidence changed since this answer" : "Current evidence could not be checked"}</div>
               <div className="mt-1">{grounding.safeChangeSummary}</div>
-              <div className="mt-1 text-[10.5px] text-stone">Saved {new Date(grounding.historicalTimestamp).toLocaleString()} · version {grounding.historicalVersion}{grounding.currentVersion ? ` · current ${grounding.currentVersion}` : ""}</div>
+              <div className="mt-1 text-[10.5px] text-muted">Saved {new Date(grounding.historicalTimestamp).toLocaleString()} · version {grounding.historicalVersion}{grounding.currentVersion ? ` · current ${grounding.currentVersion}` : ""}</div>
             </div>
           ) : null}
           {messages.map((m) =>
@@ -198,12 +198,12 @@ export default function AIConversations({ conversationId: requestedConversationI
                 />
               </AIMessageBubble>
             ) : (
-              <AIMessageBubble key={m.id}><p className="text-[13px] text-error">{m.text}</p>{m.requestId && m.question ? <button type="button" onClick={() => void send(m.question, m.requestId)} className="mt-3 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Retry safely</button> : null}</AIMessageBubble>
+              <AIMessageBubble key={m.id}><p className="text-[13px] text-danger">{m.text}</p>{m.requestId && m.question ? <button type="button" onClick={() => void send(m.question, m.requestId)} className="mt-3 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring">Retry safely</button> : null}</AIMessageBubble>
             )
           )}
           {loading && (
-            <div className="flex items-center gap-2 text-[12.5px] text-violet2 animate-fade-in">
-              <span className="h-2 w-2 rounded-full bg-violet2 animate-pulse" /> IIP is preparing a grounded response…
+            <div className="flex items-center gap-2 text-[12.5px] text-violet animate-fade-in">
+              <span className="h-2 w-2 rounded-full bg-violet animate-pulse" /> IIP is preparing a grounded response…
             </div>
           )}
         </div>
@@ -213,7 +213,7 @@ export default function AIConversations({ conversationId: requestedConversationI
           answers scroll visibly underneath the input and the guardrail footnote. */}
       <div className="sticky bottom-0 z-20 mx-auto w-full max-w-[780px] space-y-2 bg-bg/95 pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
         <Composer value={input} onChange={setInput} onSend={() => send()} disabled={loading || historyLoading || !canContinue || Boolean(historyError) || Boolean(pendingRequest)} />
-        <div className="text-[10.5px] text-stone text-center">IIP Operations assists — it never settles, denies, repudiates, pays, or accuses fraud. Human reviewers approve regulated decisions.</div>
+        <div className="text-[10.5px] text-muted text-center">IIP Operations assists — it never settles, denies, repudiates, pays, or accuses fraud. Human reviewers approve regulated decisions.</div>
       </div>
     </div>
   );

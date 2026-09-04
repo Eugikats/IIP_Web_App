@@ -65,8 +65,8 @@ function ShellInner({ children }: { children: ReactNode }) {
 
   if (!canUseLocalTestDoubles && !parityMode && loading) {
     return (
-      <main className="grid min-h-screen place-items-center bg-white px-6 text-navy">
-        <div className="flex items-center gap-3 text-sm text-slate2">
+      <main className="grid min-h-screen place-items-center bg-white px-6 text-ink">
+        <div className="flex items-center gap-3 text-sm text-ink-soft">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           Verifying your access
         </div>
@@ -76,11 +76,11 @@ function ShellInner({ children }: { children: ReactNode }) {
 
   if (!canUseLocalTestDoubles && !parityMode && !runtimeContext) {
     return (
-      <main className="grid min-h-screen place-items-center bg-white px-6 text-navy">
-        <div className="w-full max-w-md border-y border-cloud py-8 text-center">
+      <main className="grid min-h-screen place-items-center bg-white px-6 text-ink">
+        <div className="w-full max-w-md border-y border-line py-8 text-center">
           <ShieldAlert className="mx-auto h-7 w-7 text-warning" />
           <h1 className="mt-4 text-xl font-semibold">Workspace access unavailable</h1>
-          <p className="mt-2 text-sm leading-6 text-stone">
+          <p className="mt-2 text-sm leading-6 text-muted">
             {error
               ? "Your signed-in account could not be resolved to an IIP workspace."
               : "Sign in with an authorized organization account to continue."}
@@ -89,7 +89,7 @@ function ShellInner({ children }: { children: ReactNode }) {
             <button type="button" onClick={() => void refresh()} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white focus-ring">
               Retry access check
             </button>
-            <Link href="/" className="rounded-md border border-cloud px-4 py-2 text-sm font-medium text-slate2 focus-ring">
+            <Link href="/" className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ink-soft focus-ring">
               Return to sign in
             </Link>
           </div>
@@ -118,7 +118,7 @@ function ShellInner({ children }: { children: ReactNode }) {
             aria-label="Close navigation backdrop"
             onClick={() => setSidebarOpen(false)}
             tabIndex={-1}
-            className="absolute inset-y-0 left-[min(264px,calc(100vw-48px))] right-0 z-30 bg-navy/20 backdrop-blur-[1px] md:hidden"
+            className="absolute inset-y-0 left-[min(264px,calc(100vw-48px))] right-0 z-30 bg-ink/20 backdrop-blur-[1px] md:hidden"
           />
         )}
         <div
@@ -143,7 +143,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               ref={openSidebarRef}
               onClick={toggleSidebar}
               aria-label="Open navigation"
-              className="absolute left-2 top-20 z-10 h-11 w-11 grid place-items-center rounded-xl border border-cloud bg-white/90 backdrop-blur text-slate2 hover-lift focus-ring"
+              className="absolute left-2 top-20 z-10 h-11 w-11 grid place-items-center rounded-xl border border-line bg-white/90 backdrop-blur text-ink-soft hover-lift focus-ring"
             >
               <PanelLeftOpen className="h-4 w-4" />
             </button>
@@ -152,7 +152,7 @@ function ShellInner({ children }: { children: ReactNode }) {
             <button
               onClick={toggleCopilot}
               aria-label="Open Copilot"
-              className="absolute right-2 top-20 z-10 hidden h-11 w-11 place-items-center rounded-xl border border-cloud bg-white/90 backdrop-blur text-slate2 hover-lift focus-ring xl:grid"
+              className="absolute right-2 top-20 z-10 hidden h-11 w-11 place-items-center rounded-xl border border-line bg-white/90 backdrop-blur text-ink-soft hover-lift focus-ring xl:grid"
             >
               <PanelRightOpen className="h-4 w-4" />
             </button>

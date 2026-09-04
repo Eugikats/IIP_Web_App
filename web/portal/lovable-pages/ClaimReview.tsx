@@ -210,12 +210,12 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   }
 
   const crumb = (
-    <div className="flex items-center gap-2 text-[12px] text-stone mb-4">
-      <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-navy">
+    <div className="flex items-center gap-2 text-[12px] text-muted mb-4">
+      <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-ink">
         <ArrowLeft className="h-3.5 w-3.5" /> Claims
       </Link>
       <span>/</span>
-      <span className="text-navy">{claimId}</span>
+      <span className="text-ink">{claimId}</span>
     </div>
   );
 
@@ -224,7 +224,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       <>
         {crumb}
         <GlassCard>
-          <div className="inline-flex items-center gap-2 p-10 text-center text-[13px] text-stone">
+          <div className="inline-flex items-center gap-2 p-10 text-center text-[13px] text-muted">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading claim workspace...
           </div>
         </GlassCard>
@@ -238,15 +238,15 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         {crumb}
         <GlassCard>
           <div className="flex flex-col items-center gap-2 p-10 text-center">
-            <FileText className="h-6 w-6 text-stone" />
-            <div className="font-medium text-navy">Claim unavailable</div>
-            <div className="max-w-md text-[12.5px] text-stone">{error?.message ?? "No claim found for this workspace."}</div>
-            {error?.recovery ? <div className="max-w-md text-[12px] text-stone">{error.recovery}</div> : null}
-            {error ? <div className="text-[11px] text-stone">Attempted {new Date(error.occurredAt).toLocaleString()}</div> : null}
-            {error?.correlationId ? <div className="font-mono text-[11px] text-stone">Reference {error.correlationId}</div> : null}
+            <FileText className="h-6 w-6 text-muted" />
+            <div className="font-medium text-ink">Claim unavailable</div>
+            <div className="max-w-md text-[12.5px] text-muted">{error?.message ?? "No claim found for this workspace."}</div>
+            {error?.recovery ? <div className="max-w-md text-[12px] text-muted">{error.recovery}</div> : null}
+            {error ? <div className="text-[11px] text-muted">Attempted {new Date(error.occurredAt).toLocaleString()}</div> : null}
+            {error?.correlationId ? <div className="font-mono text-[11px] text-muted">Reference {error.correlationId}</div> : null}
             <div className="mt-2 flex flex-wrap justify-center gap-2">
-              {error?.retryable ? <button type="button" onClick={() => void reload()} className="rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Try again</button> : null}
-              <Link to="/app/claims" className="rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring">Return to claims</Link>
+              {error?.retryable ? <button type="button" onClick={() => void reload()} className="rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring">Try again</button> : null}
+              <Link to="/app/claims" className="rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring">Return to claims</Link>
             </div>
           </div>
         </GlassCard>
@@ -291,8 +291,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         <div className="space-y-4 lg:col-span-2">
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
-              <div className="text-[14px] font-semibold text-navy">Human review actions</div>
-              <div className="text-[11.5px] text-stone">Only wired actions execute. Unwired actions report Not configured.</div>
+              <div className="text-[14px] font-semibold text-ink">Human review actions</div>
+              <div className="text-[11.5px] text-muted">Only wired actions execute. Unwired actions report Not configured.</div>
             </div>
             <div className="grid gap-2.5 sm:grid-cols-2">
               {canDraftCustomerUpdates ? (
@@ -300,7 +300,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                   type="button"
                   onClick={handleDraftCustomerUpdate}
                   disabled={drafting}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
                 >
                   {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />}
                   Draft customer update
@@ -310,7 +310,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 type="button"
                 onClick={handleSupervisorReview}
                 disabled={requestingApproval}
-                className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
               >
                 {requestingApproval ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                 Request supervisor review
@@ -321,7 +321,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                   type="button"
                   onClick={handleDraftDocumentFollowUp}
                   disabled={drafting}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
                 >
                   {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Draft document follow-up
@@ -332,7 +332,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                   type="button"
                   onClick={() => setExportDialogOpen(true)}
                   disabled={exporting}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
                 >
                   {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   Export claim pack
@@ -340,7 +340,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               ) : null}
             </div>
             {!canDraftCustomerUpdates || !canExportEvidencePack ? (
-              <div className="mt-2.5 text-[11.5px] text-stone">
+              <div className="mt-2.5 text-[11.5px] text-muted">
                 {!canDraftCustomerUpdates && !canExportEvidencePack
                   ? "Your role does not include drafting customer updates or exporting the claim pack."
                   : !canDraftCustomerUpdates
@@ -353,8 +353,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
               <div>
-                <div className="text-[14px] font-semibold text-navy">Customer updates</div>
-                <div className="mt-1 text-[11.5px] text-stone">
+                <div className="text-[14px] font-semibold text-ink">Customer updates</div>
+                <div className="mt-1 text-[11.5px] text-muted">
                   Backend action states control approval and send availability.
                 </div>
               </div>
@@ -378,8 +378,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
               <div>
-                <div className="text-[14px] font-semibold text-navy">Claimant re-review requests</div>
-                <div className="mt-1 text-[11.5px] text-stone">
+                <div className="text-[14px] font-semibold text-ink">Claimant re-review requests</div>
+                <div className="mt-1 text-[11.5px] text-muted">
                   Acknowledge or resolve contestability requests. This updates workflow state only — it does not settle, deny, or pay the claim.
                 </div>
               </div>
@@ -399,25 +399,25 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
 
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
-              <div className="text-[14px] font-semibold text-navy">Documents received</div>
+              <div className="text-[14px] font-semibold text-ink">Documents received</div>
               {firstExtractionHref ? <Link to={firstExtractionHref} className="text-[12px] text-info hover:underline">
                 Open extraction review
               </Link> : null}
             </div>
             {detail.documents.length === 0 ? (
-              <div className="rounded-xl border border-cloud bg-white/70 p-4 text-[12.5px] text-stone">
+              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
                 No documents uploaded to this claim yet.
               </div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {detail.documents.map((document) => (
-                  <div key={document.documentId} className="flex items-center gap-3 rounded-xl border border-cloud bg-white/80 p-3">
-                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-[hsl(var(--info)/0.08)] text-info">
+                  <div key={document.documentId} className="flex items-center gap-3 rounded-xl border border-line bg-white/80 p-3">
+                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-info/8 text-info">
                       <FileText className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-medium text-navy">{document.documentType}</div>
-                      <div className="text-[11px] text-stone">{document.processingStatus}</div>
+                      <div className="truncate text-[13px] font-medium text-ink">{document.documentType}</div>
+                      <div className="text-[11px] text-muted">{document.processingStatus}</div>
                     </div>
                     {document.classificationConfidence > 0 ? (
                       <ConfidenceBadge value={document.classificationConfidence > 1 ? document.classificationConfidence / 100 : document.classificationConfidence} />
@@ -431,7 +431,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             {canUploadDocuments ? (
               <DocumentUploadWidget caseId={claimId} role={roleDef.key} onUploaded={reload} />
             ) : (
-              <div className="mt-3 text-[11.5px] text-stone">
+              <div className="mt-3 text-[11.5px] text-muted">
                 Your role does not include document upload.
               </div>
             )}
@@ -440,8 +440,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
               <div>
-                <div className="text-[14px] font-semibold text-navy">Claim summary</div>
-                <div className="mt-1 text-[11.5px] text-stone">
+                <div className="text-[14px] font-semibold text-ink">Claim summary</div>
+                <div className="mt-1 text-[11.5px] text-muted">
                   Prepared from this claim&apos;s facts, documents, policy, and approved knowledge. Required before decision use — not a decision itself.
                 </div>
               </div>
@@ -449,7 +449,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 type="button"
                 onClick={() => { void generateSummary(); }}
                 disabled={summarizing}
-                className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-2.5 text-[13px] font-medium text-navy hover-lift disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
               >
                 {summarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />}
                 {claimsSummary ? "Regenerate summary" : "Generate summary"}
@@ -462,11 +462,11 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               </div>
             ) : claimsSummary ? (
               <div className="space-y-3">
-                <MarkdownText className="text-[13px] text-slate2 leading-relaxed" content={claimsSummary.summary} />
+                <MarkdownText className="text-[13px] text-ink-soft leading-relaxed" content={claimsSummary.summary} />
                 {claimsSummary.openQuestions.length > 0 ? (
                   <div>
-                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-stone">Open questions</div>
-                    <ul className="space-y-1 text-[12.5px] text-slate2">
+                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted">Open questions</div>
+                    <ul className="space-y-1 text-[12.5px] text-ink-soft">
                       {claimsSummary.openQuestions.map((question) => (
                         <li key={question}>- {question}</li>
                       ))}
@@ -475,10 +475,10 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 ) : null}
                 {claimsSummary.knowledgeSources.length > 0 ? (
                   <div>
-                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-stone">Sources</div>
+                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted">Sources</div>
                     <div className="space-y-1">
                       {claimsSummary.knowledgeSources.map((source) => (
-                        <div key={source.chunkId} className="flex items-center gap-2 text-[12px] text-stone">
+                        <div key={source.chunkId} className="flex items-center gap-2 text-[12px] text-muted">
                           <FileText className="h-3.5 w-3.5 shrink-0" />
                           {source.label}: {source.documentName}
                         </div>
@@ -488,14 +488,14 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 ) : null}
               </div>
             ) : (
-              <div className="rounded-xl border border-cloud bg-white/70 p-4 text-[12.5px] text-stone">
+              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
                 No summary generated yet.
               </div>
             )}
           </GlassCard>
 
           <GlassCard>
-            <div className="mb-3 text-[14px] font-semibold text-navy">Motor FNOL details</div>
+            <div className="mb-3 text-[14px] font-semibold text-ink">Motor FNOL details</div>
             {detail.motorFnolDetails ? (
               <div className="grid gap-2 sm:grid-cols-2">
                 <DetailTile label="Vehicle registration" value={detail.motorFnolDetails.vehicleRegistration} />
@@ -510,28 +510,28 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 <DetailTile label="Document notes" value={detail.motorFnolDetails.uploadedDocuments} />
               </div>
             ) : (
-              <div className="rounded-xl border border-cloud bg-white/70 p-4 text-[12.5px] text-stone">
+              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
                 This claim has no structured Motor FNOL details yet.
               </div>
             )}
           </GlassCard>
 
           <GlassCard>
-            <div className="mb-4 text-[14px] font-semibold text-navy">Activity timeline</div>
+            <div className="mb-4 text-[14px] font-semibold text-ink">Activity timeline</div>
             {timeline.length === 0 ? (
-              <div className="rounded-xl border border-cloud bg-white/70 p-4 text-[12.5px] text-stone">
+              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
                 No recorded activity yet. Governed actions and AI runs appear here after they are written by the backend.
               </div>
             ) : (
               <div className="relative pl-5">
-                <div className="absolute bottom-1 left-1.5 top-1 w-px bg-cloud" />
+                <div className="absolute bottom-1 left-1.5 top-1 w-px bg-line" />
                 {timeline.map((event) => (
                   <div key={event.eventId} className="relative pb-4">
                     <div className="absolute -left-[9px] top-1 h-2 w-2 rounded-full bg-info ring-2 ring-white" />
-                    <div className="text-[12px] text-stone">
+                    <div className="text-[12px] text-muted">
                       {new Date(event.timestamp).toLocaleString()} · {event.actor}
                     </div>
-                    <div className="mt-0.5 text-[13px] text-navy">{event.summary || event.eventType}</div>
+                    <div className="mt-0.5 text-[13px] text-ink">{event.summary || event.eventType}</div>
                   </div>
                 ))}
               </div>
@@ -541,7 +541,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
 
         <div className="space-y-4">
           <GlassCard>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Policy &amp; customer</div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-muted">Policy &amp; customer</div>
             <div className="mt-2 space-y-2 text-[13px]">
               <Row k="Customer" v={detail.customerName} />
               <Row k="Policy" v={`${detail.policyNumber} · ${detail.productLine}`} />
@@ -559,12 +559,12 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             items={documentItems.length > 0 ? documentItems : [{ label: "Claim documents", present: false }]}
           />
 
-          <div className="rounded-2xl border border-[hsl(var(--warning)/0.28)] bg-[hsl(var(--warning)/0.08)] p-4">
+          <div className="rounded-2xl border border-warning/28 bg-warning/8 p-4">
             <div className="mb-1 flex items-center gap-2">
               <AlertTriangle className="h-3.5 w-3.5 text-warning" />
               <div className="text-[11px] uppercase tracking-[0.14em] text-[hsl(38_92%_36%)]">Advisory boundary</div>
             </div>
-            <p className="text-[13px] leading-snug text-slate2">
+            <p className="text-[13px] leading-snug text-ink-soft">
               Fraud and risk outputs are advisory only. The platform must show backend evidence before any human investigation step proceeds.
             </p>
           </div>
@@ -612,7 +612,7 @@ function UnavailableAction({
     <button
       type="button"
       onClick={() => onClick(label)}
-      className="inline-flex items-center gap-2 rounded-2xl border border-cloud bg-white px-4 py-3 text-[13px] font-medium text-navy hover-lift"
+      className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift"
     >
       <Icon className="h-4 w-4" />
       {label}
@@ -623,17 +623,17 @@ function UnavailableAction({
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span className="text-[11.5px] text-stone">{k}</span>
-      <span className="text-right text-navy">{v}</span>
+      <span className="text-[11.5px] text-muted">{k}</span>
+      <span className="text-right text-ink">{v}</span>
     </div>
   );
 }
 
 function DetailTile({ label, value }: { label: string; value: string | null }) {
   return (
-    <div className="rounded-xl border border-cloud bg-white/70 p-3">
-      <div className="text-[11px] uppercase tracking-[0.12em] text-stone">{label}</div>
-      <div className="mt-1 text-[13px] text-navy">{value || "Not captured"}</div>
+    <div className="rounded-xl border border-line bg-white/70 p-3">
+      <div className="text-[11px] uppercase tracking-[0.12em] text-muted">{label}</div>
+      <div className="mt-1 text-[13px] text-ink">{value || "Not captured"}</div>
     </div>
   );
 }

@@ -42,16 +42,16 @@ export default function Admin() {
     <>
       <SectionHeader eyebrow="Admin" title="Admin Console" sub="Tenant, users, workflows, documents, channels, AI providers, agent governance, and integrations." />
 
-      <div className="text-[11px] uppercase tracking-[0.14em] text-stone mb-2">Governance & operations</div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">Governance & operations</div>
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         {visibleCards.map(c => (
           <Link key={c.title} to={c.to} className="block">
             <GlassCard className="hover-lift h-full">
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-xl bg-[hsl(var(--info)/0.08)] text-info grid place-items-center"><c.icon className="h-4 w-4" /></div>
+                <div className="h-10 w-10 rounded-xl bg-info/8 text-info grid place-items-center"><c.icon className="h-4 w-4" /></div>
                 <div>
-                  <div className="text-[14px] font-semibold text-navy">{c.title}</div>
-                  <div className="text-[12.5px] text-stone">{c.desc}</div>
+                  <div className="text-[14px] font-semibold text-ink">{c.title}</div>
+                  <div className="text-[12.5px] text-muted">{c.desc}</div>
                 </div>
               </div>
               <div className="mt-3 flex items-center justify-between">
@@ -63,19 +63,19 @@ export default function Admin() {
         ))}
       </div>
 
-      <div className="text-[11px] uppercase tracking-[0.14em] text-stone mb-2">Tenant profile</div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">Tenant profile</div>
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
         <GlassCard>
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-xl bg-[hsl(var(--info)/0.08)] text-info grid place-items-center"><Building2 className="h-4 w-4" /></div>
-            <div><div className="text-[14px] font-semibold text-navy">Tenant profile</div><div className="text-[12.5px] text-stone">Resolved from the authenticated tenant and workspace context.</div></div>
+            <div className="h-10 w-10 rounded-xl bg-info/8 text-info grid place-items-center"><Building2 className="h-4 w-4" /></div>
+            <div><div className="text-[14px] font-semibold text-ink">Tenant profile</div><div className="text-[12.5px] text-muted">Resolved from the authenticated tenant and workspace context.</div></div>
           </div>
         </GlassCard>
         {inline.map(c => (
           <GlassCard key={c.title}>
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-xl bg-[hsl(var(--info)/0.08)] text-info grid place-items-center"><c.icon className="h-4 w-4" /></div>
-              <div><div className="text-[14px] font-semibold text-navy">{c.title}</div><div className="text-[12.5px] text-stone">{c.desc}</div></div>
+              <div className="h-10 w-10 rounded-xl bg-info/8 text-info grid place-items-center"><c.icon className="h-4 w-4" /></div>
+              <div><div className="text-[14px] font-semibold text-ink">{c.title}</div><div className="text-[12.5px] text-muted">{c.desc}</div></div>
             </div>
           </GlassCard>
         ))}

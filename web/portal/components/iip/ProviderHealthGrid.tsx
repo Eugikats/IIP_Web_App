@@ -9,12 +9,12 @@ export default function ProviderHealthGrid() {
   const { providers, loading, error, dataAsOf, snapshotId, source, limitations } = useProviderHealth();
 
   if (loading) {
-    return <div className="glass-subtle p-6 text-center text-[12.5px] text-stone">Loading provider health…</div>;
+    return <div className="glass-subtle p-6 text-center text-[12.5px] text-muted">Loading provider health…</div>;
   }
 
   if (providers.length === 0) {
     return (
-      <div className="glass-subtle p-6 text-center text-[12.5px] text-stone">
+      <div className="glass-subtle p-6 text-center text-[12.5px] text-muted">
         {error ? error : "No runtime provider-health response was received. Configure providers or retry the health check."}
       </div>
     );
@@ -29,15 +29,15 @@ export default function ProviderHealthGrid() {
           return (
             <div key={p.name} className="glass-subtle p-4 hover-lift">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-[11px] uppercase tracking-[0.14em] text-stone">{p.category}</div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-muted">{p.category}</div>
                 <Badge tone={tone}>{p.status}</Badge>
               </div>
-              <div className="text-[13.5px] font-medium text-navy leading-snug">{p.name}</div>
-              <div className="mt-2 flex items-center justify-between text-[11.5px] text-stone">
+              <div className="text-[13.5px] font-medium text-ink leading-snug">{p.name}</div>
+              <div className="mt-2 flex items-center justify-between text-[11.5px] text-muted">
                 <span className="inline-flex items-center gap-1"><Activity className="h-3 w-3" />{p.latency}</span>
                 <span>{p.lastCheck}</span>
               </div>
-              <div className="mt-2 text-[11px] leading-4 text-stone">{p.detail}</div>
+              <div className="mt-2 text-[11px] leading-4 text-muted">{p.detail}</div>
             </div>
           );
         })}

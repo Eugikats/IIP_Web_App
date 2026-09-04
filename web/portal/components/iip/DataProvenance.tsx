@@ -14,9 +14,9 @@ function formatTimestamp(value: string) {
 export default function DataProvenance({ source, dataAsOf, snapshotId, limitations, className = "" }: DataProvenanceProps) {
   const sourceLabel = source === "synthetic" ? "Synthetic snapshot" : source === "historical" ? "Historical response" : "Current workspace snapshot";
   return (
-    <div className={`rounded-xl border border-cloud bg-white/65 px-3 py-2 text-[11px] leading-4 text-stone ${className}`} role="note">
+    <div className={`rounded-xl border border-line bg-white/65 px-3 py-2 text-[11px] leading-4 text-muted ${className}`} role="note">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className={source === "synthetic" ? "font-semibold text-warning" : "font-medium text-navy"}>{sourceLabel}</span>
+        <span className={source === "synthetic" ? "font-semibold text-warning" : "font-medium text-ink"}>{sourceLabel}</span>
         <span>Data as of {formatTimestamp(dataAsOf)}</span>
         <span className="font-mono text-[10px]">Snapshot {snapshotId}</span>
       </div>

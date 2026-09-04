@@ -41,20 +41,20 @@ export default function Integrations() {
       <div className="mb-5"><GuardrailBanner text={parityMode ? "Provider states below are a labelled development snapshot for UI verification. They do not establish a live connection or provider availability." : "Provider health is read from the runtime. IIP does not show invented connection success, queue depth, webhook delivery, or support-ticket status."} /></div>
 
       <div className="mb-2 flex items-center justify-between gap-3">
-        <div><div className="text-[11px] uppercase tracking-[0.14em] text-stone">{parityMode ? "Synthetic provider-health states" : "Live provider health"}</div><div className="mt-1 text-[12px] text-slate2">Protected runtimes fail closed when required providers are missing or simulated.</div></div>
+        <div><div className="text-[11px] uppercase tracking-[0.14em] text-muted">{parityMode ? "Synthetic provider-health states" : "Live provider health"}</div><div className="mt-1 text-[12px] text-ink-soft">Protected runtimes fail closed when required providers are missing or simulated.</div></div>
         <Badge tone="info"><Activity className="mr-1 inline h-3 w-3" /> {parityMode ? "Development snapshot" : "Runtime reported"}</Badge>
       </div>
       <ProviderHealthGrid />
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <GlassCard>
-          <div className="flex items-center gap-2"><Plug className="h-4 w-4 text-info" /><div className="text-[14px] font-semibold text-navy">Adapter boundaries</div></div>
-          <div className="mt-1 text-[12px] text-stone">These are supported integration seams, not claims that a customer connection is configured.</div>
+          <div className="flex items-center gap-2"><Plug className="h-4 w-4 text-info" /><div className="text-[14px] font-semibold text-ink">Adapter boundaries</div></div>
+          <div className="mt-1 text-[12px] text-muted">These are supported integration seams, not claims that a customer connection is configured.</div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {PORTS.map((port) => (
-              <div key={port.name} className="rounded-2xl border border-cloud bg-white/65 p-3">
-                <div className="text-[12.5px] font-medium text-navy">{port.name}</div>
-                <div className="mt-1 text-[11.5px] leading-5 text-stone">{port.detail}</div>
+              <div key={port.name} className="rounded-2xl border border-line bg-white/65 p-3">
+                <div className="text-[12.5px] font-medium text-ink">{port.name}</div>
+                <div className="mt-1 text-[11.5px] leading-5 text-muted">{port.detail}</div>
               </div>
             ))}
           </div>
@@ -62,18 +62,18 @@ export default function Integrations() {
 
         <div className="space-y-4">
           <GlassCard>
-            <div className="flex items-center gap-2"><Search className="h-4 w-4 text-violet" /><div className="text-[14px] font-semibold text-navy">Safe diagnostics</div></div>
-            <div className="mt-3 rounded-xl border border-cloud bg-mist/60 px-3 py-2.5 text-[12px] text-stone">Correlation and run search appears here when the operations-telemetry query endpoint is configured.</div>
+            <div className="flex items-center gap-2"><Search className="h-4 w-4 text-violet" /><div className="text-[14px] font-semibold text-ink">Safe diagnostics</div></div>
+            <div className="mt-3 rounded-xl border border-line bg-mist/60 px-3 py-2.5 text-[12px] text-muted">Correlation and run search appears here when the operations-telemetry query endpoint is configured.</div>
             <div className="mt-3 flex flex-wrap gap-2"><Badge tone="warning">Queue depth not configured</Badge><Badge tone="warning">Retry telemetry not configured</Badge></div>
           </GlassCard>
 
           <GlassCard>
-            <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-info" /><div className="text-[14px] font-semibold text-navy">Identity and secrets</div></div>
-            <p className="mt-2 text-[12px] leading-5 text-slate2">Customer Entra consent, managed identities, and provider secrets are configured through controlled deployment and onboarding paths—not browser-side fields.</p>
+            <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-info" /><div className="text-[14px] font-semibold text-ink">Identity and secrets</div></div>
+            <p className="mt-2 text-[12px] leading-5 text-ink-soft">Customer Entra consent, managed identities, and provider secrets are configured through controlled deployment and onboarding paths—not browser-side fields.</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {canOpenOnboarding ? <Link href="/app/admin/onboarding" className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring"><Building2 className="h-3.5 w-3.5" /> Tenant onboarding</Link> : null}
-              {canOpenAgentGovernance ? <Link href="/app/admin/agents" className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring"><ShieldCheck className="h-3.5 w-3.5" /> Agent governance</Link> : null}
-              {!canOpenOnboarding && !canOpenAgentGovernance && canOpenAdmin ? <Link href="/app/admin" className="inline-flex items-center gap-2 rounded-xl border border-cloud bg-white px-3 py-2 text-[11.5px] font-medium text-navy focus-ring"><ShieldCheck className="h-3.5 w-3.5" /> Administration</Link> : null}
+              {canOpenOnboarding ? <Link href="/app/admin/onboarding" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring"><Building2 className="h-3.5 w-3.5" /> Tenant onboarding</Link> : null}
+              {canOpenAgentGovernance ? <Link href="/app/admin/agents" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring"><ShieldCheck className="h-3.5 w-3.5" /> Agent governance</Link> : null}
+              {!canOpenOnboarding && !canOpenAgentGovernance && canOpenAdmin ? <Link href="/app/admin" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring"><ShieldCheck className="h-3.5 w-3.5" /> Administration</Link> : null}
             </div>
           </GlassCard>
         </div>

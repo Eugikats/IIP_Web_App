@@ -31,9 +31,9 @@ export default function RoleSwitcher() {
   }
 
   return (
-    <label className="hidden md:flex items-center gap-2 text-[12px] text-slate2 rounded-xl border border-cloud bg-white/70 px-2.5 py-1.5 hover-lift cursor-pointer">
-      <UserCog className="h-3.5 w-3.5 text-violet2" />
-      <span className="text-stone">Previewing</span>
+    <label className="hidden md:flex items-center gap-2 text-[12px] text-ink-soft rounded-xl border border-line bg-white/70 px-2.5 py-1.5 hover-lift cursor-pointer">
+      <UserCog className="h-3.5 w-3.5 text-violet" />
+      <span className="text-muted">Previewing</span>
       <select
         aria-label="Preview staff experience"
         value={role}
@@ -45,13 +45,13 @@ export default function RoleSwitcher() {
           try { sessionStorage.setItem(announcementKey, nextAnnouncement); } catch { /* best effort */ }
           nav(previewLandingRoute(next));
         }}
-        className="bg-transparent outline-none text-navy font-medium pr-1"
+        className="bg-transparent outline-none text-ink font-medium pr-1"
       >
         {STAFF_ROLES.map((key) => ROLES[key]).map((r) => (
           <option key={r.key} value={r.key}>{r.label}</option>
         ))}
       </select>
-      <span className="text-[10.5px] text-stone">experience · Preview only</span>
+      <span className="text-[10.5px] text-muted">experience · Preview only</span>
       <span className="sr-only" aria-live="polite">{announcement}</span>
     </label>
   );

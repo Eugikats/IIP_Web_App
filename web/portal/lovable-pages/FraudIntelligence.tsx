@@ -87,21 +87,21 @@ export default function FraudIntelligence() {
           { l: "Advisory only", v: counts.advisory, t: "info" as const },
         ].map(k => (
           <div key={k.l} className="glass-subtle p-4">
-            <div className="text-[11.5px] text-stone">{k.l}</div>
-            <div className="mt-1 text-[26px] leading-none font-semibold text-navy">{k.v}</div>
+            <div className="text-[11.5px] text-muted">{k.l}</div>
+            <div className="mt-1 text-[26px] leading-none font-semibold text-ink">{k.v}</div>
             <Badge tone={k.t} className="mt-2">Advisory</Badge>
           </div>
         ))}
       </div>
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-stone">Computing advisory signals…</div></GlassCard>
+        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Computing advisory signals…</div></GlassCard>
       ) : signals.length === 0 ? (
         <GlassCard>
           <div className="p-10 text-center flex flex-col items-center gap-2">
-            <ShieldAlert className="h-6 w-6 text-stone" />
-            <div className="text-navy font-medium">No advisory signals</div>
-            <div className="text-[12.5px] text-stone max-w-md">
+            <ShieldAlert className="h-6 w-6 text-muted" />
+            <div className="text-ink font-medium">No advisory signals</div>
+            <div className="text-[12.5px] text-muted max-w-md">
               {error
                 ? error
                 : "The rule engine found no advisory patterns in the current tenant-scoped claims. No signal is shown without a matching rule result and evidence reference."}
@@ -115,27 +115,27 @@ export default function FraudIntelligence() {
             return (
             <GlassCard key={s.id} className="hover-lift">
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-xl bg-[hsl(var(--violet)/0.10)] text-violet2 grid place-items-center"><AlertTriangle className="h-4 w-4" /></div>
+                <div className="h-10 w-10 rounded-xl bg-violet/10 text-violet grid place-items-center"><AlertTriangle className="h-4 w-4" /></div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <div className="text-[14px] font-semibold text-navy">{s.title}</div>
+                    <div className="text-[14px] font-semibold text-ink">{s.title}</div>
                     <Badge tone={badgeTone[s.severity]}>{badgeLabel[s.severity]}</Badge>
                     <Badge tone={STATUS_TONE[status] ?? "neutral"}>{STATUS_LABEL[status] ?? status}</Badge>
                   </div>
-                  <div className="text-[12.5px] text-slate2 mt-1">{s.detail}</div>
-                  <div className="mt-2 text-[11.5px] text-stone">Linked: {s.linked}</div>
+                  <div className="text-[12.5px] text-ink-soft mt-1">{s.detail}</div>
+                  <div className="mt-2 text-[11.5px] text-muted">Linked: {s.linked}</div>
                   {s.evidence.length > 0 ? (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {s.evidence.slice(0, 3).map((e, idx) => (
-                        <span key={idx} className="rounded-full bg-white/70 border border-cloud px-2 py-0.5 text-[10.5px] text-stone">{e}</span>
+                        <span key={idx} className="rounded-full bg-white/70 border border-line px-2 py-0.5 text-[10.5px] text-muted">{e}</span>
                       ))}
                     </div>
                   ) : null}
                   {s.disposition.assignedToUserId && (
-                    <div className="mt-1.5 text-[11px] text-stone">Assigned to: {s.disposition.assignedToUserId}</div>
+                    <div className="mt-1.5 text-[11px] text-muted">Assigned to: {s.disposition.assignedToUserId}</div>
                   )}
                   {s.disposition.outcome && (
-                    <div className="mt-1 text-[11px] text-stone">Outcome: {OUTCOME_LABEL[s.disposition.outcome] ?? s.disposition.outcome}{s.disposition.outcomeNotes ? ` — ${s.disposition.outcomeNotes}` : ""}</div>
+                    <div className="mt-1 text-[11px] text-muted">Outcome: {OUTCOME_LABEL[s.disposition.outcome] ?? s.disposition.outcome}{s.disposition.outcomeNotes ? ` — ${s.disposition.outcomeNotes}` : ""}</div>
                   )}
                 </div>
               </div>
@@ -143,7 +143,7 @@ export default function FraudIntelligence() {
                 <div className="inline-flex items-center gap-1.5 text-[11.5px] text-[hsl(38_92%_36%)]"><AlertTriangle className="h-3 w-3" /> Advisory only · human review required</div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {allows(s, "triageFraudSignal") && (
-                    <button onClick={() => setPending({ kind: "triage", signal: s })} className="rounded-lg border border-cloud bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-navy hover:bg-cloud/40">Triage</button>
+                    <button onClick={() => setPending({ kind: "triage", signal: s })} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-ink hover:bg-line/40">Triage</button>
                   )}
                   {allows(s, "assignFraudSignal") && (
                     <div className="flex items-center gap-1">
@@ -151,12 +151,12 @@ export default function FraudIntelligence() {
                         value={assigneeDraft[s.id] ?? ""}
                         onChange={(e) => setAssigneeDraft((cur) => ({ ...cur, [s.id]: e.target.value }))}
                         placeholder="Assignee user ID"
-                        className="rounded-lg border border-cloud bg-white px-2 py-1.5 text-[11px] text-navy w-32"
+                        className="rounded-lg border border-line bg-white px-2 py-1.5 text-[11px] text-ink w-32"
                       />
                       <button
                         disabled={!assigneeDraft[s.id]?.trim()}
                         onClick={() => setPending({ kind: "assign", signal: s, assignedToUserId: assigneeDraft[s.id].trim() })}
-                        className="rounded-lg border border-cloud bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-navy hover:bg-cloud/40 disabled:opacity-50"
+                        className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-ink hover:bg-line/40 disabled:opacity-50"
                       >
                         Assign
                       </button>
@@ -167,7 +167,7 @@ export default function FraudIntelligence() {
                       <select
                         value={outcomeDraft[s.id]?.outcome ?? ""}
                         onChange={(e) => setOutcomeDraft((cur) => ({ ...cur, [s.id]: { outcome: e.target.value, notes: cur[s.id]?.notes ?? "" } }))}
-                        className="rounded-lg border border-cloud bg-white px-2 py-1.5 text-[11px] text-navy"
+                        className="rounded-lg border border-line bg-white px-2 py-1.5 text-[11px] text-ink"
                       >
                         <option value="">Outcome…</option>
                         {SELECTABLE_OUTCOMES.map((o) => <option key={o} value={o}>{OUTCOME_LABEL[o]}</option>)}
@@ -175,7 +175,7 @@ export default function FraudIntelligence() {
                       <button
                         disabled={!outcomeDraft[s.id]?.outcome}
                         onClick={() => setPending({ kind: "outcome", signal: s, outcome: outcomeDraft[s.id].outcome, notes: outcomeDraft[s.id]?.notes ?? "" })}
-                        className="rounded-lg border border-cloud bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-navy hover:bg-cloud/40 disabled:opacity-50"
+                        className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-ink hover:bg-line/40 disabled:opacity-50"
                       >
                         Record outcome
                       </button>
@@ -185,7 +185,7 @@ export default function FraudIntelligence() {
                     <button onClick={() => setPending({ kind: "close", signal: s })} className="rounded-lg gradient-primary px-2.5 py-1.5 text-[11.5px] font-semibold text-white">Close signal</button>
                   )}
                   {!allows(s, "triageFraudSignal") && !allows(s, "assignFraudSignal") && !allows(s, "recordFraudDispositionOutcome") && !allows(s, "closeFraudSignal") && (
-                    <span className="text-[11px] text-stone" title={blockedReason(s, "triageFraudSignal") ?? blockedReason(s, "closeFraudSignal") ?? undefined}>
+                    <span className="text-[11px] text-muted" title={blockedReason(s, "triageFraudSignal") ?? blockedReason(s, "closeFraudSignal") ?? undefined}>
                       {status === "Closed" ? "Closed" : "No action available"}
                     </span>
                   )}

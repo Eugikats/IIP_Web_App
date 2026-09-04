@@ -14,13 +14,13 @@ const nodeIcons = {
 } as const;
 
 const statusStyles: Record<string, string> = {
-  Pending: "border-cloud bg-white/90",
+  Pending: "border-line bg-white/90",
   Queued: "border-info/40 bg-info/5 shadow-glow-cyan",
   Running: "border-violet/40 bg-violet/5 shadow-glow-cyan",
   WaitingForHuman: "border-warning/50 bg-warning/10 shadow-glow-warning",
   Completed: "border-success/40 bg-success/10 shadow-glow-success",
-  Failed: "border-error/45 bg-error/10 shadow-glow-danger",
-  Skipped: "border-cloud bg-cloud/60 opacity-70",
+  Failed: "border-danger/45 bg-danger/10 shadow-glow-danger",
+  Skipped: "border-line bg-line/60 opacity-70",
 };
 
 function WorkflowNodeCard({ node, run, selected, onSelect }: {
@@ -46,13 +46,13 @@ function WorkflowNodeCard({ node, run, selected, onSelect }: {
           <Icon className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12.5px] font-semibold text-navy">{node.name}</span>
-          <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.1em] text-stone">
+          <span className="block truncate text-[12.5px] font-semibold text-ink">{node.name}</span>
+          <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.1em] text-muted">
             {node.type.replace(/([A-Z])/g, " $1").trim()}{run ? ` · ${run.status}` : ""}
           </span>
         </span>
       </div>
-      <span className="mt-2 line-clamp-2 block text-[11.5px] leading-4 text-slate2">{run?.outputSummary ?? node.description}</span>
+      <span className="mt-2 line-clamp-2 block text-[11.5px] leading-4 text-ink-soft">{run?.outputSummary ?? node.description}</span>
     </button>
   );
 }
@@ -70,7 +70,7 @@ export default function WorkflowCanvas({ definition, nodeRuns = [], selectedNode
   const nodeByKey = new Map(definition.nodes.map((node) => [node.key, node]));
 
   return (
-    <div className={cn("relative overflow-auto rounded-2xl border border-cloud/80 bg-white/45", className)}>
+    <div className={cn("relative overflow-auto rounded-2xl border border-line/80 bg-white/45", className)}>
       <div
         className="relative min-h-[430px]"
         style={{
@@ -108,7 +108,7 @@ export default function WorkflowCanvas({ definition, nodeRuns = [], selectedNode
                   strokeWidth="2"
                   markerEnd="url(#flow-arrow)"
                 />
-                {edge.label ? <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 8} textAnchor="middle" className="fill-stone text-[10px]">{edge.label}</text> : null}
+                {edge.label ? <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 8} textAnchor="middle" className="fill-muted text-[10px]">{edge.label}</text> : null}
               </g>
             );
           })}

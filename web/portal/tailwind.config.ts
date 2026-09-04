@@ -20,16 +20,6 @@ const config: Config = {
         border: hslToken("--border"),
         input: hslToken("--input"),
         ring: hslToken("--ring"),
-        navy: hslToken("--navy"),
-        slate2: hslToken("--slate"),
-        graphite: hslToken("--graphite"),
-        stone: hslToken("--stone"),
-        pearl: hslToken("--pearl"),
-        cloud: hslToken("--cloud"),
-        "cool-gray": hslToken("--cool-gray"),
-        "light-gray": hslToken("--light-gray"),
-        error: hslToken("--error"),
-        violet2: hslToken("--violet"),
         shell: token("--color-shell"),
         surface: {
           DEFAULT: token("--color-surface"),
@@ -38,18 +28,25 @@ const config: Config = {
           raised: token("--color-surface-raised"),
         },
         backdrop: token("--color-backdrop"),
+        // `line`.DEFAULT, `ink`, `muted`.DEFAULT and `danger`/`violet`/`ai`.DEFAULT below are
+        // repointed to the literal design-system CSS custom properties (hslToken) rather than
+        // the semantic RGB ones (token), so that consolidating the ~1,150 literal-token class
+        // usages (navy/slate2/stone/cloud/violet2/error) onto these semantic names is a
+        // zero-visual-change rename for the majority case. See WO-20 ledger entry for the
+        // full rationale and the resulting color shift on the minority of usages that were
+        // already semantic before this migration.
         line: {
-          DEFAULT: token("--color-line"),
+          DEFAULT: hslToken("--cloud"),
           soft: token("--color-line-soft"),
           strong: token("--color-line-strong"),
           focus: token("--color-line-focus"),
         },
         ink: {
-          DEFAULT: token("--color-ink"),
-          soft: token("--color-ink-soft"),
+          DEFAULT: hslToken("--navy"),
+          soft: hslToken("--slate"),
         },
         muted: {
-          DEFAULT: token("--color-muted"),
+          DEFAULT: hslToken("--stone"),
           soft: token("--color-muted-soft"),
         },
         disabled: token("--color-disabled"),
@@ -61,7 +58,7 @@ const config: Config = {
           border: token("--color-primary-border"),
         },
         ai: {
-          DEFAULT: token("--color-ai"),
+          DEFAULT: hslToken("--violet"),
           hover: token("--color-ai-hover"),
           soft: token("--color-ai-soft"),
           border: token("--color-ai-border"),
@@ -69,25 +66,25 @@ const config: Config = {
           "surface-strong": token("--color-surface-ai-strong"),
         },
         success: {
-          DEFAULT: token("--color-success"),
+          DEFAULT: hslToken("--success"),
           soft: token("--color-success-soft"),
           border: token("--color-success-border"),
           text: token("--color-success-text"),
         },
         warning: {
-          DEFAULT: token("--color-warning"),
+          DEFAULT: hslToken("--warning"),
           soft: token("--color-warning-soft"),
           border: token("--color-warning-border"),
           text: token("--color-warning-text"),
         },
         danger: {
-          DEFAULT: token("--color-danger"),
+          DEFAULT: hslToken("--error"),
           soft: token("--color-danger-soft"),
           border: token("--color-danger-border"),
           text: token("--color-danger-text"),
         },
         info: {
-          DEFAULT: token("--color-info"),
+          DEFAULT: hslToken("--info"),
           soft: token("--color-info-soft"),
           border: token("--color-info-border"),
           text: token("--color-info-text"),
@@ -105,7 +102,7 @@ const config: Config = {
           600: token("--color-primary-hover"),
         },
         violet: {
-          DEFAULT: token("--color-ai"),
+          DEFAULT: hslToken("--violet"),
           soft: token("--color-ai-soft"),
           border: token("--color-ai-border"),
         },

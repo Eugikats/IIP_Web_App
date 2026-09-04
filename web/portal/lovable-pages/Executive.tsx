@@ -46,9 +46,9 @@ export default function Executive() {
       />
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-stone">Loading operations summary…</div></GlassCard>
+        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading operations summary…</div></GlassCard>
       ) : !summary ? (
-        <GlassCard><div className="p-10 text-center text-stone"><div className="text-navy font-medium">Operations summary unavailable</div><div className="text-[12.5px] mt-1">{error ?? "No operations data for this workspace yet."}</div></div></GlassCard>
+        <GlassCard><div className="p-10 text-center text-muted"><div className="text-ink font-medium">Operations summary unavailable</div><div className="text-[12.5px] mt-1">{error ?? "No operations data for this workspace yet."}</div></div></GlassCard>
       ) : (
         <>
           <DataProvenance source={summary.source} dataAsOf={summary.dataAsOf} snapshotId={summary.snapshotId} limitations={summary.limitations} className="mb-4" />
@@ -60,8 +60,8 @@ export default function Executive() {
               { l: "SLA at risk", v: summary.slaAtRisk },
             ].map(k => (
               <div key={k.l} className="glass-subtle p-4">
-                <div className="text-[11.5px] text-stone">{k.l}</div>
-                <div className="mt-1 text-[26px] leading-none font-semibold text-navy">{k.v}</div>
+                <div className="text-[11.5px] text-muted">{k.l}</div>
+                <div className="mt-1 text-[26px] leading-none font-semibold text-ink">{k.v}</div>
               </div>
             ))}
           </div>
@@ -70,20 +70,20 @@ export default function Executive() {
             <div className="flex items-center gap-2 mb-2">
               <div className="h-8 w-8 rounded-xl gradient-primary grid place-items-center shadow-l2"><Sparkles className="h-4 w-4 text-white" /></div>
               <div>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-stone">AI executive brief · prepared for human review</div>
-                <div className="text-[14px] font-semibold text-navy">Motor Operations</div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-muted">AI executive brief · prepared for human review</div>
+                <div className="text-[14px] font-semibold text-ink">Motor Operations</div>
               </div>
             </div>
             {parityMode ? (
-              <p className="text-[13.5px] leading-[21px] text-slate2">This synthetic snapshot contains {summary.openClaims} open claims, including {summary.slaAtRisk} at risk and {summary.slaBreached} breached. It demonstrates the management layout only; it does not establish trends, provider performance, financial outcomes, or regulatory status.</p>
+              <p className="text-[13.5px] leading-[21px] text-ink-soft">This synthetic snapshot contains {summary.openClaims} open claims, including {summary.slaAtRisk} at risk and {summary.slaBreached} breached. It demonstrates the management layout only; it does not establish trends, provider performance, financial outcomes, or regulatory status.</p>
             ) : (
-              <p className="text-[12.5px] leading-[20px] text-slate2">A source-cited executive narrative appears here once the summary-generation service is configured. Until then, this view shows only the timestamped operational aggregates returned by the reports service.</p>
+              <p className="text-[12.5px] leading-[20px] text-ink-soft">A source-cited executive narrative appears here once the summary-generation service is configured. Until then, this view shows only the timestamped operational aggregates returned by the reports service.</p>
             )}
           </div>
 
           <GlassCard>
-            <div className="text-[14px] font-semibold text-navy mb-1">Claims by status</div>
-            <div className="text-[11.5px] text-stone mb-4">{summary.source === "synthetic" ? "Illustrative distribution in the labelled development snapshot" : "Distribution at the snapshot time shown above"}</div>
+            <div className="text-[14px] font-semibold text-ink mb-1">Claims by status</div>
+            <div className="text-[11.5px] text-muted mb-4">{summary.source === "synthetic" ? "Illustrative distribution in the labelled development snapshot" : "Distribution at the snapshot time shown above"}</div>
             <div className="h-64">
               <ResponsiveContainer>
                 <BarChart data={summary.claimsByStatus}>

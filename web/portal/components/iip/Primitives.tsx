@@ -10,9 +10,9 @@ export function SectionHeader({ eyebrow, title, sub, action }: { eyebrow?: strin
   return (
     <div className="mb-6 flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
       <div className="min-w-0">
-        {eyebrow && <div className="text-[11px] uppercase tracking-[0.14em] text-stone mb-2">{eyebrow}</div>}
-        <h1 className="break-words text-[26px] leading-[34px] font-semibold text-navy sm:text-[28px] sm:leading-[36px]">{title}</h1>
-        {sub && <p className="mt-1.5 max-w-2xl break-words text-sm text-stone">{sub}</p>}
+        {eyebrow && <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">{eyebrow}</div>}
+        <h1 className="break-words text-[26px] leading-[34px] font-semibold text-ink sm:text-[28px] sm:leading-[36px]">{title}</h1>
+        {sub && <p className="mt-1.5 max-w-2xl break-words text-sm text-muted">{sub}</p>}
       </div>
       {action ? <div className="w-full min-w-0 sm:w-auto">{action}</div> : null}
     </div>
@@ -21,12 +21,12 @@ export function SectionHeader({ eyebrow, title, sub, action }: { eyebrow?: strin
 
 type Tone = "info" | "success" | "warning" | "error" | "violet" | "neutral";
 const toneStyles: Record<Tone, string> = {
-  info:    "bg-[hsl(var(--info)/0.08)]    text-[hsl(var(--info))]    ring-[hsl(var(--info)/0.2)]",
-  success: "bg-[hsl(var(--success)/0.10)] text-[hsl(var(--success))] ring-[hsl(var(--success)/0.22)]",
-  warning: "bg-[hsl(var(--warning)/0.12)] text-[hsl(38_92%_38%)]     ring-[hsl(var(--warning)/0.28)]",
-  error:   "bg-[hsl(var(--error)/0.10)]   text-[hsl(var(--error))]   ring-[hsl(var(--error)/0.24)]",
-  violet:  "bg-[hsl(var(--violet)/0.10)]  text-[hsl(259_60%_50%)]    ring-[hsl(var(--violet)/0.24)]",
-  neutral: "bg-cloud/60 text-slate2 ring-cloud",
+  info:    "bg-info/8    text-info    ring-info/20",
+  success: "bg-success/10 text-success ring-success/22",
+  warning: "bg-warning/12 text-[hsl(38_92%_38%)]     ring-warning/28",
+  error:   "bg-danger/10   text-danger   ring-danger/24",
+  violet:  "bg-violet/10  text-[hsl(259_60%_50%)]    ring-violet/24",
+  neutral: "bg-line/60 text-ink-soft ring-line",
 };
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
@@ -38,7 +38,7 @@ export function Badge({ tone = "neutral", children, className }: { tone?: Tone; 
 }
 
 export function Dot({ tone = "info" }: { tone?: Tone }) {
-  const c = { info: "bg-info", success: "bg-success", warning: "bg-warning", error: "bg-error", violet: "bg-violet2", neutral: "bg-stone" }[tone];
+  const c = { info: "bg-info", success: "bg-success", warning: "bg-warning", error: "bg-danger", violet: "bg-violet", neutral: "bg-muted" }[tone];
   return <span className={cn("inline-block h-1.5 w-1.5 rounded-full", c)} />;
 }
 

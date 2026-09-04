@@ -20,7 +20,7 @@ export default function AIContextWindow({ title = "AI context", steps, sources =
   const active = steps.find((s) => s.state === "active");
 
   return (
-    <div className={cn("rounded-2xl border border-[hsl(var(--violet)/0.20)] bg-[hsl(var(--violet)/0.04)] backdrop-blur-sm", className)}>
+    <div className={cn("rounded-2xl border border-violet/20 bg-violet/4 backdrop-blur-sm", className)}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 px-4 py-2.5 text-left"
@@ -29,13 +29,13 @@ export default function AIContextWindow({ title = "AI context", steps, sources =
           <Sparkles className="h-3 w-3 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[10.5px] uppercase tracking-[0.14em] text-violet2">{title}</div>
-          <div className="text-[12.5px] text-navy truncate">
+          <div className="text-[10.5px] uppercase tracking-[0.14em] text-violet">{title}</div>
+          <div className="text-[12.5px] text-ink truncate">
             {active ? active.label : steps[steps.length - 1]?.label ?? "Idle"}
           </div>
         </div>
-        {active && <span className="h-2 w-2 rounded-full bg-violet2 animate-pulse" />}
-        {open ? <ChevronDown className="h-4 w-4 text-stone" /> : <ChevronRight className="h-4 w-4 text-stone" />}
+        {active && <span className="h-2 w-2 rounded-full bg-violet animate-pulse" />}
+        {open ? <ChevronDown className="h-4 w-4 text-muted" /> : <ChevronRight className="h-4 w-4 text-muted" />}
       </button>
 
       {open && (
@@ -47,11 +47,11 @@ export default function AIContextWindow({ title = "AI context", steps, sources =
                   className={cn(
                     "h-1.5 w-1.5 rounded-full shrink-0",
                     s.state === "done" && "bg-success",
-                    s.state === "active" && "bg-violet2 animate-pulse",
-                    s.state === "pending" && "bg-cloud",
+                    s.state === "active" && "bg-violet animate-pulse",
+                    s.state === "pending" && "bg-line",
                   )}
                 />
-                <span className={cn(s.state === "done" ? "text-slate2" : s.state === "active" ? "text-navy font-medium" : "text-stone")}>
+                <span className={cn(s.state === "done" ? "text-ink-soft" : s.state === "active" ? "text-ink font-medium" : "text-muted")}>
                   {s.label}
                 </span>
               </li>
@@ -60,10 +60,10 @@ export default function AIContextWindow({ title = "AI context", steps, sources =
 
           {sources.length > 0 && (
             <div>
-              <div className="text-[10.5px] uppercase tracking-[0.14em] text-stone mb-1.5">Using sources</div>
+              <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted mb-1.5">Using sources</div>
               <div className="flex flex-wrap gap-1.5">
                 {sources.map((s) => (
-                  <span key={s} className="inline-flex items-center gap-1 text-[11.5px] rounded-full bg-white/80 border border-cloud px-2 py-0.5 text-slate2">
+                  <span key={s} className="inline-flex items-center gap-1 text-[11.5px] rounded-full bg-white/80 border border-line px-2 py-0.5 text-ink-soft">
                     <ShieldCheck className="h-3 w-3 text-info" /> {s}
                   </span>
                 ))}
@@ -72,12 +72,12 @@ export default function AIContextWindow({ title = "AI context", steps, sources =
           )}
 
           {workflow && (
-            <div className="text-[11.5px] text-stone">
-              Preparing workflow step: <span className="text-violet2 font-medium">{workflow}</span>
+            <div className="text-[11.5px] text-muted">
+              Preparing workflow step: <span className="text-violet font-medium">{workflow}</span>
             </div>
           )}
 
-          <div className="text-[10.5px] text-stone/80 pt-1 border-t border-cloud/70">
+          <div className="text-[10.5px] text-muted/80 pt-1 border-t border-line/70">
             Safe operational transparency only · no prompts, secrets, or private reasoning are shown.
           </div>
         </div>

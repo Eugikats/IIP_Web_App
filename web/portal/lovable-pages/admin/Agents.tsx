@@ -45,14 +45,14 @@ export default function Agents() {
       <div className="mb-4"><GuardrailBanner text="Disabled agents cannot be invoked. The kill switch is a governed, audited control — it constrains agents; it never grants them autonomy over a decision." /></div>
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-stone">Loading agent registry…</div></GlassCard>
+        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading agent registry…</div></GlassCard>
       ) : agents.length === 0 ? (
-        <GlassCard><div className="p-10 text-center text-stone"><div className="text-navy font-medium">No agents registered</div><div className="text-[12.5px] mt-1">{error ?? "The agent catalog is empty for this workspace."}</div></div></GlassCard>
+        <GlassCard><div className="p-10 text-center text-muted"><div className="text-ink font-medium">No agents registered</div><div className="text-[12.5px] mt-1">{error ?? "The agent catalog is empty for this workspace."}</div></div></GlassCard>
       ) : (
         <GlassCard className="!p-0 overflow-hidden">
           <table className="w-full text-[13px]">
             <thead className="bg-white/60">
-              <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-stone">
+              <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-muted">
                 <th className="p-3">Agent</th><th className="p-3">Purpose</th><th className="p-3">Implementation</th><th className="p-3">Risk</th><th className="p-3">Human approval</th><th className="p-3">State</th><th className="p-3 text-right">Kill switch</th>
               </tr>
             </thead>
@@ -60,12 +60,12 @@ export default function Agents() {
               {agents.map((a) => {
                 const implemented = a.implementationKind !== "NotImplemented";
                 return (
-                <tr key={a.key} className="border-t border-cloud/70 hover:bg-white/50">
-                  <td className="p-3"><div className="text-navy font-medium">{a.name}</div><div className="text-[10.5px] text-stone">{a.key}</div></td>
-                  <td className="p-3 text-slate2 max-w-[320px]">
+                <tr key={a.key} className="border-t border-line/70 hover:bg-white/50">
+                  <td className="p-3"><div className="text-ink font-medium">{a.name}</div><div className="text-[10.5px] text-muted">{a.key}</div></td>
+                  <td className="p-3 text-ink-soft max-w-[320px]">
                     {a.purpose}
                     {a.tools.length > 0 ? (
-                      <div className="mt-1 text-[10.5px] text-stone">Tools: {a.tools.join(", ")}</div>
+                      <div className="mt-1 text-[10.5px] text-muted">Tools: {a.tools.join(", ")}</div>
                     ) : null}
                   </td>
                   <td className="p-3"><ImplementationPill kind={a.implementationKind} /></td>
@@ -76,12 +76,12 @@ export default function Agents() {
                     {implemented ? (
                       <button
                         onClick={() => toggle(a.key, a.name, a.enabled)}
-                        className={`text-[11.5px] rounded-lg px-3 py-1.5 border ${a.enabled ? "border-error/30 bg-white text-error" : "border-success/30 bg-white text-success"}`}
+                        className={`text-[11.5px] rounded-lg px-3 py-1.5 border ${a.enabled ? "border-danger/30 bg-white text-danger" : "border-success/30 bg-white text-success"}`}
                       >
                         {a.enabled ? "Disable" : "Enable"}
                       </button>
                     ) : (
-                      <span className="text-[11.5px] text-stone" title="No code path in the backend invokes this agent — there is nothing for a switch to control.">
+                      <span className="text-[11.5px] text-muted" title="No code path in the backend invokes this agent — there is nothing for a switch to control.">
                         Not implemented
                       </span>
                     )}
@@ -93,7 +93,7 @@ export default function Agents() {
           </table>
         </GlassCard>
       )}
-      <div className="mt-3 text-[11.5px] text-stone">Kill-switch changes require a reason and are written to the audit trail. A disabled agent fails closed at invocation.</div>
+      <div className="mt-3 text-[11.5px] text-muted">Kill-switch changes require a reason and are written to the audit trail. A disabled agent fails closed at invocation.</div>
     </>
   );
 }

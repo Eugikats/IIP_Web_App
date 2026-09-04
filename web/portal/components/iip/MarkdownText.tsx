@@ -51,7 +51,7 @@ function Inline({ text }: { text: string }) {
       {tokenizeInline(text).map((token, i) => {
         if (token.bold) {
           return (
-            <strong key={i} className="font-semibold text-navy">
+            <strong key={i} className="font-semibold text-ink">
               {token.text}
             </strong>
           );
@@ -129,7 +129,7 @@ export function MarkdownText({ content, className }: { content: string; classNam
       flushParagraph();
       flushList();
       nodes.push(
-        <div key={`h-${nodes.length}`} className="font-semibold text-navy mt-3 mb-1 first:mt-0">
+        <div key={`h-${nodes.length}`} className="font-semibold text-ink mt-3 mb-1 first:mt-0">
           <Inline text={heading[2]} />
         </div>,
       );

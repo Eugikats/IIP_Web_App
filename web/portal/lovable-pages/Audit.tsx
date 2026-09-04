@@ -48,8 +48,8 @@ export default function Audit() {
         <GlassCard className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-stone">Retention</div>
-              <div className="mt-2 text-xl font-semibold text-navy">
+              <div className="text-[11px] uppercase tracking-[0.12em] text-muted">Retention</div>
+              <div className="mt-2 text-xl font-semibold text-ink">
                 {postureLoading ? "..." : posture ? `${posture.retention.auditRetentionDays} days` : "Not configured"}
               </div>
             </div>
@@ -65,12 +65,12 @@ export default function Audit() {
         <GlassCard className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-stone">Consent</div>
-              <div className="mt-2 text-xl font-semibold text-navy">
+              <div className="text-[11px] uppercase tracking-[0.12em] text-muted">Consent</div>
+              <div className="mt-2 text-xl font-semibold text-ink">
                 {postureLoading ? "..." : posture ? `${posture.consent.consentedRecords}/${posture.consent.onboardingRecords}` : "Not configured"}
               </div>
             </div>
-            <Database className="h-4 w-4 text-violet2" />
+            <Database className="h-4 w-4 text-violet" />
           </div>
           <div className="mt-3">
             <Badge tone={posture?.consent.blockedConsent ? "error" : posture?.consent.pendingConsent ? "warning" : "success"}>
@@ -82,8 +82,8 @@ export default function Audit() {
         <GlassCard className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-stone">SLA posture</div>
-              <div className="mt-2 text-xl font-semibold text-navy">
+              <div className="text-[11px] uppercase tracking-[0.12em] text-muted">SLA posture</div>
+              <div className="mt-2 text-xl font-semibold text-ink">
                 {postureLoading ? "..." : posture ? `${posture.sla.atRisk + posture.sla.breached} attention` : "Not configured"}
               </div>
             </div>
@@ -98,45 +98,45 @@ export default function Audit() {
         <GlassCard className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[11px] uppercase tracking-[0.12em] text-stone">Data residency</div>
-              <div className="mt-2 text-xl font-semibold text-navy">
+              <div className="text-[11px] uppercase tracking-[0.12em] text-muted">Data residency</div>
+              <div className="mt-2 text-xl font-semibold text-ink">
                 {postureLoading ? "..." : posture?.dataResidency.azureRegion ?? "Not configured"}
               </div>
             </div>
-            <MapPin className={"h-4 w-4 " + (posture?.dataResidency.status === "Compliant" ? "text-success" : posture?.dataResidency.status === "Mismatch" ? "text-error" : "text-stone")} />
+            <MapPin className={"h-4 w-4 " + (posture?.dataResidency.status === "Compliant" ? "text-success" : posture?.dataResidency.status === "Mismatch" ? "text-danger" : "text-muted")} />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Badge tone={posture?.dataResidency.status === "Compliant" ? "success" : posture?.dataResidency.status === "Mismatch" ? "error" : "neutral"}>
               {posture?.dataResidency.status ?? "Not configured"}
             </Badge>
-            <span className="text-[12px] text-stone">
+            <span className="text-[12px] text-muted">
               {posture ? posture.dataResidency.residencyCountry + " / " + posture.dataResidency.azureGeography : postureError ?? "Residency policy not configured"}
             </span>
           </div>
-          <div className="mt-2 break-words text-[11.5px] text-stone">
+          <div className="mt-2 break-words text-[11.5px] text-muted">
             AI processing: {posture ? posture.dataResidency.azureOpenAiDeploymentType + " (" + posture.dataResidency.mode + ")" : "Not configured"}
           </div>
-          <div className="mt-2 break-words text-[11.5px] text-stone">
+          <div className="mt-2 break-words text-[11.5px] text-muted">
             Approval: {posture?.dataResidency.approvalReference ?? "Not configured"}
           </div>
         </GlassCard>
       </div>
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-stone">Loading audit trail…</div></GlassCard>
+        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading audit trail…</div></GlassCard>
       ) : rows.length === 0 ? (
         <GlassCard>
           <div className="p-10 text-center flex flex-col items-center gap-2">
-            <FileClock className="h-6 w-6 text-stone" />
-            <div className="text-navy font-medium">No audit events</div>
-            <div className="text-[12.5px] text-stone max-w-md">
+            <FileClock className="h-6 w-6 text-muted" />
+            <div className="text-ink font-medium">No audit events</div>
+            <div className="text-[12.5px] text-muted max-w-md">
               {error ? error : "Audit events appear here as AI actions, human decisions, and integration events are recorded for this workspace."}
             </div>
           </div>
         </GlassCard>
       ) : (
         <GlassCard className="p-0 overflow-hidden">
-          <div className="grid grid-cols-12 text-[11px] uppercase tracking-[0.12em] text-stone px-4 py-3 border-b border-cloud">
+          <div className="grid grid-cols-12 text-[11px] uppercase tracking-[0.12em] text-muted px-4 py-3 border-b border-line">
             <div className="col-span-2">Time</div>
             <div className="col-span-2">Actor</div>
             <div className="col-span-3">Action</div>
@@ -149,19 +149,19 @@ export default function Audit() {
             const knownType = TYPE_TONE[e.targetType] !== undefined;
             const tone = TYPE_TONE[e.targetType] ?? "neutral";
             return (
-              <div key={e.id} className="grid grid-cols-12 items-center px-4 py-3 border-b border-cloud/60 hover:bg-white/70 text-[13px]">
-                <div className="col-span-2 text-stone">{e.time}</div>
-                <div className="col-span-2 inline-flex items-center gap-2 text-navy"><Icon className="h-3.5 w-3.5 text-info" />{e.actor}</div>
-                <div className="col-span-3 text-slate2 truncate">{e.action}</div>
-                <div className="col-span-3 text-slate2 truncate">{e.target}</div>
+              <div key={e.id} className="grid grid-cols-12 items-center px-4 py-3 border-b border-line/60 hover:bg-white/70 text-[13px]">
+                <div className="col-span-2 text-muted">{e.time}</div>
+                <div className="col-span-2 inline-flex items-center gap-2 text-ink"><Icon className="h-3.5 w-3.5 text-info" />{e.actor}</div>
+                <div className="col-span-3 text-ink-soft truncate">{e.action}</div>
+                <div className="col-span-3 text-ink-soft truncate">{e.target}</div>
                 <div className="col-span-1"><Badge tone={tone}>{knownType ? e.targetType : "Other"}</Badge></div>
-                <div className="col-span-1 text-[11.5px] text-stone truncate">{e.correlation}</div>
+                <div className="col-span-1 text-[11.5px] text-muted truncate">{e.correlation}</div>
               </div>
             );
           })}
         </GlassCard>
       )}
-      <div className="mt-3 text-[11.5px] text-stone">Model / prompt metadata is recorded per AI run. Logs never contain secrets or unnecessary PII.</div>
+      <div className="mt-3 text-[11.5px] text-muted">Model / prompt metadata is recorded per AI run. Logs never contain secrets or unnecessary PII.</div>
     </>
   );
 }

@@ -36,8 +36,8 @@ export default function Login() {
   const signInAvailable = canUseEntraBrowserAuth || canUseLocalTestDoubles;
 
   return (
-    <main className="grid min-h-screen bg-white text-navy lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
-      <section className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-navy px-12 py-10 text-white lg:flex xl:px-16 xl:py-12">
+    <main className="grid min-h-screen bg-white text-ink lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
+      <section className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-ink px-12 py-10 text-white lg:flex xl:px-16 xl:py-12">
         <div className="absolute inset-y-0 right-0 w-px bg-white/15" />
         <div className="relative flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-md bg-white">
@@ -73,29 +73,29 @@ export default function Login() {
       <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
         <div className="w-full max-w-md">
           <div className="mb-12 flex items-center gap-3 lg:hidden">
-            <span className="grid h-10 w-10 place-items-center rounded-md border border-cloud bg-white">
+            <span className="grid h-10 w-10 place-items-center rounded-md border border-line bg-white">
               <img src={iipLogo.url} alt="IIP" className="h-8 w-8 object-contain" />
             </span>
             <div>
               <div className="text-sm font-semibold">IIP Operations</div>
-              <div className="text-xs text-stone">Insurance Intelligence Platform</div>
+              <div className="text-xs text-muted">Insurance Intelligence Platform</div>
             </div>
           </div>
 
-          <div className="mb-8 flex items-center justify-between gap-4 border-b border-cloud pb-4">
-            <span className="text-sm font-medium text-slate2">Staff access</span>
-            <span className="text-xs text-stone">{environmentLabel()}</span>
+          <div className="mb-8 flex items-center justify-between gap-4 border-b border-line pb-4">
+            <span className="text-sm font-medium text-ink-soft">Staff access</span>
+            <span className="text-xs text-muted">{environmentLabel()}</span>
           </div>
-          <h2 className="text-3xl font-semibold leading-tight text-navy">Sign in to IIP Operations</h2>
-          <p className="mt-3 text-sm leading-6 text-stone">
+          <h2 className="text-3xl font-semibold leading-tight text-ink">Sign in to IIP Operations</h2>
+          <p className="mt-3 text-sm leading-6 text-muted">
             Use your organization account. Your tenant, workspace, role, and permissions are resolved securely after sign-in.
           </p>
 
-          <div className="mt-8 flex items-start gap-3 border-y border-cloud py-4">
+          <div className="mt-8 flex items-start gap-3 border-y border-line py-4">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
             <div>
-              <div className="text-sm font-medium text-navy">Microsoft Entra ID</div>
-              <div className="mt-1 text-xs leading-5 text-stone">Single sign-on and your organization&apos;s access policies apply.</div>
+              <div className="text-sm font-medium text-ink">Microsoft Entra ID</div>
+              <div className="mt-1 text-xs leading-5 text-muted">Single sign-on and your organization&apos;s access policies apply.</div>
             </div>
           </div>
 
@@ -111,18 +111,18 @@ export default function Login() {
           </button>
 
           {!signInAvailable && (
-            <div className="mt-5 flex items-start gap-2 rounded-md border border-[hsl(var(--warning)/0.3)] bg-[hsl(var(--warning)/0.08)] px-3 py-3 text-xs leading-5 text-slate2">
+            <div className="mt-5 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-3 text-xs leading-5 text-ink-soft">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <span>Microsoft sign-in is not configured for this environment.</span>
             </div>
           )}
           {error && (
-            <div role="alert" className="mt-5 flex items-start gap-2 rounded-md border border-[hsl(var(--error)/0.25)] bg-[hsl(var(--error)/0.07)] px-3 py-3 text-xs leading-5 text-[hsl(var(--error))]">
+            <div role="alert" className="mt-5 flex items-start gap-2 rounded-md border border-danger/25 bg-danger/7 px-3 py-3 text-xs leading-5 text-danger">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
-          <p className="mt-8 text-xs leading-5 text-stone">
+          <p className="mt-8 text-xs leading-5 text-muted">
             Access is limited to authorized staff. Consequential insurance decisions remain with accountable human reviewers.
           </p>
         </div>

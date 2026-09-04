@@ -35,8 +35,8 @@ export default function MotorLifecycle({ current, status }: { current?: number; 
   return (
     <div className="glass-subtle p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Motor claim lifecycle</div>
-        <div className="text-[11px] text-stone">Stage {stage + 1} of {STAGES.length}</div>
+        <div className="text-[11px] uppercase tracking-[0.14em] text-muted">Motor claim lifecycle</div>
+        <div className="text-[11px] text-muted">Stage {stage + 1} of {STAGES.length}</div>
       </div>
       <div tabIndex={0} aria-label="Motor claim lifecycle stages" className="flex items-center gap-1 overflow-x-auto pb-1 focus-ring">
         {STAGES.map((s, i) => (
@@ -44,14 +44,14 @@ export default function MotorLifecycle({ current, status }: { current?: number; 
             <div
               className={cn(
                 "text-[10.5px] rounded-full px-2.5 py-1 whitespace-nowrap ring-1 ring-inset",
-                i < stage && "bg-[hsl(var(--success)/0.10)] text-[hsl(var(--success))] ring-[hsl(var(--success)/0.22)]",
-                i === stage && "bg-[hsl(var(--info)/0.10)] text-info ring-[hsl(var(--info)/0.22)] font-medium",
-                i > stage && "bg-white text-stone ring-cloud"
+                i < stage && "bg-success/10 text-success ring-success/22",
+                i === stage && "bg-info/10 text-info ring-info/22 font-medium",
+                i > stage && "bg-white text-muted ring-line"
               )}
             >
               {i + 1}. {s}
             </div>
-            {i < STAGES.length - 1 && <div className="w-3 h-px bg-cloud shrink-0" />}
+            {i < STAGES.length - 1 && <div className="w-3 h-px bg-line shrink-0" />}
           </div>
         ))}
       </div>

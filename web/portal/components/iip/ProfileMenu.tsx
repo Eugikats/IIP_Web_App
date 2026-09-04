@@ -56,11 +56,11 @@ export default function ProfileMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`${displayName}. Signed in as ${roleLabel}. Open profile menu`}
-        className="flex items-center gap-2.5 rounded-xl sm:ml-2 sm:pl-3 sm:border-l sm:border-cloud hover:bg-white/70 focus-ring px-1 py-1"
+        className="flex items-center gap-2.5 rounded-xl sm:ml-2 sm:pl-3 sm:border-l sm:border-line hover:bg-white/70 focus-ring px-1 py-1"
       >
         <div className="text-right leading-tight hidden sm:block">
-          <div className="text-[12.5px] font-medium text-navy">{displayName}</div>
-          <div className="text-[10.5px] text-stone">Signed in as {roleLabel}</div>
+          <div className="text-[12.5px] font-medium text-ink">{displayName}</div>
+          <div className="text-[10.5px] text-muted">Signed in as {roleLabel}</div>
         </div>
         <div className="h-11 w-11 shrink-0 rounded-full bg-gradient-secondary grid place-items-center text-white text-[11px] font-semibold">
           {initials}
@@ -71,33 +71,33 @@ export default function ProfileMenu({
         <div
           role="menu"
           aria-label="Profile menu"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 rounded-2xl border border-cloud bg-white shadow-l3 p-2"
+          className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 rounded-2xl border border-line bg-white shadow-l3 p-2"
         >
-          <div className="px-3 py-2.5 border-b border-cloud/70">
-            <div className="text-[13px] font-semibold text-navy truncate">{displayName}</div>
-            <div className="text-[11px] text-stone truncate">{roleLabel}</div>
-            <div className="text-[10.5px] text-stone mt-0.5 truncate">Workspace · {workspaceName}</div>
+          <div className="px-3 py-2.5 border-b border-line/70">
+            <div className="text-[13px] font-semibold text-ink truncate">{displayName}</div>
+            <div className="text-[11px] text-muted truncate">{roleLabel}</div>
+            <div className="text-[10.5px] text-muted mt-0.5 truncate">Workspace · {workspaceName}</div>
             {canUseLocalTestDoubles && (
-              <div className="text-[10px] text-stone mt-0.5">Local development identity — no session to sign out of.</div>
+              <div className="text-[10px] text-muted mt-0.5">Local development identity — no session to sign out of.</div>
             )}
           </div>
           <div className="py-1">
             <Link
               to="/app/settings"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] text-navy hover:bg-cloud/60 focus-ring"
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] text-ink hover:bg-line/60 focus-ring"
               role="menuitem"
             >
-              <Settings className="h-4 w-4 text-stone" /> Settings
+              <Settings className="h-4 w-4 text-muted" /> Settings
             </Link>
             <button
               type="button"
               role="menuitem"
               onClick={handleSignOut}
               disabled={signingOut}
-              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] text-navy hover:bg-cloud/60 focus-ring disabled:opacity-50"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] text-ink hover:bg-line/60 focus-ring disabled:opacity-50"
             >
-              <LogOut className="h-4 w-4 text-stone" /> {signingOut ? "Signing out…" : "Sign out"}
+              <LogOut className="h-4 w-4 text-muted" /> {signingOut ? "Signing out…" : "Sign out"}
             </button>
           </div>
         </div>

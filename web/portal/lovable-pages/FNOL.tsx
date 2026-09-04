@@ -249,8 +249,8 @@ export default function FNOL() {
             className={
               "rounded-2xl border px-4 py-2 text-[13px] font-medium transition-colors " +
               (productLine === line.value
-                ? "border-info bg-[hsl(var(--info)/0.08)] text-info"
-                : "border-cloud bg-white/70 text-slate2 hover:bg-white")
+                ? "border-info bg-info/8 text-info"
+                : "border-line bg-white/70 text-ink-soft hover:bg-white")
             }
           >
             {line.label}
@@ -260,10 +260,10 @@ export default function FNOL() {
 
       <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-4">
         <GlassCard>
-          <div className="flex items-start justify-between gap-4 border-b border-cloud pb-4">
+          <div className="flex items-start justify-between gap-4 border-b border-line pb-4">
             <div>
-              <div className="text-[14px] font-semibold text-navy">{productLine} FNOL details</div>
-              <div className="mt-1 text-[12.5px] text-slate2">{productLine}-specific FNOL fields are persisted as structured case data.</div>
+              <div className="text-[14px] font-semibold text-ink">{productLine} FNOL details</div>
+              <div className="mt-1 text-[12.5px] text-ink-soft">{productLine}-specific FNOL fields are persisted as structured case data.</div>
             </div>
             <Badge tone={missingRequired.length === 0 ? "success" : "warning"}>
               {missingRequired.length === 0 ? "Ready" : `${missingRequired.length} missing`}
@@ -348,8 +348,8 @@ export default function FNOL() {
             />
           </div>
 
-          <div className="mt-6 flex flex-col gap-3 border-t border-cloud pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-[12.5px] text-slate2">
+          <div className="mt-6 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-[12.5px] text-ink-soft">
               Claim reference, SLA timer, checklist, and audit event are created by the API.
             </div>
             <button
@@ -368,40 +368,40 @@ export default function FNOL() {
           <GlassCard>
             <div className="flex items-center gap-2 mb-3">
               <FileText className="h-3.5 w-3.5 text-info" />
-              <div className="text-[11px] uppercase tracking-[0.14em] text-stone">Required documents</div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted">Required documents</div>
             </div>
             {checklistLoading ? (
-              <div className="flex items-center gap-2 text-[12.5px] text-stone"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
+              <div className="flex items-center gap-2 text-[12.5px] text-muted"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
             ) : checklistError ? (
-              <div className="text-[12.5px] text-stone">{checklistError}</div>
+              <div className="text-[12.5px] text-muted">{checklistError}</div>
             ) : (
               <ul className="space-y-1.5">
                 {checklist?.requiredDocuments.map((document) => (
                   <li key={document.documentType} className="flex items-center justify-between gap-3 text-[13px]">
-                    <span className="text-slate2">{document.label}</span>
+                    <span className="text-ink-soft">{document.label}</span>
                     <Badge tone="warning">Required</Badge>
                   </li>
                 ))}
                 {checklist?.optionalDocuments.map((document) => (
                   <li key={document.documentType} className="flex items-center justify-between gap-3 text-[13px]">
-                    <span className="text-slate2">{document.label}</span>
+                    <span className="text-ink-soft">{document.label}</span>
                     <Badge tone="neutral">Optional</Badge>
                   </li>
                 ))}
               </ul>
             )}
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-cloud bg-white/70 px-3 py-2 text-[12.5px] text-slate2">
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-white/70 px-3 py-2 text-[12.5px] text-ink-soft">
               <Upload className="h-3.5 w-3.5 shrink-0" />
               Document upload remains on the claim review document flow after claim creation.
             </div>
           </GlassCard>
 
           <GlassCard>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-stone mb-2">Missing fields</div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">Missing fields</div>
             {missingRequired.length === 0 ? (
-              <div className="text-[13px] text-slate2">All required FNOL fields are captured.</div>
+              <div className="text-[13px] text-ink-soft">All required FNOL fields are captured.</div>
             ) : (
-              <ul className="space-y-1.5 text-[13px] text-slate2">
+              <ul className="space-y-1.5 text-[13px] text-ink-soft">
                 {missingRequired.map((field) => (
                   <li key={field}>- {field}</li>
                 ))}
@@ -429,7 +429,7 @@ function Field({
 }) {
   return (
     <label>
-      <span className="text-[11.5px] font-medium text-slate2">
+      <span className="text-[11.5px] font-medium text-ink-soft">
         {label}
         {required ? " *" : ""}
       </span>
@@ -437,7 +437,7 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         type={type}
-        className="mt-1 w-full rounded-2xl border border-cloud bg-white/80 px-4 py-3 text-[13.5px] text-navy outline-none focus:ring-2 focus:ring-info/40"
+        className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40"
       />
     </label>
   );
@@ -458,7 +458,7 @@ function TextArea({
 }) {
   return (
     <label className={className}>
-      <span className="text-[11.5px] font-medium text-slate2">
+      <span className="text-[11.5px] font-medium text-ink-soft">
         {label}
         {required ? " *" : ""}
       </span>
@@ -466,7 +466,7 @@ function TextArea({
         rows={4}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-2xl border border-cloud bg-white/80 px-4 py-3 text-[13.5px] text-navy outline-none focus:ring-2 focus:ring-info/40"
+        className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40"
       />
     </label>
   );
@@ -487,14 +487,14 @@ function SelectField({
 }) {
   return (
     <label>
-      <span className="text-[11.5px] font-medium text-slate2">
+      <span className="text-[11.5px] font-medium text-ink-soft">
         {label}
         {required ? " *" : ""}
       </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-2xl border border-cloud bg-white/80 px-4 py-3 text-[13.5px] text-navy outline-none focus:ring-2 focus:ring-info/40"
+        className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40"
       >
         {options.map((option) => (
           <option key={option} value={option}>
