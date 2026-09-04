@@ -50,7 +50,9 @@ public sealed class MetricsReadTool(
         var approvals = await approvalRepository.ListAsync(scope, cancellationToken);
         var tasks = await taskRepository.ListAsync(scope, cancellationToken);
         var updates = await updateRepository.ListAsync(scope, cancellationToken);
-        var slaStatuses = cases.Select(claimCase => slaCalculator.Calculate(claimCase, now)).ToArray();
+        var caseSlaStatuses = cases
+            .Select(claimCase => (Case: claimCase, Sla: slaCalculator.Calculate(claimCase, now)))
+            .ToArray();
         var today = now.Date;
         var averageCompleteness = cases.Count == 0
             ? 0m
@@ -69,8 +71,9 @@ public sealed class MetricsReadTool(
             approvals.Count(approval => approval.Status == ApprovalStatus.Pending),
             tasks.Count(task => task.Status is WorkflowTaskStatus.Open or WorkflowTaskStatus.InProgress),
             updates.Count(update => update.Status is CustomerUpdateStatus.Draft or CustomerUpdateStatus.PendingApproval or CustomerUpdateStatus.Approved),
-            slaStatuses.Count(status => status == SlaStatus.AtRisk),
-            slaStatuses.Count(status => status == SlaStatus.Breached));
+            caseSlaStatuses.Count(item => item.Sla == SlaStatus.AtRisk && item.Case.Status != CaseStatus.Closed),
+            caseSlaStatuses.Count(item => item.Sla == SlaStatus.Breached && item.Case.Status != CaseStatus.Closed),
+            caseSlaStatuses.Count(item => item.Sla == SlaStatus.Breached && item.Case.Status == CaseStatus.Closed));
 
         return Ok(response, [$"tenant:{scope.TenantId}/workspace:{scope.WorkspaceId}/as-of:{now:O}"]);
     }

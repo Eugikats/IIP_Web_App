@@ -113,6 +113,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
         incompleteClaims: 7,
         slaAtRisk: 5,
         slaBreached: 2,
+        closedClaimsWithSlaBreach: 0,
         pendingApprovals: 8,
         openTasks: 14,
         customerUpdatesPending: 6
@@ -425,6 +426,7 @@ export async function prepareVisualApi(page: Page, role: RuntimeRole) {
         escalationsRequired: 4,
         slaAtRisk: 5,
         slaBreached: 2,
+        closedClaimsWithSlaBreach: 0,
         claimsByStatus: [
           { label: "New", count: 12 },
           { label: "Under review", count: 20 },
@@ -676,6 +678,7 @@ export async function prepareDeployedProfileApi(page: Page, role: RuntimeRole) {
         incompleteClaims: 5,
         slaAtRisk: 2,
         slaBreached: 1,
+        closedClaimsWithSlaBreach: 0,
         pendingApprovals: 2,
         openTasks: 6,
         customerUpdatesPending: 2

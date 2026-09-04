@@ -72,7 +72,12 @@ public static class CommandCenterMetricsLoader
         var approvals = await approvalRepository.ListAsync(scope, cancellationToken);
         var tasks = await taskRepository.ListAsync(scope, cancellationToken);
         var updates = await updateRepository.ListAsync(scope, cancellationToken);
-        var slaStatuses = cases.Select(claimCase => slaCalculator.Calculate(claimCase, DateTimeOffset.UtcNow)).ToArray();
+        // Paired with the owning case, not a flat status array — SlaBreached must exclude closed
+        // claims (an operational "needs attention" count, not a historical one), which needs the
+        // case's own status alongside its computed SLA status.
+        var caseSlaStatuses = cases
+            .Select(claimCase => (Case: claimCase, Sla: slaCalculator.Calculate(claimCase, DateTimeOffset.UtcNow)))
+            .ToArray();
         var today = DateTimeOffset.UtcNow.Date;
         var averageCompleteness = cases.Count == 0
             ? 0m
@@ -91,8 +96,9 @@ public static class CommandCenterMetricsLoader
             approvals.Count(approval => approval.Status == ApprovalStatus.Pending),
             tasks.Count(task => task.Status is WorkflowTaskStatus.Open or WorkflowTaskStatus.InProgress),
             updates.Count(update => update.Status is CustomerUpdateStatus.Draft or CustomerUpdateStatus.PendingApproval or CustomerUpdateStatus.Approved),
-            slaStatuses.Count(status => status == SlaStatus.AtRisk),
-            slaStatuses.Count(status => status == SlaStatus.Breached));
+            caseSlaStatuses.Count(item => item.Sla == SlaStatus.AtRisk && item.Case.Status != CaseStatus.Closed),
+            caseSlaStatuses.Count(item => item.Sla == SlaStatus.Breached && item.Case.Status != CaseStatus.Closed),
+            caseSlaStatuses.Count(item => item.Sla == SlaStatus.Breached && item.Case.Status == CaseStatus.Closed));
 
         return new MetricsLoadResult(scope, metrics, null);
     }

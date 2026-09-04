@@ -34,7 +34,9 @@ public static class ReportsEndpoints
         var dataAsOf = DateTimeOffset.UtcNow;
         var today = dataAsOf.Date;
         var averageCompleteness = cases.Count == 0 ? 0m : Math.Round(cases.Average(claimCase => claimCase.CompletenessScore), 2);
-        var slaStatuses = cases.Select(claimCase => slaCalculator.Calculate(claimCase, dataAsOf)).ToArray();
+        var caseSlaStatuses = cases
+            .Select(claimCase => (Case: claimCase, Sla: slaCalculator.Calculate(claimCase, dataAsOf)))
+            .ToArray();
 
         return Results.Ok(new OperationsSummaryResponse(
             cases.Count(claimCase => claimCase.Status != CaseStatus.Closed),
@@ -46,8 +48,9 @@ public static class ReportsEndpoints
             updates.Count(update => update.Status is CustomerUpdateStatus.Draft or CustomerUpdateStatus.PendingApproval or CustomerUpdateStatus.Approved),
             actionLogs.Count,
             actionLogs.Count(actionLog => actionLog.RiskFlag is "no_source" or "needs_review"),
-            slaStatuses.Count(status => status == SlaStatus.AtRisk),
-            slaStatuses.Count(status => status == SlaStatus.Breached),
+            caseSlaStatuses.Count(item => item.Sla == SlaStatus.AtRisk && item.Case.Status != CaseStatus.Closed),
+            caseSlaStatuses.Count(item => item.Sla == SlaStatus.Breached && item.Case.Status != CaseStatus.Closed),
+            caseSlaStatuses.Count(item => item.Sla == SlaStatus.Breached && item.Case.Status == CaseStatus.Closed),
             cases.GroupBy(claimCase => claimCase.Status.ToString()).Select(group => new StatusCountResponse(group.Key, group.Count())).ToArray(),
             tasks.GroupBy(task => task.TaskType.ToString()).Select(group => new StatusCountResponse(group.Key, group.Count())).ToArray(),
             dataAsOf,

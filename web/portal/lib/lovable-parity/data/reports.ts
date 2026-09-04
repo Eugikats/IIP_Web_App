@@ -17,6 +17,10 @@ export type OperationsSummaryView = {
   escalationsRequired: number;
   slaAtRisk: number;
   slaBreached: number;
+  // Closed claims are excluded from slaBreached (an operational "needs attention" count) but
+  // tracked here separately — a closed claim that breached SLA before closing is a real fact,
+  // never summed into slaBreached.
+  closedClaimsWithSlaBreach: number;
   claimsByStatus: { label: string; count: number }[];
   dataAsOf: string;
   snapshotId: string;
@@ -36,6 +40,7 @@ type OperationsSummaryDto = {
   escalationsRequired: number;
   slaAtRisk: number;
   slaBreached: number;
+  closedClaimsWithSlaBreach: number;
   claimsByStatus: { label: string; count: number }[];
   workQueueSummary: { label: string; count: number }[];
   dataAsOf?: string;
@@ -77,6 +82,7 @@ export function useOperationsSummary() {
         escalationsRequired: dto.escalationsRequired,
         slaAtRisk: dto.slaAtRisk,
         slaBreached: dto.slaBreached,
+        closedClaimsWithSlaBreach: dto.closedClaimsWithSlaBreach,
         claimsByStatus: dto.claimsByStatus ?? [],
         dataAsOf: dto.dataAsOf ?? receivedAt,
         snapshotId: dto.snapshotId ?? `operations-received-${receivedAt}`,

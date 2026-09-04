@@ -318,7 +318,7 @@ public sealed class CommandCenterQueryService(
         // Honest fallback if metrics.read is denied for this caller (should not happen in
         // practice — the command-center agent always holds ViewCommandCenter, the same
         // permission the outer QueryAsync call already required): zeroed, not fabricated.
-        return new CommandCenterMetricsResponse(0, 0, 0m, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        return new CommandCenterMetricsResponse(0, 0, 0m, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     /// <summary>

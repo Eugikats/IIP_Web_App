@@ -41,6 +41,7 @@ type SyntheticWorkspaceSnapshot = {
     escalationsRequired: number;
     slaAtRisk: number;
     slaBreached: number;
+    closedClaimsWithSlaBreach: number;
     claimsByStatus: { label: string; count: number }[];
   };
   providerHealth: {
@@ -89,8 +90,9 @@ export const syntheticWorkspaceSnapshot = {
     customerUpdatesPending: 1,
     assistantQuestionsAnswered: claims.length,
     escalationsRequired: claims.filter((claim) => claim.risk === "High" || claim.risk === "Advisory Signal").length,
-    slaAtRisk: claims.filter((claim) => claim.sla === "At Risk").length,
-    slaBreached: claims.filter((claim) => claim.sla === "Breached").length,
+    slaAtRisk: claims.filter((claim) => claim.sla === "At Risk" && claim.status !== "Closed").length,
+    slaBreached: claims.filter((claim) => claim.sla === "Breached" && claim.status !== "Closed").length,
+    closedClaimsWithSlaBreach: claims.filter((claim) => claim.sla === "Breached" && claim.status === "Closed").length,
     claimsByStatus,
   },
   providerHealth: {

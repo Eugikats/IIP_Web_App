@@ -484,6 +484,7 @@ const responses: Record<string, unknown> = {
     customerUpdatesPending: 9,
     slaAtRisk: 28,
     slaBreached: 7,
+    closedClaimsWithSlaBreach: 0,
     assistantQuestionsAnswered: 82,
     escalationsRequired: 9,
     averageCompletenessScore: 78,
@@ -639,6 +640,7 @@ const responses: Record<string, unknown> = {
     escalationsRequired: 9,
     slaAtRisk: 28,
     slaBreached: 7,
+    closedClaimsWithSlaBreach: 0,
     claimsByStatus: [
       { label: "Under review", status: "UnderReview", count: 124 },
       { label: "Awaiting documents", status: "AwaitingDocs", count: 88 }

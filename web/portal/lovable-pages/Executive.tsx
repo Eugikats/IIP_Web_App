@@ -25,7 +25,8 @@ export default function Executive() {
       ["Pending approvals", summary.pendingApprovals],
       ["Customer updates pending", summary.customerUpdatesPending],
       ["SLA at risk", summary.slaAtRisk],
-      ["SLA breached", summary.slaBreached],
+      ["SLA breached (open claims)", summary.slaBreached],
+      ["Closed claims that breached SLA before closing", summary.closedClaimsWithSlaBreach],
       ["Escalations required", summary.escalationsRequired],
     ];
     const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
@@ -99,6 +100,11 @@ export default function Executive() {
               <Badge tone="info">{summary.pendingApprovals} approvals pending</Badge>
               <Badge tone="warning">{summary.escalationsRequired} escalations</Badge>
               <Badge tone={summary.slaBreached > 0 ? "error" : "success"}>{summary.slaBreached} SLA breached</Badge>
+              {summary.closedClaimsWithSlaBreach > 0 && (
+                <Badge tone="neutral">
+                  {summary.closedClaimsWithSlaBreach} closed claim{summary.closedClaimsWithSlaBreach === 1 ? "" : "s"} breached SLA before closing
+                </Badge>
+              )}
             </div>
           </GlassCard>
         </>
