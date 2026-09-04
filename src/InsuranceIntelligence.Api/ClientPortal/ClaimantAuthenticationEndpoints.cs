@@ -45,6 +45,11 @@ public static class ClaimantAuthenticationEndpoints
             });
         }
 
+        if (string.IsNullOrWhiteSpace(request.PolicyNumber))
+        {
+            return Validation("policyNumber", "A policy number is required.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.ContactValue))
         {
             return Validation("contactValue", "An email address or phone number is required.");
@@ -52,13 +57,19 @@ public static class ClaimantAuthenticationEndpoints
 
         var correlationId = GetCorrelationId(httpContext);
 
-        // Constant-shape response regardless of match: request.CaseId or request.ContactValue not
-        // matching a real case must look identical to the caller as a real match, or this becomes
-        // an oracle for enumerating claims and the people on them.
-        var claimCase = await caseRepository.GetAsync(request.CaseId, cancellationToken);
-        var matched = claimCase is not null
-            && claimCase.Scope == scope
-            && ClaimantContactMatcher.Matches(request.ContactValue, claimCase.CustomerEmail, claimCase.CustomerPhone);
+        // Constant-shape response regardless of match: an unknown policy number or a contact value
+        // that doesn't match must look identical to the caller as a real match, or this becomes an
+        // oracle for enumerating claims and the people on them. A claimant only ever knows their
+        // policy number, not IIP's internal case id, so this — not a case id — is the lookup key;
+        // a policy can have more than one claim, so this picks the most recently created one, the
+        // same tie-break PolicyLookupEndpoints already uses for duplicate detection at intake.
+        var allCases = await caseRepository.ListAsync(scope, cancellationToken);
+        var claimCase = allCases
+            .Where(c => string.Equals(c.PolicyNumber, request.PolicyNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+            .Where(c => ClaimantContactMatcher.Matches(request.ContactValue, c.CustomerEmail, c.CustomerPhone))
+            .OrderByDescending(c => c.CreatedAt)
+            .FirstOrDefault();
+        var matched = claimCase is not null;
 
         if (matched)
         {
@@ -68,14 +79,14 @@ public static class ClaimantAuthenticationEndpoints
         await auditRepository.WriteAsync(
             AuditEvent.ClaimantMagicLinkRequested(
                 scope,
-                request.CaseId,
+                claimCase?.CaseId,
                 matched,
                 ClaimantContactMatcher.ClassifyChannel(request.ContactValue).ToString(),
                 correlationId),
             cancellationToken);
 
         return Results.Ok(new ClaimantMagicLinkRequestResponse(
-            "If that claim reference and contact value match a claim on file, we've sent a secure access link."));
+            "If that policy number and contact value match a claim on file, we've sent a secure access link."));
     }
 
     public static async Task<IResult> RedeemMagicLink(
@@ -194,7 +205,7 @@ public static class ClaimantAuthenticationEndpoints
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });
 }
 
-public sealed record ClaimantMagicLinkRequest(Guid CaseId, string ContactValue);
+public sealed record ClaimantMagicLinkRequest(string PolicyNumber, string ContactValue);
 
 public sealed record ClaimantMagicLinkRequestResponse(string Message);
 

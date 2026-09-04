@@ -298,7 +298,7 @@ public sealed record AuditEvent(
             AuditReason: auditReason,
             CorrelationId: correlationId);
 
-    public static AuditEvent ClaimantMagicLinkRequested(TenantScope scope, Guid caseId, bool matched, string channel, string correlationId) =>
+    public static AuditEvent ClaimantMagicLinkRequested(TenantScope scope, Guid? caseId, bool matched, string channel, string correlationId) =>
         new(
             Guid.NewGuid(),
             scope,

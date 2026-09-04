@@ -27,7 +27,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var audit = new InMemoryAuditRepository();
 
         var result = await ClaimantAuthenticationEndpoints.RequestMagicLink(
-            new ClaimantMagicLinkRequest(caseId, "sarah@example.com"),
+            new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"),
             cases,
             tokens,
             communications,
@@ -60,7 +60,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var audit = new InMemoryAuditRepository();
 
         var matchResult = await ClaimantAuthenticationEndpoints.RequestMagicLink(
-            new ClaimantMagicLinkRequest(caseId, "sarah@example.com"),
+            new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"),
             cases,
             new InMemoryClaimantMagicLinkTokenRepository(),
             communications,
@@ -69,7 +69,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             Context(),
             CancellationToken.None);
         var mismatchResult = await ClaimantAuthenticationEndpoints.RequestMagicLink(
-            new ClaimantMagicLinkRequest(caseId, "attacker@example.com"),
+            new ClaimantMagicLinkRequest("POL-2025-10024", "attacker@example.com"),
             cases,
             new InMemoryClaimantMagicLinkTokenRepository(),
             communications,
@@ -78,7 +78,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             Context(),
             CancellationToken.None);
         var noSuchCaseResult = await ClaimantAuthenticationEndpoints.RequestMagicLink(
-            new ClaimantMagicLinkRequest(Guid.NewGuid(), "sarah@example.com"),
+            new ClaimantMagicLinkRequest("POL-DOES-NOT-EXIST", "sarah@example.com"),
             cases,
             new InMemoryClaimantMagicLinkTokenRepository(),
             communications,
@@ -107,7 +107,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
         await cases.SaveAsync(Case(caseId, Scope(), "sarah@example.com"));
 
         var result = await ClaimantAuthenticationEndpoints.RequestMagicLink(
-            new ClaimantMagicLinkRequest(caseId, "sarah@example.com"),
+            new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"),
             cases,
             new InMemoryClaimantMagicLinkTokenRepository(),
             new RecordingCommunicationSendingProvider(),
@@ -135,7 +135,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var audit = new InMemoryAuditRepository();
 
         await ClaimantAuthenticationEndpoints.RequestMagicLink(
-            new ClaimantMagicLinkRequest(caseId, "sarah@example.com"), cases, tokens, communications, audit, Options(), Context(), CancellationToken.None);
+            new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"), cases, tokens, communications, audit, Options(), Context(), CancellationToken.None);
         var rawToken = ExtractToken(communications.EmailsSent.Single().MessageBody);
 
         var redeemResult = await ClaimantAuthenticationEndpoints.RedeemMagicLink(
