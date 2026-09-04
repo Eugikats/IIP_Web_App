@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { Bell, Search, PanelLeftClose, PanelRightClose } from "lucide-react";
 import { useUI } from "@/context/UIStateContext";
 import RoleSwitcher from "./RoleSwitcher";
+import ProfileMenu from "./ProfileMenu";
 import { runtimeInitials, useRuntimeContext } from "@/lib/runtimeContext";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { canUseGlobalSearchPreview, searchPreviewGuidance } from "@/lib/roles";
@@ -114,13 +115,12 @@ export default function TopBar() {
             <PanelRightClose className="h-4 w-4" />
           </button>
         )}
-        <div className="flex items-center gap-2.5 sm:ml-2 sm:pl-3 sm:border-l sm:border-cloud">
-          <div className="text-right leading-tight hidden sm:block">
-            <div className="text-[12.5px] font-medium text-navy">{displayName}</div>
-            <div className="text-[10.5px] text-stone">Signed in as {roleLabel}</div>
-          </div>
-          <div role="img" aria-label={`${displayName}. Signed in as ${roleLabel}`} className="h-11 w-11 shrink-0 rounded-full bg-gradient-secondary grid place-items-center text-white text-[11px] font-semibold">{userInitials}</div>
-        </div>
+        <ProfileMenu
+          displayName={displayName}
+          roleLabel={roleLabel}
+          workspaceName={workspaceName}
+          initials={userInitials}
+        />
       </div>
     </header>
   );

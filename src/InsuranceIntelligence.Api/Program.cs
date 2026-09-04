@@ -489,9 +489,20 @@ app.Use(async (context, next) =>
                 var tenantHint = RuntimeClaimTypes.TenantScope
                     .Select(t => context.User.FindFirst(t)?.Value)
                     .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
-                var workspaceHint = RuntimeClaimTypes.WorkspaceScope
-                    .Select(t => context.User.FindFirst(t)?.Value)
-                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+                // The portal's workspace switcher (WO-13) sends the user's chosen workspace as a
+                // request header, not a claim — a new token isn't minted per switch. It is only ever
+                // a hint: GetEffectiveMembershipAsync below re-validates it against the user's real
+                // active membership and fails closed if they don't belong to it, so this can never
+                // grant access to a workspace the user isn't actually a member of (I5).
+                var requestedWorkspace = context.Request.Headers.TryGetValue(
+                    RuntimeClaimTypes.RequestedWorkspaceHeaderName, out var requestedWorkspaceValue)
+                    ? requestedWorkspaceValue.ToString()
+                    : null;
+                var workspaceHint = !string.IsNullOrWhiteSpace(requestedWorkspace)
+                    ? requestedWorkspace
+                    : RuntimeClaimTypes.WorkspaceScope
+                        .Select(t => context.User.FindFirst(t)?.Value)
+                        .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
                 var membership = await context.RequestServices
                     .GetRequiredService<IPermissionReadRepository>()

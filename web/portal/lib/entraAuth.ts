@@ -15,6 +15,8 @@ import {
   setApiAccessToken,
 } from "@/lib/config";
 
+const postLogoutPath = "/";
+
 let client: PublicClientApplication | null = null;
 let initialized: Promise<PublicClientApplication> | null = null;
 let redirectResult: Promise<AuthenticationResult | null> | null = null;
@@ -63,6 +65,27 @@ export async function getEntraApiAccessToken(): Promise<string | null> {
     setApiAccessToken(null);
     throw error;
   }
+}
+
+/**
+ * Ends the signed-in session. Outside Entra mode (local development / visual parity),
+ * identity is header-driven per request — there is no browser session to destroy — so
+ * this just clears the cached API token and returns to the sign-in landing page.
+ */
+export async function signOut(): Promise<void> {
+  if (!canUseEntraBrowserAuth || typeof window === "undefined") {
+    setApiAccessToken(null);
+    window.location.assign(postLogoutPath);
+    return;
+  }
+
+  const msal = await getClient();
+  const account = msal.getActiveAccount() ?? msal.getAllAccounts()[0] ?? null;
+  setApiAccessToken(null);
+  await msal.logoutRedirect({
+    account,
+    postLogoutRedirectUri: window.location.origin + postLogoutPath,
+  });
 }
 
 function getClient(): Promise<PublicClientApplication> {

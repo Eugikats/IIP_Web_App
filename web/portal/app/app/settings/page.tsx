@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import Component from "@/lovable-pages/Settings";
 
 export default function Page() {
-  redirect("/app/admin");
+  return <Component />;
 }

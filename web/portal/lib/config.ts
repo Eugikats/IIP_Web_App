@@ -28,6 +28,34 @@ export function setApiAccessToken(token: string | null) {
   apiAccessToken = token ?? "";
 }
 
+const ACTIVE_WORKSPACE_STORAGE_KEY = "iip.active-workspace-id";
+// The header the backend re-validates against the user's real membership before honoring
+// (see RuntimeClaimTypes.RequestedWorkspaceHeaderName) — never trusted client-side.
+export const requestedWorkspaceHeaderName = "X-Requested-Workspace-Id";
+
+/** The workspace the user last chose via the settings workspace switcher, if any. */
+export function getActiveWorkspaceOverride(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveWorkspaceOverride(workspaceId: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (workspaceId) {
+      window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, workspaceId);
+    } else {
+      window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+    }
+  } catch {
+    // Best effort — falling back to the server's default workspace is safe.
+  }
+}
+
 /**
  * Builds local-development scope and identity headers for an API call.
  *
@@ -40,14 +68,18 @@ export function setApiAccessToken(token: string | null) {
  */
 export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<string, string> {
   const headers: Record<string, string> = {};
+  const workspaceOverride = getActiveWorkspaceOverride();
 
   if (canUseLocalTestDoubles) {
     if (defaultTenantId) {
       headers["X-Tenant-Id"] = defaultTenantId;
     }
 
-    if (defaultWorkspaceId) {
-      headers["X-Workspace-Id"] = defaultWorkspaceId;
+    // A workspace chosen via the settings switcher overrides the configured default —
+    // trusted here only because local development headers are already fully trusted scope.
+    const effectiveWorkspaceId = workspaceOverride || defaultWorkspaceId;
+    if (effectiveWorkspaceId) {
+      headers["X-Workspace-Id"] = effectiveWorkspaceId;
     }
 
     headers["x-demo-role"] = role;
@@ -60,8 +92,16 @@ export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<strin
       headers["x-demo-user-id"] = effectiveUserId;
       headers["X-User-Id"] = effectiveUserId;
     }
-  } else if (apiAccessToken) {
-    headers.Authorization = `Bearer ${apiAccessToken}`;
+  } else {
+    if (apiAccessToken) {
+      headers.Authorization = `Bearer ${apiAccessToken}`;
+    }
+
+    // A hint only — the API re-validates it against the signed-in user's real membership
+    // and fails closed if they don't belong to it (never client-side scope substitution).
+    if (workspaceOverride) {
+      headers[requestedWorkspaceHeaderName] = workspaceOverride;
+    }
   }
 
   return headers;

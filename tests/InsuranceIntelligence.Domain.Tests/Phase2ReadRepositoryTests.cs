@@ -269,6 +269,39 @@ public sealed class Phase2ReadRepositoryTests
         Assert.Equal("tenant-b", resolved!.TenantId);
     }
 
+    // WO-13: proves the workspace switcher's core server-side mechanism — a user with active
+    // membership in more than one workspace of the SAME tenant is disambiguated by workspaceHint
+    // (the portal sends this as a request header the API re-validates here; see
+    // RuntimeClaimTypes.RequestedWorkspaceHeaderName), and a hint naming a workspace the user does
+    // NOT belong to fails closed rather than granting access (I5).
+    [Fact]
+    public async Task EffectiveMembership_MultipleWorkspacesInSameTenant_WorkspaceHintDisambiguates_AndRejectsNonMemberWorkspace()
+    {
+        await using var dbContext = CreateDbContext();
+        foreach (var workspaceId in new[] { "workspace-a", "workspace-b" })
+        {
+            dbContext.UserTenantMemberships.Add(new InsuranceIntelligence.Infrastructure.Persistence.UserTenantMembershipEntity
+            { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = workspaceId, UserId = "oid-user-3", IsActive = true });
+            dbContext.RoleAssignments.Add(new InsuranceIntelligence.Infrastructure.Persistence.RoleAssignmentEntity
+            { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = workspaceId, UserId = "oid-user-3", RoleCode = "ClaimsOfficer" });
+        }
+        await dbContext.SaveChangesAsync();
+        var repo = new EfPermissionReadRepository(dbContext);
+
+        Assert.Null(await repo.GetEffectiveMembershipAsync("oid-user-3", tenantHint: "tenant-a", workspaceHint: null)); // ambiguous -> fail closed
+
+        var resolvedA = await repo.GetEffectiveMembershipAsync("oid-user-3", tenantHint: "tenant-a", workspaceHint: "workspace-a");
+        Assert.NotNull(resolvedA);
+        Assert.Equal("workspace-a", resolvedA!.WorkspaceId);
+
+        var resolvedB = await repo.GetEffectiveMembershipAsync("oid-user-3", tenantHint: "tenant-a", workspaceHint: "workspace-b");
+        Assert.NotNull(resolvedB);
+        Assert.Equal("workspace-b", resolvedB!.WorkspaceId);
+
+        // A workspace the user has no membership in must never resolve, however it was hinted.
+        Assert.Null(await repo.GetEffectiveMembershipAsync("oid-user-3", tenantHint: "tenant-a", workspaceHint: "workspace-not-a-member-of"));
+    }
+
     [Fact]
     public void TenantContextAccessor_HasCurrent_ReflectsResolution_AndCurrentThrowsWhenUnset()
     {

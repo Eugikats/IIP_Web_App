@@ -136,7 +136,8 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/admin/onboarding", requiredAny: ["ManageTenantOnboarding"] },
   { path: "/app/admin/tenant-policy", requiredAny: ["ManageTenantSettings"] },
   { path: "/app/admin", requiredAny: ["ManageTenantSettings"], exact: true },
-  { path: "/app/settings", requiredAny: ["ManageTenantSettings"] },
+  // Every authenticated user reaches their own profile/settings — it has no admin-only content.
+  { path: "/app/settings", requiredAny: [] },
   { path: "/app", requiredAny: ["ViewCommandCenter"], exact: true },
 ];
 
@@ -144,7 +145,8 @@ export function canAccessWithPermissions(permissions: readonly string[], path: s
   const rule = ROUTE_ACCESS.find((candidate) =>
     candidate.exact ? path === candidate.path : path === candidate.path || path.startsWith(candidate.path + "/")
   );
-  return Boolean(rule && rule.requiredAny.some((permission) => permissions.includes(permission)));
+  if (!rule) return false;
+  return rule.requiredAny.length === 0 || rule.requiredAny.some((permission) => permissions.includes(permission));
 }
 
 export function firstAccessibleRoute(permissions: readonly string[]): string | null {
