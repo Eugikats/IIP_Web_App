@@ -5,7 +5,7 @@ import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
 import {
   useKnowledgeDocs, SELECTABLE_SENSITIVITIES, type KnowledgeDocView, type KnowledgeSensitivity,
 } from "@/lib/lovable-parity/data/knowledge";
-import { BookOpen, Search, Upload, RefreshCw, Loader2 } from "lucide-react";
+import { BookOpen, Search, Upload, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 
@@ -29,10 +29,13 @@ const SENS_LABEL: Record<KnowledgeSensitivity, string> = {
 
 const DOCUMENT_TYPES = ["PolicyWording", "ClaimsChecklist", "CustomerFaq", "ClaimsProcedure", "RegulatoryGuidance", "Other"];
 
-type PendingAction = { kind: "approve"; doc: KnowledgeDocView; sensitivity: KnowledgeSensitivity } | { kind: "archive"; doc: KnowledgeDocView };
+type PendingAction =
+  | { kind: "approve"; doc: KnowledgeDocView; sensitivity: KnowledgeSensitivity }
+  | { kind: "classify"; doc: KnowledgeDocView; sensitivity: KnowledgeSensitivity }
+  | { kind: "archive"; doc: KnowledgeDocView };
 
 export default function Knowledge() {
-  const { docs, loading, error, upload, approve, archive, reindex } = useKnowledgeDocs();
+  const { docs, loading, error, upload, approve, classify, archive, reindex } = useKnowledgeDocs();
   const [q, setQ] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -43,6 +46,7 @@ export default function Knowledge() {
   const [file, setFile] = useState<File | null>(null);
 
   const rows = useMemo(() => docs.filter((d) => !q || d.title.toLowerCase().includes(q.toLowerCase())), [docs, q]);
+  const stuckCount = useMemo(() => docs.filter((d) => d.status === "Approved" && !d.retrievalEligible).length, [docs]);
 
   function allows(doc: KnowledgeDocView, action: string) {
     return doc.allowedActions.some((a) => a.action === action);
@@ -85,9 +89,15 @@ export default function Knowledge() {
     if (!pending) return;
     const result = pending.kind === "approve"
       ? await approve(pending.doc.id, pending.sensitivity, reason)
-      : await archive(pending.doc.id, reason);
+      : pending.kind === "classify"
+        ? await classify(pending.doc.id, pending.sensitivity, reason)
+        : await archive(pending.doc.id, reason);
     if (result.ok) {
-      toast.success(pending.kind === "approve" ? "Document approved and indexed." : "Document archived.");
+      toast.success(
+        pending.kind === "approve" ? "Document approved and indexed."
+        : pending.kind === "classify" ? "Sensitivity set. Document re-indexed and eligible for retrieval."
+        : "Document archived."
+      );
     } else {
       toast.error(result.message ?? `${pending.kind} failed.`);
     }
@@ -113,6 +123,16 @@ export default function Knowledge() {
       />
 
       <div className="mb-4"><GuardrailBanner text="Unknown sensitivity is blocked from retrieval by default. A document cannot be approved for AI grounding without an explicit sensitivity classification and governance reason." /></div>
+
+      {stuckCount > 0 && (
+        <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-warning/40 bg-warning/8 px-4 py-3 text-[12.5px] text-ink-soft">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+          <span>
+            {stuckCount} approved document{stuckCount === 1 ? " is" : "s are"} marked <b>Approved</b> but blocked from retrieval — approved before a sensitivity classification was required, so nothing has ever been able to answer from them.
+            Set a classification below to fix each one.
+          </span>
+        </div>
+      )}
 
       {showUpload && (
         <GlassCard className="mb-4">
@@ -163,12 +183,14 @@ export default function Knowledge() {
             <tbody>
               {rows.map((d) => {
                 const canApprove = allows(d, "approveKnowledgeDocument");
+                const canClassify = allows(d, "classifyKnowledgeDocument");
                 const canArchive = allows(d, "archiveKnowledgeDocument");
                 const approveBlocked = blockedReason(d, "approveKnowledgeDocument");
                 const archiveBlocked = blockedReason(d, "archiveKnowledgeDocument");
+                const stuck = d.status === "Approved" && !d.retrievalEligible;
                 const selectedSensitivity = pendingSensitivity[d.id];
                 return (
-                  <tr key={d.id} className="border-t border-line/70 hover:bg-white/50 align-top">
+                  <tr key={d.id} className={"border-t border-line/70 hover:bg-white/50 align-top" + (stuck ? " bg-warning/5" : "")}>
                     <td className="p-3"><div className="flex items-center gap-2 text-ink"><BookOpen className="h-4 w-4 text-info" />{d.title}</div><div className="text-[10.5px] text-muted">{d.id}</div></td>
                     <td className="p-3 text-ink-soft">{d.category}</td>
                     <td className="p-3"><Badge tone={SENS_TONE[d.sensitivity]}>{SENS_LABEL[d.sensitivity]}</Badge></td>
@@ -198,10 +220,32 @@ export default function Knowledge() {
                             </button>
                           </div>
                         )}
+                        {canClassify && (
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              aria-label={`Sensitivity for ${d.title}`}
+                              value={selectedSensitivity ?? ""}
+                              onChange={(e) => setPendingSensitivity((current) => ({ ...current, [d.id]: e.target.value as KnowledgeSensitivity }))}
+                              className="rounded-lg border border-line bg-white px-2 py-1.5 text-[11.5px] text-ink"
+                            >
+                              <option value="">Sensitivity…</option>
+                              {SELECTABLE_SENSITIVITIES.map((s) => <option key={s} value={s}>{SENS_LABEL[s]}</option>)}
+                            </select>
+                            <button
+                              type="button"
+                              disabled={!selectedSensitivity}
+                              onClick={() => selectedSensitivity && setPending({ kind: "classify", doc: d, sensitivity: selectedSensitivity })}
+                              className={"rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium disabled:opacity-50 " + (stuck ? "border-warning/50 bg-warning/10 text-ink hover:bg-warning/20" : "border-line bg-white text-ink hover:bg-line/40")}
+                              title={stuck ? "This document was approved before sensitivity classification was required and cannot be retrieved until classified." : "Correct this document's sensitivity classification."}
+                            >
+                              {stuck ? "Classify to restore retrieval" : "Reclassify"}
+                            </button>
+                          </div>
+                        )}
                         {canArchive && (
                           <button type="button" onClick={() => setPending({ kind: "archive", doc: d })} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-danger hover:bg-danger/5">Archive</button>
                         )}
-                        {!canApprove && !canArchive && (
+                        {!canApprove && !canClassify && !canArchive && (
                           <span className="text-[11px] text-muted text-right" title={approveBlocked ?? archiveBlocked ?? undefined}>{approveBlocked ?? archiveBlocked ?? "No action available"}</span>
                         )}
                       </div>
@@ -216,15 +260,21 @@ export default function Knowledge() {
 
       <GovernedActionDialog
         open={!!pending}
-        title={pending?.kind === "approve" ? "Approve knowledge document" : "Archive knowledge document"}
+        title={
+          pending?.kind === "approve" ? "Approve knowledge document"
+          : pending?.kind === "classify" ? "Set sensitivity classification"
+          : "Archive knowledge document"
+        }
         target={pending?.doc.title ?? ""}
         impact={
           pending?.kind === "approve"
             ? `This makes the document eligible for AI grounding, classified as "${SENS_LABEL[pending.sensitivity]}". It will be indexed immediately.`
-            : "This removes the document from AI grounding retrieval immediately."
+            : pending?.kind === "classify"
+              ? `This sets the document's sensitivity to "${SENS_LABEL[pending.sensitivity]}" without changing its approval. The document is re-indexed immediately and becomes eligible for AI grounding.`
+              : "This removes the document from AI grounding retrieval immediately."
         }
         auditNotice="This action is written to the audit trail with your reason and cannot be undone silently."
-        confirmLabel={pending?.kind === "approve" ? "Approve" : "Archive"}
+        confirmLabel={pending?.kind === "approve" ? "Approve" : pending?.kind === "classify" ? "Set classification" : "Archive"}
         tone={pending?.kind === "archive" ? "danger" : "primary"}
         onClose={() => setPending(null)}
         onConfirm={handleConfirm}

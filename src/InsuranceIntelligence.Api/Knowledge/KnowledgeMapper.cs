@@ -60,6 +60,11 @@ public static class KnowledgeMapper
             actions.Add(Action("archiveKnowledgeDocument", "Archive knowledge document", Permission.ManageKnowledgeBase));
         }
 
+        if (ClassifyBlockedReason(document) is null)
+        {
+            actions.Add(Action("classifyKnowledgeDocument", "Set sensitivity classification", Permission.ManageKnowledgeBase));
+        }
+
         return actions;
     }
 
@@ -76,6 +81,12 @@ public static class KnowledgeMapper
         if (archiveReason is not null)
         {
             actions.Add(Action("archiveKnowledgeDocument", "Archive knowledge document", Permission.ManageKnowledgeBase, archiveReason));
+        }
+
+        var classifyReason = ClassifyBlockedReason(document);
+        if (classifyReason is not null)
+        {
+            actions.Add(Action("classifyKnowledgeDocument", "Set sensitivity classification", Permission.ManageKnowledgeBase, classifyReason));
         }
 
         return actions;
@@ -105,6 +116,11 @@ public static class KnowledgeMapper
         document.ApprovalStatus == KnowledgeDocumentStatus.Archived
             ? "This knowledge document is already archived."
             : null;
+
+    public static string? ClassifyBlockedReason(KnowledgeDocument document) =>
+        document.ApprovalStatus == KnowledgeDocumentStatus.Approved
+            ? null
+            : "Only an approved knowledge document can be classified.";
 
     private static ActionStateResponse Action(string action, string label, Permission permission, string? reason = null) =>
         new(action, label, permission.ToString(), reason);

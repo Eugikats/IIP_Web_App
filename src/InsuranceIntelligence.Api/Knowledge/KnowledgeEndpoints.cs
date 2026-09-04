@@ -181,19 +181,10 @@ public static class KnowledgeEndpoints
             return governanceValidation;
         }
 
-        if (!Enum.TryParse<KnowledgeSensitivity>(governanceRequest!.Sensitivity, ignoreCase: true, out var sensitivity)
-            || sensitivity == KnowledgeSensitivity.Unknown)
+        var (sensitivity, sensitivityError) = ResolveGrantableSensitivity(governanceRequest!.Sensitivity, "approveKnowledgeDocument");
+        if (sensitivityError is not null)
         {
-            return Validation("sensitivity", "A sensitivity classification is required to approve knowledge for AI grounding. Unknown sensitivity cannot be approved.");
-        }
-
-        if (sensitivity is KnowledgeSensitivity.ContainsSecrets or KnowledgeSensitivity.ContainsUnapprovedPii)
-        {
-            return Results.Conflict(new
-            {
-                message = "Content classified as containing secrets or unapproved PII can never be approved for AI grounding. Archive or replace this document instead.",
-                blockedAction = "approveKnowledgeDocument"
-            });
+            return sensitivityError;
         }
 
         var auditReason = governanceRequest.GovernanceReason!;
@@ -211,6 +202,90 @@ public static class KnowledgeEndpoints
             cancellationToken);
 
         var indexed = approved with
+        {
+            IndexedStatus = KnowledgeIndexedStatus.Indexed,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        await indexProvider.IndexAsync(indexed, cancellationToken);
+        await repository.SaveAsync(indexed, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.KnowledgeIndexed(indexed, correlationId), cancellationToken);
+
+        return Results.Ok(KnowledgeMapper.ToResponse(indexed));
+    }
+
+    /// <summary>
+    /// Sets or corrects the sensitivity classification on a document that is already Approved —
+    /// without touching its approval state. ApproveKnowledgeDocument makes classification atomic
+    /// with approval for every document going forward, but it refuses to run a second time on an
+    /// already-approved document (KnowledgeMapper.ApproveBlockedReason), so any document approved
+    /// before that gate existed is permanently stuck at Sensitivity=Unknown — retrieval-ineligible
+    /// (KnowledgeDocument.IsActiveOn) with no governed path back. This is that path: same
+    /// human-reason-and-classification requirement as approval, but scoped to documents that are
+    /// already Approved, and it re-indexes so the fix takes effect immediately rather than waiting
+    /// on the next reindex sweep.
+    /// </summary>
+    public static async Task<IResult> ClassifyKnowledgeDocument(
+        Guid knowledgeDocId,
+        IKnowledgeDocumentRepository repository,
+        IKnowledgeIndexProvider indexProvider,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!TenantScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
+        {
+            return Validation("tenantScope", validationError);
+        }
+
+        var document = await repository.GetAsync(knowledgeDocId, scope, cancellationToken);
+        if (document is null)
+        {
+            return Results.NotFound(new { message = "Knowledge document was not found for the requested tenant workspace." });
+        }
+
+        if (document.ApprovalStatus != KnowledgeDocumentStatus.Approved)
+        {
+            return Results.Conflict(new
+            {
+                message = "Only an approved knowledge document can be classified. Draft documents are classified as part of approval; archived documents cannot be reclassified.",
+                blockedAction = "classifyKnowledgeDocument"
+            });
+        }
+
+        var correlationId = GetCorrelationId(httpContext);
+        var userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Validation("userId", "Authenticated user context is required to classify knowledge.");
+        }
+
+        var (governanceRequest, governanceValidation) = await ReadGovernanceRequestAsync(httpContext, cancellationToken);
+        if (governanceValidation is not null)
+        {
+            return governanceValidation;
+        }
+
+        var (sensitivity, sensitivityError) = ResolveGrantableSensitivity(governanceRequest!.Sensitivity, "classifyKnowledgeDocument");
+        if (sensitivityError is not null)
+        {
+            return sensitivityError;
+        }
+
+        var beforeSensitivity = document.Sensitivity;
+        var auditReason = governanceRequest.GovernanceReason!;
+        var classified = document with
+        {
+            Sensitivity = sensitivity,
+            GovernanceReason = auditReason,
+            IndexedStatus = KnowledgeIndexedStatus.NotIndexed,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        await repository.SaveAsync(classified, cancellationToken);
+        await auditRepository.WriteAsync(
+            AuditEvent.KnowledgeReclassified(classified, userId, correlationId, beforeSensitivity.ToString(), auditReason),
+            cancellationToken);
+
+        var indexed = classified with
         {
             IndexedStatus = KnowledgeIndexedStatus.Indexed,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -443,6 +518,31 @@ public static class KnowledgeEndpoints
         {
             [key] = [message]
         });
+
+    // Shared by ApproveKnowledgeDocument and ClassifyKnowledgeDocument: Unknown can never be
+    // (re)granted — that is the whole point of the gate — and content already known to contain
+    // secrets or unapproved PII can never be approved for AI grounding at all, regardless of who
+    // is asking or why.
+    private static (KnowledgeSensitivity Sensitivity, IResult? Error) ResolveGrantableSensitivity(
+        string? requestedSensitivity, string blockedAction)
+    {
+        if (!Enum.TryParse<KnowledgeSensitivity>(requestedSensitivity, ignoreCase: true, out var sensitivity)
+            || sensitivity == KnowledgeSensitivity.Unknown)
+        {
+            return (KnowledgeSensitivity.Unknown, Validation("sensitivity", "A sensitivity classification is required to approve knowledge for AI grounding. Unknown sensitivity cannot be approved."));
+        }
+
+        if (sensitivity is KnowledgeSensitivity.ContainsSecrets or KnowledgeSensitivity.ContainsUnapprovedPii)
+        {
+            return (sensitivity, Results.Conflict(new
+            {
+                message = "Content classified as containing secrets or unapproved PII can never be approved for AI grounding. Archive or replace this document instead.",
+                blockedAction
+            }));
+        }
+
+        return (sensitivity, null);
+    }
 
     private static async Task<(KnowledgeGovernanceRequest? Request, IResult? Validation)> ReadGovernanceRequestAsync(
         HttpContext httpContext,

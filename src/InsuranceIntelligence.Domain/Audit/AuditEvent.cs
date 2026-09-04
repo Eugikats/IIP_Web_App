@@ -253,6 +253,9 @@ public sealed record AuditEvent(
     public static AuditEvent KnowledgeArchived(KnowledgeDocument document, string userId, string correlationId, string? auditReason = null) =>
         ForKnowledge(document, userId, ActorType.User, "knowledge.archived", KnowledgeDocumentStatus.Approved.ToString(), document.ApprovalStatus.ToString(), "archived", correlationId, auditReason);
 
+    public static AuditEvent KnowledgeReclassified(KnowledgeDocument document, string userId, string correlationId, string beforeSensitivity, string? auditReason = null) =>
+        ForKnowledge(document, userId, ActorType.User, "knowledge.reclassified", beforeSensitivity, document.Sensitivity.ToString(), "reclassified", correlationId, auditReason);
+
     public static AuditEvent KnowledgeReindexed(TenantScope scope, int indexedDocumentCount, string correlationId) =>
         new(
             Guid.NewGuid(),

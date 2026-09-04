@@ -166,6 +166,24 @@ export function useKnowledgeDocs() {
     return { ok: true };
   }, [role, load]);
 
+  // Sets or corrects sensitivity on a document that is already Approved, without touching
+  // approval state. This is the only governed path back for a document approved before
+  // sensitivity classification existed — retrievalEligible is false for those (sensitivity
+  // "unknown") even though status reads Approved, and approve() refuses to run again on an
+  // already-approved document.
+  const classify = useCallback(async (
+    id: string, sensitivity: KnowledgeSensitivity, governanceReason: string
+  ): Promise<{ ok: boolean; message?: string }> => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/knowledge-documents/${encodeURIComponent(id)}/classify`, {
+      method: "POST",
+      headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+      body: JSON.stringify({ governanceReason, sensitivity: SENSITIVITY_TO_API[sensitivity] }),
+    });
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Classify failed with HTTP ${response.status}.`) };
+    await load();
+    return { ok: true };
+  }, [role, load]);
+
   const archive = useCallback(async (id: string, auditReason: string): Promise<{ ok: boolean; message?: string }> => {
     const response = await fetch(`${apiBaseUrl}/api/v1/knowledge-documents/${encodeURIComponent(id)}/archive`, {
       method: "POST",
@@ -188,5 +206,5 @@ export function useKnowledgeDocs() {
     return { ok: true, indexedCount: body.indexedDocumentCount };
   }, [role, load]);
 
-  return { docs, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, upload, approve, archive, reindex, reload: load };
+  return { docs, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, upload, approve, classify, archive, reindex, reload: load };
 }

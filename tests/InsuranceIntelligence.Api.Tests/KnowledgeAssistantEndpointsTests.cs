@@ -169,6 +169,153 @@ public sealed class KnowledgeAssistantEndpointsTests
         Assert.Empty(answer.Sources);
     }
 
+    // WO-17 made classification atomic with approval for every document going forward, but it
+    // also made ApproveKnowledgeDocument refuse to run a second time on a document that is
+    // already Approved. Any document approved before that gate existed is therefore left
+    // permanently at Sensitivity=Unknown with no governed path back — retrieval-ineligible
+    // forever. This is exactly the state a production knowledge base was found in (5 approved
+    // documents, 0 retrieval-eligible). ClassifyKnowledgeDocument is the fix.
+    [Fact]
+    public async Task ClassifyKnowledgeDocument_RestoresRetrievalForALegacyApprovedDocumentStuckAtUnknownSensitivity()
+    {
+        var dependencies = CreateDependencies();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var uploadResult = await UploadKnowledgeAsync(dependencies);
+        var (_, uploaded) = await ExecuteAsync<KnowledgeDocumentResponse>(uploadResult);
+
+        // Simulate the legacy state directly: approved and indexed before sensitivity existed as
+        // a concept, which ApproveKnowledgeDocument can no longer produce and can no longer fix.
+        var legacy = (await dependencies.KnowledgeRepository.GetAsync(uploaded!.KnowledgeDocumentId, scope, CancellationToken.None))!
+            with
+        {
+            ApprovalStatus = KnowledgeDocumentStatus.Approved,
+            IndexedStatus = KnowledgeIndexedStatus.Indexed,
+            Sensitivity = KnowledgeSensitivity.Unknown
+        };
+        await dependencies.KnowledgeRepository.SaveAsync(legacy, CancellationToken.None);
+
+        var reapprove = await KnowledgeEndpoints.ApproveKnowledgeDocument(
+            legacy.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            KnowledgeGovernanceContext("Attempt to fix a legacy document via re-approval."),
+            CancellationToken.None);
+        Assert.Equal(StatusCodes.Status409Conflict, (await ExecuteAsync<JsonElement>(reapprove)).StatusCode);
+
+        var before = await AskAsync(dependencies, "Is windscreen damage covered?", productLine: "Motor");
+        Assert.True(before.EscalationRequired);
+        Assert.Empty(before.Sources);
+
+        const string reason = "Backfilling sensitivity on a document approved before classification was captured.";
+        var classifyResult = await KnowledgeEndpoints.ClassifyKnowledgeDocument(
+            legacy.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            KnowledgeGovernanceContext(reason, sensitivity: "Approved"),
+            CancellationToken.None);
+        var (classifyStatus, classified) = await ExecuteAsync<KnowledgeDocumentResponse>(classifyResult);
+
+        Assert.Equal(StatusCodes.Status200OK, classifyStatus);
+        Assert.Equal("Approved", classified!.Sensitivity);
+        Assert.Equal("Indexed", classified.IndexedStatus);
+        Assert.Equal(reason, classified.GovernanceReason);
+
+        var after = await AskAsync(dependencies, "Is windscreen damage covered?", productLine: "Motor");
+        Assert.False(after.EscalationRequired);
+        Assert.NotEmpty(after.Sources);
+
+        var auditEvents = await dependencies.AuditRepository.ListAsync(scope);
+        Assert.Contains(auditEvents, e =>
+            e.ActionName == "knowledge.reclassified"
+            && e.BeforeStatus == "Unknown"
+            && e.AfterStatus == "Approved"
+            && e.AuditReason == reason);
+    }
+
+    [Fact]
+    public async Task ClassifyKnowledgeDocument_RejectsDraftAndArchivedDocuments()
+    {
+        var dependencies = CreateDependencies();
+        var uploadResult = await UploadKnowledgeAsync(dependencies);
+        var (_, draft) = await ExecuteAsync<KnowledgeDocumentResponse>(uploadResult);
+
+        var classifyDraft = await KnowledgeEndpoints.ClassifyKnowledgeDocument(
+            draft!.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            KnowledgeGovernanceContext("Cannot classify a draft."),
+            CancellationToken.None);
+        var (draftStatus, draftBody) = await ExecuteAsync<JsonElement>(classifyDraft);
+        Assert.Equal(StatusCodes.Status409Conflict, draftStatus);
+        Assert.Equal("classifyKnowledgeDocument", draftBody.GetProperty("blockedAction").GetString());
+
+        var approved = await UploadAndApproveAsync(dependencies);
+        var archiveResult = await KnowledgeEndpoints.ArchiveKnowledgeDocument(
+            approved.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            ScopedContext(auditReason: "Archive before classify-after-archive check."),
+            CancellationToken.None);
+        Assert.Equal(StatusCodes.Status200OK, (await ExecuteAsync<KnowledgeDocumentResponse>(archiveResult)).StatusCode);
+
+        var classifyArchived = await KnowledgeEndpoints.ClassifyKnowledgeDocument(
+            approved.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            KnowledgeGovernanceContext("Cannot classify an archived document."),
+            CancellationToken.None);
+        var (archivedStatus, archivedBody) = await ExecuteAsync<JsonElement>(classifyArchived);
+        Assert.Equal(StatusCodes.Status409Conflict, archivedStatus);
+        Assert.Equal("classifyKnowledgeDocument", archivedBody.GetProperty("blockedAction").GetString());
+    }
+
+    [Fact]
+    public async Task ClassifyKnowledgeDocument_RejectsUnknownSecretsAndUnapprovedPii()
+    {
+        var dependencies = CreateDependencies();
+        var approved = await UploadAndApproveAsync(dependencies);
+
+        foreach (var sensitivity in new[] { "Unknown", "ContainsSecrets", "ContainsUnapprovedPii" })
+        {
+            var result = await KnowledgeEndpoints.ClassifyKnowledgeDocument(
+                approved.KnowledgeDocumentId,
+                dependencies.KnowledgeRepository,
+                dependencies.IndexProvider,
+                dependencies.AuditRepository,
+                KnowledgeGovernanceContext($"Attempt to classify as {sensitivity}.", sensitivity: sensitivity),
+                CancellationToken.None);
+            Assert.NotEqual(StatusCodes.Status200OK, (await ExecuteAsync<JsonElement>(result)).StatusCode);
+        }
+
+        var stored = await dependencies.KnowledgeRepository.GetAsync(
+            approved.KnowledgeDocumentId, TenantScope.Create("tenant-demo", "workspace-claims"), CancellationToken.None);
+        Assert.Equal(KnowledgeSensitivity.Approved, stored!.Sensitivity);
+    }
+
+    [Fact]
+    public async Task ClassifyKnowledgeDocument_RequiresAuditReason()
+    {
+        var dependencies = CreateDependencies();
+        var approved = await UploadAndApproveAsync(dependencies);
+
+        var result = await KnowledgeEndpoints.ClassifyKnowledgeDocument(
+            approved.KnowledgeDocumentId,
+            dependencies.KnowledgeRepository,
+            dependencies.IndexProvider,
+            dependencies.AuditRepository,
+            KnowledgeGovernanceContext(governanceReason: null),
+            CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, statusCode);
+        Assert.True(body.GetProperty("errors").TryGetProperty("governanceReason", out _));
+    }
+
     [Fact]
     public async Task ApproveAndArchiveKnowledgeDocument_PersistAuditReasonHeader()
     {

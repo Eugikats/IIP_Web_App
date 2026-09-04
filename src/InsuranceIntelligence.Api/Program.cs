@@ -614,6 +614,8 @@ app.MapPost("/api/v1/knowledge-documents/{knowledgeDocId:guid}/approve", Knowled
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
 app.MapPost("/api/v1/knowledge-documents/{knowledgeDocId:guid}/archive", KnowledgeEndpoints.ArchiveKnowledgeDocument)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPost("/api/v1/knowledge-documents/{knowledgeDocId:guid}/classify", KnowledgeEndpoints.ClassifyKnowledgeDocument)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
 app.MapPost("/api/v1/knowledge-documents/reindex", KnowledgeEndpoints.ReindexKnowledgeDocuments)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
 app.MapPost("/api/v1/assistant/policy-questions", AssistantEndpoints.AskPolicyQuestion)
