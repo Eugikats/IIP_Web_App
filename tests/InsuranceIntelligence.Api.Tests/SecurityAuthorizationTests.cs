@@ -798,6 +798,37 @@ public sealed class SecurityAuthorizationTests
         return ReadRepositoryFile(Path.Combine("src", "InsuranceIntelligence.Api", "Program.cs"), sourceFilePath);
     }
 
+    // Program.cs registers GET /api/v1/customers (CustomerProfileEndpoints.ListCustomers), and
+    // Domain/CustomerEndpoints.cs maps a group on the same base path. A `group.MapGet("/")` there
+    // produces a second endpoint matching the same request, so ASP.NET throws
+    // AmbiguousMatchException at request time and the Customers page returns 500 — invisible to a
+    // build and to every handler-level test, because both registrations are individually valid.
+    [Fact]
+    public void CustomerGroup_DoesNotRestOnTheSamePathAsTheCustomerList()
+    {
+        var program = ReadProgramSource();
+        Assert.Contains("app.MapGet(\"/api/v1/customers\", CustomerProfileEndpoints.ListCustomers)", program);
+
+        // Comment lines are stripped: the fix for this bug documents the offending call in prose,
+        // and the guard must assert on code rather than on the explanation of the code.
+        var group = string.Join(
+            '\n',
+            ReadCustomerEndpointsSource()
+                .Split('\n')
+                .Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
+
+        Assert.Contains("MapGroup(\"/api/v1/customers\")", group);
+        Assert.DoesNotContain("group.MapGet(\"/\"", group);
+        Assert.DoesNotContain("group.MapGet(\"\"", group);
+    }
+
+    private static string ReadCustomerEndpointsSource([CallerFilePath] string sourceFilePath = "")
+    {
+        return ReadRepositoryFile(
+            Path.Combine("src", "InsuranceIntelligence.Api", "Domain", "CustomerEndpoints.cs"),
+            sourceFilePath);
+    }
+
     private static string ReadApiProjectSource([CallerFilePath] string sourceFilePath = "")
     {
         return ReadRepositoryFile(

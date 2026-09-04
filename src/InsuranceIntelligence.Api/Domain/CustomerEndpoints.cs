@@ -19,12 +19,11 @@ public static class CustomerEndpoints
             .RequireAuthorization()
             .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 
-        group.MapGet("/", async ([FromServices] ICustomerRepository repository, [FromServices] ITenantContext context, CancellationToken ct) =>
-        {
-            var scope = TenantScope.Create(context.TenantId.ToString(), context.WorkspaceId);
-            var customers = await repository.ListAsync(scope, ct);
-            return Results.Ok(customers);
-        });
+        // NOTE: the customer list lives on CustomerProfileEndpoints.ListCustomers, registered in
+        // Program.cs — that is the shape the portal consumes. A second `group.MapGet("/")` here
+        // produced a route that also matched GET /api/v1/customers, so ASP.NET threw
+        // AmbiguousMatchException and every request to the Customers page returned 500. Only the
+        // unique customer-360 aggregate belongs in this group.
 
         group.MapGet("/{customerId}/360", async (
             string customerId,
