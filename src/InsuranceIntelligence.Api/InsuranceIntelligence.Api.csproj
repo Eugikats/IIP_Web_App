@@ -22,6 +22,10 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Identity.Web" Version="4.12.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+    <!-- Transitive pin: System.Security.Cryptography.Xml 8.0.0-8.0.3 (pulled in via
+         Microsoft.Identity.Web's dependency chain) carries a HIGH-severity XML-encryption
+         bypass, CVE-2026-47304, patched in 8.0.4 (CHECKPOINT F vulnerable-package scan). -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.4" />
     <ProjectReference Include="..\InsuranceIntelligence.Application\InsuranceIntelligence.Application.csproj" />
     <ProjectReference Include="..\InsuranceIntelligence.Domain\InsuranceIntelligence.Domain.csproj" />
     <ProjectReference Include="..\InsuranceIntelligence.Infrastructure\InsuranceIntelligence.Infrastructure.csproj" />
