@@ -154,6 +154,7 @@ public sealed class ClientPortalEndpointTests
             new StubDocumentStorageProvider(),
             new ClaimFormProcessingProvider(),
             new StaticDocumentChecklistProvider(new CompletenessScoringService()),
+            new InMemoryDocumentFieldValidationRuleRepository(),
             communications,
             audit,
             UploadContext("sarah@example.com"),
@@ -193,6 +194,7 @@ public sealed class ClientPortalEndpointTests
             new StubDocumentStorageProvider(),
             new ClaimFormProcessingProvider(),
             new StaticDocumentChecklistProvider(new CompletenessScoringService()),
+            new InMemoryDocumentFieldValidationRuleRepository(),
             communications,
             audit,
             UploadContext(

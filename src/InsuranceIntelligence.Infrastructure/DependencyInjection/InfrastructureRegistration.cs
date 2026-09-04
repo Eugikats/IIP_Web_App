@@ -163,6 +163,7 @@ public static class InfrastructureRegistration
         services.AddScoped<ITeamsNotificationRepository, EfTeamsNotificationRepository>();
         services.AddScoped<INotificationRepository, EfNotificationRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Fraud.IFraudSignalDispositionRepository, InsuranceIntelligence.Infrastructure.Fraud.EfFraudSignalDispositionRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Documents.IDocumentFieldValidationRuleRepository, InsuranceIntelligence.Infrastructure.Documents.EfDocumentFieldValidationRuleRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Customers.ICustomerRepository, EfCustomerRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.IPolicyRepository, EfPolicyRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.ICoverageRepository, EfCoverageRepository>();

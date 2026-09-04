@@ -24,6 +24,7 @@ public static class DocumentEndpoints
         IDocumentStorageProvider storageProvider,
         IDocumentProcessingProvider processingProvider,
         IDocumentChecklistProvider checklistProvider,
+        IDocumentFieldValidationRuleRepository fieldValidationRuleRepository,
         IAuditRepository auditRepository,
         INotificationEmitter notificationEmitter,
         HttpContext httpContext,
@@ -100,13 +101,20 @@ public static class DocumentEndpoints
                     uploadedDocument.ObjectKey,
                     ct => storageProvider.ReadAsync(scope, uploadedDocument.ObjectKey, ct)),
                 cancellationToken);
+            var fieldValidationRules = DocumentFieldValidator.ResolveRules(
+                scope, await fieldValidationRuleRepository.ListAsync(scope, cancellationToken));
+            var fieldValidationWarnings = DocumentFieldValidator.Evaluate(
+                fieldValidationRules,
+                processingResult.Classification.DocumentType,
+                claimCase.ProductLine,
+                processingResult.Extraction.Fields);
             var processedDocument = uploadedDocument with
             {
                 DocumentType = processingResult.Classification.DocumentType,
                 ProcessingStatus = DocumentProcessingStatus.Processed,
                 Classification = processingResult.Classification,
                 Extraction = processingResult.Extraction,
-                ValidationWarnings = processingResult.ValidationWarnings,
+                ValidationWarnings = processingResult.ValidationWarnings.Concat(fieldValidationWarnings).ToArray(),
                 ProcessedAt = DateTimeOffset.UtcNow
             };
 

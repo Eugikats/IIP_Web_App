@@ -42,6 +42,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedAgentRun> AgentRuns => Set<PersistedAgentRun>();
     public DbSet<PersistedNotification> Notifications => Set<PersistedNotification>();
     public DbSet<PersistedFraudSignalDisposition> FraudSignalDispositions => Set<PersistedFraudSignalDisposition>();
+    public DbSet<PersistedDocumentFieldValidationRule> DocumentFieldValidationRules => Set<PersistedDocumentFieldValidationRule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -118,6 +119,9 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedFraudSignalDisposition>(), "FraudSignalDispositions", "SignalId");
         modelBuilder.Entity<PersistedFraudSignalDisposition>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
         modelBuilder.Entity<PersistedFraudSignalDisposition>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Status });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedDocumentFieldValidationRule>(), "DocumentFieldValidationRules", "RuleKey");
+        modelBuilder.Entity<PersistedDocumentFieldValidationRule>().Property(entity => entity.DocumentType).HasMaxLength(60).IsRequired();
+        modelBuilder.Entity<PersistedDocumentFieldValidationRule>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.DocumentType });
         ConfigureScopedJson(modelBuilder.Entity<PersistedNotification>(), "Notifications", "NotificationRecordId");
         modelBuilder.Entity<PersistedNotification>().Property(entity => entity.RecipientUserId).HasMaxLength(240).IsRequired();
         modelBuilder.Entity<PersistedNotification>().Property(entity => entity.IsRead).IsRequired();
@@ -278,6 +282,10 @@ public sealed class PersistedNotification : PersistedScopedJson
 public sealed class PersistedFraudSignalDisposition : PersistedScopedJson
 {
     public string Status { get; set; } = string.Empty;
+}
+public sealed class PersistedDocumentFieldValidationRule : PersistedScopedJson
+{
+    public string DocumentType { get; set; } = string.Empty;
 }
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;

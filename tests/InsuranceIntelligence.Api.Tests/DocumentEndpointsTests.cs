@@ -121,6 +121,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             context,
@@ -154,6 +155,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -200,6 +202,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -234,6 +237,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -269,6 +273,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -305,6 +310,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -381,6 +387,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             context,
@@ -405,6 +412,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             context,
@@ -444,6 +452,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             context,
@@ -485,6 +494,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             context,
@@ -509,6 +519,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             context,
@@ -534,6 +545,102 @@ public sealed class DocumentEndpointsTests
     }
 
     [Fact]
+    public async Task UploadDocuments_MergesFieldValidationWarningsFromExtractedData()
+    {
+        var processingProvider = new NationalIdProcessingProvider("CM12345");
+        var dependencies = CreateDependencies(processingProvider: processingProvider);
+        var claimCase = await CreateCaseAsync(dependencies);
+
+        var result = await DocumentEndpoints.UploadDocuments(
+            claimCase.CaseId,
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.StorageProvider,
+            dependencies.ProcessingProvider,
+            dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
+            dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
+            UploadContext("national-id.pdf"),
+            CancellationToken.None);
+
+        var (statusCode, response) = await ExecuteAsync<DocumentUploadResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var document = Assert.Single(response!.Documents);
+        Assert.Contains(document.ValidationWarnings, warning =>
+            warning.FieldName == "National ID number (NIN)"
+            && warning.ObservedValue == "CM12345");
+    }
+
+    [Fact]
+    public async Task UploadDocuments_DoesNotFlagAValidNationalId()
+    {
+        var processingProvider = new NationalIdProcessingProvider("CM12345678901X");
+        var dependencies = CreateDependencies(processingProvider: processingProvider);
+        var claimCase = await CreateCaseAsync(dependencies);
+
+        var result = await DocumentEndpoints.UploadDocuments(
+            claimCase.CaseId,
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.StorageProvider,
+            dependencies.ProcessingProvider,
+            dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
+            dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
+            UploadContext("national-id.pdf"),
+            CancellationToken.None);
+
+        var (statusCode, response) = await ExecuteAsync<DocumentUploadResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var document = Assert.Single(response!.Documents);
+        Assert.DoesNotContain(document.ValidationWarnings, warning => warning.FieldName == "National ID number (NIN)");
+    }
+
+    [Fact]
+    public async Task UploadDocuments_ATenantOverrideRuleReplacesTheDefault()
+    {
+        var processingProvider = new NationalIdProcessingProvider("CM12345678901X");
+        var dependencies = CreateDependencies(processingProvider: processingProvider);
+        var claimCase = await CreateCaseAsync(dependencies);
+        await dependencies.FieldValidationRuleRepository.SaveAsync(new DocumentFieldValidationRule
+        {
+            RuleId = DocumentFieldValidationRuleDefaults.NationalIdRuleId,
+            Scope = claimCase.Scope,
+            DocumentType = DocumentType.CustomerId,
+            FieldLabel = "National ID number (NIN)",
+            FieldKeyAliases = ["national_id"],
+            Kind = DocumentFieldRuleKind.ExactLength,
+            ExactLength = 20,
+            Severity = "warning",
+            Message = "Tenant-specific override.",
+            Source = "tenant"
+        });
+
+        var result = await DocumentEndpoints.UploadDocuments(
+            claimCase.CaseId,
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.StorageProvider,
+            dependencies.ProcessingProvider,
+            dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
+            dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
+            UploadContext("national-id.pdf"),
+            CancellationToken.None);
+
+        var (statusCode, response) = await ExecuteAsync<DocumentUploadResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var document = Assert.Single(response!.Documents);
+        Assert.Contains(document.ValidationWarnings, warning => warning.Message == "Tenant-specific override.");
+    }
+
+    [Fact]
     public async Task UploadDocuments_ProvidesScopedStoredDocumentStreamToProcessingProvider()
     {
         var storageProvider = new ReadableDocumentStorageProvider();
@@ -548,6 +655,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -574,6 +682,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -623,6 +732,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -669,6 +779,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -705,6 +816,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("claim-form.pdf"),
@@ -723,6 +835,7 @@ public sealed class DocumentEndpointsTests
             dependencies.StorageProvider,
             dependencies.ProcessingProvider,
             dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
             UploadContext("repair-estimate.pdf"),
@@ -772,6 +885,7 @@ public sealed class DocumentEndpointsTests
             storageProvider ?? new StubDocumentStorageProvider(),
             processingProvider ?? new MockDocumentProcessingProvider(),
             new StaticDocumentChecklistProvider(scoringService),
+            new InMemoryDocumentFieldValidationRuleRepository(),
             new NoOpAgentWorkflowService(),
             new NotificationService(new TenantContextAccessor(), new InMemoryNotificationRepository()));
     }
@@ -882,6 +996,7 @@ public sealed class DocumentEndpointsTests
         IDocumentStorageProvider StorageProvider,
         IDocumentProcessingProvider ProcessingProvider,
         IDocumentChecklistProvider ChecklistProvider,
+        IDocumentFieldValidationRuleRepository FieldValidationRuleRepository,
         IAgentWorkflowService AgentWorkflowService,
         INotificationEmitter NotificationEmitter);
 
@@ -1006,6 +1121,18 @@ public sealed class DocumentEndpointsTests
                 new DocumentClassificationResult(DocumentType.GarageEstimate, 0.61m, "LowConfidenceTest", DateTimeOffset.UtcNow),
                 new DocumentExtractionResult(fields, fields.Keys.ToDictionary(key => key, _ => 0.61m), "LowConfidenceTest", DateTimeOffset.UtcNow, false, null, null),
                 [new DocumentValidationWarning("LOW_CONFIDENCE_AMOUNT", "Amount requires human verification.", "Warning")]));
+        }
+    }
+
+    private sealed class NationalIdProcessingProvider(string nationalIdValue) : IDocumentProcessingProvider
+    {
+        public Task<DocumentProcessingResult> ProcessAsync(DocumentProcessingRequest request, CancellationToken cancellationToken = default)
+        {
+            var fields = new Dictionary<string, string> { ["field.national_id"] = nationalIdValue };
+            return Task.FromResult(new DocumentProcessingResult(
+                new DocumentClassificationResult(DocumentType.CustomerId, 0.95m, "NationalIdTest", DateTimeOffset.UtcNow),
+                new DocumentExtractionResult(fields, fields.Keys.ToDictionary(key => key, _ => 0.95m), "NationalIdTest", DateTimeOffset.UtcNow, false, null, null),
+                Array.Empty<DocumentValidationWarning>()));
         }
     }
 

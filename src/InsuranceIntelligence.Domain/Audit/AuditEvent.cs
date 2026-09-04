@@ -276,6 +276,27 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    public static AuditEvent DocumentFieldValidationRuleSaved(
+        DocumentFieldValidationRule rule, string userId, string correlationId, string auditReason) =>
+        new(
+            Guid.NewGuid(),
+            rule.Scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "document_field_validation_rule.saved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: rule.Enabled ? "Enabled" : "Disabled",
+            EvidenceIds: [rule.RuleId],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
     public static AuditEvent AssistantPolicyQuestionAnswered(AgentActionLog actionLog) =>
         new(
             Guid.NewGuid(),
