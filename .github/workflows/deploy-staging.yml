@@ -23,6 +23,15 @@ on:
         default: true
 
 # Identifiers (not secrets) for the EXISTING staging resources being reused.
+#
+# WO-22 (docs/08-program-plan/IIP_PRODUCTION_BUILD_CONTRACT.md): these names were flagged
+# as possibly targeting App Services that no longer exist in any subscription. No Azure CLI
+# access was available in that session to confirm current resource names, so a guard step
+# below fails each job immediately with instructions rather than let a deploy attempt run
+# deep into `azure/webapps-deploy` against a possibly-dead target. To re-enable: confirm the
+# real App Service names with someone who has subscription access, update API_APP_NAME/
+# PORTAL_APP_NAME below if they changed, then delete the "Guard" step from the job(s) you
+# confirmed.
 env:
   API_APP_NAME: app-api-stg-cus-vyhhymwydvai2
   PORTAL_APP_NAME: app-portal-stg-cus-vyhhymwydvai2
@@ -38,6 +47,11 @@ jobs:
     if: ${{ inputs.deploy_api }}
     runs-on: ubuntu-latest
     steps:
+      - name: Guard against unverified staging resource name
+        run: |
+          echo "::error::deploy-staging.yml (job deploy-api) is disabled pending manual confirmation that App Service '${{ env.API_APP_NAME }}' still exists (WO-22). Confirm with subscription access, update API_APP_NAME above if it changed, then delete this guard step."
+          exit 1
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-dotnet@v4
@@ -73,6 +87,11 @@ jobs:
       NEXT_PUBLIC_ENTRA_API_SCOPE: ${{ vars.IIP_ENTRA_API_SCOPE }}
       NEXT_PUBLIC_ENTRA_REDIRECT_URI: ${{ vars.IIP_ENTRA_REDIRECT_URI }}
     steps:
+      - name: Guard against unverified staging resource name
+        run: |
+          echo "::error::deploy-staging.yml (job deploy-portal) is disabled pending manual confirmation that App Service '${{ env.PORTAL_APP_NAME }}' still exists (WO-22). Confirm with subscription access, update PORTAL_APP_NAME above if it changed, then delete this guard step."
+          exit 1
+
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4

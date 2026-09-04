@@ -95,3 +95,6 @@ jobs:
           az bicep install
           az bicep build --file infra/bicep/phase3-dev-foundation.bicep
           az bicep build --file infra/bicep/phase6-functions-runtime.bicep
+          az bicep build --file infra/mainTemplate.bicep
+          az bicep build --file infra/modules/compute/functionapp.bicep
+          az bicep build --file infra/modules/messaging/servicebus.bicep
