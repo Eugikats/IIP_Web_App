@@ -136,6 +136,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/admin/onboarding", requiredAny: ["ManageTenantOnboarding"] },
   { path: "/app/admin/tenant-policy", requiredAny: ["ManageTenantSettings"] },
   { path: "/app/admin/whatsapp", requiredAny: ["ConfigureIntegrations"] },
+  { path: "/app/admin/email", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin", requiredAny: ["ManageTenantSettings"], exact: true },
   // Every authenticated user reaches their own profile/settings — it has no admin-only content.
   { path: "/app/settings", requiredAny: [] },

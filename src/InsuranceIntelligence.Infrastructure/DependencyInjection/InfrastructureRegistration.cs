@@ -76,16 +76,19 @@ public static class InfrastructureRegistration
             throw new InvalidOperationException($"Unsupported storage provider '{options.StorageProvider}'. Deployable runtime requires SqlServer; use explicit LocalTest projects for test doubles.");
         }
 
-        services.AddSingleton<IEmailIngestionProvider, DisabledEmailIngestionProvider>();
         services.AddHttpClient<IGraphMailClient, MicrosoftGraphMailClient>();
         services.AddSingleton<IGraphMailProvider, GraphMailProvider>();
         if (options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
         {
+            // TestIngestion pulls live mail through IGraphMailProvider in Graph mode — this type is
+            // registered to satisfy DI but is never actually invoked there.
+            services.AddSingleton<IEmailIngestionProvider, DisabledEmailIngestionProvider>();
             services.AddScoped<IEmailAttachmentProcessor, GraphEmailAttachmentProcessor>();
         }
         else
         {
-            services.AddSingleton<IEmailAttachmentProcessor, DisabledEmailAttachmentProcessor>();
+            services.AddSingleton<IEmailIngestionProvider, InsuranceIntelligence.Infrastructure.Email.LocalEmailIngestionProvider>();
+            services.AddSingleton<IEmailAttachmentProcessor, InsuranceIntelligence.Infrastructure.Email.LocalEmailAttachmentProcessor>();
         }
         services.AddScoped<IEmailToCaseMatcher, RuleBasedEmailToCaseMatcher>();
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))

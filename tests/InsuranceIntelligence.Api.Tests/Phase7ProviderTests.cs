@@ -1013,9 +1013,9 @@ public sealed class Phase7ProviderTests
             provider.GetRequiredService<ITeamsNotificationProvider>());
         Assert.IsType<EfTeamsNotificationRepository>(
             provider.GetRequiredService<ITeamsNotificationRepository>());
-        Assert.IsType<DisabledEmailIngestionProvider>(
+        Assert.IsType<InsuranceIntelligence.Infrastructure.Email.LocalEmailIngestionProvider>(
             provider.GetRequiredService<IEmailIngestionProvider>());
-        Assert.IsType<DisabledEmailAttachmentProcessor>(
+        Assert.IsType<InsuranceIntelligence.Infrastructure.Email.LocalEmailAttachmentProcessor>(
             provider.GetRequiredService<IEmailAttachmentProcessor>());
         Assert.IsType<DisabledCommunicationSendingProvider>(
             provider.GetRequiredService<ICommunicationSendingProvider>());
