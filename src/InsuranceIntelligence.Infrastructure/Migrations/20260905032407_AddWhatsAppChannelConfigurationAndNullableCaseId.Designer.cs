@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InsuranceIntelligence.Infrastructure.Migrations
 {
     [DbContext(typeof(InsuranceIntelligenceDbContext))]
-    [Migration("20260904231707_MakeClaimantCaseIdNullable")]
-    partial class MakeClaimantCaseIdNullable
+    [Migration("20260905032407_AddWhatsAppChannelConfigurationAndNullableCaseId")]
+    partial class AddWhatsAppChannelConfigurationAndNullableCaseId
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -519,7 +519,6 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                         .HasColumnName("TokenId");
 
                     b.Property<Guid?>("CaseId")
-                        .IsRequired()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PayloadJson")
@@ -562,7 +561,6 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                         .HasColumnName("SessionId");
 
                     b.Property<Guid?>("CaseId")
-                        .IsRequired()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PayloadJson")
@@ -1220,6 +1218,37 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                     b.HasIndex("TenantId", "WorkspaceId");
 
                     b.ToTable("UserAccounts", (string)null);
+                });
+
+            modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedWhatsAppChannelConfiguration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("ConfigurationId");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("WorkspaceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "WorkspaceId");
+
+                    b.ToTable("WhatsAppChannelConfigurations", (string)null);
                 });
 
             modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedWhatsAppMessage", b =>

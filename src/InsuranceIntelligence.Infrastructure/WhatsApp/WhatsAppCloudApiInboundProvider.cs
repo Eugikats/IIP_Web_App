@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using InsuranceIntelligence.Domain.Integrations;
-using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace InsuranceIntelligence.Infrastructure.WhatsApp;
@@ -14,28 +13,19 @@ namespace InsuranceIntelligence.Infrastructure.WhatsApp;
 /// messages or media. Media download is a two-step Graph call (metadata URL → binary).
 /// </summary>
 public sealed class WhatsAppCloudApiInboundProvider(
-    InfrastructureOptions options,
+    IWhatsAppRuntimeSettingsProvider settingsProvider,
     ILogger<WhatsAppCloudApiInboundProvider> logger,
     HttpClient? httpClient = null) : IWhatsAppInboundProvider
 {
     private readonly HttpClient httpClient = httpClient ?? new HttpClient();
 
-    public bool IsConfigured
-    {
-        get
-        {
-            var settings = options.WhatsApp;
-            return !string.IsNullOrWhiteSpace(settings.PhoneNumberId)
-                && !string.IsNullOrWhiteSpace(settings.AccessToken)
-                && !string.IsNullOrWhiteSpace(settings.AppSecret)
-                && !string.IsNullOrWhiteSpace(settings.VerifyToken);
-        }
-    }
+    public bool IsConfigured => settingsProvider.Current is not null;
 
     public bool TryVerifySubscription(string mode, string verifyToken, string challenge, out string? challengeResponse)
     {
         challengeResponse = null;
-        if (!IsConfigured)
+        var settings = settingsProvider.Current;
+        if (settings is null)
         {
             return false;
         }
@@ -45,7 +35,7 @@ public sealed class WhatsAppCloudApiInboundProvider(
             return false;
         }
 
-        if (!string.Equals(verifyToken, options.WhatsApp.VerifyToken, StringComparison.Ordinal))
+        if (!string.Equals(verifyToken, settings.VerifyToken, StringComparison.Ordinal))
         {
             return false;
         }
@@ -56,7 +46,8 @@ public sealed class WhatsAppCloudApiInboundProvider(
 
     public bool IsValidSignature(ReadOnlySpan<byte> payload, string? signatureHeader)
     {
-        if (!IsConfigured || string.IsNullOrWhiteSpace(signatureHeader))
+        var settings = settingsProvider.Current;
+        if (settings is null || string.IsNullOrWhiteSpace(signatureHeader))
         {
             return false;
         }
@@ -73,7 +64,7 @@ public sealed class WhatsAppCloudApiInboundProvider(
             return false;
         }
 
-        var key = Encoding.UTF8.GetBytes(options.WhatsApp.AppSecret!);
+        var key = Encoding.UTF8.GetBytes(settings.AppSecret);
         var computed = HMACSHA256.HashData(key, payload);
         var computedHex = Convert.ToHexString(computed);
 
@@ -89,7 +80,8 @@ public sealed class WhatsAppCloudApiInboundProvider(
         string mediaId,
         CancellationToken cancellationToken = default)
     {
-        if (!IsConfigured)
+        var settings = settingsProvider.Current;
+        if (settings is null)
         {
             throw new InvalidOperationException("WhatsApp provider is not configured.");
         }
@@ -99,7 +91,6 @@ public sealed class WhatsAppCloudApiInboundProvider(
             throw new InvalidOperationException("WhatsApp media id is required.");
         }
 
-        var settings = options.WhatsApp;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(settings.RequestTimeoutSeconds, 5, 60)));
 

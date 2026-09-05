@@ -2,32 +2,30 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using InsuranceIntelligence.Domain.Integrations;
-using InsuranceIntelligence.Infrastructure.Configuration;
 
 namespace InsuranceIntelligence.Infrastructure.WhatsApp;
 
 public sealed class WhatsAppCloudApiOutboundProvider(
-    InfrastructureOptions options,
+    IWhatsAppRuntimeSettingsProvider settingsProvider,
     HttpClient httpClient) : IWhatsAppOutboundProvider
 {
-    public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(options.WhatsApp.PhoneNumberId)
-        && !string.IsNullOrWhiteSpace(options.WhatsApp.AccessToken);
+    public bool IsConfigured => settingsProvider.Current is not null;
 
     public async Task<WhatsAppProviderSendResult> SendAsync(
         WhatsAppProviderSendRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!IsConfigured) return new(false, null, null, "WhatsApp outbound is not configured.");
-        if (!string.Equals(request.BusinessPhoneNumberId, options.WhatsApp.PhoneNumberId, StringComparison.Ordinal))
+        var settings = settingsProvider.Current;
+        if (settings is null) return new(false, null, null, "WhatsApp outbound is not configured.");
+        if (!string.Equals(request.BusinessPhoneNumberId, settings.PhoneNumberId, StringComparison.Ordinal))
             return new(false, null, null, "The WhatsApp sender is not configured for this tenant workspace.");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.WhatsApp.RequestTimeoutSeconds, 5, 60)));
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(settings.RequestTimeoutSeconds, 5, 60)));
         using var message = new HttpRequestMessage(
             HttpMethod.Post,
-            $"{options.WhatsApp.GraphBaseUrl.TrimEnd('/')}/{Uri.EscapeDataString(request.BusinessPhoneNumberId)}/messages");
-        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.WhatsApp.AccessToken);
+            $"{settings.GraphBaseUrl.TrimEnd('/')}/{Uri.EscapeDataString(request.BusinessPhoneNumberId)}/messages");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.AccessToken);
         message.Headers.TryAddWithoutValidation("Idempotency-Key", request.IdempotencyKey);
         message.Content = JsonContent.Create(BuildPayload(request));
         using var response = await httpClient.SendAsync(message, timeout.Token);

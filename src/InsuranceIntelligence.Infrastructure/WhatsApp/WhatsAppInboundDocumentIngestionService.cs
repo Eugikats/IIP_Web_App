@@ -15,6 +15,7 @@ namespace InsuranceIntelligence.Infrastructure.WhatsApp;
 /// </summary>
 public sealed class WhatsAppInboundDocumentIngestionService(
     InfrastructureOptions options,
+    IWhatsAppRuntimeSettingsProvider settingsProvider,
     IWhatsAppInboundProvider whatsAppProvider,
     IWhatsAppToCaseMatcher matcher,
     IWhatsAppAttachmentProcessor attachmentProcessor,
@@ -45,10 +46,8 @@ public sealed class WhatsAppInboundDocumentIngestionService(
             return new WhatsAppIngestionResult("InvalidSignature", 0, 0, 0, "Webhook signature was invalid.");
         }
 
-        var settings = options.WhatsApp;
-        if (string.IsNullOrWhiteSpace(settings.TenantId)
-            || string.IsNullOrWhiteSpace(settings.WorkspaceId)
-            || string.IsNullOrWhiteSpace(settings.IntegrationUserId))
+        var settings = settingsProvider.Current;
+        if (settings is null || string.IsNullOrWhiteSpace(settings.IntegrationUserId))
         {
             return new WhatsAppIngestionResult(
                 "ConfigurationRequired",
@@ -65,8 +64,8 @@ public sealed class WhatsAppInboundDocumentIngestionService(
             return new WhatsAppIngestionResult("Ignored", 0, 0, 0, null);
         }
 
-        var expectedPhoneNumberId = settings.PhoneNumberId!;
-        var scope = TenantScope.Create(settings.TenantId!, settings.WorkspaceId!);
+        var expectedPhoneNumberId = settings.PhoneNumberId;
+        var scope = TenantScope.Create(settings.TenantId, settings.WorkspaceId);
         var actor = settings.IntegrationUserId!;
         var documentsStored = 0;
         var manualReview = 0;

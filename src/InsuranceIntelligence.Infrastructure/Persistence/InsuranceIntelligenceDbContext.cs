@@ -45,6 +45,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedDocumentFieldValidationRule> DocumentFieldValidationRules => Set<PersistedDocumentFieldValidationRule>();
     public DbSet<PersistedClaimantMagicLinkToken> ClaimantMagicLinkTokens => Set<PersistedClaimantMagicLinkToken>();
     public DbSet<PersistedClaimantPortalSession> ClaimantPortalSessions => Set<PersistedClaimantPortalSession>();
+    public DbSet<PersistedWhatsAppChannelConfiguration> WhatsAppChannelConfigurations => Set<PersistedWhatsAppChannelConfiguration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -131,13 +132,19 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.CreatedAt });
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.IsRead });
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimantMagicLinkToken>(), "ClaimantMagicLinkTokens", "TokenId");
-        modelBuilder.Entity<PersistedClaimantMagicLinkToken>().Property(entity => entity.CaseId).IsRequired();
+        // CaseId is intentionally nullable — a token verifying a policyholder with no claim yet
+        // (see ClaimantAuthenticationEndpoints.RequestMagicLink) has none. Do not add
+        // .IsRequired() here: EF's fluent IsRequired overrides CLR nullability inference and would
+        // force this column NOT NULL despite the Guid? type, which would throw at save time for
+        // exactly the case this column exists to support.
         modelBuilder.Entity<PersistedClaimantMagicLinkToken>().Property(entity => entity.TokenHash).HasMaxLength(64).IsRequired();
         modelBuilder.Entity<PersistedClaimantMagicLinkToken>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.TokenHash }).IsUnique();
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimantPortalSession>(), "ClaimantPortalSessions", "SessionId");
-        modelBuilder.Entity<PersistedClaimantPortalSession>().Property(entity => entity.CaseId).IsRequired();
+        // CaseId is nullable for the same reason as PersistedClaimantMagicLinkToken above — do not
+        // add .IsRequired() to it.
         modelBuilder.Entity<PersistedClaimantPortalSession>().Property(entity => entity.SessionTokenHash).HasMaxLength(64).IsRequired();
         modelBuilder.Entity<PersistedClaimantPortalSession>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.SessionTokenHash }).IsUnique();
+        ConfigureScopedJson(modelBuilder.Entity<PersistedWhatsAppChannelConfiguration>(), "WhatsAppChannelConfigurations", "ConfigurationId");
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)
@@ -307,6 +314,7 @@ public sealed class PersistedClaimantPortalSession : PersistedScopedJson
     public Guid? CaseId { get; set; }
     public string SessionTokenHash { get; set; } = string.Empty;
 }
+public sealed class PersistedWhatsAppChannelConfiguration : PersistedScopedJson;
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;
 public sealed class PersistedBranch : PersistedScopedJson;

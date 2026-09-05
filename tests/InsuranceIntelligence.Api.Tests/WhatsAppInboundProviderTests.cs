@@ -63,7 +63,7 @@ public sealed class WhatsAppInboundProviderTests
     [Fact]
     public void CloudProvider_VerifySubscription_RequiresMatchingToken()
     {
-        var provider = new WhatsAppCloudApiInboundProvider(Configured(), NullLogger<WhatsAppCloudApiInboundProvider>.Instance);
+        var provider = new WhatsAppCloudApiInboundProvider(new StaticWhatsAppRuntimeSettingsProvider(ConfiguredSettings()), NullLogger<WhatsAppCloudApiInboundProvider>.Instance);
         Assert.True(provider.IsConfigured);
         Assert.True(provider.TryVerifySubscription("subscribe", "verify-me", "12345", out var challenge));
         Assert.Equal("12345", challenge);
@@ -73,7 +73,7 @@ public sealed class WhatsAppInboundProviderTests
     [Fact]
     public void CloudProvider_Signature_AcceptsValidHmac()
     {
-        var provider = new WhatsAppCloudApiInboundProvider(Configured(), NullLogger<WhatsAppCloudApiInboundProvider>.Instance);
+        var provider = new WhatsAppCloudApiInboundProvider(new StaticWhatsAppRuntimeSettingsProvider(ConfiguredSettings()), NullLogger<WhatsAppCloudApiInboundProvider>.Instance);
         var body = Encoding.UTF8.GetBytes(SampleWebhook);
         var signature = Sign("app-secret", body);
         Assert.True(provider.IsValidSignature(body, signature));
@@ -97,7 +97,7 @@ public sealed class WhatsAppInboundProviderTests
                 },
             });
         var provider = new WhatsAppCloudApiInboundProvider(
-            Configured(),
+            new StaticWhatsAppRuntimeSettingsProvider(ConfiguredSettings()),
             NullLogger<WhatsAppCloudApiInboundProvider>.Instance,
             new HttpClient(handler));
 
@@ -114,6 +114,7 @@ public sealed class WhatsAppInboundProviderTests
     {
         var service = new WhatsAppInboundDocumentIngestionService(
             new InfrastructureOptions(),
+            new StaticWhatsAppRuntimeSettingsProvider(null),
             new DisabledWhatsAppInboundProvider(),
             new StubMatcher(null),
             new DisabledWhatsAppAttachmentProcessor(),
@@ -129,10 +130,12 @@ public sealed class WhatsAppInboundProviderTests
     [Fact]
     public async Task Ingestion_WhenSignatureInvalid_Rejects()
     {
-        var options = Configured();
-        var provider = new WhatsAppCloudApiInboundProvider(options, NullLogger<WhatsAppCloudApiInboundProvider>.Instance);
+        var options = new InfrastructureOptions { ChannelProvider = "WhatsAppCloudApi" };
+        var settingsProvider = new StaticWhatsAppRuntimeSettingsProvider(ConfiguredSettings());
+        var provider = new WhatsAppCloudApiInboundProvider(settingsProvider, NullLogger<WhatsAppCloudApiInboundProvider>.Instance);
         var service = new WhatsAppInboundDocumentIngestionService(
             options,
+            settingsProvider,
             provider,
             new StubMatcher(null),
             new DisabledWhatsAppAttachmentProcessor(),
@@ -149,7 +152,8 @@ public sealed class WhatsAppInboundProviderTests
     public async Task Ingestion_WhenMatched_StoresDocument()
     {
         var caseId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        var options = Configured();
+        var options = new InfrastructureOptions { ChannelProvider = "WhatsAppCloudApi" };
+        var settingsProvider = new StaticWhatsAppRuntimeSettingsProvider(ConfiguredSettings());
         var handler = new SequencingHandler(
             new HttpResponseMessage(HttpStatusCode.OK)
             {
@@ -163,7 +167,7 @@ public sealed class WhatsAppInboundProviderTests
                 },
             });
         var provider = new WhatsAppCloudApiInboundProvider(
-            options,
+            settingsProvider,
             NullLogger<WhatsAppCloudApiInboundProvider>.Instance,
             new HttpClient(handler));
         var storage = new CapturingStorageProvider();
@@ -176,6 +180,7 @@ public sealed class WhatsAppInboundProviderTests
         var body = Encoding.UTF8.GetBytes(SampleWebhook);
         var service = new WhatsAppInboundDocumentIngestionService(
             options,
+            settingsProvider,
             provider,
             new StubMatcher(caseId),
             processor,
@@ -219,22 +224,17 @@ public sealed class WhatsAppInboundProviderTests
         Assert.False(match.RequiresManualReview);
     }
 
-    private static InfrastructureOptions Configured() =>
-        new()
-        {
-            ChannelProvider = "WhatsAppCloudApi",
-            WhatsApp = new WhatsAppOptions
-            {
-                PhoneNumberId = "phone-1",
-                AccessToken = "token",
-                AppSecret = "app-secret",
-                VerifyToken = "verify-me",
-                TenantId = "tenant-a",
-                WorkspaceId = "workspace-a",
-                IntegrationUserId = "whatsapp-integration",
-                GraphBaseUrl = "https://graph.facebook.com/v21.0",
-            },
-        };
+    private static WhatsAppEffectiveSettings ConfiguredSettings() => new(
+        PhoneNumberId: "phone-1",
+        AccessToken: "token",
+        AppSecret: "app-secret",
+        VerifyToken: "verify-me",
+        GraphBaseUrl: "https://graph.facebook.com/v21.0",
+        RequestTimeoutSeconds: 20,
+        TenantId: "tenant-a",
+        WorkspaceId: "workspace-a",
+        IntegrationUserId: "whatsapp-integration",
+        Source: "EnvironmentConfigured");
 
     private static string Sign(string secret, byte[] body)
     {

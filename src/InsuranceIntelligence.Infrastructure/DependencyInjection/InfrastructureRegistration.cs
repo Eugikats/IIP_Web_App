@@ -105,6 +105,16 @@ public static class InfrastructureRegistration
             services.AddSingleton<ISmsProvider, DisabledSmsProvider>();
         }
 
+        // Registered unconditionally — the settings screen (WhatsAppConfigurationEndpoints) must be
+        // able to capture, validate, and store WhatsApp credentials even before an operator has
+        // also switched INSURANCEINTELLIGENCE_CHANNEL_PROVIDER to WhatsAppCloudApi at the
+        // deployment level. Which concrete inbound/outbound provider class is active (real vs
+        // Disabled) still follows that env var below — this only controls where their credentials
+        // come from once active.
+        services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppChannelConfigurationRepository, EfWhatsAppChannelConfigurationRepository>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IWhatsAppCredentialProtector, DataProtectionWhatsAppCredentialProtector>();
+        services.AddSingleton<IWhatsAppRuntimeSettingsProvider, WhatsAppRuntimeSettingsProvider>();
+
         if (options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase))
         {
             services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();

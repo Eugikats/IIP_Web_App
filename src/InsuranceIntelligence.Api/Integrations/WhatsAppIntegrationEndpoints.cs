@@ -17,11 +17,13 @@ public static class WhatsAppIntegrationEndpoints
     public static IResult GetHealth(
         IWhatsAppInboundProvider inboundProvider,
         IWhatsAppOutboundProvider outboundProvider,
+        IWhatsAppRuntimeSettingsProvider settingsProvider,
         InfrastructureOptions options)
     {
-        var mappingConfigured = !string.IsNullOrWhiteSpace(options.WhatsApp.TenantId)
-            && !string.IsNullOrWhiteSpace(options.WhatsApp.WorkspaceId)
-            && !string.IsNullOrWhiteSpace(options.WhatsApp.IntegrationUserId);
+        var settings = settingsProvider.Current;
+        var mappingConfigured = settings is not null
+            && !string.IsNullOrWhiteSpace(settings.TenantId)
+            && !string.IsNullOrWhiteSpace(settings.WorkspaceId);
         var providerSelected = options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase);
         var configured = providerSelected && inboundProvider.IsConfigured && outboundProvider.IsConfigured && mappingConfigured;
         return Results.Ok(new
@@ -32,6 +34,7 @@ public static class WhatsAppIntegrationEndpoints
             inboundConfigured = providerSelected && inboundProvider.IsConfigured,
             outboundConfigured = providerSelected && outboundProvider.IsConfigured,
             tenantMappingConfigured = mappingConfigured,
+            configurationSource = settings?.Source,
             status = configured ? "ready" : "Not configured"
         });
     }
@@ -65,7 +68,7 @@ public static class WhatsAppIntegrationEndpoints
         HttpRequest request,
         WhatsAppInboundDocumentIngestionService ingestionService,
         IWhatsAppMessagingService messagingService,
-        InfrastructureOptions options,
+        IWhatsAppRuntimeSettingsProvider settingsProvider,
         CancellationToken cancellationToken)
     {
         // Read raw body before any JSON model binding so HMAC covers exact bytes Meta signed.
@@ -84,8 +87,16 @@ public static class WhatsAppIntegrationEndpoints
         }
         if (result.Status == "InvalidSignature") return Results.Unauthorized();
 
-        var settings = options.WhatsApp;
-        var scope = TenantScope.Create(settings.TenantId!, settings.WorkspaceId!);
+        var settings = settingsProvider.Current;
+        if (settings is null)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "Not configured",
+                detail: "WhatsApp inbound is not configured.");
+        }
+
+        var scope = TenantScope.Create(settings.TenantId, settings.WorkspaceId);
         try
         {
             var json = System.Text.Encoding.UTF8.GetString(rawBody);
