@@ -21,6 +21,7 @@ public sealed class WhatsAppInboundDocumentIngestionService(
     IWhatsAppAttachmentProcessor attachmentProcessor,
     ICaseRepository caseRepository,
     ICaseDocumentRepository documentRepository,
+    CaseIntakeService caseIntakeService,
     IAuditRepository auditRepository,
     ILogger<WhatsAppInboundDocumentIngestionService> logger)
 {
@@ -83,7 +84,50 @@ public sealed class WhatsAppInboundDocumentIngestionService(
             }
 
             var match = await matcher.MatchAsync(message, scope, cancellationToken);
-            if (match.CaseId is null || match.RequiresManualReview)
+            ClaimCase claimCase;
+            if (match.CaseId is { } matchedCaseId && !match.RequiresManualReview)
+            {
+                var existingCase = await caseRepository.GetAsync(matchedCaseId, cancellationToken);
+                if (existingCase is null || !existingCase.Scope.Matches(scope))
+                {
+                    manualReview++;
+                    continue;
+                }
+
+                claimCase = existingCase;
+            }
+            else if (match.IdentifiedSender is { } identifiedSender)
+            {
+                claimCase = await caseIntakeService.CreateCaseAsync(
+                    new CreateCaseCommand(
+                        scope,
+                        identifiedSender.CustomerName,
+                        identifiedSender.CustomerEmail,
+                        identifiedSender.CustomerPhone,
+                        identifiedSender.PolicyNumber,
+                        identifiedSender.ProductLine,
+                        ClaimType: "WhatsApp Intake",
+                        Channel: "WhatsApp",
+                        IncidentDate: DateOnly.FromDateTime(message.ReceivedAt.UtcDateTime.Date),
+                        IncidentDescription: string.IsNullOrWhiteSpace(message.Caption)
+                            ? "Reported via WhatsApp — no description provided; documents attached for review."
+                            : message.Caption!,
+                        CreatedByUserId: actor,
+                        CorrelationId: $"whatsapp-{message.ProviderMessageId}",
+                        RequiresConfirmation: true),
+                    cancellationToken);
+                await auditRepository.WriteAsync(
+                    ChannelAudit(
+                        scope,
+                        claimCase.CaseId,
+                        "whatsapp.inbound.case_auto_created",
+                        [message.ProviderMessageId],
+                        actor,
+                        message.ProviderMessageId,
+                        "WhatsAppCloudApi"),
+                    cancellationToken);
+            }
+            else
             {
                 manualReview++;
                 await auditRepository.WriteAsync(
@@ -96,13 +140,6 @@ public sealed class WhatsAppInboundDocumentIngestionService(
                         message.ProviderMessageId,
                         "WhatsAppCloudApi"),
                     cancellationToken);
-                continue;
-            }
-
-            var claimCase = await caseRepository.GetAsync(match.CaseId.Value, cancellationToken);
-            if (claimCase is null || !claimCase.Scope.Matches(scope))
-            {
-                manualReview++;
                 continue;
             }
 

@@ -23,7 +23,11 @@ public sealed record WhatsAppMediaContent(
     string FileName,
     byte[] ContentBytes);
 
-public sealed record WhatsAppToCaseMatchResult(Guid? CaseId, string MatchReason, bool RequiresManualReview);
+public sealed record WhatsAppToCaseMatchResult(
+    Guid? CaseId,
+    string MatchReason,
+    bool RequiresManualReview,
+    IdentifiedSender? IdentifiedSender = null);
 
 public sealed record WhatsAppIngestionResult(
     string Status,

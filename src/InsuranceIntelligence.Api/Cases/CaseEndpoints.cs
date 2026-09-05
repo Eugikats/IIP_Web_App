@@ -238,6 +238,80 @@ public static class CaseEndpoints
         return Results.Ok(CaseMapper.ToResponse(updated, auditEvents));
     }
 
+    /// <summary>
+    /// A human confirming a claim IIP auto-created from an identified WhatsApp/email sender (see
+    /// RuleBasedWhatsAppToCaseMatcher / RuleBasedEmailToCaseMatcher). This is what starts the real
+    /// SLA clock and removes it from the "needs confirmation" state — a claim IIP created on its
+    /// own never counts toward SLA or attention metrics until a human has looked at it.
+    /// </summary>
+    public static async Task<IResult> ConfirmCase(
+        Guid caseId,
+        ConfirmCaseRequest request,
+        CaseIntakeService service,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["tenantScope"] = [validationError]
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["userId"] = ["Authenticated user context is required to confirm a claim."]
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.AuditReason))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["auditReason"] = ["A reason is required to confirm a claim IIP created automatically."]
+            });
+        }
+
+        ClaimCaseConfirmationResult result;
+        try
+        {
+            result = await service.ConfirmCaseAsync(
+                caseId,
+                scope,
+                new ConfirmCaseCorrections(request.ProductLine, request.ClaimType, request.IncidentDate, request.IncidentDescription),
+                cancellationToken);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [ex.ParamName ?? "request"] = [ex.Message]
+            });
+        }
+
+        if (!result.Found)
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
+        if (result.WasAlreadyConfirmed)
+        {
+            return Results.Conflict(new { message = "This claim has already been confirmed.", blockedAction = "confirmCase" });
+        }
+
+        var correlationId = GetCorrelationId(httpContext);
+        await auditRepository.WriteAsync(
+            AuditEvent.CaseConfirmed(result.Before!.ToAuditSnapshot(), result.After!.ToAuditSnapshot(), userId, correlationId, request.AuditReason.Trim()),
+            cancellationToken);
+
+        var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
+        return Results.Ok(CaseMapper.ToResponse(result.After!, auditEvents));
+    }
+
     public static async Task<IResult> ListCases(
         ICaseRepository caseRepository,
         ICaseDocumentRepository documentRepository,
@@ -302,6 +376,7 @@ public static class CaseEndpoints
                 claimCase.RiskLevel,
                 claimCase.Priority.ToString(),
                 slaStatus.ToString(),
+                claimCase.RequiresConfirmation,
                 claimCase.AssignedUserId,
                 claimCase.AssignedTeam,
                 claimCase.UpdatedAt,

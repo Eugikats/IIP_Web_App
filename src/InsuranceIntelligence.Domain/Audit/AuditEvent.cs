@@ -152,6 +152,26 @@ public sealed record AuditEvent(
             AuditReason: auditReason,
             CorrelationId: correlationId);
 
+    public static AuditEvent CaseConfirmed(ClaimCaseSnapshot before, ClaimCaseSnapshot after, string confirmedByUserId, string correlationId, string auditReason) =>
+        new(
+            Guid.NewGuid(),
+            after.Scope,
+            after.CaseId,
+            DocumentId: null,
+            UserId: confirmedByUserId,
+            ActorType.User,
+            "case.confirmed",
+            DateTimeOffset.UtcNow,
+            before.Status,
+            after.Status,
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "confirmed",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
     public static AuditEvent CaseStatusUpdated(ClaimCaseSnapshot before, ClaimCaseSnapshot after, string userId, string correlationId, string auditReason) =>
         new(
             Guid.NewGuid(),

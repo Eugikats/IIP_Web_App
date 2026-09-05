@@ -33,7 +33,8 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             CompletenessScore = 0m,
             RiskLevel = routing.InitialRiskLevel,
             Priority = routing.Priority,
-            SlaDueAt = now.AddDays(routing.SlaDays),
+            SlaDueAt = command.RequiresConfirmation ? null : now.AddDays(routing.SlaDays),
+            RequiresConfirmation = command.RequiresConfirmation,
             AssignedUserId = null,
             AssignedTeam = routing.AssignedTeam,
             CreatedByUserId = command.CreatedByUserId.Trim(),
@@ -54,6 +55,55 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
     {
         var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
         return claimCase is not null && claimCase.Scope.Matches(scope) ? claimCase : null;
+    }
+
+    /// <summary>
+    /// A human confirming a claim IIP auto-created from an identified WhatsApp/email sender
+    /// (RequiresConfirmation) — this is what starts the real SLA clock. Optional corrections let
+    /// the confirming officer fix the best-effort product line/claim type/description IIP guessed
+    /// from the raw inbound message before the SLA is set, without a second round trip.
+    /// </summary>
+    public async Task<ClaimCaseConfirmationResult> ConfirmCaseAsync(
+        Guid caseId,
+        TenantScope scope,
+        ConfirmCaseCorrections corrections,
+        CancellationToken cancellationToken = default)
+    {
+        var claimCase = await GetCaseAsync(caseId, scope, cancellationToken);
+        if (claimCase is null)
+        {
+            return ClaimCaseConfirmationResult.NotFound;
+        }
+
+        if (!claimCase.RequiresConfirmation)
+        {
+            return ClaimCaseConfirmationResult.AlreadyConfirmed(claimCase);
+        }
+
+        var productLine = string.IsNullOrWhiteSpace(corrections.ProductLine) ? claimCase.ProductLine : corrections.ProductLine.Trim();
+        var claimType = string.IsNullOrWhiteSpace(corrections.ClaimType) ? claimCase.ClaimType : corrections.ClaimType.Trim();
+        var incidentDescription = string.IsNullOrWhiteSpace(corrections.IncidentDescription) ? claimCase.IncidentDescription : corrections.IncidentDescription.Trim();
+        var incidentDate = corrections.IncidentDate ?? claimCase.IncidentDate;
+
+        var routing = ClaimRoutingPolicy.Evaluate(claimType, claimCase.MotorFnolDetails, productLine: productLine);
+        var now = DateTimeOffset.UtcNow;
+        var confirmed = claimCase with
+        {
+            ProductLine = productLine,
+            ClaimType = claimType,
+            IncidentDescription = incidentDescription,
+            IncidentDate = incidentDate,
+            RequiresConfirmation = false,
+            Status = routing.InitialStatus,
+            RiskLevel = routing.InitialRiskLevel,
+            Priority = routing.Priority,
+            SlaDueAt = now.AddDays(routing.SlaDays),
+            AssignedTeam = routing.AssignedTeam,
+            UpdatedAt = now
+        };
+        await caseRepository.SaveAsync(confirmed, cancellationToken);
+
+        return ClaimCaseConfirmationResult.Confirmed(claimCase, confirmed);
     }
 
     private static void Validate(CreateCaseCommand command)
@@ -85,4 +135,26 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}
+
+public sealed record ConfirmCaseCorrections(
+    string? ProductLine = null,
+    string? ClaimType = null,
+    DateOnly? IncidentDate = null,
+    string? IncidentDescription = null);
+
+public sealed record ClaimCaseConfirmationResult
+{
+    public required bool Found { get; init; }
+    public required bool WasAlreadyConfirmed { get; init; }
+    public ClaimCase? Before { get; init; }
+    public ClaimCase? After { get; init; }
+
+    public static readonly ClaimCaseConfirmationResult NotFound = new() { Found = false, WasAlreadyConfirmed = false };
+
+    public static ClaimCaseConfirmationResult AlreadyConfirmed(ClaimCase claimCase) =>
+        new() { Found = true, WasAlreadyConfirmed = true, Before = claimCase, After = claimCase };
+
+    public static ClaimCaseConfirmationResult Confirmed(ClaimCase before, ClaimCase after) =>
+        new() { Found = true, WasAlreadyConfirmed = false, Before = before, After = after };
 }

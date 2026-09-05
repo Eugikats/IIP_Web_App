@@ -57,7 +57,11 @@ public enum EmailProcessingStatus
     Failed
 }
 
-public sealed record EmailToCaseMatchResult(Guid? CaseId, string MatchReason, bool CreateNewCase);
+public sealed record EmailToCaseMatchResult(
+    Guid? CaseId,
+    string MatchReason,
+    bool CreateNewCase,
+    IdentifiedSender? IdentifiedSender = null);
 
 public sealed record GraphMailboxMessage(
     string ExternalMessageId,

@@ -114,6 +114,77 @@ public sealed class CaseIntakeServiceTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task ConfirmCaseAsync_StartsSlaClockAndClearsFlag()
+    {
+        var caseRepository = new RecordingCaseRepository();
+        var auditRepository = new RecordingAuditRepository();
+        var service = new CaseIntakeService(caseRepository, auditRepository);
+        var claimCase = await service.CreateCaseAsync(ValidCommand() with { RequiresConfirmation = true });
+        Assert.True(claimCase.RequiresConfirmation);
+        Assert.Null(claimCase.SlaDueAt);
+
+        var result = await service.ConfirmCaseAsync(
+            claimCase.CaseId,
+            claimCase.Scope,
+            new ConfirmCaseCorrections());
+
+        Assert.True(result.Found);
+        Assert.False(result.WasAlreadyConfirmed);
+        Assert.False(result.After!.RequiresConfirmation);
+        Assert.NotNull(result.After.SlaDueAt);
+        var stored = await caseRepository.GetAsync(claimCase.CaseId);
+        Assert.False(stored!.RequiresConfirmation);
+    }
+
+    [Fact]
+    public async Task ConfirmCaseAsync_AppliesCorrections()
+    {
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
+        var claimCase = await service.CreateCaseAsync(ValidCommand() with
+        {
+            ClaimType = "WhatsApp Intake",
+            IncidentDescription = "Reported via WhatsApp — no description provided; documents attached for review.",
+            RequiresConfirmation = true
+        });
+
+        var result = await service.ConfirmCaseAsync(
+            claimCase.CaseId,
+            claimCase.Scope,
+            new ConfirmCaseCorrections(ClaimType: "Accident", IncidentDescription: "Rear-ended at a roundabout."));
+
+        Assert.Equal("Accident", result.After!.ClaimType);
+        Assert.Equal("Rear-ended at a roundabout.", result.After.IncidentDescription);
+    }
+
+    [Fact]
+    public async Task ConfirmCaseAsync_AlreadyConfirmed_IsIdempotentAndDoesNotResetSla()
+    {
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+        Assert.False(claimCase.RequiresConfirmation);
+        var originalSlaDueAt = claimCase.SlaDueAt;
+
+        var result = await service.ConfirmCaseAsync(claimCase.CaseId, claimCase.Scope, new ConfirmCaseCorrections());
+
+        Assert.True(result.Found);
+        Assert.True(result.WasAlreadyConfirmed);
+        Assert.Equal(originalSlaDueAt, result.After!.SlaDueAt);
+    }
+
+    [Fact]
+    public async Task ConfirmCaseAsync_UnknownCase_ReturnsNotFound()
+    {
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
+
+        var result = await service.ConfirmCaseAsync(
+            Guid.NewGuid(),
+            TenantScope.Create("tenant-demo", "workspace-claims"),
+            new ConfirmCaseCorrections());
+
+        Assert.False(result.Found);
+    }
+
     private static CreateCaseCommand ValidCommand() =>
         new(
             TenantScope.Create("tenant-demo", "workspace-claims"),

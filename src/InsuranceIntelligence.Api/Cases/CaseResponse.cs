@@ -23,6 +23,7 @@ public sealed record CaseResponse(
     string RiskLevel,
     string Priority,
     DateTimeOffset? SlaDueAt,
+    bool RequiresConfirmation,
     string? AssignedUserId,
     string? AssignedTeam,
     string CreatedByUserId,
@@ -52,6 +53,7 @@ public sealed record ClaimInboxItemResponse(
     string RiskLevel,
     string Priority,
     string SlaStatus,
+    bool RequiresConfirmation,
     string? AssignedUserId,
     string? AssignedTeam,
     DateTimeOffset UpdatedAt,
@@ -67,3 +69,10 @@ public sealed record AssignCaseRequest(
 public sealed record EscalateCaseRequest(
     string AuditReason,
     string? AssignedTeam);
+
+public sealed record ConfirmCaseRequest(
+    string AuditReason,
+    string? ProductLine = null,
+    string? ClaimType = null,
+    DateOnly? IncidentDate = null,
+    string? IncidentDescription = null);

@@ -676,6 +676,130 @@ public sealed class CaseEndpointsTests
     }
 
     [Fact]
+    public async Task ConfirmCase_StartsSlaClockAndWritesAudit()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(
+            ValidCommand() with { RequiresConfirmation = true },
+            CancellationToken.None);
+        Assert.Null(created.SlaDueAt);
+        var context = ScopedContext("ClaimsOfficer", "officer-1");
+        context.Request.Headers["X-Correlation-ID"] = "corr-confirm-001";
+
+        var result = await CaseEndpoints.ConfirmCase(
+            created.CaseId,
+            new ConfirmCaseRequest("Verified caller identity and claim details."),
+            dependencies.Service,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None);
+        var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.False(response!.RequiresConfirmation);
+        Assert.NotNull(response.SlaDueAt);
+        Assert.Equal("case.confirmed", response.Audit.LastActionName);
+
+        var saved = await dependencies.CaseRepository.GetAsync(created.CaseId, CancellationToken.None);
+        Assert.False(saved!.RequiresConfirmation);
+        Assert.NotNull(saved.SlaDueAt);
+    }
+
+    [Fact]
+    public async Task ConfirmCase_AppliesCorrections()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(
+            ValidCommand() with
+            {
+                ClaimType = "WhatsApp Intake",
+                IncidentDescription = "Reported via WhatsApp — no description provided; documents attached for review.",
+                RequiresConfirmation = true
+            },
+            CancellationToken.None);
+
+        var result = await CaseEndpoints.ConfirmCase(
+            created.CaseId,
+            new ConfirmCaseRequest(
+                "Confirmed with claimant by phone.",
+                ClaimType: "Accident",
+                IncidentDescription: "Rear-ended at a roundabout on Kampala Road."),
+            dependencies.Service,
+            dependencies.AuditRepository,
+            ScopedContext("ClaimsOfficer", "officer-1"),
+            CancellationToken.None);
+        var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal("Accident", response!.ClaimType);
+        Assert.Equal("Rear-ended at a roundabout on Kampala Road.", response.IncidentDescription);
+    }
+
+    [Fact]
+    public async Task ConfirmCase_RequiresAuditReason()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(
+            ValidCommand() with { RequiresConfirmation = true },
+            CancellationToken.None);
+
+        var result = await CaseEndpoints.ConfirmCase(
+            created.CaseId,
+            new ConfirmCaseRequest(""),
+            dependencies.Service,
+            dependencies.AuditRepository,
+            ScopedContext("ClaimsOfficer", "officer-1"),
+            CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, statusCode);
+        Assert.True(body.GetProperty("errors").TryGetProperty("auditReason", out _));
+
+        var saved = await dependencies.CaseRepository.GetAsync(created.CaseId, CancellationToken.None);
+        Assert.True(saved!.RequiresConfirmation);
+    }
+
+    [Fact]
+    public async Task ConfirmCase_AlreadyConfirmed_ReturnsConflictAndDoesNotResetSla()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+        Assert.False(created.RequiresConfirmation);
+        var originalSlaDueAt = created.SlaDueAt;
+
+        var result = await CaseEndpoints.ConfirmCase(
+            created.CaseId,
+            new ConfirmCaseRequest("Trying to confirm an already-confirmed claim."),
+            dependencies.Service,
+            dependencies.AuditRepository,
+            ScopedContext("ClaimsOfficer", "officer-1"),
+            CancellationToken.None);
+
+        var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status409Conflict, statusCode);
+        var saved = await dependencies.CaseRepository.GetAsync(created.CaseId, CancellationToken.None);
+        Assert.Equal(originalSlaDueAt, saved!.SlaDueAt);
+    }
+
+    [Fact]
+    public async Task ConfirmCase_UnknownCase_ReturnsNotFound()
+    {
+        var dependencies = CreateDependencies();
+
+        var result = await CaseEndpoints.ConfirmCase(
+            Guid.NewGuid(),
+            new ConfirmCaseRequest("Attempting to confirm a case that does not exist."),
+            dependencies.Service,
+            dependencies.AuditRepository,
+            ScopedContext("ClaimsOfficer", "officer-1"),
+            CancellationToken.None);
+
+        var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, statusCode);
+    }
+
+    [Fact]
     public async Task ListCases_FiltersUnassignedCasesForAssignedClaimViewer()
     {
         var dependencies = CreateDependencies();

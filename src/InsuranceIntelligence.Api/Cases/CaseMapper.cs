@@ -30,6 +30,7 @@ public static class CaseMapper
             claimCase.RiskLevel,
             claimCase.Priority.ToString(),
             claimCase.SlaDueAt,
+            claimCase.RequiresConfirmation,
             claimCase.AssignedUserId,
             claimCase.AssignedTeam,
             claimCase.CreatedByUserId,

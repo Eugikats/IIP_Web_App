@@ -343,7 +343,7 @@ public static class EmailIntegrationEndpoints
         }
         else
         {
-            claimCase = NewEmailCase(scope, message, sourceMailbox, actor, httpContext.TraceIdentifier);
+            claimCase = NewEmailCase(scope, message, sourceMailbox, actor, httpContext.TraceIdentifier, match.IdentifiedSender);
             auditAction = "email.case_created";
         }
 
@@ -485,18 +485,34 @@ public static class EmailIntegrationEndpoints
         return Results.Ok(new { status });
     }
 
-    private static ClaimCase NewEmailCase(TenantScope scope, InboundEmailMessage message, MailboxConnection? mailbox, string actor, string correlationId)
+    /// <summary>
+    /// Builds a best-effort case from an inbound email that matched no existing claim. A human
+    /// already triggered this via <see cref="ProcessMessage"/>, but the claim details are still
+    /// unverified: an unidentified sender's claimed policy number lives only in free-text email
+    /// content it fully controls, and even an identified sender's incident details are a guess
+    /// from the raw email. Both paths always set <c>RequiresConfirmation = true</c> so the case
+    /// carries no SLA clock until a claims officer reviews and confirms it — see
+    /// <see cref="ClaimCase.RequiresConfirmation"/>.
+    /// </summary>
+    private static ClaimCase NewEmailCase(
+        TenantScope scope,
+        InboundEmailMessage message,
+        MailboxConnection? mailbox,
+        string actor,
+        string correlationId,
+        IdentifiedSender? identifiedSender)
     {
         var now = DateTimeOffset.UtcNow;
         return new ClaimCase
         {
             CaseId = Guid.NewGuid(),
             Scope = scope,
-            CustomerName = message.Sender,
-            CustomerEmail = message.Sender,
-            CustomerPhone = null,
-            PolicyNumber = "UNKNOWN",
-            ProductLine = string.IsNullOrWhiteSpace(mailbox?.ProductLine) ? "Unassigned" : mailbox.ProductLine,
+            CustomerName = identifiedSender?.CustomerName ?? message.Sender,
+            CustomerEmail = identifiedSender?.CustomerEmail ?? message.Sender,
+            CustomerPhone = identifiedSender?.CustomerPhone,
+            PolicyNumber = identifiedSender?.PolicyNumber ?? "UNKNOWN",
+            ProductLine = identifiedSender?.ProductLine
+                ?? (string.IsNullOrWhiteSpace(mailbox?.ProductLine) ? "Unassigned" : mailbox.ProductLine),
             ClaimType = "Email Intake",
             Channel = "Email",
             IncidentDate = DateOnly.FromDateTime(message.ReceivedAt.UtcDateTime.Date),
@@ -505,7 +521,8 @@ public static class EmailIntegrationEndpoints
             CompletenessScore = 0m,
             RiskLevel = "Low",
             Priority = CasePriority.Normal,
-            SlaDueAt = now.AddHours(24),
+            SlaDueAt = null,
+            RequiresConfirmation = true,
             AssignedUserId = actor,
             AssignedTeam = "Claims",
             CreatedByUserId = actor,

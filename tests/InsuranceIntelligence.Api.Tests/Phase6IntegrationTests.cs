@@ -252,6 +252,74 @@ public sealed class Phase6IntegrationTests
     }
 
     [Fact]
+    public async Task ProcessMessage_IdentifiedSenderWithNoCaseMatch_CreatesUnconfirmedCaseWithRealPolicy()
+    {
+        var deps = CreateDeps();
+        await deps.Customers.UpsertAsync(
+            new InsuranceIntelligence.Domain.Customers.Customer("cust-1", Scope().TenantId, Scope().WorkspaceId, "Amina Okello", "amina@example.test", "+256700000000"),
+            CancellationToken.None);
+        await deps.Policies.UpsertAsync(
+            new InsuranceIntelligence.Domain.Policies.Policy("pol-1", Scope().TenantId, Scope().WorkspaceId, "POL-9001", "Motor", null, "cust-1", null, null, null),
+            CancellationToken.None);
+        var message = (await CreateMessage(deps)) with { Sender = "amina@example.test" };
+        await deps.Emails.SaveAsync(message);
+
+        const string auditReason = "Integration admin manually processed the inbound claim email.";
+        var result = await EmailIntegrationEndpoints.ProcessMessage(
+            new ProcessEmailMessageRequest(message.MessageId),
+            deps.Emails,
+            deps.Mailboxes,
+            deps.GraphProvider,
+            deps.Matcher,
+            deps.Cases,
+            deps.Documents,
+            deps.AttachmentProcessor,
+            deps.Audit,
+            Options(),
+            Context(userId: "runtime-it-admin", auditReason: auditReason),
+            CancellationToken.None);
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        var cases = await deps.Cases.ListAsync(Scope());
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        var claimCase = Assert.Single(cases);
+        Assert.Equal("Amina Okello", claimCase.CustomerName);
+        Assert.Equal("POL-9001", claimCase.PolicyNumber);
+        Assert.Equal("Motor", claimCase.ProductLine);
+        Assert.True(claimCase.RequiresConfirmation);
+        Assert.Null(claimCase.SlaDueAt);
+    }
+
+    [Fact]
+    public async Task ProcessMessage_UnidentifiedSenderWithNoCaseMatch_CreatesUnconfirmedUnknownPolicyCase()
+    {
+        var deps = CreateDeps();
+        var message = await CreateMessage(deps);
+
+        var result = await EmailIntegrationEndpoints.ProcessMessage(
+            new ProcessEmailMessageRequest(message.MessageId),
+            deps.Emails,
+            deps.Mailboxes,
+            deps.GraphProvider,
+            deps.Matcher,
+            deps.Cases,
+            deps.Documents,
+            deps.AttachmentProcessor,
+            deps.Audit,
+            Options(),
+            Context(userId: "runtime-it-admin", auditReason: "Processing an unmatched, unidentified inbound email."),
+            CancellationToken.None);
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        var cases = await deps.Cases.ListAsync(Scope());
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        var claimCase = Assert.Single(cases);
+        Assert.Equal("UNKNOWN", claimCase.PolicyNumber);
+        Assert.True(claimCase.RequiresConfirmation);
+        Assert.Null(claimCase.SlaDueAt);
+    }
+
+    [Fact]
     public async Task ProcessMessage_RejectsMissingAuditReasonBeforeMutation()
     {
         var deps = CreateDeps();
@@ -999,6 +1067,8 @@ public sealed class Phase6IntegrationTests
         var effectiveOptions = options ?? Options();
         graphClient ??= new FakeGraphMailClient();
         var communicationProvider = communicationSendingProvider ?? new MockCommunicationSendingProvider();
+        var customers = new InMemoryCustomerRepository();
+        var policies = new InMemoryPolicyRepository();
         IEmailAttachmentProcessor attachmentProcessor = effectiveOptions.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase)
             ? new GraphEmailAttachmentProcessor(effectiveOptions, graphClient, new TestDocumentStorageProvider(), new MockDocumentProcessingProvider())
             : new MockEmailAttachmentProcessor();
@@ -1009,12 +1079,14 @@ public sealed class Phase6IntegrationTests
             new GraphMailProvider(effectiveOptions, graphClient),
             cases,
             new InMemoryCaseDocumentRepository(),
-            new RuleBasedEmailToCaseMatcher(cases),
+            new RuleBasedEmailToCaseMatcher(cases, customers, policies),
             attachmentProcessor,
             new InMemoryAuditRepository(),
             new InMemoryCommunicationRepository(),
             communicationProvider,
-            new InMemoryCustomerUpdateRepository());
+            new InMemoryCustomerUpdateRepository(),
+            customers,
+            policies);
     }
 
     private static async Task<ClaimCase> CreateCaseAsync(Deps deps)
@@ -1223,7 +1295,9 @@ public sealed class Phase6IntegrationTests
         InMemoryAuditRepository Audit,
         InMemoryCommunicationRepository Communications,
         ICommunicationSendingProvider CommunicationProvider,
-        InMemoryCustomerUpdateRepository CustomerUpdates);
+        InMemoryCustomerUpdateRepository CustomerUpdates,
+        InMemoryCustomerRepository Customers,
+        InMemoryPolicyRepository Policies);
 
     private sealed class FakeGraphMailClient : IGraphMailClient
     {

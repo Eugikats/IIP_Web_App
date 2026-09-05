@@ -24,6 +24,14 @@ public sealed record ClaimCase
     public string RiskLevel { get; init; } = "Low";
     public CasePriority Priority { get; init; } = CasePriority.Normal;
     public DateTimeOffset? SlaDueAt { get; init; }
+
+    /// <summary>True for a claim IIP created on its own from an identified WhatsApp/email sender
+    /// (see RuleBasedWhatsAppToCaseMatcher / RuleBasedEmailToCaseMatcher's identified-no-case
+    /// path) — a human has not yet looked at it. SlaDueAt stays null until a human confirms it via
+    /// CaseEndpoints.ConfirmCase, which is also what excludes it from SLA/attention metrics
+    /// (BasicSlaCalculator treats a null SlaDueAt as never at risk or breached) without a
+    /// dedicated CaseStatus value or a fourth duplicated metrics carve-out.</summary>
+    public bool RequiresConfirmation { get; init; }
     public string? AssignedUserId { get; init; }
     public string? AssignedTeam { get; init; }
     public required string CreatedByUserId { get; init; }
