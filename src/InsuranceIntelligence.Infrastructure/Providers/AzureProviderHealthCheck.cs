@@ -24,6 +24,11 @@ public sealed class AzureProviderHealthCheck(InfrastructureOptions options) : IP
             return await CheckAzureBlobAsync(providerCode, checkedAt, cancellationToken);
         }
 
+        if (IsDocumentIntelligence(providerCode))
+        {
+            return CheckDocumentIntelligence(providerCode, checkedAt);
+        }
+
         return new ProviderStatus(providerCode, "not_configured", "No real connectivity check is registered for this provider.", checkedAt);
     }
 
@@ -108,6 +113,31 @@ public sealed class AzureProviderHealthCheck(InfrastructureOptions options) : IP
 
         return new ProviderStatus(providerCode, "ready", "Azure AI Search provider configuration is present.", checkedAt);
     }
+
+    private ProviderStatus CheckDocumentIntelligence(string providerCode, DateTimeOffset checkedAt)
+    {
+        if (!options.DocumentProvider.Equals("AzureDocumentIntelligence", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ProviderStatus(providerCode, "not_configured", "Azure Document Intelligence provider is not configured.", checkedAt);
+        }
+
+        if (string.IsNullOrWhiteSpace(options.DocumentIntelligence.Endpoint))
+        {
+            return new ProviderStatus(providerCode, "missing", "DocumentIntelligence:Endpoint must be configured.", checkedAt);
+        }
+
+        if (!options.DocumentIntelligence.UseManagedIdentity && string.IsNullOrWhiteSpace(options.DocumentIntelligence.ApiKey))
+        {
+            return new ProviderStatus(providerCode, "missing", "DocumentIntelligence:ApiKey must be set when UseManagedIdentity is false.", checkedAt);
+        }
+
+        return new ProviderStatus(providerCode, "configured", "Azure Document Intelligence endpoint is present.", checkedAt);
+    }
+
+    private static bool IsDocumentIntelligence(string providerCode) =>
+        providerCode.Equals("AzureDocumentIntelligence", StringComparison.OrdinalIgnoreCase)
+        || providerCode.Equals("DocumentIntelligence", StringComparison.OrdinalIgnoreCase)
+        || providerCode.Equals("document_intelligence", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsAzureBlob(string providerCode) =>
         providerCode.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase)

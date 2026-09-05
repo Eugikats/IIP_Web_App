@@ -11,4 +11,7 @@ public sealed record AssistantAnswer(
     string? ModelDeployment = null,
     string PromptVersion = "unversioned",
     string Visibility = "Internal",
-    bool CanTriggerDecision = false);
+    bool CanTriggerDecision = false,
+    string? ModelVersion = null,
+    int? PromptTokens = null,
+    int? CompletionTokens = null);

@@ -1,0 +1,21 @@
+{
+  "fields": {
+    "sourceFileName": "police-abstract-sample.pdf",
+    "objectKey": "tenant-demo/workspace-claims/case-001/doc-002_police-abstract-sample.pdf",
+    "modelId": "prebuilt-document",
+    "contentType": "application/pdf",
+    "pageCount": "1"
+  },
+  "fieldConfidences": {
+    "sourceFileName": 0.70,
+    "objectKey": 0.70,
+    "modelId": 0.70,
+    "contentType": 0.70,
+    "pageCount": 0.70
+  },
+  "modelVersion": "2024-11-30",
+  "baselineModelVersion": "2024-11-30",
+  "providerName": "AzureDocumentIntelligence",
+  "capturedAt": "2026-08-01T00:00:00Z",
+  "note": "Golden fixture for a police abstract / OB extract. Re-capture when model version changes after human review."
+}

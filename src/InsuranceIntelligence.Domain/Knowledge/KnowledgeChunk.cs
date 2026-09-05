@@ -13,4 +13,8 @@ public sealed record KnowledgeChunk
     public required int ChunkIndex { get; init; }
     public required string Content { get; init; }
     public required KnowledgeSourceReference SourceReference { get; init; }
+    /// <summary>Relevance score returned by Azure AI Search (0–1). Null when not available.</summary>
+    public double? Score { get; init; }
+    /// <summary>Section title from the source document, when returned by the search index.</summary>
+    public string? Section { get; init; }
 }

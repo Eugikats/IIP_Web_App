@@ -23,7 +23,8 @@ public sealed record PolicyQuestionResponse(
     string Visibility,
     bool CanTriggerDecision,
     DateTimeOffset GeneratedAt,
-    string CorrelationId);
+    string CorrelationId,
+    string? ModelVersion = null);
 
 public sealed record SourceCitationResponse(
     Guid KnowledgeDocumentId,
@@ -51,4 +52,8 @@ public sealed record AgentActionLogResponse(
     string? ModelDeployment,
     string PromptVersion,
     string Visibility,
-    bool CanTriggerDecision);
+    bool CanTriggerDecision,
+    string? ModelVersion = null,
+    int? PromptTokens = null,
+    int? CompletionTokens = null,
+    decimal? EstimatedCostUsd = null);

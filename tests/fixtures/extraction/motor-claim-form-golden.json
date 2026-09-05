@@ -1,0 +1,21 @@
+{
+  "fields": {
+    "sourceFileName": "motor-claim-form-sample.pdf",
+    "objectKey": "tenant-demo/workspace-claims/case-001/doc-001_motor-claim-form-sample.pdf",
+    "modelId": "prebuilt-document",
+    "contentType": "application/pdf",
+    "pageCount": "2"
+  },
+  "fieldConfidences": {
+    "sourceFileName": 0.70,
+    "objectKey": 0.70,
+    "modelId": 0.70,
+    "contentType": 0.70,
+    "pageCount": 0.70
+  },
+  "modelVersion": "2024-11-30",
+  "baselineModelVersion": "2024-11-30",
+  "providerName": "AzureDocumentIntelligence",
+  "capturedAt": "2026-08-01T00:00:00Z",
+  "note": "Golden fixture captured from a sample motor claim form. Re-capture when model version changes after human review."
+}

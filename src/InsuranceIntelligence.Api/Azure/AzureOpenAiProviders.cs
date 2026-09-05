@@ -82,7 +82,10 @@ public sealed class AzureOpenAiChatCompletionProvider(
             content,
             "AzureOpenAI",
             options.AzureOpenAI.ChatDeployment,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            ModelVersion: payload.Model,
+            PromptTokens: payload.Usage?.PromptTokens,
+            CompletionTokens: payload.Usage?.CompletionTokens);
     }
 
     private Uri ChatCompletionsUri() =>
@@ -138,9 +141,9 @@ public sealed class AzureOpenAiAssistantProvider(
 
         try
         {
-            var answer = await CallChatCompletionsAsync(question, retrievalResult, cancellationToken);
+            var (rawAnswer, answerModel, promptTok, completionTok) = await CallChatCompletionsAsync(question, retrievalResult, cancellationToken);
             return new AssistantAnswer(
-                Sanitize(answer),
+                Sanitize(rawAnswer),
                 AiConfidenceScore.Create(retrievalResult.Chunks.Count >= 2 ? 0.82m : 0.76m),
                 retrievalResult.Chunks.Count < 2,
                 retrievalResult.Citations,
@@ -149,7 +152,10 @@ public sealed class AzureOpenAiAssistantProvider(
                 "AzureOpenAI",
                 options.AzureOpenAI.ChatDeployment,
                 PromptVersion,
-                Visibility(question.Audience));
+                Visibility(question.Audience),
+                ModelVersion: answerModel,
+                PromptTokens: promptTok,
+                CompletionTokens: completionTok);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
         {
@@ -208,7 +214,7 @@ public sealed class AzureOpenAiAssistantProvider(
             .Replace("{sourceText}", sourceText, StringComparison.Ordinal));
     }
 
-    private async Task<string> CallChatCompletionsAsync(
+    private async Task<(string Content, string? ModelVersion, int? PromptTokens, int? CompletionTokens)> CallChatCompletionsAsync(
         AssistantQuestion question,
         RetrievalResult retrievalResult,
         CancellationToken cancellationToken)
@@ -251,7 +257,7 @@ public sealed class AzureOpenAiAssistantProvider(
             throw new InvalidOperationException("Azure OpenAI response did not include answer content.");
         }
 
-        return content;
+        return (content, payload.Model, payload.Usage?.PromptTokens, payload.Usage?.CompletionTokens);
     }
 
     private Uri ChatCompletionsUri() =>
@@ -519,8 +525,14 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
     }
 }
 
-internal sealed record ChatCompletionResponse([property: JsonPropertyName("choices")] IReadOnlyCollection<ChatChoice> Choices);
+internal sealed record ChatCompletionResponse(
+    [property: JsonPropertyName("choices")] IReadOnlyCollection<ChatChoice> Choices,
+    [property: JsonPropertyName("model")] string? Model = null,
+    [property: JsonPropertyName("usage")] ChatUsage? Usage = null);
 internal sealed record ChatChoice([property: JsonPropertyName("message")] ChatMessage Message);
 internal sealed record ChatMessage([property: JsonPropertyName("content")] string Content);
+internal sealed record ChatUsage(
+    [property: JsonPropertyName("prompt_tokens")] int? PromptTokens,
+    [property: JsonPropertyName("completion_tokens")] int? CompletionTokens);
 internal sealed record EmbeddingResponse([property: JsonPropertyName("data")] IReadOnlyCollection<EmbeddingItem> Data);
 internal sealed record EmbeddingItem([property: JsonPropertyName("embedding")] IReadOnlyCollection<float> Embedding);

@@ -23,4 +23,12 @@ public sealed record AgentActionLog
     public string PromptVersion { get; init; } = "unversioned";
     public string Visibility { get; init; } = "Internal";
     public bool CanTriggerDecision { get; init; }
+    /// <summary>Model version string returned by the API response (e.g. "gpt-4o-2024-08-06"). Null when not available.</summary>
+    public string? ModelVersion { get; init; }
+    /// <summary>Prompt tokens consumed. Null when provider does not return usage.</summary>
+    public int? PromptTokens { get; init; }
+    /// <summary>Completion tokens consumed. Null when provider does not return usage.</summary>
+    public int? CompletionTokens { get; init; }
+    /// <summary>Estimated cost in USD based on known list prices. Null when not calculable.</summary>
+    public decimal? EstimatedCostUsd { get; init; }
 }

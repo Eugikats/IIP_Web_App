@@ -30,4 +30,8 @@
     <ProjectReference Include="..\..\src\InsuranceIntelligence.LocalTestDoubles\InsuranceIntelligence.LocalTestDoubles.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\tests\fixtures\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="fixtures" />
+  </ItemGroup>
+
 </Project>
