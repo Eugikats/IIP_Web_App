@@ -10,6 +10,7 @@ import {
   Loader2,
   MessageSquareText,
   Send,
+  ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
@@ -26,12 +27,33 @@ import { DocumentUploadWidget } from "@/components/iip/DocumentUploadWidget";
 import { MarkdownText } from "@/components/iip/MarkdownText";
 import { useClaimReview, type ConfirmClaimCorrections } from "@/lib/lovable-parity/data/claimReview";
 import { useClaimsSummary } from "@/lib/lovable-parity/data/claimsSummary";
+import { useFraudSignals, type FraudSeverity } from "@/lib/lovable-parity/data/fraud";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
 import { useUI } from "@/context/UIStateContext";
 import { extractionHref } from "@/lib/workItemLinks";
 import { canPreviewPermission, hasPermission } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useRuntimeContext } from "@/lib/runtimeContext";
+
+const FRAUD_SEVERITY_TONE: Record<FraudSeverity, "error" | "warning" | "violet"> = {
+  Investigation: "error",
+  Anomaly: "warning",
+  Advisory: "violet",
+};
+
+const FRAUD_SEVERITY_LABEL: Record<FraudSeverity, string> = {
+  Investigation: "Requires investigation",
+  Anomaly: "Potential anomaly",
+  Advisory: "Advisory signal",
+};
+
+const FRAUD_STATUS_LABEL: Record<string, string> = {
+  NotTriaged: "Not yet triaged",
+  Triaged: "Triaged",
+  UnderInvestigation: "Under investigation",
+  OutcomeRecorded: "Outcome recorded",
+  Closed: "Closed",
+};
 
 export default function ClaimReview() {
   const { id } = useParams();
@@ -64,6 +86,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const error = "error" in loadState ? loadState.error : null;
   const { roleDef } = useUI();
   const { summary: claimsSummary, loading: summarizing, error: summaryError, generate: generateSummary } = useClaimsSummary(claimId, roleDef.key);
+  const { signals: fraudSignals, loading: fraudLoading, error: fraudError } = useFraudSignals();
+  const caseFraudSignals = fraudSignals.filter((signal) => signal.relatedCaseIds.includes(claimId));
   const { runtimeContext, parityMode } = useRuntimeContext();
   // Gates the upload control on the signed-in user's real permission, never on the preview role
   // switcher — a role without UploadDocument (e.g. ITAdmin, Compliance) must not see a button
@@ -613,6 +637,42 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             score={completeness}
             items={documentItems.length > 0 ? documentItems : [{ label: "Claim documents", present: false }]}
           />
+
+          {!fraudLoading && !fraudError && caseFraudSignals.length > 0 ? (
+            <GlassCard>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 text-warning" />
+                  <div className="text-[14px] font-semibold text-ink">Fraud &amp; underwriting signals</div>
+                </div>
+                <Badge tone="warning">{caseFraudSignals.length}</Badge>
+              </div>
+              <div className="space-y-3">
+                {caseFraudSignals.map((signal) => (
+                  <div key={signal.signalId} className="rounded-xl border border-line bg-white/80 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-[13px] font-medium text-ink">{signal.title}</div>
+                      <Badge tone={FRAUD_SEVERITY_TONE[signal.severity]}>{FRAUD_SEVERITY_LABEL[signal.severity]}</Badge>
+                    </div>
+                    <p className="mt-1 text-[12px] leading-snug text-ink-soft">{signal.detail}</p>
+                    {signal.evidence.length > 0 ? (
+                      <ul className="mt-2 space-y-0.5 text-[11px] text-muted">
+                        {signal.evidence.slice(0, 3).map((item) => (
+                          <li key={item}>· {item}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-muted">{FRAUD_STATUS_LABEL[signal.disposition.status] ?? signal.disposition.status}</span>
+                      <Link to="/app/fraud" className="text-[11.5px] text-info hover:underline">
+                        Open in Fraud Intelligence →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          ) : null}
 
           <div className="rounded-2xl border border-warning/28 bg-warning/8 p-4">
             <div className="mb-1 flex items-center gap-2">
