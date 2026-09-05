@@ -24,7 +24,7 @@ import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import MotorLifecycle from "@/components/iip/MotorLifecycle";
 import { DocumentUploadWidget } from "@/components/iip/DocumentUploadWidget";
 import { MarkdownText } from "@/components/iip/MarkdownText";
-import { useClaimReview } from "@/lib/lovable-parity/data/claimReview";
+import { useClaimReview, type ConfirmClaimCorrections } from "@/lib/lovable-parity/data/claimReview";
 import { useClaimsSummary } from "@/lib/lovable-parity/data/claimsSummary";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
 import { useUI } from "@/context/UIStateContext";
@@ -48,6 +48,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     drafting,
     requestingApproval,
     exporting,
+    confirming,
     draftCustomerUpdate,
     draftDocumentFollowUp,
     approveCustomerUpdate,
@@ -56,6 +57,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     resolveReviewRequest,
     exportEvidencePack,
     requestSupervisorReview,
+    confirmClaim,
     reload,
   } = useClaimReview(claimId);
   const loading = loadState.status === "loading";
@@ -92,6 +94,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const [pendingCustomerUpdateAction, setPendingCustomerUpdateAction] = useState<PendingCustomerUpdateAction | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmCorrections, setConfirmCorrections] = useState<ConfirmClaimCorrections>({});
 
   async function handleDraftCustomerUpdate() {
     const res = await draftCustomerUpdate();
@@ -209,6 +213,29 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     }
   }
 
+  function openConfirmDialog() {
+    if (!detail) return;
+    setConfirmCorrections({
+      productLine: detail.productLine,
+      claimType: detail.claimType,
+      incidentDate: detail.incidentDate,
+      incidentDescription: detail.incidentDescription,
+    });
+    setConfirmDialogOpen(true);
+  }
+
+  async function handleConfirmClaim(auditReason: string) {
+    const res = await confirmClaim(confirmCorrections, auditReason);
+    if (res.ok) {
+      toast.success("Claim confirmed", {
+        description: "The SLA clock has started and this claim now counts in officer metrics.",
+      });
+      setConfirmDialogOpen(false);
+    } else {
+      toast.error(res.message ?? "Could not confirm this claim");
+    }
+  }
+
   const crumb = (
     <div className="flex items-center gap-2 text-[12px] text-muted mb-4">
       <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-ink">
@@ -272,6 +299,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         sub={detail.incidentDescription}
         action={
           <div className="flex flex-wrap items-center gap-2">
+            {detail.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}
             <StatusBadge status={detail.status} />
             <SLABadge sla={sla} />
             <RiskBadge risk={detail.riskLevel} />
@@ -282,6 +310,33 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       <div className="mb-4">
         <GuardrailBanner text="AI prepares this claim's work: extractions, summaries, drafts, and advisory signals. Settlement, denial, repudiation, payment, and fraud determination remain with the reviewing officer." />
       </div>
+
+      {detail.requiresConfirmation ? (
+        <div className="mb-4 rounded-2xl border border-warning/28 bg-warning/8 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <div>
+                <div className="text-[13px] font-semibold text-ink">This claim needs confirmation</div>
+                <p className="mt-1 max-w-2xl text-[12.5px] leading-snug text-ink-soft">
+                  IIP created this claim automatically from an identified {detail.channel} sender. The details below are
+                  a best-effort guess from the raw message — review and correct them, then confirm to start the SLA
+                  clock. Until confirmed, this claim is excluded from SLA and attention metrics.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={openConfirmDialog}
+              disabled={confirming}
+              className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-warning/40 bg-white px-4 py-2.5 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
+            >
+              {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Confirm claim
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mb-4">
         <MotorLifecycle status={detail.status} />
@@ -594,6 +649,45 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         }
         onClose={() => setExportDialogOpen(false)}
         onConfirm={handleExportEvidencePack}
+      />
+      <GovernedActionDialog
+        open={confirmDialogOpen}
+        title="Confirm claim"
+        target={`Case ${detail.claimId}`}
+        impact="Starts this claim's SLA clock and includes it in officer SLA and attention metrics. Correct any details IIP guessed from the raw channel message before confirming."
+        auditNotice="Confirming an auto-created claim is a governed action. The prior (unconfirmed) and confirmed states are both written to the audit trail."
+        confirmLabel="Confirm claim"
+        tone="primary"
+        evidence={
+          <div className="space-y-3 rounded-xl border border-line bg-mist p-4">
+            <label className="block text-sm font-medium text-muted">
+              Product line
+              <input
+                className="mt-1 w-full rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                value={confirmCorrections.productLine ?? ""}
+                onChange={(event) => setConfirmCorrections((prev) => ({ ...prev, productLine: event.target.value }))}
+              />
+            </label>
+            <label className="block text-sm font-medium text-muted">
+              Claim type
+              <input
+                className="mt-1 w-full rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                value={confirmCorrections.claimType ?? ""}
+                onChange={(event) => setConfirmCorrections((prev) => ({ ...prev, claimType: event.target.value }))}
+              />
+            </label>
+            <label className="block text-sm font-medium text-muted">
+              Incident description
+              <textarea
+                className="mt-1 min-h-20 w-full resize-y rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                value={confirmCorrections.incidentDescription ?? ""}
+                onChange={(event) => setConfirmCorrections((prev) => ({ ...prev, incidentDescription: event.target.value }))}
+              />
+            </label>
+          </div>
+        }
+        onClose={() => setConfirmDialogOpen(false)}
+        onConfirm={handleConfirmClaim}
       />
     </>
   );

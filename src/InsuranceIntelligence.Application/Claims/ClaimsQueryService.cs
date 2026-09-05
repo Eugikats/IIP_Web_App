@@ -95,6 +95,7 @@ public sealed class ClaimsQueryService(
             claim.Priority.ToString(),
             ResolveSlaStatus(claim),
             claim.SlaDueAt,
+            claim.RequiresConfirmation,
             claim.AssignedUserId,
             claim.AssignedTeam,
             claim.UpdatedAt);
@@ -119,6 +120,7 @@ public sealed class ClaimsQueryService(
             claim.RiskLevel,
             claim.Priority.ToString(),
             claim.SlaDueAt,
+            claim.RequiresConfirmation,
             claim.AssignedUserId,
             claim.AssignedTeam,
             claim.CreatedAt,
@@ -155,7 +157,8 @@ public sealed class ClaimsQueryService(
 
     private static bool NeedsAttention(ClaimCase claim) =>
         IsOpen(claim)
-        && (claim.CompletenessScore < 100m
+        && (claim.RequiresConfirmation
+            || claim.CompletenessScore < 100m
             || claim.Priority >= CasePriority.High
             || claim.SlaDueAt <= DateTimeOffset.UtcNow.AddHours(4));
 

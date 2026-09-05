@@ -98,6 +98,7 @@ public sealed class ClaimsControllerTests
                     "Normal",
                     "OnTrack",
                     null,
+                    false,
                     null,
                     null,
                     DateTimeOffset.UtcNow)

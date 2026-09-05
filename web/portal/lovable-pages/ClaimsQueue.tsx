@@ -166,7 +166,7 @@ export default function ClaimsQueue() {
                   </div>
                   <StatusBadge status={claim.status} />
                 </div>
-                <div className="flex flex-wrap gap-2"><SLABadge sla={claim.sla} /><RiskBadge risk={claim.risk} /></div>
+                <div className="flex flex-wrap gap-2">{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}<SLABadge sla={claim.sla} /><RiskBadge risk={claim.risk} /></div>
                 <dl className="grid gap-2 text-[12px] text-ink-soft min-[360px]:grid-cols-2">
                   <div><dt className="text-muted">Evidence</dt><dd>{claim.complete ? "Documents complete" : "Documents incomplete"}</dd></div>
                   <div><dt className="text-muted">Owner</dt><dd className="break-words">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</dd></div>
@@ -183,7 +183,7 @@ export default function ClaimsQueue() {
               <caption className="sr-only">Claims priority queue with expandable details</caption>
               <thead><tr className="border-b border-line text-left text-[11px] uppercase tracking-[0.12em] text-muted"><th className="px-4 py-3">Claim & details</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">SLA</th><th className="px-3 py-3">Owner</th><th className="px-3 py-3">Action</th></tr></thead>
               <tbody>{rows.map((claim) => <tr key={claim.id} className="border-b border-line/60 align-top">
-                <td className="px-4 py-3"><div className="font-medium text-ink">{claim.id}</div><div className="text-[11px] text-muted">{claim.customer}</div><details className="mt-2"><summary className="min-h-6 cursor-pointer text-[11.5px] text-info focus-ring">More details</summary><dl className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-ink-soft"><div><dt className="text-muted">Evidence</dt><dd>{claim.complete ? "Complete" : "Incomplete"}</dd></div><div><dt className="text-muted">Risk</dt><dd>{claim.risk}</dd></div><div><dt className="text-muted">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div><div><dt className="text-muted">Updated</dt><dd>{claim.updated}</dd></div></dl></details></td>
+                <td className="px-4 py-3"><div className="flex items-center gap-2"><span className="font-medium text-ink">{claim.id}</span>{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}</div><div className="text-[11px] text-muted">{claim.customer}</div><details className="mt-2"><summary className="min-h-6 cursor-pointer text-[11.5px] text-info focus-ring">More details</summary><dl className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-ink-soft"><div><dt className="text-muted">Evidence</dt><dd>{claim.complete ? "Complete" : "Incomplete"}</dd></div><div><dt className="text-muted">Risk</dt><dd>{claim.risk}</dd></div><div><dt className="text-muted">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div><div><dt className="text-muted">Updated</dt><dd>{claim.updated}</dd></div></dl></details></td>
                 <td className="px-3 py-3"><StatusBadge status={claim.status} /></td><td className="px-3 py-3"><SLABadge sla={claim.sla} /></td><td className="max-w-40 break-words px-3 py-3 text-ink-soft">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</td><td className="px-3 py-3"><Link to={`/app/claims/${claim.id}`} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-line bg-white px-3 py-2 text-info focus-ring">Review <ArrowRight className="h-3.5 w-3.5" /></Link></td>
               </tr>)}</tbody>
             </table>
@@ -203,7 +203,10 @@ export default function ClaimsQueue() {
                 {rows.map(c => (
                   <tr key={c.id} className="border-b border-line/60 hover:bg-white/70 transition cursor-pointer group">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-ink">{c.id}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-ink">{c.id}</span>
+                        {c.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}
+                      </div>
                       <div className="text-[11px] text-muted">{c.policy}</div>
                     </td>
                     <td className="px-4 py-3">

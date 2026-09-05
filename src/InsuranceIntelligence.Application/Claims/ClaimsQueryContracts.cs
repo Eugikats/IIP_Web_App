@@ -27,6 +27,7 @@ public sealed record ClaimListItemDto(
     string Priority,
     string SlaStatus,
     DateTimeOffset? SlaDueAt,
+    bool RequiresConfirmation,
     string? AssignedUserId,
     string? AssignedTeam,
     DateTimeOffset UpdatedAt);
@@ -50,6 +51,7 @@ public sealed record ClaimDetailDto(
     string RiskLevel,
     string Priority,
     DateTimeOffset? SlaDueAt,
+    bool RequiresConfirmation,
     string? AssignedUserId,
     string? AssignedTeam,
     DateTimeOffset CreatedAt,

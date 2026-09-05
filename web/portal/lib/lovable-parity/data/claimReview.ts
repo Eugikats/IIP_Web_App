@@ -47,8 +47,16 @@ export type ClaimDetailView = {
   riskLevel: string;
   priority: string;
   slaDueAt: string | null;
+  requiresConfirmation: boolean;
   assignedUserId: string | null;
   documents: ClaimDocumentView[];
+};
+
+export type ConfirmClaimCorrections = {
+  productLine?: string;
+  claimType?: string;
+  incidentDate?: string;
+  incidentDescription?: string;
 };
 export type TimelineEventView = { eventId: string; eventType: string; actor: string; timestamp: string; summary: string };
 export type ActionStateView = { action: string; label: string; requiredPermission: string; reason: string | null };
@@ -98,6 +106,7 @@ function parityClaimDetail(claimId: string): ClaimDetailView | null {
     riskLevel: claim.risk,
     priority: claim.sla === "Breached" ? "High" : claim.sla === "At Risk" ? "Medium" : "Normal",
     slaDueAt: null,
+    requiresConfirmation: false,
     assignedUserId: claim.officer === "Unassigned" ? null : claim.officer,
     documents: documentLibrary
       .filter((document) => document.claim === claim.id)
@@ -123,6 +132,7 @@ export function useClaimReview(claimId: string) {
   const [drafting, setDrafting] = useState(false);
   const [requestingApproval, setRequestingApproval] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const loadCustomerUpdates = useCallback(async () => {
     if (!claimId || LOVABLE_VISUAL_PARITY_MODE) { setCustomerUpdates([]); return; }
@@ -220,6 +230,7 @@ export function useClaimReview(claimId: string) {
         incidentDate: d.incidentDate, incidentDescription: d.incidentDescription, status: d.status,
         motorFnolDetails: d.motorFnolDetails ?? null,
         completenessScore: d.completenessScore, riskLevel: d.riskLevel, priority: d.priority, slaDueAt: d.slaDueAt,
+        requiresConfirmation: Boolean(d.requiresConfirmation),
         assignedUserId: d.assignedUserId,
         documents: (d.documents ?? []).map((x: ClaimDocumentView) => ({ ...x })),
       };
@@ -395,6 +406,36 @@ export function useClaimReview(claimId: string) {
     }
   }, [claimId, loadReviewRequests, role]);
 
+  const confirmClaim = useCallback(async (
+    corrections: ConfirmClaimCorrections,
+    auditReason: string
+  ): Promise<{ ok: boolean; message?: string }> => {
+    setConfirming(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/confirm`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          auditReason,
+          productLine: corrections.productLine || undefined,
+          claimType: corrections.claimType || undefined,
+          incidentDate: corrections.incidentDate || undefined,
+          incidentDescription: corrections.incidentDescription || undefined,
+        }),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to confirm this claim." };
+      if (res.status === 409) return { ok: false, message: "This claim has already been confirmed." };
+      if (res.status === 404) return { ok: false, message: "This claim was not found." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Confirm failed with HTTP ${res.status}.`) };
+      await load();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Confirm failed." };
+    } finally {
+      setConfirming(false);
+    }
+  }, [claimId, load, role]);
+
   const exportEvidencePack = useCallback(async (auditReason: string): Promise<{ ok: boolean; objectKey?: string; message?: string }> => {
     setExporting(true);
     try {
@@ -429,6 +470,7 @@ export function useClaimReview(claimId: string) {
     drafting,
     requestingApproval,
     exporting,
+    confirming,
     draftCustomerUpdate,
     draftDocumentFollowUp,
     approveCustomerUpdate,
@@ -437,6 +479,7 @@ export function useClaimReview(claimId: string) {
     resolveReviewRequest,
     exportEvidencePack,
     requestSupervisorReview,
+    confirmClaim,
     reload: load,
   };
 }

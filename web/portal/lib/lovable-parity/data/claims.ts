@@ -23,6 +23,7 @@ export type ClaimRowView = {
   region: string;
   assignedUserId: string | null;
   assignedTeam: string | null;
+  requiresConfirmation: boolean;
 };
 
 type ClaimListItemDto = {
@@ -38,6 +39,7 @@ type ClaimListItemDto = {
   priority: string;
   slaStatus: string;
   slaDueAt?: string | null;
+  requiresConfirmation?: boolean;
   assignedUserId?: string | null;
   assignedTeam?: string | null;
   updatedAt: string;
@@ -66,6 +68,7 @@ function mapDto(dto: ClaimListItemDto): ClaimRowView {
     region: "—",
     assignedUserId: dto.assignedUserId ?? null,
     assignedTeam: dto.assignedTeam ?? null,
+    requiresConfirmation: Boolean(dto.requiresConfirmation),
   };
 }
 
@@ -86,6 +89,7 @@ const PARITY_ROWS: ClaimRowView[] = syntheticWorkspaceSnapshot.claims.map((c) =>
   region: c.region,
   assignedUserId: c.officer === "Unassigned" ? null : c.officer,
   assignedTeam: null,
+  requiresConfirmation: false,
 }));
 
 export function useClaims() {
