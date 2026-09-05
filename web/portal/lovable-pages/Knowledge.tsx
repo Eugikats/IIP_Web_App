@@ -8,6 +8,7 @@ import {
 import { BookOpen, Search, Upload, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
+import PolicyQuestionPanel from "@/components/PolicyQuestionPanel";
 
 const SENS_TONE: Record<KnowledgeSensitivity, "success" | "info" | "warning" | "error" | "violet" | "neutral"> = {
   approved: "success",
@@ -133,6 +134,8 @@ export default function Knowledge() {
           </span>
         </div>
       )}
+
+      <div className="mb-4"><PolicyQuestionPanel /></div>
 
       {showUpload && (
         <GlassCard className="mb-4">

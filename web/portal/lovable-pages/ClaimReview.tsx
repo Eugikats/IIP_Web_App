@@ -19,6 +19,7 @@ import { CustomerUpdateGovernedDialog, type PendingCustomerUpdateAction } from "
 import { CustomerUpdatePanel, type CustomerUpdate } from "@/components/CustomerUpdatePanel";
 import { ClaimReviewRequestsPanel } from "@/components/ClaimReviewRequestsPanel";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
+import PolicyQuestionPanel from "@/components/PolicyQuestionPanel";
 import { Badge, ConfidenceBadge, GlassCard, RiskBadge, SectionHeader, SLABadge, StatusBadge } from "@/components/iip/Primitives";
 import CompletenessCard from "@/components/iip/CompletenessCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
@@ -428,6 +429,13 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               </div>
             ) : null}
           </GlassCard>
+
+          <PolicyQuestionPanel
+            caseId={detail.claimId}
+            productLine={detail.productLine}
+            title="Ask a policy question about this claim"
+            sub={`Answers are grounded in approved ${detail.productLine} knowledge sources only, and every question is logged against this claim.`}
+          />
 
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
