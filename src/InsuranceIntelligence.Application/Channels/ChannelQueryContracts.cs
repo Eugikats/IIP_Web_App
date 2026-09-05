@@ -23,7 +23,8 @@ public sealed record ChannelConversationReadModel(
     string Status,
     string? AssignedTo,
     string LastMessageSnippet,
-    DateTimeOffset LastActivityAt);
+    DateTimeOffset LastActivityAt,
+    string? CustomerContact = null);
 
 public sealed record ChannelConversationRowDto(
     string Id,
@@ -35,7 +36,8 @@ public sealed record ChannelConversationRowDto(
     string Status,
     string? AssignedTo,
     string LastMessage,
-    string LastActivityAt);
+    string LastActivityAt,
+    string? CustomerContact = null);
 
 public static class ChannelValues
 {

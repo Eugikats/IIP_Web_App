@@ -27,7 +27,8 @@ public sealed class ChannelQueryService(
                 row.Status,
                 row.AssignedTo,
                 row.LastMessageSnippet,
-                row.LastActivityAt.ToString("O")))
+                row.LastActivityAt.ToString("O"),
+                row.CustomerContact))
             .ToArray();
     }
 

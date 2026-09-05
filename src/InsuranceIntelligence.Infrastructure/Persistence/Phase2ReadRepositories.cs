@@ -365,7 +365,9 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
 }
 
 /// <summary>
-/// Tenant-scoped channel overview projected from durable WhatsApp messages.
+/// Tenant-scoped channel overview projected from durable WhatsApp messages and inbound email —
+/// every channel that can land a claim, so an officer working the inbox sees all of them in one
+/// place rather than needing a separate admin screen per channel.
 /// </summary>
 public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbContext)
     : JsonRepositoryBase(dbContext), IChannelReadRepository
@@ -376,12 +378,17 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
         CancellationToken cancellationToken = default)
     {
         var scope = TenantScope.Create(tenantId, workspaceId);
-        var messages = (await Scoped(DbContext.WhatsAppMessages.AsNoTracking(), scope)
+        var whatsAppMessages = (await Scoped(DbContext.WhatsAppMessages.AsNoTracking(), scope)
                 .Select(record => record.PayloadJson)
                 .ToArrayAsync(cancellationToken))
             .Select(Deserialize<WhatsAppMessage>)
             .ToArray();
-        if (messages.Length == 0) return [];
+        var emailMessages = (await Scoped(DbContext.InboundEmails.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<InboundEmailMessage>)
+            .ToArray();
+        if (whatsAppMessages.Length == 0 && emailMessages.Length == 0) return [];
 
         var cases = (await Scoped(DbContext.Cases.AsNoTracking(), scope)
                 .Select(record => record.PayloadJson)
@@ -389,10 +396,9 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
             .Select(Deserialize<ClaimCase>)
             .ToDictionary(claimCase => claimCase.CaseId);
 
-        return messages
+        var whatsAppRows = whatsAppMessages
             .GroupBy(message => message.ThreadId, StringComparer.Ordinal)
             .Select(group => group.OrderByDescending(message => message.CreatedAt).First())
-            .OrderByDescending(message => message.CreatedAt)
             .Select(message =>
             {
                 var claimCase = message.CaseId is { } caseId && cases.TryGetValue(caseId, out var found) ? found : null;
@@ -406,8 +412,31 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                     message.DeliveryState.ToString(),
                     claimCase?.AssignedUserId,
                     message.CustomerSafeBody.Length <= 160 ? message.CustomerSafeBody : message.CustomerSafeBody[..160],
-                    message.CreatedAt);
-            })
+                    message.CreatedAt,
+                    claimCase?.CustomerPhone ?? message.ContactWaId);
+            });
+
+        var emailRows = emailMessages.Select(message =>
+        {
+            var claimCase = message.LinkedCaseId is { } caseId && cases.TryGetValue(caseId, out var found) ? found : null;
+            var snippet = $"{message.Subject}. {message.BodyPreview}";
+            return new ChannelConversationReadModel(
+                message.MessageId.ToString(),
+                claimCase?.CustomerName ?? message.Sender,
+                ChannelValues.Email,
+                claimCase is not null ? ChannelDetectedIntentValues.ClaimFnol : ChannelDetectedIntentValues.GeneralService,
+                message.LinkedCaseId is not null ? "Open linked claim" : "Process into a claim",
+                0m,
+                message.ProcessingStatus.ToString(),
+                claimCase?.AssignedUserId,
+                snippet.Length <= 160 ? snippet : snippet[..160],
+                message.ReceivedAt,
+                claimCase?.CustomerEmail ?? message.Sender);
+        });
+
+        return whatsAppRows
+            .Concat(emailRows)
+            .OrderByDescending(row => row.LastActivityAt)
             .ToArray();
     }
 }

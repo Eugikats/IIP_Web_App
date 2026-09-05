@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Search, MessageCircle, Mail, Globe, Phone, Users2, MonitorPlay, Send, ShieldAlert, Inbox } from "lucide-react";
 import { GlassCard, SectionHeader, Badge, StatusBadge } from "@/components/iip/Primitives";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
-import { type Channel } from "@/lib/lovable-parity/mock";
+import { type Channel, type ChannelConversation } from "@/lib/lovable-parity/mock";
 import { useChannelConversations, useWhatsAppThread } from "@/lib/lovable-parity/data/channels";
 
 const ICON: Record<Channel, any> = {
@@ -209,7 +209,7 @@ export default function Channels() {
               ) : null}
 
               <div className="mt-3 grid sm:grid-cols-4 gap-2">
-                <button onClick={() => router.push("/app/claims/new")} className="rounded-2xl bg-white border border-line px-3 py-2 text-[12.5px] text-ink hover-lift">Create claim</button>
+                <button onClick={() => router.push(fnolHandoffUrl(active))} className="rounded-2xl bg-white border border-line px-3 py-2 text-[12.5px] text-ink hover-lift">Create claim</button>
                 <button
                   onClick={() => (parityMode ? toast.success("Lead created", { description: "Handed off to Customer Acquisition." }) : toast("Not configured", { description: "Lead creation from a conversation is pending its write endpoint." }))}
                   className="rounded-2xl bg-white border border-line px-3 py-2 text-[12.5px] text-ink hover-lift"
@@ -234,6 +234,21 @@ export default function Channels() {
       </div>
     </>
   );
+}
+
+// Carries the conversation's known identity into the FNOL wizard so an officer creating a claim
+// from an inbound channel message never has to re-type what the customer already told us.
+function fnolHandoffUrl(conversation: ChannelConversation | null): string {
+  if (!conversation) return "/app/claims/new";
+  const params = new URLSearchParams();
+  if (conversation.matched) params.set("customerName", conversation.customer);
+  if (conversation.customerContact) {
+    if (conversation.channel === "Email") params.set("customerEmail", conversation.customerContact);
+    else params.set("customerContact", conversation.customerContact);
+  }
+  params.set("channel", conversation.channel);
+  const query = params.toString();
+  return query ? `/app/claims/new?${query}` : "/app/claims/new";
 }
 
 function deliveryCopy(state: string) {

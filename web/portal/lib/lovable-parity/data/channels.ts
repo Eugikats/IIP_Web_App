@@ -58,6 +58,7 @@ type OverviewRow = {
   assignedTo?: string | null;
   lastMessage: string;
   lastActivityAt: string;
+  customerContact?: string | null;
 };
 
 const CHANNEL_MAP: Record<string, Channel> = {
@@ -110,6 +111,7 @@ function mapRow(row: OverviewRow): ChannelConversation {
     unread: 0,
     needsApproval: status.includes("approval") || status.includes("review"),
     intent,
+    customerContact: row.customerContact ?? null,
   };
 }
 

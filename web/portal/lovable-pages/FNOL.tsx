@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, FileText, Loader2, Search, ShieldAlert, Upload, UserRound } from "lucide-react";
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
@@ -101,46 +101,58 @@ const STEPS = [
   { n: 6, label: "Review" },
 ] as const;
 
-const initialForm: FnolForm = {
-  customerName: "",
-  customerContact: "",
-  customerEmail: "",
-  policyNumber: "",
-  claimType: PRODUCT_LINES[0].defaultClaimType,
-  accidentDate: "",
-  incidentDescription: "",
-  motor: {
-    vehicleRegistration: "",
-    accidentTime: "",
-    accidentLocation: "",
-    driverName: "",
-    drivingPermitNumber: "",
-    thirdPartyInvolved: "Unknown",
-    injuryIndicator: "Unknown",
-    policeReportStatus: "Unknown",
-    preferredCommunicationChannel: "Phone",
-    uploadedDocuments: "",
-  },
-  medical: {
-    patientName: "",
-    relationshipToPolicyholder: "Self",
-    treatmentDate: "",
-    providerName: "",
-    admissionType: "Outpatient",
-    treatingDoctor: "",
-    diagnosisSummary: "",
-    preferredCommunicationChannel: "Phone",
-    uploadedDocuments: "",
-  },
+// A conversation handed off from the Channels Inbox carries a preferred channel that should
+// also be this claim's preferred communication channel, if the channel offers one.
+const CHANNEL_TO_PREFERRED_COMMUNICATION: Record<string, string> = {
+  WhatsApp: "WhatsApp", Email: "Email", SMS: "Phone", Broker: "Broker",
 };
+
+function buildInitialForm(searchParams: URLSearchParams): FnolForm {
+  const handoffChannel = searchParams.get("channel") ?? "";
+  const preferredChannel = CHANNEL_TO_PREFERRED_COMMUNICATION[handoffChannel] ?? "Phone";
+  return {
+    customerName: searchParams.get("customerName") ?? "",
+    customerContact: searchParams.get("customerContact") ?? "",
+    customerEmail: searchParams.get("customerEmail") ?? "",
+    policyNumber: "",
+    claimType: PRODUCT_LINES[0].defaultClaimType,
+    accidentDate: "",
+    incidentDescription: "",
+    motor: {
+      vehicleRegistration: "",
+      accidentTime: "",
+      accidentLocation: "",
+      driverName: "",
+      drivingPermitNumber: "",
+      thirdPartyInvolved: "Unknown",
+      injuryIndicator: "Unknown",
+      policeReportStatus: "Unknown",
+      preferredCommunicationChannel: preferredChannel,
+      uploadedDocuments: "",
+    },
+    medical: {
+      patientName: "",
+      relationshipToPolicyholder: "Self",
+      treatmentDate: "",
+      providerName: "",
+      admissionType: "Outpatient",
+      treatingDoctor: "",
+      diagnosisSummary: "",
+      preferredCommunicationChannel: preferredChannel,
+      uploadedDocuments: "",
+    },
+  };
+}
 
 export default function FNOL() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { roleDef } = useUI();
   const [step, setStep] = useState(1);
   const [productLine, setProductLine] = useState<ProductLine>("Motor");
   const [productLineConfirmed, setProductLineConfirmed] = useState(false);
-  const [form, setForm] = useState<FnolForm>(initialForm);
+  const [form, setForm] = useState<FnolForm>(() => buildInitialForm(searchParams));
+  const handoffChannel = searchParams.get("channel");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checklist, setChecklist] = useState<ChecklistPreviewResponse | null>(null);
@@ -270,6 +282,10 @@ export default function FNOL() {
   const allMissing = [...step1Missing, ...step2Missing, ...step3Missing, ...step4Missing];
   const canSubmit = allMissing.length === 0 && !submitting;
   const canAdvance = stepMissing[step].length === 0;
+  // Live completeness against the same required-field counts that gate step advancement — not a
+  // separate invented metric. Steps 5-6 have no required fields of their own.
+  const totalRequiredFields = 2 + 1 + 3 + (productLine === "Motor" ? 6 : 4);
+  const completenessPercent = Math.round(((totalRequiredFields - allMissing.length) / totalRequiredFields) * 100);
 
   function goTo(next: number) {
     setStep(Math.min(6, Math.max(1, next)));
@@ -327,7 +343,24 @@ export default function FNOL() {
         sub="Six-step structured intake. Product line, required fields, and required documents follow the policy once it's found."
       />
 
+      {handoffChannel && (form.customerName || form.customerContact || form.customerEmail) ? (
+        <div className="mb-3 rounded-xl border border-info/25 bg-info/5 px-3 py-2 text-[12px] text-ink-soft">
+          Pre-filled from the {handoffChannel} conversation — confirm the details below before continuing.
+        </div>
+      ) : null}
+
       <StepRail step={step} onSelect={goTo} completed={(n) => n < step && stepMissing[n].length === 0} />
+
+      <div className="mt-3 mb-1 flex items-center justify-between text-[11.5px] text-muted">
+        <span>Claim completeness</span>
+        <span className="font-medium text-ink">{completenessPercent}%</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-line/60">
+        <div
+          className="h-full rounded-full gradient-primary transition-[width] duration-300"
+          style={{ width: `${completenessPercent}%` }}
+        />
+      </div>
 
       <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-4 mt-4">
         <GlassCard>

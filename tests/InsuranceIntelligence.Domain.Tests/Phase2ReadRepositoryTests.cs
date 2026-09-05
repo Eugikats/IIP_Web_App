@@ -174,6 +174,36 @@ public sealed class Phase2ReadRepositoryTests
         Assert.Equal(message.ThreadId, row.Id);
         Assert.Equal("Jane WhatsApp", row.CustomerName);
         Assert.Equal("whatsapp", row.Channel);
+        Assert.Equal("256772118001", row.CustomerContact);
+    }
+
+    [Fact]
+    public async Task Channels_Overview_IncludesInboundEmailAlongsideWhatsApp()
+    {
+        await using var dbContext = CreateDbContext();
+        var email = new InboundEmailMessage
+        {
+            MessageId = Guid.NewGuid(),
+            Scope = ScopeA,
+            MailboxConnectionId = Guid.NewGuid(),
+            Sender = "claimant@example.test",
+            Subject = "Car accident yesterday",
+            BodyPreview = "I was in an accident and need to file a claim.",
+            ReceivedAt = DateTimeOffset.UtcNow,
+            ProcessingStatus = EmailProcessingStatus.Received,
+            Attachments = []
+        };
+        SeedJson(dbContext.InboundEmails, ScopeA, email.MessageId, email);
+        await dbContext.SaveChangesAsync();
+
+        var rows = await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a");
+
+        var row = Assert.Single(rows);
+        Assert.Equal(email.MessageId.ToString(), row.Id);
+        Assert.Equal("claimant@example.test", row.CustomerName);
+        Assert.Equal("email", row.Channel);
+        Assert.Equal("claimant@example.test", row.CustomerContact);
+        Assert.Equal("Process into a claim", row.SuggestedRouting);
     }
 
     [Fact]
