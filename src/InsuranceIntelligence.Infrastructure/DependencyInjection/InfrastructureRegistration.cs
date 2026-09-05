@@ -114,6 +114,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppChannelConfigurationRepository, EfWhatsAppChannelConfigurationRepository>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IWhatsAppCredentialProtector, DataProtectionWhatsAppCredentialProtector>();
         services.AddSingleton<IWhatsAppRuntimeSettingsProvider, WhatsAppRuntimeSettingsProvider>();
+        services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppGraphValidationClient, MetaGraphWhatsAppValidationClient>();
 
         if (options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase))
         {

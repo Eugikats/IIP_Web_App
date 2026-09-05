@@ -1,0 +1,278 @@
+using InsuranceIntelligence.Api.Auth;
+using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Api.Workflow;
+using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Audit;
+using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.Integrations;
+using InsuranceIntelligence.Infrastructure.Configuration;
+using InsuranceIntelligence.Infrastructure.WhatsApp;
+
+namespace InsuranceIntelligence.Api.Integrations;
+
+/// <summary>
+/// Self-service WhatsApp Business API connection settings. AccessToken/AppSecret/VerifyToken are
+/// write-only from the browser's perspective: GetStatus never returns them, only whether each is
+/// present, so a saved secret can never be read back out through this API even by an admin.
+/// SaveConfiguration always validates against the real Meta Graph API before persisting anything —
+/// a wrong phone number id or expired token fails immediately with Meta's own (sanitized) reason,
+/// never a silent "saved" that only breaks on the next webhook.
+/// </summary>
+public static class WhatsAppConfigurationEndpoints
+{
+    public static async Task<IResult> GetStatus(
+        IWhatsAppChannelConfigurationRepository repository,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var configuration = await repository.GetAsync(scope, cancellationToken);
+        var channelProviderSelected = options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase);
+
+        if (configuration is null)
+        {
+            return Results.Ok(new WhatsAppConfigurationStatusResponse(
+                Connected: false,
+                PhoneNumberId: null,
+                BusinessDisplayName: null,
+                ConfiguredByUserId: null,
+                ConfiguredAt: null,
+                LastValidatedAt: null,
+                LastValidationStatus: null,
+                LastValidationError: null,
+                ChannelProviderActive: channelProviderSelected,
+                RequiresChannelProviderDeploymentChange: !channelProviderSelected));
+        }
+
+        return Results.Ok(new WhatsAppConfigurationStatusResponse(
+            Connected: configuration.IsActive,
+            PhoneNumberId: configuration.PhoneNumberId,
+            BusinessDisplayName: configuration.BusinessDisplayName,
+            ConfiguredByUserId: configuration.ConfiguredByUserId,
+            ConfiguredAt: configuration.ConfiguredAt,
+            LastValidatedAt: configuration.LastValidatedAt,
+            LastValidationStatus: configuration.LastValidationStatus,
+            LastValidationError: configuration.LastValidationError,
+            ChannelProviderActive: channelProviderSelected,
+            RequiresChannelProviderDeploymentChange: !channelProviderSelected));
+    }
+
+    public static async Task<IResult> SaveConfiguration(
+        WhatsAppSaveConfigurationRequest request,
+        IWhatsAppChannelConfigurationRepository repository,
+        IWhatsAppCredentialProtector protector,
+        IWhatsAppGraphValidationClient validationClient,
+        IWhatsAppRuntimeSettingsProvider settingsProvider,
+        IAuditRepository auditRepository,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var missing = new Dictionary<string, string[]>();
+        if (string.IsNullOrWhiteSpace(request.PhoneNumberId)) missing["phoneNumberId"] = ["A WhatsApp phone number id is required."];
+        if (string.IsNullOrWhiteSpace(request.AccessToken)) missing["accessToken"] = ["A permanent access token is required."];
+        if (string.IsNullOrWhiteSpace(request.AppSecret)) missing["appSecret"] = ["The Meta app secret is required to verify inbound webhooks."];
+        if (string.IsNullOrWhiteSpace(request.VerifyToken)) missing["verifyToken"] = ["A webhook verify token is required."];
+        if (missing.Count > 0)
+        {
+            return Results.ValidationProblem(missing);
+        }
+
+        var userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["userId"] = ["Authenticated user context is required to configure WhatsApp."]
+            });
+        }
+
+        var auditReason = AuditReasonReader.Read(httpContext);
+        if (string.IsNullOrWhiteSpace(auditReason))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["auditReason"] = ["An audit reason is required to change WhatsApp connection settings."]
+            });
+        }
+
+        // Guide-through validation: confirm the credentials actually work against the real Meta
+        // API before anything is persisted — never store a connection that is silently broken.
+        var validation = await validationClient.ValidateAsync(
+            options.WhatsApp.GraphBaseUrl,
+            request.PhoneNumberId.Trim(),
+            request.AccessToken.Trim(),
+            options.WhatsApp.RequestTimeoutSeconds,
+            cancellationToken);
+        if (!validation.Success)
+        {
+            return Results.BadRequest(new { deliveryStatus = "ValidationFailed", message = validation.SafeError });
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var configuration = new WhatsAppChannelConfiguration
+        {
+            Scope = scope,
+            PhoneNumberId = request.PhoneNumberId.Trim(),
+            BusinessDisplayName = string.IsNullOrWhiteSpace(request.BusinessDisplayName) ? validation.VerifiedName : request.BusinessDisplayName!.Trim(),
+            EncryptedAccessToken = protector.Protect(request.AccessToken.Trim()),
+            EncryptedAppSecret = protector.Protect(request.AppSecret.Trim()),
+            EncryptedVerifyToken = protector.Protect(request.VerifyToken.Trim()),
+            IsActive = true,
+            ConfiguredByUserId = userId,
+            ConfiguredAt = now,
+            LastValidatedAt = now,
+            LastValidationStatus = "Success",
+            LastValidationError = null,
+        };
+        await repository.SaveAsync(configuration, cancellationToken);
+        await settingsProvider.RefreshAsync(cancellationToken);
+
+        await auditRepository.WriteAsync(
+            AuditEvent.WhatsAppConfigurationSaved(scope, userId, configuration.PhoneNumberId, auditReason, GetCorrelationId(httpContext)),
+            cancellationToken);
+
+        return Results.Ok(new WhatsAppConfigurationStatusResponse(
+            Connected: true,
+            PhoneNumberId: configuration.PhoneNumberId,
+            BusinessDisplayName: configuration.BusinessDisplayName,
+            ConfiguredByUserId: configuration.ConfiguredByUserId,
+            ConfiguredAt: configuration.ConfiguredAt,
+            LastValidatedAt: configuration.LastValidatedAt,
+            LastValidationStatus: configuration.LastValidationStatus,
+            LastValidationError: configuration.LastValidationError,
+            ChannelProviderActive: options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase),
+            RequiresChannelProviderDeploymentChange: !options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    public static async Task<IResult> TestConfiguration(
+        IWhatsAppChannelConfigurationRepository repository,
+        IWhatsAppCredentialProtector protector,
+        IWhatsAppGraphValidationClient validationClient,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var configuration = await repository.GetAsync(scope, cancellationToken);
+        if (configuration is null)
+        {
+            return Results.NotFound(new { message = "No WhatsApp connection is saved for this workspace yet." });
+        }
+
+        var accessToken = protector.Unprotect(configuration.EncryptedAccessToken);
+        var validation = await validationClient.ValidateAsync(
+            options.WhatsApp.GraphBaseUrl,
+            configuration.PhoneNumberId,
+            accessToken,
+            options.WhatsApp.RequestTimeoutSeconds,
+            cancellationToken);
+
+        var updated = configuration with
+        {
+            LastValidatedAt = DateTimeOffset.UtcNow,
+            LastValidationStatus = validation.Success ? "Success" : "Failed",
+            LastValidationError = validation.Success ? null : validation.SafeError,
+        };
+        await repository.SaveAsync(updated, cancellationToken);
+
+        return Results.Ok(new { success = validation.Success, message = validation.SafeError, verifiedName = validation.VerifiedName });
+    }
+
+    public static async Task<IResult> DeleteConfiguration(
+        IWhatsAppChannelConfigurationRepository repository,
+        IWhatsAppRuntimeSettingsProvider settingsProvider,
+        IAuditRepository auditRepository,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+        var auditReason = AuditReasonReader.Read(httpContext);
+        if (string.IsNullOrWhiteSpace(auditReason))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["auditReason"] = ["An audit reason is required to disconnect WhatsApp."]
+            });
+        }
+
+        var existing = await repository.GetAsync(scope, cancellationToken);
+        await repository.DeleteAsync(scope, cancellationToken);
+        await settingsProvider.RefreshAsync(cancellationToken);
+
+        await auditRepository.WriteAsync(
+            AuditEvent.WhatsAppConfigurationRemoved(scope, userId, existing?.PhoneNumberId, auditReason, GetCorrelationId(httpContext)),
+            cancellationToken);
+
+        return Results.Ok(new { message = "WhatsApp connection removed." });
+    }
+
+    private static string GetCorrelationId(HttpContext httpContext)
+    {
+        if (httpContext.Request.Headers.TryGetValue("X-Correlation-ID", out var header) && !string.IsNullOrWhiteSpace(header))
+        {
+            return header.ToString();
+        }
+
+        return httpContext.TraceIdentifier;
+    }
+}
+
+public sealed record WhatsAppSaveConfigurationRequest(
+    string PhoneNumberId,
+    string AccessToken,
+    string AppSecret,
+    string VerifyToken,
+    string? BusinessDisplayName);
+
+public sealed record WhatsAppConfigurationStatusResponse(
+    bool Connected,
+    string? PhoneNumberId,
+    string? BusinessDisplayName,
+    string? ConfiguredByUserId,
+    DateTimeOffset? ConfiguredAt,
+    DateTimeOffset? LastValidatedAt,
+    string? LastValidationStatus,
+    string? LastValidationError,
+    bool ChannelProviderActive,
+    bool RequiresChannelProviderDeploymentChange);

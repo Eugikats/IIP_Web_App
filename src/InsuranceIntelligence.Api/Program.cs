@@ -46,6 +46,7 @@ using InsuranceIntelligence.Infrastructure.DependencyInjection;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging.ApplicationInsights;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Tokens;
@@ -106,6 +107,14 @@ builder.Services.AddProblemDetails();
 // (see docs/api/IIP_API_Contracts_Master.md, ADR-0004). The interactive Swagger UI and
 // the JSON document are exposed ONLY in Development/LocalTest (see developmentDiagnosticsEnabled
 // below) so no schema/endpoint enumeration surface is published in deployed environments.
+// Backs IWhatsAppCredentialProtector (and any future at-rest secret encryption) — real, reversible
+// encryption keyed by a key ring, not a hand-rolled cipher. Default persistence is the local
+// filesystem, which on a single-instance Azure App Service is %HOME%\ASP.NET\DataProtection-Keys —
+// durable across app restarts on this deployment's current single-instance B1 plan. Scaling to
+// multiple instances would need PersistKeysToAzureBlobStorage + ProtectKeysWithAzureKeyVault so
+// every instance shares one key ring; noted here rather than built speculatively.
+builder.Services.AddDataProtection().SetApplicationName("InsuranceIntelligence");
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(swagger =>
 {
@@ -855,6 +864,14 @@ app.MapGet("/api/v1/integrations/email/messages/{messageId:guid}", EmailIntegrat
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/email/graph/webhook", EmailIntegrationEndpoints.GraphWebhook);
 app.MapGet("/api/v1/integrations/whatsapp/health", WhatsAppIntegrationEndpoints.GetHealth)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.GetStatus)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.SaveConfiguration)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/integrations/whatsapp/configuration/test", WhatsAppConfigurationEndpoints.TestConfiguration)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapDelete("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.DeleteConfiguration)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
 app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);

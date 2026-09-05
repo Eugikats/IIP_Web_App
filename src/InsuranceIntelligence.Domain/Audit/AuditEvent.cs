@@ -341,6 +341,48 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    public static AuditEvent WhatsAppConfigurationSaved(
+        TenantScope scope, string userId, string phoneNumberId, string auditReason, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "integration.whatsapp.configuration_saved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: "Connected",
+            EvidenceIds: [phoneNumberId],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "validated",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    public static AuditEvent WhatsAppConfigurationRemoved(
+        TenantScope scope, string userId, string? phoneNumberId, string auditReason, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "integration.whatsapp.configuration_removed",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: "Connected",
+            AfterStatus: "Disconnected",
+            EvidenceIds: phoneNumberId is null ? Array.Empty<string>() : [phoneNumberId],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
     public static AuditEvent AssistantPolicyQuestionAnswered(AgentActionLog actionLog) =>
         new(
             Guid.NewGuid(),

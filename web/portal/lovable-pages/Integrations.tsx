@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, Building2, KeyRound, Plug, Search, ShieldCheck } from "lucide-react";
+import { Activity, Building2, KeyRound, MessageCircle, Plug, Search, ShieldCheck } from "lucide-react";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import ProviderHealthGrid from "@/components/iip/ProviderHealthGrid";
 import { Badge, GlassCard, SectionHeader } from "@/components/iip/Primitives";
@@ -27,6 +27,7 @@ export default function Integrations() {
     ? canAccess(roleDef.key, path)
     : canAccessWithPermissions(runtimeContext?.permissions ?? [], path);
   const canOpenOnboarding = canOpen("/app/admin/onboarding");
+  const canOpenWhatsApp = canOpen("/app/admin/whatsapp");
   const canOpenAgentGovernance = canOpen("/app/admin/agents");
   const canOpenAdmin = canOpen("/app/admin");
 
@@ -69,8 +70,9 @@ export default function Integrations() {
 
           <GlassCard>
             <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-info" /><div className="text-[14px] font-semibold text-ink">Identity and secrets</div></div>
-            <p className="mt-2 text-[12px] leading-5 text-ink-soft">Customer Entra consent, managed identities, and provider secrets are configured through controlled deployment and onboarding paths—not browser-side fields.</p>
+            <p className="mt-2 text-[12px] leading-5 text-ink-soft">Customer Entra consent and managed identities are configured through controlled deployment and onboarding paths. WhatsApp Business credentials are the one exception — they're entered here, validated against Meta, and encrypted at rest.</p>
             <div className="mt-3 flex flex-wrap gap-2">
+              {canOpenWhatsApp ? <Link href="/app/admin/whatsapp" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring"><MessageCircle className="h-3.5 w-3.5" /> WhatsApp Business</Link> : null}
               {canOpenOnboarding ? <Link href="/app/admin/onboarding" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring"><Building2 className="h-3.5 w-3.5" /> Tenant onboarding</Link> : null}
               {canOpenAgentGovernance ? <Link href="/app/admin/agents" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring"><ShieldCheck className="h-3.5 w-3.5" /> Agent governance</Link> : null}
               {!canOpenOnboarding && !canOpenAgentGovernance && canOpenAdmin ? <Link href="/app/admin" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring"><ShieldCheck className="h-3.5 w-3.5" /> Administration</Link> : null}

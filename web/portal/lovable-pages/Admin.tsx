@@ -1,7 +1,7 @@
 "use client";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
-import { Building2, Users, FileText, Workflow, Sparkles, Plug, ShieldCheck, ScrollText, Bot, CreditCard, Gavel, ArrowRight } from "lucide-react";
+import { Building2, Users, FileText, Workflow, Sparkles, Plug, ShieldCheck, ScrollText, Bot, CreditCard, Gavel, ArrowRight, MessageCircle } from "lucide-react";
 import { useUI } from "@/context/UIStateContext";
 import { canAccess, canAccessWithPermissions } from "@/lib/roles";
 import { useRuntimeContext } from "@/lib/runtimeContext";
@@ -15,6 +15,7 @@ const cards = [
   { to: "/app/admin/onboarding", icon: Building2, title: "Tenant Onboarding", desc: "Customer Entra tenant identity, Azure subscription targeting, consent, and workspaces." },
   { to: "/app/admin/billing", icon: CreditCard, title: "Billing & Usage", desc: "Plan, entitlement, seat, AI run, document, message, and storage controls." },
   { to: "/app/integrations", icon: Plug, title: "Integrations & Health", desc: "Live provider health, adapter boundaries, identity paths, and safe diagnostics." },
+  { to: "/app/admin/whatsapp", icon: MessageCircle, title: "WhatsApp Business", desc: "Connect your WhatsApp Business number — credentials are validated against Meta and encrypted at rest." },
 ];
 
 // Informational only — deliberately not clickable. None of these has a management surface yet
