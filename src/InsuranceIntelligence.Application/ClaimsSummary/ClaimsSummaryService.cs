@@ -5,6 +5,7 @@ using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.CaseReview;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
@@ -18,15 +19,22 @@ namespace InsuranceIntelligence.Application.ClaimsSummary;
 /// and policy context from tools only — every statement traces to a retrieved source, never model
 /// memory (AGENTS.md I6). Output is explicitly informational: "Required before decision use," not
 /// a recommendation, and never itself a claim decision (I4).
+///
+/// This is also the "Case Review" pipeline stage (Intake/FNOL -&gt; Document Checker -&gt; Case Review
+/// -&gt; Approval): <see cref="RiskSignals"/> are the fraud/underwriting flags that stage produces,
+/// drafted by the same model call, from the same governed tool reads, on the same "advisory only"
+/// terms as the summary itself.
 /// </summary>
 public sealed record ClaimsSummaryResult(
     Guid CaseId,
     string Summary,
     IReadOnlyCollection<string> OpenQuestions,
+    IReadOnlyCollection<CaseReviewSignal> RiskSignals,
     IReadOnlyCollection<SourceCitation> KnowledgeSources,
     IReadOnlyCollection<string> EvidenceRefs,
     decimal Confidence,
     Guid AgentActionLogId,
+    Guid CaseReviewId,
     string CorrelationId);
 
 public interface IClaimsSummaryService
@@ -49,10 +57,19 @@ public sealed class ClaimsSummaryService(
     IChatCompletionProvider chatCompletionProvider,
     IAgentActionLogRepository actionLogRepository,
     IAuditRepository auditRepository,
-    IAgentRunRecorder agentRunRecorder) : IClaimsSummaryService
+    IAgentRunRecorder agentRunRecorder,
+    ICaseReviewRepository caseReviewRepository) : IClaimsSummaryService
 {
     private const string AgentKey = "claims-summary";
-    private const string PromptVersion = "claims-summary-v1";
+    private const string PromptVersion = "claims-summary-v2";
+
+    // Machine-plumbing keys AzureDocumentIntelligenceProvider always includes alongside real
+    // extracted content (see AzureDocumentIntelligenceProvider.BuildExtraction) -- useful for
+    // storage/debugging, not for a human-readable case review, so excluded from the prompt.
+    private static readonly HashSet<string> NonSubstantiveExtractedFieldKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "sourceFileName", "objectKey", "modelId", "contentType", "pageCount"
+    };
 
     public async Task<ClaimsSummaryResult> SummarizeAsync(
         Guid caseId,
@@ -94,20 +111,29 @@ public sealed class ClaimsSummaryService(
         var retrieval = await CallToolAsync<RetrievalResult>(
             "knowledge.search", new Dictionary<string, string> { ["query"] = knowledgeQuery, ["productLine"] = claimCase.ProductLine });
 
+        // Case Review consumes documents as-is: any document that has finished processing is fair
+        // input, whether or not a human has approved its extraction yet (ExtractionApproved is not
+        // a gate here). Only genuinely unprocessed/failed documents are called out as open questions.
+        var fairInputDocuments = documents
+            .Where(d => d.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved)
+            .ToArray();
+
         var openQuestions = documents.Count == 0
             ? new List<string> { "No documents have been uploaded for this claim yet." }
             : documents
-                .Where(d => d.ProcessingStatus != DocumentProcessingStatus.Processed || !d.Extraction.Approved)
-                .Select(d => $"{d.DocumentType} ({d.OriginalFileName}) has not been reviewed and approved yet.")
+                .Where(d => d.ProcessingStatus is DocumentProcessingStatus.Uploaded or DocumentProcessingStatus.Processing or DocumentProcessingStatus.Failed)
+                .Select(d => $"{d.DocumentType} ({d.OriginalFileName}) has not finished processing yet ({d.ProcessingStatus}).")
                 .ToList();
 
-        var prompt = BuildPrompt(claimCase, documents, policy, retrieval, knowledgeQuery);
+        var prompt = BuildPrompt(claimCase, fairInputDocuments, policy, retrieval, knowledgeQuery);
         var chatResult = await chatCompletionProvider.CompleteAsync(
             new ChatCompletionRequest(prompt, scope.TenantId, scope.WorkspaceId, correlationId),
             cancellationToken);
 
+        var (summary, riskSignals) = ParseModelOutput(chatResult.Content);
+
         var evidenceRefs = new List<string> { $"case:{claimCase.CaseId}" };
-        evidenceRefs.AddRange(documents.Select(d => $"document:{d.DocumentId}"));
+        evidenceRefs.AddRange(fairInputDocuments.Select(d => $"document:{d.DocumentId}"));
         if (policy is not null)
         {
             evidenceRefs.Add($"policy:{policy.PolicyId}");
@@ -125,8 +151,8 @@ public sealed class ClaimsSummaryService(
             InputSummary = $"Claims summary for case {caseId}",
             RetrievedSources = citations,
             ModelOutput = chatResult.Content,
-            ConfidenceScore = AiConfidenceScore.Create(documents.Count > 0 && policy is not null ? 0.78m : 0.55m),
-            RiskFlag = openQuestions.Count > 0 ? "needs_review" : "none",
+            ConfidenceScore = AiConfidenceScore.Create(fairInputDocuments.Length > 0 && policy is not null ? 0.78m : 0.55m),
+            RiskFlag = riskSignals.Count > 0 ? "needs_review" : openQuestions.Count > 0 ? "needs_review" : "none",
             HumanOverride = false,
             CreatedAt = DateTimeOffset.UtcNow,
             CorrelationId = correlationId,
@@ -140,31 +166,87 @@ public sealed class ClaimsSummaryService(
 
         await actionLogRepository.SaveAsync(actionLog, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+
+        var caseReview = new CaseReviewSummary
+        {
+            CaseReviewId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = caseId,
+            Overview = summary,
+            OpenQuestions = openQuestions,
+            RiskSignals = riskSignals,
+            EvidenceRefs = evidenceRefs,
+            Confidence = actionLog.ConfidenceScore.Value,
+            GeneratedByProvider = chatResult.Provider,
+            GeneratedByModel = chatResult.Deployment,
+            GeneratedByUserId = userId ?? "unknown",
+            GeneratedAt = actionLog.CreatedAt,
+            AgentActionLogId = actionLog.AgentActionLogId,
+            CorrelationId = correlationId,
+        };
+        await caseReviewRepository.SaveAsync(caseReview, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CaseReviewGenerated(caseReview, userId), cancellationToken);
+
         await agentRunRecorder.RecordAsync(
             scope, AgentKey, "claims_summary_request", [$"case:{caseId}"],
             AgentRunStatus.Completed, startedAt, correlationId, userId, caseId, errorCategory: null, toolTrace, cancellationToken);
 
         return new ClaimsSummaryResult(
             caseId,
-            chatResult.Content,
+            summary,
             openQuestions,
+            riskSignals,
             citations,
             evidenceRefs,
             actionLog.ConfidenceScore.Value,
             actionLog.AgentActionLogId,
+            caseReview.CaseReviewId,
             correlationId);
+    }
+
+    /// <summary>
+    /// Splits the model's raw completion into the human-readable summary and any trailing
+    /// "RISK_SIGNAL|Category|note" lines it was asked to append (see BuildPrompt). Never throws on
+    /// a malformed or absent trailer -- a model that returns plain text with no risk lines simply
+    /// yields an unmodified summary and an empty signal list.
+    /// </summary>
+    private static (string Summary, IReadOnlyCollection<CaseReviewSignal> Signals) ParseModelOutput(string content)
+    {
+        var signals = new List<CaseReviewSignal>();
+        var summaryLines = new List<string>();
+
+        foreach (var rawLine in content.Replace("\r\n", "\n").Split('\n'))
+        {
+            var line = rawLine.Trim();
+            if (line.StartsWith("RISK_SIGNAL|", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = line.Split('|', 3);
+                if (parts.Length == 3
+                    && Enum.TryParse<CaseReviewSignalCategory>(parts[1].Trim(), ignoreCase: true, out var category)
+                    && !string.IsNullOrWhiteSpace(parts[2]))
+                {
+                    signals.Add(new CaseReviewSignal(category, parts[2].Trim()));
+                }
+
+                continue;
+            }
+
+            summaryLines.Add(rawLine);
+        }
+
+        return (string.Join('\n', summaryLines).Trim(), signals);
     }
 
     private static string BuildPrompt(
         ClaimCase claimCase,
-        IReadOnlyCollection<CaseDocument> documents,
+        IReadOnlyCollection<CaseDocument> fairInputDocuments,
         Policy? policy,
         RetrievalResult? retrieval,
         string knowledgeQuery)
     {
-        var documentLines = documents.Count == 0
-            ? "No documents uploaded."
-            : string.Join('\n', documents.Select(d => $"- {d.DocumentType} ({d.OriginalFileName}), status: {d.ProcessingStatus}, approved: {d.Extraction.Approved}"));
+        var documentLines = fairInputDocuments.Count == 0
+            ? "No processed documents available yet."
+            : string.Join('\n', fairInputDocuments.Select(DescribeDocument));
 
         var policyLine = policy is null
             ? "No matching policy record found in this workspace."
@@ -188,7 +270,7 @@ public sealed class ClaimsSummaryService(
             $"Incident date: {claimCase.IncidentDate} | Description: {claimCase.IncidentDescription}",
             $"Completeness: {claimCase.CompletenessScore}%",
             string.Empty,
-            "DOCUMENTS:",
+            "DOCUMENTS (extracted fields shown with the extraction confidence, where available):",
             documentLines,
             string.Empty,
             "POLICY:",
@@ -196,6 +278,35 @@ public sealed class ClaimsSummaryService(
             string.Empty,
             $"KNOWLEDGE ({knowledgeQuery}):",
             knowledgeLines,
+            string.Empty,
+            "After the summary, note anything in the material above that a human reviewer should check",
+            "for possible fraud or underwriting concern -- inconsistent facts, mismatched dates, values",
+            "that look unusual for this claim type, coverage questions, and similar. These are",
+            "observations for a human to verify, never a fraud or underwriting determination -- do not",
+            "use words like \"confirmed\", \"fraudulent\", or \"denied\". If you have none, add no lines.",
+            "For each concern, add ONE line in exactly this format, after the summary, nothing else on the line:",
+            "RISK_SIGNAL|Fraud|<one sentence, grounded only in the material above>",
+            "RISK_SIGNAL|Underwriting|<one sentence, grounded only in the material above>",
         ]);
+    }
+
+    private static string DescribeDocument(CaseDocument document)
+    {
+        var fields = document.Extraction.Fields
+            .Where(field => !NonSubstantiveExtractedFieldKeys.Contains(field.Key))
+            .OrderByDescending(field => document.Extraction.FieldConfidences.TryGetValue(field.Key, out var confidence) ? confidence : 0m)
+            .Take(8)
+            .Select(field => document.Extraction.FieldConfidences.TryGetValue(field.Key, out var confidence)
+                ? $"{field.Key}={field.Value} (confidence {confidence:0.00})"
+                : $"{field.Key}={field.Value}")
+            .ToArray();
+
+        var fieldsLine = fields.Length == 0
+            ? "no extracted fields"
+            : string.Join(", ", fields);
+
+        return $"- {document.DocumentType} ({document.OriginalFileName}), status: {document.ProcessingStatus}, "
+            + $"classification confidence: {document.Classification.ConfidenceScore:0.00}, human-verified: {document.Extraction.Approved}, "
+            + $"fields: {fieldsLine}";
     }
 }

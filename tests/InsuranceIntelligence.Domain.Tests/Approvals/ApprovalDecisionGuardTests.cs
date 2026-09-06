@@ -47,4 +47,23 @@ public sealed class ApprovalDecisionGuardTests
 
         Assert.Null(exception);
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void EnsureReasonProvided_Throws_For_Blank_Comments(string? comments)
+    {
+        var exception = Assert.Throws<DomainException>(() => ApprovalDecisionGuard.EnsureReasonProvided(comments));
+
+        Assert.Contains("comments are required", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void EnsureReasonProvided_Allows_A_Real_Reason()
+    {
+        var exception = Record.Exception(() => ApprovalDecisionGuard.EnsureReasonProvided("Reviewed the evidence pack and confirmed cover applies."));
+
+        Assert.Null(exception);
+    }
 }

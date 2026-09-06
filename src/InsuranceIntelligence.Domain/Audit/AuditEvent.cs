@@ -316,6 +316,26 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: actionLog.CorrelationId);
 
+    public static AuditEvent CaseReviewGenerated(InsuranceIntelligence.Domain.CaseReview.CaseReviewSummary review, string? userId) =>
+        new(
+            Guid.NewGuid(),
+            review.Scope,
+            review.CaseId,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.Agent,
+            "case_review.generated",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: review.RiskSignals.Count > 0 ? "signals_flagged" : "none",
+            EvidenceIds: review.EvidenceRefs,
+            ModelProvider: review.GeneratedByProvider,
+            Confidence: review.Confidence,
+            ValidationResult: review.RiskSignals.Count > 0 ? "flagged" : "clear",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: review.CorrelationId);
+
     public static AuditEvent WorkflowEvaluated(ClaimCaseSnapshot snapshot, string userId, string correlationId) =>
         ForCase(snapshot, userId, ActorType.System, "workflow.evaluated", null, snapshot.Status, "evaluated", correlationId);
 

@@ -7,6 +7,7 @@ using InsuranceIntelligence.Application.ClaimsSummary;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.CaseReview;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
@@ -144,6 +145,125 @@ public sealed class ClaimsSummaryTests
     }
 
     [Fact]
+    public async Task SummarizeAsync_ParsesTrailingRiskSignalLines_AndStripsThemFromTheSummary()
+    {
+        var deps = CreateDependencies();
+        var claimCase = await SeedCaseAsync(deps.CaseRepository, TenantA);
+        var modelOutput = string.Join('\n',
+        [
+            "The claimant reports a minor collision consistent with the incident description.",
+            "RISK_SIGNAL|Fraud|Two claims were filed on this policy within the same week.",
+            "RISK_SIGNAL|Underwriting|The declared vehicle value looks high for this cover type.",
+        ]);
+        var service = BuildService(deps, new CapturingChatCompletionProvider(modelOutput), retrievalChunks: []);
+
+        var result = await service.SummarizeAsync(claimCase.CaseId, TenantA, "user-claims-1", "corr-summary-signals", CancellationToken.None);
+
+        Assert.Equal("The claimant reports a minor collision consistent with the incident description.", result.Summary);
+        Assert.Equal(2, result.RiskSignals.Count);
+        Assert.Contains(result.RiskSignals, s => s.Category == CaseReviewSignalCategory.Fraud && s.Note.Contains("same week"));
+        Assert.Contains(result.RiskSignals, s => s.Category == CaseReviewSignalCategory.Underwriting && s.Note.Contains("vehicle value"));
+    }
+
+    [Fact]
+    public async Task SummarizeAsync_PersistsACaseReviewSummary_RetrievableViaTheRepository()
+    {
+        var deps = CreateDependencies();
+        var claimCase = await SeedCaseAsync(deps.CaseRepository, TenantA);
+        var service = BuildService(deps, new CapturingChatCompletionProvider("Plain summary, no concerns."), retrievalChunks: []);
+
+        var result = await service.SummarizeAsync(claimCase.CaseId, TenantA, "user-claims-1", "corr-summary-persist", CancellationToken.None);
+
+        var persisted = await deps.CaseReviewRepository.GetLatestForCaseAsync(claimCase.CaseId, TenantA, CancellationToken.None);
+        Assert.NotNull(persisted);
+        Assert.Equal(result.CaseReviewId, persisted!.CaseReviewId);
+        Assert.Equal("Plain summary, no concerns.", persisted.Overview);
+        Assert.Empty(persisted.RiskSignals);
+        var auditEvents = await deps.AuditRepository.ListForCaseAsync(claimCase.CaseId);
+        Assert.Contains(auditEvents, evt => evt.ActionName == "case_review.generated");
+    }
+
+    [Fact]
+    public async Task SummarizeAsync_TreatsProcessedButUnapprovedDocuments_AsFairInput_NotAnOpenQuestion()
+    {
+        var deps = CreateDependencies();
+        var claimCase = await SeedCaseAsync(deps.CaseRepository, TenantA);
+        var processedUnapproved = SeedDocument(claimCase, DocumentProcessingStatus.Processed, approved: false, fileName: "claim-form.pdf");
+        var stillUploading = SeedDocument(claimCase, DocumentProcessingStatus.Uploaded, approved: false, fileName: "photo.jpg");
+        await deps.DocumentRepository.SaveAsync(processedUnapproved);
+        await deps.DocumentRepository.SaveAsync(stillUploading);
+        var service = BuildService(deps, new CapturingChatCompletionProvider("Summary with documents."), retrievalChunks: []);
+
+        var result = await service.SummarizeAsync(claimCase.CaseId, TenantA, "user-claims-1", "corr-summary-docs", CancellationToken.None);
+
+        Assert.DoesNotContain(result.OpenQuestions, q => q.Contains("claim-form.pdf"));
+        Assert.Contains(result.OpenQuestions, q => q.Contains("photo.jpg"));
+        Assert.Contains(result.EvidenceRefs, r => r == $"document:{processedUnapproved.DocumentId}");
+        Assert.DoesNotContain(result.EvidenceRefs, r => r == $"document:{stillUploading.DocumentId}");
+    }
+
+    [Fact]
+    public async Task GetLatestCaseReview_ReturnsNotFound_WhenNoReviewHasEverRun()
+    {
+        var deps = CreateDependencies();
+        var claimCase = await SeedCaseAsync(deps.CaseRepository, TenantA);
+        var context = ScopedContext();
+
+        var result = await ClaimsSummaryEndpoints.GetLatestCaseReview(
+            claimCase.CaseId, deps.CaseRepository, deps.CaseReviewRepository, context, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync<System.Text.Json.JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status404NotFound, statusCode);
+    }
+
+    [Fact]
+    public async Task GetLatestCaseReview_ReturnsThePersistedReview_AfterSummarizeHasRun()
+    {
+        var deps = CreateDependencies();
+        var claimCase = await SeedCaseAsync(deps.CaseRepository, TenantA);
+        var service = BuildService(deps, new CapturingChatCompletionProvider("Persisted review summary."), retrievalChunks: []);
+        await service.SummarizeAsync(claimCase.CaseId, TenantA, "user-claims-1", "corr-summary-get", CancellationToken.None);
+        var context = ScopedContext();
+
+        var result = await ClaimsSummaryEndpoints.GetLatestCaseReview(
+            claimCase.CaseId, deps.CaseRepository, deps.CaseReviewRepository, context, CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync<ClaimsSummaryResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal("Persisted review summary.", body!.Summary);
+    }
+
+    private static CaseDocument SeedDocument(ClaimCase claimCase, DocumentProcessingStatus status, bool approved, string fileName)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new CaseDocument
+        {
+            DocumentId = Guid.NewGuid(),
+            CaseId = claimCase.CaseId,
+            Scope = claimCase.Scope,
+            OriginalFileName = fileName,
+            ContentType = "application/pdf",
+            FileSizeBytes = 1024,
+            ObjectKey = $"objects/{fileName}",
+            DocumentType = DocumentType.ClaimForm,
+            ProcessingStatus = status,
+            Classification = new DocumentClassificationResult(DocumentType.ClaimForm, 0.9m, "Test", now),
+            Extraction = new DocumentExtractionResult(
+                new Dictionary<string, string> { ["field.claimantName"] = "Amina Okello" },
+                new Dictionary<string, decimal> { ["field.claimantName"] = 0.91m },
+                "Test",
+                now,
+                approved,
+                approved ? "user-claims-1" : null,
+                approved ? now : null),
+            ValidationWarnings = Array.Empty<DocumentValidationWarning>(),
+            UploadedByUserId = "user-claims-1",
+            UploadedAt = now,
+            CorrelationId = "corr-summary-doc-seed",
+        };
+    }
+
+    [Fact]
     public async Task SummarizeCaseEndpoint_ReturnsNotFoundForTenantWorkspaceMismatch()
     {
         var deps = CreateDependencies();
@@ -184,7 +304,8 @@ public sealed class ClaimsSummaryTests
             chatCompletionProvider,
             deps.ActionLogRepository,
             deps.AuditRepository,
-            new AgentRunRecorder(deps.AgentRunRepository));
+            new AgentRunRecorder(deps.AgentRunRepository),
+            deps.CaseReviewRepository);
     }
 
     private static Dependencies CreateDependencies() => new(
@@ -193,7 +314,8 @@ public sealed class ClaimsSummaryTests
         new InMemoryPolicyRepository(),
         new InMemoryAgentActionLogRepository(),
         new InMemoryAuditRepository(),
-        new InMemoryAgentRunRepository());
+        new InMemoryAgentRunRepository(),
+        new InMemoryCaseReviewRepository());
 
     private static async Task<ClaimCase> SeedCaseAsync(
         ICaseRepository repository,
@@ -262,7 +384,8 @@ public sealed class ClaimsSummaryTests
         InMemoryPolicyRepository PolicyRepository,
         InMemoryAgentActionLogRepository ActionLogRepository,
         InMemoryAuditRepository AuditRepository,
-        InMemoryAgentRunRepository AgentRunRepository);
+        InMemoryAgentRunRepository AgentRunRepository,
+        InMemoryCaseReviewRepository CaseReviewRepository);
 
     private sealed class AllowAllPermissionService : IPermissionService
     {

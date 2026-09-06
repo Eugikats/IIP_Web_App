@@ -27,6 +27,19 @@ public static class ApprovalDecisionGuard
     }
 
     /// <summary>
+    /// Every approve/reject/override/escalate decision must carry a reviewer-authored reason —
+    /// enforced here (domain layer) rather than only at the API boundary, so no future caller of
+    /// this guard can approve a claim decision silently by skipping validation.
+    /// </summary>
+    public static void EnsureReasonProvided(string? comments)
+    {
+        if (string.IsNullOrWhiteSpace(comments))
+        {
+            throw new DomainException("Reviewer comments are required for every approval decision.");
+        }
+    }
+
+    /// <summary>
     /// Maps identity user ids and audit actor kinds onto the decision ceiling enum.
     /// Prefixed ids (<c>agent:</c>, <c>system:</c>, <c>integration:</c>) are non-human.
     /// </summary>

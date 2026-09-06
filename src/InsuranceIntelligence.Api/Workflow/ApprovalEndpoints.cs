@@ -301,9 +301,13 @@ public static class ApprovalEndpoints
             });
         }
 
-        if (string.IsNullOrWhiteSpace(request.Comments))
+        try
         {
-            return WorkflowEndpoints.Validation("comments", "Reviewer comments are required for every approval decision.");
+            ApprovalDecisionGuard.EnsureReasonProvided(request.Comments);
+        }
+        catch (DomainException exception)
+        {
+            return WorkflowEndpoints.Validation("comments", exception.Message);
         }
 
         var reviewer = WorkflowEndpoints.GetActor(httpContext, null);

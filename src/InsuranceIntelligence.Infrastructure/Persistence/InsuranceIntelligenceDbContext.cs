@@ -42,6 +42,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedAgentRun> AgentRuns => Set<PersistedAgentRun>();
     public DbSet<PersistedNotification> Notifications => Set<PersistedNotification>();
     public DbSet<PersistedFraudSignalDisposition> FraudSignalDispositions => Set<PersistedFraudSignalDisposition>();
+    public DbSet<PersistedCaseReview> CaseReviews => Set<PersistedCaseReview>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -124,6 +125,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedNotification>().Property(entity => entity.CreatedAt).IsRequired();
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.CreatedAt });
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.IsRead });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedCaseReview>(), "CaseReviews", "CaseReviewId");
+        modelBuilder.Entity<PersistedCaseReview>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)
@@ -279,6 +282,7 @@ public sealed class PersistedFraudSignalDisposition : PersistedScopedJson
 {
     public string Status { get; set; } = string.Empty;
 }
+public sealed class PersistedCaseReview : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;
 public sealed class PersistedBranch : PersistedScopedJson;

@@ -57,6 +57,33 @@ public sealed class EfCaseDocumentRepository(InsuranceIntelligenceDbContext dbCo
             .ToArrayAsync(cancellationToken);
 }
 
+public sealed class EfCaseReviewRepository(InsuranceIntelligenceDbContext dbContext)
+    : JsonRepositoryBase(dbContext), InsuranceIntelligence.Domain.CaseReview.ICaseReviewRepository
+{
+    public Task SaveAsync(InsuranceIntelligence.Domain.CaseReview.CaseReviewSummary review, CancellationToken cancellationToken = default) =>
+        UpsertAsync(
+            DbContext.CaseReviews,
+            review.CaseReviewId,
+            review.Scope,
+            Serialize(review),
+            record => record.CaseId = review.CaseId,
+            cancellationToken);
+
+    public async Task<InsuranceIntelligence.Domain.CaseReview.CaseReviewSummary?> GetLatestForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default) =>
+        await Scoped(DbContext.CaseReviews.AsNoTracking(), scope)
+            .Where(record => record.CaseId == caseId)
+            .OrderByDescending(record => record.UpdatedAt)
+            .Select(record => Deserialize<InsuranceIntelligence.Domain.CaseReview.CaseReviewSummary>(record.PayloadJson))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<InsuranceIntelligence.Domain.CaseReview.CaseReviewSummary>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default) =>
+        await Scoped(DbContext.CaseReviews.AsNoTracking(), scope)
+            .Where(record => record.CaseId == caseId)
+            .OrderByDescending(record => record.UpdatedAt)
+            .Select(record => Deserialize<InsuranceIntelligence.Domain.CaseReview.CaseReviewSummary>(record.PayloadJson))
+            .ToArrayAsync(cancellationToken);
+}
+
 public sealed class EfKnowledgeDocumentRepository(InsuranceIntelligenceDbContext dbContext)
     : JsonRepositoryBase(dbContext), IKnowledgeDocumentRepository
 {
