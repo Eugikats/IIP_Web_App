@@ -180,6 +180,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Documents.IDocumentFieldValidationRuleRepository, InsuranceIntelligence.Infrastructure.Documents.EfDocumentFieldValidationRuleRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.ClientPortal.IClaimantMagicLinkTokenRepository, InsuranceIntelligence.Infrastructure.ClientPortal.EfClaimantMagicLinkTokenRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.ClientPortal.IClaimantPortalSessionRepository, InsuranceIntelligence.Infrastructure.ClientPortal.EfClaimantPortalSessionRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.CaseReview.ICaseReviewRepository, EfCaseReviewRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Customers.ICustomerRepository, EfCustomerRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.IPolicyRepository, EfPolicyRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.ICoverageRepository, EfCoverageRepository>();

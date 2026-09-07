@@ -10,6 +10,9 @@ public sealed class SourceCitationFormatter : ISourceCitationFormatter
             ? chunk.Content
             : $"{chunk.Content[..220]}...";
 
+        var sectionSuffix = string.IsNullOrWhiteSpace(chunk.Section) ? string.Empty : $" § {chunk.Section}";
+        var label = $"{chunk.DocumentName} v{chunk.Version}{sectionSuffix}, chunk {chunk.ChunkIndex + 1}";
+
         return new SourceCitation(
             chunk.KnowledgeDocumentId,
             chunk.ChunkId,
@@ -17,6 +20,6 @@ public sealed class SourceCitationFormatter : ISourceCitationFormatter
             chunk.ProductLine,
             chunk.Version,
             excerpt,
-            $"{chunk.DocumentName} v{chunk.Version}, chunk {chunk.ChunkIndex + 1}");
+            label);
     }
 }

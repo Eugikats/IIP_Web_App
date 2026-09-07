@@ -46,6 +46,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedClaimantMagicLinkToken> ClaimantMagicLinkTokens => Set<PersistedClaimantMagicLinkToken>();
     public DbSet<PersistedClaimantPortalSession> ClaimantPortalSessions => Set<PersistedClaimantPortalSession>();
     public DbSet<PersistedWhatsAppChannelConfiguration> WhatsAppChannelConfigurations => Set<PersistedWhatsAppChannelConfiguration>();
+    public DbSet<PersistedCaseReview> CaseReviews => Set<PersistedCaseReview>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -145,6 +146,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedClaimantPortalSession>().Property(entity => entity.SessionTokenHash).HasMaxLength(64).IsRequired();
         modelBuilder.Entity<PersistedClaimantPortalSession>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.SessionTokenHash }).IsUnique();
         ConfigureScopedJson(modelBuilder.Entity<PersistedWhatsAppChannelConfiguration>(), "WhatsAppChannelConfigurations", "ConfigurationId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedCaseReview>(), "CaseReviews", "CaseReviewId");
+        modelBuilder.Entity<PersistedCaseReview>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)
@@ -315,6 +318,7 @@ public sealed class PersistedClaimantPortalSession : PersistedScopedJson
     public string SessionTokenHash { get; set; } = string.Empty;
 }
 public sealed class PersistedWhatsAppChannelConfiguration : PersistedScopedJson;
+public sealed class PersistedCaseReview : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;
 public sealed class PersistedBranch : PersistedScopedJson;

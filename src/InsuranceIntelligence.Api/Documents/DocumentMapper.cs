@@ -240,6 +240,13 @@ public static class DocumentMapper
                     .Select(ToWarningResponse)
                     .ToArray();
 
+                BoundingBoxResponse? boundingBox = null;
+                if (document.Extraction.FieldBoundingBoxes is not null
+                    && document.Extraction.FieldBoundingBoxes.TryGetValue(field.Key, out var bb))
+                {
+                    boundingBox = new BoundingBoxResponse(bb.PageNumber, bb.X, bb.Y, bb.Width, bb.Height);
+                }
+
                 return new DocumentFieldVerificationResponse(
                     field.Key,
                     field.Value,
@@ -250,7 +257,8 @@ public static class DocumentMapper
                     Sensitivity(field.Key),
                     warnings,
                     correction?.CorrectedAt,
-                    correction?.CorrelationId);
+                    correction?.CorrelationId,
+                    boundingBox);
             })
             .ToArray();
     }

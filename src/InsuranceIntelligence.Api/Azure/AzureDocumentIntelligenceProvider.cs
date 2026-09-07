@@ -21,7 +21,10 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
                 return SafeMissingConfiguration(request, "Document Intelligence requires a stream-capable document storage provider.");
             }
 
-            var client = new DocumentIntelligenceClient(new Uri(options.DocumentIntelligence.Endpoint!), AzureProviderSupport.Credential());
+            // Use API key auth when managed identity is disabled and a key is provided.
+            var client = !options.DocumentIntelligence.UseManagedIdentity && !string.IsNullOrWhiteSpace(options.DocumentIntelligence.ApiKey)
+                ? new DocumentIntelligenceClient(new Uri(options.DocumentIntelligence.Endpoint!), new AzureKeyCredential(options.DocumentIntelligence.ApiKey))
+                : new DocumentIntelligenceClient(new Uri(options.DocumentIntelligence.Endpoint!), AzureProviderSupport.Credential());
             await using var content = await request.OpenContentStreamAsync(cancellationToken);
             if (content.CanSeek)
             {
@@ -37,13 +40,14 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
                 BinaryData.FromStream(content),
                 cancellationToken: cancellationToken);
             var analyzeResult = operation.Value;
-            var (fields, confidences) = BuildExtraction(request, analyzeResult, modelId);
+            var modelVersion = analyzeResult.ModelId ?? modelId;
+            var (fields, confidences, boundingBoxes) = BuildExtraction(request, analyzeResult, modelId);
             var warnings = BuildWarnings(analyzeResult);
 
-            logger.LogInformation("Azure Document Intelligence processed document {DocumentId} with model {ModelId}.", request.DocumentId, modelId);
+            logger.LogInformation("Azure Document Intelligence processed document {DocumentId} with model {ModelId} version {ModelVersion}.", request.DocumentId, modelId, modelVersion);
             return new DocumentProcessingResult(
-                new DocumentClassificationResult(Classify(request.OriginalFileName, analyzeResult), ClassificationConfidence(analyzeResult), "AzureDocumentIntelligence", DateTimeOffset.UtcNow),
-                new DocumentExtractionResult(fields, confidences, "AzureDocumentIntelligence", DateTimeOffset.UtcNow, false, null, null),
+                new DocumentClassificationResult(Classify(request.OriginalFileName, analyzeResult), ClassificationConfidence(analyzeResult), "AzureDocumentIntelligence", DateTimeOffset.UtcNow, modelVersion),
+                new DocumentExtractionResult(fields, confidences, "AzureDocumentIntelligence", DateTimeOffset.UtcNow, false, null, null, null, boundingBoxes, modelVersion),
                 warnings);
         }
         catch (Exception ex) when (ex is RequestFailedException or InvalidOperationException or NotSupportedException)
@@ -53,11 +57,12 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
         }
     }
 
-    private static (Dictionary<string, string> Fields, Dictionary<string, decimal> Confidences) BuildExtraction(
+    private static (Dictionary<string, string> Fields, Dictionary<string, decimal> Confidences, Dictionary<string, BoundingBox> BoundingBoxes) BuildExtraction(
         DocumentProcessingRequest request,
         AnalyzeResult analyzeResult,
         string modelId)
     {
+        var boundingBoxes = new Dictionary<string, BoundingBox>();
         var fields = new Dictionary<string, string>
         {
             ["sourceFileName"] = request.OriginalFileName,
@@ -84,8 +89,26 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
                     continue;
                 }
 
-                fields[$"field.{field.Key}"] = value;
-                confidences[$"field.{field.Key}"] = DecimalConfidence(field.Value.Confidence);
+                var fieldKey = $"field.{field.Key}";
+                fields[fieldKey] = value;
+                confidences[fieldKey] = DecimalConfidence(field.Value.Confidence);
+
+                // Capture bounding box from first polygon region if available
+                var regions = field.Value.BoundingRegions;
+                if (regions is { Count: > 0 })
+                {
+                    var region = regions[0];
+                    // Polygon is a flat float list: [x0,y0, x1,y1, x2,y2, x3,y3, ...]
+                    if (region.Polygon.Count >= 8)
+                    {
+                        var pts = region.Polygon;
+                        var x = (double)pts[0];
+                        var y = (double)pts[1];
+                        var w = (double)(pts[4] - pts[0]);
+                        var h = (double)(pts[5] - pts[1]);
+                        boundingBoxes[fieldKey] = new BoundingBox(region.PageNumber, x, y, Math.Abs(w), Math.Abs(h));
+                    }
+                }
             }
         }
 
@@ -101,7 +124,7 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
             confidences[key] = DecimalConfidence(pair.Confidence);
         }
 
-        return (fields, confidences);
+        return (fields, confidences, boundingBoxes);
     }
 
     private static IReadOnlyCollection<DocumentValidationWarning> BuildWarnings(AnalyzeResult analyzeResult)
@@ -135,6 +158,7 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
             new DocumentClassificationResult(DocumentType.Unknown, 0.05m, "AzureDocumentIntelligence", DateTimeOffset.UtcNow),
             new DocumentExtractionResult(fields, fields.Keys.ToDictionary(key => key, _ => 0.05m), "AzureDocumentIntelligence", DateTimeOffset.UtcNow, false, null, null),
             warnings);
+        // Note: no ModelVersion or BoundingBoxes on the not-configured fallback path — those require a real extraction.
     }
 
     private static DocumentType Classify(string fileName, AnalyzeResult? analyzeResult = null)

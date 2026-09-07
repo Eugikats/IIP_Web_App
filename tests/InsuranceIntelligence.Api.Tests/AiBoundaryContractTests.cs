@@ -11,6 +11,7 @@ using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Approvals;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.CaseReview;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Communications;
@@ -50,6 +51,57 @@ public sealed class AiBoundaryContractTests
             deps.ApprovalRepository,
             deps.AuditRepository,
             ActorContext(actorUserId, "Agent must not approve."),
+            CancellationToken.None);
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status403Forbidden, status);
+        Assert.Equal("human_decision_required", body.GetProperty("code").GetString());
+        var persisted = await deps.ApprovalRepository.GetAsync(approval.ApprovalId, Scope, CancellationToken.None);
+        Assert.Equal(ApprovalStatus.Pending, persisted!.Status);
+    }
+
+    [Theory]
+    [InlineData("agent:runtime")]
+    [InlineData("system:batch")]
+    public async Task ApproveApproval_Blocks_NonHuman_Actors_EvenWhenCaseReviewFlaggedFraud(string actorUserId)
+    {
+        // Case Review (the AI-generated summary + fraud/underwriting signal stage that runs
+        // immediately before Approval) can flag a claim as worth a human's attention -- but that
+        // flag is advisory only. It must never be read as authority for an agent to decide the
+        // claim itself. This proves the boundary holds even when the evidence in front of it is
+        // the most alarming thing Case Review can produce.
+        var deps = CreateWorkflowDeps();
+        var claimCase = await CreateCaseAsync(deps);
+        var caseReview = new CaseReviewSummary
+        {
+            CaseReviewId = Guid.NewGuid(),
+            Scope = claimCase.Scope,
+            CaseId = claimCase.CaseId,
+            Overview = "Claim facts are broadly consistent with the incident description.",
+            OpenQuestions = [],
+            RiskSignals = [new CaseReviewSignal(CaseReviewSignalCategory.Fraud, "Two claims were filed on this policy within the same week.")],
+            EvidenceRefs = [$"case:{claimCase.CaseId}"],
+            Confidence = 0.6m,
+            GeneratedByProvider = "AzureOpenAI",
+            GeneratedByModel = "test-deployment",
+            GeneratedByUserId = "user-claims-1",
+            GeneratedAt = DateTimeOffset.UtcNow,
+            AgentActionLogId = Guid.NewGuid(),
+            CorrelationId = "corr-ai-boundary-case-review",
+        };
+        var approval = await CreatePendingApprovalAsync(
+            deps,
+            claimCase,
+            "ApproveClaim",
+            evidenceSummary: caseReview.Overview,
+            sourceReferences: [$"case-review:{caseReview.CaseReviewId}", .. caseReview.EvidenceRefs]);
+
+        var result = await ApprovalEndpoints.ApproveApproval(
+            approval.ApprovalId,
+            new ApprovalDecisionRequest("Agent attempted to approve based on the case-review fraud flag."),
+            deps.ApprovalRepository,
+            deps.AuditRepository,
+            ActorContext(actorUserId, "Agent must not approve, no matter how the case review reads."),
             CancellationToken.None);
         var (status, body) = await ExecuteAsync<JsonElement>(result);
 
@@ -314,7 +366,9 @@ public sealed class AiBoundaryContractTests
     private static async Task<ApprovalRequest> CreatePendingApprovalAsync(
         WorkflowDeps deps,
         ClaimCase claimCase,
-        string approvalType)
+        string approvalType,
+        string? evidenceSummary = null,
+        IReadOnlyCollection<string>? sourceReferences = null)
     {
         var approval = new ApprovalRequest
         {
@@ -324,8 +378,8 @@ public sealed class AiBoundaryContractTests
             ApprovalType = approvalType,
             Status = ApprovalStatus.Pending,
             RiskLevel = "Medium",
-            EvidenceSummary = "Prepared recommendation awaiting human decision.",
-            SourceReferences = ["case:" + claimCase.CaseId],
+            EvidenceSummary = evidenceSummary ?? "Prepared recommendation awaiting human decision.",
+            SourceReferences = sourceReferences ?? ["case:" + claimCase.CaseId],
             RequestedByUserId = "user-claims-1",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,

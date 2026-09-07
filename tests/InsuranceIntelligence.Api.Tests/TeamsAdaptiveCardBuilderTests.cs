@@ -57,7 +57,11 @@ public class TeamsAdaptiveCardBuilderTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    [InlineData("/app/work-items")] // relative: not openable from a Teams client
+    // Not http(s) -- a Teams client can't open it. Also a regression pin: Uri.TryCreate(...,
+    // UriKind.Absolute, ...) alone accepts this as a valid absolute file: URI on Linux/macOS
+    // (POSIX absolute path) while rejecting it on Windows, so the scheme check is what must
+    // reject it here, identically on every platform.
+    [InlineData("/app/work-items")]
     public void BuildCard_OmitsTheViewAction_WhenThereIsNoAbsoluteDeepLink(string deepLinkUrl)
     {
         var notification = new TeamsNotification
@@ -77,5 +81,27 @@ public class TeamsAdaptiveCardBuilderTests
         Assert.DoesNotContain("localhost", cardJson);
         // The card itself still renders — only the dead button is withheld.
         Assert.Contains("Approval Required", cardJson);
+    }
+
+    [Theory]
+    [InlineData("https://iip.example.com/app/claims/00000000-0000-0000-0000-000000000001")]
+    [InlineData("http://localhost:3000/app/work-items")]
+    public void BuildCard_IncludesTheViewAction_ForAGenuineHttpOrHttpsDeepLink(string deepLinkUrl)
+    {
+        var notification = new TeamsNotification
+        {
+            Id = Guid.NewGuid(),
+            Scope = TenantScope.Create("tenant-demo", "workspace-claims"),
+            CaseId = Guid.NewGuid(),
+            NotificationType = TeamsNotificationType.ApprovalRequired,
+            PayloadJson = JsonSerializer.Serialize(new { ApprovalType = "Settlement" }),
+            DeepLinkUrl = deepLinkUrl
+        };
+
+        var cardJson = TeamsAdaptiveCardBuilder.BuildCard(notification);
+
+        Assert.Contains("Action.OpenUrl", cardJson);
+        Assert.Contains("View in Portal", cardJson);
+        Assert.Contains(deepLinkUrl, cardJson);
     }
 }

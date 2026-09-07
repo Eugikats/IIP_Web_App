@@ -93,6 +93,7 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
         options.Select.Add("version");
         options.Select.Add("chunkText");
         options.Select.Add("sourceUri");
+        options.Select.Add("sectionTitle");
 
         var response = await client.SearchAsync<SearchDocument>(query, options, cancellationToken);
         var chunks = new List<KnowledgeChunk>();
@@ -108,6 +109,7 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
             var version = Value(document, "version", "unknown");
             var content = Value(document, "chunkText", string.Empty);
             var sourceUri = Value(document, "sourceUri", string.Empty);
+            var section = document.TryGetValue("sectionTitle", out var sectionValue) ? sectionValue?.ToString() : null;
             chunks.Add(new KnowledgeChunk
             {
                 ChunkId = chunkId,
@@ -118,7 +120,9 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
                 Version = version,
                 ChunkIndex = chunks.Count,
                 Content = content,
-                SourceReference = new KnowledgeSourceReference(knowledgeDocId, chunkId, documentName, product, version, sourceUri)
+                SourceReference = new KnowledgeSourceReference(knowledgeDocId, chunkId, documentName, product, version, sourceUri),
+                Score = result.Score,
+                Section = string.IsNullOrWhiteSpace(section) ? null : section
             });
         }
 

@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Application.Agents;
+using InsuranceIntelligence.Application.Billing;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Knowledge;
@@ -95,7 +96,11 @@ public static class AssistantEndpoints
             ModelDeployment = answer.ModelDeployment,
             PromptVersion = answer.PromptVersion,
             Visibility = answer.Visibility,
-            CanTriggerDecision = answer.CanTriggerDecision
+            CanTriggerDecision = answer.CanTriggerDecision,
+            ModelVersion = answer.ModelVersion,
+            PromptTokens = answer.PromptTokens,
+            CompletionTokens = answer.CompletionTokens,
+            EstimatedCostUsd = AiCostEstimator.Estimate(answer.PromptTokens, answer.CompletionTokens)
         };
 
         await actionLogRepository.SaveAsync(actionLog, cancellationToken);
@@ -128,7 +133,8 @@ public static class AssistantEndpoints
             actionLog.Visibility,
             actionLog.CanTriggerDecision,
             actionLog.CreatedAt,
-            actionLog.CorrelationId));
+            actionLog.CorrelationId,
+            ModelVersion: actionLog.ModelVersion));
     }
 
     public static async Task<IResult> ListActions(

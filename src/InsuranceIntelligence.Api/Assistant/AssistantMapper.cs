@@ -32,5 +32,9 @@ public static class AssistantMapper
             actionLog.ModelDeployment,
             actionLog.PromptVersion,
             actionLog.Visibility,
-            actionLog.CanTriggerDecision);
+            actionLog.CanTriggerDecision,
+            ModelVersion: actionLog.ModelVersion,
+            PromptTokens: actionLog.PromptTokens,
+            CompletionTokens: actionLog.CompletionTokens,
+            EstimatedCostUsd: actionLog.EstimatedCostUsd);
 }

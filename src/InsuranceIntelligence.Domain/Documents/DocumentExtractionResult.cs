@@ -8,4 +8,6 @@ public sealed record DocumentExtractionResult(
     bool Approved,
     string? ApprovedByUserId,
     DateTimeOffset? ApprovedAt,
-    IReadOnlyDictionary<string, DocumentFieldCorrection>? FieldCorrections = null);
+    IReadOnlyDictionary<string, DocumentFieldCorrection>? FieldCorrections = null,
+    IReadOnlyDictionary<string, BoundingBox>? FieldBoundingBoxes = null,
+    string? ModelVersion = null);

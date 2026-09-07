@@ -27,6 +27,13 @@ public sealed record DocumentResponse(
     IReadOnlyCollection<ActionStateResponse> AllowedActions,
     IReadOnlyCollection<ActionStateResponse> BlockedActions);
 
+public sealed record BoundingBoxResponse(
+    int PageNumber,
+    double X,
+    double Y,
+    double Width,
+    double Height);
+
 public sealed record DocumentFieldVerificationResponse(
     string Name,
     string ExtractedValue,
@@ -37,7 +44,8 @@ public sealed record DocumentFieldVerificationResponse(
     string Sensitivity,
     IReadOnlyCollection<DocumentValidationWarningResponse> Warnings,
     DateTimeOffset? CorrectedAt,
-    string? CorrectionReference);
+    string? CorrectionReference,
+    BoundingBoxResponse? BoundingBox = null);
 
 public sealed record DocumentValidationWarningResponse(
     string Code,

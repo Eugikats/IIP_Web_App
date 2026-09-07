@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Application.Billing;
 using InsuranceIntelligence.Application.Claims;
 using InsuranceIntelligence.Domain.Billing;
+using InsuranceIntelligence.Domain.Knowledge;
 
 namespace InsuranceIntelligence.Api.Admin.Billing;
 
@@ -16,26 +17,36 @@ public static class BillingEndpoints
 }
 
 /// <summary>
-/// Computes usage from records the platform actually stores. Claims are counted
-/// for real via the claims read repository; dimensions without a counter yet
-/// (AI calls, storage) are returned Metered=false so the UI shows "Not
-/// configured" rather than a fabricated number (ADR-0003).
+/// Computes usage from records the platform actually stores. Claims and AI token
+/// counts are aggregated from real AgentActionLog records; dimensions without a
+/// counter yet (storage) are returned Metered=false (ADR-0003).
 /// </summary>
-public sealed class RecordBackedBillingUsageSource(IClaimsReadRepository claimsReadRepository) : IBillingUsageSource
+public sealed class RecordBackedBillingUsageSource(
+    IClaimsReadRepository claimsReadRepository,
+    IAgentActionLogRepository actionLogRepository) : IBillingUsageSource
 {
     public async Task<IReadOnlyList<UsageMeterDto>> GetUsageAsync(
         string tenantId,
         string workspaceId,
         CancellationToken cancellationToken = default)
     {
+        var scope = InsuranceIntelligence.Domain.Common.TenantScope.Create(tenantId, workspaceId);
         var claims = await claimsReadRepository.ListAsync(new ClaimsQuery(Take: 5000), cancellationToken);
         var claimCount = claims.Count;
+
+        var actionLogs = await actionLogRepository.ListAsync(scope, cancellationToken);
+        var promptTokens = actionLogs.Sum(log => log.PromptTokens ?? 0);
+        var completionTokens = actionLogs.Sum(log => log.CompletionTokens ?? 0);
+        var totalTokens = promptTokens + completionTokens;
+        var estimatedCost = actionLogs.Sum(log => log.EstimatedCostUsd ?? 0m);
+        var aiCallsMetered = actionLogs.Any(log => log.PromptTokens.HasValue);
 
         var meters = new[]
         {
             new UsageMeter("claims", "Claims processed", claimCount, 5000, "claims", Metered: true),
             new UsageMeter("documents", "Documents processed", 0, 0, "documents", Metered: false),
-            new UsageMeter("ai-calls", "AI generation calls", 0, 0, "calls", Metered: false),
+            new UsageMeter("ai-tokens", "AI tokens consumed", totalTokens, 0, "tokens", Metered: aiCallsMetered),
+            new UsageMeter("ai-cost-usd", "Estimated AI cost (USD)", (int)(estimatedCost * 100), 0, "cents", Metered: aiCallsMetered),
             new UsageMeter("storage", "Document storage", 0, 0, "GB", Metered: false),
         };
 

@@ -12,7 +12,10 @@ public sealed record ChatCompletionResult(
     string Content,
     string Provider,
     string? Deployment,
-    DateTimeOffset CompletedAt);
+    DateTimeOffset CompletedAt,
+    string? ModelVersion = null,
+    int? PromptTokens = null,
+    int? CompletionTokens = null);
 
 public interface IChatCompletionProvider
 {

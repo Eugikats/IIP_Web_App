@@ -3,12 +3,14 @@ using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.ClaimsSummary;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.CaseReview;
 using InsuranceIntelligence.Domain.Knowledge;
 
 namespace InsuranceIntelligence.Api.Claims;
 
-/// <summary>WO-10: exposes the claims-summary agent. Gate check lives here (not in the service),
-/// matching the established pattern in AssistantEndpoints/CustomerUpdateEndpoints.</summary>
+/// <summary>WO-10: exposes the claims-summary agent -- also the "Case Review" pipeline stage
+/// (Intake/FNOL -&gt; Document Checker -&gt; Case Review -&gt; Approval). Gate check lives here (not in the
+/// service), matching the established pattern in AssistantEndpoints/CustomerUpdateEndpoints.</summary>
 public static class ClaimsSummaryEndpoints
 {
     public static async Task<IResult> SummarizeCase(
@@ -58,12 +60,56 @@ public static class ClaimsSummaryEndpoints
             result.CaseId,
             result.Summary,
             result.OpenQuestions,
+            result.RiskSignals.Select(ToRiskSignalResponse).ToArray(),
             result.KnowledgeSources.Select(ToCitationResponse).ToArray(),
             result.EvidenceRefs,
             result.Confidence,
             result.AgentActionLogId,
+            result.CaseReviewId,
             result.CorrelationId));
     }
+
+    /// <summary>Retrieves the most recently generated, persisted case review for a case (never
+    /// regenerates -- call SummarizeCase for that). 404 if case review has never run for this case.</summary>
+    public static async Task<IResult> GetLatestCaseReview(
+        Guid caseId,
+        ICaseRepository caseRepository,
+        ICaseReviewRepository caseReviewRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return WorkflowEndpoints.Validation("tenantScope", validationError);
+        }
+
+        var claimCase = await WorkflowEndpoints.GetScopedCaseAsync(caseRepository, caseId, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return WorkflowEndpoints.NotFoundCase();
+        }
+
+        var review = await caseReviewRepository.GetLatestForCaseAsync(caseId, scope, cancellationToken);
+        return review is null
+            ? Results.NotFound(new { message = "No case review has been generated for this case yet." })
+            : Results.Ok(ToResponse(review));
+    }
+
+    private static ClaimsSummaryResponse ToResponse(CaseReviewSummary review) =>
+        new(
+            review.CaseId,
+            review.Overview,
+            review.OpenQuestions,
+            review.RiskSignals.Select(ToRiskSignalResponse).ToArray(),
+            Array.Empty<SourceCitationResponse>(),
+            review.EvidenceRefs,
+            review.Confidence,
+            review.AgentActionLogId,
+            review.CaseReviewId,
+            review.CorrelationId);
+
+    private static CaseReviewSignalResponse ToRiskSignalResponse(CaseReviewSignal signal) =>
+        new(signal.Category.ToString(), signal.Note);
 
     private static SourceCitationResponse ToCitationResponse(SourceCitation citation) =>
         new(citation.Label, citation.DocumentName, citation.ChunkId, citation.Excerpt);
@@ -73,10 +119,14 @@ public sealed record ClaimsSummaryResponse(
     Guid CaseId,
     string Summary,
     IReadOnlyCollection<string> OpenQuestions,
+    IReadOnlyCollection<CaseReviewSignalResponse> RiskSignals,
     IReadOnlyCollection<SourceCitationResponse> KnowledgeSources,
     IReadOnlyCollection<string> EvidenceRefs,
     decimal Confidence,
     Guid AgentActionLogId,
+    Guid CaseReviewId,
     string CorrelationId);
+
+public sealed record CaseReviewSignalResponse(string Category, string Note);
 
 public sealed record SourceCitationResponse(string Label, string DocumentName, string ChunkId, string Excerpt);

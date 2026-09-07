@@ -63,6 +63,8 @@ public sealed record DocumentIntelligenceOptions
     public string ModelMode { get; init; } = "Prebuilt";
     public string DefaultModelId { get; init; } = "prebuilt-document";
     public bool UseManagedIdentity { get; init; } = true;
+    /// <summary>API key for Document Intelligence. Only required when UseManagedIdentity is false.</summary>
+    public string? ApiKey { get; init; }
 }
 
 public sealed record AzureAiSearchOptions
