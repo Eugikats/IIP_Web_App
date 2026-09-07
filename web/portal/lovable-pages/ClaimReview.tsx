@@ -13,7 +13,7 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "@/components/iip/NextRouterCompat";
 import { CustomerUpdateGovernedDialog, type PendingCustomerUpdateAction } from "@/components/CustomerUpdateGovernedDialog";
 import { CustomerUpdatePanel, type CustomerUpdate } from "@/components/CustomerUpdatePanel";
@@ -29,6 +29,7 @@ import { MarkdownText } from "@/components/iip/MarkdownText";
 import { useClaimReview, type ConfirmClaimCorrections } from "@/lib/lovable-parity/data/claimReview";
 import { useClaimsSummary } from "@/lib/lovable-parity/data/claimsSummary";
 import { useFraudSignals, type FraudSeverity } from "@/lib/lovable-parity/data/fraud";
+import { useCaseReview } from "@/lib/lovable-parity/data/caseReview";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
 import { useUI } from "@/context/UIStateContext";
 import { extractionHref } from "@/lib/workItemLinks";
@@ -89,6 +90,11 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const { summary: claimsSummary, loading: summarizing, error: summaryError, generate: generateSummary } = useClaimsSummary(claimId, roleDef.key);
   const { signals: fraudSignals, loading: fraudLoading, error: fraudError } = useFraudSignals();
   const caseFraudSignals = fraudSignals.filter((signal) => signal.relatedCaseIds.includes(claimId));
+  const { review: persistedReview, loading: reviewLoading, load: loadReview } = useCaseReview(claimId, roleDef.key);
+  useEffect(() => { if (claimId) void loadReview(); }, [claimId, loadReview]);
+  // Freshly generated summary takes precedence; fall back to the persisted one loaded on mount.
+  const displayedSummary = claimsSummary ?? persistedReview;
+  const summaryIsLoading = summarizing || reviewLoading;
   const { runtimeContext, parityMode } = useRuntimeContext();
   // Gates the upload control on the signed-in user's real permission, never on the preview role
   // switcher — a role without UploadDocument (e.g. ITAdmin, Compliance) must not see a button
@@ -539,7 +545,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
               >
                 {summarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />}
-                {claimsSummary ? "Regenerate summary" : "Generate summary"}
+                {displayedSummary ? "Regenerate summary" : "Generate summary"}
               </button>
             </div>
             {summaryError ? (
@@ -547,24 +553,46 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{summaryError}</span>
               </div>
-            ) : claimsSummary ? (
+            ) : summaryIsLoading && !displayedSummary ? (
+              <div className="inline-flex items-center gap-2 p-4 text-[12.5px] text-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading case review…
+              </div>
+            ) : displayedSummary ? (
               <div className="space-y-3">
-                <MarkdownText className="text-[13px] text-ink-soft leading-relaxed" content={claimsSummary.summary} />
-                {claimsSummary.openQuestions.length > 0 ? (
+                <MarkdownText className="text-[13px] text-ink-soft leading-relaxed" content={displayedSummary.summary} />
+                {displayedSummary.openQuestions.length > 0 ? (
                   <div>
                     <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted">Open questions</div>
                     <ul className="space-y-1 text-[12.5px] text-ink-soft">
-                      {claimsSummary.openQuestions.map((question) => (
+                      {displayedSummary.openQuestions.map((question) => (
                         <li key={question}>- {question}</li>
                       ))}
                     </ul>
                   </div>
                 ) : null}
-                {claimsSummary.knowledgeSources.length > 0 ? (
+                {displayedSummary.riskSignals?.length > 0 ? (
+                  <div>
+                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted">Risk signals</div>
+                    <ul className="space-y-2">
+                      {displayedSummary.riskSignals.map((signal, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[12.5px] text-ink-soft">
+                          <Badge tone={signal.category === "Fraud" ? "warning" : "neutral"} className="mt-0.5 shrink-0">
+                            {signal.category === "Fraud" ? "Fraud signal" : "Underwriting"}
+                          </Badge>
+                          <span>{signal.note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-2 text-[11px] text-muted">
+                      Advisory observations only — a human reviewer decides what, if anything, to do.
+                    </div>
+                  </div>
+                ) : null}
+                {displayedSummary.knowledgeSources.length > 0 ? (
                   <div>
                     <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted">Sources</div>
                     <div className="space-y-1">
-                      {claimsSummary.knowledgeSources.map((source) => (
+                      {displayedSummary.knowledgeSources.map((source) => (
                         <div key={source.chunkId} className="flex items-center gap-2 text-[12px] text-muted">
                           <FileText className="h-3.5 w-3.5 shrink-0" />
                           {source.label}: {source.documentName}

@@ -10,14 +10,21 @@ export type ClaimsSummaryKnowledgeSource = {
   excerpt: string;
 };
 
+export type ClaimsSummaryRiskSignal = {
+  category: "Fraud" | "Underwriting";
+  note: string;
+};
+
 export type ClaimsSummaryView = {
   caseId: string;
   summary: string;
   openQuestions: string[];
+  riskSignals: ClaimsSummaryRiskSignal[];
   knowledgeSources: ClaimsSummaryKnowledgeSource[];
   evidenceRefs: string[];
   confidence: number;
   agentActionLogId: string;
+  caseReviewId: string;
   correlationId: string;
 };
 
