@@ -329,7 +329,14 @@ export default function CopilotPanel() {
       </div>
 
       <div className="border-t border-line/70 p-3">
-        <Composer value={input} onChange={setInput} onSend={() => void send()} disabled={loading} placeholder={`Ask about ${ctx.title.toLowerCase()}…`} />
+        <Composer
+          value={input}
+          onChange={setInput}
+          onSend={() => void send()}
+          disabled={loading}
+          ariaLabel="Message IIP Copilot"
+          placeholder={ctx.title.startsWith("Ask") ? `${ctx.title}…` : `Ask about ${ctx.title.toLowerCase()}…`}
+        />
         <div className="mt-1.5 text-[10px] text-muted text-center">Role: {roleDef.label} · human reviewers approve regulated decisions.</div>
       </div>
     </aside>

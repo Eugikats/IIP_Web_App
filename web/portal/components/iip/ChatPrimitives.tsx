@@ -81,17 +81,18 @@ export function ApprovalCard({ title, summary, onApprove, onReject, onEscalate }
   );
 }
 
-export function Composer({ value, onChange, onSend, disabled, placeholder }: {
+export function Composer({ value, onChange, onSend, disabled, placeholder, ariaLabel }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
   disabled?: boolean;
   placeholder?: string;
+  ariaLabel?: string;
 }) {
   return (
     <div className="glass-elevated p-3 flex items-end gap-2">
       <textarea
-        aria-label="Message IIP Operations"
+        aria-label={ariaLabel ?? "Message IIP Operations"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
