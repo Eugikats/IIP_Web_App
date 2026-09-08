@@ -101,10 +101,10 @@ export default function ClaimsQueue() {
 
       <div className="glass-subtle p-3 mb-4 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-        <label className="flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-white/80 px-3 py-2 sm:min-w-[280px] sm:max-w-md">
+        <label htmlFor="claim-search" className="flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-white/80 px-3 py-2 sm:min-w-[280px] sm:max-w-md">
           <Search className="h-3.5 w-3.5 text-muted" />
           <span className="sr-only">Search claims</span>
-          <input name="claim-search" autoComplete="off" value={q} onChange={e => setQ(e.target.value)} placeholder="Search claim, customer, policy, assignment…" className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted" />
+          <input id="claim-search" name="claim-search" aria-label="Search claims" autoComplete="off" value={q} onChange={e => setQ(e.target.value)} placeholder="Search claim, customer, policy, assignment…" className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted" />
         </label>
         <div className="flex flex-wrap gap-1.5">
           {quickFilters.map(x => (
@@ -280,10 +280,13 @@ function QueueSelect({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const id = `queue-filter-${label.toLowerCase()}`;
   return (
-    <label className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white/70 px-3 py-2 text-[12px] text-ink-soft">
+    <label htmlFor={id} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white/70 px-3 py-2 text-[12px] text-ink-soft">
       <span className="text-muted">{label}</span>
       <select
+        id={id}
+        aria-label={`Filter by ${label.toLowerCase()}`}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="bg-transparent text-ink outline-none"

@@ -45,6 +45,7 @@ test("Gate 13 records keyboard, focus-return and dialog semantics evidence", asy
   await page.waitForLoadState("networkidle");
 
   const trigger = page.getByRole("button", { name: "Export claim pack" });
+  await expect(trigger).toBeVisible({ timeout: 15_000 });
   await trigger.focus();
   await trigger.press("Enter");
 
@@ -130,6 +131,7 @@ test("Gate 13 records reduced-motion and visible-focus behavior", async ({ page 
   }
 
   const trigger = page.getByRole("button", { name: "Export claim pack" });
+  await expect(trigger).toBeVisible({ timeout: 15_000 });
   await trigger.click();
   const motion = await page.getByRole("dialog", { name: "Export claim evidence pack" }).evaluate((node) => {
     const style = getComputedStyle(node);

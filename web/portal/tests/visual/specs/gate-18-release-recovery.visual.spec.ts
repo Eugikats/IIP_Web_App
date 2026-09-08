@@ -106,7 +106,7 @@ test("Gate 18 reconciles an unknown query result with the same idempotency key",
   await page.goto("/app");
   const composer = page.getByLabel("Message IIP Operations");
   await composer.fill("Reconcile this interrupted request");
-  await page.getByRole("button", { name: "Send" }).dblclick();
+  await page.getByRole("button", { name: "Send to IIP Operations" }).dblclick();
   await expect(page.getByText(/could not confirm whether this request was saved/)).toBeVisible();
   expect(attempts).toBe(1);
   await expect(composer).toHaveValue("Reconcile this interrupted request");
