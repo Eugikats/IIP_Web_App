@@ -89,10 +89,16 @@ export function Composer({ value, onChange, onSend, disabled, placeholder, ariaL
   placeholder?: string;
   ariaLabel?: string;
 }) {
+  // Derive the send button's accessible name from the composer's own label so
+  // multiple Composer instances on the same page (e.g. AIConversations + CopilotPanel
+  // at desktop width) each expose a unique "Send to <surface>" label.  Playwright
+  // strict mode and axe both fail when two buttons share the same name.
+  const composerLabel = ariaLabel ?? "Message IIP Operations";
+  const sendLabel = `Send to ${composerLabel.replace(/^Message /, "")}`;
   return (
     <div className="glass-elevated p-3 flex items-end gap-2">
       <textarea
-        aria-label={ariaLabel ?? "Message IIP Operations"}
+        aria-label={composerLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
@@ -109,7 +115,7 @@ export function Composer({ value, onChange, onSend, disabled, placeholder, ariaL
         onClick={onSend}
         disabled={disabled || !value.trim()}
         className="h-11 w-11 shrink-0 grid place-items-center rounded-2xl gradient-primary text-white shadow-l2 disabled:opacity-40 disabled:cursor-not-allowed focus-ring"
-        aria-label="Send"
+        aria-label={sendLabel}
       >
         <ArrowUp className="h-4 w-4" />
       </button>

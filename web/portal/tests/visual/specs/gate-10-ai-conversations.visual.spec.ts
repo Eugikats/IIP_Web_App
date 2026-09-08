@@ -17,7 +17,7 @@ test("Gate 10 Command Center exposes provenance and source-grounded answers", as
   }
 
   await page.getByPlaceholder("Ask IIP anything — claims, documents, customers, policies, workflows…").fill("Show claims that need attention.");
-  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByRole("button", { name: "Send to IIP Operations" }).click();
 
   await expect(page.getByText("Claims needing attention")).toBeVisible();
   await expect(page.getByRole("link", { name: /CLM-2026-00491 Sarah N\./ })).toHaveAttribute("href", /\/app\/claims\/CLM-2026-00491/);
@@ -35,7 +35,7 @@ test("Gate 10 Command Center escalates unsupported questions instead of answerin
   await page.waitForLoadState("networkidle");
 
   await page.getByPlaceholder("Ask IIP anything — claims, documents, customers, policies, workflows…").fill("Does an unlisted benefit apply?");
-  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByRole("button", { name: "Send to IIP Operations" }).click();
 
   await expect(page.getByText("Does an unlisted benefit apply?")).toBeVisible();
   await expect(page.getByText("IIP Operations · human review required for regulated decisions")).toBeVisible();
