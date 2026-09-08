@@ -1,105 +1,138 @@
+// Design language v2. This is the most widely shared legacy component file in the portal (38
+// screens import from it) — migrated once, here, rather than patched per screen. Every exported
+// signature is unchanged so no caller needs to change.
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 
-export function GlassCard({ className, children, level = 2 }: { className?: string; children: ReactNode; level?: 1 | 2 | 3 }) {
-  const map = { 1: "glass-subtle", 2: "glass", 3: "glass-elevated" } as const;
-  return <div className={cn(map[level], "p-6", className)}>{children}</div>;
+// `level` is kept for API compatibility (two not-yet-migrated screens pass level={3}) but design
+// language v2 has no multi-tier elevation concept — every static card is a flat, bordered,
+// shadowless surface (craft guardrails §8: "box-shadow: none on every static card").
+export function GlassCard({ className, children }: { className?: string; children: ReactNode; level?: 1 | 2 | 3 }) {
+  return <div className={cn("rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6 shadow-dls-none", className)}>{children}</div>;
 }
 
 export function SectionHeader({ eyebrow, title, sub, action }: { eyebrow?: string; title: string; sub?: string; action?: ReactNode }) {
   return (
     <div className="mb-6 flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
       <div className="min-w-0">
-        {eyebrow && <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">{eyebrow}</div>}
-        <h1 className="break-words text-[26px] leading-[34px] font-semibold text-ink sm:text-[28px] sm:leading-[36px]">{title}</h1>
-        {sub && <p className="mt-1.5 max-w-2xl break-words text-sm text-muted">{sub}</p>}
+        {eyebrow && <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">{eyebrow}</div>}
+        <h1 className="break-words text-[26px] font-extrabold leading-[34px] text-dls-text-primary sm:text-[28px] sm:leading-[36px]">{title}</h1>
+        {sub && <p className="mt-1.5 max-w-2xl break-words text-sm text-dls-text-secondary">{sub}</p>}
       </div>
       {action ? <div className="w-full min-w-0 sm:w-auto">{action}</div> : null}
     </div>
   );
 }
 
+// Kept for API compatibility only — every new caller should use components/ui/StatusPill
+// directly. `error` maps to StatusPill's `danger`; `violet` (never a valid dot colour per design
+// language §8.7 — violet marks actions, not status) maps to `info`, the closest neutral-ish
+// semantic tone, so any surviving caller degrades to something plausible rather than crashing.
 type Tone = "info" | "success" | "warning" | "error" | "violet" | "neutral";
-const toneStyles: Record<Tone, string> = {
-  info:    "bg-info/8    text-info    ring-info/20",
-  success: "bg-success/10 text-success ring-success/22",
-  warning: "bg-warning/12 text-[hsl(38_92%_38%)]     ring-warning/28",
-  error:   "bg-danger/10   text-danger   ring-danger/24",
-  violet:  "bg-violet/10  text-[hsl(259_60%_50%)]    ring-violet/24",
-  neutral: "bg-line/60 text-ink-soft ring-line",
+const TONE_TO_PILL: Record<Tone, PillTone> = {
+  info: "info",
+  success: "success",
+  warning: "warning",
+  error: "danger",
+  violet: "info",
+  neutral: "neutral",
 };
 
+const DOT_CLASS: Record<PillTone, string> = {
+  neutral: "bg-dls-text-faint",
+  success: "bg-dls-success-dot",
+  warning: "bg-dls-warning-dot",
+  danger: "bg-dls-danger-dot",
+  info: "bg-dls-info-dot",
+};
+
+// Badge takes arbitrary `children` (StatusPill takes only a string `label`), so it cannot simply
+// delegate — this renders the same neutral-pill-plus-dot shape by hand.
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ring-inset", toneStyles[tone], className)}>
+    <span className={cn("inline-flex items-center gap-1.5 rounded-dls-pill border border-dls-border-pill px-2.5 py-[3px] text-xs font-medium text-dls-text-primary", className)}>
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", DOT_CLASS[TONE_TO_PILL[tone]])} aria-hidden="true" />
       {children}
     </span>
   );
 }
 
 export function Dot({ tone = "info" }: { tone?: Tone }) {
-  const c = { info: "bg-info", success: "bg-success", warning: "bg-warning", error: "bg-danger", violet: "bg-violet", neutral: "bg-muted" }[tone];
-  return <span className={cn("inline-block h-1.5 w-1.5 rounded-full", c)} />;
+  return <span className={cn("inline-block h-1.5 w-1.5 rounded-full", DOT_CLASS[TONE_TO_PILL[tone]])} aria-hidden="true" />;
 }
 
+// Status vocabulary mirrors iip_workflow_legibility_contract.md §10.1-10.3 exactly for the raw
+// Domain enum names it covers (CaseStatus, AgentWorkItemStatus, ApprovalStatus). Every other value
+// this is called with (agent-flow run states, integration/provider states, document states, etc.)
+// is outside that contract's scope and is not a raw enum identifier needing translation — it is
+// passed through as its own label.
+const STATUS_VOCAB: Record<string, { label: string; tone: PillTone }> = {
+  New: { label: "Received", tone: "info" },
+  Assigned: { label: "Assigned", tone: "info" },
+  InReview: { label: "Under review", tone: "info" },
+  MissingDocuments: { label: "Waiting on documents", tone: "warning" },
+  ReadyForReview: { label: "Ready for review", tone: "info" },
+  PendingApproval: { label: "Awaiting approval", tone: "warning" },
+  ReadyForExport: { label: "Ready for export", tone: "info" },
+  Settled: { label: "Settled", tone: "success" },
+  Closed: { label: "Closed", tone: "neutral" },
+  RequiresReview: { label: "Requires review", tone: "danger" },
+  InProgress: { label: "In progress", tone: "info" },
+  Completed: { label: "Completed", tone: "success" },
+  ReturnedForCorrection: { label: "Returned for correction", tone: "warning" },
+  Cancelled: { label: "Cancelled", tone: "neutral" },
+  Escalated: { label: "Escalated", tone: "danger" },
+  Pending: { label: "Awaiting decision", tone: "warning" },
+  Approved: { label: "Approved", tone: "success" },
+  Rejected: { label: "Rejected", tone: "danger" },
+  Overridden: { label: "Overridden", tone: "warning" },
+  OnTrack: { label: "On track", tone: "success" },
+  AtRisk: { label: "At risk", tone: "warning" },
+  Breached: { label: "Breached", tone: "danger" },
+};
+
+// Non-contract statuses (agent flows, integrations, documents, etc.) that already read as plain
+// English keep their own text; only the tone is decided here.
+const OTHER_STATUS_TONE: Record<string, PillTone> = {
+  Error: "danger",
+  Failed: "danger",
+  Degraded: "warning",
+  Paused: "neutral",
+  Draft: "neutral",
+  Published: "success",
+  Queued: "info",
+  Running: "info",
+  WaitingForHuman: "warning",
+  Skipped: "neutral",
+  Open: "warning",
+  Acknowledged: "info",
+  Resolved: "success",
+  Connected: "success",
+  Active: "success",
+  Operational: "success",
+};
+
 export function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, Tone> = {
-    "New": "info",
-    "Assigned": "info",
-    "In Review": "info",
-    "InReview": "info",
-    "In Progress": "info",
-    "Missing Documents": "warning",
-    "MissingDocuments": "warning",
-    "Needs Review": "warning",
-    "Human Review Required": "violet",
-    "PendingApproval": "violet",
-    "Escalated": "error",
-    "Error": "error",
-    "Rejected": "error",
-    "Paused": "neutral",
-    "Ready for Export": "success",
-    "ReadyForReview": "success",
-    "ReadyForExport": "success",
-    "Approved": "success",
-    "Connected": "success",
-    "Active": "success",
-    "Operational": "success",
-    "Pending": "warning",
-    "Draft": "neutral",
-    "Published": "success",
-    "Queued": "info",
-    "Running": "violet",
-    "WaitingForHuman": "warning",
-    "RequiresReview": "warning",
-    "InProgress": "info",
-    "Completed": "success",
-    "ReturnedForCorrection": "warning",
-    "Cancelled": "neutral",
-    "Failed": "error",
-    "Skipped": "neutral",
-    "Degraded": "warning",
-    "Closed": "neutral",
-    "Open": "warning",
-    "Acknowledged": "info",
-    "Resolved": "success",
-  };
-  return <Badge tone={map[status] ?? "neutral"}><Dot tone={map[status] ?? "neutral"} />{status}</Badge>;
+  const contract = STATUS_VOCAB[status];
+  if (contract) return <StatusPill tone={contract.tone} label={contract.label} />;
+  return <StatusPill tone={OTHER_STATUS_TONE[status] ?? "neutral"} label={status} />;
 }
 
 export function SLABadge({ sla }: { sla: string }) {
-  const map: Record<string, Tone> = { Normal: "success", "At Risk": "warning", Breached: "error" };
-  return <Badge tone={map[sla] ?? "neutral"}>SLA · {sla}</Badge>;
+  const map: Record<string, PillTone> = { Normal: "success", "At Risk": "warning", Breached: "danger", OnTrack: "success", AtRisk: "warning" };
+  return <StatusPill tone={map[sla] ?? "neutral"} label={`SLA · ${sla}`} />;
 }
 
 export function RiskBadge({ risk }: { risk: string }) {
-  const map: Record<string, Tone> = { Low: "success", Medium: "warning", High: "error", "Advisory Signal": "violet" };
-  return <Badge tone={map[risk] ?? "neutral"}>Risk · {risk}</Badge>;
+  const map: Record<string, PillTone> = { Low: "success", Medium: "warning", High: "danger", "Advisory Signal": "info" };
+  return <StatusPill tone={map[risk] ?? "neutral"} label={`Risk · ${risk}`} />;
 }
 
 export function ConfidenceBadge({ value }: { value: number }) {
+  // Design language v2 §8.22 — never a coloured bar alone: numeric value plus a word.
   const pct = Math.round(value * 100);
-  const tone: Tone = pct >= 85 ? "success" : pct >= 70 ? "info" : "warning";
+  const tone: PillTone = pct >= 85 ? "success" : pct >= 70 ? "info" : "warning";
   const label = pct >= 85 ? "High" : pct >= 70 ? "Medium" : "Low";
-  return <Badge tone={tone}>Confidence · {label} · {pct}%</Badge>;
+  return <StatusPill tone={tone} label={`${(value).toFixed(2)} · ${label}`} />;
 }
