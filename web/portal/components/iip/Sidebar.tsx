@@ -1,59 +1,45 @@
-import { NavLink, useLocation } from "@/components/iip/NextRouterCompat";
+"use client";
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, useLocation, Link } from "@/components/iip/NextRouterCompat";
 import iipLogo from "@/assets/iip-logo";
 import {
-  MessagesSquare, FileSearch, Users, ShieldCheck, AlertTriangle, ClipboardList,
-  BookOpen, LineChart, Plug, ScrollText, Cog, Plus, Search,
-  Circle, PanelLeftClose, Inbox, UserSquare2, MessageSquareText, FileText, Bot, CreditCard, Gavel, Building2,
-  ListChecks,
+  MessageSquare, ListChecks, FileSearch, Inbox, FileText, GitBranch, LineChart,
+  Settings, Search, LogOut, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
 import { runtimeInitials, useRuntimeContext } from "@/lib/runtimeContext";
-import { canAccess, canAccessWithPermissions, canUseGlobalSearchPreview } from "@/lib/roles";
+import { canAccess, canAccessWithPermissions } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
-import { useEffect, useState } from "react";
-import { listConversations, type ConversationSummary } from "@/lib/lovable-parity/data/commandCenterConversations";
+import { signOut } from "@/lib/entraAuth";
+import { Avatar } from "@/components/ui/Avatar";
+import { Popover, PopoverGroupLabel } from "@/components/ui/Popover";
+import RoleSwitcher from "./RoleSwitcher";
 
-const NAV_GROUPS = [
-  { label: "Work", items: [
-    { to: "/app", label: "Command Center", icon: MessagesSquare },
-    { to: "/app/work-items", label: "My Work", icon: ListChecks },
-    { to: "/app/claims", label: "Claims", icon: FileSearch },
-    { to: "/app/channels", label: "Channels", icon: Inbox },
-  ]},
-  { label: "Records", items: [
-    { to: "/app/customers", label: "Customers", icon: UserSquare2 },
-    { to: "/app/documents", label: "Documents", icon: FileText },
-    { to: "/app/communications", label: "Communications", icon: MessageSquareText },
-    { to: "/app/knowledge", label: "Knowledge", icon: BookOpen },
-  ]},
-  { label: "Specialist work", items: [
-    { to: "/app/acquisition", label: "Acquisition", icon: Users },
-    { to: "/app/policy", label: "Policy Guidance", icon: ShieldCheck },
-    { to: "/app/fraud", label: "Risk Signals", icon: AlertTriangle },
-    { to: "/app/underwriting", label: "Underwriting", icon: ClipboardList },
-  ]},
-  { label: "Automation", items: [
-    { to: "/app/flows", label: "Flows", icon: Bot },
-  ]},
-  { label: "Oversight", items: [
-    { to: "/app/executive", label: "Operations Intelligence", icon: LineChart },
-    { to: "/app/audit", label: "Audit & Compliance", icon: ScrollText },
-  ]},
-  { label: "Platform", items: [
-    { to: "/app/integrations", label: "Integrations & Health", icon: Plug },
-  ]},
-];
-const ALL_ADMIN = [
-  { to: "/app/admin", label: "Admin Console", icon: Cog },
-  { to: "/app/admin/agents", label: "Agents", icon: Bot },
-  { to: "/app/admin/tenant-policy", label: "Agent Policy", icon: Gavel },
-  { to: "/app/admin/onboarding", label: "Tenant Onboarding", icon: Building2 },
-  { to: "/app/admin/billing", label: "Billing & Usage", icon: CreditCard },
-];
+// Navigation model §5.2 — exhaustive. Adding an eighth requires removing one and amending
+// docs/03-design-architecture/iip_ux_cognitive_load_and_navigation_model.md first.
+const RAIL_DESTINATIONS = [
+  { to: "/app", label: "Assistant", icon: MessageSquare },
+  { to: "/app/work-items", label: "My work", icon: ListChecks },
+  { to: "/app/claims", label: "Claims", icon: FileSearch },
+  { to: "/app/channels", label: "Inbox", icon: Inbox },
+  { to: "/app/documents", label: "Documents", icon: FileText },
+  { to: "/app/flows", label: "Automation", icon: GitBranch },
+  { to: "/app/executive", label: "Insights", icon: LineChart },
+] as const;
 
-function Item({ to, label, icon: Icon, onNavigate }: { to: string; label: string; icon: any; onNavigate?: () => void }) {
+function RailButton({
+  to,
+  label,
+  icon: Icon,
+  onNavigate,
+}: {
+  to: string;
+  label: string;
+  icon: typeof MessageSquare;
+  onNavigate?: () => void;
+}) {
   const loc = useLocation();
   const active = to === "/app" ? loc.pathname === "/app" : loc.pathname === to || loc.pathname.startsWith(to + "/");
   return (
@@ -61,162 +47,203 @@ function Item({ to, label, icon: Icon, onNavigate }: { to: string; label: string
       to={to}
       end={to === "/app"}
       onClick={onNavigate}
+      title={label}
+      aria-label={label}
       className={cn(
-        "group relative flex min-h-11 items-center gap-3 rounded-2xl px-3 py-2 text-[13px] transition-[background-color,color] focus-ring",
-        active ? "text-ink font-medium" : "text-ink-soft/80 hover:text-ink hover:bg-white/60"
+        "group relative flex h-10 w-10 items-center justify-center rounded-dls-control transition-colors duration-dls-fast ease-dls",
+        "dls-focus-outline",
+        active ? "bg-dls-primary-soft" : "hover:bg-dls-bg-page",
       )}
-      style={active ? {
-        background: "linear-gradient(135deg, rgba(37,99,255,0.10), rgba(124,77,255,0.12))",
-        border: "1px solid rgba(124,77,255,0.18)",
-      } : undefined}
     >
-      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-gradient-primary" />}
-      <Icon className={cn("h-[16px] w-[16px]", active ? "text-info" : "text-muted")} strokeWidth={active ? 2.2 : 1.7} />
-      <span className="truncate">{label}</span>
+      <Icon
+        className={cn("h-[19px] w-[19px]", active ? "text-dls-primary" : "text-dls-text-secondary")}
+        strokeWidth={1.8}
+        aria-hidden="true"
+      />
     </NavLink>
   );
 }
 
+// Navigation model §5.2, §5.4: Settings, Search (command palette), and the user avatar, pinned to
+// the bottom of the rail below the flexible gap.
 export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean; onNavigate?: () => void }) {
-  const { roleDef, toggleSidebar } = useUI();
+  const { roleDef } = useUI();
   const { runtimeContext, loading, parityMode } = useRuntimeContext();
   const usePreviewRole = canUseLocalTestDoubles || parityMode;
-  const searchAvailable = parityMode
-    ? false
-    : usePreviewRole
-      ? canUseGlobalSearchPreview(roleDef.key)
-      : (runtimeContext?.permissions ?? []).some((permission) => permission === "ViewAssignedClaims" || permission === "ViewAllClaims");
-  const groups = NAV_GROUPS
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) =>
-        usePreviewRole
-          ? canAccess(roleDef.key, item.to)
-          : canAccessWithPermissions(runtimeContext?.permissions ?? [], item.to)
-      ),
-    }))
-    .filter((group) => group.items.length > 0);
-  const admin = ALL_ADMIN.filter((item) =>
-    usePreviewRole
-      ? canAccess(roleDef.key, item.to)
-      : canAccessWithPermissions(runtimeContext?.permissions ?? [], item.to)
+  const permissions = runtimeContext?.permissions ?? [];
+
+  const destinations = RAIL_DESTINATIONS.filter((item) =>
+    usePreviewRole ? canAccess(roleDef.key, item.to) : canAccessWithPermissions(permissions, item.to),
   );
+  const settingsAvailable = usePreviewRole ? canAccess(roleDef.key, "/app/settings") : canAccessWithPermissions(permissions, "/app/settings");
+  const adminAvailable = usePreviewRole ? canAccess(roleDef.key, "/app/admin") : canAccessWithPermissions(permissions, "/app/admin");
+  const searchAvailable = usePreviewRole
+    ? canAccess(roleDef.key, "/app/search")
+    : canAccessWithPermissions(permissions, "/app/search");
+
   const activeWorkspace = runtimeContext?.availableWorkspaces.find(
     (workspace) => workspace.workspaceId === runtimeContext.workspaceId,
   );
   const workspaceName = activeWorkspace?.name ?? runtimeContext?.workspaceId ?? (loading ? "Resolving workspace" : "Workspace not configured");
-  const workspaceKind = activeWorkspace?.kind ?? runtimeContext?.source ?? "Not configured";
-  const environmentLabel = runtimeContext?.environment.name ?? (loading ? "Checking" : "Unverified");
   const displayName = runtimeContext?.displayName ?? (loading ? "Resolving user" : "User unavailable");
   const roleLabel = runtimeContext?.roleLabel ?? (loading ? "Authority resolving" : "Authority unavailable");
   const userInitials = runtimeInitials(displayName);
-  const commandCenterAvailable = usePreviewRole
-    ? canAccess(roleDef.key, "/app")
-    : (runtimeContext?.permissions ?? []).includes("ViewCommandCenter");
-  const [recentConversations, setRecentConversations] = useState<ConversationSummary[]>([]);
+  const userId = runtimeContext?.userId ?? "unknown-user";
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const profileTriggerRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!commandCenterAvailable || !runtimeContext || parityMode) {
-      setRecentConversations([]);
-      return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (searchAvailable && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
     }
-    const controller = new AbortController();
-    void listConversations(roleDef.key, runtimeContext.userId, false, 5, controller.signal)
-      .then((response) => setRecentConversations(Array.isArray(response.items) ? response.items : []))
-      .catch(() => setRecentConversations([]));
-    return () => controller.abort();
-  }, [commandCenterAvailable, parityMode, roleDef.key, runtimeContext]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [searchAvailable]);
+
+  function submitSearch() {
+    const query = searchQuery.trim();
+    if (query.length < 2) return;
+    setSearchOpen(false);
+    setSearchQuery("");
+    onNavigate?.();
+    window.location.assign(`/app/search?q=${encodeURIComponent(query)}`);
+  }
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   return (
-    <aside aria-label="Primary sidebar" className="h-full flex flex-col border-r border-line/70 bg-white/60 backdrop-blur-xl">
-      <div className="px-5 pt-5 pb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="relative h-9 w-9 rounded-xl bg-white grid place-items-center shadow-l2 ring-1 ring-line/70 overflow-hidden">
-            <Image src={iipLogo.url} alt="IIP logo" width={28} height={28} className="h-7 w-7 object-contain" priority />
-          </div>
-          <div className="leading-tight">
-            <div className="text-[13px] font-semibold tracking-tight text-ink">Insurance Intelligence Platform</div>
-            <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted">Platform · IIP</div>
-          </div>
-        </div>
-        <button onClick={toggleSidebar} aria-label={modal ? "Close navigation" : "Collapse sidebar navigation"} className="h-11 w-11 shrink-0 grid place-items-center rounded-lg text-muted hover:text-ink hover:bg-white/70 focus-ring">
-          <PanelLeftClose className="h-4 w-4" />
-        </button>
+    <aside
+      aria-label="Primary navigation"
+      className="flex h-full w-16 flex-col items-center border-r border-dls-border-subtle bg-dls-surface py-3.5"
+    >
+      <Link to="/app" aria-label="Insurance Intelligence Platform" title="Insurance Intelligence Platform" className="mb-[18px] block h-8 w-8 shrink-0 overflow-hidden rounded-dls-control">
+        <Image src={iipLogo.url} alt="" width={32} height={32} className="h-8 w-8 object-contain" priority />
+      </Link>
+
+      <div
+        role="img"
+        aria-label={`Workspace: ${workspaceName}`}
+        title={workspaceName}
+        className="mb-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-dls-primary-soft text-[13px] font-bold text-dls-primary"
+      >
+        {workspaceName.slice(0, 2).toUpperCase()}
       </div>
 
-      <div className="mx-4 mb-3 rounded-2xl border border-line/80 bg-white/70 p-3">
-        <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted">Workspace</div>
-        <div className="mt-1 flex items-center justify-between">
-          <div className="min-w-0">
-            <div className="text-[13px] font-medium text-ink truncate">{workspaceName}</div>
-            <div className="text-[11px] text-muted truncate">{workspaceKind}</div>
-          </div>
-          <span className="text-[10px] font-medium rounded-full px-2 py-0.5 text-info ring-1 ring-info/20 bg-info/8">
-            {environmentLabel}
-          </span>
-        </div>
-      </div>
-
-      {searchAvailable && <div className="px-4">
-        <NavLink to="/app/search" onClick={onNavigate} className="flex min-h-11 items-center gap-2 rounded-2xl bg-white/70 border border-line px-3 py-2 text-[12.5px] text-muted hover:text-ink hover:bg-white focus-ring">
-          <Search className="h-3.5 w-3.5" />
-          <span className="flex-1">Search IIP</span>
-          <span className="text-[10px] rounded bg-line/80 px-1.5 py-0.5 text-ink-soft">Ctrl K</span>
-        </NavLink>
-      </div>}
-
-      <div className="px-4 mt-3">
-        <NavLink to="/app" onClick={onNavigate} className="w-full min-h-11 inline-flex items-center justify-center gap-2 rounded-2xl gradient-primary text-white text-[13px] font-medium py-2.5 shadow-l2 hover-lift focus-ring">
-          <Plus className="h-4 w-4" /> New Conversation
-        </NavLink>
-      </div>
-
-      {commandCenterAvailable && (
-        <div className="px-4 pt-4">
-          <div className="flex items-center justify-between px-1 text-[10.5px] uppercase tracking-[0.14em] text-muted">
-            <span>Recent conversations</span>
-            <NavLink to="/app/conversations" onClick={onNavigate} className="inline-flex min-h-11 items-center normal-case tracking-normal text-info hover:underline focus-ring">All</NavLink>
-          </div>
-          {recentConversations.length > 0 ? (
-            <div className="mt-2 space-y-1">
-              {recentConversations.map((conversation) => (
-                <NavLink key={conversation.conversationId} to={`/app/conversations/${conversation.conversationId}`} onClick={onNavigate} className="flex min-h-11 items-center truncate rounded-lg px-2 py-1.5 text-[11.5px] text-ink-soft hover:bg-white/70 hover:text-ink focus-ring">
-                  {conversation.title}
-                </NavLink>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-2 px-2 text-[11px] text-muted">No recent conversations</div>
-          )}
-        </div>
-      )}
-
-      <nav className="flex-1 overflow-y-auto px-3 pt-5 pb-4">
-        {groups.map((group, index) => (
-          <div key={group.label} className={index === 0 ? "" : "mt-5"}>
-            <div className="px-2 text-[10.5px] uppercase tracking-[0.14em] text-muted mb-2">{group.label}</div>
-            <div className="space-y-0.5">{group.items.map((item) => <Item key={item.to} {...item} onNavigate={onNavigate} />)}</div>
-          </div>
+      <nav className="flex flex-1 flex-col items-center gap-1 overflow-y-auto">
+        {destinations.map((item) => (
+          <RailButton key={item.to} to={item.to} label={item.label} icon={item.icon} onNavigate={onNavigate} />
         ))}
-        {admin.length > 0 && (
-          <>
-            <div className="px-2 mt-6 text-[10.5px] uppercase tracking-[0.14em] text-muted mb-2">Platform administration</div>
-            <div className="space-y-0.5">
-              {admin.map(m => <Item key={m.to} {...m} onNavigate={onNavigate} />)}
-            </div>
-          </>
-        )}
       </nav>
 
-      <div className="border-t border-line/80 p-3 mx-2 mb-2 rounded-2xl">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-gradient-secondary grid place-items-center text-white text-[12px] font-semibold">{userInitials}</div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-ink truncate">{displayName}</div>
-            <div className="text-[11px] text-muted truncate">Signed in as {roleLabel}</div>
+      <div className="flex shrink-0 flex-col items-center gap-1 pt-2">
+        {canUseLocalTestDoubles && (
+          <div className="mb-1">
+            <RoleSwitcher />
           </div>
-          <div className="flex items-center gap-1 text-[11px] text-success"><Circle className="h-2 w-2 fill-current" /> Auth</div>
-        </div>
+        )}
+
+        {settingsAvailable && (
+          <NavLink
+            to="/app/settings"
+            onClick={onNavigate}
+            title="Settings"
+            aria-label="Settings"
+            className="flex h-10 w-10 items-center justify-center rounded-dls-control text-dls-text-secondary transition-colors duration-dls-fast ease-dls hover:bg-dls-bg-page dls-focus-outline"
+          >
+            <Settings className="h-[19px] w-[19px]" strokeWidth={1.8} aria-hidden="true" />
+          </NavLink>
+        )}
+
+        {searchAvailable && (
+          <>
+            <button
+              ref={searchTriggerRef}
+              type="button"
+              title="Search (Ctrl+K)"
+              aria-label="Search"
+              onClick={() => setSearchOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-dls-control text-dls-text-secondary transition-colors duration-dls-fast ease-dls hover:bg-dls-bg-page dls-focus-outline"
+            >
+              <Search className="h-[19px] w-[19px]" strokeWidth={1.8} aria-hidden="true" />
+            </button>
+            <Popover open={searchOpen} onClose={() => setSearchOpen(false)} anchorRef={searchTriggerRef} label="Search IIP">
+              <PopoverGroupLabel>Search IIP</PopoverGroupLabel>
+              <div className="px-2 pb-2">
+                <input
+                  ref={searchInputRef}
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") submitSearch();
+                  }}
+                  minLength={2}
+                  maxLength={100}
+                  placeholder="Search claims, customers, documents"
+                  aria-label="Search query"
+                  className="w-full rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary placeholder:text-dls-text-muted focus:border-dls-primary focus:outline-none focus:ring-[3px] focus:ring-dls-primary/[0.12]"
+                />
+              </div>
+            </Popover>
+          </>
+        )}
+
+        <button
+          ref={profileTriggerRef}
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={profileOpen}
+          aria-label={`${displayName}. Signed in as ${roleLabel}. Open profile menu`}
+          onClick={() => setProfileOpen((value) => !value)}
+          className="mt-1.5 rounded-full dls-focus-outline"
+        >
+          <Avatar id={userId} initials={userInitials} presence />
+        </button>
+        <Popover open={profileOpen} onClose={() => setProfileOpen(false)} anchorRef={profileTriggerRef} label="Profile menu">
+          <div className="border-b border-dls-border-subtle px-3 py-2.5">
+            <p className="truncate text-[13px] font-bold text-dls-text-primary">{displayName}</p>
+            <p className="truncate text-[11px] text-dls-text-muted">{roleLabel}</p>
+            <p className="mt-0.5 truncate text-[10.5px] text-dls-text-muted">Workspace &middot; {workspaceName}</p>
+          </div>
+          <div className="py-1" role="menu" aria-label="Profile menu">
+            {adminAvailable && (
+              <Link
+                to="/app/admin"
+                onClick={() => setProfileOpen(false)}
+                role="menuitem"
+                className="flex items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page"
+              >
+                <ShieldCheck className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Admin console
+              </Link>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleSignOut}
+              disabled={signingOut || canUseLocalTestDoubles}
+              title={canUseLocalTestDoubles ? "Local development identity — no session to sign out of." : undefined}
+              className="flex w-full items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page disabled:opacity-50"
+            >
+              <LogOut className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> {signingOut ? "Signing out…" : "Sign out"}
+            </button>
+          </div>
+        </Popover>
       </div>
     </aside>
   );

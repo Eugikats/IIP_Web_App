@@ -39,8 +39,14 @@ requireText("app/app/layout.tsx", "@/components/iip/AppShell", "/app routes must
 requireText("components/iip/AppShell.tsx", "RuntimeContextProvider", "must resolve runtime identity through the shared runtime context provider.");
 requireText("components/iip/AppShell.tsx", "canAccessWithPermissions(runtimeContext?.permissions", "protected /app presentation must use server-returned effective permissions.");
 requireText("components/iip/AppShell.tsx", "firstAccessibleRoute(runtimeContext?.permissions", "denied routes must fall back to an actually permitted destination.");
-requireText("components/iip/AppShell.tsx", "<Sidebar modal={mobileDrawerOpen}", "must render role-aware adaptive left navigation.");
-requireText("components/iip/AppShell.tsx", "onNavigate={() => mobileDrawerOpen", "mobile navigation must close after route selection.");
+// Design language v2 §3 / navigation model §5.1 (2026-09-08): the primary rail is now a fixed
+// 64px icon rail present at every viewport width, not a collapsible/dismissible drawer — so there
+// is no more "open on mobile, then close after navigating" state machine to assert on. The
+// underlying guarantee (navigation is always reachable and never stranded behind an unclosed
+// overlay) is instead enforced by requiring the rail to render unconditionally and rejecting any
+// reintroduction of the old drawer-viewport state it used to depend on.
+requireText("components/iip/AppShell.tsx", "<Sidebar />", "the rail must always render — it is not a dismissible mobile drawer (navigation model §5.1).");
+rejectPattern("components/iip/AppShell.tsx", /mobileDrawerOpen|mobileViewport/, "the rail must not reintroduce a mobile open/close drawer state — it must be present at every viewport width.");
 requireText("components/iip/AppShell.tsx", "<CopilotPanel />", "must render the right evidence/context rail.");
 requireText("components/iip/AppShell.tsx", "<StatusBar />", "must render the environment/status footer.");
 requireText("components/iip/AppShell.tsx", "!runtimeContext", "must withhold protected shell content until /api/v1/me resolves.");
@@ -57,9 +63,10 @@ requireText("next.config.ts", "NEXT_PUBLIC_API_BASE_URL is required for protecte
 requireText("next.config.ts", "if (protectedRuntime) return [];", "protected runtimes must not proxy missing API configuration to localhost.");
 rejectPattern("lib/runtimeContext.tsx", /headers:\s*\{[\s\S]*?(X-Tenant-Id|X-Workspace-Id|X-User-Id)/, "runtime context fetch must not send browser-owned authority headers.");
 
-requireText("components/iip/Sidebar.tsx", "canAccessWithPermissions(runtimeContext?.permissions", "protected navigation must be effective-permission-filtered.");
+requireText("components/iip/Sidebar.tsx", "const permissions = runtimeContext?.permissions", "protected navigation must be effective-permission-filtered from the resolved runtime context.");
+requireText("components/iip/Sidebar.tsx", "canAccessWithPermissions(permissions, item.to)", "the seven rail destinations must each be filtered on the resolved effective permissions.");
 requireText("components/iip/Sidebar.tsx", "usePreviewRole", "browser role preview must remain explicitly separated from protected navigation.");
-requireText("components/iip/Sidebar.tsx", "runtimeContext?.availableWorkspaces", "workspace label must use backend runtime context.");
+requireText("components/iip/Sidebar.tsx", "runtimeContext?.availableWorkspaces", "the workspace indicator must use backend runtime context.");
 requireText("components/iip/Sidebar.tsx", "Workspace not configured", "missing workspace must render an honest state.");
 
 requireText("components/iip/CopilotPanel.tsx", "useProviderHealth", "evidence rail must render backend-owned provider health.");

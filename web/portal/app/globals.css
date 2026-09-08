@@ -3,124 +3,219 @@
 @tailwind utilities;
 
 :root {
+  /* ================================================================
+     IIP Design Language v2 (docs/03-design-architecture/iip_design_language_v2.md §4.1)
+     Canonical token set. New components/ui/ primitives and the app shell
+     consume these directly (see tailwind.config.ts `dls.*`).
+     ================================================================ */
+
+  /* ---- Brand ---- */
+  --color-primary:            91 42 232;    /* #5B2AE8  primary action, link, active nav, focus */
+  --color-primary-hover:      76 34 201;    /* #4C22C9 */
+  --color-primary-active:     60 26 163;    /* #3C1AA3 */
+  --color-primary-accent:     124 87 238;   /* #7C57EE  active tab/filter text and counts */
+  --color-primary-soft:       241 236 254;  /* #F1ECFE  selected nav, agent chip, AI avatar tile */
+  --color-primary-soft-alt:   245 243 255;  /* #F5F3FF  selected settings row, active filter tab */
+  --color-primary-border:     220 209 251;  /* #DCD1FB  border of an active filter tab */
+
+  /* ---- Neutrals ---- */
+  --color-text-primary:       16 24 40;     /* #101828  headings, body, stat numbers */
+  --color-text-secondary:     82 92 110;    /* #525C6E  labels, captions, descriptions */
+  --color-text-muted:         107 114 128;  /* #6B7280  ANY meaningful small text */
+  --color-text-faint:         152 162 179;  /* #98A2B3  DECORATIVE ONLY — fails WCAG AA, never for text */
+  --color-text-inverse:       255 255 255;  /* #FFFFFF  text on primary fills */
+
+  --color-border-subtle:      236 238 242;  /* #ECEEF2  card, panel, rail, table-row borders */
+  --color-border-input:       221 225 232;  /* #DDE1E8  input and secondary-button borders */
+  --color-border-pill:        229 231 235;  /* #E5E7EB  status-pill borders */
+  --color-border-strong:      203 208 218;  /* #CBD0DA  resizable and emphasised boundaries */
+
+  --color-bg-page:            245 246 248;  /* #F5F6F8  content column background */
+  --color-surface:            255 255 255;  /* #FFFFFF  cards, rail, panels, inputs, modals */
+  --color-surface-sunken:     249 250 251;  /* #F9FAFB  disabled inputs, read-only wells */
+
+  /* ---- Semantic: dot = indicator, text = label/figure, tint = pill fill only ---- */
+  --color-danger-dot:         240 68 56;    /* #F04438 */
+  --color-danger-text:        217 45 32;    /* #D92D20 */
+  --color-danger-tint:        254 243 242;  /* #FEF3F2 */
+
+  --color-warning-dot:        247 144 9;    /* #F79009 */
+  --color-warning-text:       181 71 8;     /* #B54708 */
+  --color-warning-tint:       255 250 235;  /* #FFFAEB */
+
+  --color-success-dot:        23 178 106;   /* #17B26A */
+  --color-success-text:       6 118 71;     /* #067647 */
+  --color-success-tint:       236 253 243;  /* #ECFDF3 */
+
+  --color-info-dot:           41 112 255;   /* #2970FF */
+  --color-info-text:          23 92 211;    /* #175CD3 */
+  --color-info-tint:          239 248 255;  /* #EFF8FF */
+
+  /* ---- Overlay ---- */
+  --color-scrim:              16 24 40;     /* #101828 at 45% for modal backdrops, see .dls-scrim */
+
+  /* ---- Avatar background set (design language §8.12) ----
+     Fixed, deterministic set — chosen by hashing the user's stable id, never their name and never
+     random per render. Declared as tokens (not inline hex) so components/ui/Avatar.tsx has no
+     literal colour values. */
+  --color-avatar-1: 29 41 57;      /* #1D2939 */
+  --color-avatar-2: 23 92 211;     /* #175CD3 */
+  --color-avatar-3: 181 71 8;      /* #B54708 */
+  --color-avatar-4: 105 65 198;    /* #6941C6 */
+  --color-avatar-5: 14 112 144;    /* #0E7090 */
+  --color-avatar-6: 6 118 71;      /* #067647 */
+  --color-avatar-7: 180 35 24;     /* #B42318 */
+  --color-avatar-8: 54 63 114;     /* #363F72 */
+
+  /* ================================================================
+     Legacy token names. Every name below existed before this migration
+     and stays so no existing component breaks (migration map step 1).
+     Values are now repointed onto their nearest §4.1 equivalent so every
+     existing Tailwind class built on them (bg-surface, text-ink,
+     border-line, text-muted-soft, bg-danger/10, ...) already reflects the
+     new palette without a rewrite. A handful of `lovable-pages/*` screens
+     also read a SEPARATE, parallel HSL token family in app/lovable.css
+     (--navy, --stone, --cloud, --violet, --success, --warning, --error,
+     --info, --background, --foreground, --border, --input, --ring) —
+     that file is intentionally NOT touched here. It is the "parity-mode
+     shim" the migration map's step 7 deletes once step 6 has migrated
+     every screen that still depends on it; touching it now would be
+     migrating feature screens, which this task explicitly excludes.
+     ================================================================ */
+
   /* App shell */
-  --color-bg: 248 250 252;              /* #F8FAFC - main app background */
-  --color-shell: 249 250 251;           /* #F9FAFB - alternate shell background */
+  --color-bg: 245 246 248;              /* -> --color-bg-page */
+  --color-shell: 245 246 248;           /* -> --color-bg-page */
 
   /* Primary surfaces */
-  --color-surface: 255 255 255;         /* #FFFFFF - cards, panels, tables */
-  --color-surface-soft: 248 250 252;    /* #F8FAFC - subtle secondary cards */
-  --color-surface-muted: 241 245 249;   /* #F1F5F9 - disabled/low-emphasis areas */
-  --color-surface-raised: 255 255 255;  /* #FFFFFF - drawers, popovers, modals */
+  --color-surface: 255 255 255;         /* -> --color-surface (unchanged) */
+  --color-surface-soft: 245 246 248;    /* -> --color-bg-page */
+  --color-surface-muted: 249 250 251;   /* -> --color-surface-sunken */
+  --color-surface-raised: 255 255 255;  /* -> --color-surface (unchanged) */
 
-  /* AI-specific surfaces */
-  --color-surface-ai: 245 243 255;      /* #F5F3FF - soft violet AI surface */
-  --color-surface-ai-strong: 237 233 254; /* #EDE9FE - stronger AI highlight */
-  --color-surface-ai-border: 221 214 254; /* #DDD6FE - AI borders */
+  /* AI-specific surfaces — retired as a separate accent; AI provenance now
+     uses the same violet family as --color-primary-soft (step 1). */
+  --color-surface-ai: 245 243 255;        /* -> --color-primary-soft-alt */
+  --color-surface-ai-strong: 241 236 254; /* -> --color-primary-soft */
+  --color-surface-ai-border: 220 209 251; /* -> --color-primary-border */
 
   /* Overlay / backdrop */
-  --color-backdrop: 15 23 42;           /* #0F172A */
+  --color-backdrop: 16 24 40;           /* -> --color-scrim */
 
   /* Borders & Lines */
-  --color-line: 226 232 240;            /* #E2E8F0 - default border */
-  --color-line-soft: 241 245 249;       /* #F1F5F9 - very soft separators */
-  --color-line-strong: 203 213 225;     /* #CBD5E1 - stronger dividers */
-  --color-line-focus: 99 102 241;       /* #6366F1 - focus/AI accent border */
+  --color-line: 236 238 242;            /* -> --color-border-subtle */
+  --color-line-soft: 245 246 248;       /* -> --color-bg-page */
+  --color-line-strong: 203 208 218;     /* -> --color-border-strong */
+  --color-line-focus: 91 42 232;        /* -> --color-primary */
 
   /* Typography Colors */
-  --color-ink: 11 15 59;                /* #0B0F3B - Ambient Intelligence base ink (DEC-011) */
-  --color-ink-soft: 30 41 59;           /* #1E293B - secondary strong text */
-  --color-muted: 100 116 139;           /* #64748B - supporting text */
-  --color-muted-soft: 148 163 184;      /* #94A3B8 - metadata / placeholders */
-  --color-disabled: 203 213 225;        /* #CBD5E1 - disabled text */
-  --color-inverse: 255 255 255;         /* #FFFFFF - text on dark/brand */
+  --color-ink: 16 24 40;                /* -> --color-text-primary */
+  --color-ink-soft: 82 92 110;          /* -> --color-text-secondary */
+  --color-muted: 82 92 110;             /* -> --color-text-secondary */
+  --color-muted-soft: 107 114 128;      /* -> --color-text-muted (the WCAG AA fix, step 2) */
+  --color-disabled: 107 114 128;        /* -> --color-text-muted */
+  --color-inverse: 255 255 255;         /* -> --color-text-inverse (unchanged) */
 
-  /* Brand / Accents — Ambient Intelligence gradient family (DEC-011) */
-  --color-primary: 37 99 255;           /* #2563FF - info blue primary action */
-  --color-primary-hover: 29 78 216;     /* #1D4ED8 */
-  --color-primary-soft: 239 246 255;    /* #EFF6FF */
-  --color-primary-border: 191 219 254;  /* #BFDBFE */
+  /* Brand / Accents */
+  --color-primary: 91 42 232;           /* -> --color-primary (violet, step 1) */
+  --color-primary-hover: 76 34 201;     /* -> --color-primary-hover */
+  --color-primary-soft: 241 236 254;    /* -> --color-primary-soft */
+  --color-primary-border: 220 209 251;  /* -> --color-primary-border */
 
-  /* AI accent — violet */
-  --color-ai: 124 77 255;               /* #7C4DFF */
-  --color-ai-hover: 140 107 255;        /* #8C6BFF */
-  --color-ai-soft: 245 243 255;         /* #F5F3FF */
-  --color-ai-border: 221 214 254;       /* #DDD6FE */
+  /* AI accent — retired; same violet as primary (step 1) */
+  --color-ai: 91 42 232;                /* -> --color-primary */
+  --color-ai-hover: 76 34 201;          /* -> --color-primary-hover */
+  --color-ai-soft: 241 236 254;         /* -> --color-primary-soft */
+  --color-ai-border: 220 209 251;       /* -> --color-primary-border */
 
   /* Semantic UI & Status Tokens */
-  --color-success: 5 150 105;           /* #059669 */
-  --color-success-soft: 236 253 245;    /* #ECFDF5 */
-  --color-success-border: 167 243 208;  /* #A7F3D0 */
-  --color-success-text: 6 95 70;        /* #065F46 */
+  --color-success: 6 118 71;            /* -> --color-success-text */
+  --color-success-soft: 236 253 243;    /* -> --color-success-tint */
+  --color-success-border: 167 243 208;  /* not redefined in §4.1 4.1; left as-is, low usage */
+  --color-success-text: 6 118 71;       /* -> --color-success-text */
 
-  --color-warning: 217 119 6;           /* #D97706 */
-  --color-warning-soft: 255 251 235;    /* #FFFBEB */
-  --color-warning-border: 253 230 138;  /* #FDE68A */
-  --color-warning-text: 146 64 14;      /* #92400E */
+  --color-warning: 181 71 8;            /* -> --color-warning-text */
+  --color-warning-soft: 255 250 235;    /* -> --color-warning-tint */
+  --color-warning-border: 253 230 138;  /* not redefined in §4.1; left as-is, low usage */
+  --color-warning-text: 181 71 8;       /* -> --color-warning-text */
 
-  --color-danger: 220 38 38;            /* #DC2626 */
-  --color-danger-soft: 254 242 242;     /* #FEF2F2 */
-  --color-danger-border: 254 202 202;   /* #FECACA */
-  --color-danger-text: 153 27 27;       /* #991B1B */
+  --color-danger: 217 45 32;            /* -> --color-danger-text */
+  --color-danger-soft: 254 243 242;     /* -> --color-danger-tint */
+  --color-danger-border: 254 202 202;   /* not redefined in §4.1; left as-is, low usage */
+  --color-danger-text: 217 45 32;       /* -> --color-danger-text */
 
-  --color-info: 37 99 235;              /* #2563EB */
-  --color-info-soft: 239 246 255;       /* #EFF6FF */
-  --color-info-border: 191 219 254;     /* #BFDBFE */
-  --color-info-text: 30 64 175;         /* #1E40AF */
+  --color-info: 23 92 211;              /* -> --color-info-text */
+  --color-info-soft: 239 248 255;       /* -> --color-info-tint */
+  --color-info-border: 191 219 254;     /* not redefined in §4.1; left as-is, low usage */
+  --color-info-text: 23 92 211;         /* -> --color-info-text */
 
-  --color-neutral-soft: 248 250 252;    /* #F8FAFC */
-  --color-neutral-border: 226 232 240;  /* #E2E8F0 */
-  --color-neutral-text: 71 85 105;      /* #475569 */
+  --color-neutral-soft: 245 246 248;    /* -> --color-bg-page */
+  --color-neutral-border: 236 238 242;  /* -> --color-border-subtle */
+  --color-neutral-text: 82 92 110;      /* -> --color-text-secondary */
 
   /* Insurance-Specific Operational Tokens */
-  --color-sla-ok: 5 150 105;            /* #059669 */
-  --color-sla-risk: 217 119 6;          /* #D97706 */
-  --color-sla-breached: 220 38 38;      /* #DC2626 */
+  --color-sla-ok: 6 118 71;             /* -> --color-success-text */
+  --color-sla-risk: 181 71 8;           /* -> --color-warning-text */
+  --color-sla-breached: 217 45 32;      /* -> --color-danger-text */
 
-  --color-risk-low: 5 150 105;          /* #059669 */
-  --color-risk-medium: 217 119 6;       /* #D97706 */
-  --color-risk-high: 220 38 38;         /* #DC2626 */
+  --color-risk-low: 6 118 71;           /* -> --color-success-text */
+  --color-risk-medium: 181 71 8;        /* -> --color-warning-text */
+  --color-risk-high: 217 45 32;         /* -> --color-danger-text */
 
-  --color-workflow-pending: 217 119 6;  /* #D97706 */
-  --color-workflow-approved: 5 150 105; /* #059669 */
-  --color-workflow-rejected: 220 38 38; /* #DC2626 */
-  --color-workflow-escalated: 124 58 237; /* #7C3AED */
+  --color-workflow-pending: 181 71 8;   /* -> --color-warning-text */
+  --color-workflow-approved: 6 118 71;  /* -> --color-success-text */
+  --color-workflow-rejected: 217 45 32; /* -> --color-danger-text */
+  --color-workflow-escalated: 91 42 232; /* -> --color-primary */
 
-  /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-panel: 0 8px 24px rgba(15, 23, 42, 0.06);
-  --shadow-card: 0 10px 30px rgba(15, 23, 42, 0.08);
-  --shadow-popover: 0 18px 50px rgba(15, 23, 42, 0.16);
-  --shadow-drawer: -18px 0 50px rgba(15, 23, 42, 0.16);
-  --shadow-focus: 0 0 0 4px rgba(124, 77, 255, 0.20);
+  /* Shadows — legacy names kept (step 1 is colour-only); retoned neutral in
+     step 3 below and the two permitted gradients are declared there too. */
+  --shadow-xs: 0 1px 2px rgb(16 24 40 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(16 24 40 / 0.06), 0 1px 2px rgb(16 24 40 / 0.04);
+  --shadow-panel: none;
+  --shadow-card: none;
+  --shadow-popover: 0 20px 40px -12px rgb(16 24 40 / 0.22);
+  --shadow-drawer: 0 24px 60px -12px rgb(16 24 40 / 0.35);
+  --shadow-focus: 0 0 0 3px rgb(91 42 232 / 0.12);
 
-  /* Ambient Intelligence — depth scale + glass elevation (DEC-011) */
-  --shadow-l1: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-l2: 0 4px 8px rgba(0, 0, 0, 0.06);
-  --shadow-l3: 0 12px 24px rgba(31, 38, 135, 0.10);
-  --shadow-l4: 0 20px 40px rgba(31, 38, 135, 0.16);
-  --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.10);
+  --shadow-l1: none;
+  --shadow-l2: none;
+  --shadow-l3: 0 20px 40px -12px rgb(16 24 40 / 0.22);
+  --shadow-l4: 0 24px 60px -12px rgb(16 24 40 / 0.35);
+  --shadow-glass: none;
 
-  /* Ambient Intelligence — gradients (DEC-011) */
-  --gradient-primary: linear-gradient(135deg, #2563FF 0%, #7C4DFF 100%);
-  --gradient-secondary: linear-gradient(135deg, #4D8DFF 0%, #C058FF 100%);
-  --gradient-tertiary: linear-gradient(135deg, #8C6BFF 0%, #FF66E0 100%);
-  --gradient-ambient:
-    radial-gradient(1200px 600px at 10% -10%, #EEF2FF 0%, transparent 60%),
-    radial-gradient(900px 500px at 110% 10%, #F3E8FF 0%, transparent 55%),
-    radial-gradient(800px 500px at 50% 120%, #ECFDF5 0%, transparent 60%);
+  /* Gradients — restricted to the two permitted uses (design language §4.5):
+     the Assistant empty-state orb and chart bars. The legacy gradient
+     utility classes below (.gradient-primary etc.) are NOT used by any new
+     step-4/5 code; they remain only for not-yet-migrated consumers. */
+  --gradient-orb: radial-gradient(circle at 32% 28%, #BCACF9, #5B2AE8 55%, #3C1AA3);
+  --gradient-chart-bar: linear-gradient(180deg, #8D6BF1, #5B2AE8);
+  --gradient-primary: linear-gradient(135deg, #5B2AE8 0%, #5B2AE8 100%);
+  --gradient-secondary: linear-gradient(135deg, #5B2AE8 0%, #5B2AE8 100%);
+  --gradient-tertiary: linear-gradient(135deg, #5B2AE8 0%, #5B2AE8 100%);
+  --gradient-ambient: none;
 
-  /* Radii */
-  --radius-xs: 0.375rem;   /* 6px */
-  --radius-sm: 0.5rem;     /* 8px */
-  --radius-md: 0.75rem;    /* 12px */
-  --radius-lg: 1rem;       /* 16px */
-  --radius-xl: 1.25rem;    /* 20px */
-  --radius-2xl: 1.5rem;    /* 24px */
+  /* Radii — design language §6.2 */
+  --radius-tight: 4px;
+  --radius-control: 8px;
+  --radius-chip: 9px;
+  --radius-card: 12px;
+  --radius-overlay: 16px;
   --radius-pill: 9999px;
 
-  /* Spacing & Density */
+  /* Legacy radius names kept; none now exceed 16px (step 3). */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 16px;
+  --radius-2xl: 16px;
+
+  /* Motion — design language §6.4 */
+  --motion-fast: 120ms cubic-bezier(0.2, 0, 0, 1);
+  --motion-base: 160ms cubic-bezier(0.2, 0, 0, 1);
+  --motion-exit: 100ms ease-in;
+
+  /* Spacing & Density (unchanged) */
   --density-compact-p: 0.5rem;      /* 8px */
   --density-compact-gap: 0.5rem;    /* 8px */
   --density-default-p: 1rem;        /* 16px */
@@ -220,6 +315,18 @@ select:focus-visible,
 textarea:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus);
+}
+
+/* Design language v2 §8.1/§7: a solid 2px outline for the new components/ui/ primitives and the
+   app shell (rail, rail buttons, Button, IconButton) — distinct from the input-style box-shadow
+   ring above (§8.5), which stays the default for every not-yet-migrated control. This rule is
+   deliberately unlayered (like the block above) so it wins over the `@tailwind utilities` layer;
+   Tailwind's `focus-visible:outline-*` utilities alone cannot override the block above because
+   Tailwind utilities live in a lower-priority CSS cascade layer regardless of selector specificity. */
+.dls-focus-outline:focus-visible {
+  outline: 2px solid rgb(var(--color-primary));
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 /* ─── Ambient Intelligence theme utilities (DEC-011) ────────── */

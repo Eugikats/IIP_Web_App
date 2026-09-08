@@ -1,11 +1,15 @@
-import { ReactNode } from "react";
+// Migrated onto the design language v2 §8.9 stat tile treatment: the card itself is always the
+// same neutral surface (never a filled/tinted red, amber, or green card — §4.2); only the figure
+// takes a semantic colour, and only when the number itself is the signal. External API unchanged.
+import { type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
-const toneStyles = {
-  neutral: "border-line bg-surface text-ink",
-  warning: "border-warning-border bg-warning-soft text-warning-text",
-  danger:  "border-danger-border bg-danger-soft text-danger-text",
-  success: "border-success-border bg-success-soft text-success-text",
-};
+const valueToneClass = {
+  neutral: "text-dls-text-primary",
+  warning: "text-dls-warning-text",
+  danger: "text-dls-danger-text",
+  success: "text-dls-success-text",
+} as const;
 
 export function MetricCard({
   label,
@@ -20,28 +24,16 @@ export function MetricCard({
   tone?: "neutral" | "warning" | "danger" | "success";
   eyebrow?: ReactNode;
 }) {
-  const cardStyle = toneStyles[tone];
-  const valueColor = tone === "neutral" ? "text-ink" : toneStyles[tone].split(" ").pop(); // Extract text color
-
   return (
-    <div className={`flex min-h-[124px] min-w-0 flex-col rounded-xl border p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-card cursor-default ${cardStyle}`}>
+    <div className="flex min-h-[124px] min-w-0 flex-col rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 shadow-dls-none">
       {eyebrow && (
-        <p className="mb-1 truncate text-[11px] font-bold uppercase tracking-wider text-muted">
-          {eyebrow}
-        </p>
+        <p className="mb-1 truncate text-[11.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">{eyebrow}</p>
       )}
-
-      <p className="text-sm font-semibold leading-snug text-muted">
-        {label}
-      </p>
-
-      <p className={`mt-2 text-3xl font-bold leading-none tracking-tight font-mono tabular-nums break-words ${valueColor}`}>
+      <p className="text-[13.5px] text-dls-text-secondary">{label}</p>
+      <p className={cn("mt-2 text-[30px] font-bold leading-[1.1] tabular-nums tracking-[-0.5px] break-words", valueToneClass[tone])}>
         {value}
       </p>
-
-      {detail && (
-        <p className="mt-auto pt-1.5 text-xs leading-relaxed text-muted line-clamp-2">{detail}</p>
-      )}
+      {detail && <p className="mt-auto line-clamp-2 pt-1.5 text-xs leading-relaxed text-dls-text-muted">{detail}</p>}
     </div>
   );
 }

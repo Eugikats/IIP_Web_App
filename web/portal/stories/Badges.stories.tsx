@@ -14,9 +14,9 @@ const slas = ["OnTrack", "AtRisk", "Breached"];
 
 export const StatusMatrix: Story = {
   render: () => (
-    <div className="space-y-6 rounded-2xl border border-line bg-surface p-6 shadow-panel">
+    <div className="space-y-6 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6 shadow-dls-none">
       <section>
-        <h2 className="text-sm font-semibold text-ink">Provider and workflow status</h2>
+        <h2 className="text-[15px] font-bold text-dls-text-primary">Provider and workflow status</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {statuses.map((status) => (
             <StatusBadge key={status} label={status} />
@@ -24,7 +24,7 @@ export const StatusMatrix: Story = {
         </div>
       </section>
       <section>
-        <h2 className="text-sm font-semibold text-ink">Risk status</h2>
+        <h2 className="text-[15px] font-bold text-dls-text-primary">Risk status</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {risks.map((risk) => (
             <RiskBadge key={risk} label={risk} />
@@ -32,7 +32,7 @@ export const StatusMatrix: Story = {
         </div>
       </section>
       <section>
-        <h2 className="text-sm font-semibold text-ink">SLA status</h2>
+        <h2 className="text-[15px] font-bold text-dls-text-primary">SLA status</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {slas.map((sla) => (
             <SlaBadge key={sla} label={sla} />
