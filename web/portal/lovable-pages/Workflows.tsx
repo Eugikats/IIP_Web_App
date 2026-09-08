@@ -4,6 +4,8 @@ import { SectionHeader, GlassCard, Badge, RiskBadge, StatusBadge } from "@/compo
 import { toast } from "sonner";
 import { useApprovals } from "@/lib/lovable-parity/data/approvals";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
+import { Field } from "@/components/ui/Input";
+import { LoadingSkeleton, EmptyStateSurface } from "@/components/ui/StateSurfaces";
 
 export default function Workflows({ embedded = false }: { embedded?: boolean }) {
   const { approvals, loading, error, parityMode, approve, reject, escalate, override, executeNextStep } = useApprovals();
@@ -38,23 +40,37 @@ export default function Workflows({ embedded = false }: { embedded?: boolean }) 
         <div className="mb-4"><GuardrailBanner text="Approval actions update workflow state only. Final regulated decisions — settle, deny, pay, bind, accuse fraud — require an explicit human owner." /></div>
       </> : null}
 
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {(["All approvals","High risk","Completed"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`text-[12px] rounded-full px-3 py-1.5 border ${tab === t ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>{t}</button>
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {(["All approvals", "High risk", "Completed"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`dls-focus-outline rounded-dls-chip border px-3 py-1.5 text-[12px] font-semibold transition-colors duration-dls-fast ease-dls ${tab === t ? "border-dls-primary bg-dls-primary text-dls-text-inverse" : "border-dls-border-input bg-dls-surface text-dls-text-secondary hover:border-dls-primary"}`}
+          >
+            {t}
+          </button>
         ))}
       </div>
 
-      <label className="mb-4 block rounded-2xl border border-line bg-white/70 p-4 text-[11.5px] font-medium text-ink">Decision reason
-        <textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Record the evidence checked and the reason for approving, rejecting, or executing the next governed step." className="mt-2 min-h-16 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-[12px] font-normal text-ink placeholder:text-muted focus-ring" />
-      </label>
+      <div className="mb-4">
+        <Field label="Decision reason">
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Record the evidence checked and the reason for approving, rejecting, or executing the next governed step."
+            className="min-h-16 w-full rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2.5 text-[12px] text-dls-text-primary placeholder:text-dls-text-muted focus:outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
+          />
+        </Field>
+      </div>
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading approvals…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={4} /></GlassCard>
       ) : approvals.length === 0 ? (
-        <GlassCard><div className="p-10 text-center text-muted"><div className="text-ink font-medium">No approvals in the queue</div><div className="text-[12.5px] mt-1">{error ? error : "Approval tasks appear here when AI or staff route work for human review."}</div></div></GlassCard>
+        <GlassCard><EmptyStateSurface message={error ?? "Approval tasks appear here when AI or staff route work for human review."} /></GlassCard>
       ) : (
-        <GlassCard className="p-0 overflow-hidden">
-          <div className="grid grid-cols-12 text-[11px] uppercase tracking-[0.12em] text-muted px-4 py-3 border-b border-line">
+        <GlassCard className="overflow-hidden !p-0">
+          <div className="grid grid-cols-12 border-b border-dls-border-subtle px-4 py-3 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">
             <div className="col-span-4">Task</div>
             <div className="col-span-2">Requester</div>
             <div className="col-span-2">Reviewer</div>
@@ -63,57 +79,62 @@ export default function Workflows({ embedded = false }: { embedded?: boolean }) 
             <div className="col-span-2 text-right">Actions</div>
           </div>
           {filtered.map(q => (
-            <div key={q.id} className="grid grid-cols-12 items-start px-4 py-3 border-b border-line/60 hover:bg-white/70">
+            <div key={q.id} className="grid grid-cols-12 items-start border-b border-dls-border-subtle px-4 py-3 hover:bg-dls-bg-page">
               <div className="col-span-4">
-                <div className="text-[13px] text-ink font-medium">{q.title}</div>
-                <div className="text-[11.5px] text-muted">{q.id}{q.claim ? ` · ${q.claim}` : ""}</div>
-                <div className="text-[12px] text-ink-soft mt-1">{q.summary}</div>
+                <div className="text-[13px] font-semibold text-dls-text-primary">{q.title}</div>
+                <div className="text-[11.5px] text-dls-text-muted">{q.id}{q.claim ? ` · ${q.claim}` : ""}</div>
+                <div className="mt-1 text-[12px] text-dls-text-secondary">{q.summary}</div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <StatusBadge status={q.status} />
                   {q.executedAt ? <Badge tone="success">Executed</Badge> : null}
                 </div>
               </div>
-              <div className="col-span-2 text-[13px] text-ink-soft">{q.requester}</div>
-              <div className="col-span-2 text-[13px] text-ink-soft">{q.reviewer}</div>
+              <div className="col-span-2 text-[13px] text-dls-text-secondary">{q.requester}</div>
+              <div className="col-span-2 text-[13px] text-dls-text-secondary">{q.reviewer}</div>
               <div className="col-span-1"><RiskBadge risk={q.risk} /></div>
-              <div className="col-span-1 text-[12px] text-muted">{q.ageHrs}h</div>
-              <div className="col-span-2 flex justify-end gap-1.5 flex-wrap">
+              <div className="col-span-1 text-[12px] text-dls-text-muted">{q.ageHrs}h</div>
+              <div className="col-span-2 flex flex-wrap justify-end gap-1.5">
                 {can(q.allowedActions, "approveApproval") ? <button
+                  type="button"
                   onClick={() => run("Approved workflow step", q.id, () => approve(q.id, reason.trim()))}
                   disabled={busyId === q.id || reason.trim().length < 3}
-                  className="text-[11.5px] rounded-lg gradient-primary text-white px-2.5 py-1.5 disabled:opacity-50"
+                  className="dls-focus-outline rounded-dls-control bg-dls-primary px-2.5 py-1.5 text-[11.5px] font-bold text-dls-text-inverse disabled:opacity-50"
                 >
                   Approve
                 </button> : null}
                 {can(q.allowedActions, "executeApprovedNextStep") ? <button
+                  type="button"
                   onClick={() => run("Executed approved next step", q.id, () => executeNextStep(q.id, reason.trim()))}
                   disabled={busyId === q.id || reason.trim().length < 3}
-                  className="text-[11.5px] rounded-lg border border-line bg-white px-2.5 py-1.5 text-ink disabled:opacity-50"
+                  className="dls-focus-outline rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1.5 text-[11.5px] font-bold text-dls-text-primary disabled:opacity-50"
                 >
                   Execute
                 </button> : null}
                 {can(q.allowedActions, "rejectApproval") ? <button
+                  type="button"
                   onClick={() => run("Rejected workflow step", q.id, () => reject(q.id, reason.trim()))}
                   disabled={busyId === q.id || reason.trim().length < 3}
-                  className="text-[11.5px] rounded-lg border border-line bg-white px-2.5 py-1.5 text-danger disabled:opacity-50"
+                  className="dls-focus-outline rounded-dls-control px-2.5 py-1.5 text-[11.5px] font-bold text-dls-danger-text hover:underline disabled:opacity-50"
                 >
                   Reject
                 </button> : null}
                 {can(q.allowedActions, "escalateApproval") ? <button
+                  type="button"
                   onClick={() => run("Escalated workflow step", q.id, () => escalate(q.id, reason.trim()))}
                   disabled={busyId === q.id || reason.trim().length < 3}
-                  className="text-[11.5px] rounded-lg border border-warning/30 bg-white px-2.5 py-1.5 text-warning-text disabled:opacity-50"
+                  className="dls-focus-outline rounded-dls-control border border-dls-warning-dot bg-dls-surface px-2.5 py-1.5 text-[11.5px] font-bold text-dls-warning-text disabled:opacity-50"
                 >
                   Escalate
                 </button> : null}
                 {can(q.allowedActions, "overrideApproval") ? <button
+                  type="button"
                   onClick={() => run("Recorded human override", q.id, () => override(q.id, reason.trim()))}
                   disabled={busyId === q.id || reason.trim().length < 3}
-                  className="text-[11.5px] rounded-lg border border-violet/30 bg-white px-2.5 py-1.5 text-violet disabled:opacity-50"
+                  className="dls-focus-outline rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1.5 text-[11.5px] font-bold text-dls-text-primary disabled:opacity-50"
                 >
                   Override AI
                 </button> : null}
-                {!q.allowedActions.length ? <span className="text-[11px] text-muted">No action available</span> : null}
+                {!q.allowedActions.length ? <span className="text-[11px] text-dls-text-muted">No action available</span> : null}
               </div>
             </div>
           ))}
