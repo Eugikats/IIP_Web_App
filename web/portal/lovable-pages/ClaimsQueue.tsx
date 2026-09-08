@@ -2,8 +2,12 @@
 import { useState, useMemo } from "react";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowRight, ClipboardList, Filter, Loader2, Search, UserCheck, X } from "lucide-react";
+import { TriangleAlert, ArrowRight, ClipboardList, Filter, Search, UserCheck, X } from "lucide-react";
 import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge, ConfidenceBadge } from "@/components/iip/Primitives";
+import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Input";
+import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
+import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, EmptyFilteredStateSurface } from "@/components/ui/StateSurfaces";
 import { useClaims } from "@/lib/lovable-parity/data/claims";
 import type { ClaimRowView } from "@/lib/lovable-parity/data/claims";
 import { useRuntimeContext } from "@/lib/runtimeContext";
@@ -54,6 +58,7 @@ export default function ClaimsQueue() {
   }), [channelFilter, claims, f, productFilter, q, riskFilter, runtimeContext?.userId]);
 
   const activeStructuredFilters = [productFilter, riskFilter, channelFilter].filter((value) => value !== "All").length;
+  const hasActiveFilters = f !== "All" || q.length > 0 || activeStructuredFilters > 0;
 
   function clearFilters() {
     setF("All");
@@ -96,142 +101,167 @@ export default function ClaimsQueue() {
         eyebrow="Claims Intelligence"
         title="Work Queue"
         sub="Claims requiring officer attention across Motor Operations. AI has pre-processed extractions, evidence, and risk signals — officers decide."
-        action={<Link to="/app/claims/new" className="inline-flex min-h-11 items-center rounded-2xl gradient-primary px-4 py-2.5 text-[13px] font-medium text-white shadow-l2 hover-lift focus-ring">+ New Claim (FNOL)</Link>}
+        action={
+          <Link to="/app/claims/new" className="dls-focus-outline inline-flex min-h-11 items-center justify-center gap-1.5 rounded-dls-control bg-dls-primary px-4 py-[9px] text-[13px] font-bold text-dls-text-inverse shadow-dls-primary hover:bg-dls-primary-hover">
+            + New Claim (FNOL)
+          </Link>
+        }
       />
 
-      <div className="glass-subtle p-3 mb-4 space-y-3">
+      <div className="mb-4 space-y-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
         <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor="claim-search" className="flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-white/80 px-3 py-2 sm:min-w-[280px] sm:max-w-md">
-          <Search className="h-3.5 w-3.5 text-muted" />
-          <span className="sr-only">Search claims</span>
-          <input id="claim-search" name="claim-search" aria-label="Search claims" autoComplete="off" value={q} onChange={e => setQ(e.target.value)} placeholder="Search claim, customer, policy, assignment…" className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted" />
-        </label>
-        <div className="flex flex-wrap gap-1.5">
-          {quickFilters.map(x => (
-            <button key={x} onClick={() => setF(x)} className={`min-h-11 rounded-full border px-3 py-2 text-[12px] transition-colors ${f === x ? "border-info/30 bg-info/8 text-info" : "border-line bg-white/70 text-ink-soft hover:bg-white"}`}>
-              {x} <span className="ml-1 text-[10px] opacity-70">{snapshotAvailable ? quickCounts.get(x) ?? 0 : "—"}</span>
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={clearFilters}
-          disabled={f === "All" && q.length === 0 && activeStructuredFilters === 0}
-          className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line bg-white/70 px-3 py-2 text-[12px] text-ink-soft disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          <X className="h-3.5 w-3.5" />
-          Clear
-        </button>
+          <label htmlFor="claim-search" className="flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 focus-within:border-dls-primary focus-within:ring-[3px] focus-within:ring-dls-primary/[0.12] sm:min-w-[280px] sm:max-w-md">
+            <Search className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" />
+            <span className="sr-only">Search claims</span>
+            <input id="claim-search" name="claim-search" aria-label="Search claims" autoComplete="off" value={q} onChange={e => setQ(e.target.value)} placeholder="Search claim, customer, policy, assignment…" className="min-w-0 flex-1 bg-transparent text-[13px] text-dls-text-primary outline-none placeholder:text-dls-text-muted" />
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {quickFilters.map(x => (
+              <button
+                key={x}
+                type="button"
+                onClick={() => setF(x)}
+                className={`dls-focus-outline min-h-11 rounded-dls-chip border px-3 py-2 text-[12px] font-semibold transition-colors duration-dls-fast ease-dls ${f === x ? "border-dls-primary bg-dls-primary text-dls-text-inverse" : "border-dls-border-input bg-dls-surface text-dls-text-secondary hover:border-dls-primary"}`}
+              >
+                {x} <span className="ml-1 text-[10px] opacity-80">{snapshotAvailable ? quickCounts.get(x) ?? 0 : "—"}</span>
+              </button>
+            ))}
+          </div>
+          <Button variant="ghost" icon={<X />} onClick={clearFilters} disabled={!hasActiveFilters} className="ml-auto">
+            Clear
+          </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Filter className="h-3.5 w-3.5 text-muted" />
+          <Filter className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" />
           <QueueSelect label="Product" value={productFilter} options={productOptions} onChange={setProductFilter} />
           <QueueSelect label="Risk" value={riskFilter} options={riskOptions} onChange={setRiskFilter} />
           <QueueSelect label="Channel" value={channelFilter} options={channelOptions} onChange={setChannelFilter} />
-          <div className="ml-auto text-[12px] text-muted">Assignment and escalation execute through audited API actions.</div>
+          <div className="ml-auto text-[12px] text-dls-text-muted">Assignment and escalation execute through audited API actions.</div>
         </div>
       </div>
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading claims…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={6} /></GlassCard>
       ) : error ? (
         <GlassCard>
-          <div className="flex flex-col items-center gap-2 p-10 text-center">
-            <ClipboardList className="h-6 w-6 text-muted" />
-            <div className="font-medium text-ink">Claims could not be loaded</div>
-            <div className="max-w-md text-[12.5px] text-muted">{error.message}</div>
-            <div className="max-w-md text-[12px] text-muted">{error.recovery}</div>
-            {error.correlationId ? <div className="font-mono text-[11px] text-muted">Reference {error.correlationId}</div> : null}
-            <div className="text-[11px] text-muted">Attempted {new Date(error.occurredAt).toLocaleString()}</div>
-            {error.retryable ? <button type="button" onClick={() => void refresh()} className="mt-2 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring">Try again</button> : <Link to="/app" className="mt-2 rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring">Return to Command Center</Link>}
-          </div>
+          <ErrorStateSurface message={`${error.message} ${error.recovery}`} correlationId={error.correlationId} onRetry={error.retryable ? () => void refresh() : undefined} />
+          {!error.retryable && (
+            <div className="px-5 pb-4">
+              <Link to="/app" className="dls-focus-outline inline-flex items-center justify-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-4 py-[9px] text-[13px] font-bold text-dls-text-primary hover:bg-dls-bg-page">
+                Return to Command Center
+              </Link>
+            </div>
+          )}
+          <p className="px-5 pb-4 text-[11px] text-dls-text-muted">Attempted {new Date(error.occurredAt).toLocaleString()}</p>
         </GlassCard>
       ) : claims.length === 0 ? (
         <GlassCard>
-          <div className="p-10 text-center flex flex-col items-center gap-2">
-            <ClipboardList className="h-6 w-6 text-muted" />
-            <div className="text-ink font-medium">No claims in this workspace</div>
-            <div className="text-[12.5px] text-muted max-w-md">Claims appear here once created from FNOL intake or channel conversations.</div>
+          <div className="flex flex-col items-center gap-2 p-10 text-center">
+            <ClipboardList className="h-6 w-6 text-dls-text-muted" aria-hidden="true" />
+            <EmptyStateSurface message="Claims appear here once created from FNOL intake or channel conversations." />
           </div>
         </GlassCard>
+      ) : rows.length === 0 ? (
+        <GlassCard><EmptyFilteredStateSurface onClear={clearFilters} /></GlassCard>
       ) : (
-        <GlassCard className="!p-0 overflow-hidden">
-          <div data-testid="claims-card-list" className="divide-y divide-line/70 md:hidden">
+        <GlassCard className="overflow-hidden !p-0">
+          <div data-testid="claims-card-list" className="divide-y divide-dls-border-subtle md:hidden">
             {rows.map((claim) => (
               <article key={claim.id} data-testid="claim-card" className="space-y-3 p-4">
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="break-words text-[14px] font-semibold text-ink">{claim.id}</h2>
-                    <p className="mt-0.5 break-words text-[12.5px] text-ink-soft">{claim.customer} · {claim.policy}</p>
+                    <h2 className="break-words text-[14px] font-bold text-dls-text-primary">{claim.id}</h2>
+                    <p className="mt-0.5 break-words text-[12.5px] text-dls-text-secondary">{claim.customer} · {claim.policy}</p>
                   </div>
                   <StatusBadge status={claim.status} />
                 </div>
                 <div className="flex flex-wrap gap-2">{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}<SLABadge sla={claim.sla} /><RiskBadge risk={claim.risk} /></div>
-                <dl className="grid gap-2 text-[12px] text-ink-soft min-[360px]:grid-cols-2">
-                  <div><dt className="text-muted">Evidence</dt><dd>{claim.complete ? "Documents complete" : "Documents incomplete"}</dd></div>
-                  <div><dt className="text-muted">Owner</dt><dd className="break-words">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</dd></div>
-                  <div><dt className="text-muted">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div>
-                  <div><dt className="text-muted">Updated</dt><dd>{claim.updated}</dd></div>
+                <dl className="grid gap-2 text-[12px] text-dls-text-secondary min-[360px]:grid-cols-2">
+                  <div><dt className="text-dls-text-muted">Evidence</dt><dd>{claim.complete ? "Documents complete" : "Documents incomplete"}</dd></div>
+                  <div><dt className="text-dls-text-muted">Owner</dt><dd className="break-words">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</dd></div>
+                  <div><dt className="text-dls-text-muted">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div>
+                  <div><dt className="text-dls-text-muted">Updated</dt><dd>{claim.updated}</dd></div>
                 </dl>
                 <ClaimActions claim={claim} busy={busyCaseId === claim.id} onAssign={assignToMe} onEscalate={escalate} compact />
               </article>
             ))}
           </div>
 
-          <div data-testid="claims-tablet-table" className="hidden overflow-x-auto md:block xl:hidden">
-            <table className="w-full text-[13px]">
-              <caption className="sr-only">Claims priority queue with expandable details</caption>
-              <thead><tr className="border-b border-line text-left text-[11px] uppercase tracking-[0.12em] text-muted"><th className="px-4 py-3">Claim & details</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">SLA</th><th className="px-3 py-3">Owner</th><th className="px-3 py-3">Action</th></tr></thead>
-              <tbody>{rows.map((claim) => <tr key={claim.id} className="border-b border-line/60 align-top">
-                <td className="px-4 py-3"><div className="flex items-center gap-2"><span className="font-medium text-ink">{claim.id}</span>{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}</div><div className="text-[11px] text-muted">{claim.customer}</div><details className="mt-2"><summary className="min-h-6 cursor-pointer text-[11.5px] text-info focus-ring">More details</summary><dl className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-ink-soft"><div><dt className="text-muted">Evidence</dt><dd>{claim.complete ? "Complete" : "Incomplete"}</dd></div><div><dt className="text-muted">Risk</dt><dd>{claim.risk}</dd></div><div><dt className="text-muted">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div><div><dt className="text-muted">Updated</dt><dd>{claim.updated}</dd></div></dl></details></td>
-                <td className="px-3 py-3"><StatusBadge status={claim.status} /></td><td className="px-3 py-3"><SLABadge sla={claim.sla} /></td><td className="max-w-40 break-words px-3 py-3 text-ink-soft">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</td><td className="px-3 py-3"><Link to={`/app/claims/${claim.id}`} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-line bg-white px-3 py-2 text-info focus-ring">Review <ArrowRight className="h-3.5 w-3.5" /></Link></td>
-              </tr>)}</tbody>
-            </table>
+          <div data-testid="claims-tablet-table" className="hidden md:block xl:hidden">
+            <Table label="Claims priority queue with expandable details">
+              <TableHead>
+                <TableRow><TableHeaderCell>Claim & details</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell><TableHeaderCell>SLA</TableHeaderCell><TableHeaderCell>Owner</TableHeaderCell><TableHeaderCell>Action</TableHeaderCell></TableRow>
+              </TableHead>
+              <TableBody>
+                {rows.map((claim) => (
+                  <TableRow key={claim.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2"><span className="font-semibold text-dls-text-primary">{claim.id}</span>{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}</div>
+                      <div className="text-[11px] text-dls-text-muted">{claim.customer}</div>
+                      <details className="mt-2">
+                        <summary className="dls-focus-outline min-h-6 cursor-pointer text-[11.5px] font-semibold text-dls-primary">More details</summary>
+                        <dl className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-dls-text-secondary">
+                          <div><dt className="text-dls-text-muted">Evidence</dt><dd>{claim.complete ? "Complete" : "Incomplete"}</dd></div>
+                          <div><dt className="text-dls-text-muted">Risk</dt><dd>{claim.risk}</dd></div>
+                          <div><dt className="text-dls-text-muted">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div>
+                          <div><dt className="text-dls-text-muted">Updated</dt><dd>{claim.updated}</dd></div>
+                        </dl>
+                      </details>
+                    </TableCell>
+                    <TableCell><StatusBadge status={claim.status} /></TableCell>
+                    <TableCell><SLABadge sla={claim.sla} /></TableCell>
+                    <TableCell className="max-w-40 break-words text-dls-text-secondary">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</TableCell>
+                    <TableCell>
+                      <Link to={`/app/claims/${claim.id}`} className="dls-focus-outline inline-flex min-h-11 items-center gap-1 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 font-semibold text-dls-primary hover:bg-dls-bg-page">Review <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
 
-          <div data-testid="claims-desktop-table" className="hidden overflow-x-auto xl:block">
-            <table className="w-full text-[13px]">
-              <caption className="sr-only">Complete claims work queue</caption>
-              <thead>
-                <tr className="text-left text-[11px] uppercase tracking-[0.12em] text-muted border-b border-line">
-                  {["Claim","Customer","Product","Status","Docs","SLA","Risk","Confidence","Assigned","Updated","Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 font-medium">{h}</th>
+          <div data-testid="claims-desktop-table" className="hidden xl:block">
+            <Table label="Complete claims work queue">
+              <TableHead>
+                <TableRow>
+                  {["Claim", "Customer", "Product", "Status", "Docs", "SLA", "Risk", "Confidence", "Assigned", "Updated", "Actions"].map(h => (
+                    <TableHeaderCell key={h}>{h}</TableHeaderCell>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {rows.map(c => (
-                  <tr key={c.id} className="border-b border-line/60 hover:bg-white/70 transition cursor-pointer group">
-                    <td className="px-4 py-3">
+                  <TableRow key={c.id}>
+                    <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-ink">{c.id}</span>
+                        <span className="font-semibold text-dls-text-primary">{c.id}</span>
                         {c.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}
                       </div>
-                      <div className="text-[11px] text-muted">{c.policy}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-ink">{c.customer}</div>
-                      <div className="text-[11px] text-muted">{c.channel}</div>
-                    </td>
-                    <td className="px-4 py-3 text-ink-soft">{c.productLine} · {c.claimType}</td>
-                    <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                    <td className="px-4 py-3">{c.complete ? <Badge tone="success">Complete</Badge> : <Badge tone="warning">Incomplete</Badge>}</td>
-                    <td className="px-4 py-3"><SLABadge sla={c.sla} /></td>
-                    <td className="px-4 py-3"><RiskBadge risk={c.risk} /></td>
-                    <td className="px-4 py-3"><ConfidenceBadge value={c.confidence} /></td>
-                    <td className="px-4 py-3 text-ink-soft whitespace-nowrap">
+                      <div className="text-[11px] text-dls-text-muted">{c.policy}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-dls-text-primary">{c.customer}</div>
+                      <div className="text-[11px] text-dls-text-muted">{c.channel}</div>
+                    </TableCell>
+                    <TableCell className="text-dls-text-secondary">{c.productLine} · {c.claimType}</TableCell>
+                    <TableCell><StatusBadge status={c.status} /></TableCell>
+                    <TableCell>{c.complete ? <Badge tone="success">Complete</Badge> : <Badge tone="warning">Incomplete</Badge>}</TableCell>
+                    <TableCell><SLABadge sla={c.sla} /></TableCell>
+                    <TableCell><RiskBadge risk={c.risk} /></TableCell>
+                    <TableCell><ConfidenceBadge value={c.confidence} /></TableCell>
+                    <TableCell className="whitespace-nowrap text-dls-text-secondary">
                       {c.assignedUserId ? c.assignedUserId : c.assignedTeam ?? "Unassigned"}
-                    </td>
-                    <td className="px-4 py-3 text-muted whitespace-nowrap">{c.updated}</td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-dls-text-muted">{c.updated}</TableCell>
+                    <TableCell>
                       <ClaimActions claim={c} busy={busyCaseId === c.id} onAssign={assignToMe} onEscalate={escalate} />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
-          <div className="flex items-center justify-between px-4 py-3 text-[12px] text-muted border-t border-line">
+          <div className="flex items-center justify-between border-t border-dls-border-subtle px-4 py-3 text-[12px] text-dls-text-muted">
             <div>Showing {rows.length} of {claims.length} claims</div>
           </div>
         </GlassCard>
@@ -282,28 +312,34 @@ function QueueSelect({
 }) {
   const id = `queue-filter-${label.toLowerCase()}`;
   return (
-    <label htmlFor={id} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white/70 px-3 py-2 text-[12px] text-ink-soft">
-      <span className="text-muted">{label}</span>
-      <select
+    <div className="inline-flex min-h-11 items-center gap-2 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2">
+      <label htmlFor={id} className="text-[12px] text-dls-text-muted">{label}</label>
+      <Select
         id={id}
         aria-label={`Filter by ${label.toLowerCase()}`}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="bg-transparent text-ink outline-none"
+        className="border-0 bg-transparent p-0 text-[12px] text-dls-text-primary focus:ring-0"
       >
         <option value="All">All</option>
         {options.map((option) => (
           <option key={option} value={option}>{option}</option>
         ))}
-      </select>
-    </label>
+      </Select>
+    </div>
   );
 }
 
 function ClaimActions({ claim, busy, onAssign, onEscalate, compact = false }: { claim: ClaimRowView; busy: boolean; onAssign: (id: string) => Promise<void>; onEscalate: (id: string) => Promise<void>; compact?: boolean }) {
-  return <div className={`flex flex-wrap items-center gap-2 ${compact ? "border-t border-line/70 pt-3" : ""}`}>
-    <Link to={`/app/claims/${claim.id}`} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-line bg-white px-3 py-2 text-[12px] font-medium text-info focus-ring">Review <ArrowRight className="h-3.5 w-3.5" /></Link>
-    <button type="button" onClick={() => void onAssign(claim.id)} disabled={busy} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-line bg-white px-3 py-2 text-[12px] text-ink focus-ring disabled:opacity-50">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}Assign</button>
-    <button type="button" onClick={() => void onEscalate(claim.id)} disabled={busy || claim.status === "Escalated"} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-warning/32 bg-warning/8 px-3 py-2 text-[12px] text-[hsl(38_92%_36%)] focus-ring disabled:opacity-50"><AlertTriangle className="h-3.5 w-3.5" />Escalate</button>
-  </div>;
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${compact ? "border-t border-dls-border-subtle pt-3" : ""}`}>
+      <Link to={`/app/claims/${claim.id}`} className="dls-focus-outline inline-flex min-h-11 items-center gap-1 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[12px] font-semibold text-dls-primary hover:bg-dls-bg-page">Review <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
+      <button type="button" onClick={() => void onAssign(claim.id)} disabled={busy} className="dls-focus-outline inline-flex min-h-11 items-center gap-1 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[12px] font-semibold text-dls-text-primary hover:bg-dls-bg-page disabled:opacity-50">
+        <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />Assign
+      </button>
+      <button type="button" onClick={() => void onEscalate(claim.id)} disabled={busy || claim.status === "Escalated"} className="dls-focus-outline inline-flex min-h-11 items-center gap-1 rounded-dls-control border border-dls-warning-dot bg-dls-surface px-3 py-2 text-[12px] font-semibold text-dls-warning-text disabled:opacity-50">
+        <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />Escalate
+      </button>
+    </div>
+  );
 }
