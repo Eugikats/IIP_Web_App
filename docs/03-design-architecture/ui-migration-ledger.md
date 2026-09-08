@@ -12,7 +12,7 @@ Never have two screens in flight.
 |---:|---|---|---|---|---|---|
 | 1 | 1 | `/app` | `lovable-pages/AIConversations.tsx` | Done | 2026-09-08 | `d493670` |
 | 2 | 1 | `/app/work-items` | `lovable-pages/ReviewWorkspace.tsx` (+ UniversalMyWork, AgentWorkItems, Workflows) | Done | 2026-09-08 | `364b45b` |
-| 3 | 1 | `/app/claims` | `lovable-pages/ClaimsQueue.tsx` | Not started | | |
+| 3 | 1 | `/app/claims` | `lovable-pages/ClaimsQueue.tsx` | Done | 2026-09-08 | `083a07e` |
 | 4 | 1 | `/app/claims/[id]` | `lovable-pages/ClaimReview.tsx` | Not started | | |
 | 5 | 1 | `/app/claims/[id]/extraction` | `lovable-pages/DocumentExtraction.tsx` | Not started | | |
 | 6 | 1 | `/app/documents` | `lovable-pages/Documents.tsx` | Not started | | |
@@ -233,3 +233,34 @@ writing new markup for it.
 
   Screen 2 (`/app/work-items`) is now marked **Done**. Resuming at screen 3
   (`/app/claims`).
+
+- 2026-09-08: screen 3 (`/app/claims`) — commit `083a07e`, preceded by a
+  regression fix in commit `de2396d`. `ClaimsQueue.tsx` migrated onto
+  `components/ui/Table` and tokens across all three responsive views (mobile
+  card list, tablet condensed table, desktop full table); `+ New Claim
+  (FNOL)` off `gradient-primary` onto `Button`'s flat-violet primary
+  treatment; empty-after-filter is now visually distinct from empty-no-data
+  (previously conflated — a filtered-to-zero result silently showed a bare
+  table header).
+
+  **`useClaims` has a `NEXT_PUBLIC_VISUAL_PARITY_MODE` synthetic fallback**
+  (unlike screen 2's `useMyWork`/`useAgentWorkItems`/`useApprovals`), so this
+  was the first screen verifiable end-to-end with real rendered data rather
+  than typecheck + error-state-only. That verification caught a real
+  regression from the `Primitives.tsx` foundation fix (`5b7c2e4`): several
+  real callers pass a pre-formatted, spaced status string ("Missing
+  Documents", "In Review", "Ready for Export", "Pending Approval") rather
+  than the raw PascalCase enum name, and the rewrite had kept only the raw
+  form, silently reintroducing the exact vocabulary bug it was meant to fix.
+  Fixed in `de2396d` — every status in the synthetic fixture now confirmed
+  via `getComputedStyle` against exact contract label + token RGB values.
+
+  **Lesson for the remaining 36 screens:** when a screen's data hook has a
+  parity-mode fallback, use it — it is meaningfully stronger verification
+  than typecheck-clean + an error-state screenshot, and it just caught a
+  real bug that both of those missed. Check each hook for this fallback
+  before assuming the backend-unreachable environment limits verification to
+  error states only.
+
+  Screen 3 (`/app/claims`) is now marked **Done**. Resuming at screen 4
+  (`/app/claims/[id]`).
