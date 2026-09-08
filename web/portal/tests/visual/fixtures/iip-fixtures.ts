@@ -439,6 +439,8 @@ const responses: Record<string, unknown> = {
     permissions: [
       "ApproveSettlementWorkflowStep",
       "CreateClaim",
+      "ExportEvidencePack",
+      "ManageCustomerCommunications",
       "OverrideAiRecommendation",
       "SendCustomerUpdate",
       "UploadDocument",
@@ -447,6 +449,8 @@ const responses: Record<string, unknown> = {
       "ViewAssignedClaims",
       "ViewAuditLog",
       "ViewCommandCenter",
+      "ViewFraudSignals",
+      "ViewUnderwriting",
       "ConfigureIntegrations"
     ],
     authority: {
@@ -712,6 +716,8 @@ const responses: Record<string, unknown> = {
       }
     ]
   },
+  "/api/v1/fraud/signals": [],
+  [`/api/v1/cases/${caseId}/case-review`]: null,
   "/api/v1/admin/provider-modes": providerModes,
   "/api/v1/admin/provider-health": providerHealth,
   "/api/v1/provider-status": providerStatus,

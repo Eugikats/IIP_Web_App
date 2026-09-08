@@ -33,7 +33,9 @@ test("Gate 6 Case Review documents, approvals and governed action confirmation a
   await page.goto(casePath);
   await page.waitForLoadState("networkidle");
 
-  await page.getByRole("button", { name: "Export claim pack" }).click();
+  const exportBtn = page.getByRole("button", { name: "Export claim pack" });
+  await expect(exportBtn).toBeVisible({ timeout: 15_000 });
+  await exportBtn.click();
   const dialog = page.getByRole("dialog", { name: "Export claim evidence pack" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("textbox", { name: "Reason for audit trail" })).toBeVisible();
