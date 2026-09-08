@@ -67,18 +67,40 @@ export function Dot({ tone = "info" }: { tone?: Tone }) {
 // this is called with (agent-flow run states, integration/provider states, document states, etc.)
 // is outside that contract's scope and is not a raw enum identifier needing translation — it is
 // passed through as its own label.
+const STATUS_NEW = { label: "Received", tone: "info" } as const;
+const STATUS_IN_REVIEW = { label: "Under review", tone: "info" } as const;
+const STATUS_MISSING_DOCS = { label: "Waiting on documents", tone: "warning" } as const;
+const STATUS_READY_FOR_REVIEW = { label: "Ready for review", tone: "info" } as const;
+const STATUS_PENDING_APPROVAL = { label: "Awaiting approval", tone: "warning" } as const;
+const STATUS_READY_FOR_EXPORT = { label: "Ready for export", tone: "info" } as const;
+const STATUS_REQUIRES_REVIEW = { label: "Requires review", tone: "danger" } as const;
+const STATUS_IN_PROGRESS = { label: "In progress", tone: "info" } as const;
+
 const STATUS_VOCAB: Record<string, { label: string; tone: PillTone }> = {
-  New: { label: "Received", tone: "info" },
+  New: STATUS_NEW,
+  Received: STATUS_NEW,
   Assigned: { label: "Assigned", tone: "info" },
-  InReview: { label: "Under review", tone: "info" },
-  MissingDocuments: { label: "Waiting on documents", tone: "warning" },
-  ReadyForReview: { label: "Ready for review", tone: "info" },
-  PendingApproval: { label: "Awaiting approval", tone: "warning" },
-  ReadyForExport: { label: "Ready for export", tone: "info" },
+  InReview: STATUS_IN_REVIEW,
+  "In Review": STATUS_IN_REVIEW,
+  MissingDocuments: STATUS_MISSING_DOCS,
+  "Missing Documents": STATUS_MISSING_DOCS,
+  "Awaiting Documents": STATUS_MISSING_DOCS,
+  ReadyForReview: STATUS_READY_FOR_REVIEW,
+  "Ready for Review": STATUS_READY_FOR_REVIEW,
+  // Two case-detail phrasings this codebase uses for "a human needs to review this claim now" —
+  // neither is a literal CaseStatus enum name, but both describe the same ReadyForReview state.
+  "Human Review Required": STATUS_READY_FOR_REVIEW,
+  "Needs Review": STATUS_READY_FOR_REVIEW,
+  PendingApproval: STATUS_PENDING_APPROVAL,
+  "Pending Approval": STATUS_PENDING_APPROVAL,
+  ReadyForExport: STATUS_READY_FOR_EXPORT,
+  "Ready for Export": STATUS_READY_FOR_EXPORT,
   Settled: { label: "Settled", tone: "success" },
   Closed: { label: "Closed", tone: "neutral" },
-  RequiresReview: { label: "Requires review", tone: "danger" },
-  InProgress: { label: "In progress", tone: "info" },
+  RequiresReview: STATUS_REQUIRES_REVIEW,
+  "Requires Review": STATUS_REQUIRES_REVIEW,
+  InProgress: STATUS_IN_PROGRESS,
+  "In Progress": STATUS_IN_PROGRESS,
   Completed: { label: "Completed", tone: "success" },
   ReturnedForCorrection: { label: "Returned for correction", tone: "warning" },
   Cancelled: { label: "Cancelled", tone: "neutral" },
