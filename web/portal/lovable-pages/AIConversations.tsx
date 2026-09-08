@@ -245,11 +245,8 @@ export default function AIConversations({ conversationId: requestedConversationI
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 mx-auto w-full max-w-[780px] space-y-2 bg-dls-bg-page pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="sticky bottom-0 z-10 mx-auto w-full max-w-[780px] bg-dls-bg-page pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <Composer value={input} onChange={setInput} onSend={() => send()} disabled={loading || historyLoading || !canContinue || Boolean(historyError) || Boolean(pendingRequest)} />
-        <p className="text-center text-[10.5px] text-dls-text-muted">
-          IIP Operations assists — it never settles, denies, repudiates, pays, or accuses fraud. Human reviewers approve regulated decisions.
-        </p>
       </div>
     </div>
   );

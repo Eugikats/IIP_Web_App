@@ -120,6 +120,7 @@ const config: Config = {
           "primary-soft": token("--color-primary-soft"),
           "primary-soft-alt": token("--color-primary-soft-alt"),
           "primary-border": token("--color-primary-border"),
+          "primary-idle": token("--color-primary-idle"),
           "text-primary": token("--color-text-primary"),
           "text-secondary": token("--color-text-secondary"),
           "text-muted": token("--color-text-muted"),

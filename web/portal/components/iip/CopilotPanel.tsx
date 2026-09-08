@@ -9,6 +9,8 @@ import { isProviderHealthy } from "@/lib/providerHealth";
 import { useCommandCenterQuery, type CommandCenterAnswer } from "@/lib/lovable-parity/data/commandCenterQuery";
 import { AIMessageBubble, UserMessageBubble, Composer } from "@/components/iip/ChatPrimitives";
 import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
+import { Button } from "@/components/ui/Button";
+import { StatusPill } from "@/components/ui/StatusPill";
 
 type Icon = ComponentType<{ className?: string }>;
 type Block = { icon: Icon; label: string; text: string };
@@ -219,41 +221,49 @@ export default function CopilotPanel() {
   const hasConversation = messages.length > 0;
 
   return (
-    <aside aria-label="IIP Copilot" className="h-full flex flex-col border-l border-line/70 bg-white/50 backdrop-blur-xl">
-      <div className="p-5 border-b border-line/70 flex items-center justify-between">
+    <aside aria-label="IIP Copilot" className="flex h-full flex-col border-l border-dls-border-subtle bg-dls-surface">
+      <div className="flex items-center justify-between border-b border-dls-border-subtle p-5">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-xl gradient-primary grid place-items-center shadow-l2">
-            <Sparkles className="h-4 w-4 text-white" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-dls-chip bg-dls-primary-soft" aria-hidden="true">
+            <Sparkles className="h-4 w-4 text-dls-primary" />
           </div>
           <div>
-            <div className="text-[13px] font-semibold text-ink">{hasConversation ? "IIP Copilot" : ctx.title}</div>
-            <div className="text-[11px] text-muted">Ask a question — real, grounded answers</div>
+            <div className="text-[13px] font-bold text-dls-text-primary">{hasConversation ? "IIP Copilot" : ctx.title}</div>
+            <div className="text-[11px] text-dls-text-muted">Ask a question — real, grounded answers</div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1">
           {hasConversation && (
             <button
+              type="button"
               onClick={() => navigate(conversationId ? `/app/conversations/${conversationId}` : "/app/conversations")}
-              className="text-[11px] text-violet hover:text-violet/80 inline-flex items-center gap-1"
+              className="dls-focus-outline inline-flex items-center gap-1 rounded-dls-tight px-1.5 py-1 text-[11px] font-semibold text-dls-primary hover:text-dls-primary-hover"
               aria-label="Open full conversation"
             >
-              Expand <ExternalLink className="h-3 w-3" />
+              Expand <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </button>
           )}
-          <button onClick={toggleCopilot} className="text-[11px] text-muted hover:text-ink" aria-label="Collapse Copilot">Hide</button>
+          <button
+            type="button"
+            onClick={toggleCopilot}
+            className="dls-focus-outline rounded-dls-tight px-1.5 py-1 text-[11px] font-semibold text-dls-text-muted hover:text-dls-text-primary"
+            aria-label="Collapse Copilot"
+          >
+            Hide
+          </button>
         </div>
       </div>
 
-      <div ref={scrollRef} tabIndex={0} aria-label="Copilot conversation" className="flex-1 overflow-y-auto p-4 space-y-3 focus-ring">
+      <div ref={scrollRef} tabIndex={0} aria-label="Copilot conversation" className="dls-focus-outline flex-1 space-y-3 overflow-y-auto p-4">
         {!hasConversation && (
           <>
             {ctx.blocks.map((b, i) => (
-              <div key={i} className="glass-subtle p-4 hover-lift">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <b.icon className="h-3.5 w-3.5 text-info" />
-                  <div className="text-[11px] uppercase tracking-[0.12em] text-muted">{b.label}</div>
+              <div key={i} className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <b.icon className="h-3.5 w-3.5 text-dls-primary" aria-hidden="true" />
+                  <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">{b.label}</div>
                 </div>
-                <div className="text-[13px] leading-[19px] text-ink-soft">{b.text}</div>
+                <div className="text-[13px] leading-[19px] text-dls-text-secondary">{b.text}</div>
               </div>
             ))}
 
@@ -262,8 +272,9 @@ export default function CopilotPanel() {
                 {ctx.starters.map((s) => (
                   <button
                     key={s}
+                    type="button"
                     onClick={() => void send(s)}
-                    className="min-h-9 text-[11.5px] text-ink-soft rounded-full border border-line bg-white/80 px-2.5 py-1.5 hover:bg-white hover-lift transition-colors text-left"
+                    className="dls-focus-outline rounded-dls-chip border border-dls-border-input px-2.5 py-1.5 text-left text-[11.5px] font-semibold text-dls-text-primary transition-colors duration-dls-fast ease-dls hover:border-dls-primary"
                   >
                     {s}
                   </button>
@@ -271,19 +282,23 @@ export default function CopilotPanel() {
               </div>
             )}
 
-            <div className="glass-subtle p-4">
-              <div className="text-[11px] uppercase tracking-[0.12em] text-muted mb-2">Provider health</div>
+            <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Provider health</div>
               {providersLoading ? (
-                <div className="text-[12px] text-muted">Checking provider health…</div>
+                <div className="text-[12px] text-dls-text-muted">Checking provider health…</div>
               ) : providers.length === 0 ? (
-                <div className="text-[12px] text-muted">Not configured — no provider health reported for this workspace.</div>
+                <StatusPill tone="neutral" label="Not configured" />
               ) : (
-                <div className="space-y-1.5 text-[12px]">
-                  {source && dataAsOf ? <div className="pb-1 text-[10.5px] text-muted">{source === "synthetic" ? "Synthetic snapshot" : "Runtime response"} · {new Date(dataAsOf).toLocaleString()}</div> : null}
+                <div className="space-y-1.5">
+                  {source && dataAsOf ? (
+                    <div className="pb-1 text-[10.5px] text-dls-text-muted">
+                      {source === "synthetic" ? "Synthetic snapshot" : "Runtime response"} · {new Date(dataAsOf).toLocaleString()}
+                    </div>
+                  ) : null}
                   {providers.map((p) => (
                     <div key={p.name} className="flex items-center justify-between gap-2">
-                      <span className="text-ink-soft truncate">{p.name}</span>
-                      <span className={isProviderHealthy(p.status) ? "text-success shrink-0" : "text-warning shrink-0"}>{p.status}</span>
+                      <span className="truncate text-[12px] text-dls-text-secondary">{p.name}</span>
+                      <StatusPill tone={isProviderHealthy(p.status) ? "success" : "warning"} label={p.status} />
                     </div>
                   ))}
                 </div>
@@ -291,9 +306,9 @@ export default function CopilotPanel() {
             </div>
 
             {ctx.footer && (
-              <div className="rounded-2xl border border-violet/24 bg-violet/6 p-4">
-                <div className="text-[11px] uppercase tracking-[0.14em] text-violet mb-1">Human review reminder</div>
-                <p className="text-[13px] leading-[19px] text-ink-soft">{ctx.footer}</p>
+              <div className="rounded-dls-card border border-dls-primary-border bg-dls-primary-soft-alt p-4">
+                <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-primary">Human review reminder</div>
+                <p className="text-[13px] leading-[19px] text-dls-text-secondary">{ctx.footer}</p>
               </div>
             )}
           </>
@@ -308,27 +323,23 @@ export default function CopilotPanel() {
             </AIMessageBubble>
           ) : (
             <AIMessageBubble key={m.id}>
-              <p className="text-[13px] text-danger">{m.text}</p>
+              <p className="text-[13px] text-dls-danger-text">{m.text}</p>
               {m.requestId && m.question ? (
-                <button
-                  type="button"
-                  onClick={() => void send(m.question, m.requestId)}
-                  className="mt-2 rounded-xl border border-line bg-white px-3 py-1.5 text-[11.5px] font-medium text-ink focus-ring"
-                >
+                <Button variant="secondary" className="mt-2" onClick={() => void send(m.question, m.requestId)}>
                   Retry safely
-                </button>
+                </Button>
               ) : null}
             </AIMessageBubble>
           )
         )}
         {loading && (
-          <div className="flex items-center gap-2 text-[12px] text-violet animate-fade-in">
-            <span className="h-2 w-2 rounded-full bg-violet animate-pulse" /> Preparing a grounded response…
+          <div className="flex items-center gap-2 text-[12px] text-dls-primary">
+            <span className="h-2 w-2 rounded-full bg-dls-primary" aria-hidden="true" /> Preparing a grounded response&hellip;
           </div>
         )}
       </div>
 
-      <div className="border-t border-line/70 p-3">
+      <div className="border-t border-dls-border-subtle p-3">
         <Composer
           value={input}
           onChange={setInput}
@@ -337,7 +348,7 @@ export default function CopilotPanel() {
           ariaLabel="Message IIP Copilot"
           placeholder={ctx.title.startsWith("Ask") ? `${ctx.title}…` : `Ask about ${ctx.title.toLowerCase()}…`}
         />
-        <div className="mt-1.5 text-[10px] text-muted text-center">Role: {roleDef.label} · human reviewers approve regulated decisions.</div>
+        <p className="mt-1 text-center text-[10px] text-dls-text-muted">Role: {roleDef.label}</p>
       </div>
     </aside>
   );

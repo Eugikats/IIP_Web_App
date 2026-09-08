@@ -17,6 +17,7 @@
   --color-primary-soft:       241 236 254;  /* #F1ECFE  selected nav, agent chip, AI avatar tile */
   --color-primary-soft-alt:   245 243 255;  /* #F5F3FF  selected settings row, active filter tab */
   --color-primary-border:     220 209 251;  /* #DCD1FB  border of an active filter tab */
+  --color-primary-idle:       228 225 247;  /* #E4E1F7  composer send button while the field is empty (§8.17) */
 
   /* ---- Neutrals ---- */
   --color-text-primary:       16 24 40;     /* #101828  headings, body, stat numbers */
