@@ -11,7 +11,7 @@ Never have two screens in flight.
 | # | Tier | Route | Component | Status | Date | Commit |
 |---:|---|---|---|---|---|---|
 | 1 | 1 | `/app` | `lovable-pages/AIConversations.tsx` | Done | 2026-09-08 | `d493670` |
-| 2 | 1 | `/app/work-items` | `lovable-pages/ReviewWorkspace.tsx` (+ UniversalMyWork, AgentWorkItems, Workflows) | Not started | | |
+| 2 | 1 | `/app/work-items` | `lovable-pages/ReviewWorkspace.tsx` (+ UniversalMyWork, AgentWorkItems, Workflows) | Done | 2026-09-08 | `364b45b` |
 | 3 | 1 | `/app/claims` | `lovable-pages/ClaimsQueue.tsx` | Not started | | |
 | 4 | 1 | `/app/claims/[id]` | `lovable-pages/ClaimReview.tsx` | Not started | | |
 | 5 | 1 | `/app/claims/[id]/extraction` | `lovable-pages/DocumentExtraction.tsx` | Not started | | |
@@ -56,6 +56,18 @@ Committed `026e576` on `harry/ui-design-language-foundation` — tokens
 (`app/globals.css`), shell (`components/iip/AppShell.tsx`, `Sidebar.tsx`),
 primitives (`components/ui/`). Screens 1–39 build on this; do not modify the
 shell or primitives from a screen-migration run — stop and report instead.
+
+Two more foundation-level shared dependencies were found and migrated after
+this initial commit (both used by many screens or the shell, not one screen
+— see the run log for each): the chat surface (`ChatPrimitives.tsx`,
+`CommandCenterAnswer.tsx`, `CopilotPanel.tsx`, `DataProvenance.tsx`, commit
+`d493670`) and `components/iip/Primitives.tsx` (`GlassCard`, `SectionHeader`,
+`Badge`/`StatusBadge`/`SLABadge`/`RiskBadge`/`ConfidenceBadge`, commit
+`5b7c2e4` — imported by 38 of 39 screens). Check whether a bespoke element a
+screen wants to replace already has a migrated equivalent in one of these
+two files, `components/Badges.tsx`/`MetricCard.tsx`/`SectionCard.tsx`/
+`DataTable.tsx`/`PageHeader.tsx`/`States.tsx`, or `components/ui/`, before
+writing new markup for it.
 
 ## Run log
 
@@ -169,3 +181,55 @@ shell or primitives from a screen-migration run — stop and report instead.
   are accepted, permanent, documented scope limits of a presentation-only
   migration — not defects blocking completion. Resuming at screen 2
   (`/app/work-items`).
+
+- 2026-09-08: foundation-level fix — commit `5998df5`. Found while starting
+  screen 2: `components/iip/Primitives.tsx` (`GlassCard`, `SectionHeader`,
+  `Badge`/`StatusBadge`/`SLABadge`/`RiskBadge`/`ConfidenceBadge`) is imported
+  by **38 of the 39 screens** on this ledger — more than any other file, and
+  missed by the original foundation slice, which migrated a different,
+  similarly-named `components/Badges.tsx` instead. Migrated in its own commit
+  `5b7c2e4` per the same precedent as the chat surface: external signatures
+  unchanged, every caller keeps compiling untouched. Found and fixed real
+  vocabulary-contract violations while there (raw enum names rendered
+  verbatim as labels; three status/tone pairings that contradicted
+  §10.1-10.2 outright — see that commit for the full list). Also added
+  `components/ui/Input.tsx`'s new `Select` (native `<select>` styled to the
+  same control contract as `Input` — the radius token table already groups
+  them, not a new component) and migrated `GuardrailBanner.tsx` (19 callers)
+  in commit `5998df5`. **Check whether a bespoke element already has a
+  migrated equivalent in one of these shared files before writing new markup
+  for it** — this is now noted in the Foundation slice section above.
+
+- 2026-09-08: screen 2 (`/app/work-items`) — commit `364b45b`. Migrated
+  `ReviewWorkspace.tsx`, `UniversalMyWork.tsx`, `AgentWorkItems.tsx`, and
+  `Workflows.tsx` (all four files this ledger row covers) onto design
+  language v2 tokens and primitives, building on the two foundation fixes
+  above. Segmented tab/view switchers rebuilt on tokens (previously a black
+  `bg-ink` active pill — not a status or brand colour). Filters moved onto
+  `Field`/`Select`. Loading/error/empty states moved onto
+  `components/ui/StateSurfaces`, and empty-after-filter is now visually
+  distinct from empty-no-data in `UniversalMyWork` (previously identical).
+  Consequential actions (accept, escalate, return for correction, approve,
+  execute, reject, override) kept their existing reason-textarea gate
+  unchanged; Approve/Accept use `Button`'s primary variant (flat violet, the
+  old `gradient-primary` class is gone); Reject uses the destructive
+  variant's lower-emphasis, text-only treatment per that primitive's own
+  contract. `Workflows.tsx`'s dense approval table keeps hand-styled compact
+  action buttons on tokens rather than the full `Button` primitive, matching
+  craft guardrails' density guidance for a table staff scan continuously.
+
+  Verified: `pnpm lint`, `pnpm exec tsc --noEmit` (clean across all 38
+  `Primitives.tsx` consumers), `check-ui-release-gates.mjs`, `pnpm test` (all
+  suites), `pnpm build` (compiles; same pre-existing EPERM trace-copy step)
+  all pass. Browser-verified at 1280px and 768px across all three
+  `/app/work-items` tabs: active-tab violet fill, `GuardrailBanner`, filters,
+  and error/empty states render correctly; keyboard focus ring confirmed via
+  real Tab navigation. Not click-through-verified: real queue/table rows or
+  a full consequential-action flow — `useMyWork`, `useAgentWorkItems`, and
+  `useApprovals` have no synthetic-mode fallback and the real backend isn't
+  reachable in this environment; `StatusBadge`/`RiskBadge`/`ConfidenceBadge`
+  render via the already-verified `StatusPill` and are typecheck-clean
+  across every caller, but weren't individually eyeballed with real data.
+
+  Screen 2 (`/app/work-items`) is now marked **Done**. Resuming at screen 3
+  (`/app/claims`).
