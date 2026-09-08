@@ -2,7 +2,12 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, X } from "lucide-react";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+
+// Design language v2 §8.14 — modal. Shared by 8 screens across tiers 1/2/3/5 (admin
+// EmailInbox/Users/WhatsAppSettings, ClaimReview, Communications, FraudIntelligence, Knowledge,
+// plus CustomerUpdateGovernedDialog), so this is migrated once here rather than per screen.
 
 type GovernedActionDialogProps = {
   open: boolean;
@@ -74,14 +79,11 @@ export function GovernedActionDialog({
 
   const trimmedReason = reason.trim();
   const canConfirm = trimmedReason.length >= 8 && !isSubmitting;
-  const confirmClass = tone === "danger"
-    ? "border-danger/40 bg-danger text-white hover:brightness-110"
-    : "border-azure/40 bg-azure text-white hover:brightness-110";
 
   return createPortal(
     <div>
       <div
-        className="fixed inset-0 z-[120] bg-ink/45 opacity-100 backdrop-blur-sm"
+        className="fixed inset-0 z-[120] bg-dls-scrim/45"
         onClick={isSubmitting ? undefined : onClose}
       />
       <section
@@ -89,59 +91,49 @@ export function GovernedActionDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="governed-action-title"
-        className="fixed left-1/2 top-1/2 z-[121] flex max-h-[calc(100dvh-24px)] w-[min(560px,92vw)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-line bg-surface opacity-100 shadow-float"
+        className="fixed left-1/2 top-1/2 z-[121] flex max-h-[calc(100dvh-24px)] w-[min(460px,92vw)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-dls-overlay border border-dls-border-subtle bg-dls-surface shadow-dls-modal"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-warning">
-              <AlertTriangle className="h-4 w-4" />
-              Governed action
-            </div>
-            <h3 id="governed-action-title" className="mt-2 break-words text-xl font-semibold text-ink">{title}</h3>
-          </div>
+        <div className="flex items-start justify-between gap-4 border-b border-dls-border-subtle px-[22px] py-5">
+          <h3 id="governed-action-title" className="min-w-0 break-words text-[17px] font-extrabold text-dls-text-primary">{title}</h3>
           <button
-            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-mist hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            className="dls-focus-outline flex h-9 w-9 shrink-0 items-center justify-center rounded-dls-control text-dls-text-muted hover:bg-dls-bg-page hover:text-dls-text-primary disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onClose}
             disabled={isSubmitting}
             aria-label="Close confirmation"
-            title="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[22px] py-5">
           <InfoBlock label="Affected object" value={target} />
           <InfoBlock label="Impact" value={impact} />
           {evidence ? <div>{evidence}</div> : null}
-          <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm leading-6 text-warning">
+          <div className="rounded-dls-card border border-dls-warning-dot bg-dls-warning-tint p-4 text-sm leading-6 text-dls-warning-text">
             {auditNotice}
           </div>
-          <label className="block text-sm font-medium text-muted">
+          <label className="block text-sm font-semibold text-dls-text-primary">
             Reason for audit trail
             <textarea
               aria-label="Reason for audit trail"
-              className="mt-2 min-h-28 w-full resize-y rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none transition-all placeholder:text-muted-soft focus:border-accent focus:ring-1 focus:ring-accent"
+              className="mt-2 min-h-28 w-full resize-y rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary outline-none placeholder:text-dls-text-muted focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="Enter the business reason for this action..."
+              placeholder="Enter the business reason for this action…"
             />
           </label>
-          <p className="text-xs leading-5 text-muted">
+          <p className="text-xs leading-5 text-dls-text-muted">
             A reason of at least 8 characters is required before this action can be submitted.
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-3 border-t border-line bg-surface px-6 py-4">
-          <button
-            className="min-h-11 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-muted transition-colors hover:border-accent/50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={onClose}
-            disabled={isSubmitting}
-          >
+        <div className="flex flex-wrap justify-end gap-3 border-t border-dls-border-subtle px-[22px] py-4">
+          <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
             Cancel
-          </button>
-          <button
-            className={`min-h-11 rounded-full border px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${confirmClass}`}
+          </Button>
+          <Button
+            variant={tone === "danger" ? "destructive" : "primary"}
             disabled={!canConfirm}
             onClick={async () => {
               setIsSubmitting(true);
@@ -152,8 +144,8 @@ export function GovernedActionDialog({
               }
             }}
           >
-            {isSubmitting ? "Submitting..." : confirmLabel}
-          </button>
+            {isSubmitting ? "Submitting…" : confirmLabel}
+          </Button>
         </div>
       </section>
     </div>,
@@ -163,9 +155,9 @@ export function GovernedActionDialog({
 
 function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-line bg-mist p-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">{label}</p>
-      <p className="mt-2 break-words text-sm font-semibold text-ink">{value}</p>
+    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-dls-text-muted">{label}</p>
+      <p className="mt-2 break-words text-sm font-bold text-dls-text-primary">{value}</p>
     </div>
   );
 }
