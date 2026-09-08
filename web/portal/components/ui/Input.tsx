@@ -1,7 +1,7 @@
 // Design language v2 §8.5–8.6.
 "use client";
 
-import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +48,25 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         <p className="mt-1.5 text-xs text-dls-text-muted">{managedCaption}</p>
       )}
     </div>
+  );
+});
+
+// design language v2's radius token table lists selects under --radius-control alongside
+// buttons and inputs — same 8px radius, border, and focus ring as Input; no separate spec.
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select(
+  { className, ...props },
+  ref,
+) {
+  return (
+    <select
+      ref={ref}
+      className={cn(
+        "rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-[9px] text-sm text-dls-text-primary",
+        "focus:outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]",
+        className,
+      )}
+      {...props}
+    />
   );
 });
 
