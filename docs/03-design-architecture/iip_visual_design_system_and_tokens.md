@@ -1,5 +1,11 @@
 # IIP Visual Design System and Design Tokens
 
+> **SUPERSEDED IN PART — 2026-09-08.** The visual direction recorded here ("Operational Intelligence", blue `#1D4ED8` primary) was never approved and has been replaced. **`iip_design_language_v2.md` is now the visual source of truth** for palette, typography, spacing, radius, elevation, motion, shell dimensions, card policy, and component treatment. Do not implement colours, geometry, or components from this document.
+>
+> This document retains authority only for: accessibility method and evidence requirements, the non-colour-encoding rule, chart data-quality and missing-data states, and the DTCG token-pipeline format. Its audit findings (VIS-AUD-001 to 012) remain valid as reasoning and are carried forward into the new design language.
+>
+> Entry point for all UI work: [`DESIGN.md`](../../DESIGN.md).
+
 **Status:** Proposed visual source of truth extracted on 2026-08-04; measurable Release 1 acceptance is governed by the requirements/acceptance baseline as of 2026-08-05.
 
 > Visual conformity does not establish accessibility. Critical Release 1 flows require WCAG 2.2 AA plus manual keyboard, screen-reader, focus, status, 200% text, and 400%/320 CSS-pixel reflow evidence under R1-A11Y-001–004.

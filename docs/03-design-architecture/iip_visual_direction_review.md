@@ -1,5 +1,7 @@
 # IIP Visual Direction Review
 
+> **CLOSED — 2026-09-08.** The recommendation below was not adopted; see [`iip_design_language_v2.md`](iip_design_language_v2.md) for the approved direction. The critique findings survive the decision and are binding: finding 1 (a permanent stage spine implies false linearity) is implemented in `iip_workflow_legibility_contract.md` §4; finding 4 (pair every state with a label and non-colour cue) is implemented as the dot-plus-label pill; findings 5 and 6 are carried into the accessibility criteria of the new language. Retained for history — do not implement its direction scoring.
+
 **Scope:** design-only review of the three generated concept boards in `iip_visual_direction_exploration.md`.
 **Standards baseline:** WCAG 2.2 AA design intent; no conformance claim without implementation and manual assistive-technology checks.
 

@@ -2,7 +2,7 @@
 
 > Generated from Git-tracked documentation by `scripts/docs/Update-IipDocsCatalog.ps1`. Do not hand-edit.
 
-Total: 195 files.
+Total: 258 files.
 
 ## [docs-root] (2)
 
@@ -16,24 +16,29 @@ Total: 195 files.
 - [reorganization-backlog.md](00-start-here/reorganization-backlog.md)
 - [repository-map.md](00-start-here/repository-map.md)
 
-## 01-strategy-requirements-roadmap (14)
+## 01-strategy-requirements-roadmap (19)
 
 - [iip_assumptions_constraints_open_questions_register.md](01-strategy-requirements-roadmap/iip_assumptions_constraints_open_questions_register.md)
 - [iip_business_product_decision_register.md](01-strategy-requirements-roadmap/iip_business_product_decision_register.md)
+- [iip_end_to_end_product_ui_development_checklist.md](01-strategy-requirements-roadmap/iip_end_to_end_product_ui_development_checklist.md)
 - [iip_feature_prioritization_matrix.md](01-strategy-requirements-roadmap/iip_feature_prioritization_matrix.md)
 - [iip_implementation_roadmap.md](01-strategy-requirements-roadmap/iip_implementation_roadmap.md)
 - [iip_master_product_context.md](01-strategy-requirements-roadmap/iip_master_product_context.md)
 - [iip_mvp_acceptance_criteria_register.md](01-strategy-requirements-roadmap/iip_mvp_acceptance_criteria_register.md)
 - [iip_mvp_scope_control_register.md](01-strategy-requirements-roadmap/iip_mvp_scope_control_register.md)
 - [iip_product_decision_log.md](01-strategy-requirements-roadmap/iip_product_decision_log.md)
+- [iip_product_definition_and_validation_charter.md](01-strategy-requirements-roadmap/iip_product_definition_and_validation_charter.md)
 - [iip_product_requirements_document.md](01-strategy-requirements-roadmap/iip_product_requirements_document.md)
 - [iip_product_risk_register.md](01-strategy-requirements-roadmap/iip_product_risk_register.md)
+- [iip_release_1_interaction_requirements_traceability.md](01-strategy-requirements-roadmap/iip_release_1_interaction_requirements_traceability.md)
+- [iip_release_1_requirements_baseline.md](01-strategy-requirements-roadmap/iip_release_1_requirements_baseline.md)
+- [iip_release_1_stakeholder_approval_pack.md](01-strategy-requirements-roadmap/iip_release_1_stakeholder_approval_pack.md)
 - [iip_requirements_traceability_matrix.md](01-strategy-requirements-roadmap/iip_requirements_traceability_matrix.md)
 - [iip_roadmap_execution_backlog.md](01-strategy-requirements-roadmap/iip_roadmap_execution_backlog.md)
 - [iip_stakeholder_alignment_brief.md](01-strategy-requirements-roadmap/iip_stakeholder_alignment_brief.md)
 - [iip_strategy_addendum.md](01-strategy-requirements-roadmap/iip_strategy_addendum.md)
 
-## 02-development-engineering (40)
+## 02-development-engineering (42)
 
 - [iip_api_specification.md](02-development-engineering/iip_api_specification.md)
 - [iip_approval_decision_service_implementation_output.md](02-development-engineering/iip_approval_decision_service_implementation_output.md)
@@ -66,6 +71,8 @@ Total: 195 files.
 - [iip_multi_agent_orchestration_document_to_decision_pipeline_implementation.md](02-development-engineering/iip_multi_agent_orchestration_document_to_decision_pipeline_implementation.md)
 - [iip_multi_tenant_identity_onboarding_app_roles_scim_provisioning.md](02-development-engineering/iip_multi_tenant_identity_onboarding_app_roles_scim_provisioning.md)
 - [iip_notification_send_execution_service.md](02-development-engineering/iip_notification_send_execution_service.md)
+- [iip_offline_mode.md](02-development-engineering/iip_offline_mode.md)
+- [iip_release_1_api_data_contract_map.md](02-development-engineering/iip_release_1_api_data_contract_map.md)
 - [iip_reporting_service.md](02-development-engineering/iip_reporting_service.md)
 - [iip_sales_leads_query_service_implementation_output.md](02-development-engineering/iip_sales_leads_query_service_implementation_output.md)
 - [iip_sla_risk_service_implementation_output.md](02-development-engineering/iip_sla_risk_service_implementation_output.md)
@@ -76,25 +83,54 @@ Total: 195 files.
 - [iip_ws2_command_center_frontend_vertical_slice_report.md](02-development-engineering/iip_ws2_command_center_frontend_vertical_slice_report.md)
 - [README_UPDATED_FILES.md](02-development-engineering/README_UPDATED_FILES.md)
 
-## 03-design-architecture (15)
+## 03-design-architecture (44)
 
 - [bevaya-competitive-benchmark-2026-07-16.md](03-design-architecture/bevaya-competitive-benchmark-2026-07-16.md)
 - [deep-research-report.md](03-design-architecture/deep-research-report.md)
+- [iip_agentic_ai_interface_and_governance_patterns.md](03-design-architecture/iip_agentic_ai_interface_and_governance_patterns.md)
 - [iip_ai_agent_architecture_tool_registry_updated.md](03-design-architecture/iip_ai_agent_architecture_tool_registry_updated.md)
 - [iip_ai_rag_knowledge_architecture.md](03-design-architecture/iip_ai_rag_knowledge_architecture.md)
 - [iip_c4_architecture_diagram_pack.pdf](03-design-architecture/iip_c4_architecture_diagram_pack.pdf)
 - [iip_component_architecture_document.md](03-design-architecture/iip_component_architecture_document.md)
 - [iip_conversational_session_context_multi_agent_architecture.md](03-design-architecture/iip_conversational_session_context_multi_agent_architecture.md)
 - [iip_data_model_document.md](03-design-architecture/iip_data_model_document.md)
+- [iip_design_language_v2.md](03-design-architecture/iip_design_language_v2.md)
 - [iip_design_system_ux_behavior_specification.md](03-design-architecture/iip_design_system_ux_behavior_specification.md)
+- [iip_end_to_end_user_flow_architecture.md](03-design-architecture/iip_end_to_end_user_flow_architecture.md)
+- [iip_enterprise_agentic_operating_design_system.md](03-design-architecture/iip_enterprise_agentic_operating_design_system.md)
+- [iip_fnol_six_step_intake_design.md](03-design-architecture/iip_fnol_six_step_intake_design.md)
 - [iip_hybrid_cloud_mirror_resilient_channel_buffer_architecture.md](03-design-architecture/iip_hybrid_cloud_mirror_resilient_channel_buffer_architecture.md)
+- [iip_information_architecture_navigation_and_screen_inventory.md](03-design-architecture/iip_information_architecture_navigation_and_screen_inventory.md)
+- [iip_information_architecture_stakeholder_approval_pack.md](03-design-architecture/iip_information_architecture_stakeholder_approval_pack.md)
 - [iip_observability_operations_architecture.md](03-design-architecture/iip_observability_operations_architecture.md)
+- [iip_platform_ux_behavior_specification.md](03-design-architecture/iip_platform_ux_behavior_specification.md)
+- [iip_recent_conversations_session_continuity_spec.md](03-design-architecture/iip_recent_conversations_session_continuity_spec.md)
+- [iip_release_1_action_purpose_human_ai_authority_contracts.md](03-design-architecture/iip_release_1_action_purpose_human_ai_authority_contracts.md)
+- [iip_release_1_complex_operational_pattern_contracts.md](03-design-architecture/iip_release_1_complex_operational_pattern_contracts.md)
+- [iip_release_1_intelligence_layer_service_blueprint.md](03-design-architecture/iip_release_1_intelligence_layer_service_blueprint.md)
+- [iip_release_1_interaction_accessibility_and_runtime_parity.md](03-design-architecture/iip_release_1_interaction_accessibility_and_runtime_parity.md)
+- [iip_release_1_interaction_authority_and_inventory.md](03-design-architecture/iip_release_1_interaction_authority_and_inventory.md)
+- [iip_release_1_low_fidelity_wireframe_state_inventory.md](03-design-architecture/iip_release_1_low_fidelity_wireframe_state_inventory.md)
+- [iip_release_1_responsive_adaptive_reflow_contract.md](03-design-architecture/iip_release_1_responsive_adaptive_reflow_contract.md)
+- [iip_release_1_role_journey_maps.md](03-design-architecture/iip_release_1_role_journey_maps.md)
+- [iip_release_1_state_exception_recovery_contracts.md](03-design-architecture/iip_release_1_state_exception_recovery_contracts.md)
+- [iip_release_1_surface_control_interaction_contracts.md](03-design-architecture/iip_release_1_surface_control_interaction_contracts.md)
+- [iip_release_1_task_flow_exception_state_catalog.md](03-design-architecture/iip_release_1_task_flow_exception_state_catalog.md)
 - [iip_saas_tenant_architecture_guide.md](03-design-architecture/iip_saas_tenant_architecture_guide.md)
 - [iip_system_integration_strategy.md](03-design-architecture/iip_system_integration_strategy.md)
 - [iip_technical_architecture_document.md](03-design-architecture/iip_technical_architecture_document.md)
+- [iip_ui_craft_guardrails.md](03-design-architecture/iip_ui_craft_guardrails.md)
+- [iip_universal_my_work_aggregation_spec.md](03-design-architecture/iip_universal_my_work_aggregation_spec.md)
+- [iip_ux_cognitive_load_and_navigation_model.md](03-design-architecture/iip_ux_cognitive_load_and_navigation_model.md)
+- [iip_visual_design_system_and_tokens.md](03-design-architecture/iip_visual_design_system_and_tokens.md)
+- [iip_visual_direction_exploration.md](03-design-architecture/iip_visual_direction_exploration.md)
+- [iip_visual_direction_review.md](03-design-architecture/iip_visual_direction_review.md)
+- [iip_whatsapp_thread_outbound_delivery_spec.md](03-design-architecture/iip_whatsapp_thread_outbound_delivery_spec.md)
 - [iip_workflow_architecture_document.md](03-design-architecture/iip_workflow_architecture_document.md)
+- [iip_workflow_legibility_contract.md](03-design-architecture/iip_workflow_legibility_contract.md)
+- [bevaya-design-language.md](03-design-architecture/reference/bevaya-design-language.md)
 
-## 04-testing-security-quality (14)
+## 04-testing-security-quality (19)
 
 - [iip_ai_output_evaluation_red_team_test_plan.md](04-testing-security-quality/iip_ai_output_evaluation_red_team_test_plan.md)
 - [iip_ai_quality_review_log.md](04-testing-security-quality/iip_ai_quality_review_log.md)
@@ -108,8 +144,13 @@ Total: 195 files.
 - [iip_qa_test_plan.md](04-testing-security-quality/iip_qa_test_plan.md)
 - [iip_rbac_permissions_matrix.md](04-testing-security-quality/iip_rbac_permissions_matrix.md)
 - [iip_regression_test_checklist.md](04-testing-security-quality/iip_regression_test_checklist.md)
+- [iip_release_1_algorithmic_impact_assessment.md](04-testing-security-quality/iip_release_1_algorithmic_impact_assessment.md)
+- [iip_release_1_assessor_handoff_ethical_review.md](04-testing-security-quality/iip_release_1_assessor_handoff_ethical_review.md)
+- [iip_release_1_assessor_handoff_threat_assessment.md](04-testing-security-quality/iip_release_1_assessor_handoff_threat_assessment.md)
 - [iip_security_compliance_document.md](04-testing-security-quality/iip_security_compliance_document.md)
 - [iip_security_test_checklist_validation_plan.md](04-testing-security-quality/iip_security_test_checklist_validation_plan.md)
+- [iip-customer-tenant-threat-model.md](04-testing-security-quality/iip-customer-tenant-threat-model.md)
+- [intake_and_document_checker_status_report_2026-09-05.md](04-testing-security-quality/intake_and_document_checker_status_report_2026-09-05.md)
 
 ## 05-deployment-release-enablement (27)
 
@@ -160,9 +201,10 @@ Total: 195 files.
 - [iip_pilot_weekly_status_report_template.md](06-client-pilot/iip_pilot_weekly_status_report_template.md)
 - [iip_uat_plan.md](06-client-pilot/iip_uat_plan.md)
 
-## 06-decisions (6)
+## 06-decisions (7)
 
 - [ADR-2026-07-04-lovable-visual-parity-mode.md](06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md)
+- [ADR-2026-08-10-release-1-assessor-handoff-channel-scope.md](06-decisions/ADR-2026-08-10-release-1-assessor-handoff-channel-scope.md)
 - [gate-0-exit-report.md](06-decisions/gate-0-exit-report.md)
 - [gate-1-handoff.md](06-decisions/gate-1-handoff.md)
 - [lovable-parity-migration-audit.md](06-decisions/lovable-parity-migration-audit.md)
@@ -182,7 +224,7 @@ Total: 195 files.
 - [iip_support_escalation_guide.md](07-client-support/iip_support_escalation_guide.md)
 - [iip_support_handover_checklist.md](07-client-support/iip_support_handover_checklist.md)
 
-## 07-qa (9)
+## 07-qa (14)
 
 - [live-motor-workflow-dev-2026-07-13.json](07-qa/live-motor-workflow-dev-2026-07-13.json)
 - [live-performance-authenticated-dev-2026-07-13-post-optimization-warm.json](07-qa/live-performance-authenticated-dev-2026-07-13-post-optimization-warm.json)
@@ -191,6 +233,11 @@ Total: 195 files.
 - [live-performance-dev-2026-07-13-warm.json](07-qa/live-performance-dev-2026-07-13-warm.json)
 - [live-performance-dev-2026-07-13.json](07-qa/live-performance-dev-2026-07-13.json)
 - [live-performance-test-approval-2026-07-13.md](07-qa/live-performance-test-approval-2026-07-13.md)
+- [protected-staging-multi-role-verification-2026-08-07.md](07-qa/protected-staging-multi-role-verification-2026-08-07.md)
+- [release-1-browser-interaction-api-ui-parity-verification-2026-08-10.md](07-qa/release-1-browser-interaction-api-ui-parity-verification-2026-08-10.md)
+- [release-1-candidate-readiness-record.md](07-qa/release-1-candidate-readiness-record.md)
+- [release-1-interaction-accessibility-and-runtime-parity-verification-2026-08-08.md](07-qa/release-1-interaction-accessibility-and-runtime-parity-verification-2026-08-08.md)
+- [release-1-journey-flow-validation-2026-08-07.md](07-qa/release-1-journey-flow-validation-2026-08-07.md)
 - [rf10-release-foundation-go-no-go-evidence.md](07-qa/rf10-release-foundation-go-no-go-evidence.md)
 - [uat-script.md](07-qa/uat-script.md)
 
@@ -204,9 +251,11 @@ Total: 195 files.
 - [iip_product_feedback_review_cadence.md](08-continuous-improvement/iip_product_feedback_review_cadence.md)
 - [iip_release_improvement_tracker.md](08-continuous-improvement/iip_release_improvement_tracker.md)
 
-## 08-program-plan (16)
+## 08-program-plan (18)
 
 - [iip_phase11_commercial_module_activation_gate.md](08-program-plan/iip_phase11_commercial_module_activation_gate.md)
+- [IIP_PRODUCTION_BUILD_CONTRACT.md](08-program-plan/IIP_PRODUCTION_BUILD_CONTRACT.md)
+- [IIP_SYSTEM_ANALYSIS_AND_PRODUCTION_PLAN.md](08-program-plan/IIP_SYSTEM_ANALYSIS_AND_PRODUCTION_PLAN.md)
 - [IIP-BEVAYA-PARITY-RELEASE-BLUEPRINT.md](08-program-plan/IIP-BEVAYA-PARITY-RELEASE-BLUEPRINT.md)
 - [IIP-CONSOLIDATED-ROADMAP.md](08-program-plan/IIP-CONSOLIDATED-ROADMAP.md)
 - [IIP-FULL-PROGRAM-PLAN.md](08-program-plan/IIP-FULL-PROGRAM-PLAN.md)
@@ -223,8 +272,9 @@ Total: 195 files.
 - [publish-final-go-no-go-evidence.md](08-program-plan/wayfinder/release-foundation-blockers/tickets/publish-final-go-no-go-evidence.md)
 - [reinstate-merge-governance.md](08-program-plan/wayfinder/release-foundation-blockers/tickets/reinstate-merge-governance.md)
 
-## 09-commercial-executive (6)
+## 09-commercial-executive (7)
 
+- [iip_ai_cost_model_pilot_scale.md](09-commercial-executive/iip_ai_cost_model_pilot_scale.md)
 - [iip_business_case_roi_document.md](09-commercial-executive/iip_business_case_roi_document.md)
 - [iip_executive_pitch_deck_content.md](09-commercial-executive/iip_executive_pitch_deck_content.md)
 - [iip_faq_objection_handling_document.md](09-commercial-executive/iip_faq_objection_handling_document.md)
@@ -232,20 +282,36 @@ Total: 195 files.
 - [iip_pilot_proposal_document.md](09-commercial-executive/iip_pilot_proposal_document.md)
 - [iip_pricing_packaging_document.md](09-commercial-executive/iip_pricing_packaging_document.md)
 
-## agents (1)
+## agents (3)
 
 - [issue-tracker.md](agents/issue-tracker.md)
+- [release-1-requirements-and-scope-baseline.md](agents/specs/release-1-requirements-and-scope-baseline.md)
+- [release-foundation-blocker-remediation.md](agents/specs/release-foundation-blocker-remediation.md)
 
 ## api (2)
 
 - [IIP_API_Contracts_Master.md](api/IIP_API_Contracts_Master.md)
 - [openapi.json](api/openapi.json)
 
-## research (6)
+## research (16)
 
 - [bevaya-comparative-analysis.md](research/bevaya-comparative-analysis.md)
+- [generic-conversation-continuity-ux-research.md](research/generic-conversation-continuity-ux-research.md)
 - [iip-commitment-reconciliation-backlog.md](research/iip-commitment-reconciliation-backlog.md)
 - [iip-current-state-capability-map.md](research/iip-current-state-capability-map.md)
+- [iip-information-architecture-validation-and-approval-plan.md](research/iip-information-architecture-validation-and-approval-plan.md)
+- [iip-market-regulatory-competitive-evidence-2026-08-05.md](research/iip-market-regulatory-competitive-evidence-2026-08-05.md)
 - [iip-pending-work-register.md](research/iip-pending-work-register.md)
+- [iip-release-1-low-fidelity-usability-evaluation.md](research/iip-release-1-low-fidelity-usability-evaluation.md)
 - [iip-session-handoff-2026-08-03.md](research/iip-session-handoff-2026-08-03.md)
+- [iip-user-business-market-research-program.md](research/iip-user-business-market-research-program.md)
+- [insurance-discovery-domain-research.md](research/insurance-discovery-domain-research.md)
+- [insurance-operations-discovery-form.gs](research/insurance-operations-discovery-form.gs)
+- [insurance-operations-discovery-questionnaire.md](research/insurance-operations-discovery-questionnaire.md)
+- [README.md](research/README.md)
 - [sms-auto-send-policy.md](research/sms-auto-send-policy.md)
+- [uganda-release-1-claims-workflow-desk-research.md](research/uganda-release-1-claims-workflow-desk-research.md)
+
+## superpowers (1)
+
+- [2026-09-01-iip-r1-responsive-accessibility.md](superpowers/plans/2026-09-01-iip-r1-responsive-accessibility.md)

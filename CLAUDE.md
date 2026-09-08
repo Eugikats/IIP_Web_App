@@ -9,6 +9,24 @@ Read and follow [`AGENTS.md`](AGENTS.md) before acting. Its **Authority and curr
 3. Resolve material source conflicts instead of merging them or falling back to an older path.
 4. Identify the supported path, legacy path, migration/removal work and verification command.
 
+## Before changing anything a user can see
+
+Read [`DESIGN.md`](DESIGN.md) first. It is the UI/UX authority index and links the four owning documents. Do not design from memory, from the current portal's appearance, or from a screenshot in a prompt — the current portal is the thing being replaced.
+
+The direction: a calm, border-led, light-first insurance operations console. One violet accent (`#5B2AE8`) marking only the next action, Inter throughout, hairline borders instead of shadows, colour rationed to 6px status dots and single figures, a 64px icon rail with a contextual panel and a left-aligned content column. The visual reference is `docs/03-design-architecture/reference/bevaya-ui-replica.html` — open it in a browser. Copy its visual grammar; do not copy its product scope or its emoji.
+
+Rules that are never waived when writing UI:
+
+- No emoji anywhere — UI, code, model output rendered to users, commit messages, docs.
+- No gradients outside the two named uses; no glassmorphism, glow, hover-lift, or decorative motion.
+- One violet primary action per screen region. Status is a neutral pill plus a coloured dot plus a word, never colour alone.
+- Six states or it is not finished: loading, empty, empty-after-filter, error, not configured, no permission.
+- No fabricated data, dead controls, placeholder names, or unshipped features. Absent capability renders `Not configured`.
+- AI preparation and human decision authority live in separate containers; every actionable AI assertion carries a citation that opens its source.
+- Workflow state and its label come from the vocabulary table in the workflow legibility contract, which is derived from the Domain enums.
+
+Clear the 27-point checklist in `docs/03-design-architecture/iip_ui_craft_guardrails.md` §8 before reporting a UI change complete, and actually open the screen in a browser at 1280px and 768px rather than inferring how it looks.
+
 ## While working
 
 - Implement the smallest coherent forward change. Do not add a competing architecture, hidden fallback or unrelated cleanup.

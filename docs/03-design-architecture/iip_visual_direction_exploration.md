@@ -1,5 +1,7 @@
 # IIP Visual Direction Exploration
 
+> **CLOSED — 2026-09-08.** The direction question this document opened has been decided. None of the three concepts below was selected; the approved direction is recorded in [`iip_design_language_v2.md`](iip_design_language_v2.md), a calm border-led operations console derived from the Bevaya reference in [`reference/`](reference/). The accessibility and evidence-traceability criteria in this exploration and in `iip_visual_direction_review.md` are carried forward into the new language and still apply. Retained for history only — do not implement from it.
+
 **Status:** concept exploration — no visual direction approved or production implementation implied.
 **Decision needed:** select one complete visual world; do not combine fragments of the three.
 

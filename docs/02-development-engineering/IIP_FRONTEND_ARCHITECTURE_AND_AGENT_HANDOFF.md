@@ -1,5 +1,8 @@
 # IIP Frontend Architecture & Agent Handoff
 
+> **VISUAL GUIDANCE SUPERSEDED — 2026-09-08.** Palette, typography, spacing, components, shell chrome, and navigation structure in this document are replaced by the approved design language. Start at [`DESIGN.md`](../../DESIGN.md), then [`iip_design_language_v2.md`](../03-design-architecture/iip_design_language_v2.md) and [`iip_ux_cognitive_load_and_navigation_model.md`](../03-design-architecture/iip_ux_cognitive_load_and_navigation_model.md). This document remains valid for API-to-UI contracts, data flow, role behaviour, and screen responsibilities.
+
+
 **Product:** Insurance Intelligence Platform (IIP)  
 **Purpose:** Internal insurance operations workspace for insurer staff  
 **Audience:** Coding agents, frontend engineers, product designers, QA reviewers  

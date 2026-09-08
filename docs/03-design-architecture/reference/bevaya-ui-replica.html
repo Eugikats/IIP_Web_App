@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bevaya UI Replica — Reference Build</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#5B2AE8;
+    --purple-light:#7C57EE;
+    --purple-orb-1:#BCACF9;
+    --purple-orb-2:#5B2AE8;
+    --purple-orb-3:#3C1AA3;
+    --text-dark:#101828;
+    --text-muted:#525C6E;
+    --text-faint:#98A2B3;
+    --border-light:#ECEEF2;
+    --border-input:#DDE1E8;
+    --border-pill:#E5E7EB;
+    --bg-page:#F5F6F8;
+    --bg-white:#FFFFFF;
+    --green:#17B26A;
+    --green-text:#067647;
+    --red:#F04438;
+    --red-text:#D92D20;
+    --orange:#F79009;
+    --radius-card:12px;
+    --radius-btn:8px;
+    --radius-pill:9999px;
+    --font:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:var(--font);
+    background:var(--bg-page);
+    color:var(--text-dark);
+    font-size:14px;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  /* ============ APP SHELL ============ */
+  .app{
+    display:flex;
+    height:100vh;
+    overflow:hidden;
+  }
+
+  /* ---- 64px icon rail ---- */
+  .rail{
+    width:64px;
+    flex:0 0 64px;
+    background:var(--bg-white);
+    border-right:1px solid var(--border-light);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:14px 0;
+  }
+  .rail-logo{
+    width:32px;height:32px;border-radius:8px;
+    background:var(--purple);
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:800;font-size:12px;letter-spacing:.3px;
+    margin-bottom:18px;
+  }
+  .rail-org{
+    width:40px;height:40px;border-radius:10px;
+    background:var(--purple);
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:800;font-size:13px;
+    margin-bottom:16px;cursor:pointer;position:relative;
+    border:none;
+  }
+  .rail-org::after{
+    content:"";
+    position:absolute; bottom:-2px; right:-2px;
+    width:14px;height:14px;border-radius:50%;
+    background:#fff; border:2px solid #fff;
+    display:flex;
+  }
+  .rail-nav{
+    display:flex;flex-direction:column;gap:4px;
+    flex:1;width:100%;align-items:center;
+    padding-top:6px;
+  }
+  .rail-btn{
+    width:40px;height:40px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    background:transparent;border:none;color:var(--text-faint);
+    position:relative;
+  }
+  .rail-btn svg{width:19px;height:19px;stroke-width:1.8;}
+  .rail-btn:hover{background:var(--bg-page);color:var(--text-muted);}
+  .rail-btn.active{background:#F1ECFE;color:var(--purple);}
+  .rail-bottom{display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:10px;}
+  .rail-avatar{
+    width:34px;height:34px;border-radius:50%;
+    background:#1D2939;color:#fff;font-weight:700;font-size:12px;
+    display:flex;align-items:center;justify-content:center;position:relative;
+  }
+  .rail-avatar::after{
+    content:"";position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;
+    border-radius:50%;background:var(--green);border:2px solid #fff;
+  }
+
+  /* ---- main region ---- */
+  .region{flex:1;display:flex;min-width:0;height:100vh;overflow:hidden;}
+
+  /* generic side panel (conversation history / settings nav) */
+  .panel{
+    width:256px;flex:0 0 256px;background:var(--bg-white);
+    border-right:1px solid var(--border-light);
+    display:flex;flex-direction:column;overflow-y:auto;
+  }
+  .panel-header{
+    padding:16px 16px 10px;font-size:11px;font-weight:700;letter-spacing:.06em;
+    color:var(--text-faint);text-transform:uppercase;
+  }
+  .panel-title{
+    display:flex;align-items:center;gap:8px;
+    padding:14px 16px 8px;font-weight:800;font-size:12px;letter-spacing:.04em;
+    color:var(--text-muted);text-transform:uppercase;
+  }
+
+  .main{flex:1;overflow-y:auto;background:var(--bg-page);}
+  .main-inner{max-width:960px;padding:28px 32px 60px;}
+  .main-inner.wide{max-width:1040px;}
+
+  .crumbs{font-size:13px;color:var(--text-faint);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  .crumbs b{color:var(--text-dark);font-weight:600;}
+  .h1{font-size:23px;font-weight:700;letter-spacing:-.4px;margin:0 0 4px;display:flex;align-items:center;gap:10px;}
+  .subtle{color:var(--text-muted);font-size:14px;line-height:1.5;margin:0 0 22px;}
+  .eyebrow{font-size:11px;font-weight:700;color:var(--purple);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
+
+  .page-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:4px;}
+
+  /* ---- cards ---- */
+  .card{
+    background:var(--bg-white);border:1px solid var(--border-light);
+    border-radius:var(--radius-card);padding:16px 20px;
+  }
+  .card + .card{margin-top:16px;}
+  .card-title{font-weight:700;font-size:15px;margin:0 0 2px;}
+  .card-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--border-light);
+  }
+  .card-header h3{margin:0;font-size:15px;font-weight:700;}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .stat-card{background:var(--bg-white);border:1px solid var(--border-light);border-radius:var(--radius-card);padding:16px 20px;}
+  .stat-label{color:var(--text-muted);font-size:13.5px;margin-bottom:8px;}
+  .stat-num{font-size:30px;font-weight:700;color:var(--text-dark);}
+  .stat-num.red{color:var(--red-text);}
+  .stat-num.green{color:var(--green-text);}
+  .stat-num.blue{color:#175CD3;}
+  .stat-num.orange{color:#B54708;}
+
+  /* ---- buttons ---- */
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;
+    border-radius:var(--radius-btn);font-weight:700;font-size:13px;
+    padding:9px 16px;border:1px solid transparent;white-space:nowrap;
+  }
+  .btn-primary{background:var(--purple);color:#fff;box-shadow:0 1px 2px rgba(91,42,232,.25);}
+  .btn-primary:hover{background:#4c22c9;}
+  .btn-secondary{background:#fff;color:var(--text-dark);border-color:var(--border-input);font-weight:600;}
+  .btn-secondary:hover{background:var(--bg-page);}
+  .btn-ghost{background:transparent;color:var(--text-muted);font-weight:600;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn svg{width:14px;height:14px;}
+
+  /* ---- pills / badges ---- */
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    border:1px solid var(--border-pill);border-radius:var(--radius-pill);
+    padding:3px 10px;font-size:12px;font-weight:500;color:var(--text-dark);
+    background:#fff;
+  }
+  .dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;}
+  .dot.red{background:var(--red);}
+  .dot.orange{background:var(--orange);}
+  .dot.green{background:var(--green);}
+
+  /* ---- inputs ---- */
+  .field{margin-bottom:0;}
+  .field label{display:block;font-weight:700;font-size:13.5px;margin-bottom:4px;}
+  .field .hint{color:var(--text-faint);font-size:12.5px;margin-bottom:6px;}
+  .input{
+    width:100%;border:1px solid var(--border-input);border-radius:var(--radius-btn);
+    padding:9px 12px;font-size:14px;color:var(--text-dark);background:#fff;
+  }
+  .input:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(91,42,232,.12);}
+  .input[disabled]{background:#F9FAFB;color:var(--text-faint);}
+  .input-icon-wrap{position:relative;}
+  .input-icon-wrap svg{position:relative;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--text-faint);pointer-events:none;position:absolute;}
+  .input-icon-wrap input{padding-left:36px;}
+
+  /* ---- toggle switch ---- */
+  .switch{
+    position:relative;display:inline-block;width:36px;height:20px;flex:0 0 auto;
+    border-radius:999px;background:#E4E7EC;border:none;transition:.15s;
+  }
+  .switch::after{
+    content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;
+    border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:.15s;
+  }
+  .switch.on{background:var(--purple);}
+  .switch.on::after{left:18px;}
+
+  /* ============ SCREENS ============ */
+  .screen{display:none;height:100%;}
+  .screen.active{display:flex;}
+
+  /* --- Conversation / Assistant --- */
+  .conv-panel .new-conv{
+    margin:14px 16px 12px;padding:10px 12px;border:1px solid var(--border-input);
+    border-radius:10px;font-weight:700;font-size:13.5px;color:var(--text-dark);
+    background:#fff;display:flex;align-items:center;gap:8px;
+  }
+  .conv-item{
+    padding:10px 16px;font-size:13.5px;color:var(--text-muted);cursor:pointer;
+    border-left:3px solid transparent;
+  }
+  .conv-item:hover{background:var(--bg-page);}
+  .conv-item.active{background:#F5F3FF;color:var(--purple);font-weight:600;border-left-color:var(--purple);}
+
+  .conv-main{flex:1;display:flex;flex-direction:column;background:#fff;}
+  .conv-scroll{flex:1;overflow-y:auto;padding:28px 32px;}
+  .conv-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px;}
+  .orb{
+    width:64px;height:64px;border-radius:50%;
+    background:radial-gradient(circle at 32% 28%, var(--purple-orb-1), var(--purple-orb-2) 55%, var(--purple-orb-3));
+    box-shadow:0 12px 30px -8px rgba(91,42,232,.55);
+  }
+  .conv-empty h2{font-size:26px;font-weight:800;margin:0;}
+  .conv-empty p.lead{color:var(--text-muted);font-size:15px;margin:0;}
+  .suggest-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:520px;}
+  .suggest-chip{
+    border:1px solid var(--border-input);background:#fff;border-radius:10px;
+    padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--text-dark);
+    display:flex;align-items:center;gap:8px;
+  }
+  .suggest-chip:hover{border-color:var(--purple);}
+  .suggest-chip svg{width:15px;height:15px;color:var(--purple);}
+
+  .msg-row{display:flex;margin-bottom:16px;}
+  .msg-row.user{justify-content:flex-end;}
+  .msg-bubble.user{
+    background:var(--purple);color:#fff;border-radius:16px 16px 4px 16px;
+    padding:11px 18px;font-weight:600;font-size:14px;max-width:70%;
+  }
+  .msg-row.ai{align-items:flex-start;gap:10px;}
+  .ai-icon{
+    width:26px;height:26px;border-radius:7px;background:#F1ECFE;color:var(--purple);
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px;
+  }
+  .ai-icon svg{width:14px;height:14px;}
+  .msg-bubble.ai{
+    background:#fff;border:1px solid var(--border-light);border-radius:4px 16px 16px 16px;
+    padding:16px 20px;font-size:14px;line-height:1.65;color:var(--text-dark);max-width:78%;
+  }
+  .msg-bubble.ai ul{margin:6px 0;padding-left:18px;}
+  .msg-bubble.ai b{font-weight:700;}
+
+  .composer{border-top:1px solid var(--border-light);padding:16px 32px 20px;}
+  .composer-box{
+    border:1px solid var(--border-input);border-radius:14px;padding:12px 14px;background:#fff;
+  }
+  .composer-box.focused{border-color:var(--purple);box-shadow:0 0 0 3px rgba(91,42,232,.12);}
+  .composer-input{
+    border:none;outline:none;width:100%;font-size:14px;font-family:inherit;
+    resize:none;min-height:22px;color:var(--text-dark);
+  }
+  .composer-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px;}
+  .composer-icons{display:flex;gap:12px;color:var(--text-faint);}
+  .composer-icons svg{width:17px;height:17px;}
+  .send-btn{
+    width:32px;height:32px;border-radius:8px;background:#E4E1F7;border:none;
+    display:flex;align-items:center;justify-content:center;color:#fff;
+  }
+  .send-btn.ready{background:var(--purple);}
+  .send-btn svg{width:15px;height:15px;}
+  .composer-note{text-align:center;font-size:11.5px;color:var(--text-faint);margin-top:10px;}
+
+  /* --- Organizations / Workspaces --- */
+  .ws-toolbar{display:flex;gap:10px;margin-bottom:18px;}
+  .select-like{
+    display:flex;align-items:center;gap:6px;border:1px solid var(--border-input);
+    border-radius:var(--radius-btn);padding:9px 12px;font-size:13.5px;font-weight:600;background:#fff;color:var(--text-dark);
+  }
+  .select-like svg{width:14px;height:14px;color:var(--text-faint);}
+
+  .ws-row{
+    display:flex;align-items:center;justify-content:space-between;
+    background:#fff;border:1px solid var(--border-light);border-radius:var(--radius-card);
+    padding:18px 22px;margin-bottom:14px;
+  }
+  .ws-left{display:flex;align-items:center;gap:14px;}
+  .ws-icon{width:38px;height:38px;border-radius:9px;background:#F1ECFE;color:var(--purple);display:flex;align-items:center;justify-content:center;}
+  .ws-icon svg{width:18px;height:18px;}
+  .ws-name{font-weight:700;font-size:15px;display:flex;align-items:center;gap:10px;}
+  .ws-meta{color:var(--text-muted);font-size:13px;margin-top:3px;}
+  .manage-link{display:flex;align-items:center;gap:4px;color:var(--purple);font-weight:700;font-size:13.5px;}
+  .manage-link svg{width:14px;height:14px;}
+
+  /* org switcher popover */
+  .popover-backdrop{
+    position:fixed;inset:0;background:transparent;display:none;z-index:40;
+  }
+  .popover-backdrop.show{display:block;}
+  .org-popover{
+    position:fixed;top:60px;left:60px;width:320px;max-height:520px;overflow-y:auto;
+    background:#fff;border:1px solid var(--border-light);border-radius:14px;
+    box-shadow:0 20px 40px -12px rgba(16,24,40,.22);z-index:41;display:none;
+  }
+  .org-popover.show{display:block;}
+  .org-popover-current{padding:16px;border-bottom:1px solid var(--border-light);}
+  .op-label{font-size:10.5px;font-weight:700;color:var(--text-faint);letter-spacing:.06em;margin-bottom:8px;}
+  .op-current-row{display:flex;align-items:center;gap:10px;}
+  .op-org-sq{width:34px;height:34px;border-radius:9px;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;}
+  .op-org-name{font-weight:700;font-size:14px;}
+  .op-org-sub{font-size:12.5px;color:var(--text-muted);}
+  .op-search{margin:12px 14px;}
+  .op-group-label{padding:10px 16px 4px;font-size:11px;font-weight:700;color:var(--text-faint);letter-spacing:.04em;display:flex;justify-content:space-between;}
+  .op-row{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;font-size:13.5px;}
+  .op-row:hover{background:var(--bg-page);}
+  .op-row-left{display:flex;align-items:center;gap:8px;color:var(--text-dark);}
+  .op-row-left svg{width:14px;height:14px;color:var(--text-faint);}
+  .op-count{color:var(--text-faint);font-size:12px;}
+  .check{color:var(--purple);}
+
+  /* --- Modal (New workspace) --- */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(16,24,40,.45);display:none;
+    align-items:center;justify-content:center;z-index:50;
+  }
+  .modal-backdrop.show{display:flex;}
+  .modal{
+    width:460px;max-width:92vw;background:#fff;border-radius:16px;
+    box-shadow:0 24px 60px -12px rgba(16,24,40,.35);overflow:hidden;
+  }
+  .modal-head{padding:20px 22px;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:flex-start;}
+  .modal-head h3{margin:0 0 4px;font-size:17px;font-weight:800;}
+  .modal-head p{margin:0;color:var(--text-muted);font-size:13.5px;}
+  .modal-close{background:none;border:none;color:var(--text-faint);font-size:18px;line-height:1;padding:4px;}
+  .modal-body{padding:20px 22px;display:flex;flex-direction:column;gap:16px;}
+  .modal-foot{padding:16px 22px;border-top:1px solid var(--border-light);display:flex;justify-content:flex-end;gap:10px;}
+  .swatch-row{display:flex;gap:8px;}
+  .swatch{width:28px;height:28px;border-radius:8px;cursor:pointer;border:2px solid transparent;}
+  .swatch.selected{border-color:var(--text-dark);}
+
+  /* --- Settings --- */
+  .settings-nav-section{margin-bottom:18px;}
+  .settings-link{
+    display:flex;align-items:center;gap:10px;padding:8px 12px;margin:0 8px;
+    border-radius:8px;font-size:13.5px;font-weight:600;color:var(--text-muted);
+  }
+  .settings-link svg{width:16px;height:16px;}
+  .settings-link:hover{background:var(--bg-page);}
+  .settings-link.active{background:#F5F3FF;color:var(--purple);}
+  .settings-link .soon{margin-left:auto;font-size:10px;font-weight:700;color:var(--text-faint);background:var(--bg-page);border:1px solid var(--border-light);padding:1px 6px;border-radius:6px;}
+
+  table{width:100%;border-collapse:collapse;}
+  th{
+    text-align:left;font-size:11.5px;font-weight:700;color:var(--text-faint);
+    text-transform:uppercase;letter-spacing:.04em;padding:0 8px 10px;border-bottom:1px solid var(--border-light);
+  }
+  td{padding:12px 8px;border-bottom:1px solid var(--border-light);font-size:13.5px;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .avatar-sm{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;flex:0 0 auto;}
+  .member-cell{display:flex;align-items:center;gap:10px;}
+  .member-name{font-weight:600;}
+  .member-email{color:var(--text-faint);font-size:12.5px;}
+  .role-pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;}
+  .role-dot{width:6px;height:6px;border-radius:50%;}
+
+  .notif-table{width:100%;border-collapse:collapse;}
+  .notif-table th{padding-bottom:12px;}
+  .notif-table td{padding:16px 8px;border-top:1px solid var(--border-light);}
+  .notif-event{font-weight:700;font-size:13.5px;}
+  .notif-desc{color:var(--text-muted);font-size:12.5px;margin-top:2px;}
+  .notif-table td.center{text-align:center;}
+
+  .session-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--border-light);}
+  .session-row:first-child{border-top:none;padding-top:4px;}
+  .session-left{display:flex;align-items:center;gap:12px;}
+  .session-icon{width:34px;height:34px;border-radius:8px;background:var(--bg-page);display:flex;align-items:center;justify-content:center;color:var(--text-muted);}
+  .session-icon svg{width:17px;height:17px;}
+  .session-name{font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:8px;}
+  .session-meta{color:var(--text-faint);font-size:12.5px;margin-top:2px;}
+  .device-tag{background:#F5F3FF;color:var(--purple);font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;}
+  .revoke{color:var(--red-text);font-weight:700;font-size:13px;background:none;border:none;}
+  .status-pill{display:inline-flex;align-items:center;gap:6px;background:#ECFDF3;color:var(--green-text);font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;}
+
+  /* Items */
+  .filter-tabs{display:flex;gap:8px;margin:16px 0 20px;flex-wrap:wrap;}
+  .filter-tab{
+    border:1px solid var(--border-input);background:#fff;border-radius:999px;
+    padding:8px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;color:var(--text-dark);
+  }
+  .filter-tab .count{color:var(--text-faint);font-weight:700;font-size:12px;}
+  .filter-tab.active{background:#F5F3FF;border-color:#DCD1FB;color:var(--purple-light);}
+  .filter-tab.active .count{color:var(--purple-light);}
+
+  .item-row{padding:14px 4px;border-top:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;gap:14px;}
+  .item-row:first-child{border-top:none;}
+  .item-id{color:var(--purple);font-weight:600;font-size:13.5px;margin-right:8px;}
+  .item-title{font-weight:600;font-size:13.5px;}
+  .item-desc{color:var(--text-faint);font-size:12.5px;margin-top:3px;}
+
+  /* Agents */
+  .agent-card{background:#fff;border:1px solid var(--border-light);border-radius:var(--radius-card);padding:18px 20px;}
+  .agent-tag{background:#F1ECFE;color:var(--purple);font-size:11px;font-weight:800;padding:3px 8px;border-radius:6px;letter-spacing:.03em;}
+  .agent-name{font-weight:800;font-size:16px;margin:8px 0 10px;}
+  .agent-desc{color:var(--text-muted);font-size:13px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border-light);}
+  .agent-foot{display:flex;justify-content:space-between;align-items:flex-end;font-size:12.5px;color:var(--text-faint);}
+
+  /* Insights bars */
+  .bars{display:flex;align-items:flex-end;gap:16px;height:180px;padding:20px 4px 6px;}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end;}
+  .bar{width:100%;border-radius:8px 8px 4px 4px;background:linear-gradient(180deg,#8D6BF1,#5B2AE8);}
+  .bar-label{color:var(--text-faint);font-size:12px;font-weight:600;}
+
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:#D7DAE0;border-radius:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ICON RAIL -->
+  <div class="rail">
+    <div class="rail-logo">B</div>
+    <button class="rail-org" onclick="toggleOrgPopover(event)">AI</button>
+    <div class="rail-nav">
+      <button class="rail-btn" data-screen="items" onclick="showScreen('items')" title="Items">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      </button>
+      <button class="rail-btn" data-screen="orgs" onclick="showScreen('orgs')" title="Organizations">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </button>
+      <button class="rail-btn active" data-screen="assistant" onclick="showScreen('assistant')" title="Assistant">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </button>
+      <button class="rail-btn" data-screen="items" onclick="showScreen('items')" title="Items">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6M9 16h6M9 8h6M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>
+      </button>
+      <button class="rail-btn" data-screen="agents" onclick="showScreen('agents')" title="AI Agents">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M9 10h.01M15 10h.01M9 15h6"/></svg>
+      </button>
+      <button class="rail-btn" data-screen="agents" onclick="showScreen('agents')" title="Flows">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 8.5V15.5M8.3 6.9L15.7 10.7M8.3 17.1L15.7 13.3"/></svg>
+      </button>
+      <button class="rail-btn" data-screen="items" onclick="showScreen('items')" title="Review Queue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </button>
+      <button class="rail-btn" data-screen="insights" onclick="showScreen('insights')" title="Insights">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg>
+      </button>
+    </div>
+    <div class="rail-bottom">
+      <button class="rail-btn" data-screen="settings" onclick="showScreen('settings')" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="rail-btn" title="Create">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+      </button>
+      <div class="rail-avatar">HO</div>
+    </div>
+  </div>
+
+  <!-- ================= ASSISTANT / CONVERSATION ================= -->
+  <div class="region screen active" id="screen-assistant">
+    <div class="panel conv-panel">
+      <div class="panel-title" style="padding-top:16px;">Bevaya AI Assistant</div>
+      <button class="new-conv" onclick="newConversation()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        New Conversation
+      </button>
+      <div class="panel-header">Your conversations</div>
+      <div id="conv-list">
+        <div class="conv-item" data-conv="0">Items processed yesterday?</div>
+        <div class="conv-item" data-conv="1">Claims backlog summary</div>
+        <div class="conv-item" data-conv="2">Underwriting SLA check</div>
+        <div class="conv-item" data-conv="3">Require-Review breakdown</div>
+        <div class="conv-item" data-conv="4">Which flows failed overnight?</div>
+        <div class="conv-item" data-conv="5">Top reviewers by throughput</div>
+      </div>
+    </div>
+
+    <div class="conv-main">
+      <div class="conv-scroll" id="conv-scroll">
+        <div class="conv-empty" id="conv-empty">
+          <div class="orb"></div>
+          <h2>Good morning, Hazal,</h2>
+          <p class="lead">How can I help with your work today?</p>
+          <div class="suggest-row">
+            <button class="suggest-chip" onclick="askSuggested('Items processed yesterday?')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Items processed yesterday?
+            </button>
+            <button class="suggest-chip" onclick="askSuggested('Items in Require Review status?')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.86L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.86a2 2 0 0 0-3.4 0z"/></svg>
+              Items in Require Review status?
+            </button>
+            <button class="suggest-chip" onclick="askSuggested('Show items assigned to me')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+              Show items assigned to me
+            </button>
+          </div>
+        </div>
+
+        <div id="thread-view" style="display:none;">
+          <!-- messages injected by JS -->
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="composer-box" id="composer-box">
+          <textarea class="composer-input" id="composer-input" rows="1" placeholder="Ask me about your projects, flows, or workspace" oninput="onComposerInput()" onfocus="this.parentElement.classList.add('focused')" onblur="this.parentElement.classList.remove('focused')" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+          <div class="composer-row">
+            <div class="composer-icons">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>
+            </div>
+            <button class="send-btn" id="send-btn" onclick="sendMessage()">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="composer-note">Bevaya AI Assistant can make mistakes. Please double check your responses.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ORGANIZATIONS / WORKSPACES ================= -->
+  <div class="region screen" id="screen-orgs">
+    <div class="main">
+      <div class="main-inner wide">
+        <div class="crumbs">Settings &nbsp;›&nbsp; <b>Acme Ins.</b> &nbsp;›&nbsp; Workspaces</div>
+        <div class="eyebrow">Organization · Acme Ins.</div>
+        <div class="page-top">
+          <div>
+            <h1 class="h1">Workspaces <span style="font-size:14px;font-weight:600;color:var(--text-faint);">10 workspaces</span></h1>
+            <p class="subtle">Every line of business in this organization. Jump into one to manage its members, keys and AI agents.</p>
+          </div>
+          <button class="btn btn-primary" onclick="openNewWorkspace()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+            New workspace
+          </button>
+        </div>
+
+        <div class="ws-toolbar">
+          <div class="input-icon-wrap" style="flex:1;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input class="input" placeholder="Search workspaces...">
+          </div>
+          <div class="select-like">All statuses
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+
+        <div id="ws-list">
+          <!-- rows injected -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= WORKSPACE MEMBERS (Manage) ================= -->
+  <div class="region screen" id="screen-members">
+    <div class="panel">
+      <div class="settings-nav-section">
+        <div class="panel-header" style="padding-top:16px;">Workspace</div>
+        <a class="settings-link active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Members &amp; roles</a>
+        <a class="settings-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 7a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H9a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h6"/></svg>API key audit</a>
+        <a class="settings-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 4.5v9L12 20l-9-4.5v-9z"/></svg>Workspace variables</a>
+        <a class="settings-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="2"/></svg>AI Agents</a>
+      </div>
+      <div class="settings-nav-section">
+        <div class="panel-header">Organization · Acme Ins.</div>
+        <a class="settings-link" onclick="showScreen('orgs')" style="cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Workspaces</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="main-inner wide">
+        <div class="crumbs">Settings &nbsp;›&nbsp; Acme Ins. &nbsp;›&nbsp; Auto Liability &nbsp;›&nbsp; <b>Members &amp; roles</b></div>
+        <div class="eyebrow">Workspace · Auto Liability</div>
+        <div class="page-top">
+          <div>
+            <h1 class="h1">Members &amp; roles <span style="font-size:14px;font-weight:600;color:var(--text-faint);">8 members</span></h1>
+            <p class="subtle">People with access to this workspace and the roles that define what they can do.</p>
+          </div>
+          <button class="btn btn-primary">+ Invite member</button>
+        </div>
+        <div style="display:flex;gap:24px;border-bottom:1px solid var(--border-light);margin-bottom:16px;">
+          <div style="padding-bottom:10px;font-weight:700;font-size:13.5px;border-bottom:2px solid var(--purple);color:var(--purple);">Members</div>
+          <div style="padding-bottom:10px;font-weight:700;font-size:13.5px;color:var(--text-faint);">Roles</div>
+        </div>
+        <table>
+          <thead><tr><th>Member</th><th>Role in workspace</th><th>Status</th></tr></thead>
+          <tbody id="members-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ITEMS ================= -->
+  <div class="region screen" id="screen-items">
+    <div class="main">
+      <div class="main-inner wide">
+        <div class="crumbs">Acme Ins. · Auto Liability</div>
+        <h1 class="h1">All Items</h1>
+        <div class="filter-tabs">
+          <div class="filter-tab active">All AI Agents <span class="count">17</span></div>
+          <div class="filter-tab">FNOL Triage <span class="count">6</span></div>
+          <div class="filter-tab">Subrogation Recovery <span class="count">4</span></div>
+          <div class="filter-tab">Litigation Review <span class="count">7</span></div>
+        </div>
+        <div class="grid-2" style="margin-bottom:16px;">
+          <div class="stat-card"><div class="stat-label">Requires Review</div><div class="stat-num red">10</div></div>
+          <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-num">5</div></div>
+          <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-num green">2</div></div>
+          <div class="stat-card"><div class="stat-label">Exceptions</div><div class="stat-num orange">0</div></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;gap:10px;margin-bottom:14px;">
+            <div class="input-icon-wrap" style="flex:1;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input class="input" placeholder="Search items, IDs, reviewers...">
+            </div>
+            <div class="select-like">All statuses<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+          <div id="items-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= AI AGENTS ================= -->
+  <div class="region screen" id="screen-agents">
+    <div class="main">
+      <div class="main-inner wide">
+        <div class="crumbs">Acme Ins. · Auto Liability</div>
+        <div class="page-top">
+          <h1 class="h1">AI Agents <span style="font-size:13px;font-weight:700;color:var(--text-faint);border:1px solid var(--border-light);padding:2px 8px;border-radius:999px;">3 AI agents</span></h1>
+          <button class="btn btn-primary">+ New AI agent</button>
+        </div>
+        <div class="grid-2" style="margin:20px 0 20px;">
+          <div class="stat-card"><div class="stat-label">AI Agents</div><div class="stat-num">3</div></div>
+          <div class="stat-card"><div class="stat-label">Active</div><div class="stat-num green">2</div></div>
+          <div class="stat-card"><div class="stat-label">Items processed</div><div class="stat-num blue">1,482</div></div>
+          <div class="stat-card"><div class="stat-label">Requires review</div><div class="stat-num red">10</div></div>
+        </div>
+        <div class="grid-2" id="agents-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= INSIGHTS ================= -->
+  <div class="region screen" id="screen-insights">
+    <div class="main">
+      <div class="main-inner wide">
+        <div class="crumbs">Acme Ins. · Auto Liability</div>
+        <h1 class="h1">Insights</h1>
+        <p class="subtle" style="margin-bottom:20px;"></p>
+        <div class="grid-2" style="margin-bottom:16px;">
+          <div class="stat-card"><div class="stat-label">Items processed (30d)</div><div class="stat-num">1,499</div></div>
+          <div class="stat-card"><div class="stat-label">Auto-resolution rate</div><div class="stat-num" style="color:var(--purple);">86%</div></div>
+          <div class="stat-card"><div class="stat-label">Avg handle time</div><div class="stat-num blue">2.4m</div></div>
+          <div class="stat-card"><div class="stat-label">Exceptions</div><div class="stat-num orange">0</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Throughput — last 7 days</h3></div>
+          <div class="bars">
+            <div class="bar-col"><div class="bar" style="height:62%;"></div><div class="bar-label">M</div></div>
+            <div class="bar-col"><div class="bar" style="height:92%;"></div><div class="bar-label">T</div></div>
+            <div class="bar-col"><div class="bar" style="height:80%;"></div><div class="bar-label">W</div></div>
+            <div class="bar-col"><div class="bar" style="height:86%;"></div><div class="bar-label">T</div></div>
+            <div class="bar-col"><div class="bar" style="height:96%;"></div><div class="bar-label">F</div></div>
+            <div class="bar-col"><div class="bar" style="height:88%;"></div><div class="bar-label">S</div></div>
+            <div class="bar-col"><div class="bar" style="height:58%;"></div><div class="bar-label">S</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SETTINGS ================= -->
+  <div class="region screen" id="screen-settings">
+    <div class="panel">
+      <div class="panel-title" style="padding-top:16px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>
+        Settings
+      </div>
+      <div class="settings-nav-section">
+        <div class="panel-header">Personal</div>
+        <a class="settings-link" data-pane="profile" onclick="showPane('profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>Profile</a>
+        <a class="settings-link" data-pane="notifications" onclick="showPane('notifications')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Notifications</a>
+        <a class="settings-link" data-pane="security" onclick="showPane('security')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Security</a>
+        <a class="settings-link" data-pane="tokens" onclick="showPane('tokens')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>API tokens</a>
+        <a class="settings-link" data-pane="appearance" onclick="showPane('appearance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Appearance</a>
+      </div>
+      <div class="settings-nav-section">
+        <div class="panel-header">Workspace</div>
+        <a class="settings-link" onclick="showScreen('members')" style="cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Members &amp; roles</a>
+        <a class="settings-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 7a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H9a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h6"/></svg>API key audit</a>
+        <a class="settings-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 4.5v9L12 20l-9-4.5v-9z"/></svg>Workspace variables</a>
+        <a class="settings-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="2"/></svg>AI Agents</a>
+        <a class="settings-link" style="color:var(--text-faint);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>Flow defaults<span class="soon">Soon</span></a>
+      </div>
+      <div class="settings-nav-section">
+        <div class="panel-header">Organization · Bevaya Admin</div>
+        <a class="settings-link" onclick="showScreen('orgs')" style="cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Workspaces</a>
+        <a class="settings-link" style="color:var(--text-faint);">Audit log<span class="soon">Soon</span></a>
+        <a class="settings-link" style="color:var(--text-faint);">SSO<span class="soon">Soon</span></a>
+        <a class="settings-link" style="color:var(--text-faint);">Billing<span class="soon">Soon</span></a>
+      </div>
+      <div style="padding:8px 20px;">
+        <button class="btn btn-secondary" style="width:100%;justify-content:center;">+ Create organization</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="main-inner">
+
+        <!-- PROFILE PANE -->
+        <div class="pane" id="pane-profile">
+          <div class="eyebrow">Personal</div>
+          <h1 class="h1">Profile</h1>
+          <p class="subtle">Your identity across every organization and workspace you belong to.</p>
+          <div class="card">
+            <div class="card-header"><h3>Photo &amp; identity</h3></div>
+            <div style="display:flex;align-items:center;gap:16px;padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid var(--border-light);">
+              <div class="rail-avatar" style="width:56px;height:56px;font-size:18px;">HO</div>
+              <div>
+                <button class="btn btn-secondary">⭱ Upload new photo</button>
+                <div style="color:var(--text-faint);font-size:12px;margin-top:6px;">JPG, PNG or GIF · max 2 MB</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="field"><label>Full name</label><input class="input" value="Hazal Onal"></div>
+              <div class="field"><label>Job title</label><input class="input" value="Senior Flow Builder"></div>
+              <div class="field">
+                <label>Email address</label>
+                <div class="hint" style="margin-top:-2px;">Used for sign-in and notifications.</div>
+                <input class="input" value="hazal.onal@acme-ins.com" disabled style="margin-bottom:6px;">
+                <div style="display:flex;align-items:center;gap:6px;color:var(--text-faint);font-size:12.5px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  Managed by your organization · contact an admin to change
+                </div>
+              </div>
+              <div class="field"><label>Timezone</label>
+                <select class="input"><option>(GMT-05:00) Eastern — New York</option><option>(GMT+03:00) Nairobi</option></select>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+            <button class="btn btn-ghost">Cancel</button>
+            <button class="btn btn-primary" style="opacity:.6;">Save changes</button>
+          </div>
+        </div>
+
+        <!-- NOTIFICATIONS PANE -->
+        <div class="pane" id="pane-notifications" style="display:none;">
+          <div class="eyebrow">Personal</div>
+          <h1 class="h1">Notifications</h1>
+          <p class="subtle">Choose what reaches you, and where. These preferences follow you across workspaces.</p>
+          <div class="card">
+            <div class="card-header"><h3>Notify me about</h3></div>
+            <table class="notif-table">
+              <thead><tr><th>Event</th><th style="text-align:center;">Email</th><th style="text-align:center;">In-app</th></tr></thead>
+              <tbody id="notif-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SECURITY PANE -->
+        <div class="pane" id="pane-security" style="display:none;">
+          <div class="eyebrow">Personal</div>
+          <h1 class="h1">Security</h1>
+          <p class="subtle">Password, two-factor authentication, and active sessions.</p>
+          <div class="card">
+            <div class="card-header"><h3>Password</h3></div>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="field"><label>Current password</label><input class="input" type="password" value="••••••••••••"></div>
+              <div class="field"><label>New password</label><div class="hint">At least 12 characters, with a number and a symbol.</div><input class="input" placeholder="Enter new password"></div>
+              <div class="field"><label>Confirm new password</label><input class="input" placeholder="Re-enter new password"></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px;"><button class="btn btn-primary">Update password</button></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h3>Two-factor authentication</h3>
+              <span class="status-pill"><span class="dot green"></span>Enabled</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div class="session-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                <div><div class="session-name">Authenticator app</div><div class="session-meta">Configured · last verified today</div></div>
+              </div>
+              <button class="btn btn-secondary">Manage</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Active sessions</h3></div>
+            <div class="session-row">
+              <div class="session-left">
+                <div class="session-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></div>
+                <div><div class="session-name">MacBook Pro · Chrome <span class="device-tag">This device</span></div><div class="session-meta">New York, US · Active now</div></div>
+              </div>
+            </div>
+            <div class="session-row">
+              <div class="session-left">
+                <div class="session-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
+                <div><div class="session-name">iPhone 15 · Safari</div><div class="session-meta">New York, US · 2 hours ago</div></div>
+              </div>
+              <button class="revoke">Revoke</button>
+            </div>
+            <div class="session-row">
+              <div class="session-left">
+                <div class="session-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></div>
+                <div><div class="session-name">Windows PC · Edge</div><div class="session-meta">Jersey City, US · 4 days ago</div></div>
+              </div>
+              <button class="revoke">Revoke</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOKENS / APPEARANCE stubs -->
+        <div class="pane" id="pane-tokens" style="display:none;">
+          <div class="eyebrow">Personal</div><h1 class="h1">API tokens</h1>
+          <p class="subtle">Personal tokens used to authenticate requests you make outside the app.</p>
+          <div class="card" style="text-align:center;padding:40px 20px;color:var(--text-faint);">No personal API tokens yet.</div>
+        </div>
+        <div class="pane" id="pane-appearance" style="display:none;">
+          <div class="eyebrow">Personal</div><h1 class="h1">Appearance</h1>
+          <p class="subtle">Control how Bevaya looks on your screen.</p>
+          <div class="card">
+            <div class="card-header"><h3>Theme</h3></div>
+            <div style="display:flex;gap:12px;">
+              <div class="btn btn-secondary" style="background:#F5F3FF;border-color:var(--purple);color:var(--purple);">☀ Light</div>
+              <div class="btn btn-secondary">🌙 Dark</div>
+              <div class="btn btn-secondary">🖥 System</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ORG SWITCHER POPOVER -->
+<div class="popover-backdrop" id="popover-backdrop" onclick="closeOrgPopover()"></div>
+<div class="org-popover" id="org-popover">
+  <div class="org-popover-current">
+    <div class="op-label">CURRENT</div>
+    <div class="op-current-row">
+      <div class="op-org-sq">AI</div>
+      <div><div class="op-org-name">Acme Insurance Group</div><div class="op-org-sub">▤ Auto Liability</div></div>
+    </div>
+  </div>
+  <div class="op-search"><input class="input" placeholder="Find org or workspace..."></div>
+  <div class="op-group-label">Recents</div>
+  <div class="op-row"><div class="op-row-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>Personal Lines</div><span class="op-count">Vertex Mutual · 18 min ago</span></div>
+  <div class="op-row"><div class="op-row-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>Commercial Property</div><span class="op-count">Acme Ins. · 47 min ago</span></div>
+  <div class="op-group-label">Acme Insurance Group <span>10</span></div>
+  <div class="op-row"><div class="op-row-left">▤ Auto Liability</div><span class="check">✓</span></div>
+  <div class="op-row"><div class="op-row-left">▤ Commercial Property</div><span class="op-count">2 AI agents</span></div>
+  <div class="op-row"><div class="op-row-left">▤ Workers Compensation</div><span class="op-count">2 AI agents</span></div>
+  <div class="op-row"><div class="op-row-left">▤ General Liability</div><span class="op-count">1 AI agent</span></div>
+  <div class="op-group-label">Vertex Mutual Insurance <span>5</span></div>
+  <div class="op-row"><div class="op-row-left">▤ Personal Lines</div><span class="op-count">2 AI agents</span></div>
+  <div class="op-row"><div class="op-row-left">▤ Homeowners</div><span class="op-count">1 AI agent</span></div>
+</div>
+
+<!-- NEW WORKSPACE MODAL -->
+<div class="modal-backdrop" id="modal-backdrop" onclick="if(event.target===this)closeNewWorkspace()">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3>New workspace</h3>
+        <p>Add a new line of business to Acme Ins.</p>
+      </div>
+      <button class="modal-close" onclick="closeNewWorkspace()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Workspace name</label><input class="input" id="nw-name" placeholder="e.g. Excess Flood"></div>
+      <div class="field"><label>Line of business</label>
+        <select class="input"><option>Property</option><option>Casualty</option><option>Auto</option><option>Specialty</option></select>
+      </div>
+      <div class="field"><label>Accent color</label>
+        <div class="swatch-row">
+          <div class="swatch selected" style="background:#5B2AE8;"></div>
+          <div class="swatch" style="background:#175CD3;"></div>
+          <div class="swatch" style="background:#17B26A;"></div>
+          <div class="swatch" style="background:#F79009;"></div>
+          <div class="swatch" style="background:#F04438;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeNewWorkspace()">Cancel</button>
+      <button class="btn btn-primary" onclick="closeNewWorkspace()">Create workspace</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- DATA ---------------- */
+const workspaces = [
+  {name:"Auto Liability", status:"Active", agents:3, members:8},
+  {name:"Commercial Property", status:"Active", agents:2, members:5},
+  {name:"Workers Compensation", status:"Active", agents:2, members:3},
+  {name:"General Liability", status:"Active", agents:1, members:3},
+  {name:"Marine & Cargo", status:"Active", agents:1, members:2},
+  {name:"Cyber & Tech E&O", status:"Active", agents:1, members:2},
+  {name:"Professional Liability", status:"Active", agents:1, members:2},
+  {name:"Umbrella & Excess", status:"Active", agents:1, members:2},
+  {name:"Inland Marine", status:"Active", agents:1, members:2},
+  {name:"Specialty Auto (new)", status:"Setup", agents:0, members:1},
+];
+
+const members = [
+  {i:"HO",c:"#1D2939",name:"Hazal Onal",you:true,email:"hazal.onal@acme-ins.com",role:"Workspace Admin",rc:"#5B2AE8",status:"green"},
+  {i:"MW",c:"#175CD3",name:"Marcus Webb",email:"marcus.webb@acme-ins.com",role:"Flow Builder",rc:"#5B2AE8",status:"green"},
+  {i:"PN",c:"#B93815",name:"Priya Nair",email:"priya.nair@acme-ins.com",role:"Flow Builder",rc:"#5B2AE8",status:"green"},
+  {i:"ET",c:"#6941C6",name:"Ellen Tarca",email:"ellen.tarca@acme-ins.com",role:"Reviewer",rc:"#98A2B3",status:"green"},
+  {i:"LF",c:"#0E7490",name:"Livia Franci",email:"livia.franci@acme-ins.com",role:"Reviewer",rc:"#98A2B3",status:"green"},
+  {i:"DR",c:"#0F766E",name:"Daniel Roth",email:"daniel.roth@acme-ins.com",role:"Super Admin",rc:"#17B26A",status:"green"},
+  {i:"TB",c:"#854D0E",name:"Tom Becker",email:"tom.becker@external.io",role:"Reviewer",rc:"#98A2B3",status:"orange"},
+  {i:"JP",c:"#9F1239",name:"James Park",email:"james.park@acme-ins.com",role:"Flow Builder",rc:"#5B2AE8",status:"gray"},
+];
+
+const notifRows = [
+  {e:"Items assigned to me for review", d:"When a work item is routed to you.", email:true, app:true},
+  {e:"Flow exceptions & failures", d:"A flow you own throws an exception.", email:true, app:true},
+  {e:"Mentions & comments", d:"Someone @mentions you on an item.", email:false, app:true},
+  {e:"Deployments", d:"A flow you contribute to is deployed.", email:false, app:true},
+  {e:"Weekly summary digest", d:"Monday rollup of workspace activity.", email:true, app:false},
+];
+
+const items = [
+  {id:"ROL-7100",t:"Pinewood HVAC — Stated → AcrossCountry Rollover",d:"Stated non-renewal · 287-page policy · 3 critical gaps surfaced",s:"red",st:"Requires Review"},
+  {id:"CLM-7731",t:"Marcus Anderson BI — Reassignment",d:"Misrouted by mailroom as correspondence · AI rerouted to adjuster · $9M policy-limits",s:"red",st:"Requires Review"},
+  {id:"SUB-4471",t:"Kings County Property Management LLC",d:"CP + GL submission for 3 Brooklyn/Queens properties, $1.2M TIV",s:"orange",st:"In Review"},
+  {id:"SUB-4601",t:"Acme Manufacturing LLC",d:"CP + BI submission for 3 metal-fabrication locations (IL/IN/WI), $18.5M TIV",s:"orange",st:"In Review"},
+  {id:"CI-8801",t:"Smith v. Stoltz Trucking — Inbound Demand Package",d:"6 components classified · 1 low-confidence flag · CLM-2024-118827",s:"red",st:"Requires Review"},
+  {id:"SUB-4418",t:"Bayview Construction Group",d:"General Liability — quote bound and issued, clearance passed",s:"green",st:"Completed"},
+];
+
+const agents = [
+  {tag:"FNOL",name:"FNOL Triage",desc:"First-notice-of-loss intake & routing",review:5,itemsN:"1,284",pct:"86%"},
+  {tag:"Subro",name:"Subrogation Recovery",desc:"Recovery letter generation & tracking",review:5,itemsN:"198",pct:"86%"},
+];
+
+const convThreads = [
+  {q:"Items processed yesterday?", a:"Yesterday, <b>1,284 items</b> were processed across your workspaces:<ul><li><b>96%</b> completed straight-through with no human touch</li><li><b>4%</b> (51 items) were routed for review</li><li>Median handling time was <b>38 seconds</b></li></ul>Claims led volume (612), followed by Underwriting submissions (430) and Policy Servicing (242)."},
+  {q:"Claims backlog summary", a:"Across your workspaces, agents are running normally with no failed flows in the last 24 hours.<ul><li>Straight-through processing is holding around <b>96%</b>.</li><li>Nothing is breaching SLA at the moment.</li></ul>Ask me about a specific flow, workspace, or work item and I can go deeper."},
+];
+
+/* ---------------- RENDER ---------------- */
+function renderWorkspaces(){
+  const el = document.getElementById('ws-list');
+  el.innerHTML = workspaces.map(w => `
+    <div class="ws-row">
+      <div class="ws-left">
+        <div class="ws-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 4.5v9L12 20l-9-4.5v-9z"/></svg></div>
+        <div>
+          <div class="ws-name">${w.name} <span class="pill"><span class="dot ${w.status==='Active'?'green':'orange'}"></span>${w.status}</span></div>
+          <div class="ws-meta">${w.agents} AI agent${w.agents===1?'':'s'} · ${w.members} member${w.members===1?'':'s'}</div>
+        </div>
+      </div>
+      <a class="manage-link" onclick="showScreen('members')" style="cursor:pointer;">Manage <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></a>
+    </div>`).join('');
+}
+
+function renderMembers(){
+  const el = document.getElementById('members-tbody');
+  el.innerHTML = members.map(m => `
+    <tr>
+      <td><div class="member-cell"><div class="avatar-sm" style="background:${m.c}">${m.i}</div><div><div class="member-name">${m.name}${m.you?' <span style=\"color:var(--text-faint);font-weight:500;\">You</span>':''}</div><div class="member-email">${m.email}</div></div></div></td>
+      <td><span class="role-pill"><span class="role-dot" style="background:${m.rc}"></span>${m.role}</span></td>
+      <td><span class="dot ${m.status}" style="display:inline-block;"></span></td>
+    </tr>`).join('');
+}
+
+function renderNotifications(){
+  const el = document.getElementById('notif-tbody');
+  el.innerHTML = notifRows.map((r,i) => `
+    <tr>
+      <td><div class="notif-event">${r.e}</div><div class="notif-desc">${r.d}</div></td>
+      <td class="center"><button class="switch ${r.email?'on':''}" onclick="this.classList.toggle('on')"></button></td>
+      <td class="center"><button class="switch ${r.app?'on':''}" onclick="this.classList.toggle('on')"></button></td>
+    </tr>`).join('');
+}
+
+function renderItems(){
+  const el = document.getElementById('items-list');
+  el.innerHTML = items.map(it => `
+    <div class="item-row">
+      <div>
+        <div><span class="item-id">${it.id}</span><span class="item-title">${it.t}</span></div>
+        <div class="item-desc">${it.d}</div>
+      </div>
+      <span class="pill"><span class="dot ${it.s}"></span>${it.st}</span>
+    </div>`).join('');
+}
+
+function renderAgents(){
+  const el = document.getElementById('agents-grid');
+  el.innerHTML = agents.map(a => `
+    <div class="agent-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <span class="agent-tag">${a.tag}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-faint)"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+      <div class="agent-name">${a.name}</div>
+      <span class="status-pill" style="margin-bottom:10px;"><span class="dot green"></span>Active</span>
+      <div class="agent-desc" style="margin-top:10px;">${a.desc}</div>
+      <div class="agent-foot">
+        <div><div class="stat-num red" style="font-size:22px;">${a.review}</div>Requires review</div>
+        <div style="text-align:right;">Items <b style="color:var(--text-dark)">${a.itemsN}</b><br>% by agent <b style="color:var(--purple)">${a.pct}</b></div>
+      </div>
+    </div>`).join('');
+}
+
+renderWorkspaces();
+renderMembers();
+renderNotifications();
+renderItems();
+renderAgents();
+
+/* ---------------- NAV ---------------- */
+function showScreen(name){
+  document.querySelectorAll('.region.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.querySelectorAll('.rail-btn').forEach(b=>b.classList.remove('active'));
+  const btn = document.querySelector('.rail-btn[data-screen="'+name+'"]');
+  if(btn) btn.classList.add('active');
+  closeOrgPopover();
+}
+function showPane(name){
+  document.querySelectorAll('.pane').forEach(p=>p.style.display='none');
+  document.getElementById('pane-'+name).style.display='block';
+  document.querySelectorAll('.settings-link[data-pane]').forEach(l=>l.classList.remove('active'));
+  document.querySelector('.settings-link[data-pane="'+name+'"]').classList.add('active');
+}
+
+/* ---------------- ORG POPOVER ---------------- */
+function toggleOrgPopover(e){
+  e.stopPropagation();
+  document.getElementById('org-popover').classList.toggle('show');
+  document.getElementById('popover-backdrop').classList.toggle('show');
+}
+function closeOrgPopover(){
+  document.getElementById('org-popover').classList.remove('show');
+  document.getElementById('popover-backdrop').classList.remove('show');
+}
+
+/* ---------------- NEW WORKSPACE MODAL ---------------- */
+function openNewWorkspace(){ document.getElementById('modal-backdrop').classList.add('show'); }
+function closeNewWorkspace(){
+  const name = document.getElementById('nw-name').value.trim();
+  if(name){
+    workspaces.unshift({name:name, status:"Setup", agents:0, members:1});
+    renderWorkspaces();
+    document.getElementById('nw-name').value='';
+  }
+  document.getElementById('modal-backdrop').classList.remove('show');
+}
+document.querySelectorAll('.swatch').forEach(s=>{
+  s.addEventListener('click', ()=>{
+    document.querySelectorAll('.swatch').forEach(x=>x.classList.remove('selected'));
+    s.classList.add('selected');
+  });
+});
+
+/* ---------------- CONVERSATION ---------------- */
+function renderThread(qa){
+  const view = document.getElementById('thread-view');
+  view.innerHTML = `
+    <div class="msg-row user"><div class="msg-bubble user">${qa.q}</div></div>
+    <div class="msg-row ai">
+      <div class="ai-icon">✦</div>
+      <div class="msg-bubble ai">${qa.a}</div>
+    </div>`;
+  document.getElementById('conv-empty').style.display='none';
+  view.style.display='block';
+}
+document.querySelectorAll('.conv-item').forEach(item=>{
+  item.addEventListener('click', ()=>{
+    document.querySelectorAll('.conv-item').forEach(i=>i.classList.remove('active'));
+    item.classList.add('active');
+    const idx = +item.dataset.conv;
+    const qa = convThreads[idx] || {q:item.textContent, a:"Here's what I found — across your workspaces, agents are running normally with no failed flows in the last 24 hours."};
+    renderThread(qa);
+  });
+});
+function askSuggested(text){
+  var answer = "Here's what I found for <b>&ldquo;" + text + "&rdquo;</b>:<ul><li>Across your workspaces, agents are running normally with no failed flows in the last 24 hours.</li><li>Straight-through processing is holding around <b>96%</b>.</li><li>Nothing is breaching SLA at the moment.</li></ul>Ask me about a specific flow, workspace, or work item and I can go deeper.";
+  renderThread({q:text, a:answer});
+}
+function newConversation(){
+  document.querySelectorAll('.conv-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('thread-view').style.display='none';
+  document.getElementById('conv-empty').style.display='flex';
+}
+function onComposerInput(){
+  const val = document.getElementById('composer-input').value.trim();
+  document.getElementById('send-btn').classList.toggle('ready', val.length>0);
+}
+function sendMessage(){
+  const input = document.getElementById('composer-input');
+  const val = input.value.trim();
+  if(!val) return;
+  const view = document.getElementById('thread-view');
+  document.getElementById('conv-empty').style.display='none';
+  view.style.display='block';
+  view.innerHTML += `<div class="msg-row user"><div class="msg-bubble user">${val}</div></div>`;
+  document.getElementById('conv-scroll').scrollTop = 999999;
+  input.value='';
+  onComposerInput();
+  setTimeout(()=>{
+    view.innerHTML += `<div class="msg-row ai"><div class="ai-icon">✦</div><div class="msg-bubble ai">Here's what I found for <b>"${val}"</b>:<ul><li>Across your workspaces, agents are running normally with no failed flows in the last 24 hours.</li><li>Straight-through processing is holding around <b>96%</b>.</li><li>Nothing is breaching SLA at the moment.</li></ul>Ask me about a specific flow, workspace, or work item and I can go deeper.</div></div>`;
+    document.getElementById('conv-scroll').scrollTop = 999999;
+  }, 500);
+}
+</script>
+</body>
+</html>

@@ -1,5 +1,9 @@
 # IIP Information Architecture, Navigation, and Screen Inventory
 
+> **PARTIALLY SUPERSEDED — 2026-09-08.** The navigation-layer and shell-chrome content of this document (the grouped multi-section sidebar) is replaced by [`iip_ux_cognitive_load_and_navigation_model.md`](iip_ux_cognitive_load_and_navigation_model.md) §5, which defines a 64px icon rail of seven destinations plus a contextual panel, and maps every current destination to its new home in §5.3.
+>
+> This document **retains** authority over the canonical object model, route IDs, the route-to-label map, permission-derived visibility, the screen/state inventory, and the IA validation protocol. Where the two conflict on chrome, the navigation model wins; where they conflict on whether a route exists or who may see it, this document and current code win.
+
 | Field | Value |
 |---|---|
 | Version | 1.0 |

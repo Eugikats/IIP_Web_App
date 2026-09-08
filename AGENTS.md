@@ -7,6 +7,7 @@ Root instructions for coding agents. Keep this file short and durable: it protec
 - This section is the canonical repository authority index. Explicit user/maintainer instructions override repository guidance; the closest nested `AGENTS.md` wins for its subtree.
 - Product intent: `docs/01-strategy-requirements-roadmap/iip_master_product_context.md` and `docs/01-strategy-requirements-roadmap/iip_product_requirements_document.md`.
 - Current work order: `docs/08-program-plan/IIP-CONSOLIDATED-ROADMAP.md`.
+- UI and UX authority: `DESIGN.md` is the entry point and links the four owning documents (design language and tokens, cognitive-load and navigation model, workflow legibility contract, craft guardrails). Read it before changing any user-visible surface. It supersedes the visual guidance in `docs/03-design-architecture/iip_visual_design_system_and_tokens.md` and the navigation-layer content of `iip_information_architecture_navigation_and_screen_inventory.md`.
 - Architecture, UI, security, RBAC, deployment, and release detail live in their owning approved docs/ADRs under `docs/`.
 - Implementation truth is current code, tests, migrations, route mappings/OpenAPI, configuration validation, and `.github/workflows/ci.yml`.
 - `README.md`, `CONTRIBUTING.md`, `CLAUDE.md`, and `IIP_IMPLEMENTATION_GUARDRAILS.md` are supporting references and may contain snapshots. They do not restore superseded behavior.
@@ -22,6 +23,7 @@ Root instructions for coding agents. Keep this file short and durable: it protec
 - Sensitive reads, state changes, AI/provider actions, approvals, ingestion, communication, exports, and write-backs are auditable with safe metadata and correlation.
 - Protected runtimes never activate mocks, simulations, seeded business data, DevelopmentAuth, in-memory/SQLite persistence, fake sends/metrics, hardcoded insurer data, or fallback-to-mock. Missing capability is `Not configured`; empty data stays empty.
 - Policyholder/claimant-facing or unauthorized surfaces never expose internal notes, reserves, fraud/risk signals, prompts, secrets, raw provider errors, restricted audit detail, unsafe HTML, or other-tenant data.
+- User-visible surfaces obey `DESIGN.md`: AI preparation is visually separated from human decision authority, every actionable AI assertion carries a working citation, displayed workflow state matches the owning Domain enum and its canonical label, capability that is absent renders `Not configured`, and no surface renders fabricated data, dead controls, or unshipped features. Emojis are prohibited product-wide, in UI, code, model output rendered to users, commit messages, and documentation.
 - Never commit/log secrets, credentials, tokens, private keys, SAS URLs, or real customer evidence. Use managed identity, Key Vault, secure configuration, and least privilege.
 
 ## Change and modernization
@@ -52,9 +54,10 @@ Root instructions for coding agents. Keep this file short and durable: it protec
 2. Identify the requested outcome, owning module, current implementation, applicable docs/ADR, and verification path.
 3. Make the smallest coherent forward change; do not create a competing architecture or unrelated cleanup.
 4. Add/update tests for behavior, invalid input, authorization, tenant isolation, human boundaries, retries, and safe failure as relevant.
-5. Update owning docs/ADRs when contracts or decisions change; mark superseded guidance instead of leaving conflicts.
-6. Review the diff for legacy fallback, duplicate knowledge, secrets, cross-tenant risk, missing audit, unsafe AI authority, and unsupported claims.
-7. Run targeted checks during iteration and full affected-area checks before completion. Report actual results and skipped/manual work honestly.
+5. For user-visible changes, work from `DESIGN.md` and its owning documents, then clear the pre-merge checklist in `docs/03-design-architecture/iip_ui_craft_guardrails.md` before completion. Open the screen in a browser; do not infer appearance from code.
+6. Update owning docs/ADRs when contracts or decisions change; mark superseded guidance instead of leaving conflicts.
+7. Review the diff for legacy fallback, duplicate knowledge, secrets, cross-tenant risk, missing audit, unsafe AI authority, and unsupported claims.
+8. Run targeted checks during iteration and full affected-area checks before completion. Report actual results and skipped/manual work honestly.
 
 ## Verified commands
 
