@@ -13,7 +13,7 @@ Never have two screens in flight.
 | 1 | 1 | `/app` | `lovable-pages/AIConversations.tsx` | Done | 2026-09-08 | `d493670` |
 | 2 | 1 | `/app/work-items` | `lovable-pages/ReviewWorkspace.tsx` (+ UniversalMyWork, AgentWorkItems, Workflows) | Done | 2026-09-08 | `364b45b` |
 | 3 | 1 | `/app/claims` | `lovable-pages/ClaimsQueue.tsx` | Done | 2026-09-08 | `083a07e` |
-| 4 | 1 | `/app/claims/[id]` | `lovable-pages/ClaimReview.tsx` | Not started | | |
+| 4 | 1 | `/app/claims/[id]` | `lovable-pages/ClaimReview.tsx` | Done | 2026-09-08 | `c272afc` |
 | 5 | 1 | `/app/claims/[id]/extraction` | `lovable-pages/DocumentExtraction.tsx` | Not started | | |
 | 6 | 1 | `/app/documents` | `lovable-pages/Documents.tsx` | Not started | | |
 | 7 | 1 | `/app/channels` | `lovable-pages/Channels.tsx` | Not started | | |
@@ -264,3 +264,51 @@ writing new markup for it.
 
   Screen 3 (`/app/claims`) is now marked **Done**. Resuming at screen 4
   (`/app/claims/[id]`).
+
+- 2026-09-08: screen 4 (`/app/claims/[id]`) — commit `c272afc`, preceded by
+  `GovernedActionDialog` migration (`47f1862`) and a real focus-return fix
+  (`d7c8952`). By far the largest screen on the ledger: `ClaimReview.tsx`
+  itself is 844 lines and composes 8 more files (~1,880 lines total) —
+  `CustomerUpdatePanel`, `ClaimReviewRequestsPanel`,
+  `CustomerUpdateGovernedDialog`, `PolicyQuestionPanel`, `CompletenessCard`,
+  `MotorLifecycle`, `DocumentUploadWidget`, `MarkdownText`. This is the
+  primary claim-review workspace — AI summary, evidence, completeness,
+  fraud signals, and every consequential action an officer takes on a claim.
+
+  `GovernedActionDialog` (the modal used for every consequential/audited
+  action: export claim pack, confirm claim, and 7 more call sites across
+  tiers 1/2/3/5) is used twice on this screen alone, so it was migrated
+  first as its own foundation-level fix per §8.14 (Modal) — panel width
+  460px/92vw max (was 560px), `--shadow-dls-modal` (the foundation slice's
+  `--shadow-drawer` variable, confirmed to hold the exact value the design
+  doc's §4 token table lists for `--shadow-modal`), ghost Cancel + primary/
+  destructive confirm via `Button`. Live-verifying it against this screen's
+  real "Export claim pack" trigger caught a genuine, pre-existing
+  accessibility bug: the focus-trap effect's dependency array included
+  `onClose` (a fresh closure every parent render), so any re-render of the
+  800-line host screen while the dialog was open re-captured "previousFocus"
+  from whatever was already focused inside the dialog, not the real trigger
+  — focus was landing on `<body>` after Escape instead of returning to the
+  trigger button. Fixed by capturing previousFocus in a ref set only on the
+  true open/close transition. Confirmed fixed live via
+  `document.activeElement` — this is exactly the kind of thing "keyboard
+  walk: Escape+focus-return" in the per-screen verification checklist exists
+  to catch, and it would have shipped broken across all 9 call sites without
+  the live check.
+
+  `useClaimReview` has a parity-mode synthetic fallback, so this screen was
+  verified end-to-end with real data, not just typecheck + error states —
+  confirmed the same claim (CLM-1048) shows "Ready for review" consistently
+  between this screen and the `/app/claims` list (both now correctly
+  translated via the `Primitives.tsx` vocabulary fix from screen 3's run).
+
+  Verified: `pnpm lint`, `pnpm exec tsc --noEmit` (clean across the full
+  9-file dependency tree plus all `GovernedActionDialog` callers), `check-
+  ui-release-gates.mjs`, `pnpm test` (all suites), `pnpm build` (compiles;
+  same pre-existing EPERM step) all pass. Browser-verified live at 1280px
+  and 768px on `/app/claims/CLM-1048`: every content card, the completeness
+  checklist, and the export-evidence-pack dialog all render correctly with
+  real synthetic data.
+
+  Screen 4 (`/app/claims/[id]`) is now marked **Done**. Resuming at screen 5
+  (`/app/claims/[id]/extraction`).
