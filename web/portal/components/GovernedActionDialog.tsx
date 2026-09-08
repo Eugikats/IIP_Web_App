@@ -48,9 +48,20 @@ export function GovernedActionDialog({
     }
   }, [open]);
 
+  // Captured only on the false->true transition, in its own effect keyed solely on `open` — the
+  // trap effect below re-runs whenever `onClose`/`isSubmitting` change (a new `onClose` closure
+  // on every parent render is normal), and re-deriving "previousFocus" from document.activeElement
+  // on one of those re-runs would capture an element already inside the dialog, not the real
+  // trigger, silently breaking focus-return to whatever the dialog itself last focused.
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (open) {
+      previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
     const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') ?? []);
     window.requestAnimationFrame(() => focusable()[0]?.focus());
@@ -71,7 +82,7 @@ export function GovernedActionDialog({
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
-      window.requestAnimationFrame(() => previousFocus?.focus());
+      window.requestAnimationFrame(() => previousFocusRef.current?.focus());
     };
   }, [isSubmitting, onClose, open]);
 
