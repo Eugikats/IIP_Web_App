@@ -43,8 +43,8 @@ function CustomerUpdateActionEvidence({ pendingAction }: { pendingAction: Pendin
   const update = pendingAction.update;
 
   return (
-    <div className="rounded-xl border border-line bg-mist p-4 text-sm leading-6 text-muted">
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Communication context</p>
+    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-sm leading-6 text-dls-text-secondary">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-dls-text-muted">Communication context</p>
       <dl className="mt-3 grid gap-2 sm:grid-cols-2">
         <EvidenceItem label="Channel" value={update.channel} />
         <EvidenceItem label="Status" value={update.status} />
@@ -57,9 +57,9 @@ function CustomerUpdateActionEvidence({ pendingAction }: { pendingAction: Pendin
           </>
         ) : null}
       </dl>
-      <div className="mt-3 rounded-lg border border-line bg-surface/70 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">Message preview</p>
-        <p className="mt-1 whitespace-pre-wrap text-ink">{update.messageBody}</p>
+      <div className="mt-3 rounded-dls-control border border-dls-border-subtle bg-dls-bg-page p-3">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-dls-text-muted">Message preview</p>
+        <p className="mt-1 whitespace-pre-wrap text-dls-text-primary">{update.messageBody}</p>
       </div>
     </div>
   );
@@ -68,8 +68,8 @@ function CustomerUpdateActionEvidence({ pendingAction }: { pendingAction: Pendin
 function EvidenceItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">{label}</dt>
-      <dd className="mt-1 break-words font-mono font-semibold text-ink">{value}</dd>
+      <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-dls-text-muted">{label}</dt>
+      <dd className="mt-1 break-words font-mono font-semibold text-dls-text-primary">{value}</dd>
     </div>
   );
 }

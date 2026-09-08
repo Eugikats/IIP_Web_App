@@ -1,4 +1,5 @@
 import { StatusBadge } from "./Badges";
+import { Button } from "@/components/ui/Button";
 import { allowsAction, blockedActionReason, type ActionStateContract } from "@/lib/actionState";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
 
@@ -33,7 +34,7 @@ export function CustomerUpdatePanel({
   getSendAvailability?: (update: CustomerUpdate) => ChannelSendAvailability;
 }) {
   if (updates.length === 0) {
-    return <p className="rounded-xl border border-dashed border-line bg-mist p-4 text-sm text-muted">No customer updates drafted yet.</p>;
+    return <p className="rounded-dls-card border border-dashed border-dls-border-subtle bg-dls-surface p-4 text-sm text-dls-text-muted">No customer updates drafted yet.</p>;
   }
 
   return (
@@ -46,34 +47,27 @@ export function CustomerUpdatePanel({
           : null;
 
         return (
-        <article key={update.updateId} className="rounded-xl border border-line bg-mist p-4 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-glow-cyan">
+        <article key={update.updateId} className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="font-semibold text-ink font-mono text-sm">{update.reasonCategory} / {update.channel}</p>
-              <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Updated {new Date(update.updatedAt).toLocaleString()}</p>
+              <p className="font-mono text-sm font-semibold text-dls-text-primary">{update.reasonCategory} / {update.channel}</p>
+              <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-dls-text-muted">Updated {new Date(update.updatedAt).toLocaleString()}</p>
             </div>
             <StatusBadge label={update.status} />
           </div>
-          <p className="mt-3 text-sm leading-6 text-muted">{update.messageBody}</p>
+          <p className="mt-3 text-sm leading-6 text-dls-text-secondary">{update.messageBody}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {onApprove && customerUpdateAllows(update, "approveCustomerUpdate") ? (
-              <button className="rounded-full bg-azure border border-azure/40 px-4 py-2 text-sm font-semibold text-white shadow-glow-cyan hover:brightness-110 transition-all" onClick={() => onApprove(update)}>
-                Approve update
-              </button>
+              <Button variant="primary" onClick={() => onApprove(update)}>Approve update</Button>
             ) : null}
             {onSend && customerUpdateAllows(update, "sendCustomerUpdate") ? (
-              <button
-                className="rounded-full border border-line bg-surface px-4 py-2 text-sm font-semibold text-muted hover:text-ink hover:border-accent/50 transition-all disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!sendAvailability.enabled}
-                title={providerSendReason ?? undefined}
-                onClick={() => onSend(update)}
-              >
+              <Button variant="secondary" disabled={!sendAvailability.enabled} title={providerSendReason ?? undefined} onClick={() => onSend(update)}>
                 Send update
-              </button>
+              </Button>
             ) : null}
           </div>
           {backendSendReason || providerSendReason ? (
-            <p className="mt-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-semibold text-warning">{backendSendReason ?? providerSendReason}</p>
+            <p className="mt-3 rounded-dls-control border border-dls-warning-dot bg-dls-warning-tint px-3 py-2 text-xs font-semibold text-dls-warning-text">{backendSendReason ?? providerSendReason}</p>
           ) : null}
         </article>
         );

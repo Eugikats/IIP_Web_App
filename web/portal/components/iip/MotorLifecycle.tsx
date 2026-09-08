@@ -33,25 +33,25 @@ export default function MotorLifecycle({ current, status }: { current?: number; 
   const stage = current ?? STATUS_STAGE[status ?? ""] ?? 0;
 
   return (
-    <div className="glass-subtle p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-[11px] uppercase tracking-[0.14em] text-muted">Motor claim lifecycle</div>
-        <div className="text-[11px] text-muted">Stage {stage + 1} of {STAGES.length}</div>
+    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Motor claim lifecycle</div>
+        <div className="text-[11px] text-dls-text-muted">Stage {stage + 1} of {STAGES.length}</div>
       </div>
-      <div tabIndex={0} aria-label="Motor claim lifecycle stages" className="flex items-center gap-1 overflow-x-auto pb-1 focus-ring">
+      <div tabIndex={0} aria-label="Motor claim lifecycle stages" className="dls-focus-outline flex items-center gap-1 overflow-x-auto pb-1">
         {STAGES.map((s, i) => (
-          <div key={s} className="flex items-center gap-1 shrink-0">
+          <div key={s} className="flex shrink-0 items-center gap-1">
             <div
               className={cn(
-                "text-[10.5px] rounded-full px-2.5 py-1 whitespace-nowrap ring-1 ring-inset",
-                i < stage && "bg-success/10 text-success ring-success/22",
-                i === stage && "bg-info/10 text-info ring-info/22 font-medium",
-                i > stage && "bg-white text-muted ring-line"
+                "whitespace-nowrap rounded-dls-pill px-2.5 py-1 text-[10.5px] font-semibold",
+                i < stage && "bg-dls-success-tint text-dls-success-text",
+                i === stage && "bg-dls-info-tint text-dls-info-text",
+                i > stage && "bg-dls-surface text-dls-text-muted border border-dls-border-subtle",
               )}
             >
               {i + 1}. {s}
             </div>
-            {i < STAGES.length - 1 && <div className="w-3 h-px bg-line shrink-0" />}
+            {i < STAGES.length - 1 && <div className="h-px w-3 shrink-0 bg-dls-border-subtle" />}
           </div>
         ))}
       </div>

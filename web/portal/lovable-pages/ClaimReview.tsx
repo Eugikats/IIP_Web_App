@@ -2,12 +2,11 @@
 
 import { toast } from "sonner";
 import {
-  AlertTriangle,
+  TriangleAlert,
   ArrowLeft,
   CheckCircle2,
   Download,
   FileText,
-  Loader2,
   MessageSquareText,
   Send,
   ShieldAlert,
@@ -21,6 +20,8 @@ import { ClaimReviewRequestsPanel } from "@/components/ClaimReviewRequestsPanel"
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import PolicyQuestionPanel from "@/components/PolicyQuestionPanel";
 import { Badge, ConfidenceBadge, GlassCard, RiskBadge, SectionHeader, SLABadge, StatusBadge } from "@/components/iip/Primitives";
+import { Button } from "@/components/ui/Button";
+import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import CompletenessCard from "@/components/iip/CompletenessCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import MotorLifecycle from "@/components/iip/MotorLifecycle";
@@ -268,12 +269,12 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   }
 
   const crumb = (
-    <div className="flex items-center gap-2 text-[12px] text-muted mb-4">
-      <Link to="/app/claims" className="inline-flex items-center gap-1 hover:text-ink">
-        <ArrowLeft className="h-3.5 w-3.5" /> Claims
+    <div className="mb-4 flex items-center gap-2 text-[12px] text-dls-text-muted">
+      <Link to="/app/claims" className="dls-focus-outline inline-flex items-center gap-1 rounded-dls-tight hover:text-dls-text-primary">
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Claims
       </Link>
       <span>/</span>
-      <span className="text-ink">{claimId}</span>
+      <span className="text-dls-text-primary">{claimId}</span>
     </div>
   );
 
@@ -281,11 +282,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     return (
       <>
         {crumb}
-        <GlassCard>
-          <div className="inline-flex items-center gap-2 p-10 text-center text-[13px] text-muted">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading claim workspace...
-          </div>
-        </GlassCard>
+        <GlassCard><LoadingSkeleton rows={5} /></GlassCard>
       </>
     );
   }
@@ -295,18 +292,13 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       <>
         {crumb}
         <GlassCard>
-          <div className="flex flex-col items-center gap-2 p-10 text-center">
-            <FileText className="h-6 w-6 text-muted" />
-            <div className="font-medium text-ink">Claim unavailable</div>
-            <div className="max-w-md text-[12.5px] text-muted">{error?.message ?? "No claim found for this workspace."}</div>
-            {error?.recovery ? <div className="max-w-md text-[12px] text-muted">{error.recovery}</div> : null}
-            {error ? <div className="text-[11px] text-muted">Attempted {new Date(error.occurredAt).toLocaleString()}</div> : null}
-            {error?.correlationId ? <div className="font-mono text-[11px] text-muted">Reference {error.correlationId}</div> : null}
-            <div className="mt-2 flex flex-wrap justify-center gap-2">
-              {error?.retryable ? <button type="button" onClick={() => void reload()} className="rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring">Try again</button> : null}
-              <Link to="/app/claims" className="rounded-xl border border-line bg-white px-3 py-2 text-[11.5px] font-medium text-ink focus-ring">Return to claims</Link>
-            </div>
+          <ErrorStateSurface message={error?.message ?? "No claim found for this workspace."} correlationId={error?.correlationId} onRetry={error?.retryable ? () => void reload() : undefined} />
+          <div className="flex flex-wrap justify-center gap-2 px-5 pb-4">
+            <Link to="/app/claims" className="dls-focus-outline inline-flex items-center justify-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-4 py-[9px] text-[13px] font-bold text-dls-text-primary hover:bg-dls-bg-page">
+              Return to claims
+            </Link>
           </div>
+          {error ? <p className="px-5 pb-4 text-center text-[11px] text-dls-text-muted">Attempted {new Date(error.occurredAt).toLocaleString()}</p> : null}
         </GlassCard>
       </>
     );
@@ -343,28 +335,22 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       </div>
 
       {detail.requiresConfirmation ? (
-        <div className="mb-4 rounded-2xl border border-warning/28 bg-warning/8 p-4">
+        <div className="mb-4 rounded-dls-card border border-dls-warning-dot bg-dls-warning-tint p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-dls-warning-dot" aria-hidden="true" />
               <div>
-                <div className="text-[13px] font-semibold text-ink">This claim needs confirmation</div>
-                <p className="mt-1 max-w-2xl text-[12.5px] leading-snug text-ink-soft">
+                <div className="text-[13px] font-bold text-dls-text-primary">This claim needs confirmation</div>
+                <p className="mt-1 max-w-2xl text-[12.5px] leading-snug text-dls-text-secondary">
                   IIP created this claim automatically from an identified {detail.channel} sender. The details below are
                   a best-effort guess from the raw message — review and correct them, then confirm to start the SLA
                   clock. Until confirmed, this claim is excluded from SLA and attention metrics.
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={openConfirmDialog}
-              disabled={confirming}
-              className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-warning/40 bg-white px-4 py-2.5 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
-            >
-              {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            <Button variant="secondary" icon={<CheckCircle2 />} disabled={confirming} onClick={openConfirmDialog} className="shrink-0">
               Confirm claim
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
@@ -377,56 +363,32 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         <div className="space-y-4 lg:col-span-2">
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
-              <div className="text-[14px] font-semibold text-ink">Human review actions</div>
-              <div className="text-[11.5px] text-muted">Only wired actions execute. Unwired actions report Not configured.</div>
+              <div className="text-[14px] font-bold text-dls-text-primary">Human review actions</div>
+              <div className="text-[11.5px] text-dls-text-muted">Only wired actions execute. Unwired actions report Not configured.</div>
             </div>
             <div className="grid gap-2.5 sm:grid-cols-2">
               {canDraftCustomerUpdates ? (
-                <button
-                  type="button"
-                  onClick={handleDraftCustomerUpdate}
-                  disabled={drafting}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
-                >
-                  {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />}
+                <Button variant="secondary" icon={<MessageSquareText />} disabled={drafting} onClick={handleDraftCustomerUpdate}>
                   Draft customer update
-                </button>
+                </Button>
               ) : null}
-              <button
-                type="button"
-                onClick={handleSupervisorReview}
-                disabled={requestingApproval}
-                className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
-              >
-                {requestingApproval ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              <Button variant="secondary" icon={<ShieldCheck />} disabled={requestingApproval} onClick={handleSupervisorReview}>
                 Request supervisor review
-              </button>
+              </Button>
               <UnavailableAction icon={CheckCircle2} label="Mark evidence reviewed" onClick={unavailable} />
               {canDraftCustomerUpdates ? (
-                <button
-                  type="button"
-                  onClick={handleDraftDocumentFollowUp}
-                  disabled={drafting}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
-                >
-                  {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <Button variant="secondary" icon={<Send />} disabled={drafting} onClick={handleDraftDocumentFollowUp}>
                   Draft document follow-up
-                </button>
+                </Button>
               ) : null}
               {canExportEvidencePack ? (
-                <button
-                  type="button"
-                  onClick={() => setExportDialogOpen(true)}
-                  disabled={exporting}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
-                >
-                  {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                <Button variant="secondary" icon={<Download />} disabled={exporting} onClick={() => setExportDialogOpen(true)}>
                   Export claim pack
-                </button>
+                </Button>
               ) : null}
             </div>
             {!canDraftCustomerUpdates || !canExportEvidencePack ? (
-              <div className="mt-2.5 text-[11.5px] text-muted">
+              <div className="mt-2.5 text-[11.5px] text-dls-text-muted">
                 {!canDraftCustomerUpdates && !canExportEvidencePack
                   ? "Your role does not include drafting customer updates or exporting the claim pack."
                   : !canDraftCustomerUpdates
@@ -446,8 +408,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
               <div>
-                <div className="text-[14px] font-semibold text-ink">Customer updates</div>
-                <div className="mt-1 text-[11.5px] text-muted">
+                <div className="text-[14px] font-bold text-dls-text-primary">Customer updates</div>
+                <div className="mt-1 text-[11.5px] text-dls-text-muted">
                   Backend action states control approval and send availability.
                 </div>
               </div>
@@ -471,8 +433,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
               <div>
-                <div className="text-[14px] font-semibold text-ink">Claimant re-review requests</div>
-                <div className="mt-1 text-[11.5px] text-muted">
+                <div className="text-[14px] font-bold text-dls-text-primary">Claimant re-review requests</div>
+                <div className="mt-1 text-[11.5px] text-dls-text-muted">
                   Acknowledge or resolve contestability requests. This updates workflow state only — it does not settle, deny, or pay the claim.
                 </div>
               </div>
@@ -492,25 +454,25 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
 
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
-              <div className="text-[14px] font-semibold text-ink">Documents received</div>
-              {firstExtractionHref ? <Link to={firstExtractionHref} className="text-[12px] text-info hover:underline">
+              <div className="text-[14px] font-bold text-dls-text-primary">Documents received</div>
+              {firstExtractionHref ? <Link to={firstExtractionHref} className="dls-focus-outline rounded-dls-tight text-[12px] font-semibold text-dls-primary hover:underline">
                 Open extraction review
               </Link> : null}
             </div>
             {detail.documents.length === 0 ? (
-              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
+              <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
                 No documents uploaded to this claim yet.
               </div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {detail.documents.map((document) => (
-                  <div key={document.documentId} className="flex items-center gap-3 rounded-xl border border-line bg-white/80 p-3">
-                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-info/8 text-info">
-                      <FileText className="h-4 w-4" />
+                  <div key={document.documentId} className="flex items-center gap-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
+                    <div className="grid h-9 w-9 place-items-center rounded-dls-control bg-dls-info-tint text-dls-info-text">
+                      <FileText className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-medium text-ink">{document.documentType}</div>
-                      <div className="text-[11px] text-muted">{document.processingStatus}</div>
+                      <div className="truncate text-[13px] font-semibold text-dls-text-primary">{document.documentType}</div>
+                      <div className="text-[11px] text-dls-text-muted">{document.processingStatus}</div>
                     </div>
                     {document.classificationConfidence > 0 ? (
                       <ConfidenceBadge value={document.classificationConfidence > 1 ? document.classificationConfidence / 100 : document.classificationConfidence} />
@@ -524,7 +486,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             {canUploadDocuments ? (
               <DocumentUploadWidget caseId={claimId} role={roleDef.key} onUploaded={reload} />
             ) : (
-              <div className="mt-3 text-[11.5px] text-muted">
+              <div className="mt-3 text-[11.5px] text-dls-text-muted">
                 Your role does not include document upload.
               </div>
             )}
@@ -533,37 +495,29 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-4">
               <div>
-                <div className="text-[14px] font-semibold text-ink">Claim summary</div>
-                <div className="mt-1 text-[11.5px] text-muted">
+                <div className="text-[14px] font-bold text-dls-text-primary">Claim summary</div>
+                <div className="mt-1 text-[11.5px] text-dls-text-muted">
                   Prepared from this claim&apos;s facts, documents, policy, and approved knowledge. Required before decision use — not a decision itself.
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => { void generateSummary(); }}
-                disabled={summarizing}
-                className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-medium text-ink hover-lift disabled:opacity-50"
-              >
-                {summarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />}
+              <Button variant="secondary" icon={<MessageSquareText />} disabled={summarizing} onClick={() => { void generateSummary(); }} className="shrink-0">
                 {displayedSummary ? "Regenerate summary" : "Generate summary"}
-              </button>
+              </Button>
             </div>
             {summaryError ? (
-              <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-[12.5px] text-[hsl(38_92%_36%)]">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div className="flex items-start gap-2 rounded-dls-control border border-dls-warning-dot bg-dls-warning-tint px-3 py-2 text-[12.5px] text-dls-warning-text">
+                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{summaryError}</span>
               </div>
             ) : summaryIsLoading && !displayedSummary ? (
-              <div className="inline-flex items-center gap-2 p-4 text-[12.5px] text-muted">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading case review…
-              </div>
+              <LoadingSkeleton rows={3} />
             ) : displayedSummary ? (
               <div className="space-y-3">
-                <MarkdownText className="text-[13px] text-ink-soft leading-relaxed" content={displayedSummary.summary} />
+                <MarkdownText className="text-[13px] text-dls-text-secondary leading-relaxed" content={displayedSummary.summary} />
                 {displayedSummary.openQuestions.length > 0 ? (
                   <div>
-                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted">Open questions</div>
-                    <ul className="space-y-1 text-[12.5px] text-ink-soft">
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Open questions</div>
+                    <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
                       {displayedSummary.openQuestions.map((question) => (
                         <li key={question}>- {question}</li>
                       ))}
@@ -572,10 +526,10 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 ) : null}
                 {displayedSummary.riskSignals?.length > 0 ? (
                   <div>
-                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted">Risk signals</div>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Risk signals</div>
                     <ul className="space-y-2">
                       {displayedSummary.riskSignals.map((signal, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[12.5px] text-ink-soft">
+                        <li key={i} className="flex items-start gap-2 text-[12.5px] text-dls-text-secondary">
                           <Badge tone={signal.category === "Fraud" ? "warning" : "neutral"} className="mt-0.5 shrink-0">
                             {signal.category === "Fraud" ? "Fraud signal" : "Underwriting"}
                           </Badge>
@@ -583,18 +537,18 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                         </li>
                       ))}
                     </ul>
-                    <div className="mt-2 text-[11px] text-muted">
+                    <div className="mt-2 text-[11px] text-dls-text-muted">
                       Advisory observations only — a human reviewer decides what, if anything, to do.
                     </div>
                   </div>
                 ) : null}
                 {displayedSummary.knowledgeSources.length > 0 ? (
                   <div>
-                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted">Sources</div>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Sources</div>
                     <div className="space-y-1">
                       {displayedSummary.knowledgeSources.map((source) => (
-                        <div key={source.chunkId} className="flex items-center gap-2 text-[12px] text-muted">
-                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                        <div key={source.chunkId} className="flex items-center gap-2 text-[12px] text-dls-text-muted">
+                          <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                           {source.label}: {source.documentName}
                         </div>
                       ))}
@@ -603,14 +557,14 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 ) : null}
               </div>
             ) : (
-              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
+              <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
                 No summary generated yet.
               </div>
             )}
           </GlassCard>
 
           <GlassCard>
-            <div className="mb-3 text-[14px] font-semibold text-ink">Motor FNOL details</div>
+            <div className="mb-3 text-[14px] font-bold text-dls-text-primary">Motor FNOL details</div>
             {detail.motorFnolDetails ? (
               <div className="grid gap-2 sm:grid-cols-2">
                 <DetailTile label="Vehicle registration" value={detail.motorFnolDetails.vehicleRegistration} />
@@ -625,28 +579,28 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 <DetailTile label="Document notes" value={detail.motorFnolDetails.uploadedDocuments} />
               </div>
             ) : (
-              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
+              <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
                 This claim has no structured Motor FNOL details yet.
               </div>
             )}
           </GlassCard>
 
           <GlassCard>
-            <div className="mb-4 text-[14px] font-semibold text-ink">Activity timeline</div>
+            <div className="mb-4 text-[14px] font-bold text-dls-text-primary">Activity timeline</div>
             {timeline.length === 0 ? (
-              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
+              <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
                 No recorded activity yet. Governed actions and AI runs appear here after they are written by the backend.
               </div>
             ) : (
               <div className="relative pl-5">
-                <div className="absolute bottom-1 left-1.5 top-1 w-px bg-line" />
+                <div className="absolute bottom-1 left-1.5 top-1 w-px bg-dls-border-subtle" />
                 {timeline.map((event) => (
                   <div key={event.eventId} className="relative pb-4">
-                    <div className="absolute -left-[9px] top-1 h-2 w-2 rounded-full bg-info ring-2 ring-white" />
-                    <div className="text-[12px] text-muted">
+                    <div className="absolute -left-[9px] top-1 h-2 w-2 rounded-full bg-dls-info-dot ring-2 ring-dls-surface" />
+                    <div className="text-[12px] text-dls-text-muted">
                       {new Date(event.timestamp).toLocaleString()} · {event.actor}
                     </div>
-                    <div className="mt-0.5 text-[13px] text-ink">{event.summary || event.eventType}</div>
+                    <div className="mt-0.5 text-[13px] text-dls-text-primary">{event.summary || event.eventType}</div>
                   </div>
                 ))}
               </div>
@@ -656,7 +610,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
 
         <div className="space-y-4">
           <GlassCard>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-muted">Policy &amp; customer</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Policy &amp; customer</div>
             <div className="mt-2 space-y-2 text-[13px]">
               <Row k="Customer" v={detail.customerName} />
               <Row k="Policy" v={`${detail.policyNumber} · ${detail.productLine}`} />
@@ -678,29 +632,29 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             <GlassCard>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4 text-warning" />
-                  <div className="text-[14px] font-semibold text-ink">Fraud &amp; underwriting signals</div>
+                  <ShieldAlert className="h-4 w-4 text-dls-warning-dot" aria-hidden="true" />
+                  <div className="text-[14px] font-bold text-dls-text-primary">Fraud &amp; underwriting signals</div>
                 </div>
                 <Badge tone="warning">{caseFraudSignals.length}</Badge>
               </div>
               <div className="space-y-3">
                 {caseFraudSignals.map((signal) => (
-                  <div key={signal.signalId} className="rounded-xl border border-line bg-white/80 p-3">
+                  <div key={signal.signalId} className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-[13px] font-medium text-ink">{signal.title}</div>
+                      <div className="text-[13px] font-semibold text-dls-text-primary">{signal.title}</div>
                       <Badge tone={FRAUD_SEVERITY_TONE[signal.severity]}>{FRAUD_SEVERITY_LABEL[signal.severity]}</Badge>
                     </div>
-                    <p className="mt-1 text-[12px] leading-snug text-ink-soft">{signal.detail}</p>
+                    <p className="mt-1 text-[12px] leading-snug text-dls-text-secondary">{signal.detail}</p>
                     {signal.evidence.length > 0 ? (
-                      <ul className="mt-2 space-y-0.5 text-[11px] text-muted">
+                      <ul className="mt-2 space-y-0.5 text-[11px] text-dls-text-muted">
                         {signal.evidence.slice(0, 3).map((item) => (
                           <li key={item}>· {item}</li>
                         ))}
                       </ul>
                     ) : null}
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-muted">{FRAUD_STATUS_LABEL[signal.disposition.status] ?? signal.disposition.status}</span>
-                      <Link to="/app/fraud" className="text-[11.5px] text-info hover:underline">
+                      <span className="text-[11px] text-dls-text-muted">{FRAUD_STATUS_LABEL[signal.disposition.status] ?? signal.disposition.status}</span>
+                      <Link to="/app/fraud" className="dls-focus-outline rounded-dls-tight text-[11.5px] font-semibold text-dls-primary hover:underline">
                         Open in Fraud Intelligence →
                       </Link>
                     </div>
@@ -710,12 +664,12 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             </GlassCard>
           ) : null}
 
-          <div className="rounded-2xl border border-warning/28 bg-warning/8 p-4">
+          <div className="rounded-dls-card border border-dls-warning-dot bg-dls-warning-tint p-4">
             <div className="mb-1 flex items-center gap-2">
-              <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-              <div className="text-[11px] uppercase tracking-[0.14em] text-[hsl(38_92%_36%)]">Advisory boundary</div>
+              <TriangleAlert className="h-3.5 w-3.5 text-dls-warning-dot" aria-hidden="true" />
+              <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-warning-text">Advisory boundary</div>
             </div>
-            <p className="text-[13px] leading-snug text-ink-soft">
+            <p className="text-[13px] leading-snug text-dls-text-secondary">
               Fraud and risk outputs are advisory only. The platform must show backend evidence before any human investigation step proceeds.
             </p>
           </div>
@@ -734,7 +688,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         auditNotice="Evidence-pack export is a compliance-sensitive action. The exported artifact is stored through the configured evidence storage provider and the export event is written to the audit trail."
         confirmLabel="Export claim pack"
         evidence={
-          <div className="rounded-xl border border-line bg-mist p-4 text-sm leading-6 text-muted">
+          <div className="rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-4 text-sm leading-6 text-dls-text-muted">
             <dl className="grid gap-2 sm:grid-cols-2">
               <ExportEvidenceItem label="Claim status" value={detail.status} />
               <ExportEvidenceItem label="Documents" value={String(detail.documents.length)} />
@@ -755,33 +709,33 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         confirmLabel="Confirm claim"
         tone="primary"
         evidence={
-          <div className="space-y-3 rounded-xl border border-line bg-mist p-4">
-            <label htmlFor="confirm-product-line" className="block text-sm font-medium text-muted">
+          <div className="space-y-3 rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-4">
+            <label htmlFor="confirm-product-line" className="block text-sm font-semibold text-dls-text-primary">
               Product line
               <input
                 id="confirm-product-line"
                 aria-label="Product line"
-                className="mt-1 w-full rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                className="mt-1 w-full rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
                 value={confirmCorrections.productLine ?? ""}
                 onChange={(event) => setConfirmCorrections((prev) => ({ ...prev, productLine: event.target.value }))}
               />
             </label>
-            <label htmlFor="confirm-claim-type" className="block text-sm font-medium text-muted">
+            <label htmlFor="confirm-claim-type" className="block text-sm font-semibold text-dls-text-primary">
               Claim type
               <input
                 id="confirm-claim-type"
                 aria-label="Claim type"
-                className="mt-1 w-full rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                className="mt-1 w-full rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
                 value={confirmCorrections.claimType ?? ""}
                 onChange={(event) => setConfirmCorrections((prev) => ({ ...prev, claimType: event.target.value }))}
               />
             </label>
-            <label htmlFor="confirm-incident-description" className="block text-sm font-medium text-muted">
+            <label htmlFor="confirm-incident-description" className="block text-sm font-semibold text-dls-text-primary">
               Incident description
               <textarea
                 id="confirm-incident-description"
                 aria-label="Incident description"
-                className="mt-1 min-h-20 w-full resize-y rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                className="mt-1 min-h-20 w-full resize-y rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
                 value={confirmCorrections.incidentDescription ?? ""}
                 onChange={(event) => setConfirmCorrections((prev) => ({ ...prev, incidentDescription: event.target.value }))}
               />
@@ -805,31 +759,26 @@ function UnavailableAction({
   onClick: (label: string) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onClick(label)}
-      className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift"
-    >
-      <Icon className="h-4 w-4" />
+    <Button variant="secondary" icon={<Icon />} onClick={() => onClick(label)}>
       {label}
-    </button>
+    </Button>
   );
 }
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span className="text-[11.5px] text-muted">{k}</span>
-      <span className="text-right text-ink">{v}</span>
+      <span className="text-[11.5px] text-dls-text-muted">{k}</span>
+      <span className="text-right text-dls-text-primary">{v}</span>
     </div>
   );
 }
 
 function DetailTile({ label, value }: { label: string; value: string | null }) {
   return (
-    <div className="rounded-xl border border-line bg-white/70 p-3">
-      <div className="text-[11px] uppercase tracking-[0.12em] text-muted">{label}</div>
-      <div className="mt-1 text-[13px] text-ink">{value || "Not captured"}</div>
+    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
+      <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">{label}</div>
+      <div className="mt-1 text-[13px] text-dls-text-primary">{value || "Not captured"}</div>
     </div>
   );
 }
@@ -837,8 +786,8 @@ function DetailTile({ label, value }: { label: string; value: string | null }) {
 function ExportEvidenceItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">{label}</dt>
-      <dd className="mt-1 break-words font-mono font-semibold text-ink">{value}</dd>
+      <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-dls-text-muted">{label}</dt>
+      <dd className="mt-1 break-words font-mono font-semibold text-dls-text-primary">{value}</dd>
     </div>
   );
 }

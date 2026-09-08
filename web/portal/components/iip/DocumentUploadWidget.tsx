@@ -2,6 +2,7 @@
 
 import { Loader2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { compressImageForUpload, offlineUploadMessage } from "@/lib/compressImageForUpload";
 
@@ -156,33 +157,27 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
           void handleFiles(event.target.files);
         }}
       />
-      <button
-        type="button"
-        disabled={uploading}
-        onClick={() => inputRef.current?.click()}
-        className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] font-medium text-ink hover-lift disabled:opacity-50 focus-ring"
-      >
-        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+      <Button variant="secondary" icon={uploading ? <Loader2 className="animate-spin" /> : <Upload />} disabled={uploading} onClick={() => inputRef.current?.click()}>
         {uploading ? "Uploading…" : "Upload photo or document"}
-      </button>
-      <div className="text-[11.5px] text-muted">
+      </Button>
+      <div className="text-[11.5px] text-dls-text-muted">
         Photos are compressed on-device for slow networks. PDF and text files upload as-is. Max 25 MB per file.
       </div>
       {progress !== null ? (
-        <div className="h-1.5 overflow-hidden rounded-full bg-line">
+        <div className="h-1.5 overflow-hidden rounded-dls-pill bg-dls-border-subtle">
           <div
-            className="h-full rounded-full bg-info transition-[width]"
+            className="h-full rounded-dls-pill bg-dls-primary transition-[width] duration-dls-base ease-dls"
             style={{ width: `${progress}%` }}
           />
         </div>
       ) : null}
-      {status ? <div className="text-[12px] text-ink">{status}</div> : null}
+      {status ? <div className="text-[12px] text-dls-text-primary">{status}</div> : null}
       {notConfiguredCapability ? (
-        <div className="text-[12px] text-warning">
+        <div className="text-[12px] text-dls-warning-text">
           {CAPABILITY_LABELS[notConfiguredCapability] ?? notConfiguredCapability} is not configured for this workspace. Ask a workspace administrator to configure it.
         </div>
       ) : error ? (
-        <div className="text-[12px] text-[hsl(var(--danger))]">{error}</div>
+        <div className="text-[12px] text-dls-danger-text">{error}</div>
       ) : null}
     </div>
   );
