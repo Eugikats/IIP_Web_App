@@ -10,7 +10,7 @@ Never have two screens in flight.
 
 | # | Tier | Route | Component | Status | Date | Commit |
 |---:|---|---|---|---|---|---|
-| 1 | 1 | `/app` | `lovable-pages/AIConversations.tsx` | Blocked — see run log 2026-09-08 | 2026-09-08 | `d0a12d6` |
+| 1 | 1 | `/app` | `lovable-pages/AIConversations.tsx` | Done | 2026-09-08 | `d493670` |
 | 2 | 1 | `/app/work-items` | `lovable-pages/ReviewWorkspace.tsx` (+ UniversalMyWork, AgentWorkItems, Workflows) | Not started | | |
 | 3 | 1 | `/app/claims` | `lovable-pages/ClaimsQueue.tsx` | Not started | | |
 | 4 | 1 | `/app/claims/[id]` | `lovable-pages/ClaimReview.tsx` | Not started | | |
@@ -120,3 +120,52 @@ shell or primitives from a screen-migration run — stop and report instead.
   A stale `node` process (PID 24332, running since 2026-09-01) was holding
   `web/portal/.next-dev.lock` and blocking any dev/test server from starting.
   Stopped with explicit user approval; the lock file was also removed.
+
+- 2026-09-08: shared chat surface — commit `d493670`. Resolves open item 1
+  above: `ChatPrimitives.tsx`, `CommandCenterAnswer.tsx`, `CopilotPanel.tsx`,
+  and `DataProvenance.tsx` migrated onto design language v2 §8.17 (chat
+  surface) exactly, treated as a foundation-level shared dependency (used by
+  the shell's `CopilotPanel`, not just one screen) rather than screen-1-owned
+  code — same precedent as the original foundation slice migrating
+  Badges/MetricCard/etc. External component signatures unchanged. Found and
+  fixed a real pre-existing vocabulary-contract violation in the process:
+  claim/approval status fields were rendering the raw backend enum name
+  (e.g. literally `MissingDocuments`) instead of the §10.1/§10.3 label with
+  the correct dot tone — added the lookup tables and StatusPill rendering.
+  Added one missing token, `--color-primary-idle` (`#E4E1F7`), that §8.17
+  specifies for the composer's idle send button but the foundation slice had
+  not yet named. Removed four confirmed-dead ChatPrimitives exports
+  (`InsightCard`, `ApprovalCard`, `ChannelBadge`, `PriorityBadge` — the last
+  of which rendered priority as a coloured pill with a non-vocabulary
+  "Medium" value, doubly non-compliant with §10.5). Verified: `pnpm lint`,
+  `pnpm exec tsc --noEmit`, `check-ui-release-gates.mjs`, `pnpm test` (all
+  suites), `pnpm build` (compiles; same pre-existing EPERM trace-copy step)
+  all pass. Browser-verified via `NEXT_PUBLIC_VISUAL_PARITY_MODE=true` at
+  1280px and 768px: bubble shapes/colours match §8.17 exactly per
+  `getComputedStyle`, send-button idle/active colour confirmed, focus rings
+  confirmed on previously-unstyled CopilotPanel controls (Hide, Expand,
+  starters). Not click-through-verified live: `claims_table`, `sla_summary`,
+  `approval_queue`, `action_proposal`, `draft_communication`,
+  `not_configured`, `error` block renderers — the parity-mode synthetic
+  answer builder returns the same fixed blocks regardless of question, and
+  the real backend isn't reachable here. These are typecheck-clean and reuse
+  primitives (StatusPill, Card-style surfaces) already visually confirmed by
+  other blocks in this same change, but were not individually eyeballed.
+
+  **Genuinely missing primitive, not fixed — flagging per the stop-and-report
+  rule rather than inventing one:** design language §8.16 (side drawer) has
+  no `components/ui/` implementation yet. §8.20 requires an evidence citation
+  chip to open its source in that drawer; without the primitive, the
+  `evidence_list` block renders citation chips matching §8.20's visual spec
+  exactly but non-interactive (no click target — `evidence.ref` is an
+  internal reference id, not a URL, so there is nothing honest to link it to
+  either). Whichever screen first needs real evidence-citation click-through
+  (tier 1's `ClaimReview.tsx` almost certainly will) will need this primitive
+  built first — recommend building it then, not speculatively now.
+
+  Screen 1 (`/app`) is now marked **Done**. The two remaining items from the
+  prior entry (suggestion chips only covering priorities 3/5 of nav-model
+  §6.2; three of six §8.24 states genuinely inapplicable to a chat screen)
+  are accepted, permanent, documented scope limits of a presentation-only
+  migration — not defects blocking completion. Resuming at screen 2
+  (`/app/work-items`).
