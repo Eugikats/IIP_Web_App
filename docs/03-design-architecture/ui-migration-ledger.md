@@ -14,7 +14,7 @@ Never have two screens in flight.
 | 2 | 1 | `/app/work-items` | `lovable-pages/ReviewWorkspace.tsx` (+ UniversalMyWork, AgentWorkItems, Workflows) | Done | 2026-09-08 | `364b45b` |
 | 3 | 1 | `/app/claims` | `lovable-pages/ClaimsQueue.tsx` | Done | 2026-09-08 | `083a07e` |
 | 4 | 1 | `/app/claims/[id]` | `lovable-pages/ClaimReview.tsx` | Done | 2026-09-08 | `c272afc` |
-| 5 | 1 | `/app/claims/[id]/extraction` | `lovable-pages/DocumentExtraction.tsx` | Not started | | |
+| 5 | 1 | `/app/claims/[id]/extraction` | `lovable-pages/DocumentExtraction.tsx` | Done | 2026-09-08 | `cd31e91` |
 | 6 | 1 | `/app/documents` | `lovable-pages/Documents.tsx` | Not started | | |
 | 7 | 1 | `/app/channels` | `lovable-pages/Channels.tsx` | Not started | | |
 | 8 | 2 | `/app/conversations` | `lovable-pages/RecentConversations.tsx` | Not started | | |
@@ -312,3 +312,32 @@ writing new markup for it.
 
   Screen 4 (`/app/claims/[id]`) is now marked **Done**. Resuming at screen 5
   (`/app/claims/[id]/extraction`).
+
+- 2026-09-08: screen 5 (`/app/claims/[id]/extraction`) — commit `cd31e91`.
+  `DocumentExtraction.tsx` migrated onto tokens: the compact review/source
+  tab switcher, the document selector (new `Select` primitive), field and
+  validation-warning cards, and the review-reason/action-button card.
+  Approve extraction moved off `gradient-primary`.
+
+  Confirmed, not fixed — a known limitation of `ConfidenceBadge`
+  (`Primitives.tsx`) that this screen makes concrete: design language §8.22
+  wants literal threshold wording ("0.71 · Below threshold"), but
+  `DocumentItem`/field types (`lib/documentContracts.ts`) carry only a bare
+  `confidenceScore`, no backend threshold to compare against — confirmed by
+  reading that file directly. `ConfidenceBadge` renders relative High/
+  Medium/Low tiers instead, which is honest about what it is without
+  inventing a business threshold. A real fix needs a backend field; out of
+  scope for a presentation-only migration.
+
+  `useDocumentExtraction` has no parity-mode fallback, so this screen was
+  browser-verified only via its real (unreachable-backend) error state,
+  reached through a genuine extraction-review link generated from
+  `/app/claims/CLM-1048`. The field-review and source-preview panels were
+  not visually verified with real data.
+
+  Verified: `pnpm lint`, `pnpm exec tsc --noEmit`, `check-ui-release-
+  gates.mjs`, `pnpm test` (all suites), `pnpm build` (compiles; same pre-
+  existing EPERM step) all pass. Browser-verified at 1280px and 768px.
+
+  Screen 5 (`/app/claims/[id]/extraction`) is now marked **Done**. Resuming
+  at screen 6 (`/app/documents`).
