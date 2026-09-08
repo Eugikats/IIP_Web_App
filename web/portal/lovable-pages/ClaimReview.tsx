@@ -756,25 +756,31 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         tone="primary"
         evidence={
           <div className="space-y-3 rounded-xl border border-line bg-mist p-4">
-            <label className="block text-sm font-medium text-muted">
+            <label htmlFor="confirm-product-line" className="block text-sm font-medium text-muted">
               Product line
               <input
+                id="confirm-product-line"
+                aria-label="Product line"
                 className="mt-1 w-full rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                 value={confirmCorrections.productLine ?? ""}
                 onChange={(event) => setConfirmCorrections((prev) => ({ ...prev, productLine: event.target.value }))}
               />
             </label>
-            <label className="block text-sm font-medium text-muted">
+            <label htmlFor="confirm-claim-type" className="block text-sm font-medium text-muted">
               Claim type
               <input
+                id="confirm-claim-type"
+                aria-label="Claim type"
                 className="mt-1 w-full rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                 value={confirmCorrections.claimType ?? ""}
                 onChange={(event) => setConfirmCorrections((prev) => ({ ...prev, claimType: event.target.value }))}
               />
             </label>
-            <label className="block text-sm font-medium text-muted">
+            <label htmlFor="confirm-incident-description" className="block text-sm font-medium text-muted">
               Incident description
               <textarea
+                id="confirm-incident-description"
+                aria-label="Incident description"
                 className="mt-1 min-h-20 w-full resize-y rounded-xl border border-line bg-shell px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                 value={confirmCorrections.incidentDescription ?? ""}
                 onChange={(event) => setConfirmCorrections((prev) => ({ ...prev, incidentDescription: event.target.value }))}
