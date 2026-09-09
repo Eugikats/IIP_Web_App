@@ -25,11 +25,11 @@ export default function TenantPolicy() {
       <GlassCard>
         <div className="space-y-2">
           {rules.map((r) => (
-            <div key={r.rule} className="flex items-start gap-3 rounded-xl border border-line bg-white/70 p-3">
-              <ShieldCheck className="h-4 w-4 text-info mt-0.5" />
+            <div key={r.rule} className="flex items-start gap-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 text-dls-info-text" aria-hidden="true" />
               <div className="flex-1">
-                <div className="text-[13px] text-ink font-medium">{r.rule}</div>
-                <div className="text-[11.5px] text-muted">{r.note}</div>
+                <div className="text-[13px] font-semibold text-dls-text-primary">{r.rule}</div>
+                <div className="text-[11.5px] text-dls-text-secondary">{r.note}</div>
               </div>
               <Badge tone={r.enforced ? "success" : "neutral"}>{r.enforced ? "Enforced" : "Optional"}</Badge>
             </div>
