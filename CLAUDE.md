@@ -43,3 +43,7 @@ Clear the 27-point checklist in `docs/03-design-architecture/iip_ui_craft_guardr
 - Distinguish source-complete, locally verified, deployed, staging-validated, production-candidate and marketplace readiness.
 - Summarize files/behavior changed, legacy paths removed or time-bounded, safety/data/UI/operational impact, tests, blockers and manual actions.
 - Do not deploy, merge, push, modify cloud resources, apply production migrations or publish artifacts unless explicitly requested.
+
+## Deploying to Azure
+
+When explicitly asked to push/deploy to Azure, read [`docs/05-deployment-release-enablement/AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md`](docs/05-deployment-release-enablement/AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md) first — it is the authoritative index of which subscriptions/resource groups actually hold IIP resources, who has access, and the verified deploy procedure. Do not guess resource names or assume `deploy-staging.yml` targets a live environment — confirm live via `az` before deploying, the same way that document was produced, since Azure resources here have been deleted/renamed out-of-band before.
