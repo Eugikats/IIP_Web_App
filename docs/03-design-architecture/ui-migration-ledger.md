@@ -29,7 +29,7 @@ Never have two screens in flight.
 | 17 | 3 | `/app/fraud` | `lovable-pages/FraudIntelligence.tsx` | Done | 2026-09-09 | `cc7cfe0` |
 | 18 | 3 | `/app/acquisition` | `lovable-pages/CustomerAcquisition.tsx` | Done | 2026-09-09 | `cb3be97` |
 | 19 | 4 | `/app/flows` | `lovable-pages/AgentFlows.tsx` | Done | 2026-09-09 | `d8917bb` |
-| 20 | 4 | `/app/flows/[key]` | `lovable-pages/AgentFlowInspector.tsx` | Not started | | |
+| 20 | 4 | `/app/flows/[key]` | `lovable-pages/AgentFlowInspector.tsx` | Done | 2026-09-09 | `78e18c0` |
 | 21 | 4 | `/app/flows/new` | `lovable-pages/AgentFlowBuilder.tsx` | Not started | | |
 | 22 | 4 | `/app/runs/[id]` | `lovable-pages/AgentRunDebugger.tsx` | Not started | | |
 | 23 | 4 | `/app/executive` | `lovable-pages/Executive.tsx` | Not started | | |
@@ -899,3 +899,81 @@ Resuming at screen 16 (`/app/policy`).
 
   Screen 19 is now marked **Done**. Resuming at screen 20
   (`/app/flows/[key]`) — **the checkpoint fires after this screen.**
+
+- 2026-09-09: screen 20 (`/app/flows/[key]`) — commit `78e18c0`.
+  `AgentFlowInspector.tsx` migrated onto tokens and primitives. Loading/
+  not-found states onto `LoadingSkeleton`/`ErrorStateSurface`; violet tone
+  alias swapped to `info` throughout.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 20 is now marked **Done — this run's third checkpoint boundary.**
+
+## Checkpoint 3 (after screen 20) — environment-constrained, documented honestly
+
+This checkpoint did not complete the same way checkpoints 1 and 2 did, and
+that is recorded here rather than papered over.
+
+- **`pnpm test`** — all 7 suites green, same as every prior run.
+- **`pnpm build`** — the first attempt failed with `ENOENT` on
+  `.next/server/pages-manifest.json`, traced to a corrupted `.next` left
+  behind by an earlier force-killed build process in this same long session
+  (five `node.exe` processes, one at 610MB, still resident from a `pnpm
+  build` invocation that never exited — killed, `.next` removed, rebuilt
+  clean). **Every route generated on the clean rebuild**, including all
+  screens touched since checkpoint 2. Recurring finding worth carrying
+  forward: `next build` on this Windows environment reliably leaves its
+  worker-process chain resident after exit (confirmed twice, once at
+  610MB and once at 856MB) — kill `node.exe` after every build in this
+  session rather than assuming it exited cleanly.
+- **`pnpm test:release-gates`** (the full 3-viewport suite) — **could not
+  be completed reliably.** First attempt: JavaScript heap OOM crash mid-run.
+  Second attempt (after clearing stray processes): 2 failures, on
+  `gate-15`/`gate-16` assertions unrelated to any file touched since
+  checkpoint 2. Third attempt: hung past a 590s timeout. A scoped rerun
+  (desktop-chromium only, ~7 min instead of the full ~3-viewport ~9+ min):
+  23 passed, 1 failed, 3 skipped — the one failure the same `gate-16`
+  assertion each time. A subsequent attempt to run *that one test alone*,
+  freshly isolated, **timed out at 120s** — a single test that isn't
+  supposed to take anywhere near that long. That is the decisive signal:
+  this is the sandbox running out of capacity after a very long session
+  (many builds, many full Chromium runs, hours of continuous work), not a
+  logic defect. Supporting evidence for that reading, not just an
+  assumption:
+  1. The exact failing assertion (`gate-16`'s first test, full 4-test spec)
+     **passed cleanly and quickly** (53.5s, zero failures) the one time it
+     ran in true isolation immediately after clearing stray processes —
+     before the environment had accumulated load from a long run.
+  2. `gate-15`'s "Customer Service" assertion, which also failed once in a
+     busy batch, passed cleanly standalone.
+  3. Every failure is on a **client-side navigation → assert** step (click a
+     link, wait for the destination route to compile/hydrate, then assert
+     on its content) — precisely the step most sensitive to a loaded event
+     loop and slow on-demand compilation, and compile times observed during
+     this session ranged from ~2s (fresh) to ~23s (under load) for the same
+     route.
+  4. **None of the implicated files** — `RecentConversations.tsx`, the
+     conversation-detail route, the authority-preview system — were touched
+     by anything in this session since screen 8 (`RecentConversations.tsx`,
+     fixed and verified clean at checkpoints 1 and 2) or ever by
+     `WorkflowCanvas.tsx`/`AgentFlows.tsx`/`AgentFlowInspector.tsx`.
+
+  **Conclusion, stated plainly:** `pnpm test` and `pnpm build` are clean.
+  The full `pnpm test:release-gates` suite is not confirmed clean this
+  checkpoint — not because a defect was found, but because this sandbox
+  could not sustain a full run after this session's length. **This is a
+  gap, not a pass** — do not read the scoped desktop-only near-clean run as
+  equivalent to the full 3-viewport confirmation checkpoints 1 and 2 got.
+  Recommend running the full suite fresh (new session, or after a break)
+  before treating screens 19-20 or the `WorkflowCanvas` fix as fully gate-
+  verified, and before landing on `main`.
+- **Browser walkthrough** — not performed this checkpoint, same
+  no-interactive-tool constraint as before, compounded by the environment
+  issue above.
+
+Continuing with per-screen `tsc`/`lint`/`check-ui-release-gates.mjs`
+verification (all of which stayed fast and reliable throughout) rather than
+running the full Playwright suite again mid-session — it will be run fresh
+at the next checkpoint or before this branch lands.
