@@ -185,7 +185,7 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
         },
       });
       if (!response.ok) {
-        throw await UiServiceError.fromResponse(response, `Workspace access is unavailable (HTTP ${response.status}).`);
+        throw await UiServiceError.fromResponse(response, `Workspace access is unavailable.`);
       }
 
       const authorityRole = canUseLocalTestDoubles ? "Admin" : role;

@@ -62,7 +62,7 @@ export default function Settings() {
         throw new Error(
           response.status === 403
             ? "You do not have access to that workspace."
-            : `Workspace switch failed (HTTP ${response.status}).`
+            : `Workspace switch failed.`
         );
       }
 

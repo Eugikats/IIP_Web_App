@@ -81,7 +81,7 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
             resolve();
             return;
           }
-          let message = `Upload failed with HTTP ${xhr.status}.`;
+          let message = `Upload failed.`;
           try {
             const body = JSON.parse(xhr.responseText) as {
               message?: string;

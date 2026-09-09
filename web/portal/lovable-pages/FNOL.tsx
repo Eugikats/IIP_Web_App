@@ -180,7 +180,7 @@ export default function FNOL() {
         setLookup({ status: "not-found" });
         return;
       }
-      if (!response.ok) throw new Error(`Policy lookup failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Policy lookup failed.`);
       const result = (await response.json()) as PolicyLookupResponse;
       setLookup({ status: "found", result });
       if (result.productLine === "Motor" || result.productLine === "Medical") {
@@ -207,7 +207,7 @@ export default function FNOL() {
           headers: scopedHeaders(roleDef.key, ""),
           signal: controller.signal,
         });
-        if (!response.ok) throw new Error(`Checklist preview failed with HTTP ${response.status}.`);
+        if (!response.ok) throw new Error(`Checklist preview failed.`);
         setChecklist((await response.json()) as ChecklistPreviewResponse);
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -316,7 +316,7 @@ export default function FNOL() {
       });
 
       if (!response.ok) {
-        throw new Error(`Claim intake failed with HTTP ${response.status}.`);
+        throw new Error(`Claim intake failed.`);
       }
 
       const created = (await response.json()) as CreateCaseResponse;
