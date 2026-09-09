@@ -18,6 +18,7 @@ export function SectionHeader({
   title,
   sub,
   action,
+  breadcrumb,
 }: {
   eyebrow?: string;
   // Escape hatch for a single screen's eyebrow to use a different, already-AA-compliant token
@@ -27,19 +28,49 @@ export function SectionHeader({
   title: string;
   sub?: string;
   action?: ReactNode;
+  /** §3.1 — "Section › Object › Current page", current page not a link. Optional, additive. */
+  breadcrumb?: { label: string; href?: string }[];
 }) {
+  // Foundation fix, not a per-screen patch (see ui-migration-ledger.md): this component — not
+  // components/PageHeader.tsx — is the header every real screen imports (35 of 39 on the ledger).
+  // PageHeader.tsx was built spec-correct in the original foundation slice but never adopted by a
+  // single screen; SectionHeader kept shipping design language v2's page-header slot at the wrong
+  // size (26/28px) with no breadcrumb support. Fixed here, once, to §3.1-3.2 exactly, so all 35
+  // callers correct themselves without a 35-file diff. PageHeader.tsx removed as the dead,
+  // never-consumed duplicate — same call as the SideDrawer precedent (2026-09-09 ledger entry).
   return (
-    <div className="mb-6 flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
-      <div className="min-w-0">
-        {eyebrow && (
-          <div className={cn("mb-2 text-[11px] font-bold uppercase tracking-[0.05em]", eyebrowClassName ?? "text-dls-text-muted")}>
-            {eyebrow}
-          </div>
-        )}
-        <h1 className="break-words text-[26px] font-extrabold leading-[34px] text-dls-text-primary sm:text-[28px] sm:leading-[36px]">{title}</h1>
-        {sub && <p className="mt-1.5 max-w-2xl break-words text-sm text-dls-text-secondary">{sub}</p>}
+    <div className="mb-6">
+      {breadcrumb && breadcrumb.length > 0 && (
+        <nav aria-label="Breadcrumb" className="mb-1.5 flex items-center gap-1.5 text-[13px] text-dls-text-muted">
+          {breadcrumb.map((crumb, index) => {
+            const isLast = index === breadcrumb.length - 1;
+            return (
+              <span key={`${crumb.label}-${index}`} className="flex items-center gap-1.5">
+                {index > 0 && <span aria-hidden="true">&rsaquo;</span>}
+                {crumb.href && !isLast ? (
+                  <a href={crumb.href} className="hover:text-dls-text-primary hover:underline">
+                    {crumb.label}
+                  </a>
+                ) : (
+                  <span className={isLast ? "font-semibold text-dls-text-primary" : undefined}>{crumb.label}</span>
+                )}
+              </span>
+            );
+          })}
+        </nav>
+      )}
+      <div className="flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+        <div className="min-w-0">
+          {eyebrow && (
+            <div className={cn("mb-1.5 text-[11.5px] font-bold uppercase tracking-[0.05em]", eyebrowClassName ?? "text-dls-text-muted")}>
+              {eyebrow}
+            </div>
+          )}
+          <h1 className="break-words text-[23px] font-bold leading-[1.25] tracking-[-0.41px] text-dls-text-primary">{title}</h1>
+          {sub && <p className="mt-1 max-w-2xl break-words text-sm leading-6 text-dls-text-secondary">{sub}</p>}
+        </div>
+        {action ? <div className="w-full min-w-0 sm:w-auto">{action}</div> : null}
       </div>
-      {action ? <div className="w-full min-w-0 sm:w-auto">{action}</div> : null}
     </div>
   );
 }
