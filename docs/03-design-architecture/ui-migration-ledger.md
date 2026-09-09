@@ -25,7 +25,7 @@ Never have two screens in flight.
 | 13 | 2 | `/app/knowledge` | `lovable-pages/Knowledge.tsx` | Done | 2026-09-09 | `9116368` |
 | 14 | 2 | `/app/search` | `lovable-pages/GlobalSearch.tsx` | Done | 2026-09-09 | `b0c3890` |
 | 15 | 3 | `/app/underwriting` | `lovable-pages/Underwriting.tsx` | Done | 2026-09-09 | `7559555` |
-| 16 | 3 | `/app/policy` | `lovable-pages/PolicyIntelligence.tsx` | Not started | | |
+| 16 | 3 | `/app/policy` | `lovable-pages/PolicyIntelligence.tsx` | Done | 2026-09-09 | `1981dff` |
 | 17 | 3 | `/app/fraud` | `lovable-pages/FraudIntelligence.tsx` | Not started | | |
 | 18 | 3 | `/app/acquisition` | `lovable-pages/CustomerAcquisition.tsx` | Not started | | |
 | 19 | 4 | `/app/flows` | `lovable-pages/AgentFlows.tsx` | Not started | | |
@@ -814,3 +814,19 @@ covered by, immediately, when you know of one" habit — not a substitute for
 the periodic full-suite checkpoint, but a supplement to it.
 
 Resuming at screen 16 (`/app/policy`).
+
+- 2026-09-09: screen 16 (`/app/policy`) — commit `1981dff`.
+  `PolicyIntelligence.tsx` migrated onto tokens and primitives. This is
+  exactly the route gate-8's *first* test covers — ran it directly.
+  **Confirmed pre-existing, unrelated failure**: the test expects a textbox
+  named "Is rear-end collision covered under MTR-8821? What is the excess?"
+  but the file's actual placeholder has never matched that (no "MTR-8821" in
+  it) — a content mismatch that predates this branch, not something styling
+  could fix. Left the placeholder text exactly as it was rather than
+  guessing at intended copy to force the assertion green.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed, gate-8's failure confirmed unchanged
+  (same root cause, same error) rather than newly introduced by this change.
+
+  Screen 16 is now marked **Done**. Resuming at screen 17 (`/app/fraud`).
