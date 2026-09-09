@@ -121,7 +121,7 @@ export default function DocumentExtraction() {
       {selected ? <>
         {documents.length > 1 ? (
           <div className="mb-4 max-w-sm">
-            <Field label="Document">
+            <Field label="Document" htmlFor="extraction-document">
               <Select id="extraction-document" value={selected.documentId} onChange={(event) => setSelectedId(event.target.value)}>
                 {documents.map((document) => <option key={document.documentId} value={document.documentId}>{document.originalFileName} · {documentContractLabel(document.documentType)}</option>)}
               </Select>
