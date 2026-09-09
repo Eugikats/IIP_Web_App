@@ -41,7 +41,7 @@ Never have two screens in flight.
 | 29 | 5 | `/app/admin/agents` | `lovable-pages/admin/Agents.tsx` | Done | 2026-09-09 | `6ff55aa` |
 | 30 | 5 | `/app/admin/tenant-policy` | `lovable-pages/admin/TenantPolicy.tsx` | Done | 2026-09-09 | `f214dd5` |
 | 31 | 5 | `/app/admin/onboarding` | `lovable-pages/admin/Onboarding.tsx` | Done | 2026-09-09 | `f015805` |
-| 32 | 5 | `/app/admin/email` | `lovable-pages/admin/EmailInbox.tsx` | Not started | | |
+| 32 | 5 | `/app/admin/email` | `lovable-pages/admin/EmailInbox.tsx` | Done | 2026-09-09 | `a7253b9` |
 | 33 | 5 | `/app/admin/whatsapp` | `lovable-pages/admin/WhatsAppSettings.tsx` | Not started | | |
 | 34 | 5 | `/app/admin/billing` | `lovable-pages/admin/Billing.tsx` | Not started | | |
 | 35 | 5 | `/app/support` | `app/app/support/page.tsx` | Not started | | |
@@ -1162,3 +1162,16 @@ Resuming at screen 31 (`/app/admin/onboarding`).
 
   Screen 31 is now marked **Done**. Resuming at screen 32
   (`/app/admin/email`).
+
+- 2026-09-09: screen 32 (`/app/admin/email`) — commit `a7253b9`.
+  `admin/EmailInbox.tsx` migrated onto tokens and primitives. Inbound-
+  messages table onto `Table`; the mailbox-creation dialog's fields onto
+  `Field`/`Input` with explicit `htmlFor`/`id`; the ingestion checkbox kept
+  native (no shared checkbox primitive yet).
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 32 is now marked **Done**. Resuming at screen 33
+  (`/app/admin/whatsapp`).
