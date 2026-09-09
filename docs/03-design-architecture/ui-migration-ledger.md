@@ -20,7 +20,7 @@ Never have two screens in flight.
 | 8 | 2 | `/app/conversations` | `lovable-pages/RecentConversations.tsx` | Done | 2026-09-09 | `55e56d7` |
 | 9 | 2 | `/app/claims/new` | `lovable-pages/FNOL.tsx` | Done | 2026-09-09 | `dbdd38d` |
 | 10 | 2 | `/app/customers` | `lovable-pages/Customers.tsx` | Done | 2026-09-09 | `a27a2ab` |
-| 11 | 2 | `/app/customers/[id]` | `lovable-pages/CustomerDetail.tsx` | Not started | | |
+| 11 | 2 | `/app/customers/[id]` | `lovable-pages/CustomerDetail.tsx` | Done | 2026-09-09 | `1fb3060` |
 | 12 | 2 | `/app/communications` | `lovable-pages/Communications.tsx` | Not started | | |
 | 13 | 2 | `/app/knowledge` | `lovable-pages/Knowledge.tsx` | Not started | | |
 | 14 | 2 | `/app/search` | `lovable-pages/GlobalSearch.tsx` | Not started | | |
@@ -687,3 +687,18 @@ copy) and the fix both times was to make the shared primitive strictly more
 capable, never to weaken what it was checked against.
 
 Resuming at screen 11 (`/app/customers/[id]`).
+
+- 2026-09-09: screen 11 (`/app/customers/[id]`) — commit `1fb3060`.
+  `CustomerDetail.tsx` migrated onto tokens and primitives. Breadcrumb
+  rebuilt to §3.1 format. Found a genuine "not configured" state rendered as
+  bolded prose rather than the §8.24 primitive on two cards (AI summary,
+  consent log) — both now use `NotConfiguredStateSurface`, same true fact,
+  correct rendering. Icon avatar moved off `gradient-primary` onto the flat
+  AI-icon-tile treatment. No release gate references this screen.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No visual-parity synthetic fallback;
+  browser verification deferred to the next checkpoint (screen 15).
+
+  Screen 11 is now marked **Done**. Resuming at screen 12
+  (`/app/communications`).
