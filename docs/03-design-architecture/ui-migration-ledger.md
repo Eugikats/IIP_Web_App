@@ -39,7 +39,7 @@ Never have two screens in flight.
 | 27 | 5 | `/app/admin` | `lovable-pages/Admin.tsx` | Done | 2026-09-09 | `f1361aa` |
 | 28 | 5 | `/app/admin/users` | `lovable-pages/admin/Users.tsx` | Done | 2026-09-09 | `bbaf959` |
 | 29 | 5 | `/app/admin/agents` | `lovable-pages/admin/Agents.tsx` | Done | 2026-09-09 | `6ff55aa` |
-| 30 | 5 | `/app/admin/tenant-policy` | `lovable-pages/admin/TenantPolicy.tsx` | Not started | | |
+| 30 | 5 | `/app/admin/tenant-policy` | `lovable-pages/admin/TenantPolicy.tsx` | Done | 2026-09-09 | `f214dd5` |
 | 31 | 5 | `/app/admin/onboarding` | `lovable-pages/admin/Onboarding.tsx` | Not started | | |
 | 32 | 5 | `/app/admin/email` | `lovable-pages/admin/EmailInbox.tsx` | Not started | | |
 | 33 | 5 | `/app/admin/whatsapp` | `lovable-pages/admin/WhatsAppSettings.tsx` | Not started | | |
@@ -1119,3 +1119,13 @@ Resuming at screen 26 (`/app/integrations`).
 
   Screen 29 is now marked **Done**. Resuming at screen 30
   (`/app/admin/tenant-policy`).
+
+- 2026-09-09: screen 30 (`/app/admin/tenant-policy`) — commit `f214dd5`.
+  `admin/TenantPolicy.tsx` migrated onto tokens: rule cards and badges onto
+  the standard treatment.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 30 is now marked **Done — this run's fifth checkpoint boundary.**
