@@ -24,7 +24,7 @@ Never have two screens in flight.
 | 12 | 2 | `/app/communications` | `lovable-pages/Communications.tsx` | Done | 2026-09-09 | `e3c0218` |
 | 13 | 2 | `/app/knowledge` | `lovable-pages/Knowledge.tsx` | Done | 2026-09-09 | `9116368` |
 | 14 | 2 | `/app/search` | `lovable-pages/GlobalSearch.tsx` | Done | 2026-09-09 | `b0c3890` |
-| 15 | 3 | `/app/underwriting` | `lovable-pages/Underwriting.tsx` | Not started | | |
+| 15 | 3 | `/app/underwriting` | `lovable-pages/Underwriting.tsx` | Done | 2026-09-09 | `7559555` |
 | 16 | 3 | `/app/policy` | `lovable-pages/PolicyIntelligence.tsx` | Not started | | |
 | 17 | 3 | `/app/fraud` | `lovable-pages/FraudIntelligence.tsx` | Not started | | |
 | 18 | 3 | `/app/acquisition` | `lovable-pages/CustomerAcquisition.tsx` | Not started | | |
@@ -778,3 +778,39 @@ Resuming at screen 11 (`/app/customers/[id]`).
   Screen 14 is now marked **Done — tier 2 complete (screens 8-14).**
   Resuming at screen 15 (`/app/underwriting`), tier 3 — **the checkpoint
   fires after this screen.**
+
+- 2026-09-09: screen 15 (`/app/underwriting`) — commit `7559555`.
+  `Underwriting.tsx` migrated onto tokens and primitives: loading/error/empty
+  states split, `hover-lift` removed from review cards (banned outright, not
+  just restricted), "Advisory only" badge's legacy `"violet"` tone switched
+  to `"info"`. No release gate references this screen.
+
+  Screen 15 is now marked **Done — this run's second checkpoint boundary.**
+
+## Checkpoint 2 (after screen 15)
+
+Same triad as checkpoint 1:
+
+- **`pnpm test`** — all 7 suites green.
+- **`pnpm test:release-gates`** — **63 passed, 0 failed, 18 skipped** — same
+  skip count as checkpoint 1's clean baseline, confirming nothing broke
+  across the five screens (11-15) migrated since then.
+- **`pnpm build`** with the same env vars — succeeded, every route
+  generated.
+- **Browser walkthrough** — still no interactive browser tool available;
+  same substitution as checkpoint 1 (the gate suite drove real Chromium at
+  all three viewports against every screen it covers). Recommend an actual
+  manual walkthrough at the next opportunity, particularly `Knowledge.tsx`'s
+  upload form and per-row sensitivity/action controls and `Communications.tsx`'s
+  approve/reject/send flow — neither has a visual-parity synthetic fallback,
+  so only structure and copy were verified, not real-data rendering.
+
+Clean checkpoint — no regressions found this time, unlike checkpoint 1. Two
+findings were caught and handled inline during screens 11-15 rather than
+waiting for this boundary (the gate-8 aria-label fix on screen 13, and the
+pre-existing gate-8 permission gap flagged on the same screen), which is the
+intended effect of the "run the specific gate a screen's own route is
+covered by, immediately, when you know of one" habit — not a substitute for
+the periodic full-suite checkpoint, but a supplement to it.
+
+Resuming at screen 16 (`/app/policy`).
