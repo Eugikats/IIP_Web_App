@@ -54,8 +54,9 @@ export default function Workflows({ embedded = false }: { embedded?: boolean }) 
       </div>
 
       <div className="mb-4">
-        <Field label="Decision reason">
+        <Field label="Decision reason" htmlFor="decision-reason">
           <textarea
+            id="decision-reason"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder="Record the evidence checked and the reason for approving, rejecting, or executing the next governed step."

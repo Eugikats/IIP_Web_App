@@ -61,21 +61,21 @@ export default function UniversalMyWork({ onOpenSpecialist }: { onOpenSpecialist
 
       <GlassCard className="!p-4">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Ownership">
-            <Select value={ownership} onChange={(event) => setOwnership(event.target.value as OwnershipFilter)}>
+          <Field label="Ownership" htmlFor="filter-ownership">
+            <Select id="filter-ownership" value={ownership} onChange={(event) => setOwnership(event.target.value as OwnershipFilter)}>
               <option value="mine">Mine</option>
               {canViewAll ? <option value="unassigned">Unassigned</option> : null}
               {canViewAll ? <option value="all">All visible work</option> : null}
             </Select>
           </Field>
-          <Field label="Work type">
-            <Select value={sourceType ?? ""} onChange={(event) => setSourceType((event.target.value || undefined) as MyWorkSourceType | undefined)}>
+          <Field label="Work type" htmlFor="filter-work-type">
+            <Select id="filter-work-type" value={sourceType ?? ""} onChange={(event) => setSourceType((event.target.value || undefined) as MyWorkSourceType | undefined)}>
               <option value="">All types</option>
               {Object.entries(SOURCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </Select>
           </Field>
-          <Field label="State">
-            <Select value={state ?? ""} onChange={(event) => setState((event.target.value || undefined) as MyWorkState | undefined)}>
+          <Field label="State" htmlFor="filter-state">
+            <Select id="filter-state" value={state ?? ""} onChange={(event) => setState((event.target.value || undefined) as MyWorkState | undefined)}>
               <option value="">All states</option>
               <option value="Ready">Ready</option><option value="InProgress">In progress</option><option value="Escalated">Escalated</option><option value="Completed">Completed</option><option value="Closed">Closed</option>
             </Select>
@@ -90,7 +90,7 @@ export default function UniversalMyWork({ onOpenSpecialist }: { onOpenSpecialist
         <GlassCard><LoadingSkeleton rows={4} /></GlassCard>
       ) : error ? (
         <GlassCard>
-          <ErrorStateSurface message={`${error.message} ${error.recovery}`} correlationId={error.correlationId} onRetry={error.retryable ? () => void refresh() : undefined} />
+          <ErrorStateSurface title="My Work could not be loaded" message={`${error.message} ${error.recovery}`} correlationId={error.correlationId} onRetry={error.retryable ? () => void refresh() : undefined} />
           {!error.retryable && (
             <div className="px-5 pb-4">
               <Link href="/app" className="dls-focus-outline inline-flex items-center justify-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-4 py-[9px] text-[13px] font-bold text-dls-text-primary hover:bg-dls-bg-page">
