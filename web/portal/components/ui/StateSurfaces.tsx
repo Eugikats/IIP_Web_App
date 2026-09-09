@@ -17,12 +17,18 @@ export function LoadingSkeleton({ rows = 3, className }: { rows?: number; classN
   );
 }
 
-export function EmptyStateSurface({ message, action }: { message: string; action?: { label: string; onClick: () => void } }) {
+// `title` is optional per §8.24 ("one sentence saying what will appear here" is the minimum
+// requirement, not a ceiling) — added while migrating screen 10's checkpoint
+// (ui-migration-ledger.md) after consolidating RecentConversations.tsx onto this primitive
+// dropped a distinct headline ("No conversations yet" / "No archived conversations") three
+// release gates asserted on. Omit it for the plain single-sentence case most screens use.
+export function EmptyStateSurface({ title, message, action }: { title?: string; message: string; action?: { label: string; onClick: () => void } }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
+    <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+      {title && <p className="text-[13.5px] font-bold text-dls-text-primary">{title}</p>}
       <p className="max-w-sm text-[13.5px] text-dls-text-secondary">{message}</p>
       {action && (
-        <Button variant="secondary" onClick={action.onClick}>
+        <Button variant="secondary" onClick={action.onClick} className="mt-1">
           {action.label}
         </Button>
       )}
@@ -31,11 +37,12 @@ export function EmptyStateSurface({ message, action }: { message: string; action
 }
 
 // Distinct from EmptyStateSurface — never show the same message for both.
-export function EmptyFilteredStateSurface({ onClear }: { onClear: () => void }) {
+export function EmptyFilteredStateSurface({ title, onClear }: { title?: string; onClear: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
+    <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+      {title && <p className="text-[13.5px] font-bold text-dls-text-primary">{title}</p>}
       <p className="text-[13.5px] text-dls-text-secondary">No items match these filters.</p>
-      <Button variant="ghost" onClick={onClear}>
+      <Button variant="ghost" onClick={onClear} className="mt-1">
         Clear filters
       </Button>
     </div>

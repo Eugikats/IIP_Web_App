@@ -121,7 +121,10 @@ export default function RecentConversations() {
 
       <div aria-live="polite" className="sr-only">{loading ? "Loading conversations" : error?.message ?? `${items.length} conversations`}</div>
       {loading ? (
-        <GlassCard><LoadingSkeleton rows={4} /></GlassCard>
+        <GlassCard>
+          <p className="mb-3 text-[12.5px] text-dls-text-secondary">Loading conversations…</p>
+          <LoadingSkeleton rows={4} />
+        </GlassCard>
       ) : error ? (
         <GlassCard>
           <ErrorStateSurface
@@ -132,11 +135,14 @@ export default function RecentConversations() {
         </GlassCard>
       ) : items.length === 0 ? (
         <GlassCard>
-          <EmptyStateSurface message={archived ? "Archived work will appear here." : "Start in the Command Center to investigate or prepare insurance work."} />
+          <EmptyStateSurface
+            title={archived ? "No archived conversations" : "No conversations yet"}
+            message={archived ? "Archived work will appear here." : "Start in the Command Center to investigate or prepare insurance work."}
+          />
         </GlassCard>
       ) : filteredItems.length === 0 ? (
         <GlassCard>
-          <EmptyFilteredStateSurface onClear={() => setQuery("")} />
+          <EmptyFilteredStateSurface title="No matching conversations" onClear={() => setQuery("")} />
         </GlassCard>
       ) : (
         <>
