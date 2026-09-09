@@ -1,7 +1,10 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle, Loader2, Search, ShieldCheck } from "lucide-react";
+import { Loader2, Search, ShieldCheck } from "lucide-react";
 import { SectionHeader, GlassCard } from "@/components/iip/Primitives";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
 import { useCommandCenterQuery } from "@/lib/lovable-parity/data/commandCenterQuery";
@@ -11,6 +14,13 @@ import { useCommandCenterQuery } from "@/lib/lovable-parity/data/commandCenterQu
 // dataset — every answer is grounded, cited, and honestly refused when ungrounded, exactly like
 // the Command Center chat. This page must never render clause text, excess figures, or citations
 // that did not come back from that endpoint (see AGENTS.md — no hardcoded insurer data).
+//
+// Placeholder text below is unchanged from the pre-migration file: gate-8-policy-knowledge's
+// first test expects a differently-worded textbox name ("...covered under MTR-8821?...") that
+// this placeholder doesn't match — a pre-existing content mismatch, confirmed unrelated to this
+// migration (present before this screen was touched). Not corrected here — inventing wording to
+// pass a test without knowing the intended real copy risks shipping the wrong fix; flagged in the
+// ledger instead.
 export default function PolicyIntelligence() {
   const { ask, answer, loading, error, reset } = useCommandCenterQuery();
   const [question, setQuestion] = useState("");
@@ -33,7 +43,7 @@ export default function PolicyIntelligence() {
 
       <div className="mb-4"><GuardrailBanner text="Answers are grounded in approved, tenant-scoped sources only. Policy Intelligence provides guidance to prepare human review — it is not a binding legal or claims interpretation." /></div>
 
-      <div className="glass-elevated p-4 mb-6">
+      <GlassCard className="mb-6">
         <form
           className="flex items-center gap-3"
           onSubmit={(event) => {
@@ -41,52 +51,45 @@ export default function PolicyIntelligence() {
             void submit();
           }}
         >
-          <Search className="h-4 w-4 text-muted shrink-0" />
-          <input
-            value={question}
-            onChange={(event) => {
-              setQuestion(event.target.value);
-              if (error) reset();
-            }}
-            placeholder="Is rear-end collision covered? What is the excess on this policy?"
-            disabled={loading}
-            className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-muted text-ink disabled:opacity-60"
-          />
-          <button
+          <div className="min-w-0 flex-1">
+            <Input
+              value={question}
+              onChange={(event) => {
+                setQuestion(event.target.value);
+                if (error) reset();
+              }}
+              placeholder="Is rear-end collision covered? What is the excess on this policy?"
+              disabled={loading}
+              leadingIcon={<Search aria-hidden="true" />}
+              aria-label="Ask a policy or coverage question"
+            />
+          </div>
+          <Button
             type="submit"
+            variant="primary"
             disabled={loading || question.trim().length === 0}
-            className="rounded-2xl gradient-primary text-white text-[13px] font-medium px-4 py-2 shadow-l2 disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2"
+            icon={loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : undefined}
           >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             Ask
-          </button>
+          </Button>
         </form>
-      </div>
+      </GlassCard>
 
       {error ? (
-        <GlassCard className="mb-4">
-          <div className="flex items-start gap-2 text-[13px] text-danger">
-            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        </GlassCard>
+        <GlassCard className="mb-4"><ErrorStateSurface message={error} /></GlassCard>
       ) : null}
 
       {answer ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-3 space-y-4">
-            <GlassCard level={3}>
-              <div className="flex items-center gap-2 mb-3 text-[11px] uppercase tracking-[0.14em] text-muted">
-                <ShieldCheck className="h-3.5 w-3.5 text-info" /> Prepared for review · AI does not decide
-              </div>
-              <div className="text-[12.5px] text-ink font-medium mb-3">&ldquo;{asked}&rdquo;</div>
-              <CommandCenterBlocks blocks={answer.blocks} />
-            </GlassCard>
+        <GlassCard>
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">
+            <ShieldCheck className="h-3.5 w-3.5 text-dls-info-text" aria-hidden="true" /> Prepared for review · AI does not decide
           </div>
-        </div>
+          <div className="mb-3 text-[12.5px] font-semibold text-dls-text-primary">&ldquo;{asked}&rdquo;</div>
+          <CommandCenterBlocks blocks={answer.blocks} />
+        </GlassCard>
       ) : !loading && !error ? (
         <GlassCard>
-          <div className="text-[12.5px] text-muted">
+          <div className="text-[12.5px] text-dls-text-secondary">
             Ask a coverage or policy-wording question above. Answers cite the approved policy sources they come from; if nothing approved and current supports an answer, IIP will say so rather than guess.
           </div>
         </GlassCard>
