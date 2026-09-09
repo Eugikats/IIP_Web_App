@@ -20,6 +20,9 @@ export default function RecentConversations() {
   const [items, setItems] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ kind: "unauthorized" | "unavailable"; message: string } | null>(null);
+  // Distinct from `error` (the whole list failed to load): a single row's archive/restore action
+  // failing must not blank the list out from under every other row — it shows inline instead.
+  const [actionError, setActionError] = useState<string | null>(null);
   const [changingId, setChangingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
@@ -49,6 +52,7 @@ export default function RecentConversations() {
     }
     setLoading(true);
     setError(null);
+    setActionError(null);
     return listConversations(roleDef.key, runtimeContext.userId, archived, 100, signal)
       .then((result) => setItems(result.items))
       .catch((reason: unknown) => {
@@ -70,13 +74,13 @@ export default function RecentConversations() {
   async function change(item: ConversationSummary) {
     if (!runtimeContext) return;
     setChangingId(item.conversationId);
-    setError(null);
+    setActionError(null);
     try {
       if (archived) await restoreConversation(item, roleDef.key, runtimeContext.userId);
       else await archiveConversation(item, roleDef.key, runtimeContext.userId);
       setItems((current) => current.filter((candidate) => candidate.conversationId !== item.conversationId));
     } catch (reason) {
-      setError({ kind: reason instanceof ConversationRequestError && reason.kind === "unauthorized" ? "unauthorized" : "unavailable", message: reason instanceof Error ? reason.message : "Conversation could not be updated." });
+      setActionError(reason instanceof Error ? reason.message : "Conversation could not be updated.");
     } finally {
       setChangingId(null);
     }
@@ -114,6 +118,12 @@ export default function RecentConversations() {
       ) : filteredItems.length === 0 ? (
         <GlassCard><div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-muted" /><div className="mt-3 font-medium text-ink">No matching conversations</div><p className="mt-1 text-sm text-muted">Clear or change the filter. Your {archived ? "archived" : "active"} conversations are unchanged.</p><button onClick={() => setQuery("")} className="mt-4 rounded-xl border border-line px-4 py-2 text-sm text-ink focus-ring">Clear filter</button></div></GlassCard>
       ) : (
+        <>
+        {actionError ? (
+          <div role="alert" className="mb-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2.5 text-[12.5px] text-warning-text">
+            <p>{actionError}</p>
+          </div>
+        ) : null}
         <GlassCard className="!p-0 overflow-hidden">
           <ul>
             {filteredItems.map((item) => (
@@ -131,6 +141,7 @@ export default function RecentConversations() {
             ))}
           </ul>
         </GlassCard>
+        </>
       )}
     </>
   );
