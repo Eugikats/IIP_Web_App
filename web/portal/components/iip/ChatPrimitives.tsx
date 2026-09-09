@@ -27,13 +27,17 @@ export function AIMessageBubble({ children }: { children: ReactNode }) {
   );
 }
 
-export function Composer({ value, onChange, onSend, disabled, placeholder, ariaLabel }: {
+export function Composer({ value, onChange, onSend, disabled, placeholder, ariaLabel, disclaimerClassName }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
   disabled?: boolean;
   placeholder?: string;
   ariaLabel?: string;
+  // Escape hatch for the disclaimer line's background: CopilotPanel sits it on bg-dls-surface
+  // (white), but AIConversations' hero sits it directly on bg-dls-bg-page, where the default
+  // text-dls-text-muted measures 4.47:1 — below WCAG AA 4.5:1 (gate-17).
+  disclaimerClassName?: string;
 }) {
   // Derive the send button's accessible name from the composer's own label so
   // multiple Composer instances on the same page (e.g. AIConversations + CopilotPanel
@@ -73,7 +77,7 @@ export function Composer({ value, onChange, onSend, disabled, placeholder, ariaL
           <ArrowUp className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
-      <p className="mt-2 text-center text-[12px] text-dls-text-muted">
+      <p className={cn("mt-2 text-center text-[12px]", disclaimerClassName ?? "text-dls-text-muted")}>
         IIP can make mistakes and does not make claim decisions. Verify before acting.
       </p>
     </div>

@@ -99,6 +99,11 @@ export default function ClaimsQueue() {
     <>
       <SectionHeader
         eyebrow="Claims Intelligence"
+        // text-dls-text-muted measures 4.47:1 against this page's bg-dls-bg-page at 11px bold —
+        // just under WCAG AA's 4.5:1 (gate-17). text-dls-text-secondary is already used
+        // platform-wide for "labels, captions, descriptions" (app/globals.css) and clears 6.23:1
+        // here, so it fits this eyebrow's intent without introducing a new color.
+        eyebrowClassName="text-dls-text-secondary"
         title="Work Queue"
         sub="Claims requiring officer attention across Motor Operations. AI has pre-processed extractions, evidence, and risk signals — officers decide."
         action={

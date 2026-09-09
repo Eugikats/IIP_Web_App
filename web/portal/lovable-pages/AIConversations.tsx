@@ -246,7 +246,13 @@ export default function AIConversations({ conversationId: requestedConversationI
       </div>
 
       <div className="sticky bottom-0 z-10 mx-auto w-full max-w-[780px] bg-dls-bg-page pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <Composer value={input} onChange={setInput} onSend={() => send()} disabled={loading || historyLoading || !canContinue || Boolean(historyError) || Boolean(pendingRequest)} />
+        <Composer
+          value={input}
+          onChange={setInput}
+          onSend={() => send()}
+          disabled={loading || historyLoading || !canContinue || Boolean(historyError) || Boolean(pendingRequest)}
+          disclaimerClassName="text-dls-text-secondary"
+        />
       </div>
     </div>
   );

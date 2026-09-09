@@ -94,6 +94,7 @@ export default function DocumentExtraction() {
     <>
       <SectionHeader
         eyebrow="Release 1 · Document-to-Decision"
+        eyebrowClassName="text-dls-text-secondary"
         title={selected ? `Extraction Review · ${documentContractLabel(selected.documentType)}` : "Extraction Review"}
         sub={selected ? `${selected.originalFileName} · Claim ${caseId} · Compare every effective value with the authorized source.` : `Claim ${caseId} · Source-grounded document review.`}
         action={selected ? <div className="flex flex-wrap items-center gap-2"><StatusBadge status={selected.processingStatus} /><ConfidenceBadge value={selected.confidenceScore} />{selected.extractionApproved ? <Badge tone="success">Human approved</Badge> : <Badge tone="warning">Review required</Badge>}</div> : undefined}

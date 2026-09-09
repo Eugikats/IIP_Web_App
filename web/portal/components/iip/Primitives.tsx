@@ -12,11 +12,30 @@ export function GlassCard({ className, children }: { className?: string; childre
   return <div className={cn("rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6 shadow-dls-none", className)}>{children}</div>;
 }
 
-export function SectionHeader({ eyebrow, title, sub, action }: { eyebrow?: string; title: string; sub?: string; action?: ReactNode }) {
+export function SectionHeader({
+  eyebrow,
+  eyebrowClassName,
+  title,
+  sub,
+  action,
+}: {
+  eyebrow?: string;
+  // Escape hatch for a single screen's eyebrow to use a different, already-AA-compliant token
+  // instead of the default text-dls-text-muted (see the /app/claims "Claims Intelligence" label,
+  // gate-17) without changing the shared muted token every other of the ~30 eyebrow callers uses.
+  eyebrowClassName?: string;
+  title: string;
+  sub?: string;
+  action?: ReactNode;
+}) {
   return (
     <div className="mb-6 flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
       <div className="min-w-0">
-        {eyebrow && <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">{eyebrow}</div>}
+        {eyebrow && (
+          <div className={cn("mb-2 text-[11px] font-bold uppercase tracking-[0.05em]", eyebrowClassName ?? "text-dls-text-muted")}>
+            {eyebrow}
+          </div>
+        )}
         <h1 className="break-words text-[26px] font-extrabold leading-[34px] text-dls-text-primary sm:text-[28px] sm:leading-[36px]">{title}</h1>
         {sub && <p className="mt-1.5 max-w-2xl break-words text-sm text-dls-text-secondary">{sub}</p>}
       </div>

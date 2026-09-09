@@ -269,7 +269,10 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   }
 
   const crumb = (
-    <div className="mb-4 flex items-center gap-2 text-[12px] text-dls-text-muted">
+    // text-dls-text-muted measures 4.47:1 on this page's bg-dls-bg-page at 12px (gate-17);
+    // text-dls-text-secondary is the platform's existing token for labels/captions and clears
+    // 6.23:1 here, so it fits a breadcrumb without introducing a new color.
+    <div className="mb-4 flex items-center gap-2 text-[12px] text-dls-text-secondary">
       <Link to="/app/claims" className="dls-focus-outline inline-flex items-center gap-1 rounded-dls-tight hover:text-dls-text-primary">
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Claims
       </Link>
@@ -318,6 +321,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       {crumb}
       <SectionHeader
         eyebrow={`Case Review · ${detail.policyNumber}`}
+        eyebrowClassName="text-dls-text-secondary"
         title={`${detail.claimId.slice(0, 8)} · ${detail.customerName}`}
         sub={detail.incidentDescription}
         action={
