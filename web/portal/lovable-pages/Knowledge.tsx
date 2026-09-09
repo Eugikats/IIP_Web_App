@@ -1,7 +1,11 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
+import { Button } from "@/components/ui/Button";
+import { Input, Select, Field as UIField } from "@/components/ui/Input";
+import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
+import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, EmptyFilteredStateSurface } from "@/components/ui/StateSurfaces";
 import {
   useKnowledgeDocs, SELECTABLE_SENSITIVITIES, type KnowledgeDocView, type KnowledgeSensitivity,
 } from "@/lib/lovable-parity/data/knowledge";
@@ -10,9 +14,11 @@ import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import PolicyQuestionPanel from "@/components/PolicyQuestionPanel";
 
-const SENS_TONE: Record<KnowledgeSensitivity, "success" | "info" | "warning" | "error" | "violet" | "neutral"> = {
+// "violet" is Badge's legacy tone alias — it degrades to "info" internally (design language §8.7:
+// violet marks actions, not status), so customer_confidential uses "info" directly in new code.
+const SENS_TONE: Record<KnowledgeSensitivity, "success" | "info" | "warning" | "error" | "neutral"> = {
   approved: "success",
-  customer_confidential: "violet",
+  customer_confidential: "info",
   staff_only: "info",
   contains_secrets: "error",
   contains_unapproved_pii: "error",
@@ -45,6 +51,7 @@ export default function Knowledge() {
   const [pendingSensitivity, setPendingSensitivity] = useState<Record<string, KnowledgeSensitivity>>({});
   const [form, setForm] = useState({ documentName: "", productLine: "", documentType: "PolicyWording", version: "1.0", effectiveDate: "", expiryDate: "" });
   const [file, setFile] = useState<File | null>(null);
+  const fileFieldId = useId();
 
   const rows = useMemo(() => docs.filter((d) => !q || d.title.toLowerCase().includes(q.toLowerCase())), [docs, q]);
   const stuckCount = useMemo(() => docs.filter((d) => d.status === "Approved" && !d.retrievalEligible).length, [docs]);
@@ -113,12 +120,12 @@ export default function Knowledge() {
         sub="Every knowledge source is classified, versioned, and cited. Coverage answers must be grounded in approved sources — model memory alone is not acceptable."
         action={
           <div className="flex gap-2">
-            <button type="button" onClick={handleReindex} disabled={reindexing} className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-medium text-ink hover-lift disabled:opacity-50">
-              {reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Re-index approved
-            </button>
-            <button type="button" onClick={() => setShowUpload((v) => !v)} className="inline-flex items-center gap-2 rounded-2xl gradient-primary px-4 py-2.5 text-[13px] font-semibold text-white shadow-l2">
-              <Upload className="h-4 w-4" /> Upload
-            </button>
+            <Button variant="secondary" onClick={handleReindex} disabled={reindexing} icon={reindexing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}>
+              Re-index approved
+            </Button>
+            <Button variant="primary" onClick={() => setShowUpload((v) => !v)} icon={<Upload aria-hidden="true" />}>
+              Upload
+            </Button>
           </div>
         }
       />
@@ -126,8 +133,8 @@ export default function Knowledge() {
       <div className="mb-4"><GuardrailBanner text="Unknown sensitivity is blocked from retrieval by default. A document cannot be approved for AI grounding without an explicit sensitivity classification and governance reason." /></div>
 
       {stuckCount > 0 && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-warning/40 bg-warning/8 px-4 py-3 text-[12.5px] text-ink-soft">
-          <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+        <div className="mb-4 flex items-center gap-2.5 rounded-dls-card bg-dls-warning-tint px-4 py-3 text-[12.5px] text-dls-warning-text">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             {stuckCount} approved document{stuckCount === 1 ? " is" : "s are"} marked <b>Approved</b> but blocked from retrieval — approved before a sensitivity classification was required, so nothing has ever been able to answer from them.
             Set a classification below to fix each one.
@@ -139,126 +146,143 @@ export default function Knowledge() {
 
       {showUpload && (
         <GlassCard className="mb-4">
-          <div className="mb-3 text-[14px] font-semibold text-ink">Upload knowledge document</div>
+          <div className="mb-3 text-[15px] font-bold text-dls-text-primary">Upload knowledge document</div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="sm:col-span-2">
-              <span className="text-[11.5px] font-medium text-ink-soft">File (TXT, MD, PDF, or DOCX) *</span>
-              <input type="file" accept=".txt,.md,.pdf,.docx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40" />
-            </label>
+            <div className="sm:col-span-2">
+              <UIField label="File (TXT, MD, PDF, or DOCX) *" htmlFor={fileFieldId}>
+                <input
+                  id={fileFieldId}
+                  type="file"
+                  accept=".txt,.md,.pdf,.docx"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="w-full rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-[9px] text-sm text-dls-text-primary file:mr-3 file:rounded-dls-control file:border-0 file:bg-dls-bg-page file:px-3 file:py-1.5 file:text-[12.5px] file:font-semibold file:text-dls-text-secondary focus:outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
+                />
+              </UIField>
+            </div>
             <Field label="Document name" value={form.documentName} onChange={(v) => setForm((f) => ({ ...f, documentName: v }))} required />
             <Field label="Product line" value={form.productLine} onChange={(v) => setForm((f) => ({ ...f, productLine: v }))} required />
-            <label>
-              <span className="text-[11.5px] font-medium text-ink-soft">Document type</span>
-              <select value={form.documentType} onChange={(e) => setForm((f) => ({ ...f, documentType: e.target.value }))} className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40">
-                {DOCUMENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </label>
+            <Field label="Document type" as="select" value={form.documentType} onChange={(v) => setForm((f) => ({ ...f, documentType: v }))} options={DOCUMENT_TYPES} />
             <Field label="Version" value={form.version} onChange={(v) => setForm((f) => ({ ...f, version: v }))} required />
             <Field label="Effective date" value={form.effectiveDate} onChange={(v) => setForm((f) => ({ ...f, effectiveDate: v }))} type="date" />
             <Field label="Expiry date" value={form.expiryDate} onChange={(v) => setForm((f) => ({ ...f, expiryDate: v }))} type="date" />
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setShowUpload(false)} className="rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-medium text-ink">Cancel</button>
-            <button type="button" onClick={submitUpload} disabled={uploading} className="rounded-2xl gradient-primary px-4 py-2.5 text-[13px] font-semibold text-white shadow-l2 disabled:opacity-50">
+            <Button variant="ghost" onClick={() => setShowUpload(false)}>Cancel</Button>
+            <Button variant="primary" onClick={submitUpload} disabled={uploading}>
               {uploading ? "Uploading…" : "Upload as draft"}
-            </button>
+            </Button>
           </div>
         </GlassCard>
       )}
 
-      <div className="glass-elevated p-4 mb-4 flex items-center gap-3">
-        <Search className="h-4 w-4 text-muted" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search knowledge titles…" className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-muted text-ink" />
+      <div className="mb-4 max-w-md">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search knowledge titles…" leadingIcon={<Search aria-hidden="true" />} aria-label="Search knowledge titles…" />
       </div>
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading knowledge sources…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={5} /></GlassCard>
+      ) : error ? (
+        <GlassCard><ErrorStateSurface title="Knowledge sources could not be loaded" message={error} /></GlassCard>
+      ) : docs.length === 0 ? (
+        <GlassCard><EmptyStateSurface title="No knowledge documents" message="Approved policy wordings, SOPs, and playbooks appear here once uploaded and indexed." /></GlassCard>
       ) : rows.length === 0 ? (
-        <GlassCard><div className="p-10 text-center text-muted"><div className="text-ink font-medium">No knowledge documents</div><div className="text-[12.5px] mt-1">{error ? error : "Approved policy wordings, SOPs, and playbooks appear here once uploaded and indexed."}</div></div></GlassCard>
+        <GlassCard><EmptyFilteredStateSurface onClear={() => setQ("")} /></GlassCard>
       ) : (
-        <GlassCard className="!p-0 overflow-hidden">
-          <table className="w-full text-[13px]">
-            <thead className="bg-white/60">
-              <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-muted">
-                <th className="p-3">Document</th><th className="p-3">Category</th><th className="p-3">Sensitivity</th><th className="p-3">Status</th><th className="p-3">Retrieval</th><th className="p-3">Updated</th><th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((d) => {
-                const canApprove = allows(d, "approveKnowledgeDocument");
-                const canClassify = allows(d, "classifyKnowledgeDocument");
-                const canArchive = allows(d, "archiveKnowledgeDocument");
-                const approveBlocked = blockedReason(d, "approveKnowledgeDocument");
-                const archiveBlocked = blockedReason(d, "archiveKnowledgeDocument");
-                const stuck = d.status === "Approved" && !d.retrievalEligible;
-                const selectedSensitivity = pendingSensitivity[d.id];
-                return (
-                  <tr key={d.id} className={"border-t border-line/70 hover:bg-white/50 align-top" + (stuck ? " bg-warning/5" : "")}>
-                    <td className="p-3"><div className="flex items-center gap-2 text-ink"><BookOpen className="h-4 w-4 text-info" />{d.title}</div><div className="text-[10.5px] text-muted">{d.id}</div></td>
-                    <td className="p-3 text-ink-soft">{d.category}</td>
-                    <td className="p-3"><Badge tone={SENS_TONE[d.sensitivity]}>{SENS_LABEL[d.sensitivity]}</Badge></td>
-                    <td className="p-3"><Badge tone={d.status === "Approved" ? "success" : d.status === "Archived" ? "neutral" : "warning"}>{d.status}</Badge></td>
-                    <td className="p-3">{d.retrievalEligible ? <Badge tone="success">Eligible</Badge> : <Badge tone="error">Blocked</Badge>}</td>
-                    <td className="p-3 text-muted">{d.updated}</td>
-                    <td className="p-3">
-                      <div className="flex flex-col items-end gap-1.5">
-                        {canApprove && (
-                          <div className="flex items-center gap-1.5">
-                            <select
-                              aria-label={`Sensitivity for ${d.title}`}
-                              value={selectedSensitivity ?? ""}
-                              onChange={(e) => setPendingSensitivity((current) => ({ ...current, [d.id]: e.target.value as KnowledgeSensitivity }))}
-                              className="rounded-lg border border-line bg-white px-2 py-1.5 text-[11.5px] text-ink"
-                            >
-                              <option value="">Sensitivity…</option>
-                              {SELECTABLE_SENSITIVITIES.map((s) => <option key={s} value={s}>{SENS_LABEL[s]}</option>)}
-                            </select>
-                            <button
-                              type="button"
-                              disabled={!selectedSensitivity}
-                              onClick={() => selectedSensitivity && setPending({ kind: "approve", doc: d, sensitivity: selectedSensitivity })}
-                              className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-ink hover:bg-line/40 disabled:opacity-50"
-                            >
-                              Approve
-                            </button>
-                          </div>
-                        )}
-                        {canClassify && (
-                          <div className="flex items-center gap-1.5">
-                            <select
-                              aria-label={`Sensitivity for ${d.title}`}
-                              value={selectedSensitivity ?? ""}
-                              onChange={(e) => setPendingSensitivity((current) => ({ ...current, [d.id]: e.target.value as KnowledgeSensitivity }))}
-                              className="rounded-lg border border-line bg-white px-2 py-1.5 text-[11.5px] text-ink"
-                            >
-                              <option value="">Sensitivity…</option>
-                              {SELECTABLE_SENSITIVITIES.map((s) => <option key={s} value={s}>{SENS_LABEL[s]}</option>)}
-                            </select>
-                            <button
-                              type="button"
-                              disabled={!selectedSensitivity}
-                              onClick={() => selectedSensitivity && setPending({ kind: "classify", doc: d, sensitivity: selectedSensitivity })}
-                              className={"rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium disabled:opacity-50 " + (stuck ? "border-warning/50 bg-warning/10 text-ink hover:bg-warning/20" : "border-line bg-white text-ink hover:bg-line/40")}
-                              title={stuck ? "This document was approved before sensitivity classification was required and cannot be retrieved until classified." : "Correct this document's sensitivity classification."}
-                            >
-                              {stuck ? "Classify to restore retrieval" : "Reclassify"}
-                            </button>
-                          </div>
-                        )}
-                        {canArchive && (
-                          <button type="button" onClick={() => setPending({ kind: "archive", doc: d })} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-danger hover:bg-danger/5">Archive</button>
-                        )}
-                        {!canApprove && !canClassify && !canArchive && (
-                          <span className="text-[11px] text-muted text-right" title={approveBlocked ?? archiveBlocked ?? undefined}>{approveBlocked ?? archiveBlocked ?? "No action available"}</span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </GlassCard>
+        <Table label="Knowledge sources">
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Document</TableHeaderCell>
+              <TableHeaderCell>Category</TableHeaderCell>
+              <TableHeaderCell>Sensitivity</TableHeaderCell>
+              <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell>Retrieval</TableHeaderCell>
+              <TableHeaderCell>Updated</TableHeaderCell>
+              <TableHeaderCell numeric>Actions</TableHeaderCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map((d) => {
+              const canApprove = allows(d, "approveKnowledgeDocument");
+              const canClassify = allows(d, "classifyKnowledgeDocument");
+              const canArchive = allows(d, "archiveKnowledgeDocument");
+              const approveBlocked = blockedReason(d, "approveKnowledgeDocument");
+              const archiveBlocked = blockedReason(d, "archiveKnowledgeDocument");
+              const stuck = d.status === "Approved" && !d.retrievalEligible;
+              const selectedSensitivity = pendingSensitivity[d.id];
+              return (
+                <TableRow key={d.id} className={"align-top" + (stuck ? " bg-dls-warning-tint" : "")}>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-dls-text-primary"><BookOpen className="h-4 w-4 text-dls-info-text" aria-hidden="true" />{d.title}</div>
+                    <div className="text-[11px] text-dls-text-muted">{d.id}</div>
+                  </TableCell>
+                  <TableCell className="text-dls-text-secondary">{d.category}</TableCell>
+                  <TableCell><Badge tone={SENS_TONE[d.sensitivity]}>{SENS_LABEL[d.sensitivity]}</Badge></TableCell>
+                  <TableCell><Badge tone={d.status === "Approved" ? "success" : d.status === "Archived" ? "neutral" : "warning"}>{d.status}</Badge></TableCell>
+                  <TableCell>{d.retrievalEligible ? <Badge tone="success">Eligible</Badge> : <Badge tone="error">Blocked</Badge>}</TableCell>
+                  <TableCell className="text-dls-text-muted">{d.updated}</TableCell>
+                  <TableCell numeric>
+                    <div className="flex flex-col items-end gap-1.5">
+                      {canApprove && (
+                        <div className="flex items-center gap-1.5">
+                          <Select
+                            aria-label={`Sensitivity for ${d.title}`}
+                            value={selectedSensitivity ?? ""}
+                            onChange={(e) => setPendingSensitivity((current) => ({ ...current, [d.id]: e.target.value as KnowledgeSensitivity }))}
+                          >
+                            <option value="">Sensitivity…</option>
+                            {SELECTABLE_SENSITIVITIES.map((s) => <option key={s} value={s}>{SENS_LABEL[s]}</option>)}
+                          </Select>
+                          <Button
+                            variant="secondary"
+                            disabled={!selectedSensitivity}
+                            onClick={() => selectedSensitivity && setPending({ kind: "approve", doc: d, sensitivity: selectedSensitivity })}
+                          >
+                            Approve
+                          </Button>
+                        </div>
+                      )}
+                      {canClassify && (
+                        <div className="flex items-center gap-1.5">
+                          <Select
+                            aria-label={`Sensitivity for ${d.title}`}
+                            value={selectedSensitivity ?? ""}
+                            onChange={(e) => setPendingSensitivity((current) => ({ ...current, [d.id]: e.target.value as KnowledgeSensitivity }))}
+                          >
+                            <option value="">Sensitivity…</option>
+                            {SELECTABLE_SENSITIVITIES.map((s) => <option key={s} value={s}>{SENS_LABEL[s]}</option>)}
+                          </Select>
+                          <Button
+                            variant="secondary"
+                            disabled={!selectedSensitivity}
+                            onClick={() => selectedSensitivity && setPending({ kind: "classify", doc: d, sensitivity: selectedSensitivity })}
+                            title={stuck ? "This document was approved before sensitivity classification was required and cannot be retrieved until classified." : "Correct this document's sensitivity classification."}
+                          >
+                            {stuck ? "Classify to restore retrieval" : "Reclassify"}
+                          </Button>
+                        </div>
+                      )}
+                      {canArchive && (
+                        // Same hand-sized destructive treatment as Communications.tsx's Reject —
+                        // Button's destructive variant is zero-padding by design (§8.4) and would
+                        // misalign here.
+                        <button
+                          type="button"
+                          onClick={() => setPending({ kind: "archive", doc: d })}
+                          className="dls-focus-outline inline-flex min-h-11 items-center justify-center rounded-dls-control px-4 py-[9px] text-[13px] font-bold text-dls-danger-text transition-colors duration-dls-fast ease-dls hover:underline"
+                        >
+                          Archive
+                        </button>
+                      )}
+                      {!canApprove && !canClassify && !canArchive && (
+                        <span className="text-right text-[11px] text-dls-text-muted" title={approveBlocked ?? archiveBlocked ?? undefined}>{approveBlocked ?? archiveBlocked ?? "No action available"}</span>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
 
       <GovernedActionDialog
@@ -286,18 +310,25 @@ export default function Knowledge() {
   );
 }
 
+// Delegates to components/ui/Input.tsx's Field/Input/Select — same precedent as FNOL.tsx's local
+// wrapper, kept local here since only this screen's upload form needs it and it isn't used at
+// FNOL.tsx's ~25-call-site scale.
 function Field({
-  label, value, onChange, type = "text", required = false,
-}: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean }) {
+  label, value, onChange, type = "text", required = false, as, options,
+}: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean;
+  as?: "select"; options?: string[];
+}) {
+  const id = useId();
   return (
-    <label>
-      <span className="text-[11.5px] font-medium text-ink-soft">{label}{required ? " *" : ""}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        type={type}
-        className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40"
-      />
-    </label>
+    <UIField label={required ? `${label} *` : label} htmlFor={id}>
+      {as === "select" && options ? (
+        <Select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="w-full">
+          {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        </Select>
+      ) : (
+        <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} type={type} />
+      )}
+    </UIField>
   );
 }
