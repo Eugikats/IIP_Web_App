@@ -1,6 +1,8 @@
 "use client";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
-import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { Button } from "@/components/ui/Button";
+import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
+import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useOperationsSummary } from "@/lib/lovable-parity/data/reports";
@@ -43,60 +45,95 @@ export default function Executive() {
         eyebrow="Operations Intelligence"
         title="Management operations view"
         sub="Claims volume, SLA state, approvals, and document completeness from timestamped workspace aggregates or a labelled development snapshot. Unavailable financial or loss measures are omitted rather than estimated."
-        action={<button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-2xl gradient-primary text-white text-[13px] px-4 py-2 shadow-l2 hover-lift"><Download className="h-4 w-4" /> Export CSV</button>}
+        action={
+          <Button variant="primary" onClick={exportCsv} icon={<Download aria-hidden="true" />}>
+            Export CSV
+          </Button>
+        }
       />
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading operations summary…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={5} /></GlassCard>
+      ) : error ? (
+        <GlassCard><ErrorStateSurface title="Operations summary could not be loaded" message={error} /></GlassCard>
       ) : !summary ? (
-        <GlassCard><div className="p-10 text-center text-muted"><div className="text-ink font-medium">Operations summary unavailable</div><div className="text-[12.5px] mt-1">{error ?? "No operations data for this workspace yet."}</div></div></GlassCard>
+        <GlassCard><ErrorStateSurface title="Operations summary unavailable" message="No operations data for this workspace yet." /></GlassCard>
       ) : (
         <>
           <DataProvenance source={summary.source} dataAsOf={summary.dataAsOf} snapshotId={summary.snapshotId} limitations={summary.limitations} className="mb-4" />
-          <div className="grid md:grid-cols-4 gap-3 mb-6">
+          <div className="mb-6 grid gap-3 md:grid-cols-4">
             {[
               { l: "Open claims", v: summary.openClaims },
               { l: "Doc completeness", v: `${Math.round(summary.averageCompletenessScore)}%` },
               { l: "AI assist volume", v: summary.assistantQuestionsAnswered.toLocaleString() },
               { l: "SLA at risk", v: summary.slaAtRisk },
-            ].map(k => (
-              <div key={k.l} className="glass-subtle p-4">
-                <div className="text-[11.5px] text-muted">{k.l}</div>
-                <div className="mt-1 text-[26px] leading-none font-semibold text-ink">{k.v}</div>
+            ].map((k) => (
+              <div key={k.l} className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+                <div className="text-[13.5px] text-dls-text-secondary">{k.l}</div>
+                <div className="mt-2 text-[30px] font-bold leading-[1.1] tabular-nums tracking-[-0.5px] text-dls-text-primary">{k.v}</div>
               </div>
             ))}
           </div>
 
-          <div className="glass-elevated p-5 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-8 w-8 rounded-xl gradient-primary grid place-items-center shadow-l2"><Sparkles className="h-4 w-4 text-white" /></div>
+          <GlassCard className="mb-6">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-dls-chip bg-dls-primary-soft text-dls-primary"><Sparkles className="h-4 w-4" aria-hidden="true" /></div>
               <div>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-muted">AI executive brief · prepared for human review</div>
-                <div className="text-[14px] font-semibold text-ink">Motor Operations</div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">AI executive brief · prepared for human review</div>
+                <div className="text-[14px] font-bold text-dls-text-primary">Motor Operations</div>
               </div>
             </div>
             {parityMode ? (
-              <p className="text-[13.5px] leading-[21px] text-ink-soft">This synthetic snapshot contains {summary.openClaims} open claims, including {summary.slaAtRisk} at risk and {summary.slaBreached} breached. It demonstrates the management layout only; it does not establish trends, provider performance, financial outcomes, or regulatory status.</p>
+              <p className="text-[13.5px] leading-[21px] text-dls-text-secondary">This synthetic snapshot contains {summary.openClaims} open claims, including {summary.slaAtRisk} at risk and {summary.slaBreached} breached. It demonstrates the management layout only; it does not establish trends, provider performance, financial outcomes, or regulatory status.</p>
             ) : (
-              <p className="text-[12.5px] leading-[20px] text-ink-soft">A source-cited executive narrative appears here once the summary-generation service is configured. Until then, this view shows only the timestamped operational aggregates returned by the reports service.</p>
+              <p className="text-[12.5px] leading-[20px] text-dls-text-secondary">A source-cited executive narrative appears here once the summary-generation service is configured. Until then, this view shows only the timestamped operational aggregates returned by the reports service.</p>
             )}
-          </div>
+          </GlassCard>
 
           <GlassCard>
-            <div className="text-[14px] font-semibold text-ink mb-1">Claims by status</div>
-            <div className="text-[11.5px] text-muted mb-4">{summary.source === "synthetic" ? "Illustrative distribution in the labelled development snapshot" : "Distribution at the snapshot time shown above"}</div>
-            <div className="h-64">
+            <div className="mb-1 text-[15px] font-bold text-dls-text-primary">Claims by status</div>
+            <div className="mb-4 text-[11.5px] text-dls-text-muted">{summary.source === "synthetic" ? "Illustrative distribution in the labelled development snapshot" : "Distribution at the snapshot time shown above"}</div>
+            {/* §8.25 — vertical bars only, the chart-bar gradient (one of the two permitted uses),
+                8px top radius, no gridlines/axis lines, muted short labels. */}
+            <div className="h-[180px]">
               <ResponsiveContainer>
                 <BarChart data={summary.claimsByStatus}>
-                  <CartesianGrid stroke="#EEF2F7" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-12} textAnchor="end" height={50} />
-                  <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E5E7EB" }} />
-                  <Bar dataKey="count" fill="#2563FF" radius={[8, 8, 0, 0]} />
+                  <defs>
+                    <linearGradient id="executive-claims-bar" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8D6BF1" />
+                      <stop offset="100%" stopColor="#5B2AE8" />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="label" tick={{ fill: "#6B7280", fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis hide />
+                  <Tooltip
+                    cursor={{ fill: "rgb(var(--color-bg-page))" }}
+                    contentStyle={{ borderRadius: 12, border: "1px solid #ECEEF2", fontSize: 12 }}
+                  />
+                  <Bar dataKey="count" fill="url(#executive-claims-bar)" radius={[8, 8, 4, 4]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+            {/* Table alternative to the chart, per §8.25 — "every chart is accompanied by an
+                accessible table alternative and direct value labels". */}
+            <table className="mt-4 w-full text-[12.5px]">
+              <caption className="sr-only">Claims by status, exact counts</caption>
+              <thead>
+                <tr className="border-b border-dls-border-subtle text-left text-[11px] font-bold uppercase tracking-[0.04em] text-dls-text-muted">
+                  <th scope="col" className="py-2">Status</th>
+                  <th scope="col" className="py-2 text-right">Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.claimsByStatus.map((row) => (
+                  <tr key={row.label} className="border-b border-dls-border-subtle last:border-0">
+                    <td className="py-2 text-dls-text-secondary">{row.label}</td>
+                    <td className="py-2 text-right font-semibold tabular-nums text-dls-text-primary">{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-4 flex flex-wrap gap-2">
               <Badge tone="info">{summary.pendingApprovals} approvals pending</Badge>
               <Badge tone="warning">{summary.escalationsRequired} escalations</Badge>
               <Badge tone={summary.slaBreached > 0 ? "error" : "success"}>{summary.slaBreached} SLA breached</Badge>
