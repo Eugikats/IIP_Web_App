@@ -28,7 +28,7 @@ Never have two screens in flight.
 | 16 | 3 | `/app/policy` | `lovable-pages/PolicyIntelligence.tsx` | Done | 2026-09-09 | `1981dff` |
 | 17 | 3 | `/app/fraud` | `lovable-pages/FraudIntelligence.tsx` | Done | 2026-09-09 | `cc7cfe0` |
 | 18 | 3 | `/app/acquisition` | `lovable-pages/CustomerAcquisition.tsx` | Done | 2026-09-09 | `cb3be97` |
-| 19 | 4 | `/app/flows` | `lovable-pages/AgentFlows.tsx` | Not started | | |
+| 19 | 4 | `/app/flows` | `lovable-pages/AgentFlows.tsx` | Done | 2026-09-09 | `d8917bb` |
 | 20 | 4 | `/app/flows/[key]` | `lovable-pages/AgentFlowInspector.tsx` | Not started | | |
 | 21 | 4 | `/app/flows/new` | `lovable-pages/AgentFlowBuilder.tsx` | Not started | | |
 | 22 | 4 | `/app/runs/[id]` | `lovable-pages/AgentRunDebugger.tsx` | Not started | | |
@@ -863,3 +863,39 @@ Resuming at screen 16 (`/app/policy`).
 
   Screen 18 is now marked **Done — tier 3 complete (screens 15-18).**
   Resuming at screen 19 (`/app/flows`), tier 4.
+
+- 2026-09-09: foundation-level fix — commit `ecc0dd2`. Found while starting
+  screen 19: `components/iip/WorkflowCanvas.tsx` — used by 4 of tier 4's 6
+  screens (`AgentFlows`, `AgentFlowInspector`, `AgentFlowBuilder`,
+  `AgentRunDebugger`) — was fully unmigrated. Same shared-dependency
+  precedent as the chat surface and `Primitives.tsx`: migrated once here.
+
+  Removed outright, not retokenized: `backdrop-blur` on every node card
+  (glassmorphism), the `bg-gradient-secondary` icon tile (gradient outside
+  the two permitted uses), and every `shadow-glow-*` status treatment — a
+  node glowing on state change is exactly the neon-accent/ambient-glow
+  pattern craft guardrails §2 item 3 catalogues. Status is now border + tint
+  background, the same signalling every other status surface uses. The
+  edge-line SVG gradient and the literal-rgba dot-grid background moved onto
+  tokens; edges are a flat structural colour now, not a gradient outside the
+  two named exceptions — edges are connective tissue, not a call to action.
+  Also fixed a latent multi-instance bug found while touching the SVG defs:
+  the arrow marker id was a hardcoded literal that would collide if two
+  canvases ever rendered on the same page; scoped to the definition's id.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed.
+
+- 2026-09-09: screen 19 (`/app/flows`) — commit `d8917bb`, preceded by the
+  `WorkflowCanvas` fix above. `AgentFlows.tsx` migrated onto tokens and
+  primitives. Release-catalog buttons moved onto the established selected-
+  row tint pattern; every `"violet"` Badge tone switched to `"info"`.
+  Loading and error states split (previously conflated — an empty catalog
+  and a genuine load error rendered the same block).
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 19 is now marked **Done**. Resuming at screen 20
+  (`/app/flows/[key]`) — **the checkpoint fires after this screen.**
