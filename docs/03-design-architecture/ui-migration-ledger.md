@@ -33,7 +33,7 @@ Never have two screens in flight.
 | 21 | 4 | `/app/flows/new` | `lovable-pages/AgentFlowBuilder.tsx` | Done | 2026-09-09 | `653da46` |
 | 22 | 4 | `/app/runs/[id]` | `lovable-pages/AgentRunDebugger.tsx` | Done | 2026-09-09 | `f085e02` |
 | 23 | 4 | `/app/executive` | `lovable-pages/Executive.tsx` | Done | 2026-09-09 | `b14191e` |
-| 24 | 4 | `/app/audit` | `lovable-pages/Audit.tsx` | Not started | | |
+| 24 | 4 | `/app/audit` | `lovable-pages/Audit.tsx` | Done | 2026-09-09 | `f9b0cce` |
 | 25 | 5 | `/app/settings` | `lovable-pages/Settings.tsx` | Not started | | |
 | 26 | 5 | `/app/integrations` | `lovable-pages/Integrations.tsx` | Not started | | |
 | 27 | 5 | `/app/admin` | `lovable-pages/Admin.tsx` | Not started | | |
@@ -1025,3 +1025,17 @@ at the next checkpoint or before this branch lands.
 
   Screen 23 is now marked **Done**. Resuming at screen 24 (`/app/audit`) —
   **tier 4 complete after this screen.**
+
+- 2026-09-09: screen 24 (`/app/audit`) — commit `f9b0cce`. `Audit.tsx`
+  migrated onto tokens and primitives. The audit-row list was a div-grid
+  with no table semantics — converted to the real `Table` primitives, a
+  genuine accessibility fix (column headers now programmatically associated
+  with cells, not just visually aligned). Four posture cards and badges
+  (violet tone alias -> info) moved onto tokens.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 24 is now marked **Done — tier 4 complete (screens 19-24).**
+  Resuming at screen 25 (`/app/settings`), tier 5.
