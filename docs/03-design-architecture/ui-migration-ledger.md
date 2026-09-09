@@ -341,3 +341,25 @@ writing new markup for it.
 
   Screen 5 (`/app/claims/[id]/extraction`) is now marked **Done**. Resuming
   at screen 6 (`/app/documents`).
+
+- 2026-09-09: foundation gap closed — side drawer primitive (design language
+  §8.16). The previous run flagged this as "genuinely missing". It was in fact
+  present as `components/SideDrawer.tsx` but unmigrated and, on inspection,
+  **dead code with zero importers** — which is why it was not found. Built
+  `components/ui/SideDrawer.tsx` to §8.16 (440px/92vw, hairline left border,
+  `--shadow-drawer`, background made inert while open, focus trapped, Escape
+  closes, focus returns to trigger) and deleted the dead file rather than
+  keeping two drawers. The old one violated the language in five ways:
+  `backdrop-blur-sm` (glassmorphism, banned), `rounded-l-2xl` (radius above
+  16px, banned), 540px width, hardcoded "IIP Operations" eyebrow in every
+  drawer, and legacy tokens including the `text-muted-soft` family that step 2
+  retired for failing AA. Added `stories/SideDrawer.stories.tsx`.
+  Verified: `pnpm exec tsc --noEmit`, `pnpm lint`, all five hygiene gate
+  scripts, `pnpm test:trust-truth` (3 passed), `pnpm test:authority-permissions`
+  (4 passed), and `pnpm build` with NEXT_PUBLIC_RUNTIME_PROFILE=Development
+  NEXT_PUBLIC_AUTH_MODE=DevelopmentAuth (all routes generated).
+  Still open, deliberately not fixed here: §8.20 requires a citation chip to
+  open its source **in this drawer**. `CommandCenterAnswer.tsx` still renders
+  citations as non-interactive chips because there is no document-preview
+  capability to open into — that needs a source-region preview endpoint and
+  should be scoped as its own task, not improvised inside a screen migration.
