@@ -38,7 +38,7 @@ Never have two screens in flight.
 | 26 | 5 | `/app/integrations` | `lovable-pages/Integrations.tsx` | Done | 2026-09-09 | `676d6ea` |
 | 27 | 5 | `/app/admin` | `lovable-pages/Admin.tsx` | Done | 2026-09-09 | `f1361aa` |
 | 28 | 5 | `/app/admin/users` | `lovable-pages/admin/Users.tsx` | Done | 2026-09-09 | `bbaf959` |
-| 29 | 5 | `/app/admin/agents` | `lovable-pages/admin/Agents.tsx` | Not started | | |
+| 29 | 5 | `/app/admin/agents` | `lovable-pages/admin/Agents.tsx` | Done | 2026-09-09 | `6ff55aa` |
 | 30 | 5 | `/app/admin/tenant-policy` | `lovable-pages/admin/TenantPolicy.tsx` | Not started | | |
 | 31 | 5 | `/app/admin/onboarding` | `lovable-pages/admin/Onboarding.tsx` | Not started | | |
 | 32 | 5 | `/app/admin/email` | `lovable-pages/admin/EmailInbox.tsx` | Not started | | |
@@ -1108,3 +1108,14 @@ Resuming at screen 26 (`/app/integrations`).
 
   Screen 28 is now marked **Done**. Resuming at screen 29
   (`/app/admin/agents`).
+
+- 2026-09-09: screen 29 (`/app/admin/agents`) — commit `6ff55aa`.
+  `admin/Agents.tsx` migrated onto tokens and primitives. Registry table
+  onto `Table`; violet Badge tone aliases swapped to `info`.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 29 is now marked **Done**. Resuming at screen 30
+  (`/app/admin/tenant-policy`).
