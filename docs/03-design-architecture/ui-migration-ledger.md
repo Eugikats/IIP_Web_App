@@ -40,7 +40,7 @@ Never have two screens in flight.
 | 28 | 5 | `/app/admin/users` | `lovable-pages/admin/Users.tsx` | Done | 2026-09-09 | `bbaf959` |
 | 29 | 5 | `/app/admin/agents` | `lovable-pages/admin/Agents.tsx` | Done | 2026-09-09 | `6ff55aa` |
 | 30 | 5 | `/app/admin/tenant-policy` | `lovable-pages/admin/TenantPolicy.tsx` | Done | 2026-09-09 | `f214dd5` |
-| 31 | 5 | `/app/admin/onboarding` | `lovable-pages/admin/Onboarding.tsx` | Not started | | |
+| 31 | 5 | `/app/admin/onboarding` | `lovable-pages/admin/Onboarding.tsx` | Done | 2026-09-09 | `f015805` |
 | 32 | 5 | `/app/admin/email` | `lovable-pages/admin/EmailInbox.tsx` | Not started | | |
 | 33 | 5 | `/app/admin/whatsapp` | `lovable-pages/admin/WhatsAppSettings.tsx` | Not started | | |
 | 34 | 5 | `/app/admin/billing` | `lovable-pages/admin/Billing.tsx` | Not started | | |
@@ -1144,3 +1144,21 @@ Resuming at screen 26 (`/app/integrations`).
   substitution as prior checkpoints.
 
 Resuming at screen 31 (`/app/admin/onboarding`).
+
+- 2026-09-09: screen 31 (`/app/admin/onboarding`) — commit `f015805`.
+  `admin/Onboarding.tsx` migrated onto tokens and primitives. Fields moved
+  onto the `Field`/`Input` delegation pattern with explicit `htmlFor`/`id`
+  association. Icon avatar off `bg-gradient-secondary` onto the neutral
+  icon-tile treatment.
+
+  Covered by `gate-12`'s third test (outside checkpoint scope), which
+  clicks buttons by exact accessible name and looks up fields via
+  `getByLabel` — the first form migration this session with real
+  button-click interactions in its own gate test. Ran it directly: passed.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed, `gate-12` (Tenant Onboarding) passed
+  standalone.
+
+  Screen 31 is now marked **Done**. Resuming at screen 32
+  (`/app/admin/email`).
