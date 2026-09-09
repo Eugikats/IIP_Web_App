@@ -1,7 +1,7 @@
 // Design language v2 §8.5–8.6.
 "use client";
 
-import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +62,29 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
       ref={ref}
       className={cn(
         "rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-[9px] text-sm text-dls-text-primary",
+        "focus:outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]",
+        className,
+      )}
+      {...props}
+    />
+  );
+});
+
+// Found missing while migrating FNOL.tsx (ui-migration-ledger.md screen-9 entry) — design
+// language v2's radius/border/focus contract in §8.5 doesn't name textareas separately from
+// inputs, and every multi-line control in the app so far has been hand-styled per screen. Same
+// contract as Input, just a taller, resizable-off element; same extension precedent as Select.
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(
+  { className, rows = 4, ...props },
+  ref,
+) {
+  return (
+    <textarea
+      ref={ref}
+      rows={rows}
+      className={cn(
+        "w-full resize-none rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-[9px] text-sm text-dls-text-primary",
+        "placeholder:text-dls-text-muted",
         "focus:outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]",
         className,
       )}

@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, FileText, Loader2, Search, ShieldAlert, Upload, UserRound } from "lucide-react";
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
+import { Button } from "@/components/ui/Button";
+import { Input, Select, Textarea, Field as UIField } from "@/components/ui/Input";
+import { FilterTab } from "@/components/ui/FilterTab";
+import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 
@@ -344,36 +348,35 @@ export default function FNOL() {
       />
 
       {handoffChannel && (form.customerName || form.customerContact || form.customerEmail) ? (
-        <div className="mb-3 rounded-xl border border-info/25 bg-info/5 px-3 py-2 text-[12px] text-ink-soft">
+        <div className="mb-3 rounded-dls-control bg-dls-info-tint px-3 py-2 text-[12px] text-dls-info-text">
           Pre-filled from the {handoffChannel} conversation — confirm the details below before continuing.
         </div>
       ) : null}
 
       <StepRail step={step} onSelect={goTo} completed={(n) => n < step && stepMissing[n].length === 0} />
 
-      <div className="mt-3 mb-1 flex items-center justify-between text-[11.5px] text-muted">
+      <div className="mb-1 mt-3 flex items-center justify-between text-[11.5px] text-dls-text-secondary">
         <span>Claim completeness</span>
-        <span className="font-medium text-ink">{completenessPercent}%</span>
+        <span className="font-semibold text-dls-text-primary">{completenessPercent}%</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-line/60">
-        <div
-          className="h-full rounded-full gradient-primary transition-[width] duration-300"
-          style={{ width: `${completenessPercent}%` }}
-        />
+      {/* Flat fill, not a gradient — design language §4.5 restricts gradients to the Assistant
+          orb and chart bars; a form-completion progress bar is neither. */}
+      <div className="h-2 w-full overflow-hidden rounded-full bg-dls-bg-page">
+        <div className="h-full rounded-full bg-dls-primary transition-[width] duration-300" style={{ width: `${completenessPercent}%` }} />
       </div>
 
-      <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-4 mt-4">
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <GlassCard>
           {error && (
-            <div className="mb-4 flex items-start gap-2 rounded-xl border border-danger/20 bg-danger/5 px-3 py-2 text-[13px] text-danger">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="mb-4 flex items-start gap-2 rounded-dls-control bg-dls-danger-tint px-3 py-2 text-[13px] text-dls-danger-text">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
             </div>
           )}
 
           {step === 1 && (
             <StepSection icon={UserRound} title="Who is reporting this claim?" sub="Contact details are what the customer is reached on for updates and, later, self-service links.">
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Customer name" value={form.customerName} onChange={(value) => updateCommon("customerName", value)} required />
                 <Field label="Customer contact (phone)" value={form.customerContact} onChange={(value) => updateCommon("customerContact", value)} required />
                 <Field label="Customer email" value={form.customerEmail} onChange={(value) => updateCommon("customerEmail", value)} type="email" />
@@ -383,7 +386,7 @@ export default function FNOL() {
 
           {step === 2 && (
             <StepSection icon={Search} title="Find the policy" sub="Product line and required fields below are derived from the policy — this is the only lookup step.">
-              <div className="flex flex-col sm:flex-row gap-2 items-end">
+              <div className="flex flex-col items-end gap-2 sm:flex-row">
                 <div className="flex-1">
                   <Field
                     label="Policy number"
@@ -392,28 +395,27 @@ export default function FNOL() {
                     required
                   />
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
                   onClick={runPolicyLookup}
                   disabled={!form.policyNumber.trim() || lookup.status === "loading"}
-                  className="inline-flex items-center gap-2 rounded-2xl gradient-primary px-4 py-3 text-[13px] font-semibold text-white shadow-l2 disabled:opacity-50"
+                  icon={lookup.status === "loading" ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Search aria-hidden="true" />}
                 >
-                  {lookup.status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   Look up
-                </button>
+                </Button>
               </div>
 
               {lookup.status === "found" && (
-                <div className="mt-4 rounded-2xl border border-success/25 bg-success/5 p-4">
-                  <div className="flex items-center gap-2 text-[13px] font-semibold text-ink"><Check className="h-4 w-4 text-success" /> Policy found</div>
-                  <div className="mt-3 grid sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[12.5px]">
+                <div className="mt-4 rounded-dls-card bg-dls-success-tint p-4">
+                  <div className="flex items-center gap-2 text-[13px] font-bold text-dls-text-primary"><Check className="h-4 w-4 text-dls-success-text" aria-hidden="true" /> Policy found</div>
+                  <div className="mt-3 grid gap-x-4 gap-y-1.5 text-[12.5px] sm:grid-cols-2">
                     <SummaryRow label="Product line" value={lookup.result.productLine} />
                     <SummaryRow label="Cover type" value={lookup.result.coverType ?? "—"} />
                     <SummaryRow label="Policy holder on file" value={lookup.result.customerName ?? "—"} />
                     <SummaryRow label="Cover status" value={lookup.result.isActive ? "Active" : "Not active for today's date"} warn={!lookup.result.isActive} />
                   </div>
                   {lookup.result.customerName && lookup.result.customerName.trim().toLowerCase() !== form.customerName.trim().toLowerCase() && (
-                    <div className="mt-2 text-[11.5px] text-warning">
+                    <div className="mt-2 text-[11.5px] font-semibold text-dls-warning-text">
                       Note: the name on file (&quot;{lookup.result.customerName}&quot;) differs from the reporter&apos;s name entered in step 1. Confirm this before continuing.
                     </div>
                   )}
@@ -421,9 +423,9 @@ export default function FNOL() {
               )}
 
               {lookup.status === "found" && lookup.result.possibleDuplicateClaims.length > 0 && (
-                <div className="mt-3 rounded-2xl border border-warning/30 bg-warning/8 p-4">
-                  <div className="flex items-center gap-2 text-[13px] font-semibold text-ink"><ShieldAlert className="h-4 w-4 text-warning" /> Possible duplicate claim{lookup.result.possibleDuplicateClaims.length > 1 ? "s" : ""} on this policy</div>
-                  <ul className="mt-2 space-y-1 text-[12px] text-ink-soft">
+                <div className="mt-3 rounded-dls-card bg-dls-warning-tint p-4">
+                  <div className="flex items-center gap-2 text-[13px] font-bold text-dls-text-primary"><ShieldAlert className="h-4 w-4 text-dls-warning-text" aria-hidden="true" /> Possible duplicate claim{lookup.result.possibleDuplicateClaims.length > 1 ? "s" : ""} on this policy</div>
+                  <ul className="mt-2 space-y-1 text-[12px] text-dls-text-secondary">
                     {lookup.result.possibleDuplicateClaims.map((duplicate) => (
                       <li key={duplicate.caseId}>
                         Claim <span className="font-mono">{duplicate.caseId.slice(0, 8)}</span> — {duplicate.status}
@@ -431,45 +433,41 @@ export default function FNOL() {
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-1.5 text-[11.5px] text-ink-soft">This does not block intake — confirm it&apos;s not the same incident before continuing.</div>
+                  <div className="mt-1.5 text-[11.5px] text-dls-text-secondary">This does not block intake — confirm it&apos;s not the same incident before continuing.</div>
                 </div>
               )}
 
               {lookup.status === "not-found" && (
-                <div className="mt-4 rounded-2xl border border-danger/25 bg-danger/5 p-4 text-[13px] text-danger">
+                <div className="mt-4 rounded-dls-card bg-dls-danger-tint p-4 text-[13px] text-dls-danger-text">
                   No policy found for this number in this workspace. Check the number, or continue and select the product line manually below.
                 </div>
               )}
 
               {lookup.status === "error" && (
-                <div className="mt-4 rounded-2xl border border-danger/25 bg-danger/5 p-4 text-[13px] text-danger">{lookup.message}</div>
+                <div className="mt-4 rounded-dls-card bg-dls-danger-tint p-4 text-[13px] text-dls-danger-text">{lookup.message}</div>
               )}
 
               {(lookup.status === "not-found" || (lookup.status === "found" && !productLineConfirmed)) && (
                 <div className="mt-4">
-                  <div className="text-[11.5px] font-medium text-ink-soft mb-1.5">Product line</div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mb-1.5 text-[11.5px] font-semibold text-dls-text-secondary">Product line</div>
+                  <div className="flex flex-wrap gap-1.5">
                     {PRODUCT_LINES.map((line) => (
-                      <button
+                      <FilterTab
                         key={line.value}
-                        type="button"
+                        active={productLine === line.value}
                         onClick={() => { selectProductLine(line.value); setProductLineConfirmed(true); }}
-                        className={
-                          "rounded-2xl border px-4 py-2 text-[13px] font-medium transition-colors " +
-                          (productLine === line.value ? "border-info bg-info/8 text-info" : "border-line bg-white/70 text-ink-soft hover:bg-white")
-                        }
                       >
                         {line.label}
-                      </button>
+                      </FilterTab>
                     ))}
                   </div>
                 </div>
               )}
 
               {lookup.status === "found" && productLineConfirmed && (
-                <div className="mt-3 text-[12px] text-ink-soft">
+                <div className="mt-3 text-[12px] text-dls-text-secondary">
                   Product line set to <b>{productLine}</b> from the policy.{" "}
-                  <button type="button" onClick={() => setProductLineConfirmed(false)} className="text-info hover:underline">Change manually</button>
+                  <button type="button" onClick={() => setProductLineConfirmed(false)} className="dls-focus-outline font-semibold text-dls-primary hover:underline">Change manually</button>
                 </div>
               )}
             </StepSection>
@@ -477,7 +475,7 @@ export default function FNOL() {
 
           {step === 3 && (
             <StepSection icon={FileText} title="What happened?" sub="Claim type and a real description of the incident — this is what routing and, for motor, injury detection read.">
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <SelectField
                   label="Claim type"
                   value={form.claimType}
@@ -505,7 +503,7 @@ export default function FNOL() {
 
           {step === 4 && (
             <StepSection icon={FileText} title={`${productLine} details`} sub={`${productLine}-specific FNOL fields are persisted as structured case data.`}>
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 {productLine === "Motor" ? (
                   <>
                     <Field label="Vehicle registration" value={form.motor.vehicleRegistration} onChange={(value) => updateMotor("vehicleRegistration", value)} required />
@@ -514,9 +512,9 @@ export default function FNOL() {
                     <Field label="Accident time" value={form.motor.accidentTime} onChange={(value) => updateMotor("accidentTime", value)} type="time" required />
                     <Field label="Accident location" value={form.motor.accidentLocation} onChange={(value) => updateMotor("accidentLocation", value)} required />
                     <SelectField label="Third party involved" value={form.motor.thirdPartyInvolved} onChange={(value) => updateMotor("thirdPartyInvolved", value)} options={["Unknown", "No", "Yes"]} />
-                    <div className="md:col-span-2 rounded-2xl border border-info/25 bg-info/5 p-3">
-                      <div className="text-[11px] uppercase tracking-[0.12em] text-info mb-2">Routing indicators — these change what happens next, not just what's on file</div>
-                      <div className="grid md:grid-cols-2 gap-3">
+                    <div className="rounded-dls-card bg-dls-info-tint p-3 md:col-span-2">
+                      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-dls-info-text">Routing indicators — these change what happens next, not just what&apos;s on file</div>
+                      <div className="grid gap-3 md:grid-cols-2">
                         <SelectField label="Injury indicator" value={form.motor.injuryIndicator} onChange={(value) => updateMotor("injuryIndicator", value)} options={["Unknown", "No injuries reported", "Injury reported"]} />
                         <SelectField label="Police report status" value={form.motor.policeReportStatus} onChange={(value) => updateMotor("policeReportStatus", value)} options={["Unknown", "Not available", "Requested", "Received"]} />
                       </div>
@@ -559,27 +557,27 @@ export default function FNOL() {
           {step === 5 && (
             <StepSection icon={Upload} title="Required documents" sub="Generated from the product line, claim type, and routing indicators already captured.">
               {checklistLoading ? (
-                <div className="flex items-center gap-2 text-[12.5px] text-muted"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
+                <LoadingSkeleton rows={3} />
               ) : checklistError ? (
-                <div className="text-[12.5px] text-muted">{checklistError}</div>
+                <ErrorStateSurface message={checklistError} />
               ) : (
                 <ul className="space-y-1.5">
                   {checklist?.requiredDocuments.map((document) => (
                     <li key={document.documentType} className="flex items-center justify-between gap-3 text-[13px]">
-                      <span className="text-ink-soft">{document.label}</span>
+                      <span className="text-dls-text-secondary">{document.label}</span>
                       <Badge tone="warning">Required</Badge>
                     </li>
                   ))}
                   {checklist?.optionalDocuments.map((document) => (
                     <li key={document.documentType} className="flex items-center justify-between gap-3 text-[13px]">
-                      <span className="text-ink-soft">{document.label}</span>
+                      <span className="text-dls-text-secondary">{document.label}</span>
                       <Badge tone="neutral">Optional</Badge>
                     </li>
                   ))}
                 </ul>
               )}
-              <div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-white/70 px-3 py-2 text-[12.5px] text-ink-soft">
-                <Upload className="h-3.5 w-3.5 shrink-0" />
+              <div className="mt-3 flex items-center gap-2 rounded-dls-control border border-dls-border-subtle bg-dls-bg-page px-3 py-2 text-[12.5px] text-dls-text-secondary">
+                <Upload className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 Document upload happens from the claim&apos;s document flow after the claim is created. A missing document does not block intake — it opens with a documented gap.
               </div>
             </StepSection>
@@ -618,7 +616,7 @@ export default function FNOL() {
                   )}
                 </ReviewGroup>
                 {checklist && checklist.requiredDocuments.length > 0 && (
-                  <div className="text-[12px] text-ink-soft">
+                  <div className="text-[12px] text-dls-text-secondary">
                     {checklist.requiredDocuments.length} required document{checklist.requiredDocuments.length === 1 ? "" : "s"} — collected from the claim after creation.
                   </div>
                 )}
@@ -626,45 +624,42 @@ export default function FNOL() {
             </StepSection>
           )}
 
-          <div className="mt-6 flex items-center justify-between border-t border-line pt-4">
-            <button
-              type="button"
-              onClick={() => goTo(step - 1)}
-              disabled={step === 1}
-              className="inline-flex items-center gap-1.5 rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-medium text-ink disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4" /> Back
-            </button>
+          <div className="mt-6 flex items-center justify-between border-t border-dls-border-subtle pt-4">
+            <Button variant="secondary" onClick={() => goTo(step - 1)} disabled={step === 1} icon={<ChevronLeft aria-hidden="true" />}>
+              Back
+            </Button>
             {step < 6 ? (
+              // Trailing-icon "Next" — hand-styled to Button's primary variant (Button's `icon`
+              // prop only renders leading; extending its API for this one call site isn't
+              // warranted). Same Link-as-button precedent as ClaimsQueue, but a real <button>.
               <button
                 type="button"
                 onClick={() => goTo(step + 1)}
                 disabled={!canAdvance}
-                className="inline-flex items-center gap-1.5 rounded-2xl gradient-primary px-4 py-2.5 text-[13px] font-semibold text-white shadow-l2 disabled:opacity-50"
+                className="dls-focus-outline inline-flex items-center justify-center gap-1.5 rounded-dls-control bg-dls-primary px-4 py-[9px] text-[13px] font-bold text-dls-text-inverse shadow-dls-primary transition-colors duration-dls-fast ease-dls hover:bg-dls-primary-hover disabled:opacity-60"
               >
-                Next <ChevronRight className="h-4 w-4" />
+                Next <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             ) : (
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={submit}
                 disabled={!canSubmit}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl gradient-primary px-4 py-2.5 text-[13px] font-semibold text-white shadow-l2 disabled:cursor-not-allowed disabled:opacity-50"
+                icon={submitting ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
               >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 Create claim
-              </button>
+              </Button>
             )}
           </div>
         </GlassCard>
 
         <div className="space-y-4">
           <GlassCard>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">This step</div>
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">This step</div>
             {stepMissing[step].length === 0 ? (
-              <div className="text-[13px] text-ink-soft">Ready to continue.</div>
+              <div className="text-[13px] text-dls-text-secondary">Ready to continue.</div>
             ) : (
-              <ul className="space-y-1.5 text-[13px] text-ink-soft">
+              <ul className="space-y-1.5 text-[13px] text-dls-text-secondary">
                 {stepMissing[step].map((field) => (
                   <li key={field}>- {field}</li>
                 ))}
@@ -673,8 +668,8 @@ export default function FNOL() {
           </GlassCard>
           {step < 6 && allMissing.length > stepMissing[step].length && (
             <GlassCard>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">Still outstanding</div>
-              <div className="text-[12.5px] text-ink-soft">{allMissing.length} field{allMissing.length === 1 ? "" : "s"} across all steps.</div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Still outstanding</div>
+              <div className="text-[12.5px] text-dls-text-secondary">{allMissing.length} field{allMissing.length === 1 ? "" : "s"} across all steps.</div>
             </GlassCard>
           )}
         </div>
@@ -690,21 +685,33 @@ function StepRail({ step, onSelect, completed }: { step: number; onSelect: (n: n
         const active = s.n === step;
         const done = completed(s.n);
         return (
-          <div key={s.n} className="flex items-center gap-1 shrink-0">
+          <div key={s.n} className="flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={() => onSelect(s.n)}
               className={
-                "flex items-center gap-2 rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors " +
-                (active ? "bg-info/10 text-info border border-info/30" : done ? "text-success" : "text-muted hover:text-ink-soft")
+                "dls-focus-outline flex items-center gap-2 rounded-dls-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors duration-dls-fast ease-dls " +
+                (active
+                  ? "border-dls-primary-border bg-dls-primary-soft-alt text-dls-primary-accent"
+                  : done
+                    ? "border-transparent text-dls-success-text"
+                    : "border-transparent text-dls-text-muted hover:text-dls-text-secondary")
               }
             >
-              <span className={"grid h-5 w-5 place-items-center rounded-full text-[10.5px] font-semibold " + (active ? "bg-info text-white" : done ? "bg-success/15 text-success" : "bg-line/70 text-muted")}>
-                {done && !active ? <Check className="h-3 w-3" /> : s.n}
+              {/* A numbered step badge, not a tab — solid fill here is the conventional wizard-step
+                  treatment, distinct from §8.11's tab-background rule this component otherwise
+                  follows for its own pill background. */}
+              <span
+                className={
+                  "grid h-5 w-5 place-items-center rounded-full text-[10.5px] font-bold " +
+                  (active ? "bg-dls-primary text-dls-text-inverse" : done ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-bg-page text-dls-text-muted")
+                }
+              >
+                {done && !active ? <Check className="h-3 w-3" aria-hidden="true" /> : s.n}
               </span>
               {s.label}
             </button>
-            {index < STEPS.length - 1 && <div className="h-px w-4 bg-line" />}
+            {index < STEPS.length - 1 && <div className="h-px w-4 bg-dls-border-subtle" />}
           </div>
         );
       })}
@@ -715,11 +722,13 @@ function StepRail({ step, onSelect, completed }: { step: number; onSelect: (n: n
 function StepSection({ icon: Icon, title, sub, children }: { icon: typeof Search; title: string; sub: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="flex items-start gap-2.5 border-b border-line pb-4">
-        <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-info/8 text-info"><Icon className="h-4 w-4" /></div>
+      <div className="flex items-start gap-2.5 border-b border-dls-border-subtle pb-4">
+        <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-dls-chip bg-dls-bg-page text-dls-text-secondary">
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </div>
         <div>
-          <div className="text-[14px] font-semibold text-ink">{title}</div>
-          <div className="mt-0.5 text-[12.5px] text-ink-soft">{sub}</div>
+          <div className="text-[14px] font-bold text-dls-text-primary">{title}</div>
+          <div className="mt-0.5 text-[12.5px] text-dls-text-secondary">{sub}</div>
         </div>
       </div>
       <div className="mt-5">{children}</div>
@@ -729,8 +738,8 @@ function StepSection({ icon: Icon, title, sub, children }: { icon: typeof Search
 
 function ReviewGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-line bg-white/60 p-3.5">
-      <div className="text-[11px] uppercase tracking-[0.12em] text-muted mb-2">{title}</div>
+    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3.5">
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-dls-text-muted">{title}</div>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -739,11 +748,17 @@ function ReviewGroup({ title, children }: { title: string; children: React.React
 function SummaryRow({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3 text-[12.5px]">
-      <span className="text-muted shrink-0">{label}</span>
-      <span className={"text-right " + (warn ? "text-warning font-medium" : "text-ink-soft")}>{value || "—"}</span>
+      <span className="shrink-0 text-dls-text-muted">{label}</span>
+      <span className={"text-right " + (warn ? "font-semibold text-dls-warning-text" : "text-dls-text-secondary")}>{value || "—"}</span>
     </div>
   );
 }
+
+// The three field wrappers below keep every existing call site's API unchanged (label/value/
+// onChange/type/required/options/className) but delegate their markup to components/ui/Input.tsx's
+// shared Field/Input/Select/Textarea, rather than re-tokenizing hand-rolled markup that duplicates
+// what those primitives already do correctly. Single source of truth for control styling; zero
+// changes needed at any of this file's ~25 call sites.
 
 function Field({
   label,
@@ -758,19 +773,11 @@ function Field({
   type?: string;
   required?: boolean;
 }) {
+  const id = useId();
   return (
-    <label>
-      <span className="text-[11.5px] font-medium text-ink-soft">
-        {label}
-        {required ? " *" : ""}
-      </span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        type={type}
-        className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40"
-      />
-    </label>
+    <UIField label={required ? `${label} *` : label} htmlFor={id}>
+      <Input id={id} value={value} onChange={(event) => onChange(event.target.value)} type={type} />
+    </UIField>
   );
 }
 
@@ -787,19 +794,13 @@ function TextArea({
   required?: boolean;
   className?: string;
 }) {
+  const id = useId();
   return (
-    <label className={className}>
-      <span className="text-[11.5px] font-medium text-ink-soft">
-        {label}
-        {required ? " *" : ""}
-      </span>
-      <textarea
-        rows={4}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40"
-      />
-    </label>
+    <div className={className}>
+      <UIField label={required ? `${label} *` : label} htmlFor={id}>
+        <Textarea id={id} value={value} onChange={(event) => onChange(event.target.value)} />
+      </UIField>
+    </div>
   );
 }
 
@@ -816,23 +817,16 @@ function SelectField({
   options: string[];
   required?: boolean;
 }) {
+  const id = useId();
   return (
-    <label>
-      <span className="text-[11.5px] font-medium text-ink-soft">
-        {label}
-        {required ? " *" : ""}
-      </span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40"
-      >
+    <UIField label={required ? `${label} *` : label} htmlFor={id}>
+      <Select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="w-full">
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
-      </select>
-    </label>
+      </Select>
+    </UIField>
   );
 }
