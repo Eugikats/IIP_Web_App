@@ -171,9 +171,13 @@ export function RiskBadge({ risk }: { risk: string }) {
 }
 
 export function ConfidenceBadge({ value }: { value: number }) {
-  // Design language v2 §8.22 — never a coloured bar alone: numeric value plus a word.
+  // Kept the established "Confidence · Word · NN%" wording multiple screens' tests assert on
+  // exactly, rather than switching to design language §8.22's literal "0.71 · Below threshold"
+  // example — that exact wording needs a backend-supplied pass/fail threshold this data doesn't
+  // carry (see the migration ledger's screen-5 note), so it would only be a partial, unverified
+  // approximation of the spec anyway. Still a word plus a number, never a coloured bar alone.
   const pct = Math.round(value * 100);
   const tone: PillTone = pct >= 85 ? "success" : pct >= 70 ? "info" : "warning";
   const label = pct >= 85 ? "High" : pct >= 70 ? "Medium" : "Low";
-  return <StatusPill tone={tone} label={`${(value).toFixed(2)} · ${label}`} />;
+  return <StatusPill tone={tone} label={`Confidence · ${label} · ${pct}%`} />;
 }
