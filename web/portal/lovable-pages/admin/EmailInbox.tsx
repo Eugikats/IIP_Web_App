@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Inbox, Link2, Loader2, Mail, MailPlus, PlayCircle, RefreshCcw } from "lucide-react";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { Badge, GlassCard, SectionHeader } from "@/components/iip/Primitives";
+import { Button } from "@/components/ui/Button";
+import { Input, Field as UIField } from "@/components/ui/Input";
+import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
+import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { useUI } from "@/context/UIStateContext";
 import {
   type CreateMailboxInput,
@@ -52,6 +56,9 @@ export default function EmailInbox() {
   const [mailboxFormError, setMailboxFormError] = useState<string | null>(null);
   const [runningTestIngestion, setRunningTestIngestion] = useState(false);
   const [processingMessage, setProcessingMessage] = useState<InboundEmailMessage | null>(null);
+  const displayNameId = useId();
+  const mailboxAddressId = useId();
+  const productLineId = useId();
 
   async function load() {
     setLoading(true);
@@ -131,59 +138,57 @@ export default function EmailInbox() {
       />
 
       {loading ? (
-        <GlassCard><div className="flex items-center justify-center gap-2 py-10 text-[13px] text-muted"><Loader2 className="h-4 w-4 animate-spin" /> Loading email integration status…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={4} /></GlassCard>
       ) : loadError ? (
-        <GlassCard><div className="py-6 text-center text-[13px] text-danger">{loadError}</div></GlassCard>
+        <GlassCard><ErrorStateSurface title="Email integration status could not be loaded" message={loadError} /></GlassCard>
       ) : (
         <div className="space-y-4">
           <GlassCard>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${health?.overallStatus === "healthy" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
-                  <Mail className="h-5 w-5" />
+                <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-dls-chip ${health?.overallStatus === "healthy" ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-warning-tint text-dls-warning-text"}`}>
+                  <Mail className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div>
-                  <div className="text-[14px] font-semibold text-ink">{health?.displayName ?? "Microsoft Graph mail"}</div>
-                  <div className="mt-1 text-[12px] text-muted">
+                  <div className="text-[14px] font-bold text-dls-text-primary">{health?.displayName ?? "Microsoft Graph mail"}</div>
+                  <div className="mt-1 text-[12px] text-dls-text-secondary">
                     {health?.providers.map((provider) => `${provider.name}: ${provider.status}`).join(" · ") || "No providers reported."}
                   </div>
                 </div>
               </div>
               {canRunTestIngestion ? (
-                <button
+                <Button
+                  variant="secondary"
                   onClick={onRunTestIngestion}
                   disabled={runningTestIngestion}
-                  className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-[12px] font-medium text-ink focus-ring disabled:opacity-50"
+                  icon={runningTestIngestion ? <Loader2 className="animate-spin" aria-hidden="true" /> : <PlayCircle aria-hidden="true" />}
                 >
-                  {runningTestIngestion ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />} Run test ingestion
-                </button>
+                  Run test ingestion
+                </Button>
               ) : null}
-              <button onClick={() => void load()} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-[12px] font-medium text-ink focus-ring">
-                <RefreshCcw className="h-3.5 w-3.5" /> Refresh
-              </button>
+              <Button variant="secondary" onClick={() => void load()} icon={<RefreshCcw aria-hidden="true" />}>
+                Refresh
+              </Button>
             </div>
           </GlassCard>
 
           <GlassCard>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="text-[14px] font-semibold text-ink">Configured mailboxes</div>
-              <button
-                onClick={() => setMailboxDialogOpen(true)}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-[12px] font-medium text-ink focus-ring"
-              >
-                <MailPlus className="h-3.5 w-3.5" /> Add mailbox
-              </button>
+              <div className="text-[14px] font-bold text-dls-text-primary">Configured mailboxes</div>
+              <Button variant="secondary" onClick={() => setMailboxDialogOpen(true)} icon={<MailPlus aria-hidden="true" />}>
+                Add mailbox
+              </Button>
             </div>
             {mailboxes.length === 0 ? (
-              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
+              <div className="rounded-dls-control border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-secondary">
                 No mailbox is configured for this workspace yet. Add one to start receiving claim emails.
               </div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {mailboxes.map((mailbox) => (
-                  <div key={mailbox.mailboxConnectionId} className="rounded-xl border border-line bg-white/80 p-3">
-                    <div className="text-[13px] font-medium text-ink">{mailbox.displayName}</div>
-                    <div className="text-[11.5px] text-muted">{mailbox.mailboxAddress}</div>
+                  <div key={mailbox.mailboxConnectionId} className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
+                    <div className="text-[13px] font-semibold text-dls-text-primary">{mailbox.displayName}</div>
+                    <div className="text-[11.5px] text-dls-text-muted">{mailbox.mailboxAddress}</div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <Badge tone={mailbox.ingestionEnabled ? "success" : "neutral"}>{mailbox.ingestionEnabled ? "Ingestion on" : "Ingestion off"}</Badge>
                       {mailbox.productLine ? <Badge tone="info">{mailbox.productLine}</Badge> : null}
@@ -196,51 +201,50 @@ export default function EmailInbox() {
 
           <GlassCard>
             <div className="mb-3 flex items-center gap-2">
-              <Inbox className="h-4 w-4 text-info" />
-              <div className="text-[14px] font-semibold text-ink">Inbound messages</div>
+              <Inbox className="h-4 w-4 text-dls-info-text" aria-hidden="true" />
+              <div className="text-[14px] font-bold text-dls-text-primary">Inbound messages</div>
             </div>
             {messages.length === 0 ? (
-              <div className="rounded-xl border border-line bg-white/70 p-4 text-[12.5px] text-muted">
+              <div className="rounded-dls-control border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-secondary">
                 No inbound email has been received for this workspace yet.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-[12.5px]">
-                  <thead>
-                    <tr className="border-b border-line text-left text-[10.5px] uppercase tracking-[0.12em] text-muted">
-                      <th className="px-2 py-2">Sender</th>
-                      <th className="px-2 py-2">Subject</th>
-                      <th className="px-2 py-2">Received</th>
-                      <th className="px-2 py-2">Status</th>
-                      <th className="px-2 py-2">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {messages.map((message) => (
-                      <tr key={message.messageId} className="border-b border-line/60 align-top">
-                        <td className="px-2 py-2 text-ink">{message.sender}</td>
-                        <td className="max-w-64 truncate px-2 py-2 text-ink-soft">{message.subject}</td>
-                        <td className="whitespace-nowrap px-2 py-2 text-muted">{new Date(message.receivedAt).toLocaleString()}</td>
-                        <td className="px-2 py-2"><Badge tone={STATUS_TONE[message.processingStatus] ?? "neutral"}>{STATUS_LABEL[message.processingStatus] ?? message.processingStatus}</Badge></td>
-                        <td className="px-2 py-2">
-                          {message.linkedCaseId ? (
-                            <Link to={`/app/claims/${message.linkedCaseId}`} className="inline-flex items-center gap-1 text-info hover:underline">
-                              <Link2 className="h-3.5 w-3.5" /> Open claim
-                            </Link>
-                          ) : (
-                            <button
-                              onClick={() => setProcessingMessage(message)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1.5 text-ink focus-ring"
-                            >
-                              Process
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table label="Inbound email messages">
+                <TableHead>
+                  <TableRow>
+                    <TableHeaderCell>Sender</TableHeaderCell>
+                    <TableHeaderCell>Subject</TableHeaderCell>
+                    <TableHeaderCell>Received</TableHeaderCell>
+                    <TableHeaderCell>Status</TableHeaderCell>
+                    <TableHeaderCell>Action</TableHeaderCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {messages.map((message) => (
+                    <TableRow key={message.messageId} className="align-top">
+                      <TableCell className="text-dls-text-primary">{message.sender}</TableCell>
+                      <TableCell className="max-w-64 truncate text-dls-text-secondary">{message.subject}</TableCell>
+                      <TableCell className="whitespace-nowrap text-dls-text-muted">{new Date(message.receivedAt).toLocaleString()}</TableCell>
+                      <TableCell><Badge tone={STATUS_TONE[message.processingStatus] ?? "neutral"}>{STATUS_LABEL[message.processingStatus] ?? message.processingStatus}</Badge></TableCell>
+                      <TableCell>
+                        {message.linkedCaseId ? (
+                          <Link to={`/app/claims/${message.linkedCaseId}`} className="dls-focus-outline inline-flex items-center gap-1 rounded-dls-control font-semibold text-dls-primary hover:underline">
+                            <Link2 className="h-3.5 w-3.5" aria-hidden="true" /> Open claim
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setProcessingMessage(message)}
+                            className="dls-focus-outline inline-flex items-center gap-1 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1.5 text-dls-text-primary hover:bg-dls-bg-page"
+                          >
+                            Process
+                          </button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </GlassCard>
         </div>
@@ -257,45 +261,42 @@ export default function EmailInbox() {
         onConfirm={onCreateMailbox}
         evidence={
           <div className="space-y-3">
-            <label className="block text-[13px] font-medium text-ink">
-              Display name
-              <input
+            <UIField label="Display name" htmlFor={displayNameId}>
+              <Input
+                id={displayNameId}
                 value={mailboxForm.displayName}
                 onChange={(event) => setMailboxForm((current) => ({ ...current, displayName: event.target.value }))}
                 placeholder="e.g. Claims Inbox"
-                className="mt-1.5 min-h-11 w-full rounded-md border border-line bg-white px-3 py-2.5 text-[13px] text-ink placeholder:text-muted focus-ring"
               />
-            </label>
-            <label className="block text-[13px] font-medium text-ink">
-              Mailbox address
-              <input
+            </UIField>
+            <UIField label="Mailbox address" htmlFor={mailboxAddressId}>
+              <Input
+                id={mailboxAddressId}
                 value={mailboxForm.mailboxAddress}
                 onChange={(event) => setMailboxForm((current) => ({ ...current, mailboxAddress: event.target.value }))}
                 placeholder="claims@yourcompany.com"
-                className="mt-1.5 min-h-11 w-full rounded-md border border-line bg-white px-3 py-2.5 text-[13px] text-ink placeholder:text-muted focus-ring"
               />
-            </label>
-            <label className="block text-[13px] font-medium text-ink">
-              Product line <span className="font-normal text-muted">(optional)</span>
-              <input
+            </UIField>
+            <UIField label="Product line (optional)" htmlFor={productLineId}>
+              <Input
+                id={productLineId}
                 value={mailboxForm.productLine}
                 onChange={(event) => setMailboxForm((current) => ({ ...current, productLine: event.target.value }))}
                 placeholder="e.g. Motor"
-                className="mt-1.5 min-h-11 w-full rounded-md border border-line bg-white px-3 py-2.5 text-[13px] text-ink placeholder:text-muted focus-ring"
               />
-            </label>
-            <label className="flex items-center gap-2 text-[13px] font-medium text-ink">
+            </UIField>
+            <label className="flex items-center gap-2 text-[13px] font-semibold text-dls-text-primary">
               <input
                 type="checkbox"
                 checked={mailboxForm.ingestionEnabled}
                 onChange={(event) => setMailboxForm((current) => ({ ...current, ingestionEnabled: event.target.checked }))}
-                className="h-4 w-4 rounded border-line"
+                className="h-4 w-4 rounded border-dls-border-input"
               />
               Enable ingestion immediately
             </label>
             {mailboxFormError ? (
-              <div className="flex items-start gap-2 rounded-xl border border-danger/25 bg-danger/7 p-3 text-[12px] text-danger">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {mailboxFormError}
+              <div className="flex items-start gap-2 rounded-dls-control bg-dls-danger-tint p-3 text-[12px] text-dls-danger-text">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {mailboxFormError}
               </div>
             ) : null}
           </div>
