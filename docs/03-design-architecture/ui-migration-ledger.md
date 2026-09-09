@@ -44,7 +44,7 @@ Never have two screens in flight.
 | 32 | 5 | `/app/admin/email` | `lovable-pages/admin/EmailInbox.tsx` | Done | 2026-09-09 | `a7253b9` |
 | 33 | 5 | `/app/admin/whatsapp` | `lovable-pages/admin/WhatsAppSettings.tsx` | Done | 2026-09-09 | `9e1f46e` |
 | 34 | 5 | `/app/admin/billing` | `lovable-pages/admin/Billing.tsx` | Done | 2026-09-09 | `9723c50` |
-| 35 | 5 | `/app/support` | `app/app/support/page.tsx` | Not started | | |
+| 35 | 5 | `/app/support` | `app/app/support/page.tsx` | Done | 2026-09-09 | `n/a` |
 | 36 | 6 | `/access` | `lovable-pages/ClaimAccessRequest.tsx` | Not started | | |
 | 37 | 6 | `/access/verify` | `lovable-pages/ClaimAccessVerify.tsx` | Not started | | |
 | 38 | 6 | `/access/claim` | `lovable-pages/ClaimAccessStatus.tsx` | Not started | | |
@@ -1199,3 +1199,11 @@ Resuming at screen 31 (`/app/admin/onboarding`).
 
   Screen 34 is now marked **Done — tier 5's admin sub-pages complete
   (screens 27-34).** Resuming at screen 35 (`/app/support`).
+
+- 2026-09-09: screen 35 (`/app/support`) — no commit, no code change.
+  `app/app/support/page.tsx` is a five-line pure server-side redirect to
+  `/app/integrations` — no rendered UI of its own to migrate. Marked
+  **Done** directly.
+
+  Resuming at screen 36 (`/access`), **tier 6 — claimant-facing, stricter
+  rules apply.**
