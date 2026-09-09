@@ -2,9 +2,14 @@
 import { Activity, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useProviderHealth } from "@/lib/lovable-parity/data/providerHealth";
 import { isProviderHealthy } from "@/lib/providerHealth";
+import { useRuntimeContext } from "@/lib/runtimeContext";
 
 export default function StatusBar() {
   const { providers, loading, source } = useProviderHealth();
+  // The rail's avatar button is icon-only — this is the only always-visible statement of the
+  // real signed-in authority, independent of whatever role the preview switcher is showing.
+  const { runtimeContext, loading: runtimeLoading } = useRuntimeContext();
+  const roleLabel = runtimeContext?.roleLabel ?? (runtimeLoading ? "Authority resolving" : "Authority unavailable");
   const degraded = providers.filter((p) => !isProviderHealthy(p.status));
   const ok = providers.length > 0 && degraded.length === 0;
 
@@ -25,6 +30,7 @@ export default function StatusBar() {
         {loading ? <Activity className="h-3 w-3" /> : ok ? <CheckCircle2 className="h-3 w-3 text-success" /> : <AlertTriangle className="h-3 w-3 text-warning" />}
         <span className="truncate">{summary}</span>
       </span>
+      <span className="hidden shrink-0 truncate sm:inline">Signed in as {roleLabel}</span>
       <span className="ml-auto inline-flex shrink-0 items-center gap-1.5">
         <ShieldCheck className="h-3 w-3 text-violet" /> <span className="sm:hidden">Human authority</span><span className="hidden sm:inline">AI prepares work · humans approve regulated decisions</span>
       </span>

@@ -218,7 +218,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
         <Popover open={profileOpen} onClose={() => setProfileOpen(false)} anchorRef={profileTriggerRef} label="Profile menu">
           <div className="border-b border-dls-border-subtle px-3 py-2.5">
             <p className="truncate text-[13px] font-bold text-dls-text-primary">{displayName}</p>
-            <p className="truncate text-[11px] text-dls-text-muted">{roleLabel}</p>
+            <p className="truncate text-[11px] text-dls-text-muted">Signed in as {roleLabel}</p>
             <p className="mt-0.5 truncate text-[10.5px] text-dls-text-muted">Workspace &middot; {workspaceName}</p>
           </div>
           <div className="py-1" role="menu" aria-label="Profile menu">
