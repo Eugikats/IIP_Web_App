@@ -27,7 +27,7 @@ Never have two screens in flight.
 | 15 | 3 | `/app/underwriting` | `lovable-pages/Underwriting.tsx` | Done | 2026-09-09 | `7559555` |
 | 16 | 3 | `/app/policy` | `lovable-pages/PolicyIntelligence.tsx` | Done | 2026-09-09 | `1981dff` |
 | 17 | 3 | `/app/fraud` | `lovable-pages/FraudIntelligence.tsx` | Done | 2026-09-09 | `cc7cfe0` |
-| 18 | 3 | `/app/acquisition` | `lovable-pages/CustomerAcquisition.tsx` | Not started | | |
+| 18 | 3 | `/app/acquisition` | `lovable-pages/CustomerAcquisition.tsx` | Done | 2026-09-09 | `cb3be97` |
 | 19 | 4 | `/app/flows` | `lovable-pages/AgentFlows.tsx` | Not started | | |
 | 20 | 4 | `/app/flows/[key]` | `lovable-pages/AgentFlowInspector.tsx` | Not started | | |
 | 21 | 4 | `/app/flows/new` | `lovable-pages/AgentFlowBuilder.tsx` | Not started | | |
@@ -830,3 +830,36 @@ Resuming at screen 16 (`/app/policy`).
   (same root cause, same error) rather than newly introduced by this change.
 
   Screen 16 is now marked **Done**. Resuming at screen 17 (`/app/fraud`).
+
+- 2026-09-09: screen 17 (`/app/fraud`) — commit `cc7cfe0`.
+  `FraudIntelligence.tsx` migrated onto tokens and primitives. Stat tiles kept
+  hand-rolled (not `StatTile`): each needs its own "Advisory" safety-relevant
+  badge under the figure that the shared component has no slot for — same
+  §8.9 partial as screen 6. Icon tile moved off `bg-violet/10` onto the
+  warning tint; the "Advisory only" line moved off a literal arbitrary
+  colour (`text-[hsl(38_92%_36%)]`, explicitly banned) onto
+  `dls-warning-text`. Full Input/Select/Button primitives fit this card
+  grid's per-signal actions naturally (more room than a dense table row).
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 17 is now marked **Done**. Resuming at screen 18
+  (`/app/acquisition`).
+
+- 2026-09-09: screen 18 (`/app/acquisition`) — commit `cb3be97`.
+  `CustomerAcquisition.tsx` migrated onto tokens and primitives. Lead avatar
+  moved off `bg-gradient-secondary` (banned outside the two permitted uses)
+  onto the shared `Avatar` primitive (§8.12) — deterministic colour hashed
+  from the lead's stable id, not a gradient. `quoteStatus` (an open-ended
+  backend string) moved from a hand-mapped two-branch `Badge` onto
+  `StatusBadge`, the same fallback-safe handling used everywhere else a
+  screen renders a raw status string it doesn't fully enumerate.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 18 is now marked **Done — tier 3 complete (screens 15-18).**
+  Resuming at screen 19 (`/app/flows`), tier 4.
