@@ -18,7 +18,7 @@ Never have two screens in flight.
 | 6 | 1 | `/app/documents` | `lovable-pages/Documents.tsx` | Done | 2026-09-09 | `949205d` |
 | 7 | 1 | `/app/channels` | `lovable-pages/Channels.tsx` | Done | 2026-09-09 | `04704f5` |
 | 8 | 2 | `/app/conversations` | `lovable-pages/RecentConversations.tsx` | Done | 2026-09-09 | `55e56d7` |
-| 9 | 2 | `/app/claims/new` | `lovable-pages/FNOL.tsx` | Not started | | |
+| 9 | 2 | `/app/claims/new` | `lovable-pages/FNOL.tsx` | Done | 2026-09-09 | `dbdd38d` |
 | 10 | 2 | `/app/customers` | `lovable-pages/Customers.tsx` | Not started | | |
 | 11 | 2 | `/app/customers/[id]` | `lovable-pages/CustomerDetail.tsx` | Not started | | |
 | 12 | 2 | `/app/communications` | `lovable-pages/Communications.tsx` | Not started | | |
@@ -572,3 +572,55 @@ writing new markup for it.
 
   Screen 8 (`/app/conversations`) is now marked **Done**. Resuming at screen
   9 (`/app/claims/new`).
+
+- 2026-09-09: foundation-level fix — commit `14d887c`. Found while starting
+  screen 9: `FNOL.tsx` has two inline `fetch` calls of its own (policy
+  lookup, checklist preview — not routed through a `lib/` hook) with the same
+  raw-HTTP-status-in-fallback defect commit `968cf5a` fixed everywhere else.
+  A grep across all of `web/portal` (not just `lib/`) turned up **5 more
+  occurrences in 3 files** — `FNOL.tsx` (×3), `Settings.tsx`, and
+  `components/iip/DocumentUploadWidget.tsx` — plus confirmed that
+  `lib/runtimeContext.tsx`, present in `968cf5a`'s own original grep output,
+  was missed when that commit's file list was transcribed. Same mechanical
+  fix, same scope (fallback string only). Repo-wide grep for the pattern
+  across `web/portal`, excluding build output, now returns zero matches.
+  **Lesson for any future sweep of this kind: grep the whole tree the fix is
+  meant to cover, not the subdirectory where the first instance happened to
+  be found** — `968cf5a`'s scope (`lib/` only) was too narrow by construction,
+  not by bad luck.
+
+- 2026-09-09: screen 9 (`/app/claims/new`) — commit `dbdd38d`, preceded by
+  the fix above (found while starting this screen). `FNOL.tsx` — 838 lines,
+  the largest screen on the worklist — migrated onto tokens and primitives.
+  Read `iip_fnol_six_step_intake_design.md` first, per the worklist's own
+  instruction: the file already implements that spec's six-step structure,
+  so this was a pure re-skin, zero step reordering or field changes.
+
+  Added `components/ui/Input.tsx`'s `Textarea` (same extension precedent as
+  the earlier `Select` addition — no shared multi-line primitive existed).
+  The file's three local `Field`/`TextArea`/`SelectField` wrappers keep every
+  call site's API unchanged across all ~25 usages but now delegate to the
+  shared `Field`/`Input`/`Select`/`Textarea` primitives internally, wired
+  with `useId()` so every field's label is programmatically associated —
+  proactively closing the exact `htmlFor`/`id` gap gate-17's fixes (recorded
+  earlier in this branch's history) caught elsewhere, rather than waiting to
+  find it again at a checkpoint.
+
+  The completion progress bar's fill moved off `gradient-primary` onto flat
+  `bg-dls-primary` — §4.5 restricts gradients to the orb and chart bars, and
+  a form-completion bar is neither. The product-line Motor/Medical picker
+  reuses `FilterTab` rather than a fourth hand-rolled toggle pattern (see the
+  follow-up scope note above screen 7's entry — this file wasn't among the
+  originally-flagged 5, another sign that grep needs to be wide, not narrow).
+  `StepRail` keeps a solid-fill numeral badge for the current step number
+  inside each otherwise-correctly-tinted pill — a wizard step-count
+  convention distinct from §8.11's tab-background rule, not a violation of it.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No visual-parity synthetic fallback on
+  policy lookup / checklist preview / case creation; browser verification of
+  the live six-step flow deferred to the screen-10 checkpoint, along with
+  `pnpm test`/`pnpm build`.
+
+  Screen 9 (`/app/claims/new`) is now marked **Done**. Resuming at screen 10
+  (`/app/customers`) — **the checkpoint fires after this next screen.**
