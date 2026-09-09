@@ -31,7 +31,7 @@ Never have two screens in flight.
 | 19 | 4 | `/app/flows` | `lovable-pages/AgentFlows.tsx` | Done | 2026-09-09 | `d8917bb` |
 | 20 | 4 | `/app/flows/[key]` | `lovable-pages/AgentFlowInspector.tsx` | Done | 2026-09-09 | `78e18c0` |
 | 21 | 4 | `/app/flows/new` | `lovable-pages/AgentFlowBuilder.tsx` | Done | 2026-09-09 | `653da46` |
-| 22 | 4 | `/app/runs/[id]` | `lovable-pages/AgentRunDebugger.tsx` | Not started | | |
+| 22 | 4 | `/app/runs/[id]` | `lovable-pages/AgentRunDebugger.tsx` | Done | 2026-09-09 | `f085e02` |
 | 23 | 4 | `/app/executive` | `lovable-pages/Executive.tsx` | Not started | | |
 | 24 | 4 | `/app/audit` | `lovable-pages/Audit.tsx` | Not started | | |
 | 25 | 5 | `/app/settings` | `lovable-pages/Settings.tsx` | Not started | | |
@@ -991,3 +991,17 @@ at the next checkpoint or before this branch lands.
   screen.
 
   Screen 21 is now marked **Done**. Resuming at screen 22 (`/app/runs/[id]`).
+
+- 2026-09-09: screen 22 (`/app/runs/[id]`) — commit `f085e02`.
+  `AgentRunDebugger.tsx` migrated onto tokens and primitives. Loading/
+  not-found states onto `LoadingSkeleton`/`ErrorStateSurface`; stray
+  `text-violet` on the Correlation icon (decoration, not an action/AI
+  signal) moved to neutral.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 22 is now marked **Done**. Paused here at the user's request while
+  they deploy to Azure. Resuming at screen 23 (`/app/executive`) once
+  told to continue.
