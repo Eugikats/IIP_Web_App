@@ -1,5 +1,7 @@
 "use client";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
+import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
+import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface } from "@/components/ui/StateSurfaces";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { toast } from "sonner";
 import { useAgents } from "@/lib/lovable-parity/data/agents";
@@ -14,7 +16,7 @@ function RiskPill({ r }: { r: string }) {
 function ImplementationPill({ kind }: { kind: string }) {
   switch (kind) {
     case "ModelBacked":
-      return <Badge tone="violet">AI agent (model-backed)</Badge>;
+      return <Badge tone="info">AI agent (model-backed)</Badge>;
     case "AiServiceBacked":
       return <Badge tone="info">AI service (non-chat)</Badge>;
     case "RuleBased":
@@ -45,55 +47,65 @@ export default function Agents() {
       <div className="mb-4"><GuardrailBanner text="Disabled agents cannot be invoked. The kill switch is a governed, audited control — it constrains agents; it never grants them autonomy over a decision." /></div>
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading agent registry…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={5} /></GlassCard>
+      ) : error ? (
+        <GlassCard><ErrorStateSurface title="Agent registry could not be loaded" message={error} /></GlassCard>
       ) : agents.length === 0 ? (
-        <GlassCard><div className="p-10 text-center text-muted"><div className="text-ink font-medium">No agents registered</div><div className="text-[12.5px] mt-1">{error ?? "The agent catalog is empty for this workspace."}</div></div></GlassCard>
+        <GlassCard><EmptyStateSurface title="No agents registered" message="The agent catalog is empty for this workspace." /></GlassCard>
       ) : (
-        <GlassCard className="!p-0 overflow-hidden">
-          <table className="w-full text-[13px]">
-            <thead className="bg-white/60">
-              <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-muted">
-                <th className="p-3">Agent</th><th className="p-3">Purpose</th><th className="p-3">Implementation</th><th className="p-3">Risk</th><th className="p-3">Human approval</th><th className="p-3">State</th><th className="p-3 text-right">Kill switch</th>
-              </tr>
-            </thead>
-            <tbody>
-              {agents.map((a) => {
-                const implemented = a.implementationKind !== "NotImplemented";
-                return (
-                <tr key={a.key} className="border-t border-line/70 hover:bg-white/50">
-                  <td className="p-3"><div className="text-ink font-medium">{a.name}</div><div className="text-[10.5px] text-muted">{a.key}</div></td>
-                  <td className="p-3 text-ink-soft max-w-[320px]">
+        <Table label="Agent registry">
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Agent</TableHeaderCell>
+              <TableHeaderCell>Purpose</TableHeaderCell>
+              <TableHeaderCell>Implementation</TableHeaderCell>
+              <TableHeaderCell>Risk</TableHeaderCell>
+              <TableHeaderCell>Human approval</TableHeaderCell>
+              <TableHeaderCell>State</TableHeaderCell>
+              <TableHeaderCell numeric>Kill switch</TableHeaderCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {agents.map((a) => {
+              const implemented = a.implementationKind !== "NotImplemented";
+              return (
+                <TableRow key={a.key}>
+                  <TableCell>
+                    <div className="font-semibold text-dls-text-primary">{a.name}</div>
+                    <div className="text-[11px] text-dls-text-muted">{a.key}</div>
+                  </TableCell>
+                  <TableCell className="max-w-[320px] text-dls-text-secondary">
                     {a.purpose}
                     {a.tools.length > 0 ? (
-                      <div className="mt-1 text-[10.5px] text-muted">Tools: {a.tools.join(", ")}</div>
+                      <div className="mt-1 text-[11px] text-dls-text-muted">Tools: {a.tools.join(", ")}</div>
                     ) : null}
-                  </td>
-                  <td className="p-3"><ImplementationPill kind={a.implementationKind} /></td>
-                  <td className="p-3"><RiskPill r={a.riskLevel} /></td>
-                  <td className="p-3">{a.humanApprovalRequired ? <Badge tone="violet">Required</Badge> : <Badge tone="neutral">Not required</Badge>}</td>
-                  <td className="p-3">{a.enabled ? <Badge tone="success">Enabled</Badge> : <Badge tone="warning">Disabled</Badge>}</td>
-                  <td className="p-3 text-right">
+                  </TableCell>
+                  <TableCell><ImplementationPill kind={a.implementationKind} /></TableCell>
+                  <TableCell><RiskPill r={a.riskLevel} /></TableCell>
+                  <TableCell>{a.humanApprovalRequired ? <Badge tone="info">Required</Badge> : <Badge tone="neutral">Not required</Badge>}</TableCell>
+                  <TableCell>{a.enabled ? <Badge tone="success">Enabled</Badge> : <Badge tone="warning">Disabled</Badge>}</TableCell>
+                  <TableCell numeric>
                     {implemented ? (
                       <button
+                        type="button"
                         onClick={() => toggle(a.key, a.name, a.enabled)}
-                        className={`text-[11.5px] rounded-lg px-3 py-1.5 border ${a.enabled ? "border-danger/30 bg-white text-danger" : "border-success/30 bg-white text-success"}`}
+                        className={`dls-focus-outline rounded-dls-control border px-3 py-1.5 text-[11.5px] font-bold transition-colors duration-dls-fast ease-dls ${a.enabled ? "border-dls-border-input bg-dls-surface text-dls-danger-text hover:bg-dls-bg-page" : "border-dls-border-input bg-dls-surface text-dls-success-text hover:bg-dls-bg-page"}`}
                       >
                         {a.enabled ? "Disable" : "Enable"}
                       </button>
                     ) : (
-                      <span className="text-[11.5px] text-muted" title="No code path in the backend invokes this agent — there is nothing for a switch to control.">
+                      <span className="text-[11.5px] text-dls-text-muted" title="No code path in the backend invokes this agent — there is nothing for a switch to control.">
                         Not implemented
                       </span>
                     )}
-                  </td>
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </GlassCard>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
-      <div className="mt-3 text-[11.5px] text-muted">Kill-switch changes require a reason and are written to the audit trail. A disabled agent fails closed at invocation.</div>
+      <div className="mt-3 text-[11.5px] text-dls-text-muted">Kill-switch changes require a reason and are written to the audit trail. A disabled agent fails closed at invocation.</div>
     </>
   );
 }
