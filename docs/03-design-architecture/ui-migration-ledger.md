@@ -22,7 +22,7 @@ Never have two screens in flight.
 | 10 | 2 | `/app/customers` | `lovable-pages/Customers.tsx` | Done | 2026-09-09 | `a27a2ab` |
 | 11 | 2 | `/app/customers/[id]` | `lovable-pages/CustomerDetail.tsx` | Done | 2026-09-09 | `1fb3060` |
 | 12 | 2 | `/app/communications` | `lovable-pages/Communications.tsx` | Done | 2026-09-09 | `e3c0218` |
-| 13 | 2 | `/app/knowledge` | `lovable-pages/Knowledge.tsx` | Not started | | |
+| 13 | 2 | `/app/knowledge` | `lovable-pages/Knowledge.tsx` | Done | 2026-09-09 | `9116368` |
 | 14 | 2 | `/app/search` | `lovable-pages/GlobalSearch.tsx` | Not started | | |
 | 15 | 3 | `/app/underwriting` | `lovable-pages/Underwriting.tsx` | Not started | | |
 | 16 | 3 | `/app/policy` | `lovable-pages/PolicyIntelligence.tsx` | Not started | | |
@@ -723,3 +723,36 @@ Resuming at screen 11 (`/app/customers/[id]`).
   screen. Browser verification deferred to the next checkpoint (screen 15).
 
   Screen 12 is now marked **Done**. Resuming at screen 13 (`/app/knowledge`).
+
+- 2026-09-09: screen 13 (`/app/knowledge`) — commit `9116368`. `Knowledge.tsx`
+  migrated onto tokens and primitives. `customer_confidential`'s Badge tone
+  switched from the legacy `"violet"` alias to `"info"` directly.
+
+  This route is covered by `gate-8-policy-knowledge.visual.spec.ts`, which
+  is **not** in this run's checkpoint grep scope (`Gate (13|15|16|17|18)`)
+  but is exactly what this screen needed — ran it directly rather than
+  waiting for the next checkpoint. First pass: the search input's
+  `aria-label` was missing the trailing ellipsis the gate asserts on
+  exactly ("Search knowledge titles…") — fixed before committing, same class
+  of literal-copy drop as checkpoint 1's finding, caught before it shipped
+  this time.
+
+  gate-8's second test still fails after that fix, on an assertion this
+  migration never touched: it expects zero Approve/Upload/Re-index/Classify
+  buttons when governance data is absent, but the header's Upload and
+  Re-index buttons have never been permission-gated — in the old code or the
+  new. **Confirmed pre-existing**, not a regression: ran the identical
+  assertion against the pre-migration file verbatim (checked out via `git
+  show`, restored after) — same failure, same "Received: 2". Fixing it needs
+  real permission logic (what permission governs these buttons, an
+  `allows()`-style check wired to the header), a behaviour change out of
+  scope for a re-skin. **Flagging as a genuine, pre-existing product gap**,
+  not something this branch should carry the blame for or attempt to patch
+  incidentally.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed, gate-8's other six assertions on this
+  route all pass. Full `pnpm test`/`pnpm build`/full-gate verification
+  deferred to the next checkpoint (screen 15).
+
+  Screen 13 is now marked **Done**. Resuming at screen 14 (`/app/search`).
