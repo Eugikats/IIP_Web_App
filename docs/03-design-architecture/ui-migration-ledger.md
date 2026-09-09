@@ -30,7 +30,7 @@ Never have two screens in flight.
 | 18 | 3 | `/app/acquisition` | `lovable-pages/CustomerAcquisition.tsx` | Done | 2026-09-09 | `cb3be97` |
 | 19 | 4 | `/app/flows` | `lovable-pages/AgentFlows.tsx` | Done | 2026-09-09 | `d8917bb` |
 | 20 | 4 | `/app/flows/[key]` | `lovable-pages/AgentFlowInspector.tsx` | Done | 2026-09-09 | `78e18c0` |
-| 21 | 4 | `/app/flows/new` | `lovable-pages/AgentFlowBuilder.tsx` | Not started | | |
+| 21 | 4 | `/app/flows/new` | `lovable-pages/AgentFlowBuilder.tsx` | Done | 2026-09-09 | `653da46` |
 | 22 | 4 | `/app/runs/[id]` | `lovable-pages/AgentRunDebugger.tsx` | Not started | | |
 | 23 | 4 | `/app/executive` | `lovable-pages/Executive.tsx` | Not started | | |
 | 24 | 4 | `/app/audit` | `lovable-pages/Audit.tsx` | Not started | | |
@@ -977,3 +977,17 @@ Continuing with per-screen `tsc`/`lint`/`check-ui-release-gates.mjs`
 verification (all of which stayed fast and reliable throughout) rather than
 running the full Playwright suite again mid-session — it will be run fresh
 at the next checkpoint or before this branch lands.
+
+- 2026-09-09: screen 21 (`/app/flows/new`) — commit `653da46`.
+  `AgentFlowBuilder.tsx` migrated onto tokens and primitives. Node-palette
+  icon tiles moved off `bg-gradient-secondary` onto the neutral tile
+  treatment. The ~10 form fields moved onto a local `Field` wrapper
+  delegating to `Input`/`Select`/`Textarea` (same FNOL.tsx/Knowledge.tsx
+  precedent). Move/Remove controls onto `IconButton` and the established
+  hand-sized destructive text button.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 21 is now marked **Done**. Resuming at screen 22 (`/app/runs/[id]`).
