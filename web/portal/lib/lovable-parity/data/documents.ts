@@ -57,11 +57,13 @@ export function useDocuments() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/documents`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Documents failed with HTTP ${response.status}.`);
+      // Design language v2 §8.24 / AGENTS.md — never surface a raw provider error, stack trace, or
+      // status code to the user. A thrown HTTP-status message previously reached the screen as-is.
+      if (!response.ok) throw new Error("Documents failed to load.");
       const rows = (await response.json()) as DocumentDto[];
       setDocuments(rows.map(mapDto));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Documents failed to load.");
+    } catch {
+      setError("Documents failed to load.");
       setDocuments([]);
     } finally {
       setLoading(false);
