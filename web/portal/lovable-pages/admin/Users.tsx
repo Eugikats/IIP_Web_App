@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { UserPlus } from "lucide-react";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
+import { Button } from "@/components/ui/Button";
+import { Input, Select, Field as UIField } from "@/components/ui/Input";
+import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
+import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface } from "@/components/ui/StateSurfaces";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { useAdminUsers, type AdminUserView } from "@/lib/lovable-parity/data/adminUsers";
@@ -16,6 +20,7 @@ export default function Users() {
   const [pendingRoleChange, setPendingRoleChange] = useState<{ user: AdminUserView; nextRole: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ userId: "", name: "", email: "", phone: "", role: "", department: "", branch: "" });
+  const roleFieldId = useId();
 
   async function submitCreate() {
     if (!form.userId.trim() || !form.name.trim() || !form.email.trim() || !form.role) {
@@ -53,13 +58,9 @@ export default function Users() {
         title="Users & roles"
         sub="Resolved from server-side membership and permission data. Role changes are audited."
         action={
-          <button
-            type="button"
-            onClick={() => setShowCreate((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-2xl gradient-primary px-4 py-2.5 text-[13px] font-semibold text-white shadow-l2"
-          >
-            <UserPlus className="h-4 w-4" /> Add user
-          </button>
+          <Button variant="primary" onClick={() => setShowCreate((v) => !v)} icon={<UserPlus aria-hidden="true" />}>
+            Add user
+          </Button>
         }
       />
       <div className="mb-4">
@@ -68,83 +69,84 @@ export default function Users() {
 
       {showCreate ? (
         <GlassCard className="mb-4">
-          <div className="mb-3 text-[14px] font-semibold text-ink">New user</div>
+          <div className="mb-3 text-[15px] font-bold text-dls-text-primary">New user</div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="User ID" value={form.userId} onChange={(v) => setForm((f) => ({ ...f, userId: v }))} required />
             <Field label="Name" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} required />
             <Field label="Email" value={form.email} onChange={(v) => setForm((f) => ({ ...f, email: v }))} type="email" required />
             <Field label="Phone" value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
-            <label>
-              <span className="text-[11.5px] font-medium text-ink-soft">Role *</span>
-              <select
-                value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40"
-              >
+            <UIField label="Role *" htmlFor={roleFieldId}>
+              <Select id={roleFieldId} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} className="w-full">
                 <option value="">Select a role…</option>
                 {roles.map((r) => (
                   <option key={r.role} value={r.role}>{r.role}</option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </UIField>
             <Field label="Department" value={form.department} onChange={(v) => setForm((f) => ({ ...f, department: v }))} />
             <Field label="Branch" value={form.branch} onChange={(v) => setForm((f) => ({ ...f, branch: v }))} />
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setShowCreate(false)} className="rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-medium text-ink">Cancel</button>
-            <button type="button" onClick={submitCreate} disabled={creating} className="rounded-2xl gradient-primary px-4 py-2.5 text-[13px] font-semibold text-white shadow-l2 disabled:opacity-50">
+            <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <Button variant="primary" onClick={submitCreate} disabled={creating}>
               {creating ? "Creating…" : "Create user"}
-            </button>
+            </Button>
           </div>
         </GlassCard>
       ) : null}
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading users…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={5} /></GlassCard>
+      ) : error ? (
+        <GlassCard><ErrorStateSurface title="Users could not be loaded" message={error} /></GlassCard>
       ) : users.length === 0 ? (
-        <GlassCard><div className="p-10 text-center text-muted"><div className="text-ink font-medium">No users found</div><div className="text-[12.5px] mt-1">{error ?? "No users are registered for this workspace."}</div></div></GlassCard>
+        <GlassCard><EmptyStateSurface title="No users found" message="No users are registered for this workspace." /></GlassCard>
       ) : (
-        <GlassCard className="!p-0 overflow-hidden">
-          <table className="w-full text-[13px]">
-            <thead className="bg-white/60">
-              <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-muted">
-                <th className="p-3">User</th><th className="p-3">Role</th><th className="p-3">Department / branch</th><th className="p-3">Status</th><th className="p-3 text-right">Change role</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => {
-                const blocked = blockedReasonFor(u);
-                return (
-                  <tr key={u.userId} className="border-t border-line/70 hover:bg-white/50">
-                    <td className="p-3"><div className="text-ink font-medium">{u.name}</div><div className="text-[10.5px] text-muted">{u.email}</div></td>
-                    <td className="p-3"><Badge tone="neutral">{u.role}</Badge></td>
-                    <td className="p-3 text-ink-soft">{[u.department, u.branch].filter(Boolean).join(" · ") || "—"}</td>
-                    <td className="p-3">{u.status === "Active" ? <Badge tone="success">Active</Badge> : <Badge tone="warning">{u.status}</Badge>}</td>
-                    <td className="p-3 text-right">
-                      <select
-                        aria-label={`Change role for ${u.name}`}
-                        disabled={!!blocked}
-                        title={blocked ?? undefined}
-                        value=""
-                        onChange={(e) => {
-                          if (!e.target.value) return;
-                          setPendingRoleChange({ user: u, nextRole: e.target.value });
-                          e.target.value = "";
-                        }}
-                        className="rounded-lg border border-line bg-white px-2 py-1.5 text-[11.5px] text-ink disabled:opacity-50"
-                      >
-                        <option value="">Change to…</option>
-                        {roles.filter((r) => r.role !== u.role).map((r) => (
-                          <option key={r.role} value={r.role}>{r.role}</option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </GlassCard>
+        <Table label="Users and roles">
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>User</TableHeaderCell>
+              <TableHeaderCell>Role</TableHeaderCell>
+              <TableHeaderCell>Department / branch</TableHeaderCell>
+              <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell numeric>Change role</TableHeaderCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {users.map((u) => {
+              const blocked = blockedReasonFor(u);
+              return (
+                <TableRow key={u.userId}>
+                  <TableCell>
+                    <div className="font-semibold text-dls-text-primary">{u.name}</div>
+                    <div className="text-[11px] text-dls-text-muted">{u.email}</div>
+                  </TableCell>
+                  <TableCell><Badge tone="neutral">{u.role}</Badge></TableCell>
+                  <TableCell className="text-dls-text-secondary">{[u.department, u.branch].filter(Boolean).join(" · ") || "—"}</TableCell>
+                  <TableCell>{u.status === "Active" ? <Badge tone="success">Active</Badge> : <Badge tone="warning">{u.status}</Badge>}</TableCell>
+                  <TableCell numeric>
+                    <Select
+                      aria-label={`Change role for ${u.name}`}
+                      disabled={!!blocked}
+                      title={blocked ?? undefined}
+                      value=""
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        setPendingRoleChange({ user: u, nextRole: e.target.value });
+                        e.target.value = "";
+                      }}
+                    >
+                      <option value="">Change to…</option>
+                      {roles.filter((r) => r.role !== u.role).map((r) => (
+                        <option key={r.role} value={r.role}>{r.role}</option>
+                      ))}
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
 
       <GovernedActionDialog
@@ -174,15 +176,10 @@ export default function Users() {
 function Field({
   label, value, onChange, type = "text", required = false,
 }: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean }) {
+  const id = useId();
   return (
-    <label>
-      <span className="text-[11.5px] font-medium text-ink-soft">{label}{required ? " *" : ""}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        type={type}
-        className="mt-1 w-full rounded-2xl border border-line bg-white/80 px-4 py-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-info/40"
-      />
-    </label>
+    <UIField label={required ? `${label} *` : label} htmlFor={id}>
+      <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} type={type} />
+    </UIField>
   );
 }
