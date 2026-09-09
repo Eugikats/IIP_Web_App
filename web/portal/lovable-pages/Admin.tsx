@@ -44,40 +44,46 @@ export default function Admin() {
     <>
       <SectionHeader eyebrow="Admin" title="Admin Console" sub="Tenant, users, workflows, documents, channels, AI providers, agent governance, and integrations." />
 
-      <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">Governance & operations</div>
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-        {visibleCards.map(c => (
-          <Link key={c.title} to={c.to} className="block">
-            <GlassCard className="hover-lift h-full">
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Governance & operations</div>
+      <div className="mb-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {visibleCards.map((c) => (
+          <Link key={c.title} to={c.to} className="dls-focus-outline block rounded-dls-card">
+            <GlassCard className="h-full transition-colors duration-dls-fast ease-dls hover:border-dls-border-strong">
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-xl bg-info/8 text-info grid place-items-center"><c.icon className="h-4 w-4" /></div>
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-dls-chip bg-dls-bg-page text-dls-text-secondary"><c.icon className="h-4 w-4" aria-hidden="true" /></div>
                 <div>
-                  <div className="text-[14px] font-semibold text-ink">{c.title}</div>
-                  <div className="text-[12.5px] text-muted">{c.desc}</div>
+                  <div className="text-[14px] font-bold text-dls-text-primary">{c.title}</div>
+                  <div className="text-[12.5px] text-dls-text-secondary">{c.desc}</div>
                 </div>
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <Badge tone="neutral">Open</Badge>
-                <span className="text-[12px] text-info inline-flex items-center gap-1">Manage <ArrowRight className="h-3 w-3" /></span>
+                <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-dls-primary">Manage <ArrowRight className="h-3 w-3" aria-hidden="true" /></span>
               </div>
             </GlassCard>
           </Link>
         ))}
       </div>
 
-      <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">Tenant profile</div>
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Tenant profile</div>
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         <GlassCard>
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-xl bg-info/8 text-info grid place-items-center"><Building2 className="h-4 w-4" /></div>
-            <div><div className="text-[14px] font-semibold text-ink">Tenant profile</div><div className="text-[12.5px] text-muted">Resolved from the authenticated tenant and workspace context.</div></div>
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-dls-chip bg-dls-bg-page text-dls-text-secondary"><Building2 className="h-4 w-4" aria-hidden="true" /></div>
+            <div>
+              <div className="text-[14px] font-bold text-dls-text-primary">Tenant profile</div>
+              <div className="text-[12.5px] text-dls-text-secondary">Resolved from the authenticated tenant and workspace context.</div>
+            </div>
           </div>
         </GlassCard>
-        {inline.map(c => (
+        {inline.map((c) => (
           <GlassCard key={c.title}>
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-xl bg-info/8 text-info grid place-items-center"><c.icon className="h-4 w-4" /></div>
-              <div><div className="text-[14px] font-semibold text-ink">{c.title}</div><div className="text-[12.5px] text-muted">{c.desc}</div></div>
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-dls-chip bg-dls-bg-page text-dls-text-secondary"><c.icon className="h-4 w-4" aria-hidden="true" /></div>
+              <div>
+                <div className="text-[14px] font-bold text-dls-text-primary">{c.title}</div>
+                <div className="text-[12.5px] text-dls-text-secondary">{c.desc}</div>
+              </div>
             </div>
           </GlassCard>
         ))}
