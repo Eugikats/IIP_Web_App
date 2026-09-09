@@ -43,7 +43,7 @@ Never have two screens in flight.
 | 31 | 5 | `/app/admin/onboarding` | `lovable-pages/admin/Onboarding.tsx` | Done | 2026-09-09 | `f015805` |
 | 32 | 5 | `/app/admin/email` | `lovable-pages/admin/EmailInbox.tsx` | Done | 2026-09-09 | `a7253b9` |
 | 33 | 5 | `/app/admin/whatsapp` | `lovable-pages/admin/WhatsAppSettings.tsx` | Done | 2026-09-09 | `9e1f46e` |
-| 34 | 5 | `/app/admin/billing` | `lovable-pages/admin/Billing.tsx` | Not started | | |
+| 34 | 5 | `/app/admin/billing` | `lovable-pages/admin/Billing.tsx` | Done | 2026-09-09 | `9723c50` |
 | 35 | 5 | `/app/support` | `app/app/support/page.tsx` | Not started | | |
 | 36 | 6 | `/access` | `lovable-pages/ClaimAccessRequest.tsx` | Not started | | |
 | 37 | 6 | `/access/verify` | `lovable-pages/ClaimAccessVerify.tsx` | Not started | | |
@@ -1187,3 +1187,15 @@ Resuming at screen 31 (`/app/admin/onboarding`).
 
   Screen 33 is now marked **Done**. Resuming at screen 34
   (`/app/admin/billing`).
+
+- 2026-09-09: screen 34 (`/app/admin/billing`) — commit `9723c50`.
+  `admin/Billing.tsx` migrated onto tokens. Meter progress bars moved off
+  `gradient-primary` onto a flat fill (same fix as FNOL.tsx's completion
+  bar). Violet Badge tone alias swapped to `info`.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 34 is now marked **Done — tier 5's admin sub-pages complete
+  (screens 27-34).** Resuming at screen 35 (`/app/support`).
