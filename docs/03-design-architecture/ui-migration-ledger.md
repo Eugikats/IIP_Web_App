@@ -16,7 +16,7 @@ Never have two screens in flight.
 | 4 | 1 | `/app/claims/[id]` | `lovable-pages/ClaimReview.tsx` | Done | 2026-09-08 | `c272afc` |
 | 5 | 1 | `/app/claims/[id]/extraction` | `lovable-pages/DocumentExtraction.tsx` | Done | 2026-09-08 | `cd31e91` |
 | 6 | 1 | `/app/documents` | `lovable-pages/Documents.tsx` | Done | 2026-09-09 | `949205d` |
-| 7 | 1 | `/app/channels` | `lovable-pages/Channels.tsx` | Not started | | |
+| 7 | 1 | `/app/channels` | `lovable-pages/Channels.tsx` | Done | 2026-09-09 | `04704f5` |
 | 8 | 2 | `/app/conversations` | `lovable-pages/RecentConversations.tsx` | Not started | | |
 | 9 | 2 | `/app/claims/new` | `lovable-pages/FNOL.tsx` | Not started | | |
 | 10 | 2 | `/app/customers` | `lovable-pages/Customers.tsx` | Not started | | |
@@ -451,3 +451,100 @@ writing new markup for it.
 
   Screen 6 (`/app/documents`) is now marked **Done**. Resuming at screen 7
   (`/app/channels`).
+
+- 2026-09-09: foundation-level fix — commit `968cf5a`. Found while starting
+  screen 7: `lib/lovable-parity/data/channels.ts` had the exact same
+  raw-HTTP-status-in-fallback defect fixed in `documents.ts` one entry above,
+  three times over. A repo-wide grep for the same template turned up **67
+  more occurrences across 29 files** — essentially the entire
+  `lovable-parity` data layer, not a one-off. Fixing this per-screen, as it
+  was found, would have meant rediscovering it on most of the remaining 33
+  screens; fixed once, everywhere, instead.
+
+  Read `uiLoadState.ts`'s `UiServiceError` and every file's local
+  `safeError`/`readSafeApiError`/`readError` helper before touching anything:
+  all of them already correctly prefer a backend-supplied `payload.message`/
+  `payload.errors` value over the fallback, and `UiServiceError.fromResponse`
+  already deliberately withholds raw 5xx body detail — the abstractions are
+  sound. The defect was narrower and purely textual: the *caller-supplied
+  fallback* strings baked the status code in, and that fallback is exactly
+  what renders when the backend gives nothing better. Fix applied uniformly
+  by regex across all 29 files: stripped `" with HTTP ${...}."` / `" (HTTP
+  ${...})."` from every fallback, leaving every backend-message-preferring
+  branch, return shape, error kind, and retry/correlation/permission-status
+  branch untouched. Diffs spot-checked (`claimReview.ts`, 10 of the 67
+  substitutions) before verifying.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean across all 29
+  files. No test or story asserted the old wording. Full `pnpm test`/
+  `pnpm build`/browser verification deferred to the screen-10 checkpoint,
+  consistent with this run's verification philosophy — but given the breadth
+  of this change (29 files, not one screen), the checkpoint should include at
+  minimum one error-state walkthrough on a screen using each of the three
+  helper shapes (`UiServiceError.fromResponse`, a local `safeError`-style
+  helper, and a bare thrown/returned template) rather than only the 5
+  screens migrated since the last checkpoint.
+
+- 2026-09-09: foundation-level finding, not yet fixed — flagging per the
+  worklist's "same problem on three or more screens" stop condition rather
+  than folding a fix into this screen. While building screen 7's channel
+  filter tabs, found that `AgentWorkItems.tsx`, `ClaimsQueue.tsx`,
+  `DocumentExtraction.tsx`, `ReviewWorkspace.tsx`, and `Workflows.tsx` (5
+  occurrences, 4 already-Done screens) render an active filter/segmented tab
+  as a **solid violet fill** (`bg-dls-primary text-dls-text-inverse`).
+  Design language §8.11 specifies a **light tint**: `bg-dls-primary-soft-alt`
+  background, `border-dls-primary-border`, `text-dls-primary-accent` — solid
+  violet fill is §8.1's primary-button treatment, not a tab's. The correct
+  tint pattern already exists, used correctly elsewhere in the same files for
+  selected list rows and inline info panels — this is a same-shape-different-
+  spot mistake, not confusion about the tint tokens' existence.
+
+  Built `components/ui/FilterTab.tsx` to §8.11 exactly and used it for this
+  screen's own channel-filter tabs (see the screen-7 entry below) rather than
+  copying the existing wrong pattern into a sixth location. Deliberately
+  **not** touching the 5 existing occurrences here: that means re-opening 4
+  already-Done, already-verified screens outside the one currently in
+  flight, which the ledger's own resume rule ("never have two screens in
+  flight") argues against doing casually mid-screen. Recommend a dedicated
+  follow-up commit — migrate all 5 call sites onto `FilterTab`, re-verify
+  only those 4 screens (not the whole worklist) — before or shortly after
+  the screen-10 checkpoint, so the defect doesn't keep compounding if a
+  later screen's author copies the visible (wrong) pattern instead of
+  finding this note.
+
+- 2026-09-09: screen 7 (`/app/channels`) — commit `04704f5`, preceded by the
+  two fixes above (both found while starting this screen). `Channels.tsx`
+  migrated onto tokens and `components/ui/` primitives, closing out tier 1.
+
+  Found and fixed a genuine "does nothing" defect, not just a re-skin: the
+  conversation-list search box was decoration — a `Search` icon and
+  placeholder-like static text with no `<input>`, no `onChange`, wired to
+  nothing. Craft guardrails §2 item 25 ("buttons that do nothing") applies
+  equally to a fake search box. Rebuilt as a real `Input` filtering the
+  already-fetched `conversations` list client-side (no new query — same
+  presentation-only class of addition as `ClaimsQueue`'s pre-existing
+  client-side search). This made a genuine empty-after-filter state possible
+  for the first time on this screen; added it via `EmptyFilteredStateSurface`
+  alongside the now-properly-split loading/error/empty-no-data states (error
+  was previously folded into the empty block via a ternary on the message
+  text — the same conflation pattern fixed on screens 3 and 6).
+
+  Channel filter pills moved onto the new `FilterTab` primitive. Message
+  bubbles moved off `gradient-primary` onto a flat violet-fill/neutral-surface
+  treatment matching §8.17's visual grammar, hand-rolled rather than
+  importing `ChatPrimitives` — this is a customer-conversation thread, a
+  different domain from the AI Assistant chat surface, sharing the look
+  without sharing the component. The inline WhatsApp warning callout moved
+  off an ad-hoc `bg-amber-50`/`text-amber-900` pairing onto the
+  `dls-warning-tint`/`dls-warning-text` tokens.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. `useChannelConversations` and
+  `useWhatsAppThread` have no visual-parity synthetic fallback for live list/
+  transcript data (`parityMode` only covers the top-level empty-state demo
+  transcript), so real-data browser verification of the list and transcript
+  is deferred to the screen-10 checkpoint, along with `pnpm test`/
+  `pnpm build`.
+
+  Screen 7 (`/app/channels`) is now marked **Done — tier 1 complete**.
+  Resuming at screen 8 (`/app/conversations`), tier 2.
