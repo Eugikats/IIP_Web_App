@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowRight, FileText, ListChecks, Loader2, Search, ShieldCheck } from "lucide-react";
+import { ArrowRight, FileText, ListChecks, Search, ShieldCheck } from "lucide-react";
 import { Badge, GlassCard, SectionHeader } from "@/components/iip/Primitives";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface } from "@/components/ui/StateSurfaces";
 import { useUI } from "@/context/UIStateContext";
 import { loadGlobalSearch, type GlobalSearchResult, type GlobalSearchResultType } from "@/lib/lovable-parity/data/globalSearch";
 import { useRuntimeContext } from "@/lib/runtimeContext";
@@ -92,27 +95,22 @@ export default function GlobalSearch({ initialQuery }: { initialQuery: string })
 
       <GlassCard className="mb-5">
         <form onSubmit={submit} role="search" className="flex flex-col gap-3 sm:flex-row">
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-info/30">
-            <Search className="h-4 w-4 text-muted" aria-hidden="true" />
-            <span className="sr-only">Search cases, documents, workflow tasks, and approvals</span>
-            <input
+          <div className="min-w-0 flex-1">
+            <Input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               minLength={2}
               maxLength={100}
               placeholder="Reference, customer, vehicle, document, task…"
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted"
+              leadingIcon={<Search aria-hidden="true" />}
+              aria-label="Search cases, documents, workflow tasks, and approvals"
             />
-          </label>
-          <button
-            type="submit"
-            disabled={draft.trim().length < 2}
-            className="rounded-xl bg-primary px-5 py-2.5 text-[13px] font-medium text-white shadow-l1 disabled:cursor-not-allowed disabled:opacity-50 focus-ring"
-          >
+          </div>
+          <Button type="submit" variant="primary" disabled={draft.trim().length < 2}>
             Search
-          </button>
+          </Button>
         </form>
-        <p className="mt-2 text-[11.5px] text-muted">Enter at least two characters. Restricted records are not disclosed.</p>
+        <p className="mt-2 text-[11.5px] text-dls-text-muted">Enter at least two characters. Restricted records are not disclosed.</p>
       </GlassCard>
 
       <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -120,48 +118,37 @@ export default function GlobalSearch({ initialQuery }: { initialQuery: string })
       </div>
 
       {query.length < 2 ? (
-        <GlassCard><div className="py-10 text-center text-sm text-muted">Enter at least two characters to search.</div></GlassCard>
+        <GlassCard><EmptyStateSurface message="Enter at least two characters to search." /></GlassCard>
       ) : loading ? (
-        <GlassCard><div className="flex items-center justify-center gap-2 py-10 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" />Searching authorized records…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={4} /></GlassCard>
       ) : error ? (
-        <GlassCard>
-          <div className="py-10 text-center">
-            <div className="font-medium text-ink">Search unavailable</div>
-            <p className="mt-1 text-sm text-muted">{error}</p>
-          </div>
-        </GlassCard>
+        <GlassCard><ErrorStateSurface title="Search unavailable" message={error} /></GlassCard>
       ) : response && response.results.length === 0 ? (
-        <GlassCard>
-          <div className="py-10 text-center">
-            <Search className="mx-auto h-6 w-6 text-muted" aria-hidden="true" />
-            <div className="mt-3 font-medium text-ink">No authorized results</div>
-            <p className="mt-1 text-sm text-muted">Check the reference or try a broader term. Restricted records are not disclosed.</p>
-          </div>
-        </GlassCard>
+        <GlassCard><EmptyStateSurface title="No authorized results" message="Check the reference or try a broader term. Restricted records are not disclosed." /></GlassCard>
       ) : (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-dls-text-muted">
             <span>{response?.returnedCount ?? 0} authorized result{response?.returnedCount === 1 ? "" : "s"}</span>
             {response?.hasMore ? <span>More matches exist—refine the query to narrow results.</span> : null}
           </div>
           {groups.map((group) => (
             <section key={group.type} aria-labelledby={`search-group-${group.type}`}>
-              <h2 id={`search-group-${group.type}`} className="mb-2 text-[11px] uppercase tracking-[0.14em] text-muted">
+              <h2 id={`search-group-${group.type}`} className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">
                 {TYPE_LABELS[group.type]} · {group.items.length}
               </h2>
               <GlassCard className="!p-0 overflow-hidden">
                 <ul>
                   {group.items.map((item: GlobalSearchResult) => (
-                    <li key={`${item.type}-${item.id}`} className="border-t border-line/70 first:border-t-0">
-                      <Link href={item.href} className="group flex items-center gap-3 p-4 hover:bg-white/60 focus-ring">
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-info/10 text-info"><ResultIcon type={item.type} /></span>
+                    <li key={`${item.type}-${item.id}`} className="border-t border-dls-border-subtle first:border-t-0">
+                      <Link href={item.href} className="dls-focus-outline flex items-center gap-3 p-4 transition-colors duration-dls-fast ease-dls hover:bg-dls-bg-page">
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-dls-chip bg-dls-info-tint text-dls-info-text"><ResultIcon type={item.type} /></span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-medium text-ink">{item.title}</span>
-                          <span className="mt-0.5 block truncate text-[12px] text-muted">{item.subtitle}</span>
-                          <span className="mt-1 block text-[10.5px] text-muted">{formatWhen(item.updatedAt)}</span>
+                          <span className="block truncate text-[13px] font-semibold text-dls-text-primary">{item.title}</span>
+                          <span className="mt-0.5 block truncate text-[12px] text-dls-text-secondary">{item.subtitle}</span>
+                          <span className="mt-1 block text-[11px] text-dls-text-muted">{formatWhen(item.updatedAt)}</span>
                         </span>
                         <Badge tone="neutral" className="hidden sm:inline-flex">Matched: {item.matchReason}</Badge>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                        <ArrowRight className="h-4 w-4 shrink-0 text-dls-text-muted" aria-hidden="true" />
                       </Link>
                     </li>
                   ))}
