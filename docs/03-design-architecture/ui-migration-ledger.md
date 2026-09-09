@@ -35,7 +35,7 @@ Never have two screens in flight.
 | 23 | 4 | `/app/executive` | `lovable-pages/Executive.tsx` | Done | 2026-09-09 | `b14191e` |
 | 24 | 4 | `/app/audit` | `lovable-pages/Audit.tsx` | Done | 2026-09-09 | `f9b0cce` |
 | 25 | 5 | `/app/settings` | `lovable-pages/Settings.tsx` | Done | 2026-09-09 | `2baaaca` |
-| 26 | 5 | `/app/integrations` | `lovable-pages/Integrations.tsx` | Not started | | |
+| 26 | 5 | `/app/integrations` | `lovable-pages/Integrations.tsx` | Done | 2026-09-09 | `676d6ea` |
 | 27 | 5 | `/app/admin` | `lovable-pages/Admin.tsx` | Not started | | |
 | 28 | 5 | `/app/admin/users` | `lovable-pages/admin/Users.tsx` | Not started | | |
 | 29 | 5 | `/app/admin/agents` | `lovable-pages/admin/Agents.tsx` | Not started | | |
@@ -1071,3 +1071,15 @@ Unlike checkpoint 3, this one completed the way checkpoints 1 and 2 did.
   same substitution as prior checkpoints.
 
 Resuming at screen 26 (`/app/integrations`).
+
+- 2026-09-09: screen 26 (`/app/integrations`) — commit `676d6ea`.
+  `Integrations.tsx` migrated onto tokens and primitives.
+  `ProviderHealthGrid` (already partially migrated) left untouched. Covered
+  by `gate-14-trust-truth` (outside checkpoint scope) — its assertions
+  target the heading text (unchanged) and `ProviderHealthGrid`'s own DOM,
+  not this file's markup. Ran it standalone to confirm: passed.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed, `gate-14` passed standalone.
+
+  Screen 26 is now marked **Done**. Resuming at screen 27 (`/app/admin`).
