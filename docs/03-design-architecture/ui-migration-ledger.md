@@ -37,7 +37,7 @@ Never have two screens in flight.
 | 25 | 5 | `/app/settings` | `lovable-pages/Settings.tsx` | Done | 2026-09-09 | `2baaaca` |
 | 26 | 5 | `/app/integrations` | `lovable-pages/Integrations.tsx` | Done | 2026-09-09 | `676d6ea` |
 | 27 | 5 | `/app/admin` | `lovable-pages/Admin.tsx` | Done | 2026-09-09 | `f1361aa` |
-| 28 | 5 | `/app/admin/users` | `lovable-pages/admin/Users.tsx` | Not started | | |
+| 28 | 5 | `/app/admin/users` | `lovable-pages/admin/Users.tsx` | Done | 2026-09-09 | `bbaf959` |
 | 29 | 5 | `/app/admin/agents` | `lovable-pages/admin/Agents.tsx` | Not started | | |
 | 30 | 5 | `/app/admin/tenant-policy` | `lovable-pages/admin/TenantPolicy.tsx` | Not started | | |
 | 31 | 5 | `/app/admin/onboarding` | `lovable-pages/admin/Onboarding.tsx` | Not started | | |
@@ -1097,3 +1097,14 @@ Resuming at screen 26 (`/app/integrations`).
 
   Screen 27 is now marked **Done**. Resuming at screen 28
   (`/app/admin/users`).
+
+- 2026-09-09: screen 28 (`/app/admin/users`) — commit `bbaf959`.
+  `admin/Users.tsx` migrated onto tokens and primitives. Users table moved
+  onto the shared `Table` primitives (was a raw unstyled `<table>`).
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 28 is now marked **Done**. Resuming at screen 29
+  (`/app/admin/agents`).
