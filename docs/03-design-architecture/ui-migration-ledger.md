@@ -42,7 +42,7 @@ Never have two screens in flight.
 | 30 | 5 | `/app/admin/tenant-policy` | `lovable-pages/admin/TenantPolicy.tsx` | Done | 2026-09-09 | `f214dd5` |
 | 31 | 5 | `/app/admin/onboarding` | `lovable-pages/admin/Onboarding.tsx` | Done | 2026-09-09 | `f015805` |
 | 32 | 5 | `/app/admin/email` | `lovable-pages/admin/EmailInbox.tsx` | Done | 2026-09-09 | `a7253b9` |
-| 33 | 5 | `/app/admin/whatsapp` | `lovable-pages/admin/WhatsAppSettings.tsx` | Not started | | |
+| 33 | 5 | `/app/admin/whatsapp` | `lovable-pages/admin/WhatsAppSettings.tsx` | Done | 2026-09-09 | `9e1f46e` |
 | 34 | 5 | `/app/admin/billing` | `lovable-pages/admin/Billing.tsx` | Not started | | |
 | 35 | 5 | `/app/support` | `app/app/support/page.tsx` | Not started | | |
 | 36 | 6 | `/access` | `lovable-pages/ClaimAccessRequest.tsx` | Not started | | |
@@ -1175,3 +1175,15 @@ Resuming at screen 31 (`/app/admin/onboarding`).
 
   Screen 32 is now marked **Done**. Resuming at screen 33
   (`/app/admin/whatsapp`).
+
+- 2026-09-09: screen 33 (`/app/admin/whatsapp`) — commit `9e1f46e`.
+  `admin/WhatsAppSettings.tsx` migrated onto tokens and primitives. Fields
+  (with per-field help text) onto `Field`/`Input` using `UIField`'s hint
+  slot. Legacy `bg-mist` literal and `bg-primary` alias removed.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 33 is now marked **Done**. Resuming at screen 34
+  (`/app/admin/billing`).
