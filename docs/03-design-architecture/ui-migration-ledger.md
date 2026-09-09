@@ -26,7 +26,7 @@ Never have two screens in flight.
 | 14 | 2 | `/app/search` | `lovable-pages/GlobalSearch.tsx` | Done | 2026-09-09 | `b0c3890` |
 | 15 | 3 | `/app/underwriting` | `lovable-pages/Underwriting.tsx` | Done | 2026-09-09 | `7559555` |
 | 16 | 3 | `/app/policy` | `lovable-pages/PolicyIntelligence.tsx` | Done | 2026-09-09 | `1981dff` |
-| 17 | 3 | `/app/fraud` | `lovable-pages/FraudIntelligence.tsx` | Not started | | |
+| 17 | 3 | `/app/fraud` | `lovable-pages/FraudIntelligence.tsx` | Done | 2026-09-09 | `cc7cfe0` |
 | 18 | 3 | `/app/acquisition` | `lovable-pages/CustomerAcquisition.tsx` | Not started | | |
 | 19 | 4 | `/app/flows` | `lovable-pages/AgentFlows.tsx` | Not started | | |
 | 20 | 4 | `/app/flows/[key]` | `lovable-pages/AgentFlowInspector.tsx` | Not started | | |
