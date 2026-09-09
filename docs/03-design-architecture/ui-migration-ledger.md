@@ -1129,3 +1129,18 @@ Resuming at screen 26 (`/app/integrations`).
   screen.
 
   Screen 30 is now marked **Done — this run's fifth checkpoint boundary.**
+
+## Checkpoint 5 (after screen 30) — clean, full 3-viewport confirmation
+
+- **`pnpm test`** — all 7 suites green.
+- **`pnpm build`** — succeeded, every route generated. `node.exe` processes
+  killed immediately after, per the checkpoint-3/4 note.
+- **`pnpm test:release-gates`**, full 3-viewport suite — **63 passed, 0
+  failed, 18 skipped** — identical to checkpoints 2 and 4. Everything
+  migrated since checkpoint 4 (screens 26-30, spanning the second half of
+  tier 4's cleanup and the start of tier 5's admin screens) is gate-verified
+  clean.
+- **Browser walkthrough** — still no interactive browser tool; same
+  substitution as prior checkpoints.
+
+Resuming at screen 31 (`/app/admin/onboarding`).
