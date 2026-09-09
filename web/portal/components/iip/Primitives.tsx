@@ -162,6 +162,15 @@ const STATUS_VOCAB: Record<string, { label: string; tone: PillTone }> = {
   OnTrack: { label: "On track", tone: "success" },
   AtRisk: { label: "At risk", tone: "warning" },
   Breached: { label: "Breached", tone: "danger" },
+  // DocumentProcessingStatus, per iip_workflow_legibility_contract.md §6/§10.6. "Rejected" above
+  // already matches this enum's value too (same label, same tone), so it is not repeated here.
+  // Found while migrating the Documents screen: "Reviewed" was previously falling through to
+  // OTHER_STATUS_TONE with the wrong tone (neutral, not success); "Review Required" was rendering
+  // its input string almost-but-not-quite verbatim ("Review Required" instead of the contract's
+  // "Needs review") with the wrong tone (neutral, not warning) — the exact raw-label-leak pattern
+  // this table exists to prevent, just not literally PascalCase this time.
+  Reviewed: { label: "Reviewed", tone: "success" },
+  "Review Required": { label: "Needs review", tone: "warning" },
 };
 
 // Non-contract statuses (agent flows, integrations, documents, etc.) that already read as plain
@@ -183,6 +192,11 @@ const OTHER_STATUS_TONE: Record<string, PillTone> = {
   Connected: "success",
   Active: "success",
   Operational: "success",
+  // Document-library fixture values with no single confirmed DocumentProcessingStatus mapping
+  // (see the ui-migration-ledger.md screen-6 entry) — tone-only, in-flight/informational rather
+  // than a guessed label rewrite of text this file can't confirm against a real DTO.
+  "Extraction Pending": "info",
+  Extracted: "info",
 };
 
 export function StatusBadge({ status }: { status: string }) {
