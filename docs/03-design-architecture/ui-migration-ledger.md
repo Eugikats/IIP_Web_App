@@ -17,7 +17,7 @@ Never have two screens in flight.
 | 5 | 1 | `/app/claims/[id]/extraction` | `lovable-pages/DocumentExtraction.tsx` | Done | 2026-09-08 | `cd31e91` |
 | 6 | 1 | `/app/documents` | `lovable-pages/Documents.tsx` | Done | 2026-09-09 | `949205d` |
 | 7 | 1 | `/app/channels` | `lovable-pages/Channels.tsx` | Done | 2026-09-09 | `04704f5` |
-| 8 | 2 | `/app/conversations` | `lovable-pages/RecentConversations.tsx` | Not started | | |
+| 8 | 2 | `/app/conversations` | `lovable-pages/RecentConversations.tsx` | Done | 2026-09-09 | `55e56d7` |
 | 9 | 2 | `/app/claims/new` | `lovable-pages/FNOL.tsx` | Not started | | |
 | 10 | 2 | `/app/customers` | `lovable-pages/Customers.tsx` | Not started | | |
 | 11 | 2 | `/app/customers/[id]` | `lovable-pages/CustomerDetail.tsx` | Not started | | |
@@ -548,3 +548,27 @@ writing new markup for it.
 
   Screen 7 (`/app/channels`) is now marked **Done — tier 1 complete**.
   Resuming at screen 8 (`/app/conversations`), tier 2.
+
+- 2026-09-09: screen 8 (`/app/conversations`) — commit `55e56d7`.
+  `RecentConversations.tsx` migrated onto tokens and primitives. Active/
+  Archived toggle moved onto `FilterTab` — a **sixth** occurrence of the
+  solid-fill-instead-of-tint tab defect flagged in the foundation-finding
+  entry above, this one `bg-ink` rather than `bg-dls-primary`, which is why
+  it wasn't caught by the earlier grep for the violet-specific class string.
+  Recommend widening that follow-up's search to any hand-rolled active-tab
+  ternary, not just the `bg-dls-primary` string, before assuming the
+  existing-occurrence count is complete.
+
+  Loading spinner replaced with `LoadingSkeleton` (§8.24/§6.4 — no shimmer,
+  no spinner-as-decoration). Error state keeps its kind-specific title
+  (unauthorized vs unavailable) via `ErrorStateSurface`'s `title` prop but
+  not the prior per-kind icon swap, for consistency with every other
+  already-migrated error state in the app.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No visual-parity synthetic fallback on
+  this screen's hooks; browser verification of real list rendering deferred
+  to the screen-10 checkpoint, along with `pnpm test`/`pnpm build`.
+
+  Screen 8 (`/app/conversations`) is now marked **Done**. Resuming at screen
+  9 (`/app/claims/new`).
