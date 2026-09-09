@@ -47,7 +47,7 @@ Never have two screens in flight.
 | 35 | 5 | `/app/support` | `app/app/support/page.tsx` | Done | 2026-09-09 | `n/a` |
 | 36 | 6 | `/access` | `lovable-pages/ClaimAccessRequest.tsx` | Done | 2026-09-09 | `13d9c2e` |
 | 37 | 6 | `/access/verify` | `lovable-pages/ClaimAccessVerify.tsx` | Done | 2026-09-09 | `88244c8` |
-| 38 | 6 | `/access/claim` | `lovable-pages/ClaimAccessStatus.tsx` | Not started | | |
+| 38 | 6 | `/access/claim` | `lovable-pages/ClaimAccessStatus.tsx` | Done | 2026-09-09 | `4524733` |
 | 39 | 6 | `/access/new-claim` | `lovable-pages/ClaimAccessNewClaim.tsx` | Not started | | |
 
 ## Foundation slice
@@ -1232,3 +1232,27 @@ Resuming at screen 31 (`/app/admin/onboarding`).
   screen.
 
   Screen 37 is now marked **Done**. Resuming at screen 38 (`/access/claim`).
+
+- 2026-09-09: screen 38 (`/access/claim`) — commit `4524733`.
+  `ClaimAccessStatus.tsx` migrated onto tokens and primitives. Fixed a
+  latent accessibility gap found while touching the review-request button:
+  while busy it rendered icon-only with no accessible name (pre-existing,
+  not introduced here) — added a fixed `aria-label`.
+
+  **Real tier-6 finding, not fixed:** `claim.status` renders the raw
+  `CaseStatus` enum name through a camelCase-to-spaces regex — a claimant
+  could see literally "Escalated" or "Ready For Export", internal-process
+  terminology, not a claimant-appropriate translation. Confirmed no other
+  staff-only content (internal notes, reserves, fraud/risk signals,
+  other-tenant data) renders anywhere on this screen. Left the wording
+  unchanged — inventing customer-facing copy for a regulated insurer
+  communication is a product/legal decision, not a restyling call.
+  **Flagging for whoever owns claimant-communication copy**, same
+  discipline as the pre-existing gaps found on screens 13 and 16.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 38 is now marked **Done**. Resuming at screen 39
+  (`/access/new-claim`) — **the final screen.**
