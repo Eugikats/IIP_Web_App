@@ -149,7 +149,7 @@ export default function ClaimsQueue() {
         <GlassCard><LoadingSkeleton rows={6} /></GlassCard>
       ) : error ? (
         <GlassCard>
-          <ErrorStateSurface message={`${error.message} ${error.recovery}`} correlationId={error.correlationId} onRetry={error.retryable ? () => void refresh() : undefined} />
+          <ErrorStateSurface title="Claims could not be loaded" message={`${error.message} ${error.recovery}`} correlationId={error.correlationId} onRetry={error.retryable ? () => void refresh() : undefined} />
           {!error.retryable && (
             <div className="px-5 pb-4">
               <Link to="/app" className="dls-focus-outline inline-flex items-center justify-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-4 py-[9px] text-[13px] font-bold text-dls-text-primary hover:bg-dls-bg-page">

@@ -43,10 +43,12 @@ export function EmptyFilteredStateSurface({ onClear }: { onClear: () => void }) 
 }
 
 export function ErrorStateSurface({
+  title = "Something went wrong",
   message,
   correlationId,
   onRetry,
 }: {
+  title?: string;
   message: string;
   correlationId?: string;
   onRetry?: () => void;
@@ -56,7 +58,7 @@ export function ErrorStateSurface({
       <div className="flex items-start gap-2.5">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-dls-danger-text" aria-hidden="true" />
         <div>
-          <p className="text-[13.5px] font-bold text-dls-danger-text">Something went wrong</p>
+          <p className="text-[13.5px] font-bold text-dls-danger-text">{title}</p>
           <p className="mt-0.5 text-[13.5px] text-dls-text-secondary">{message}</p>
         </div>
       </div>
@@ -66,7 +68,7 @@ export function ErrorStateSurface({
             Try again
           </Button>
         )}
-        {correlationId && <span className="text-xs text-dls-text-muted">Reference: {correlationId}</span>}
+        {correlationId && <span className="font-mono text-xs text-dls-text-muted">Reference {correlationId}</span>}
       </div>
     </div>
   );
