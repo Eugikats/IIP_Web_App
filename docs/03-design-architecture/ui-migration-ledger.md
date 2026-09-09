@@ -32,7 +32,7 @@ Never have two screens in flight.
 | 20 | 4 | `/app/flows/[key]` | `lovable-pages/AgentFlowInspector.tsx` | Done | 2026-09-09 | `78e18c0` |
 | 21 | 4 | `/app/flows/new` | `lovable-pages/AgentFlowBuilder.tsx` | Done | 2026-09-09 | `653da46` |
 | 22 | 4 | `/app/runs/[id]` | `lovable-pages/AgentRunDebugger.tsx` | Done | 2026-09-09 | `f085e02` |
-| 23 | 4 | `/app/executive` | `lovable-pages/Executive.tsx` | Not started | | |
+| 23 | 4 | `/app/executive` | `lovable-pages/Executive.tsx` | Done | 2026-09-09 | `b14191e` |
 | 24 | 4 | `/app/audit` | `lovable-pages/Audit.tsx` | Not started | | |
 | 25 | 5 | `/app/settings` | `lovable-pages/Settings.tsx` | Not started | | |
 | 26 | 5 | `/app/integrations` | `lovable-pages/Integrations.tsx` | Not started | | |
@@ -1005,3 +1005,23 @@ at the next checkpoint or before this branch lands.
   Screen 22 is now marked **Done**. Paused here at the user's request while
   they deploy to Azure. Resuming at screen 23 (`/app/executive`) once
   told to continue.
+
+- 2026-09-09: screen 23 (`/app/executive`) — commit `b14191e`.
+  `Executive.tsx` migrated onto tokens and primitives. Chart rebuilt to
+  §8.25 exactly: bars now use the chart-bar gradient (one of the two
+  permitted uses) instead of a hardcoded `#2563FF` (the old legacy blue
+  primary), gridlines/axis line removed, y-axis hidden. Added the
+  accessible table alternative §8.25 requires — none existed before.
+  AI-brief icon moved off `gradient-primary` onto the flat AI-icon-tile
+  treatment.
+
+  Covered by `gate-14-trust-truth` (outside checkpoint grep scope) — checked
+  its stat-tile DOM-structure assertion before committing (label/value
+  stayed sibling divs under one wrapper), then ran it standalone to
+  confirm rather than assume: passed.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed, `gate-14` passed standalone.
+
+  Screen 23 is now marked **Done**. Resuming at screen 24 (`/app/audit`) —
+  **tier 4 complete after this screen.**
