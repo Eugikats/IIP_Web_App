@@ -35,7 +35,10 @@ for (const role of STAFF_ROLES) {
     await expect(signedAuthority).toBeVisible();
     await expect(preview).toHaveValue(role);
     if (role === "PublisherSupport") {
-      await expect(page.getByRole("link", { name: "Tenant Onboarding" })).toBeVisible();
+      // Navigation model §5.2 — the rail holds exactly seven fixed destinations. Tenant
+      // Onboarding was intentionally removed from in-app navigation for this role; it remains
+      // reachable only by direct URL, not through the rail or the Admin console link.
+      await expect(page.getByRole("link", { name: "Tenant Onboarding" })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "Integrations & Health" })).toHaveCount(0);
     }
   });
