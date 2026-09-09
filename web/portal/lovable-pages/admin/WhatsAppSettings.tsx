@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, MessageCircle, PlugZap, RefreshCcw, ShieldCheck, Unplug } from "lucide-react";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
+import { Button } from "@/components/ui/Button";
+import { Input, Field as UIField } from "@/components/ui/Input";
+import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { useUI } from "@/context/UIStateContext";
 import {
   type WhatsAppConfigurationStatus,
@@ -35,6 +38,7 @@ export default function WhatsAppSettings() {
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string | null } | null>(null);
+  const displayNameId = useId();
 
   async function load() {
     setLoading(true);
@@ -102,11 +106,11 @@ export default function WhatsAppSettings() {
       />
 
       {loading && (
-        <GlassCard><div className="flex items-center justify-center gap-2 py-10 text-[13px] text-muted"><Loader2 className="h-4 w-4 animate-spin" /> Loading connection status…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={4} /></GlassCard>
       )}
 
       {!loading && loadError && (
-        <GlassCard><div className="py-6 text-center text-[13px] text-danger">{loadError}</div></GlassCard>
+        <GlassCard><ErrorStateSurface title="Connection status could not be loaded" message={loadError} /></GlassCard>
       )}
 
       {!loading && !loadError && status && (
@@ -114,106 +118,103 @@ export default function WhatsAppSettings() {
           <GlassCard>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${status.connected ? "bg-success/10 text-success" : "bg-line/60 text-muted"}`}>
-                  <MessageCircle className="h-5 w-5" />
+                <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-dls-chip ${status.connected ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-bg-page text-dls-text-muted"}`}>
+                  <MessageCircle className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <div className="text-[14px] font-semibold text-ink">{status.connected ? status.businessDisplayName || "WhatsApp Business" : "Not connected"}</div>
+                    <div className="text-[14px] font-bold text-dls-text-primary">{status.connected ? status.businessDisplayName || "WhatsApp Business" : "Not connected"}</div>
                     {status.connected ? <Badge tone={status.lastValidationStatus === "Success" ? "success" : "warning"}>{status.lastValidationStatus === "Success" ? "Verified" : "Needs attention"}</Badge> : null}
                   </div>
                   {status.connected ? (
-                    <div className="mt-1 text-[12px] text-muted">
+                    <div className="mt-1 text-[12px] text-dls-text-secondary">
                       Phone number ID {status.phoneNumberId} · configured by {status.configuredByUserId}
                       {status.configuredAt ? ` on ${new Date(status.configuredAt).toLocaleDateString()}` : ""}
                     </div>
                   ) : (
-                    <div className="mt-1 text-[12px] text-muted">No WhatsApp Business number is connected for this workspace yet.</div>
+                    <div className="mt-1 text-[12px] text-dls-text-secondary">No WhatsApp Business number is connected for this workspace yet.</div>
                   )}
                 </div>
               </div>
               {status.connected && (
                 <div className="flex gap-2">
-                  <button onClick={onTest} disabled={testing} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-[12px] font-medium text-ink focus-ring disabled:opacity-50">
-                    {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />} Test connection
-                  </button>
-                  <button onClick={() => setDisconnectDialogOpen(true)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-danger/30 bg-white px-3 py-2 text-[12px] font-medium text-danger focus-ring">
-                    <Unplug className="h-3.5 w-3.5" /> Disconnect
-                  </button>
+                  <Button variant="secondary" onClick={onTest} disabled={testing} icon={testing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCcw aria-hidden="true" />}>
+                    Test connection
+                  </Button>
+                  <Button variant="secondary" onClick={() => setDisconnectDialogOpen(true)} icon={<Unplug aria-hidden="true" />} className="!text-dls-danger-text">
+                    Disconnect
+                  </Button>
                 </div>
               )}
             </div>
 
             {testResult && (
-              <div className={`mt-4 flex items-start gap-2 rounded-xl border p-3 text-[12px] ${testResult.success ? "border-success/30 bg-success/5 text-success" : "border-danger/25 bg-danger/7 text-danger"}`}>
-                {testResult.success ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
+              <div className={`mt-4 flex items-start gap-2 rounded-dls-control p-3 text-[12px] ${testResult.success ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-danger-tint text-dls-danger-text"}`}>
+                {testResult.success ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
                 <span>{testResult.success ? "Meta confirmed this connection is working." : testResult.message}</span>
               </div>
             )}
 
             {status.connected && status.lastValidationStatus === "Failed" && status.lastValidationError && (
-              <div className="mt-4 flex items-start gap-2 rounded-xl border border-danger/25 bg-danger/7 p-3 text-[12px] text-danger">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {status.lastValidationError}
+              <div className="mt-4 flex items-start gap-2 rounded-dls-control bg-dls-danger-tint p-3 text-[12px] text-dls-danger-text">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {status.lastValidationError}
               </div>
             )}
 
             {status.connected && status.requiresChannelProviderDeploymentChange && (
-              <div className="mt-4 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/8 p-3 text-[12px] text-ink-soft">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                <span>Credentials are saved and verified, but this environment isn&apos;t yet routing WhatsApp traffic through them. Ask whoever manages your deployment to set <code className="rounded bg-mist px-1 py-0.5">INSURANCEINTELLIGENCE_CHANNEL_PROVIDER=WhatsAppCloudApi</code> to go live — a one-time deployment setting, not something this screen can change.</span>
+              <div className="mt-4 flex items-start gap-2 rounded-dls-control bg-dls-warning-tint p-3 text-[12px] text-dls-text-secondary">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-dls-warning-text" aria-hidden="true" />
+                <span>Credentials are saved and verified, but this environment isn&apos;t yet routing WhatsApp traffic through them. Ask whoever manages your deployment to set <code className="rounded bg-dls-surface-sunken px-1 py-0.5 font-mono">INSURANCEINTELLIGENCE_CHANNEL_PROVIDER=WhatsAppCloudApi</code> to go live — a one-time deployment setting, not something this screen can change.</span>
               </div>
             )}
           </GlassCard>
 
           {!status.connected && (
             <GlassCard>
-              <div className="flex items-center gap-2 mb-1">
-                <PlugZap className="h-4 w-4 text-info" />
-                <div className="text-[14px] font-semibold text-ink">Connect your WhatsApp Business number</div>
+              <div className="mb-1 flex items-center gap-2">
+                <PlugZap className="h-4 w-4 text-dls-info-text" aria-hidden="true" />
+                <div className="text-[14px] font-bold text-dls-text-primary">Connect your WhatsApp Business number</div>
               </div>
-              <p className="mb-4 text-[12px] leading-5 text-muted">
+              <p className="mb-4 text-[12px] leading-5 text-dls-text-secondary">
                 You&apos;ll need a Meta Business app with the WhatsApp product added. Each field below says exactly where to find it.
               </p>
 
               <div className="space-y-4">
                 {FIELD_GUIDE.map((field) => (
-                  <label key={field.key} className="block text-[13px] font-medium text-ink">
-                    {field.label}
-                    <input
-                      type={field.secret ? "password" : "text"}
-                      value={form[field.key]}
-                      onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))}
-                      placeholder={field.placeholder}
-                      autoComplete="off"
-                      className="mt-1.5 min-h-11 w-full rounded-md border border-line bg-white px-3 py-2.5 text-[13px] text-ink placeholder:text-muted focus-ring"
-                    />
-                    <span className="mt-1 block text-[11px] font-normal leading-4 text-muted">{field.help}</span>
-                  </label>
+                  <WhatsAppField key={field.key} label={field.label} help={field.help}>
+                    {(id) => (
+                      <Input
+                        id={id}
+                        type={field.secret ? "password" : "text"}
+                        value={form[field.key]}
+                        onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))}
+                        placeholder={field.placeholder}
+                        autoComplete="off"
+                      />
+                    )}
+                  </WhatsAppField>
                 ))}
-                <label className="block text-[13px] font-medium text-ink">
-                  Display name <span className="font-normal text-muted">(optional — we&apos;ll use Meta&apos;s verified name if you leave this blank)</span>
-                  <input
+                <UIField label="Display name (optional — we'll use Meta's verified name if you leave this blank)" htmlFor={displayNameId}>
+                  <Input
+                    id={displayNameId}
                     value={form.businessDisplayName}
                     onChange={(event) => setForm((current) => ({ ...current, businessDisplayName: event.target.value }))}
                     placeholder="e.g. Acme Insurance"
-                    className="mt-1.5 min-h-11 w-full rounded-md border border-line bg-white px-3 py-2.5 text-[13px] text-ink placeholder:text-muted focus-ring"
                   />
-                </label>
+                </UIField>
               </div>
 
               {formError && (
-                <div className="mt-4 flex items-start gap-2 rounded-xl border border-danger/25 bg-danger/7 p-3 text-[12px] text-danger">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {formError}
+                <div className="mt-4 flex items-start gap-2 rounded-dls-control bg-dls-danger-tint p-3 text-[12px] text-dls-danger-text">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {formError}
                 </div>
               )}
 
-              <button
-                onClick={() => setConnectDialogOpen(true)}
-                disabled={!canSubmitConnect}
-                className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[13px] font-semibold text-white shadow-l2 hover:bg-primary/90 focus-ring disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <ShieldCheck className="h-4 w-4" /> Validate and connect
-              </button>
+              <div className="mt-5">
+                <Button variant="primary" onClick={() => setConnectDialogOpen(true)} disabled={!canSubmitConnect} icon={<ShieldCheck aria-hidden="true" />}>
+                  Validate and connect
+                </Button>
+              </div>
             </GlassCard>
           )}
         </div>
@@ -229,9 +230,9 @@ export default function WhatsAppSettings() {
         onClose={() => setConnectDialogOpen(false)}
         onConfirm={onConnect}
         evidence={
-          <div className="rounded-xl border border-line bg-mist/60 p-3 text-[12px] text-ink-soft">
-            <div>Phone number ID: <span className="font-medium text-ink">{form.phoneNumberId || "—"}</span></div>
-            {form.businessDisplayName && <div>Display name: <span className="font-medium text-ink">{form.businessDisplayName}</span></div>}
+          <div className="rounded-dls-control border border-dls-border-subtle bg-dls-bg-page p-3 text-[12px] text-dls-text-secondary">
+            <div>Phone number ID: <span className="font-semibold text-dls-text-primary">{form.phoneNumberId || "—"}</span></div>
+            {form.businessDisplayName && <div>Display name: <span className="font-semibold text-dls-text-primary">{form.businessDisplayName}</span></div>}
           </div>
         }
       />
@@ -248,9 +249,18 @@ export default function WhatsAppSettings() {
         onConfirm={onDisconnect}
       />
 
-      <div className="mt-6 flex items-center gap-1.5 text-[11px] text-muted">
-        <ExternalLink className="h-3 w-3" /> Meta Business Settings is where phone numbers, tokens, and app secrets are managed on Meta&apos;s side.
+      <div className="mt-6 flex items-center gap-1.5 text-[11px] text-dls-text-muted">
+        <ExternalLink className="h-3 w-3" aria-hidden="true" /> Meta Business Settings is where phone numbers, tokens, and app secrets are managed on Meta&apos;s side.
       </div>
     </>
+  );
+}
+
+function WhatsAppField({ label, help, children }: { label: string; help: string; children: (id: string) => React.ReactNode }) {
+  const id = useId();
+  return (
+    <div>
+      <UIField label={label} hint={help} htmlFor={id}>{children(id)}</UIField>
+    </div>
   );
 }
