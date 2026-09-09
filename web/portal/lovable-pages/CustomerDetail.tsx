@@ -1,18 +1,19 @@
 "use client";
 import { useParams, Link } from "@/components/iip/NextRouterCompat";
 import { ArrowLeft, Sparkles, FileText, MessageSquare, Shield, ClipboardList } from "lucide-react";
-import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
+import { GlassCard, SectionHeader } from "@/components/iip/Primitives";
+import { LoadingSkeleton, ErrorStateSurface, NotConfiguredStateSurface } from "@/components/ui/StateSurfaces";
 import { useCustomerProfile } from "@/lib/lovable-parity/data/customers";
 
 function DictRows({ dict }: { dict: Record<string, string> }) {
   const entries = Object.entries(dict);
-  if (entries.length === 0) return <div className="text-[12.5px] text-muted">Not recorded.</div>;
+  if (entries.length === 0) return <div className="text-[12.5px] text-dls-text-muted">Not recorded.</div>;
   return (
     <div className="space-y-1 text-[12.5px]">
       {entries.map(([k, v]) => (
         <div key={k} className="flex justify-between gap-3">
-          <span className="text-muted">{k}</span>
-          <span className="text-ink text-right truncate">{v}</span>
+          <span className="text-dls-text-muted">{k}</span>
+          <span className="truncate text-right text-dls-text-primary">{v}</span>
         </div>
       ))}
     </div>
@@ -20,11 +21,11 @@ function DictRows({ dict }: { dict: Record<string, string> }) {
 }
 
 function DictCardList({ items, empty }: { items: Record<string, string>[]; empty: string }) {
-  if (items.length === 0) return <div className="text-[12.5px] text-muted">{empty}</div>;
+  if (items.length === 0) return <div className="text-[12.5px] text-dls-text-muted">{empty}</div>;
   return (
     <div className="space-y-2">
       {items.map((item, i) => (
-        <div key={i} className="rounded-xl border border-line bg-white/70 p-3"><DictRows dict={item} /></div>
+        <div key={i} className="rounded-dls-control border border-dls-border-subtle bg-dls-surface p-3"><DictRows dict={item} /></div>
       ))}
     </div>
   );
@@ -39,65 +40,65 @@ export default function CustomerDetail() {
 
   return (
     <>
-      <div className="flex items-center gap-2 text-[12px] text-muted mb-4">
-        <Link to="/app/customers" className="inline-flex items-center gap-1 hover:text-ink"><ArrowLeft className="h-3.5 w-3.5" /> Customers</Link>
-        <span>/</span><span className="text-ink">{String(id ?? "")}</span>
+      <div className="mb-4 flex items-center gap-2 text-[13px] text-dls-text-muted">
+        <Link to="/app/customers" className="dls-focus-outline inline-flex items-center gap-1 rounded-dls-control hover:text-dls-text-primary">
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Customers
+        </Link>
+        <span aria-hidden="true">›</span>
+        <span className="font-semibold text-dls-text-primary">{String(id ?? "")}</span>
       </div>
 
       <SectionHeader eyebrow="Customer 360" title={name} sub={contact} />
 
       {loading ? (
-        <GlassCard><div className="p-6 text-center text-[13px] text-muted">Loading customer profile…</div></GlassCard>
+        <GlassCard><LoadingSkeleton rows={4} /></GlassCard>
       ) : !profile ? (
-        <GlassCard>
-          <div className="p-10 text-center text-muted">
-            <div className="text-ink font-medium">Customer not found</div>
-            <div className="text-[12.5px] mt-1">{error ?? "No profile in this workspace for this customer."}</div>
-          </div>
-        </GlassCard>
+        <GlassCard><ErrorStateSurface title="Customer not found" message={error ?? "No profile in this workspace for this customer."} /></GlassCard>
       ) : (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-4">
-            <GlassCard level={3}>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-xl gradient-primary grid place-items-center shadow-l2"><Sparkles className="h-4 w-4 text-white" /></div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
+            <GlassCard>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="grid h-8 w-8 place-items-center rounded-dls-chip bg-dls-primary-soft text-dls-primary">
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                </div>
                 <div>
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted">AI customer summary</div>
-                  <div className="text-[14px] font-semibold text-ink">Prepared for staff review</div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">AI customer summary</div>
+                  <div className="text-[14px] font-bold text-dls-text-primary">Prepared for staff review</div>
                 </div>
               </div>
-              <p className="text-[12.5px] leading-[20px] text-ink-soft">
-                A grounded, cited customer summary appears here once the customer-summary service is configured. IIP does not summarise from model memory — without approved source grounding this stays <span className="font-medium">Not configured</span> rather than guessing.
-              </p>
+              <NotConfiguredStateSurface what="A grounded, cited customer summary appears here once the customer-summary service is configured. IIP does not summarise from model memory — without approved source grounding this stays not configured rather than guessing." />
             </GlassCard>
 
             <GlassCard>
-              <div className="text-[14px] font-semibold text-ink mb-3 inline-flex items-center gap-2"><FileText className="h-4 w-4 text-info" /> Claims</div>
+              <div className="mb-3 inline-flex items-center gap-2 text-[14px] font-bold text-dls-text-primary"><FileText className="h-4 w-4 text-dls-info-text" aria-hidden="true" /> Claims</div>
               <DictCardList items={profile.claims} empty="No claims on file." />
             </GlassCard>
 
             <GlassCard>
-              <div className="text-[14px] font-semibold text-ink mb-3 inline-flex items-center gap-2"><MessageSquare className="h-4 w-4 text-info" /> Interactions</div>
+              <div className="mb-3 inline-flex items-center gap-2 text-[14px] font-bold text-dls-text-primary"><MessageSquare className="h-4 w-4 text-dls-info-text" aria-hidden="true" /> Interactions</div>
               <DictCardList items={profile.interactions} empty="No customer interactions yet." />
             </GlassCard>
           </div>
 
           <div className="space-y-4">
             <GlassCard>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2 inline-flex items-center gap-1"><ClipboardList className="h-3.5 w-3.5" /> Policies</div>
+              <div className="mb-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted"><ClipboardList className="h-3.5 w-3.5" aria-hidden="true" /> Policies</div>
               <DictCardList items={profile.policies} empty="No policies recorded." />
             </GlassCard>
 
             <GlassCard>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">Documents on file</div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Documents on file</div>
               <DictCardList items={profile.documents} empty="No documents." />
             </GlassCard>
 
             <GlassCard>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2 inline-flex items-center gap-1"><Shield className="h-3.5 w-3.5" /> Consent & privacy</div>
-              {Object.keys(profile.consent ?? {}).length > 0
-                ? <DictRows dict={profile.consent} />
-                : <div className="text-[12.5px] text-muted">Consent log not configured. When wired, each captured consent (purpose, timestamp, channel) is listed here.</div>}
+              <div className="mb-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted"><Shield className="h-3.5 w-3.5" aria-hidden="true" /> Consent &amp; privacy</div>
+              {Object.keys(profile.consent ?? {}).length > 0 ? (
+                <DictRows dict={profile.consent} />
+              ) : (
+                <NotConfiguredStateSurface what="Consent log not configured. When wired, each captured consent (purpose, timestamp, channel) is listed here." />
+              )}
             </GlassCard>
           </div>
         </div>
