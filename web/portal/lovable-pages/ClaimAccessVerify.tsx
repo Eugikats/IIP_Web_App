@@ -6,6 +6,9 @@ import { AlertTriangle, Loader2, ShieldCheck } from "lucide-react";
 import iipLogo from "@/assets/iip-logo";
 import { redeemMagicLink, storeSession } from "@/lib/clientPortal";
 
+// Claimant-facing (tier 6 — stricter rules). This screen renders only the redeem-result error
+// message (already sanitised at the source, see AGENTS.md) or a generic "verifying" state —
+// nothing staff-only is ever in scope here.
 export default function ClaimAccessVerify() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -34,30 +37,30 @@ export default function ClaimAccessVerify() {
   }, [token, router]);
 
   return (
-    <main className="grid min-h-screen place-items-center bg-white px-6 text-ink">
+    <main className="grid min-h-screen place-items-center bg-dls-surface px-6 text-dls-text-primary">
       <div className="w-full max-w-sm text-center">
-        <span className="mx-auto grid h-10 w-10 place-items-center rounded-md border border-line bg-white">
+        <span className="mx-auto grid h-10 w-10 place-items-center rounded-dls-control border border-dls-border-subtle bg-dls-surface">
           <img src={iipLogo.url} alt="IIP" className="h-8 w-8 object-contain" />
         </span>
 
         {error ? (
           <>
-            <AlertTriangle className="mx-auto mt-6 h-6 w-6 text-danger" />
-            <h1 className="mt-4 text-xl font-semibold text-ink">This link didn&apos;t work</h1>
-            <p className="mt-2 text-sm leading-6 text-muted">{error}</p>
+            <AlertTriangle className="mx-auto mt-6 h-6 w-6 text-dls-danger-text" aria-hidden="true" />
+            <h1 className="mt-4 text-xl font-bold text-dls-text-primary">This link didn&apos;t work</h1>
+            <p className="mt-2 text-sm leading-6 text-dls-text-secondary">{error}</p>
             <a
               href="/access"
-              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-l2 hover:bg-primary/90 focus-ring"
+              className="dls-focus-outline mt-6 inline-flex min-h-11 items-center justify-center rounded-dls-control bg-dls-primary px-5 py-2.5 text-sm font-bold text-dls-text-inverse shadow-dls-primary transition-colors duration-dls-fast ease-dls hover:bg-dls-primary-hover"
             >
               Request a new link
             </a>
           </>
         ) : (
           <>
-            <ShieldCheck className="mx-auto mt-6 h-6 w-6 text-success" />
-            <h1 className="mt-4 text-xl font-semibold text-ink">Verifying your access link</h1>
-            <p className="mt-2 flex items-center justify-center gap-2 text-sm leading-6 text-muted">
-              <Loader2 className="h-4 w-4 animate-spin" /> One moment while we confirm your details.
+            <ShieldCheck className="mx-auto mt-6 h-6 w-6 text-dls-success-text" aria-hidden="true" />
+            <h1 className="mt-4 text-xl font-bold text-dls-text-primary">Verifying your access link</h1>
+            <p className="mt-2 flex items-center justify-center gap-2 text-sm leading-6 text-dls-text-secondary">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> One moment while we confirm your details.
             </p>
           </>
         )}
