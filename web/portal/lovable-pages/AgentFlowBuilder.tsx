@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Bot, CheckCircle2, CircleDot, GitBranch, Loader2, Plus, Save, ShieldCheck, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { Badge, GlassCard, SectionHeader } from "@/components/iip/Primitives";
+import { Button, IconButton } from "@/components/ui/Button";
+import { Input, Select, Textarea, Field as UIField } from "@/components/ui/Input";
 import WorkflowCanvas from "@/components/iip/WorkflowCanvas";
 import { useAgentWorkflows, type WorkflowDefinition, type WorkflowNode, type WorkflowNodeType } from "@/lib/agentWorkflows";
 import { useAgents } from "@/lib/lovable-parity/data/agents";
@@ -26,6 +28,17 @@ function edgesFor(nodes: WorkflowNode[]) {
 
 function typeIcon(type: WorkflowNodeType) {
   return { Trigger: CircleDot, Agent: Bot, Tool: Wrench, Decision: GitBranch, HumanReview: ShieldCheck, Complete: CheckCircle2 }[type];
+}
+
+// Delegates to components/ui/Input.tsx's Field/Input/Textarea/Select — same precedent as
+// FNOL.tsx/Knowledge.tsx. Kept local: this screen's ~10 call sites don't warrant promoting it.
+function Field({ label, className, children }: { label: string; className?: string; children: (id: string) => React.ReactNode }) {
+  const id = useId();
+  return (
+    <div className={className}>
+      <UIField label={label} htmlFor={id}>{children(id)}</UIField>
+    </div>
+  );
 }
 
 export default function AgentFlowBuilder() {
@@ -131,21 +144,32 @@ export default function AgentFlowBuilder() {
       <div className="grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)_310px]">
         <div className="space-y-4">
           <GlassCard className="!p-4">
-            <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted">Node palette</div>
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Node palette</div>
             <div className="mt-3 grid gap-2">
               {(["Agent", "Tool", "Decision", "HumanReview"] as WorkflowNodeType[]).map((type) => {
                 const Icon = typeIcon(type);
-                return <button key={type} type="button" onClick={() => addNode(type)} className="flex items-center gap-3 rounded-xl border border-line bg-white/70 p-3 text-left text-[12px] font-medium text-ink hover:border-violet/30 hover:bg-violet/5 focus-ring"><span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-secondary text-white"><Icon className="h-4 w-4" /></span><span className="flex-1">{type.replace(/([A-Z])/g, " $1").trim()}</span><Plus className="h-3.5 w-3.5 text-muted" /></button>;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => addNode(type)}
+                    className="dls-focus-outline flex items-center gap-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3 text-left text-[12px] font-semibold text-dls-text-primary transition-colors duration-dls-fast ease-dls hover:bg-dls-bg-page"
+                  >
+                    <span className="grid h-8 w-8 place-items-center rounded-dls-chip bg-dls-bg-page text-dls-text-secondary"><Icon className="h-4 w-4" aria-hidden="true" /></span>
+                    <span className="flex-1">{type.replace(/([A-Z])/g, " $1").trim()}</span>
+                    <Plus className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" />
+                  </button>
+                );
               })}
             </div>
           </GlassCard>
           <GlassCard className="!p-4">
-            <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted">Publish gate</div>
-            <div className="mt-3 space-y-2 text-[11.5px] text-ink-soft">
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Publish gate</div>
+            <div className="mt-3 space-y-2 text-[11.5px] text-dls-text-secondary">
               <div className="flex justify-between"><span>Trigger</span><Badge tone="success">1</Badge></div>
               <div className="flex justify-between"><span>Human review</span><Badge tone={nodes.some((node) => node.type === "HumanReview") ? "success" : "warning"}>{nodes.filter((node) => node.type === "HumanReview").length}</Badge></div>
               <div className="flex justify-between"><span>External sends</span><Badge tone="success">Blocked</Badge></div>
-              <div className="flex justify-between"><span>Version policy</span><Badge tone="violet">Immutable</Badge></div>
+              <div className="flex justify-between"><span>Version policy</span><Badge tone="info">Immutable</Badge></div>
             </div>
           </GlassCard>
         </div>
@@ -153,37 +177,91 @@ export default function AgentFlowBuilder() {
         <div className="min-w-0 space-y-4">
           <GlassCard className="!p-4">
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="text-[11.5px] text-muted">Workflow name<input value={name} onChange={(event) => setName(event.target.value)} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-[12.5px] text-ink focus-ring" placeholder="Claims evidence preparation" /></label>
-              <label className="text-[11.5px] text-muted">Workflow key<input value={key} onChange={(event) => setKey(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2.5 font-mono text-[12px] text-ink focus-ring" placeholder="claims-evidence-preparation" /></label>
-              <label className="text-[11.5px] text-muted md:col-span-2">Purpose<textarea value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1.5 min-h-20 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-[12.5px] text-ink focus-ring" placeholder="What prepared work this flow produces and where human accountability applies." /></label>
-              <label className="text-[11.5px] text-muted md:col-span-2">Allowed business reference types<input value={references} onChange={(event) => setReferences(event.target.value)} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-[12.5px] text-ink focus-ring" placeholder="case, claim, document" /></label>
+              <Field label="Workflow name">{(id) => <Input id={id} value={name} onChange={(event) => setName(event.target.value)} placeholder="Claims evidence preparation" />}</Field>
+              <Field label="Workflow key">{(id) => <Input id={id} value={key} onChange={(event) => setKey(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))} className="font-mono" placeholder="claims-evidence-preparation" />}</Field>
+              <Field label="Purpose" className="md:col-span-2">{(id) => <Textarea id={id} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What prepared work this flow produces and where human accountability applies." />}</Field>
+              <Field label="Allowed business reference types" className="md:col-span-2">{(id) => <Input id={id} value={references} onChange={(event) => setReferences(event.target.value)} placeholder="case, claim, document" />}</Field>
             </div>
           </GlassCard>
           <WorkflowCanvas definition={preview} selectedNodeKey={selected.key} onSelectNode={(node) => setSelectedKey(node.key)} className="min-h-[520px]" />
           <div className="flex flex-wrap justify-end gap-2">
-            <button type="button" disabled={saving} onClick={() => void save(false)} className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-[12px] font-medium text-ink disabled:opacity-50 focus-ring">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save draft</button>
-            <button type="button" disabled={saving} onClick={() => void save(true)} className="inline-flex items-center gap-2 rounded-xl gradient-primary px-4 py-2.5 text-[12px] font-medium text-white disabled:opacity-50 focus-ring"><ShieldCheck className="h-4 w-4" /> Save & publish</button>
+            <Button variant="secondary" disabled={saving} onClick={() => void save(false)} icon={saving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}>
+              Save draft
+            </Button>
+            <Button variant="primary" disabled={saving} onClick={() => void save(true)} icon={<ShieldCheck aria-hidden="true" />}>
+              Save &amp; publish
+            </Button>
           </div>
         </div>
 
         <GlassCard className="!p-4 self-start">
-          <div className="flex items-center justify-between gap-2"><div className="text-[10.5px] uppercase tracking-[0.14em] text-muted">Node configuration</div><Badge tone="neutral">{selected.type}</Badge></div>
-          <div className="mt-4 space-y-3">
-            <label className="block text-[11.5px] text-muted">Name<input value={selected.name} onChange={(event) => updateSelected({ name: event.target.value })} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2 text-[12px] text-ink focus-ring" /></label>
-            <label className="block text-[11.5px] text-muted">Key<input disabled={selected.type === "Trigger" || selected.type === "Complete"} value={selected.key} onChange={(event) => { const next = event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"); setNodes((current) => current.map((node) => node.key === selected.key ? { ...node, key: next } : node)); setSelectedKey(next); }} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2 font-mono text-[11.5px] text-ink disabled:bg-line/40 focus-ring" /></label>
-            <label className="block text-[11.5px] text-muted">Instructions<textarea value={selected.description} onChange={(event) => updateSelected({ description: event.target.value })} className="mt-1.5 min-h-24 w-full rounded-xl border border-line bg-white px-3 py-2 text-[12px] text-ink focus-ring" /></label>
-            {selected.type === "Agent" ? <label className="block text-[11.5px] text-muted">Canonical agent<select value={selected.agentKey ?? ""} onChange={(event) => updateSelected({ agentKey: event.target.value })} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2 text-[12px] text-ink focus-ring">{agents.map((agent) => <option key={agent.key} value={agent.key}>{agent.name}</option>)}</select></label> : null}
-            {selected.type === "Tool" || selected.type === "Decision" ? <label className="block text-[11.5px] text-muted">Typed tool<select value={selected.toolKey ?? ""} onChange={(event) => updateSelected({ toolKey: event.target.value })} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2 text-[12px] text-ink focus-ring">{toolOptions.map((tool) => <option key={tool}>{tool}</option>)}</select></label> : null}
-            {selected.type !== "Trigger" && selected.type !== "Complete" && selected.type !== "HumanReview" ? <label className="block text-[11.5px] text-muted">Side-effect class<select value={selected.sideEffect} onChange={(event) => updateSelected({ sideEffect: event.target.value as WorkflowNode["sideEffect"] })} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2 text-[12px] text-ink focus-ring"><option value="ReadOnly">Read only</option><option value="DraftOnly">Draft only</option><option value="InternalWrite">Internal write</option><option value="ApprovalRequired">Approval required</option></select></label> : null}
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Node configuration</div>
+            <Badge tone="neutral">{selected.type}</Badge>
           </div>
-          <div className="mt-5 flex gap-2 border-t border-line pt-4">
-            <button type="button" onClick={() => moveSelected(-1)} className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-white text-ink-soft focus-ring" aria-label="Move node earlier"><ArrowUp className="h-4 w-4" /></button>
-            <button type="button" onClick={() => moveSelected(1)} className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-white text-ink-soft focus-ring" aria-label="Move node later"><ArrowDown className="h-4 w-4" /></button>
-            <button type="button" disabled={selected.type === "Trigger" || selected.type === "Complete"} onClick={removeSelected} className="ml-auto inline-flex items-center gap-2 rounded-xl border border-danger/20 bg-white px-3 py-2 text-[11.5px] text-danger disabled:opacity-40 focus-ring"><Trash2 className="h-3.5 w-3.5" /> Remove</button>
+          <div className="mt-4 space-y-3">
+            <Field label="Name">{(id) => <Input id={id} value={selected.name} onChange={(event) => updateSelected({ name: event.target.value })} />}</Field>
+            <Field label="Key">
+              {(id) => (
+                <Input
+                  id={id}
+                  disabled={selected.type === "Trigger" || selected.type === "Complete"}
+                  value={selected.key}
+                  onChange={(event) => {
+                    const next = event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+                    setNodes((current) => current.map((node) => node.key === selected.key ? { ...node, key: next } : node));
+                    setSelectedKey(next);
+                  }}
+                  className="font-mono"
+                />
+              )}
+            </Field>
+            <Field label="Instructions">{(id) => <Textarea id={id} value={selected.description} onChange={(event) => updateSelected({ description: event.target.value })} />}</Field>
+            {selected.type === "Agent" ? (
+              <Field label="Canonical agent">
+                {(id) => (
+                  <Select id={id} value={selected.agentKey ?? ""} onChange={(event) => updateSelected({ agentKey: event.target.value })} className="w-full">
+                    {agents.map((agent) => <option key={agent.key} value={agent.key}>{agent.name}</option>)}
+                  </Select>
+                )}
+              </Field>
+            ) : null}
+            {selected.type === "Tool" || selected.type === "Decision" ? (
+              <Field label="Typed tool">
+                {(id) => (
+                  <Select id={id} value={selected.toolKey ?? ""} onChange={(event) => updateSelected({ toolKey: event.target.value })} className="w-full">
+                    {toolOptions.map((tool) => <option key={tool}>{tool}</option>)}
+                  </Select>
+                )}
+              </Field>
+            ) : null}
+            {selected.type !== "Trigger" && selected.type !== "Complete" && selected.type !== "HumanReview" ? (
+              <Field label="Side-effect class">
+                {(id) => (
+                  <Select id={id} value={selected.sideEffect} onChange={(event) => updateSelected({ sideEffect: event.target.value as WorkflowNode["sideEffect"] })} className="w-full">
+                    <option value="ReadOnly">Read only</option>
+                    <option value="DraftOnly">Draft only</option>
+                    <option value="InternalWrite">Internal write</option>
+                    <option value="ApprovalRequired">Approval required</option>
+                  </Select>
+                )}
+              </Field>
+            ) : null}
+          </div>
+          <div className="mt-5 flex gap-2 border-t border-dls-border-subtle pt-4">
+            <IconButton onClick={() => moveSelected(-1)} aria-label="Move node earlier"><ArrowUp className="h-4 w-4" aria-hidden="true" /></IconButton>
+            <IconButton onClick={() => moveSelected(1)} aria-label="Move node later"><ArrowDown className="h-4 w-4" aria-hidden="true" /></IconButton>
+            <button
+              type="button"
+              disabled={selected.type === "Trigger" || selected.type === "Complete"}
+              onClick={removeSelected}
+              className="dls-focus-outline ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-dls-control px-3 text-[11.5px] font-bold text-dls-danger-text transition-colors duration-dls-fast ease-dls hover:underline disabled:opacity-40"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Remove
+            </button>
           </div>
         </GlassCard>
       </div>
     </>
   );
 }
-
