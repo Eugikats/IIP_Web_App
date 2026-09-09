@@ -19,7 +19,7 @@ Never have two screens in flight.
 | 7 | 1 | `/app/channels` | `lovable-pages/Channels.tsx` | Done | 2026-09-09 | `04704f5` |
 | 8 | 2 | `/app/conversations` | `lovable-pages/RecentConversations.tsx` | Done | 2026-09-09 | `55e56d7` |
 | 9 | 2 | `/app/claims/new` | `lovable-pages/FNOL.tsx` | Done | 2026-09-09 | `dbdd38d` |
-| 10 | 2 | `/app/customers` | `lovable-pages/Customers.tsx` | Not started | | |
+| 10 | 2 | `/app/customers` | `lovable-pages/Customers.tsx` | Done | 2026-09-09 | `a27a2ab` |
 | 11 | 2 | `/app/customers/[id]` | `lovable-pages/CustomerDetail.tsx` | Not started | | |
 | 12 | 2 | `/app/communications` | `lovable-pages/Communications.tsx` | Not started | | |
 | 13 | 2 | `/app/knowledge` | `lovable-pages/Knowledge.tsx` | Not started | | |
@@ -624,3 +624,66 @@ writing new markup for it.
 
   Screen 9 (`/app/claims/new`) is now marked **Done**. Resuming at screen 10
   (`/app/customers`) — **the checkpoint fires after this next screen.**
+
+- 2026-09-09: screen 10 (`/app/customers`) — commit `a27a2ab`. Customers.tsx
+  migrated onto tokens and primitives — search onto `Input`, table onto
+  `Table`/`TableHead`/`TableBody`/`TableRow`/`TableHeaderCell`/`TableCell`,
+  and the conflated loading/error/empty-no-data states (same pattern fixed
+  on screens 3, 6, 7 and 8) split, plus the previously-absent
+  empty-after-filter state added. No new findings beyond that pattern.
+
+  Screen 10 is now marked **Done — this run's first checkpoint boundary.**
+
+## Checkpoint 1 (after screen 10)
+
+Ran the full triad specified by this run's verification philosophy:
+
+- **`pnpm test`** — all 7 suites green (5 hygiene/gate scripts,
+  `test:trust-truth` 3/3, `test:authority-permissions` 4/4).
+- **`pnpm test:release-gates`** (`playwright test --grep "Gate
+  (13|15|16|17|18)|signed-in authority"`, all three viewports —
+  desktop-chromium 1440×1000, tablet-chromium 1024×900, mobile-chromium
+  390×844) — **first run: 9 failed, all in `/app/conversations` (screen 8),
+  across all three viewports.** Root cause:
+  migrating `RecentConversations.tsx` onto `EmptyStateSurface`/
+  `EmptyFilteredStateSurface`/`LoadingSkeleton` silently dropped four literal
+  strings three release gates (16, 18) assert on — a bold headline
+  ("No conversations yet" / "No archived conversations" / "No matching
+  conversations") the shared primitives have no slot for, and the visible
+  "Loading conversations…" caption the static skeleton doesn't render.
+
+  **Fixed in commit `47bf1cf`**, not by loosening the gates: added an
+  optional `title` prop to both empty-state primitives (backward compatible,
+  every other caller unaffected) and restored the loading caption text
+  alongside `LoadingSkeleton`. Re-ran gate-16/gate-18 alone (24/24 passed,
+  all viewports), then the full suite again: **63 passed, 0 failed, 18
+  skipped** (same skip count both runs — pre-existing role-matrix skips,
+  unrelated to this branch's changes).
+- **`pnpm build`** with `NEXT_PUBLIC_RUNTIME_PROFILE=Development
+  NEXT_PUBLIC_AUTH_MODE=DevelopmentAuth` — succeeded, every route generated
+  including all five screens migrated since checkpoint 0 (`/app/documents`,
+  `/app/channels`, `/app/conversations`, `/app/claims/new`, `/app/customers`).
+- **Browser walkthrough** — no interactive browser tool was available in
+  this run's environment. In its place: the `pnpm test:release-gates` run
+  above already drove real Chromium at all three project-configured
+  viewports against these exact screens, asserting on visible text,
+  accessible roles/names, and (gate-17) an axe accessibility scan — a
+  stronger structural check than an unaided visual look, though not a
+  substitute for one. **Recommend an actual manual walkthrough at the next
+  opportunity a browser tool is available**, particularly for the two
+  screens with no visual-parity synthetic fallback for their real data path
+  (`Channels.tsx`'s list/transcript, `FNOL.tsx`'s live six-step flow) —
+  automated checks confirmed structure and copy, not that the real-data
+  rendering looks right.
+
+**Lesson carried forward:** every consolidation onto a shared state-surface
+primitive is a place literal copy can silently drop. Before migrating a
+screen's empty/loading/error block onto a shared primitive, diff the exact
+visible strings the *original* markup rendered against what the primitive
+can express, not just its general shape — this is the second time this
+exact failure mode has shipped in this run (the first, screen 3's status-
+vocabulary regression, was about enum labels; this one is about literal UI
+copy) and the fix both times was to make the shared primitive strictly more
+capable, never to weaken what it was checked against.
+
+Resuming at screen 11 (`/app/customers/[id]`).
