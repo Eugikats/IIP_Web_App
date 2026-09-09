@@ -15,7 +15,7 @@ Never have two screens in flight.
 | 3 | 1 | `/app/claims` | `lovable-pages/ClaimsQueue.tsx` | Done | 2026-09-08 | `083a07e` |
 | 4 | 1 | `/app/claims/[id]` | `lovable-pages/ClaimReview.tsx` | Done | 2026-09-08 | `c272afc` |
 | 5 | 1 | `/app/claims/[id]/extraction` | `lovable-pages/DocumentExtraction.tsx` | Done | 2026-09-08 | `cd31e91` |
-| 6 | 1 | `/app/documents` | `lovable-pages/Documents.tsx` | Not started | | |
+| 6 | 1 | `/app/documents` | `lovable-pages/Documents.tsx` | Done | 2026-09-09 | `949205d` |
 | 7 | 1 | `/app/channels` | `lovable-pages/Channels.tsx` | Not started | | |
 | 8 | 2 | `/app/conversations` | `lovable-pages/RecentConversations.tsx` | Not started | | |
 | 9 | 2 | `/app/claims/new` | `lovable-pages/FNOL.tsx` | Not started | | |
@@ -363,3 +363,91 @@ writing new markup for it.
   citations as non-interactive chips because there is no document-preview
   capability to open into — that needs a source-region preview endpoint and
   should be scoped as its own task, not improvised inside a screen migration.
+
+- 2026-09-09: foundation-level fix — commit `2f83869`. Found while starting
+  screen 6: `SectionHeader` (`components/iip/Primitives.tsx`) — the header
+  **35 of 39 screens actually import**, including three already-Done screens
+  (`ClaimReview`, `ClaimsQueue`, `DocumentExtraction`) — was shipping a
+  26px/28px h1 with no breadcrumb support, not the 23px/-0.41px h1 with
+  optional §3.1 breadcrumb that design language §3.2 specifies. A
+  spec-correct component already existed, `components/PageHeader.tsx`, built
+  in the original foundation slice — but it had **zero real consumers**, only
+  its own story file. Every screen kept using the differently-named
+  `SectionHeader` instead, so the correct primitive never reached a screen.
+  Same shape of gap as the `SideDrawer` finding one entry above: a correct
+  primitive exists unmigrated, a same-purpose duplicate is what code actually
+  calls. This one is worse in degree — 35 callers, not zero — which is why it
+  is being fixed now rather than deferred: per the worklist's own stop
+  condition, "the same problem on three or more screens" is a foundation gap,
+  not a per-screen patch.
+
+  Fixed `SectionHeader` in place to §3.1–3.2 exactly (lifted the breadcrumb
+  JSX from `PageHeader.tsx`, which was otherwise correct) rather than
+  touching 35 call sites. The `eyebrowClassName` escape hatch three screens
+  use for the gate-17 AA contrast fix is preserved byte-for-byte. Removed
+  `PageHeader.tsx` and its story as the dead duplicate; added
+  `stories/SectionHeader.stories.tsx` in its place.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed.
+
+  **Every already-Done screen's header now renders 3px smaller with tighter
+  tracking than when it was verified.** This is intentional — those screens
+  become spec-correct, not regressed — but it means their Done status no
+  longer reflects a browser-verified h1 at the size actually shipping.
+  Flagging rather than silently letting the ledger claim a verification that
+  didn't happen: a visual spot-check of `/app/claims`, `/app/claims/[id]`,
+  and `/app/claims/[id]/extraction` is included in the screen-10 checkpoint
+  below, not a full re-verification of each.
+
+- 2026-09-09: foundation-level fix — commit `8c76cf7`. Also found while
+  starting screen 6, in the same shared file: checking the document-library
+  fixture's real status values against `DocumentProcessingStatus` in
+  `iip_workflow_legibility_contract.md` §6/§10.6 turned up two vocabulary
+  defects in `StatusBadge`'s lookup table. `"Reviewed"` had no entry and fell
+  through to the default neutral tone instead of the contract's success tone.
+  `"Review Required"` was rendering its own near-verbatim input text instead
+  of the contract's canonical "Needs review" label, with the same wrong
+  neutral tone instead of warning — the raw-label-leak pattern this table
+  exists to prevent, just spaced English rather than PascalCase this time.
+  Both fixed with the exact contract label + tone. Two further fixture
+  values, `"Extraction Pending"` and `"Extracted"`, have no single confirmed
+  `DocumentProcessingStatus` mapping verifiable against a real DTO — given
+  tone-only corrections (info) rather than a guessed label rewrite.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean. No test or
+  story asserts the old wording.
+
+- 2026-09-09: screen 6 (`/app/documents`) — commit `949205d`, preceded by the
+  two `Primitives.tsx` foundation fixes above (both found while starting this
+  screen). `Documents.tsx` migrated onto tokens and `components/ui/`
+  primitives: the claim-finder search input onto `Input`/`leadingIcon`, claim
+  result rows and the "selected claim" chip onto tokens, the main document
+  table onto `Table`/`TableHead`/`TableBody`/`TableRow`/`TableHeaderCell`/
+  `TableCell`. Upload document moved off `gradient-primary` onto `Button`'s
+  primary variant.
+
+  Split the previously conflated loading/error/empty-no-data states — error
+  was folded into the empty-state message — into their own
+  `LoadingSkeleton`/`ErrorStateSurface`/`EmptyStateSurface` renders per §8.24.
+  empty-after-filter is inapplicable: the document list itself has no filter
+  or search (only the upload panel's separate claim finder, a distinct
+  control) — same accepted, documented partial as screen 1's precedent, not
+  an invented feature to force the checklist item green.
+
+  Found and fixed a real §8.24/AGENTS.md violation while migrating the error
+  path: `lib/lovable-parity/data/documents.ts`'s `useDocuments` was throwing
+  `` `Documents failed with HTTP ${response.status}.` `` and surfacing that
+  string to the UI verbatim — a raw status code reaching the user. Replaced
+  with a generic, safe message; the hook's return shape is unchanged. Also:
+  zero-confidence documents now render plain muted "—" text instead of a
+  `Badge`, which implied a status (present but low) that doesn't exist here.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. `useDocuments` has a visual-parity
+  synthetic fallback. Per this run's verification philosophy, the full
+  `pnpm test`/`pnpm build`/browser walkthrough is deferred to the checkpoint
+  after screen 10, not run per screen.
+
+  Screen 6 (`/app/documents`) is now marked **Done**. Resuming at screen 7
+  (`/app/channels`).
