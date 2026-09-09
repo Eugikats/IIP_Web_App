@@ -45,7 +45,7 @@ Never have two screens in flight.
 | 33 | 5 | `/app/admin/whatsapp` | `lovable-pages/admin/WhatsAppSettings.tsx` | Done | 2026-09-09 | `9e1f46e` |
 | 34 | 5 | `/app/admin/billing` | `lovable-pages/admin/Billing.tsx` | Done | 2026-09-09 | `9723c50` |
 | 35 | 5 | `/app/support` | `app/app/support/page.tsx` | Done | 2026-09-09 | `n/a` |
-| 36 | 6 | `/access` | `lovable-pages/ClaimAccessRequest.tsx` | Not started | | |
+| 36 | 6 | `/access` | `lovable-pages/ClaimAccessRequest.tsx` | Done | 2026-09-09 | `13d9c2e` |
 | 37 | 6 | `/access/verify` | `lovable-pages/ClaimAccessVerify.tsx` | Not started | | |
 | 38 | 6 | `/access/claim` | `lovable-pages/ClaimAccessStatus.tsx` | Not started | | |
 | 39 | 6 | `/access/new-claim` | `lovable-pages/ClaimAccessNewClaim.tsx` | Not started | | |
@@ -1207,3 +1207,18 @@ Resuming at screen 31 (`/app/admin/onboarding`).
 
   Resuming at screen 36 (`/access`), **tier 6 — claimant-facing, stricter
   rules apply.**
+
+- 2026-09-09: screen 36 (`/access`) — commit `13d9c2e`.
+  `ClaimAccessRequest.tsx` migrated onto tokens. Confirmed no staff-only
+  info is exposed (tier 6's rule) — this screen only asks for and echoes
+  back what the claimant themselves typed. The dark brand panel reuses
+  `--color-text-primary`'s value rather than a new literal colour; the
+  checkmark accent reuses `--color-primary-soft`. Submit button hand-styled
+  to `Button`'s primary variant (needs both leading and trailing icons plus
+  non-default sizing).
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 36 is now marked **Done**. Resuming at screen 37 (`/access/verify`).
