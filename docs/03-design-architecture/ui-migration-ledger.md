@@ -34,7 +34,7 @@ Never have two screens in flight.
 | 22 | 4 | `/app/runs/[id]` | `lovable-pages/AgentRunDebugger.tsx` | Done | 2026-09-09 | `f085e02` |
 | 23 | 4 | `/app/executive` | `lovable-pages/Executive.tsx` | Done | 2026-09-09 | `b14191e` |
 | 24 | 4 | `/app/audit` | `lovable-pages/Audit.tsx` | Done | 2026-09-09 | `f9b0cce` |
-| 25 | 5 | `/app/settings` | `lovable-pages/Settings.tsx` | Not started | | |
+| 25 | 5 | `/app/settings` | `lovable-pages/Settings.tsx` | Done | 2026-09-09 | `2baaaca` |
 | 26 | 5 | `/app/integrations` | `lovable-pages/Integrations.tsx` | Not started | | |
 | 27 | 5 | `/app/admin` | `lovable-pages/Admin.tsx` | Not started | | |
 | 28 | 5 | `/app/admin/users` | `lovable-pages/admin/Users.tsx` | Not started | | |
@@ -1039,3 +1039,15 @@ at the next checkpoint or before this branch lands.
 
   Screen 24 is now marked **Done — tier 4 complete (screens 19-24).**
   Resuming at screen 25 (`/app/settings`), tier 5.
+
+- 2026-09-09: screen 25 (`/app/settings`) — commit `2baaaca`. `Settings.tsx`
+  migrated onto tokens and primitives. Section icon tiles onto the neutral
+  chip treatment; workspace-row selection onto the established tint
+  pattern. Confirmed the earlier HTTP-status-leak fix (`14d887c`) survived
+  the rewrite intact.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 25 is now marked **Done — this run's fourth checkpoint boundary.**
