@@ -1051,3 +1051,23 @@ at the next checkpoint or before this branch lands.
   screen.
 
   Screen 25 is now marked **Done — this run's fourth checkpoint boundary.**
+
+## Checkpoint 4 (after screen 25) — clean, full 3-viewport confirmation
+
+Unlike checkpoint 3, this one completed the way checkpoints 1 and 2 did.
+
+- **`pnpm test`** — all 7 suites green.
+- **`pnpm build`** with the same env vars — succeeded, every route
+  generated. `node.exe` processes killed immediately after (see checkpoint
+  3's note — this build's worker chain would otherwise stay resident).
+- **`pnpm test:release-gates`**, full 3-viewport suite — **63 passed, 0
+  failed, 18 skipped** — identical skip count to every other confirmed-clean
+  run this session. This is the full, genuine confirmation checkpoint 3
+  could not get: everything migrated since checkpoint 2 (screens 16-25, the
+  `WorkflowCanvas` foundation fix, and the earlier checkpoint-3 recovery
+  work) is now gate-verified clean at all three viewports, not just via
+  `tsc`/`lint`/`check-ui-release-gates.mjs`.
+- **Browser walkthrough** — still no interactive browser tool available;
+  same substitution as prior checkpoints.
+
+Resuming at screen 26 (`/app/integrations`).
