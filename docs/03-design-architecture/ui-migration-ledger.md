@@ -48,7 +48,7 @@ Never have two screens in flight.
 | 36 | 6 | `/access` | `lovable-pages/ClaimAccessRequest.tsx` | Done | 2026-09-09 | `13d9c2e` |
 | 37 | 6 | `/access/verify` | `lovable-pages/ClaimAccessVerify.tsx` | Done | 2026-09-09 | `88244c8` |
 | 38 | 6 | `/access/claim` | `lovable-pages/ClaimAccessStatus.tsx` | Done | 2026-09-09 | `4524733` |
-| 39 | 6 | `/access/new-claim` | `lovable-pages/ClaimAccessNewClaim.tsx` | Not started | | |
+| 39 | 6 | `/access/new-claim` | `lovable-pages/ClaimAccessNewClaim.tsx` | Done | 2026-09-09 | `af6b2bb` |
 
 ## Foundation slice
 
@@ -1256,3 +1256,19 @@ Resuming at screen 31 (`/app/admin/onboarding`).
 
   Screen 38 is now marked **Done**. Resuming at screen 39
   (`/access/new-claim`) — **the final screen.**
+
+- 2026-09-09: screen 39 (`/access/new-claim`) — commit `af6b2bb`.
+  `ClaimAccessNewClaim.tsx` migrated onto tokens and primitives. Confirmed
+  tier 6's rule: only the claimant's own policy number and self-entered
+  data are in scope.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  **Screen 39 is now marked Done — the worklist is complete. 39 of 39
+  screens migrated: screens 1-5 were completed in an earlier session before
+  this run began; screens 6-39 (34 screens) were completed in this run —
+  33 direct re-skins plus one no-op (screen 35, a pure redirect with no
+  UI).** Proceeding to the final full checkpoint before declaring the
+  branch done.
