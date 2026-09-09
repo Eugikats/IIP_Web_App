@@ -23,7 +23,7 @@ Never have two screens in flight.
 | 11 | 2 | `/app/customers/[id]` | `lovable-pages/CustomerDetail.tsx` | Done | 2026-09-09 | `1fb3060` |
 | 12 | 2 | `/app/communications` | `lovable-pages/Communications.tsx` | Done | 2026-09-09 | `e3c0218` |
 | 13 | 2 | `/app/knowledge` | `lovable-pages/Knowledge.tsx` | Done | 2026-09-09 | `9116368` |
-| 14 | 2 | `/app/search` | `lovable-pages/GlobalSearch.tsx` | Not started | | |
+| 14 | 2 | `/app/search` | `lovable-pages/GlobalSearch.tsx` | Done | 2026-09-09 | `b0c3890` |
 | 15 | 3 | `/app/underwriting` | `lovable-pages/Underwriting.tsx` | Not started | | |
 | 16 | 3 | `/app/policy` | `lovable-pages/PolicyIntelligence.tsx` | Not started | | |
 | 17 | 3 | `/app/fraud` | `lovable-pages/FraudIntelligence.tsx` | Not started | | |
@@ -756,3 +756,25 @@ Resuming at screen 11 (`/app/customers/[id]`).
   deferred to the next checkpoint (screen 15).
 
   Screen 13 is now marked **Done**. Resuming at screen 14 (`/app/search`).
+
+- 2026-09-09: screen 14 (`/app/search`) — commit `b0c3890`. `GlobalSearch.tsx`
+  migrated onto tokens and primitives. Search input onto `Input`, submit
+  button off the legacy `bg-primary` alias onto `Button`. Loading/error/empty
+  states onto the shared primitives, applying checkpoint 1's lesson again:
+  both headline strings ("Enter at least two characters to search.",
+  "No authorized results") kept via `EmptyStateSurface`'s `title`/`message`
+  props rather than dropped.
+
+  Result-row hover moved off `hover:bg-white/60` (semi-transparent —
+  glassmorphism) onto flat `hover:bg-dls-bg-page`; the arrow icon's
+  `group-hover:translate-x-0.5` removed as a decorative hover transform
+  (craft guardrails §2 item 18), even though it wasn't the literal
+  `hover:-translate` string the automated check greps for — same intent.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen.
+
+  Screen 14 is now marked **Done — tier 2 complete (screens 8-14).**
+  Resuming at screen 15 (`/app/underwriting`), tier 3 — **the checkpoint
+  fires after this screen.**
