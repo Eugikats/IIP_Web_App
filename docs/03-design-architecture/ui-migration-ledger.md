@@ -36,7 +36,7 @@ Never have two screens in flight.
 | 24 | 4 | `/app/audit` | `lovable-pages/Audit.tsx` | Done | 2026-09-09 | `f9b0cce` |
 | 25 | 5 | `/app/settings` | `lovable-pages/Settings.tsx` | Done | 2026-09-09 | `2baaaca` |
 | 26 | 5 | `/app/integrations` | `lovable-pages/Integrations.tsx` | Done | 2026-09-09 | `676d6ea` |
-| 27 | 5 | `/app/admin` | `lovable-pages/Admin.tsx` | Not started | | |
+| 27 | 5 | `/app/admin` | `lovable-pages/Admin.tsx` | Done | 2026-09-09 | `f1361aa` |
 | 28 | 5 | `/app/admin/users` | `lovable-pages/admin/Users.tsx` | Not started | | |
 | 29 | 5 | `/app/admin/agents` | `lovable-pages/admin/Agents.tsx` | Not started | | |
 | 30 | 5 | `/app/admin/tenant-policy` | `lovable-pages/admin/TenantPolicy.tsx` | Not started | | |
@@ -1083,3 +1083,17 @@ Resuming at screen 26 (`/app/integrations`).
   `check-ui-release-gates.mjs` passed, `gate-14` passed standalone.
 
   Screen 26 is now marked **Done**. Resuming at screen 27 (`/app/admin`).
+
+- 2026-09-09: screen 27 (`/app/admin`) — commit `f1361aa`. `Admin.tsx`
+  migrated onto tokens and primitives; `hover-lift` removed. Covered by
+  `gate-12-integrations-admin`, which also covers screen 26 — its
+  link-accessible-name regex assertions (`/^Agents /`, `/^Agent Policy /`)
+  depend on text content and order, not markup, so both were preserved
+  exactly. Ran both of the gate's relevant tests directly: both passed.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed, `gate-12` (Integrations + Admin)
+  passed standalone.
+
+  Screen 27 is now marked **Done**. Resuming at screen 28
+  (`/app/admin/users`).
