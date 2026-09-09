@@ -21,7 +21,7 @@ Never have two screens in flight.
 | 9 | 2 | `/app/claims/new` | `lovable-pages/FNOL.tsx` | Done | 2026-09-09 | `dbdd38d` |
 | 10 | 2 | `/app/customers` | `lovable-pages/Customers.tsx` | Done | 2026-09-09 | `a27a2ab` |
 | 11 | 2 | `/app/customers/[id]` | `lovable-pages/CustomerDetail.tsx` | Done | 2026-09-09 | `1fb3060` |
-| 12 | 2 | `/app/communications` | `lovable-pages/Communications.tsx` | Not started | | |
+| 12 | 2 | `/app/communications` | `lovable-pages/Communications.tsx` | Done | 2026-09-09 | `e3c0218` |
 | 13 | 2 | `/app/knowledge` | `lovable-pages/Knowledge.tsx` | Not started | | |
 | 14 | 2 | `/app/search` | `lovable-pages/GlobalSearch.tsx` | Not started | | |
 | 15 | 3 | `/app/underwriting` | `lovable-pages/Underwriting.tsx` | Not started | | |
@@ -702,3 +702,24 @@ Resuming at screen 11 (`/app/customers/[id]`).
 
   Screen 11 is now marked **Done**. Resuming at screen 12
   (`/app/communications`).
+
+- 2026-09-09: screen 12 (`/app/communications`) — commit `e3c0218`.
+  `Communications.tsx` migrated onto tokens and primitives. Status tabs onto
+  `FilterTab` — a **seventh** occurrence of the tab-tint defect, confirming
+  again that the follow-up sweep needs to search broadly (this file wasn't
+  among the originally-flagged 5, same as `FNOL.tsx`). Table onto shared
+  primitives; loading/error/empty states split; empty-after-filter added.
+  Proactively applied this run's checkpoint-1 lesson: kept the original "No
+  customer updates" headline via `EmptyStateSurface`'s new `title` prop
+  rather than silently dropping it, the way screen 8 did before the fix.
+
+  Approve/Send moved onto `Button`; Reject did not — `Button`'s destructive
+  variant is zero-padding by design and would misalign next to its bordered
+  row siblings, so it's hand-sized to match them, same treatment
+  `Workflows.tsx` already established for the identical case.
+
+  Verified: `pnpm exec tsc --noEmit` clean, `pnpm lint` clean,
+  `check-ui-release-gates.mjs` passed. No release gate references this
+  screen. Browser verification deferred to the next checkpoint (screen 15).
+
+  Screen 12 is now marked **Done**. Resuming at screen 13 (`/app/knowledge`).
