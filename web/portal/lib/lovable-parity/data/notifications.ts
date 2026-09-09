@@ -54,7 +54,7 @@ export function useNotifications() {
       const response = await fetch(`${apiBaseUrl}/api/v1/notifications?limit=20`, {
         headers: await authorizedHeaders(role),
       });
-      if (!response.ok) throw new Error(`Notifications failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Notifications failed.`);
       const body = (await response.json()) as FeedDto;
       setUnreadCount(body.unreadCount ?? 0);
       setNotifications(body.notifications ?? []);

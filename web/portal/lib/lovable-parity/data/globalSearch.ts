@@ -35,7 +35,7 @@ export async function loadGlobalSearch(
     if (response.status === 403) {
       throw new Error("Your current workspace access does not allow global search.");
     }
-    throw new Error(`Search failed with HTTP ${response.status}.`);
+    throw new Error(`Search failed.`);
   }
 
   return (await response.json()) as GlobalSearchResponse;

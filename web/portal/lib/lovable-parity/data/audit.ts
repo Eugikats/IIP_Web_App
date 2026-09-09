@@ -160,7 +160,7 @@ export function useAuditEvents() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/audit/events`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Audit events failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Audit events failed.`);
       const payload = (await response.json()) as AuditEventDto[] | { items?: AuditEventDto[] };
       const list = Array.isArray(payload) ? payload : payload.items ?? [];
       setRows(list.map(mapDto));
@@ -194,7 +194,7 @@ export function useCompliancePosture() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/compliance/posture`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Compliance posture failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Compliance posture failed.`);
       setPosture((await response.json()) as CompliancePostureView);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Compliance posture failed to load.");

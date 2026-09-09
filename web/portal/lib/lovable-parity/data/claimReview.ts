@@ -216,7 +216,7 @@ export function useClaimReview(claimId: string) {
       if (!detailRes.ok) {
         const serviceError = await UiServiceError.fromResponse(
           detailRes,
-          detailRes.status === 404 ? "This claim was not found in the current workspace." : `Claim is unavailable (HTTP ${detailRes.status}).`,
+          detailRes.status === 404 ? "This claim was not found in the current workspace." : `Claim is unavailable.`,
         );
         setError(serviceError);
         setDetail(null);
@@ -271,7 +271,7 @@ export function useClaimReview(claimId: string) {
         body: JSON.stringify({ reasonCategory: "StatusUpdate", channel: "Email" }),
       });
       if (res.status === 403) return { ok: false, message: "You do not have permission to draft customer updates." };
-      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Draft failed with HTTP ${res.status}.`) };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Draft failed.`) };
       await loadCustomerUpdates();
       return { ok: true };
     } catch (err) {
@@ -290,7 +290,7 @@ export function useClaimReview(claimId: string) {
         body: JSON.stringify({ reasonCategory: "MissingDocuments", channel: "Email" }),
       });
       if (res.status === 403) return { ok: false, message: "You do not have permission to draft document follow-ups." };
-      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Document follow-up draft failed with HTTP ${res.status}.`) };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Document follow-up draft failed.`) };
       await loadCustomerUpdates();
       return { ok: true };
     } catch (err) {
@@ -314,7 +314,7 @@ export function useClaimReview(claimId: string) {
         }),
       });
       if (res.status === 403) return { ok: false, message: "You do not have permission to request supervisor review." };
-      if (!res.ok) return { ok: false, message: `Supervisor review request failed with HTTP ${res.status}.` };
+      if (!res.ok) return { ok: false, message: `Supervisor review request failed.` };
       await load();
       return { ok: true };
     } catch (err) {
@@ -332,7 +332,7 @@ export function useClaimReview(claimId: string) {
         body: JSON.stringify({}),
       });
       if (res.status === 403) return { ok: false, message: "You do not have permission to approve customer updates." };
-      if (!res.ok) return { ok: false, message: `Approve failed with HTTP ${res.status}.` };
+      if (!res.ok) return { ok: false, message: `Approve failed.` };
       await loadCustomerUpdates();
       return { ok: true };
     } catch (err) {
@@ -360,7 +360,7 @@ export function useClaimReview(claimId: string) {
       if (res.status === 403) return { ok: false, message: "You do not have permission to send customer updates." };
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        return { ok: false, message: body?.message ?? `Send failed with HTTP ${res.status}.` };
+        return { ok: false, message: body?.message ?? `Send failed.` };
       }
       await loadCustomerUpdates();
       await load();
@@ -378,7 +378,7 @@ export function useClaimReview(claimId: string) {
       });
       if (res.status === 403) return { ok: false, message: "You do not have permission to acknowledge re-review requests." };
       if (res.status === 404) return { ok: false, message: "Re-review request was not found for this claim." };
-      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Acknowledge failed with HTTP ${res.status}.`) };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Acknowledge failed.`) };
       await loadReviewRequests();
       return { ok: true };
     } catch (err) {
@@ -398,7 +398,7 @@ export function useClaimReview(claimId: string) {
       });
       if (res.status === 403) return { ok: false, message: "You do not have permission to resolve re-review requests." };
       if (res.status === 404) return { ok: false, message: "Re-review request was not found for this claim." };
-      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Resolve failed with HTTP ${res.status}.`) };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Resolve failed.`) };
       await loadReviewRequests();
       return { ok: true };
     } catch (err) {
@@ -426,7 +426,7 @@ export function useClaimReview(claimId: string) {
       if (res.status === 403) return { ok: false, message: "You do not have permission to confirm this claim." };
       if (res.status === 409) return { ok: false, message: "This claim has already been confirmed." };
       if (res.status === 404) return { ok: false, message: "This claim was not found." };
-      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Confirm failed with HTTP ${res.status}.`) };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Confirm failed.`) };
       await load();
       return { ok: true };
     } catch (err) {
@@ -447,7 +447,7 @@ export function useClaimReview(claimId: string) {
       if (res.status === 403) return { ok: false, message: "You do not have permission to export evidence packs." };
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        return { ok: false, message: body?.message ?? `Evidence-pack export failed with HTTP ${res.status}.` };
+        return { ok: false, message: body?.message ?? `Evidence-pack export failed.` };
       }
       const body = await res.json();
       await load();

@@ -56,8 +56,8 @@ export function useAdminUsers() {
         fetch(`${apiBaseUrl}/api/v1/admin/users`, { headers: scopedHeaders(role, "") }),
         fetch(`${apiBaseUrl}/api/v1/admin/roles`, { headers: scopedHeaders(role, "") }),
       ]);
-      if (!usersResponse.ok) throw new Error(await readSafeApiError(usersResponse, `Users failed with HTTP ${usersResponse.status}.`));
-      if (!rolesResponse.ok) throw new Error(await readSafeApiError(rolesResponse, `Roles failed with HTTP ${rolesResponse.status}.`));
+      if (!usersResponse.ok) throw new Error(await readSafeApiError(usersResponse, `Users failed.`));
+      if (!rolesResponse.ok) throw new Error(await readSafeApiError(rolesResponse, `Roles failed.`));
       setUsers((await usersResponse.json()) as AdminUserView[]);
       setRoles((await rolesResponse.json()) as AdminRoleView[]);
     } catch (err) {
@@ -80,7 +80,7 @@ export function useAdminUsers() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Create user failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Create user failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -91,7 +91,7 @@ export function useAdminUsers() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
       body: JSON.stringify({ role: newRole }),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Role update failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Role update failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);

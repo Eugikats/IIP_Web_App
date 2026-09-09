@@ -110,7 +110,7 @@ export function useClaims() {
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/claims`, { headers: scopedHeaders(role, "") });
       if (!response.ok) {
-        const serviceError = await UiServiceError.fromResponse(response, `Claims are unavailable (HTTP ${response.status}).`);
+        const serviceError = await UiServiceError.fromResponse(response, `Claims are unavailable.`);
         setError(serviceError);
         setLoadState(failedState(serviceError));
         return;
@@ -146,7 +146,7 @@ export function useClaims() {
         }),
       });
       if (!response.ok) {
-        return { ok: false, message: `Assign failed with HTTP ${response.status}.` };
+        return { ok: false, message: `Assign failed.` };
       }
       await load();
       return { ok: true };
@@ -166,7 +166,7 @@ export function useClaims() {
         }),
       });
       if (!response.ok) {
-        return { ok: false, message: `Escalate failed with HTTP ${response.status}.` };
+        return { ok: false, message: `Escalate failed.` };
       }
       await load();
       return { ok: true };

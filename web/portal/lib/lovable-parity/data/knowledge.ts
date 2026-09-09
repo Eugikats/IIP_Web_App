@@ -115,7 +115,7 @@ export function useKnowledgeDocs() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/knowledge-documents`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Knowledge documents failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Knowledge documents failed.`);
       const rows = (await response.json()) as KnowledgeDocDto[];
       setDocs(rows.map(mapDto));
     } catch (err) {
@@ -148,7 +148,7 @@ export function useKnowledgeDocs() {
       headers: scopedHeaders(role, ""),
       body: form,
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Upload failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Upload failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -161,7 +161,7 @@ export function useKnowledgeDocs() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
       body: JSON.stringify({ governanceReason, sensitivity: SENSITIVITY_TO_API[sensitivity] }),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Approve failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Approve failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -179,7 +179,7 @@ export function useKnowledgeDocs() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
       body: JSON.stringify({ governanceReason, sensitivity: SENSITIVITY_TO_API[sensitivity] }),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Classify failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Classify failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -190,7 +190,7 @@ export function useKnowledgeDocs() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
       body: JSON.stringify({}),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Archive failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Archive failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -200,7 +200,7 @@ export function useKnowledgeDocs() {
       method: "POST",
       headers: scopedHeaders(role, ""),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Re-index failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Re-index failed.`) };
     const body = (await response.json()) as { indexedDocumentCount?: number };
     await load();
     return { ok: true, indexedCount: body.indexedDocumentCount };

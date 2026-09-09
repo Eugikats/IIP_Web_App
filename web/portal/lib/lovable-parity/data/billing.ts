@@ -48,7 +48,7 @@ export function useBilling() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/admin/billing`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Billing failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Billing failed.`);
       setSummary((await response.json()) as BillingSummaryView);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Billing failed to load.");

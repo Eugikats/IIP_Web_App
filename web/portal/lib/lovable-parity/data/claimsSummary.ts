@@ -57,7 +57,7 @@ export function useClaimsSummary(caseId: string, role: string) {
       }
 
       if (!response.ok) {
-        const message = `Claim summary failed with HTTP ${response.status}.`;
+        const message = `Claim summary failed.`;
         setError(message);
         return { ok: false, kind: "error", message };
       }

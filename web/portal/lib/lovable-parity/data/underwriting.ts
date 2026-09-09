@@ -77,7 +77,7 @@ export function useUnderwritingReviews() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/underwriting/reviews`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Underwriting reviews failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Underwriting reviews failed.`);
       const rows = (await response.json()) as UnderwritingReviewDto[];
       setReviews(rows.map(mapDto));
     } catch (err) {

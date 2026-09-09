@@ -64,7 +64,7 @@ export function useProviderHealth() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/provider-status`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Provider health failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Provider health failed.`);
       const payload = (await response.json()) as ProviderHealthResponseDto;
       const checkedAt = new Date().toISOString();
       setProviders((payload.providers ?? []).map((provider) => mapItem(provider, checkedAt)));

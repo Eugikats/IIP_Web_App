@@ -65,7 +65,7 @@ export async function askPolicyQuestion(role: string, input: AskPolicyQuestionIn
       return { ok: false, error: "You do not have permission to ask policy questions.", forbidden: true };
     }
     if (!response.ok) {
-      return { ok: false, error: await safeError(response, `The policy assistant could not answer (HTTP ${response.status}).`) };
+      return { ok: false, error: await safeError(response, `The policy assistant could not answer.`) };
     }
     return { ok: true, value: (await response.json()) as PolicyQuestionAnswer };
   } catch (reason) {

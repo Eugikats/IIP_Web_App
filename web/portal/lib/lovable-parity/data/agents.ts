@@ -80,7 +80,7 @@ export function useAgents() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/admin/agents`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Agents failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Agents failed.`);
       const rows = (await response.json()) as AgentEntryDto[];
       setAgents(rows.map(mapDto));
     } catch (err) {

@@ -123,7 +123,7 @@ export function useCustomerUpdateQueue() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/customer-updates`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(await readSafeApiError(response, `Customer updates failed with HTTP ${response.status}.`));
+      if (!response.ok) throw new Error(await readSafeApiError(response, `Customer updates failed.`));
       const rows = (await response.json()) as CustomerUpdateWithCaseDto[];
       setItems(rows.map(mapDto));
     } catch (err) {
@@ -144,7 +144,7 @@ export function useCustomerUpdateQueue() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
       body: JSON.stringify({}),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Approve failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Approve failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -155,7 +155,7 @@ export function useCustomerUpdateQueue() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
       body: JSON.stringify({}),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Reject failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Reject failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -176,7 +176,7 @@ export function useCustomerUpdateQueue() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
       body: JSON.stringify({ recipient }),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Send failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Send failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);

@@ -74,7 +74,7 @@ export type EmailResult<T> = { ok: true; value: T } | { ok: false; error: string
 export async function getEmailHealth(role: string): Promise<EmailResult<EmailIntegrationHealth>> {
   try {
     const response = await fetch(`${apiBaseUrl}/api/v1/integrations/email/health`, { headers: scopedHeaders(role, "") });
-    if (!response.ok) return { ok: false, error: await safeError(response, `Status could not be loaded (HTTP ${response.status}).`) };
+    if (!response.ok) return { ok: false, error: await safeError(response, `Status could not be loaded.`) };
     return { ok: true, value: (await response.json()) as EmailIntegrationHealth };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "Email integration status could not be loaded.") };
@@ -84,7 +84,7 @@ export async function getEmailHealth(role: string): Promise<EmailResult<EmailInt
 export async function listMailboxes(role: string): Promise<EmailResult<MailboxConnection[]>> {
   try {
     const response = await fetch(`${apiBaseUrl}/api/v1/integrations/email/mailboxes`, { headers: scopedHeaders(role, "") });
-    if (!response.ok) return { ok: false, error: await safeError(response, `Mailboxes could not be loaded (HTTP ${response.status}).`) };
+    if (!response.ok) return { ok: false, error: await safeError(response, `Mailboxes could not be loaded.`) };
     return { ok: true, value: (await response.json()) as MailboxConnection[] };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "Mailboxes could not be loaded.") };
@@ -122,7 +122,7 @@ export async function runTestIngestion(role: string, auditReason: string): Promi
 export async function listMessages(role: string): Promise<EmailResult<InboundEmailMessage[]>> {
   try {
     const response = await fetch(`${apiBaseUrl}/api/v1/integrations/email/messages`, { headers: scopedHeaders(role, "") });
-    if (!response.ok) return { ok: false, error: await safeError(response, `Messages could not be loaded (HTTP ${response.status}).`) };
+    if (!response.ok) return { ok: false, error: await safeError(response, `Messages could not be loaded.`) };
     return { ok: true, value: (await response.json()) as InboundEmailMessage[] };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "Inbound messages could not be loaded.") };

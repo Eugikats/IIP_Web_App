@@ -80,7 +80,7 @@ export function useCommandCenterQuery() {
         setError(message);
         return { ok: false, kind: "unauthorized", message };
       }
-      if (!response.ok) throw new Error(`Command Center query failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Command Center query failed.`);
       const dto = (await response.json()) as QueryResponseDto;
       const result: CommandCenterAnswer = {
         question: q,

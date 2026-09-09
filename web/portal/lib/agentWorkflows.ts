@@ -125,7 +125,7 @@ async function api<T>(path: string, role: string, init?: RequestInit): Promise<A
       },
     });
     if (!response.ok) {
-      return { ok: false, message: await readError(response, `Request failed with HTTP ${response.status}.`) };
+      return { ok: false, message: await readError(response, `Request failed.`) };
     }
     return { ok: true, data: await response.json() as T };
   } catch (error) {

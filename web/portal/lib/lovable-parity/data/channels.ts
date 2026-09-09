@@ -128,11 +128,13 @@ export function useChannelConversations() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/channels/overview`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Channels failed with HTTP ${response.status}.`);
+      // Design language v2 §8.24 / AGENTS.md — never surface a raw provider error, stack trace, or
+      // status code to the user. A thrown HTTP-status message previously reached the screen as-is.
+      if (!response.ok) throw new Error("Channels failed to load.");
       const rows = (await response.json()) as OverviewRow[];
       setData(rows.map(mapRow));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Channels failed to load.");
+    } catch {
+      setError("Channels failed to load.");
       setData([]);
     } finally {
       setLoading(false);
@@ -166,10 +168,11 @@ export function useWhatsAppThread(threadId?: string | null) {
         headers: scopedHeaders(role, ""),
         cache: "no-store",
       });
-      if (!response.ok) throw new Error(`WhatsApp thread failed with HTTP ${response.status}.`);
+      // §8.24 / AGENTS.md — never surface a raw provider error, stack trace, or status code.
+      if (!response.ok) throw new Error("WhatsApp thread failed to load.");
       setMessages((await response.json()) as WhatsAppMessage[]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "WhatsApp thread failed to load.");
+    } catch {
+      setError("WhatsApp thread failed to load.");
       setMessages([]);
     } finally {
       setLoading(false);
@@ -193,7 +196,9 @@ export function useWhatsAppThread(threadId?: string | null) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok && response.status !== 202) {
-      throw new Error(payload.message || payload.safeError || `WhatsApp send failed with HTTP ${response.status}.`);
+      // §8.24 / AGENTS.md — a backend-supplied safe message (payload.message / payload.safeError)
+      // is legitimate and kept; only the raw-status-code fallback is replaced with a generic one.
+      throw new Error(payload.message || payload.safeError || "WhatsApp send failed.");
     }
     await load();
     return payload as WhatsAppMessage;

@@ -68,7 +68,7 @@ export function useOperationsSummary() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/reports/operations-summary`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Operations summary failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Operations summary failed.`);
       const dto = (await response.json()) as OperationsSummaryDto;
       const receivedAt = new Date().toISOString();
       setSummary({

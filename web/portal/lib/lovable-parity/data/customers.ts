@@ -52,7 +52,7 @@ export function useCustomersList() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/customers`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Customers failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Customers failed.`);
       const rows = (await response.json()) as CustomerListItemDto[];
       setCustomers(rows.map((r) => ({
         id: r.customerId,
@@ -103,7 +103,7 @@ export function useCustomerProfile(customerId: string) {
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/customers/${encodeURIComponent(customerId)}`, { headers: scopedHeaders(role, "") });
       if (response.status === 404) { setProfile(null); setLoading(false); return; }
-      if (!response.ok) throw new Error(`Customer profile failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Customer profile failed.`);
       setProfile((await response.json()) as CustomerProfileView);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Customer profile failed to load.");

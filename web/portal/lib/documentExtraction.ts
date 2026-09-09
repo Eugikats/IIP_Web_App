@@ -47,7 +47,7 @@ export function useDocumentExtraction(caseId: string) {
       if (!response.ok) {
         setDocuments([]);
         setErrorKind("unavailable");
-        setError(await safeError(response, `Documents failed with HTTP ${response.status}.`));
+        setError(await safeError(response, `Documents failed.`));
         return;
       }
       setDocuments((await response.json()) as DocumentItem[]);
@@ -69,7 +69,7 @@ export function useDocumentExtraction(caseId: string) {
         headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
         body: JSON.stringify({ fieldName, correctedValue }),
       });
-      if (!response.ok) return { ok: false, message: await safeError(response, `Correction failed with HTTP ${response.status}.`) };
+      if (!response.ok) return { ok: false, message: await safeError(response, `Correction failed.`) };
       await load();
       return { ok: true };
     } catch (reason) {
@@ -84,7 +84,7 @@ export function useDocumentExtraction(caseId: string) {
         headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
         body: JSON.stringify({ approvedByUserId: null }),
       });
-      if (!response.ok) return { ok: false, message: await safeError(response, `Approval failed with HTTP ${response.status}.`) };
+      if (!response.ok) return { ok: false, message: await safeError(response, `Approval failed.`) };
       await load();
       return { ok: true };
     } catch (reason) {
@@ -95,7 +95,7 @@ export function useDocumentExtraction(caseId: string) {
   const preview = useCallback(async (document: DocumentItem): Promise<PreviewResult> => {
     try {
       const response = await fetch(`${apiBaseUrl}${document.previewUrl}`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) return { ok: false, message: await safeError(response, `Preview failed with HTTP ${response.status}.`) };
+      if (!response.ok) return { ok: false, message: await safeError(response, `Preview failed.`) };
       const blob = await response.blob();
       return { ok: true, url: URL.createObjectURL(blob), contentType: blob.type || document.contentType };
     } catch (reason) {

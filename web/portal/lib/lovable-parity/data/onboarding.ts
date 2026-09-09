@@ -53,7 +53,7 @@ export function useOnboarding() {
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/onboarding`, { headers: scopedHeaders(role, "") });
       if (response.status === 403) throw new Error("You do not have permission to manage tenant onboarding.");
-      if (!response.ok) throw new Error(`Onboarding failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Onboarding failed.`);
       setRecords(((await response.json()) as OnboardingView[]).map((r) => ({ ...r })));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Onboarding failed to load.");
@@ -82,7 +82,7 @@ export function useOnboarding() {
       });
       if (response.status === 403) return { ok: false, message: "You do not have permission to onboard tenants." };
       if (response.status === 400) return { ok: false, message: "Please complete the required fields." };
-      if (!response.ok) return { ok: false, message: `Create failed with HTTP ${response.status}.` };
+      if (!response.ok) return { ok: false, message: `Create failed.` };
       await load();
       return { ok: true };
     } catch (err) {
@@ -98,7 +98,7 @@ export function useOnboarding() {
     }
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/onboarding/${onboardingId}/consent-url`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) return { configured: false, url: null, message: `Consent URL failed with HTTP ${response.status}.` };
+      if (!response.ok) return { configured: false, url: null, message: `Consent URL failed.` };
       return (await response.json()) as ConsentUrlView;
     } catch (err) {
       return { configured: false, url: null, message: err instanceof Error ? err.message : "Consent URL failed." };

@@ -24,7 +24,7 @@ export function useCaseReview(caseId: string, role: string) {
         return;
       }
       if (!res.ok) {
-        setError(`Case review load failed (HTTP ${res.status}).`);
+        setError(`Case review load failed.`);
         return;
       }
       setReview((await res.json()) as ClaimsSummaryView);

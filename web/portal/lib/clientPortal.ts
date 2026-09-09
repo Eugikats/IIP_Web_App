@@ -197,7 +197,7 @@ export async function getClaim(session: ClientPortalSession): Promise<GetClaimRe
       return { ok: false, errorKind: "unauthorized", error: "Your access link has expired or is no longer valid. Request a new one." };
     }
     if (!response.ok) {
-      return { ok: false, errorKind: "unavailable", error: await safeError(response, `Your claim could not be loaded (HTTP ${response.status}).`) };
+      return { ok: false, errorKind: "unavailable", error: await safeError(response, `Your claim could not be loaded.`) };
     }
     return { ok: true, claim: (await response.json()) as ClientPortalClaim };
   } catch (reason) {

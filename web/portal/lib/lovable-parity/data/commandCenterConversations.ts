@@ -54,7 +54,7 @@ async function request<T>(path: string, role: Role, userId: string, init?: Reque
   if (response.status === 404) throw new ConversationRequestError("not_found", "Conversation not found or no longer accessible.");
   if (response.status === 401 || response.status === 403) throw new ConversationRequestError("unauthorized", "You do not have permission to view this conversation.");
   if (response.status === 409) throw new ConversationRequestError("conflict", "This conversation changed. Refresh before trying again.");
-  if (!response.ok) throw new ConversationRequestError("unavailable", `Conversation request failed with HTTP ${response.status}.`);
+  if (!response.ok) throw new ConversationRequestError("unavailable", `Conversation request failed.`);
   return response.json() as Promise<T>;
 }
 

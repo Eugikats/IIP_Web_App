@@ -66,7 +66,7 @@ export function useMyWork(filters: MyWorkFilters) {
         cache: "no-store",
       });
       if (!result.ok) {
-        const serviceError = await UiServiceError.fromResponse(result, `My Work is unavailable (HTTP ${result.status}).`);
+        const serviceError = await UiServiceError.fromResponse(result, `My Work is unavailable.`);
         setError(serviceError);
         setLoadState(failedState(serviceError));
       } else {

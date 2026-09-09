@@ -59,7 +59,7 @@ export function useSalesLeads() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Sales leads failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Sales leads failed.`);
       const rows = (await response.json()) as SalesLeadDto[];
       setLeads(rows.map((r) => ({ ...r })));
     } catch (err) {
@@ -90,7 +90,7 @@ export function useSalesLeads() {
       });
       if (response.status === 403) return { ok: false, message: "You do not have permission to create leads." };
       if (response.status === 400) return { ok: false, message: "Please complete the required fields." };
-      if (!response.ok) return { ok: false, message: `Create failed with HTTP ${response.status}.` };
+      if (!response.ok) return { ok: false, message: `Create failed.` };
       await load();
       return { ok: true };
     } catch (err) {

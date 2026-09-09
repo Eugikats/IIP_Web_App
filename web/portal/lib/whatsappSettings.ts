@@ -50,7 +50,7 @@ export async function getWhatsAppConfigurationStatus(role: string): Promise<What
       headers: scopedHeaders(role, ""),
     });
     if (!response.ok) {
-      return { ok: false, error: await safeError(response, `Status could not be loaded (HTTP ${response.status}).`) };
+      return { ok: false, error: await safeError(response, `Status could not be loaded.`) };
     }
     return { ok: true, value: (await response.json()) as WhatsAppConfigurationStatus };
   } catch (reason) {

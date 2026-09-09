@@ -80,7 +80,7 @@ export function useApprovals() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/approvals`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Approvals failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Approvals failed.`);
       const rows = (await response.json()) as ApprovalDto[];
       setApprovals(rows.map(mapDto));
     } catch (err) {
@@ -107,7 +107,7 @@ export function useApprovals() {
         },
         body: JSON.stringify({ comments: auditReason }),
       });
-      if (!response.ok) return { ok: false, message: `${decision} failed with HTTP ${response.status}.` };
+      if (!response.ok) return { ok: false, message: `${decision} failed.` };
       await load();
       return { ok: true };
     },
@@ -126,7 +126,7 @@ export function useApprovals() {
         },
         body: JSON.stringify({ comments: auditReason }),
       });
-      if (!response.ok) return { ok: false, message: `Execute failed with HTTP ${response.status}.` };
+      if (!response.ok) return { ok: false, message: `Execute failed.` };
       await load();
       return { ok: true };
     },

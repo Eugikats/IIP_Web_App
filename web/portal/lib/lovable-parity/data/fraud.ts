@@ -133,7 +133,7 @@ export function useFraudSignals() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/fraud/signals`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Fraud signals failed with HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(`Fraud signals failed.`);
       const rows = (await response.json()) as FraudSignalDto[];
       setSignals(rows.map(mapDto));
     } catch (err) {
@@ -154,7 +154,7 @@ export function useFraudSignals() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
       body: JSON.stringify({ ruleId: signal.ruleId, relatedCaseIds: signal.relatedCaseIds }),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Triage failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Triage failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -165,7 +165,7 @@ export function useFraudSignals() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
       body: JSON.stringify({ assignedToUserId }),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Assign failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Assign failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -178,7 +178,7 @@ export function useFraudSignals() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
       body: JSON.stringify({ outcome, notes: notes || null }),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Record outcome failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Record outcome failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
@@ -189,7 +189,7 @@ export function useFraudSignals() {
       headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
       body: JSON.stringify({}),
     });
-    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Close failed with HTTP ${response.status}.`) };
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, `Close failed.`) };
     await load();
     return { ok: true };
   }, [role, load]);
