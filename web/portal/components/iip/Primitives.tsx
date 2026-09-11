@@ -215,6 +215,23 @@ export function RiskBadge({ risk }: { risk: string }) {
   return <StatusPill tone={map[risk] ?? "neutral"} label={`Risk · ${risk}`} />;
 }
 
+// Channel is a free-form string end to end (ClaimCase.Channel has no backend enum — see
+// docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md §14 WO 2.5), so this
+// only normalizes the values callers actually send today (FNOL's "StaffEntry", email ingestion's
+// "Email") into a readable label — it never invents a channel the data doesn't say. An
+// unrecognized value still renders, verbatim, rather than disappearing or falling back to a guess.
+const CHANNEL_LABELS: Record<string, string> = {
+  StaffEntry: "Manual entry",
+  Email: "Email",
+  WhatsApp: "WhatsApp",
+  ClientPortal: "Portal",
+  Sms: "SMS",
+};
+
+export function ChannelBadge({ channel }: { channel: string }) {
+  return <StatusPill tone="neutral" label={`Channel · ${CHANNEL_LABELS[channel] ?? channel}`} />;
+}
+
 export function ConfidenceBadge({ value }: { value: number }) {
   // Kept the established "Confidence · Word · NN%" wording multiple screens' tests assert on
   // exactly, rather than switching to design language §8.22's literal "0.71 · Below threshold"

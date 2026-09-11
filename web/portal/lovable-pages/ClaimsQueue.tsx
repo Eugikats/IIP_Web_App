@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { toast } from "sonner";
 import { TriangleAlert, ArrowRight, ClipboardList, Filter, Search, UserCheck, X } from "lucide-react";
-import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge, ConfidenceBadge } from "@/components/iip/Primitives";
+import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge, ConfidenceBadge, ChannelBadge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Input";
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
@@ -180,7 +180,7 @@ export default function ClaimsQueue() {
                   </div>
                   <StatusBadge status={claim.status} />
                 </div>
-                <div className="flex flex-wrap gap-2">{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}<SLABadge sla={claim.sla} /><RiskBadge risk={claim.risk} /></div>
+                <div className="flex flex-wrap gap-2">{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}<SLABadge sla={claim.sla} /><RiskBadge risk={claim.risk} /><ChannelBadge channel={claim.channel} /></div>
                 <dl className="grid gap-2 text-[12px] text-dls-text-secondary min-[360px]:grid-cols-2">
                   <div><dt className="text-dls-text-muted">Evidence</dt><dd>{claim.complete ? "Documents complete" : "Documents incomplete"}</dd></div>
                   <div><dt className="text-dls-text-muted">Owner</dt><dd className="break-words">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</dd></div>
@@ -207,6 +207,7 @@ export default function ClaimsQueue() {
                         <summary className="dls-focus-outline min-h-6 cursor-pointer text-[11.5px] font-semibold text-dls-primary">More details</summary>
                         <dl className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-dls-text-secondary">
                           <div><dt className="text-dls-text-muted">Evidence</dt><dd>{claim.complete ? "Complete" : "Incomplete"}</dd></div>
+                          <div><dt className="text-dls-text-muted">Channel</dt><dd>{claim.channel}</dd></div>
                           <div><dt className="text-dls-text-muted">Risk</dt><dd>{claim.risk}</dd></div>
                           <div><dt className="text-dls-text-muted">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div>
                           <div><dt className="text-dls-text-muted">Updated</dt><dd>{claim.updated}</dd></div>
@@ -246,7 +247,7 @@ export default function ClaimsQueue() {
                     </TableCell>
                     <TableCell>
                       <div className="text-dls-text-primary">{c.customer}</div>
-                      <div className="text-[11px] text-dls-text-muted">{c.channel}</div>
+                      <div className="mt-1"><ChannelBadge channel={c.channel} /></div>
                     </TableCell>
                     <TableCell className="text-dls-text-secondary">{c.productLine} · {c.claimType}</TableCell>
                     <TableCell><StatusBadge status={c.status} /></TableCell>
