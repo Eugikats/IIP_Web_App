@@ -58,6 +58,12 @@ public interface ICustomerConversationRepository
     Task SaveAsync(CustomerConversationTurn turn, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyCollection<CustomerConversationTurn>> ListForThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default);
+
+    /// <summary>Blueprint §14 Phase 6, WO 6.3 — real deletion, not a soft-delete flag: retention
+    /// enforcement for this data class means the raw conversation content is actually gone.
+    /// Returns what was deleted (count, oldest/newest OccurredAt) so the caller can write an
+    /// honest audit summary without a second read.</summary>
+    Task<InsuranceIntelligence.Domain.Compliance.RetentionDeletionSummary> DeleteOlderThanAsync(TenantScope scope, DateTimeOffset cutoff, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -431,6 +431,14 @@ public sealed class CustomerAssistantServiceTests
         }
         public Task<IReadOnlyCollection<CustomerConversationTurn>> ListForThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyCollection<CustomerConversationTurn>>(Saved.Where(t => t.ThreadId == threadId).ToArray());
+        public Task<RetentionDeletionSummary> DeleteOlderThanAsync(TenantScope scope, DateTimeOffset cutoff, CancellationToken cancellationToken = default)
+        {
+            var expired = Saved.Where(t => t.OccurredAt < cutoff).ToArray();
+            foreach (var turn in expired) Saved.Remove(turn);
+            return Task.FromResult(expired.Length == 0
+                ? RetentionDeletionSummary.None
+                : new RetentionDeletionSummary(expired.Length, expired.Min(t => t.OccurredAt), expired.Max(t => t.OccurredAt)));
+        }
     }
 
     private sealed class FakeAgentBehaviourProfileRepository : IAgentBehaviourProfileRepository

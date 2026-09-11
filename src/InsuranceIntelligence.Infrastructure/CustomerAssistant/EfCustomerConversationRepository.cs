@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -29,5 +30,25 @@ public sealed class EfCustomerConversationRepository(InsuranceIntelligenceDbCont
             .Select(record => Deserialize<CustomerConversationTurn>(record.PayloadJson))
             .OrderBy(turn => turn.OccurredAt)
             .ToArray();
+    }
+
+    public async Task<RetentionDeletionSummary> DeleteOlderThanAsync(TenantScope scope, DateTimeOffset cutoff, CancellationToken cancellationToken = default)
+    {
+        var records = await Scoped(DbContext.CustomerConversationTurns, scope).ToArrayAsync(cancellationToken);
+        var expired = records
+            .Select(record => (Record: record, Turn: Deserialize<CustomerConversationTurn>(record.PayloadJson)))
+            .Where(item => item.Turn.OccurredAt < cutoff)
+            .ToArray();
+
+        if (expired.Length == 0)
+        {
+            return RetentionDeletionSummary.None;
+        }
+
+        DbContext.CustomerConversationTurns.RemoveRange(expired.Select(item => item.Record));
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        var timestamps = expired.Select(item => item.Turn.OccurredAt).ToArray();
+        return new RetentionDeletionSummary(expired.Length, timestamps.Min(), timestamps.Max());
     }
 }
