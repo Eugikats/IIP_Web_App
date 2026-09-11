@@ -113,6 +113,13 @@ public static class InfrastructureRegistration
         services.AddScoped<ISmsProvider, TenantAwareSmsProvider>();
         services.AddScoped<IEmailSendingProvider, TenantAwareEmailSendingProvider>();
 
+        // Policy lookup port (blueprint §14 Phase 7, WO 7.1/7.2) — same tenant-aware resolution
+        // shape as SMS/email above, except the fallback (this platform's own policy storage) is
+        // always a meaningful answer, so there is no third "not configured" state.
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, InsuranceIntelligence.Infrastructure.Policies.GenericRestPolicyConnectionValidator>();
+        services.AddScoped<InsuranceIntelligence.Infrastructure.Policies.InternalPolicyLookupProvider>();
+        services.AddScoped<InsuranceIntelligence.Domain.Policies.IPolicyLookupProvider, InsuranceIntelligence.Infrastructure.Policies.TenantAwarePolicyLookupProvider>();
+
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
         {
             services.AddScoped<ICommunicationSendingProvider, GraphCommunicationSendingProvider>();

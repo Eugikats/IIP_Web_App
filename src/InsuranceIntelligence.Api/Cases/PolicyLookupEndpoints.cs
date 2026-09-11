@@ -12,6 +12,11 @@ namespace InsuranceIntelligence.Api.Cases;
 /// before the claimant is asked another question, and flag a possible duplicate claim on the same
 /// policy so it is caught here rather than at review. Deliberately read-only: intake still creates the
 /// claim through the existing CaseEndpoints.CreateCase path, this only informs what that call sends.
+///
+/// Resolves the policy through IPolicyLookupProvider (blueprint §14 Phase 7, WO 7.1) rather than
+/// ICustomerRepository/IPolicyRepository directly — this is the platform's real integration seam
+/// for an insurer's policy administration system: once a tenant connects a real PAS via a
+/// PolicySystem Connection (WO 7.2), this endpoint resolves against it with no code change here.
 /// </summary>
 public static class PolicyLookupEndpoints
 {
@@ -20,7 +25,7 @@ public static class PolicyLookupEndpoints
 
     public static async Task<IResult> LookupByPolicyNumber(
         [FromQuery] string? policyNumber,
-        IPolicyRepository policyRepository,
+        IPolicyLookupProvider policyLookupProvider,
         ICustomerRepository customerRepository,
         ICaseRepository caseRepository,
         HttpContext httpContext,
@@ -39,7 +44,7 @@ public static class PolicyLookupEndpoints
             });
         }
 
-        var policy = await policyRepository.GetByPolicyNumberAsync(policyNumber.Trim(), scope, cancellationToken);
+        var policy = await policyLookupProvider.FindPolicyByNumberAsync(policyNumber.Trim(), scope, cancellationToken);
         if (policy is null)
         {
             return Results.NotFound(new { message = $"No policy found for number \"{policyNumber.Trim()}\" in this workspace." });

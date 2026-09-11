@@ -4,6 +4,7 @@ using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Policies;
+using InsuranceIntelligence.Infrastructure.Policies;
 using InsuranceIntelligence.LocalTestDoubles;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,7 +37,7 @@ public sealed class PolicyLookupEndpointsTests
 
         var result = await PolicyLookupEndpoints.LookupByPolicyNumber(
             "NSA/MO/2026/00033",
-            dependencies.PolicyRepository,
+            dependencies.PolicyLookupProvider,
             dependencies.CustomerRepository,
             dependencies.CaseRepository,
             ScopedContext(),
@@ -61,7 +62,7 @@ public sealed class PolicyLookupEndpointsTests
 
         var result = await PolicyLookupEndpoints.LookupByPolicyNumber(
             "  nsa/mo/2026/00033  ",
-            dependencies.PolicyRepository, dependencies.CustomerRepository, dependencies.CaseRepository,
+            dependencies.PolicyLookupProvider, dependencies.CustomerRepository, dependencies.CaseRepository,
             ScopedContext(), CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<PolicyLookupResponse>(result);
 
@@ -76,7 +77,7 @@ public sealed class PolicyLookupEndpointsTests
 
         var result = await PolicyLookupEndpoints.LookupByPolicyNumber(
             "NSA/MO/2026/99999",
-            dependencies.PolicyRepository, dependencies.CustomerRepository, dependencies.CaseRepository,
+            dependencies.PolicyLookupProvider, dependencies.CustomerRepository, dependencies.CaseRepository,
             ScopedContext(), CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
 
@@ -89,7 +90,7 @@ public sealed class PolicyLookupEndpointsTests
         var dependencies = CreateDependencies();
 
         var result = await PolicyLookupEndpoints.LookupByPolicyNumber(
-            null, dependencies.PolicyRepository, dependencies.CustomerRepository, dependencies.CaseRepository,
+            null, dependencies.PolicyLookupProvider, dependencies.CustomerRepository, dependencies.CaseRepository,
             ScopedContext(), CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
 
@@ -108,7 +109,7 @@ public sealed class PolicyLookupEndpointsTests
 
         var result = await PolicyLookupEndpoints.LookupByPolicyNumber(
             "NSA/MO/2026/00033",
-            dependencies.PolicyRepository, dependencies.CustomerRepository, dependencies.CaseRepository,
+            dependencies.PolicyLookupProvider, dependencies.CustomerRepository, dependencies.CaseRepository,
             ScopedContext(), CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
 
@@ -134,7 +135,7 @@ public sealed class PolicyLookupEndpointsTests
 
         var result = await PolicyLookupEndpoints.LookupByPolicyNumber(
             "NSA/MO/2026/00033",
-            dependencies.PolicyRepository, dependencies.CustomerRepository, dependencies.CaseRepository,
+            dependencies.PolicyLookupProvider, dependencies.CustomerRepository, dependencies.CaseRepository,
             ScopedContext(), CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<PolicyLookupResponse>(result);
 
@@ -162,7 +163,7 @@ public sealed class PolicyLookupEndpointsTests
 
         var result = await PolicyLookupEndpoints.LookupByPolicyNumber(
             "NSA/MO/2026/00033",
-            dependencies.PolicyRepository, dependencies.CustomerRepository, dependencies.CaseRepository,
+            dependencies.PolicyLookupProvider, dependencies.CustomerRepository, dependencies.CaseRepository,
             ScopedContext(), CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<PolicyLookupResponse>(result);
 
@@ -191,11 +192,15 @@ public sealed class PolicyLookupEndpointsTests
 
     private sealed record Dependencies(
         InMemoryPolicyRepository PolicyRepository,
+        IPolicyLookupProvider PolicyLookupProvider,
         InMemoryCustomerRepository CustomerRepository,
         InMemoryCaseRepository CaseRepository);
 
-    private static Dependencies CreateDependencies() =>
-        new(new InMemoryPolicyRepository(), new InMemoryCustomerRepository(), new InMemoryCaseRepository());
+    private static Dependencies CreateDependencies()
+    {
+        var policyRepository = new InMemoryPolicyRepository();
+        return new(policyRepository, new InternalPolicyLookupProvider(policyRepository), new InMemoryCustomerRepository(), new InMemoryCaseRepository());
+    }
 
     private static DefaultHttpContext ScopedContext()
     {

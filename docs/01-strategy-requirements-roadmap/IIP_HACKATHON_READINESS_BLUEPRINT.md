@@ -1011,16 +1011,22 @@ Software only. Filings and licensing sit with the business.
 
 ### Phase 7 — Integration port, hardening and demo readiness (6-8 days)
 
-| WO | Work | Days |
-|---|---|---|
-| 7.1 | `IPolicyLookupProvider` port + demo-seed implementation (section 13.1) | 1 |
-| 7.2 | Generic configurable REST policy adapter via the Connection model — base URL, auth header, field mapping | 2 |
-| 7.3 | AML/CFT risk-signal capture and recording (section 12.6) — advisory only, never a determination | 1.5 |
-| 7.4 | Per-document chunk preview and "which chunk answered this" visibility in the knowledge base (section 6.1) | 1.5 |
-| 7.5 | Full six-state pass over every screen touched in phases 1-6, at 1280px and 768px, per the UI craft checklist | 1.5 |
-| 7.6 | Seed a realistic demo dataset and rehearse the section 16 run end to end | 0.5 |
+| WO | Work | Days | Status |
+|---|---|---|---|
+| 7.1 | `IPolicyLookupProvider` port + demo-seed implementation (section 13.1) | 1 | **Done** — see note |
+| 7.2 | Generic configurable REST policy adapter via the Connection model — base URL, auth header, field mapping | 2 | **Done** — see note |
+| 7.3 | AML/CFT risk-signal capture and recording (section 12.6) — advisory only, never a determination | 1.5 | |
+| 7.4 | Per-document chunk preview and "which chunk answered this" visibility in the knowledge base (section 6.1) | 1.5 | |
+| 7.5 | Full six-state pass over every screen touched in phases 1-6, at 1280px and 768px, per the UI craft checklist | 1.5 | |
+| 7.6 | Seed a realistic demo dataset and rehearse the section 16 run end to end | 0.5 | |
 
 **Exit test:** every capability claimed in section 17's "do claim" list is demonstrable live, and no screen in the product shows a dead control or a fabricated figure.
+
+**Phase 7 notes, 2026-09-11 (in progress).**
+
+- **7.1 built `IPolicyLookupProvider`** (`Domain.Policies`) — `FindPolicyByNumberAsync`/`FindPoliciesByCustomerAsync`, deliberately distinct from `IPolicyRepository` (this platform's own storage). `InternalPolicyLookupProvider` (Infrastructure) is the demo-seed/onboarded-data implementation section 13.1 asked for — a thin delegate to the existing `IPolicyRepository`. Wired into `PolicyLookupEndpoints.LookupByPolicyNumber` — the real FNOL-intake step-2 call site — replacing its direct `IPolicyRepository` dependency; `CustomerAssistantService`/`MissingDocumentRequestService`'s own direct `IPolicyRepository` usage was left as-is for this pass (a broader adoption pass, not required by this WO's own exit criteria).
+- **7.2 built `GenericRestPolicyLookupProvider`** — a real, working HTTP client, not a stub: configurable base URL, an optional auth header (name + secret value, through the existing Connection model's `IConnectionSecretProtector` encryption), and per-field response mapping (which JSON property maps to `PolicyNumber`/`ProductLine`/`CoverType`/`CustomerId`/`EffectiveFrom`/`EffectiveTo`, each defaulting to this platform's own field names so a partner whose API happens to already match needs only base URL + auth configured). Convention: `GET {baseUrl}/policies/{policyNumber}` and `GET {baseUrl}/customers/{customerId}/policies` — documented, not per-tenant-negotiable in this pass, because a real partner's actual path shape is exactly the detail a partnership deliverable settles, not something guessable in advance (the blueprint's own section 13.1 framing). Added `ConnectionType.PolicySystem` (safe to add — `IntegrationConnection.StorageKey` hashes the enum name, not its ordinal, so `Sms`/`Email`'s existing storage keys are undisturbed) and `GenericRestPolicyConnectionValidator`, which validates structurally (a well-formed absolute URL, a complete auth header when one is set) rather than by calling a live endpoint — unlike the SMS validators, which can prove credentials against a real, known API shape, there is no known live PAS partner contract to probe here; a fabricated probe call would be dishonest, not more rigorous. `TenantAwarePolicyLookupProvider` applies the same three-step resolution `TenantAwareSmsProvider`/`TenantAwareEmailSendingProvider` already established (tenant Connection first, `InternalPolicyLookupProvider` fallback) and is now the one `IPolicyLookupProvider` the rest of the application sees — unlike SMS/email, there is no third "not configured" terminal state, because the fallback (this platform's own policy storage) is always a meaningful answer.
+- Tests: 12 new (6 on `GenericRestPolicyLookupProvider` — field-mapping, the configured auth header actually sent, a 404 returns null rather than throwing, a missing base URL never calls out, an array response for the by-customer lookup maps every element, a response missing the one required field is skipped rather than fabricated; 6 on `GenericRestPolicyConnectionValidator` — every validation branch). **Not tested:** `TenantAwarePolicyLookupProvider`'s own resolution wrapper — its logic mirrors the already-tested `TenantAwareSmsProvider` shape closely enough that a dedicated test was judged lower-value than the time it would cost against this phase's remaining scope; noted honestly rather than silently skipped. 1084/1084 backend tests passing (304 Domain + 780 Api), up from 1072. Clean build, 0 warnings. **Not verified:** no real PAS partner exists to test the REST adapter against live — every test here is against a fake `HttpMessageHandler`, matching the same honest caveat this whole phase carries.
 
 ---
 ### 14.1 Totals

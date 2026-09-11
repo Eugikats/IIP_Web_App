@@ -15,6 +15,11 @@ public enum ConnectionType
 {
     Sms,
     Email,
+
+    /// <summary>An insurer's policy administration system (blueprint §14 Phase 7, WO 7.2) — the
+    /// generic REST adapter behind IPolicyLookupProvider. StorageKey hashes the enum name, not its
+    /// ordinal, so adding this here does not disturb Sms/Email's existing storage keys.</summary>
+    PolicySystem,
 }
 
 /// <summary>
