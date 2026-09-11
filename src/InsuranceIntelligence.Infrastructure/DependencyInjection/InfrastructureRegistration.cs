@@ -226,6 +226,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Compliance.IConsentRepository, InsuranceIntelligence.Infrastructure.Compliance.EfConsentRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Compliance.IRetentionPolicyRepository, InsuranceIntelligence.Infrastructure.Compliance.EfRetentionPolicyRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Compliance.IRetentionEnforcementService, InsuranceIntelligence.Application.Compliance.RetentionEnforcementService>();
+        services.AddScoped<InsuranceIntelligence.Application.Compliance.IDataSubjectRightsService, InsuranceIntelligence.Application.Compliance.DataSubjectRightsService>();
         services.AddSingleton<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerIntentClassifier, InsuranceIntelligence.Domain.CustomerAssistant.KeywordCustomerIntentClassifier>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.DemoSeeding.IDemoDataPurgeService, InsuranceIntelligence.Infrastructure.DemoSeeding.EfDemoDataPurgeService>();
         services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.DemoSeedService>();
