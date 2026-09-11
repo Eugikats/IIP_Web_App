@@ -34,7 +34,10 @@ const SENS_LABEL: Record<KnowledgeSensitivity, string> = {
   unknown: "Unknown",
 };
 
-const DOCUMENT_TYPES = ["PolicyWording", "ClaimsChecklist", "CustomerFaq", "ClaimsProcedure", "RegulatoryGuidance", "Other"];
+// CompanyProfile/ProductOverview/Faq are acquisition-facing (blueprint section 8.4) — content
+// meant for a prospect, not an existing policyholder. Only classifying a document `approved`
+// makes it eligible for customer-channel retrieval; DocumentType alone grants nothing.
+const DOCUMENT_TYPES = ["PolicyWording", "ClaimsChecklist", "CustomerFaq", "ClaimsProcedure", "RegulatoryGuidance", "CompanyProfile", "ProductOverview", "Faq", "Other"];
 
 type PendingAction =
   | { kind: "approve"; doc: KnowledgeDocView; sensitivity: KnowledgeSensitivity }
