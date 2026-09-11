@@ -185,6 +185,82 @@ public sealed class CaseIntakeServiceTests
         Assert.False(result.Found);
     }
 
+    [Fact]
+    public async Task CreateCaseAsync_NoExistingTeamHistory_LeavesCaseTeamOnlyAssigned()
+    {
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+
+        Assert.Null(claimCase.AssignedUserId);
+        Assert.Equal(CaseStatus.New, claimCase.Status); // never bumped to Assigned without a named owner
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_ExistingTeamHistory_NamesTheLeastLoadedMember()
+    {
+        var caseRepository = new RecordingCaseRepository();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        await caseRepository.SaveAsync(SeedCase(scope, "officer-busy", ClaimRoutingPolicy.ClaimsIntakeTeam, CaseStatus.InReview));
+        await caseRepository.SaveAsync(SeedCase(scope, "officer-busy", ClaimRoutingPolicy.ClaimsIntakeTeam, CaseStatus.InReview));
+        await caseRepository.SaveAsync(SeedCase(scope, "officer-quiet", ClaimRoutingPolicy.ClaimsIntakeTeam, CaseStatus.Closed));
+        var service = new CaseIntakeService(caseRepository, new RecordingAuditRepository());
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+
+        Assert.Equal("officer-quiet", claimCase.AssignedUserId); // one open case beats two
+        Assert.Equal(CaseStatus.Assigned, claimCase.Status);
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_EqualLoad_RotatesToWhoeverWasAssignedLeastRecently()
+    {
+        var caseRepository = new RecordingCaseRepository();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        await caseRepository.SaveAsync(SeedCase(scope, "officer-a", ClaimRoutingPolicy.ClaimsIntakeTeam, CaseStatus.New, DateTimeOffset.UtcNow.AddHours(-1)));
+        await caseRepository.SaveAsync(SeedCase(scope, "officer-b", ClaimRoutingPolicy.ClaimsIntakeTeam, CaseStatus.New, DateTimeOffset.UtcNow.AddHours(-3)));
+        var service = new CaseIntakeService(caseRepository, new RecordingAuditRepository());
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+
+        Assert.Equal("officer-b", claimCase.AssignedUserId); // least recently touched, at equal load
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_OnlyConsidersHistoryFromTheSameRoutedTeam()
+    {
+        var caseRepository = new RecordingCaseRepository();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        await caseRepository.SaveAsync(SeedCase(scope, "fraud-desk-officer", ClaimRoutingPolicy.DesignatedFraudEscalationTeam, CaseStatus.New));
+        var service = new CaseIntakeService(caseRepository, new RecordingAuditRepository());
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand()); // routes to ClaimsIntakeTeam, not the fraud desk
+
+        Assert.Null(claimCase.AssignedUserId);
+    }
+
+    private static ClaimCase SeedCase(TenantScope scope, string assignedUserId, string team, CaseStatus status, DateTimeOffset? updatedAt = null) =>
+        new()
+        {
+            CaseId = Guid.NewGuid(),
+            Scope = scope,
+            CustomerName = "Seed Customer",
+            PolicyNumber = "POL-SEED",
+            ProductLine = "Motor",
+            ClaimType = "Accident",
+            Channel = "WebPortal",
+            IncidentDate = new DateOnly(2026, 5, 1),
+            IncidentDescription = "Seeded for assignment-policy test.",
+            Status = status,
+            CompletenessScore = 50,
+            AssignedUserId = assignedUserId,
+            AssignedTeam = team,
+            CreatedByUserId = "seed",
+            CreatedAt = updatedAt ?? DateTimeOffset.UtcNow,
+            UpdatedAt = updatedAt ?? DateTimeOffset.UtcNow,
+            CorrelationId = "seed-correlation",
+        };
+
     private static CreateCaseCommand ValidCommand() =>
         new(
             TenantScope.Create("tenant-demo", "workspace-claims"),

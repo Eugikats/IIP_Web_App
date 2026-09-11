@@ -14,6 +14,16 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
         var motorFnol = command.MotorFnolDetails?.Normalize();
         var medicalFnol = command.MedicalFnolDetails?.Normalize();
         var routing = ClaimRoutingPolicy.Evaluate(command.ClaimType, motorFnol, productLine: command.ProductLine);
+
+        // Name a real owner, not just a team, wherever the routed team's case history has enough
+        // information to infer one — see CaseAssignmentPolicy for why this is inferred rather than
+        // backed by a staff directory this codebase does not have.
+        var existingCases = await caseRepository.ListAsync(command.Scope, cancellationToken);
+        var assignee = CaseAssignmentPolicy.SelectAssignee(routing.AssignedTeam, existingCases);
+        var status = assignee is not null && routing.InitialStatus == CaseStatus.New
+            ? CaseStatus.Assigned
+            : routing.InitialStatus;
+
         var claimCase = new ClaimCase
         {
             CaseId = Guid.NewGuid(),
@@ -29,13 +39,13 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             IncidentDescription = command.IncidentDescription.Trim(),
             MotorFnolDetails = motorFnol,
             MedicalFnolDetails = medicalFnol,
-            Status = routing.InitialStatus,
+            Status = status,
             CompletenessScore = 0m,
             RiskLevel = routing.InitialRiskLevel,
             Priority = routing.Priority,
             SlaDueAt = command.RequiresConfirmation ? null : now.AddDays(routing.SlaDays),
             RequiresConfirmation = command.RequiresConfirmation,
-            AssignedUserId = null,
+            AssignedUserId = assignee,
             AssignedTeam = routing.AssignedTeam,
             CreatedByUserId = command.CreatedByUserId.Trim(),
             CreatedAt = now,

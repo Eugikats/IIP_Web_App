@@ -949,16 +949,23 @@ All of this is source-complete and locally verified (977/977 backend tests passi
 
 This phase exists to satisfy "nothing in the middle should be missing." It closes every remaining break between intake and closure.
 
-| WO | Work | Days |
-|---|---|---|
-| 5.1 | **Named owner on intake.** `CaseIntakeService.cs:38` sets `AssignedUserId = null` — claims are routed to a team but never to a person. Add assignment (round-robin or workload-aware within the routed team), with manual reassignment as a governed action | 2 |
-| 5.2 | FNOL acknowledgement to the customer: reference number + required documents, as a low-risk transactional send | 1 |
-| 5.3 | Intake completeness check — tell the customer what is missing at submission, not after extraction | 1.5 |
-| 5.4 | Missing-document request sent over the customer's originating channel | 1 |
-| 5.5 | Decision outcome delivered to the customer after human approval, with delivery state recorded | 1 |
-| 5.6 | Case timeline that shows every step across every channel in one place | 1.5 |
+| WO | Work | Days | Status |
+|---|---|---|---|
+| 5.1 | **Named owner on intake.** `CaseIntakeService.cs:38` sets `AssignedUserId = null` — claims are routed to a team but never to a person. Add assignment (round-robin or workload-aware within the routed team), with manual reassignment as a governed action | 2 | **Done** — see note |
+| 5.2 | FNOL acknowledgement to the customer: reference number + required documents, as a low-risk transactional send | 1 | |
+| 5.3 | Intake completeness check — tell the customer what is missing at submission, not after extraction | 1.5 | |
+| 5.4 | Missing-document request sent over the customer's originating channel | 1 | |
+| 5.5 | Decision outcome delivered to the customer after human approval, with delivery state recorded | 1 | |
+| 5.6 | Case timeline that shows every step across every channel in one place | 1.5 | |
 
 **Exit test:** the full run in section 16 executes without a manual database touch or a developer intervening at any step.
+
+**Phase 5 notes, 2026-09-11.**
+
+- **5.1's "manual reassignment as a governed action" already existed** — `CaseEndpoints.AssignCase` (`POST /api/v1/cases/{caseId}/assign`) was already real: permission-gated, audited via `AuditEvent.CaseAssigned`, and wired into `ClaimsQueue.tsx`. The actual gap was only the auto-assignment half.
+- **No staff directory or team-roster table exists anywhere in this codebase** (`InsuranceUser` is declared in `Domain/Users/` but wired to nothing) — building one is materially bigger than "name an owner for the next claim." `CaseAssignmentPolicy` infers a routed team's current membership from case history instead: anyone already holding a case on that team, for this tenant, is treated as a real member of it; the least-loaded member gets the new case, ties broken by whoever was assigned to that team least recently (so load rotates). A team with no case history yet falls back to the pre-existing behaviour — team-only, `AssignedUserId` null — which is an honest "no one to name yet," not a bug: the first case on a brand-new team still needs a supervisor's first manual assignment, which is also how the policy's roster comes into existence to observe.
+- **Known limitation, found while verifying this end to end: the demo seed's team labels don't match `ClaimRoutingPolicy`'s.** `DemoSeedService` tags every Motor case `"Motor Claims Review"`, Medical `"Medical Claims Review"`, etc. — an independent, older naming scheme, not `ClaimRoutingPolicy`'s real routing teams (`"Claims Intake"`, `"Third Party Desk"`, `"Total Loss Desk"`, the designated-escalation teams). Because `CaseAssignmentPolicy` looks for case history on the exact routed team name, a freshly seeded demo workspace has no matching history for a live-submitted claim to inherit, so the very first live claim after seeding will still land team-only until a supervisor makes one manual assignment per team — after that, every subsequent claim to that team auto-assigns correctly. Not fixed here — it is demo-dataset realism, squarely WO 7.6's scope, and touching `DemoSeedService`'s team taxonomy is a separate, deliberate decision, not a fix to fold into this change.
+- Covered by 10 new tests: 6 on `CaseAssignmentPolicy` directly (empty history, load-based selection, closed/settled cases not counting as load, round-robin tie-break, team isolation) and 4 through `CaseIntakeService.CreateCaseAsync` (no history stays team-only, existing history names the least-loaded member and bumps `New`→`Assigned`, equal load rotates, a different team's history is correctly ignored).
 
 ### Phase 6 — Compliance product surfaces (7-9 days)
 
