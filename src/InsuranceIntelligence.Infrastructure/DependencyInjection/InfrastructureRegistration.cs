@@ -222,6 +222,8 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
         services.AddScoped<ICommandCenterConversationRepository, EfCommandCenterConversationRepository>();
         services.AddScoped<IWhatsAppMessageRepository, EfWhatsAppMessageRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerConversationRepository, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfCustomerConversationRepository>();
+        services.AddSingleton<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerIntentClassifier, InsuranceIntelligence.Domain.CustomerAssistant.KeywordCustomerIntentClassifier>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.DemoSeeding.IDemoDataPurgeService, InsuranceIntelligence.Infrastructure.DemoSeeding.EfDemoDataPurgeService>();
         services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.DemoSeedService>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
@@ -373,6 +375,7 @@ public static class InfrastructureRegistration
                 IntegrationUserId = configuration["WhatsApp:IntegrationUserId"],
                 GraphBaseUrl = configuration["WhatsApp:GraphBaseUrl"] ?? "https://graph.facebook.com/v24.0",
                 RequestTimeoutSeconds = int.TryParse(configuration["WhatsApp:RequestTimeoutSeconds"], out var waTimeout) ? waTimeout : 20,
+                AssistantAutoReplyEnabled = bool.TryParse(configuration["WhatsApp:AssistantAutoReplyEnabled"], out var autoReply) && autoReply,
             },
             ProviderHealth = new ProviderHealthOptions
             {

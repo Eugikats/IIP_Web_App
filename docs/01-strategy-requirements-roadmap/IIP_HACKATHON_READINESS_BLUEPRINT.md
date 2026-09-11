@@ -918,21 +918,31 @@ Cheap, highly visible, and it fixes the complaint that the system's own author c
 
 All of this is source-complete and locally verified (932/932 backend tests passing, clean build, clean TypeScript compile, all portal validation scripts passing) — **none of it has been exercised against a live Azure OpenAI call with a real tenant-configured prompt.** The composition logic is thoroughly tested; what a real Azure OpenAI deployment actually does with a composed prompt carrying a tenant's persona and refusal topics has not been observed.
 
-### Phase 4 — Customer assistant and acquisition
-
 ### Phase 4 — Customer assistant and acquisition (7-9 days)
 
-| WO | Work | Depends on | Days |
-|---|---|---|---|
-| 4.1 | `CustomerAssistantService` — intent classification over the six-intent set (section 8.3) | 3.1, 1.6 | 2 |
-| 4.2 | Grounded answer composition with citations, restricted to `approved` documents | 4.1 | 2 |
-| 4.3 | The five-condition auto-reply gate; everything else drafts for human approval | 4.2 | 1 |
-| 4.4 | Identity verification before any case-specific disclosure, via the existing claimant session | 4.1 | 1 |
-| 4.5 | Intent routing: `ProductInterest` creates a lead; `NewClaim` opens a case; `HumanRequested` escalates | 4.1 | 1.5 |
-| 4.6 | Conversation persistence — messages, citations, intent, auto-sent vs human-approved | 4.1 | 1 |
-| 4.7 | Acquisition document types in the knowledge base (section 8.4) | — | 0.5 |
+| WO | Work | Depends on | Days | Status |
+|---|---|---|---|---|
+| 4.1 | `CustomerAssistantService` — intent classification over the six-intent set (section 8.3) | 3.1, 1.6 | 2 | **Done** |
+| 4.2 | Grounded answer composition with citations, restricted to `approved` documents | 4.1 | 2 | **Done** — see note |
+| 4.3 | The five-condition auto-reply gate; everything else drafts for human approval | 4.2 | 1 | **Done** — see note (bug found and fixed) |
+| 4.4 | Identity verification before any case-specific disclosure, via the existing claimant session | 4.1 | 1 | **Done differently than planned** — see note |
+| 4.5 | Intent routing: `ProductInterest` creates a lead; `NewClaim` opens a case; `HumanRequested` escalates | 4.1 | 1.5 | **Done** |
+| 4.6 | Conversation persistence — messages, citations, intent, auto-sent vs human-approved | 4.1 | 1 | **Done** |
+| 4.7 | Acquisition document types in the knowledge base (section 8.4) | — | 0.5 | **Not started** |
 
 **Exit test:** a message to the WhatsApp test number asking about cover returns a cited answer; saying "I had an accident" opens a real claim with a reference number; expressing interest puts a lead in the officer's inbox.
+
+**Phase 4 notes, 2026-09-11.**
+
+- **4.1's intent classification is deterministic keyword matching (`KeywordCustomerIntentClassifier`), not a 4th live LLM call site.** Matches the `RuleBased` pattern the catalog already uses for `routing`/`risk-fraud-signal` rather than adding another genuinely-untested Azure OpenAI dependency. Its precedence ordering (NewClaim before ExistingClaimStatus before ProductInterest before HumanRequested before a generic question heuristic) is covered by its own 22-test suite.
+- **4.2 reuses the same grounded `IRetrievalProvider`/`IAiAssistantProvider` → `AnswerPolicyQuestionAsync` path `policy-intelligence` already uses** — approved-document restriction is inherited from that existing retrieval path (phase 3's grounding), not reimplemented. `CustomerAssistantService` never answers from model memory: zero retrieved chunks always returns a fixed "I don't have an approved answer yet" fallback and queues for human follow-up.
+- **4.3's gate had a real bug, caught by its own test suite before commit, not by inspection.** The first orchestrator draft sent every non-null reply outbound regardless of `CustomerAutoReplyGate`'s verdict — so a `QueuedForHumanApproval` AI-composed answer (the gate saying "do not auto-send this") was being sent to the customer anyway, silently defeating the whole five-condition gate. `GeneralQuestion_WithNoRetrievalChunks_NeverAutoSends` and `GeneralQuestion_TenantNotOptedIn_QueuesForHumanApprovalEvenWithCitation` failed against the real bug; fixed by gating the send on `outcome != QueuedForHumanApproval` (fixed template acknowledgements — a claim reference, "please share your policy number" — are a structurally different, lower-risk category the gate does not govern, and still send).
+- **4.4 verifies identity via a regex-extracted policy number match, not "the existing claimant session."** WhatsApp has no session — Meta calls the webhook directly, verified by HMAC signature, with no signed-in claimant. A bare WhatsApp number never discloses anything; only a policy number matched against `IPolicyRepository` (format `[A-Z]{2,4}/[A-Z]{2}/\d{4}/\d{4,6}`, matching the demo-seed format) unlocks a coarse claim-status disclosure. This is the real mechanism WO 4.4 asked for — the original "existing claimant session" phrasing assumed a portal-authenticated flow that doesn't apply to a first-contact WhatsApp message.
+- **Outbound sends go through `IWhatsAppOutboundProvider` directly, not `IWhatsAppMessagingService.SendAsync`.** That higher-level service requires a case-linked, previously-verified thread and two staff permissions — correct for an officer replying to an existing case, wrong for the platform replying to a first inbound message with no case yet. All writes use the `"system:customer-assistant"` actor (`ActorType.Integration`), matching the `"system:whatsapp-webhook"`/`"system:claimant-magic-link"` precedent for unauthenticated, webhook-triggered actions.
+- **The webhook call site fails open, loudly, never fails the request.** `WhatsAppIntegrationEndpoints.ReceiveWebhook` calls the assistant inside a try/catch that logs (`ILogger`, not a silent swallow) and never rethrows — an assistant failure must not turn an already-ingested webhook into a 5xx Meta retries; the inbound message is already durably saved by the existing `messagingService.IngestInboundAsync` call before the assistant ever runs.
+- **4.7 (acquisition document types in the knowledge base) is not started.**
+
+All of this is source-complete and locally verified (977/977 backend tests passing — 287 Domain + 690 Api, including 12 new orchestrator tests plus the pre-existing 22-test classifier and 7-test gate suites — clean build, 0 warnings) — **none of it has been exercised against a live Meta WhatsApp Cloud API test number or a live Azure OpenAI call.** Every dependency (`IWhatsAppOutboundProvider`, `IRetrievalProvider`, `IAiAssistantProvider`, `IPolicyRepository`, `ICaseRepository`, `ISalesLeadWriteRepository`) is exercised through a fake, not the real provider — the orchestration logic and the auto-reply gate are thoroughly tested; what happens end-to-end against the real WhatsApp test number and a real tenant's Azure OpenAI deployment has not been observed.
 
 ---
 ### Phase 5 — Pipeline completion (6-8 days)

@@ -171,4 +171,11 @@ public sealed record WhatsAppOptions
     public string? IntegrationUserId { get; init; }
     public string GraphBaseUrl { get; init; } = "https://graph.facebook.com/v24.0";
     public int RequestTimeoutSeconds { get; init; } = 20;
+
+    /// <summary>Tenant/platform opt-in for the customer assistant auto-replying to grounded,
+    /// cited GeneralQuestion answers without individual human approval (blueprint §8.3's
+    /// five-condition gate — this is condition 5). Conservative default: OFF — every drafted
+    /// answer is logged but not sent until a tenant deliberately enables this, exactly matching
+    /// AutoSendTransactionalSmsEnabled's precedent for outbound SMS.</summary>
+    public bool AssistantAutoReplyEnabled { get; init; }
 }

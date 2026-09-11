@@ -4,6 +4,7 @@ using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.WhatsApp;
+using Microsoft.Extensions.Logging;
 
 namespace InsuranceIntelligence.Api.Integrations;
 
@@ -68,7 +69,10 @@ public static class WhatsAppIntegrationEndpoints
         HttpRequest request,
         WhatsAppInboundDocumentIngestionService ingestionService,
         IWhatsAppMessagingService messagingService,
+        InsuranceIntelligence.Application.CustomerAssistant.ICustomerAssistantService customerAssistantService,
         IWhatsAppRuntimeSettingsProvider settingsProvider,
+        InfrastructureOptions options,
+        ILogger<WhatsAppCustomerAssistantLogMarker> logger,
         CancellationToken cancellationToken)
     {
         // Read raw body before any JSON model binding so HMAC covers exact bytes Meta signed.
@@ -108,6 +112,28 @@ public static class WhatsAppIntegrationEndpoints
                 .ToArray();
             var messagesSaved = await messagingService.IngestInboundAsync(scope, inbound, cancellationToken);
             var deliveryUpdates = await messagingService.ApplyDeliveryEventsAsync(scope, statuses, cancellationToken);
+            if (inbound.Length > 0)
+            {
+                // Best-effort: the customer assistant classifies intent and (when the tenant has
+                // opted in) drafts/sends a grounded reply. It must never fail the webhook —
+                // Meta retries on non-2xx, and the inbound message is already durably saved above.
+                try
+                {
+                    await customerAssistantService.HandleInboundMessagesAsync(
+                        scope,
+                        inbound,
+                        request.HttpContext.TraceIdentifier,
+                        options.WhatsApp.AssistantAutoReplyEnabled,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // Do not rethrow: an assistant failure must not turn an already-ingested webhook
+                    // into a 5xx that Meta retries. Manual follow-up is still possible from the raw
+                    // thread. Log it so it's actually visible, unlike a bare swallow.
+                    logger.LogError(ex, "Customer assistant failed processing inbound WhatsApp message(s) for tenant {TenantId}", scope.TenantId);
+                }
+            }
             return Results.Ok(new
             {
                 status = "Accepted",
@@ -178,3 +204,8 @@ public sealed record SendWhatsAppMessageRequest(
     string IdempotencyKey,
     string? ReplyToProviderMessageId,
     IReadOnlyDictionary<string, string>? TemplateParameters);
+
+/// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
+/// static-class endpoint (ILogger&lt;WhatsAppIntegrationEndpoints&gt; is not usable — the class is
+/// static), matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
+public sealed class WhatsAppCustomerAssistantLogMarker;
