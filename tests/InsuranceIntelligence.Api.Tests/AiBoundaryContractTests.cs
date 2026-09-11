@@ -586,6 +586,8 @@ public sealed class AiBoundaryContractTests
     {
         public Task<EvidencePackStorageResult> StoreAsync(EvidencePackStorageRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(new EvidencePackStorageResult("stored/key.json", request.ContentType, 128));
+        public Task<Stream> ReadAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException("This test double only exercises the store path.");
     }
 
     private sealed class FixedOnboardingRepository(IReadOnlyList<TenantOnboardingRecord> records) : ITenantOnboardingRepository

@@ -191,6 +191,56 @@ public static class ComplianceEndpoints
         }
     }
 
+    /// <summary>WO 6.2: StoreAsync's ObjectKey was write-only until this — a real single-document
+    /// export existed but nothing could ever retrieve it again. objectKey is validated against
+    /// this case's own "evidence_pack.exported" audit history, not trusted from the client alone.</summary>
+    public static async Task<IResult> DownloadAuditPackExport(
+        Guid caseId,
+        string objectKey,
+        IComplianceQueryService complianceQueryService,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ExportEvidencePack) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!TryRequireTenantContext(httpContext, out _))
+        {
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
+        }
+
+        try
+        {
+            var download = await complianceQueryService.DownloadAuditPackAsync(caseId, objectKey, cancellationToken);
+            return download is null
+                ? Results.NotFound(new { message = "No exported evidence pack was found for this case with that object key." })
+                : Results.File(download.Content, download.ContentType, download.FileName);
+        }
+        catch (MissingTenantContextException)
+        {
+            return Validation("tenantScope", "Server-resolved tenant context is required.");
+        }
+        catch (ComplianceQueryValidationException ex)
+        {
+            return Validation(ex.Field, ex.Message);
+        }
+        catch (ComplianceConfigurationException)
+        {
+            return Results.BadRequest(new
+            {
+                deliveryStatus = "ConfigurationRequired",
+                message = "Evidence pack storage is unavailable. Verify blob identity, container configuration, and network access."
+            });
+        }
+        catch (PermissionDeniedException)
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+    }
+
     private static CompliancePostureResponse ToResponse(CompliancePostureDto posture) =>
         new(
             new RetentionPosture(

@@ -191,6 +191,48 @@ public sealed class ComplianceQueryService(
         }
     }
 
+    public async Task<EvidencePackDownloadDto?> DownloadAuditPackAsync(
+        Guid caseId,
+        string objectKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(objectKey))
+        {
+            throw new ComplianceQueryValidationException("objectKey", "An object key is required to download an evidence pack.");
+        }
+
+        var scope = RequireScope();
+        await permissionService.RequirePermissionAsync(Permission.ExportEvidencePack, cancellationToken);
+
+        var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
+        if (claimCase is null || !claimCase.Scope.Matches(scope))
+        {
+            return null;
+        }
+
+        // The audit trail is the authorization check, not a client-trusted object key alone —
+        // only a key this tenant's own export actually produced for this case is downloadable.
+        var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
+        var exportEvent = auditEvents.FirstOrDefault(
+            e => e.ActionName == "evidence_pack.exported" && e.EvidenceIds.Contains(objectKey));
+        if (exportEvent is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var content = await storageProvider.ReadAsync(scope, objectKey, cancellationToken);
+            var fileName = objectKey.Split('/').Last();
+            return new EvidencePackDownloadDto(content, "application/json", fileName);
+        }
+        catch (InvalidOperationException ex) when (ex is not ComplianceQueryValidationException and not MissingTenantContextException)
+        {
+            throw new ComplianceConfigurationException(
+                "Evidence pack storage is unavailable. Verify blob identity, container configuration, and network access.");
+        }
+    }
+
     private TenantScope RequireScope()
     {
         if (!tenantContextAccessor.HasCurrent)

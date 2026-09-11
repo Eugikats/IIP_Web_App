@@ -478,6 +478,31 @@ export function useClaimReview(claimId: string) {
     }
   }, [claimId, load, role]);
 
+  // WO 6.2: the export endpoint only ever returned an object key — a real single-document export
+  // existed but the officer had no way to actually get the file. Fetches it as a blob (the
+  // permission-gated GET needs the same scoped headers a plain <a href> can't carry) and triggers
+  // a normal browser download.
+  const downloadExportedAuditPack = useCallback(async (objectKey: string): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/compliance/cases/${claimId}/audit-pack/export/download?objectKey=${encodeURIComponent(objectKey)}`, {
+        headers: scopedHeaders(role, ""),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to download evidence packs." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, "Evidence-pack download failed.") };
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = objectKey.split("/").pop() ?? "evidence-pack.json";
+      anchor.click();
+      URL.revokeObjectURL(url);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Evidence-pack download failed." };
+    }
+  }, [claimId, role]);
+
   return {
     detail,
     timeline,
@@ -498,6 +523,7 @@ export function useClaimReview(claimId: string) {
     acknowledgeReviewRequest,
     resolveReviewRequest,
     exportEvidencePack,
+    downloadExportedAuditPack,
     requestSupervisorReview,
     confirmClaim,
     reload: load,

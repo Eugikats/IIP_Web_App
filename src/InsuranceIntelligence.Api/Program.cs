@@ -856,6 +856,8 @@ app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack", ComplianceEndpoi
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export", ComplianceEndpoints.ExportAuditPack)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/download", ComplianceEndpoints.DownloadAuditPackExport)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/integrations/email/health", EmailIntegrationEndpoints.GetHealth)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.ListMailboxes)

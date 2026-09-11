@@ -16,6 +16,15 @@ public interface IComplianceQueryService
     Task<EvidencePackExportDto?> ExportAuditPackAsync(
         EvidencePackExportCommand command,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Reads back a previously exported evidence pack (blueprint §14 Phase 6, WO 6.2).
+    /// Returns null if the case doesn't exist/belong to this tenant, or if objectKey was never
+    /// actually recorded as exported for this case — the audit trail is the authorization check,
+    /// not a client-trusted object key alone.</summary>
+    Task<EvidencePackDownloadDto?> DownloadAuditPackAsync(
+        Guid caseId,
+        string objectKey,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -61,6 +70,11 @@ public sealed record EvidencePackExportDto(
     string ContentType,
     long FileSizeBytes,
     DateTimeOffset ExportedAt);
+
+public sealed record EvidencePackDownloadDto(
+    Stream Content,
+    string ContentType,
+    string FileName);
 
 public sealed record CompliancePostureDto(
     RetentionPostureDto Retention,

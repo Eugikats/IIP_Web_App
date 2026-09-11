@@ -83,6 +83,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     acknowledgeReviewRequest,
     resolveReviewRequest,
     exportEvidencePack,
+    downloadExportedAuditPack,
     requestSupervisorReview,
     confirmClaim,
     reload,
@@ -248,14 +249,21 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
 
   async function handleExportEvidencePack(auditReason: string) {
     const res = await exportEvidencePack(auditReason);
-    if (res.ok) {
-      toast.success("Claim pack exported", {
-        description: res.objectKey ? `Stored as ${res.objectKey}` : "Evidence pack artifact stored.",
-      });
-      setExportDialogOpen(false);
-    } else {
+    if (!res.ok) {
       toast.error(res.message ?? "Evidence-pack export failed");
+      return;
     }
+    setExportDialogOpen(false);
+    if (!res.objectKey) {
+      toast.success("Claim pack exported", { description: "Evidence pack artifact stored." });
+      return;
+    }
+    const downloadResult = await downloadExportedAuditPack(res.objectKey);
+    toast.success("Claim pack exported", {
+      description: downloadResult.ok
+        ? "Download started."
+        : `Stored as ${res.objectKey}, but the download could not start: ${downloadResult.message ?? "unknown error"}.`,
+    });
   }
 
   function openConfirmDialog() {
