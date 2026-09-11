@@ -909,6 +909,10 @@ app.MapPost("/api/v1/agents/{agentKey}/behaviour", InsuranceIntelligence.Api.Age
 app.MapPost("/api/v1/agents/{agentKey}/behaviour/test", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.TestBehaviour)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 
+// Tenant agent policy (blueprint §6.4, WO 3.4) — real enforcement-source data, not a hardcoded array.
+app.MapGet("/api/v1/admin/tenant-policy", InsuranceIntelligence.Api.Administration.TenantPolicyEndpoints.GetPolicy)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+
 // SMS delivery-status webhook (blueprint §5.4) — unauthenticated by header (the gateway's payload
 // carries no signature), gated by the unguessable path secret instead. No PermissionEndpointFilter:
 // the caller is an external SMS gateway, not an authenticated platform user.
