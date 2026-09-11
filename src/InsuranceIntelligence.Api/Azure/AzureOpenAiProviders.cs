@@ -414,7 +414,7 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
             || message.Contains("temporarily unavailable", StringComparison.OrdinalIgnoreCase);
         var requiresApproval = providerFallback
             || sensitive
-            || reasonCategory is CustomerUpdateReasonCategory.ReadyForReview or CustomerUpdateReasonCategory.EscalationReceived;
+            || reasonCategory is CustomerUpdateReasonCategory.ReadyForReview or CustomerUpdateReasonCategory.EscalationReceived or CustomerUpdateReasonCategory.DecisionOutcome;
 
         return new CustomerUpdateDraft
         {
@@ -523,7 +523,8 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
             ? "none"
             : string.Join(", ", checklist.ReceivedDocuments.Select(FormatDocumentType));
 
-        return string.Join('\n', [
+        var lines = new List<string>
+        {
             $"Channel: {channel}",
             $"Reason: {reasonCategory}",
             $"Customer name: {claimCase.CustomerName}",
@@ -535,7 +536,18 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
             $"Missing required documents: {missingDocuments}",
             $"Received documents: {receivedDocuments}",
             "Draft one concise customer-safe message. Do not include internal risk notes, confidence scores, reserves, fraud language, legal conclusions, or final claim decisions."
-        ]);
+        };
+
+        if (reasonCategory == CustomerUpdateReasonCategory.DecisionOutcome)
+        {
+            lines.Add(
+                "A human has reached a decision on this claim. Tell the customer only that a decision has " +
+                "been made and that a member of the claims team will contact them directly to discuss it. " +
+                "Never state, imply, or hint at what the decision was (approved, declined, an amount, or a reason) " +
+                "— that must come from the human who made the decision, not this draft.");
+        }
+
+        return string.Join('\n', lines);
     }
 
     private static string FormatDocumentType(DocumentType documentType)

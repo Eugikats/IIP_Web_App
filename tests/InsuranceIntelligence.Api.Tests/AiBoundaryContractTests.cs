@@ -344,6 +344,34 @@ public sealed class AiBoundaryContractTests
         Assert.Equal(StatusCodes.Status200OK, status);
     }
 
+    [Fact]
+    public async Task DraftCustomerUpdate_DecisionOutcome_NeverStatesTheDecision_AndAlwaysRequiresApproval()
+    {
+        // WO 5.5: a human decided the claim's outcome, but AGENTS.md bars AI from communicating a
+        // final claim decision — the draft must tell the customer only that a decision exists and
+        // to expect contact, never approved/declined/settled/an amount, and must always require
+        // approval regardless of content (unlike StatusUpdate, which can auto-clear as non-sensitive).
+        var deps = CreateWorkflowDeps();
+        var claimCase = await CreateCaseAsync(deps);
+        var checklist = new DocumentCompletenessChecklist(
+            claimCase.CaseId, claimCase.ProductLine, [], [], [], [], CompletenessScore.Calculate([], []));
+        var provider = new MockCustomerUpdateDraftingProvider(new StaticWorkflowRuleProvider());
+
+        var draft = await provider.DraftAsync(
+            claimCase, checklist, CustomerUpdateReasonCategory.DecisionOutcome, CommunicationChannel.Email,
+            "user-claims-1", "corr-decision-outcome-001");
+
+        Assert.True(draft.RequiresApproval);
+        Assert.Equal(CustomerUpdateStatus.PendingApproval, draft.Status);
+        var lowered = draft.MessageBody.ToLowerInvariant();
+        foreach (var forbidden in new[] { "approved", "declin", "denied", "repudiat", "settle", "reject", "$", "ugx" })
+        {
+            Assert.DoesNotContain(forbidden, lowered, StringComparison.Ordinal);
+        }
+        Assert.Contains("decision", lowered, StringComparison.Ordinal);
+        Assert.Contains("contact", lowered, StringComparison.Ordinal);
+    }
+
     private static async Task<ClaimCase> CreateCaseAsync(WorkflowDeps deps) =>
         await CreateCaseAsync(deps.CaseRepository, deps.AuditRepository);
 

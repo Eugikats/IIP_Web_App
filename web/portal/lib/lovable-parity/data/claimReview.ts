@@ -300,6 +300,25 @@ export function useClaimReview(claimId: string) {
     }
   }, [claimId, loadCustomerUpdates, role]);
 
+  const draftDecisionOutcomeUpdate = useCallback(async (): Promise<{ ok: boolean; message?: string }> => {
+    setDrafting(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/customer-updates/draft`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({ reasonCategory: "DecisionOutcome", channel: "Email" }),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to draft decision-outcome updates." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Decision-outcome draft failed.`) };
+      await loadCustomerUpdates();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Decision-outcome draft failed." };
+    } finally {
+      setDrafting(false);
+    }
+  }, [claimId, loadCustomerUpdates, role]);
+
   const requestSupervisorReview = useCallback(async (): Promise<{ ok: boolean; message?: string }> => {
     setRequestingApproval(true);
     try {
@@ -473,6 +492,7 @@ export function useClaimReview(claimId: string) {
     confirming,
     draftCustomerUpdate,
     draftDocumentFollowUp,
+    draftDecisionOutcomeUpdate,
     approveCustomerUpdate,
     sendCustomerUpdate,
     acknowledgeReviewRequest,

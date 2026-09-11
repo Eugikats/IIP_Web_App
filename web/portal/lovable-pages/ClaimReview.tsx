@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  Gavel,
   MessageSquareText,
   Send,
   ShieldAlert,
@@ -76,6 +77,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     confirming,
     draftCustomerUpdate,
     draftDocumentFollowUp,
+    draftDecisionOutcomeUpdate,
     approveCustomerUpdate,
     sendCustomerUpdate,
     acknowledgeReviewRequest,
@@ -148,6 +150,17 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       });
     } else {
       toast.error(res.message ?? "Could not draft document follow-up");
+    }
+  }
+
+  async function handleDraftDecisionOutcomeUpdate() {
+    const res = await draftDecisionOutcomeUpdate();
+    if (res.ok) {
+      toast.success("Decision-outcome update drafted", {
+        description: "The draft tells the customer to expect contact — it never states the decision itself. Review it below before approval or send.",
+      });
+    } else {
+      toast.error(res.message ?? "Could not draft decision-outcome update");
     }
   }
 
@@ -383,6 +396,11 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               {canDraftCustomerUpdates ? (
                 <Button variant="secondary" icon={<Send />} disabled={drafting} onClick={handleDraftDocumentFollowUp}>
                   Draft document follow-up
+                </Button>
+              ) : null}
+              {canDraftCustomerUpdates ? (
+                <Button variant="secondary" icon={<Gavel />} disabled={drafting} onClick={handleDraftDecisionOutcomeUpdate}>
+                  Draft decision outcome update
                 </Button>
               ) : null}
               {canExportEvidencePack ? (

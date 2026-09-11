@@ -18,7 +18,7 @@ public sealed class MockCustomerUpdateDraftingProvider(IWorkflowRuleProvider wor
         var now = DateTimeOffset.UtcNow;
         var message = BuildMessage(claimCase, checklist, reasonCategory);
         var sensitive = workflowRuleProvider.CustomerUpdateRequiresApproval(message);
-        var requiresApproval = sensitive || reasonCategory is CustomerUpdateReasonCategory.ReadyForReview or CustomerUpdateReasonCategory.EscalationReceived;
+        var requiresApproval = sensitive || reasonCategory is CustomerUpdateReasonCategory.ReadyForReview or CustomerUpdateReasonCategory.EscalationReceived or CustomerUpdateReasonCategory.DecisionOutcome;
 
         return Task.FromResult(new CustomerUpdateDraft
         {
@@ -54,6 +54,11 @@ public sealed class MockCustomerUpdateDraftingProvider(IWorkflowRuleProvider wor
                 $"Hello {claimCase.CustomerName}, your claim documents have been received and your case is ready for review by our claims team. We will keep you updated as the review progresses.",
             CustomerUpdateReasonCategory.EscalationReceived =>
                 $"Hello {claimCase.CustomerName}, your case has been escalated for additional human review. A claims team member will review the file and provide a further update.",
+            // Deliberately does not state the decision itself (approved/declined/amount) — AI must
+            // never communicate a final claim decision. The decision is delivered by the human who
+            // made it, not by this draft; this message only tells the customer to expect contact.
+            CustomerUpdateReasonCategory.DecisionOutcome =>
+                $"Hello {claimCase.CustomerName}, a decision has been reached on your claim for policy {claimCase.PolicyNumber}. A member of our claims team will contact you directly to discuss it.",
             _ =>
                 $"Hello {claimCase.CustomerName}, your claim is currently being reviewed by our team. We will share the next update through your selected communication channel."
         };
