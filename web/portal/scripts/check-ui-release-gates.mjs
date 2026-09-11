@@ -64,7 +64,11 @@ requireText("next.config.ts", "if (protectedRuntime) return [];", "protected run
 rejectPattern("lib/runtimeContext.tsx", /headers:\s*\{[\s\S]*?(X-Tenant-Id|X-Workspace-Id|X-User-Id)/, "runtime context fetch must not send browser-owned authority headers.");
 
 requireText("components/iip/Sidebar.tsx", "const permissions = runtimeContext?.permissions", "protected navigation must be effective-permission-filtered from the resolved runtime context.");
-requireText("components/iip/Sidebar.tsx", "canAccessWithPermissions(permissions, item.to)", "the seven rail destinations must each be filtered on the resolved effective permissions.");
+// Navigation model §5.2 amendment (2026-09-11, readiness blueprint §10.2): the rail moved from a
+// flat seven-item list to grouped, expandable destinations, each still filtered through the same
+// canAccessWithPermissions(permissions, ...) call — now reached via a shared `can()` helper rather
+// than inlined per item, so the literal call site reads `canAccessWithPermissions(permissions, path)`.
+requireText("components/iip/Sidebar.tsx", "canAccessWithPermissions(permissions, path)", "every rail destination must be filtered on the resolved effective permissions.");
 requireText("components/iip/Sidebar.tsx", "usePreviewRole", "browser role preview must remain explicitly separated from protected navigation.");
 requireText("components/iip/Sidebar.tsx", "runtimeContext?.availableWorkspaces", "the workspace indicator must use backend runtime context.");
 requireText("components/iip/Sidebar.tsx", "Workspace not configured", "missing workspace must render an honest state.");
