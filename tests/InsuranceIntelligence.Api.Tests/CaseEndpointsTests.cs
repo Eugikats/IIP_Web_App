@@ -39,6 +39,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             httpContext,
             CancellationToken.None);
@@ -73,6 +74,13 @@ public sealed class CaseEndpointsTests
             action.Action == "draftCustomerUpdate"
             && action.RequiredPermission == "ManageCustomerCommunications");
         Assert.Empty(response.BlockedActions);
+
+        // WO 5.3: the completeness check is visible immediately at submission — no documents
+        // exist yet, so every required document starts out Missing.
+        Assert.NotNull(response.RequiredDocuments);
+        Assert.Contains("Claim form", response.RequiredDocuments!.Required);
+        Assert.Contains("Police abstract", response.RequiredDocuments.Required);
+        Assert.Equal(response.RequiredDocuments.Required.Count, response.RequiredDocuments.Missing.Count);
     }
 
     [Fact]
@@ -101,6 +109,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             httpContext,
             CancellationToken.None);
@@ -128,6 +137,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             httpContext,
             CancellationToken.None);
@@ -147,6 +157,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             new DefaultHttpContext(),
             CancellationToken.None);
@@ -181,6 +192,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             context,
             CancellationToken.None);
@@ -218,6 +230,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             context,
             CancellationToken.None);
@@ -240,6 +253,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             createContext,
             CancellationToken.None);
@@ -270,6 +284,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             createContext,
             CancellationToken.None);
@@ -304,6 +319,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             createContext,
             CancellationToken.None);
@@ -369,6 +385,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             tenantAContext,
             CancellationToken.None);
@@ -379,6 +396,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             tenantBContext,
             CancellationToken.None);
@@ -634,6 +652,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             ScopedContext(),
             CancellationToken.None);
@@ -653,6 +672,7 @@ public sealed class CaseEndpointsTests
             dependencies.Service,
             dependencies.AuditRepository,
             dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
             dependencies.Logger,
             ScopedContext(),
             CancellationToken.None);

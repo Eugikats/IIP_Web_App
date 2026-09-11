@@ -19,6 +19,7 @@ public static class CaseEndpoints
         CaseIntakeService service,
         IAuditRepository auditRepository,
         InsuranceIntelligence.Application.Cases.IFnolAcknowledgementService acknowledgementService,
+        IDocumentChecklistProvider checklistProvider,
         ILogger<CaseFnolAcknowledgementLogMarker> logger,
         HttpContext httpContext,
         CancellationToken cancellationToken)
@@ -72,7 +73,13 @@ public static class CaseEndpoints
             }
 
             var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);
-            var response = CaseMapper.ToResponse(claimCase, auditEvents);
+
+            // WO 5.3: the completeness check runs right here, at submission — no documents exist
+            // yet, so every RequiredDocuments entry starts out Missing by definition. That is the
+            // point: the submitter sees the full checklist immediately, not only after extraction
+            // runs on whatever gets uploaded later.
+            var checklist = await checklistProvider.BuildChecklistAsync(claimCase, [], cancellationToken);
+            var response = CaseMapper.ToResponse(claimCase, auditEvents, checklist);
 
             return Results.Created($"/api/v1/cases/{claimCase.CaseId}", response);
         }
