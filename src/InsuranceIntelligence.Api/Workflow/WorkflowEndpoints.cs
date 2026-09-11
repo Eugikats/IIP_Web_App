@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Cases;
+using InsuranceIntelligence.Application.Cases;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Audit;
@@ -10,6 +11,8 @@ using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
+using InsuranceIntelligence.Infrastructure.WhatsApp;
+using Microsoft.Extensions.Logging;
 
 namespace InsuranceIntelligence.Api.Workflow;
 
@@ -85,6 +88,9 @@ public static class WorkflowEndpoints
         IApprovalRepository approvalRepository,
         IAuditRepository auditRepository,
         INotificationEmitter notificationEmitter,
+        IMissingDocumentRequestService missingDocumentRequestService,
+        IWhatsAppRuntimeSettingsProvider whatsAppSettingsProvider,
+        ILogger<MissingDocumentRequestLogMarker> logger,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -166,6 +172,27 @@ public static class WorkflowEndpoints
                     "This claim was automatically escalated.",
                     claimForWorkflow.CaseId,
                     cancellationToken);
+            }
+
+            // WO 5.4: the moment a case actually transitions INTO MissingDocuments — not every
+            // time workflow evaluation merely confirms it is still there — tell the customer what
+            // is missing, over the channel the claim itself arrived on. A failed or blocked
+            // request must never fail workflow evaluation, which already succeeded above.
+            if (nextStatus == CaseStatus.MissingDocuments && beforeCase.Status != CaseStatus.MissingDocuments)
+            {
+                try
+                {
+                    await missingDocumentRequestService.SendAsync(
+                        claimForWorkflow,
+                        context.Checklist,
+                        correlationId,
+                        whatsAppSettingsProvider.Current?.PhoneNumberId,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Missing-document request failed for case {CaseId}", claimForWorkflow.CaseId);
+                }
             }
         }
 
@@ -542,3 +569,8 @@ public static class WorkflowEndpoints
     private static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
+
+/// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
+/// static-class endpoint (ILogger&lt;WorkflowEndpoints&gt; is not usable — the class is static),
+/// matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
+public sealed class MissingDocumentRequestLogMarker;

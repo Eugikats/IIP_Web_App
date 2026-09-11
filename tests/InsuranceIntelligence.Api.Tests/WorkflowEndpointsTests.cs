@@ -5,17 +5,22 @@ using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Api.Reports;
 using InsuranceIntelligence.Api.Workflow;
+using InsuranceIntelligence.Application.Cases;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
+using InsuranceIntelligence.Infrastructure.WhatsApp;
 using InsuranceIntelligence.LocalTestDoubles;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace InsuranceIntelligence.Api.Tests;
 
@@ -89,6 +94,9 @@ public sealed class WorkflowEndpointsTests
             dependencies.ApprovalRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
+            dependencies.MissingDocumentRequestService,
+            dependencies.WhatsAppSettingsProvider,
+            dependencies.Logger,
             context,
             CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync<WorkflowEvaluationResponse>(result);
@@ -956,6 +964,9 @@ public sealed class WorkflowEndpointsTests
             dependencies.ApprovalRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
+            dependencies.MissingDocumentRequestService,
+            dependencies.WhatsAppSettingsProvider,
+            dependencies.Logger,
             ScopedContext(),
             CancellationToken.None);
 
@@ -1041,12 +1052,19 @@ public sealed class WorkflowEndpointsTests
     {
         var workflowRuleProvider = new StaticWorkflowRuleProvider();
         var scoringService = new CompletenessScoringService();
+        var auditRepository = new InMemoryAuditRepository();
+        var missingDocumentRequestService = new MissingDocumentRequestService(
+            new NotConfiguredWhatsAppOutboundProvider(),
+            new NoOpWhatsAppMessageRepository(),
+            new FakeCommunicationSendingProvider(),
+            new NoOpCommunicationRepository(),
+            auditRepository);
 
         return new Dependencies(
             new InMemoryCaseRepository(),
             new InMemoryCaseDocumentRepository(),
             new StaticDocumentChecklistProvider(scoringService),
-            new InMemoryAuditRepository(),
+            auditRepository,
             new InMemoryAgentActionLogRepository(),
             new InMemoryWorkflowTaskRepository(),
             new InMemoryApprovalRepository(),
@@ -1059,7 +1077,41 @@ public sealed class WorkflowEndpointsTests
             communicationProvider ?? new MockCommunicationProvider(),
             new FakeTeamsNotificationQueue(),
             new InsuranceIntelligence.Application.Notifications.NotificationService(
-                new TenantContextAccessor(), new InMemoryNotificationRepository()));
+                new TenantContextAccessor(), new InMemoryNotificationRepository()),
+            missingDocumentRequestService,
+            new NullWhatsAppRuntimeSettingsProvider(),
+            NullLogger<MissingDocumentRequestLogMarker>.Instance);
+    }
+
+    private sealed class NotConfiguredWhatsAppOutboundProvider : IWhatsAppOutboundProvider
+    {
+        public bool IsConfigured => false;
+        public Task<WhatsAppProviderSendResult> SendAsync(WhatsAppProviderSendRequest request, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Not configured — should never be called in these tests (no case here originates on WhatsApp).");
+    }
+
+    private sealed class NoOpWhatsAppMessageRepository : IWhatsAppMessageRepository
+    {
+        public Task SaveAsync(WhatsAppMessage message, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Should never be called in these tests (no case here originates on WhatsApp).");
+        public Task<WhatsAppMessage?> GetAsync(TenantScope scope, Guid messageId, CancellationToken cancellationToken = default) => Task.FromResult<WhatsAppMessage?>(null);
+        public Task<WhatsAppMessage?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default) => Task.FromResult<WhatsAppMessage?>(null);
+        public Task<WhatsAppMessage?> FindByIdempotencyKeyAsync(TenantScope scope, string idempotencyKey, CancellationToken cancellationToken = default) => Task.FromResult<WhatsAppMessage?>(null);
+        public Task<IReadOnlyList<WhatsAppMessage>> ListThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<WhatsAppMessage>>([]);
+    }
+
+    private sealed class NoOpCommunicationRepository : ICommunicationRepository
+    {
+        public Task SaveAsync(Communication communication, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyCollection<Communication>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyCollection<Communication>>([]);
+        public Task<IReadOnlyCollection<Communication>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyCollection<Communication>>([]);
+        public Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default) => Task.FromResult<Communication?>(null);
+    }
+
+    private sealed class NullWhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsProvider
+    {
+        public WhatsAppEffectiveSettings? Current => null;
+        public Task RefreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private static DefaultHttpContext ScopedContext(
@@ -1183,7 +1235,10 @@ public sealed class WorkflowEndpointsTests
         ICustomerUpdateDraftingProvider DraftingProvider,
         ICommunicationProvider CommunicationProvider,
         InsuranceIntelligence.Domain.Notifications.ITeamsNotificationQueue TeamsNotificationQueue,
-        InsuranceIntelligence.Application.Notifications.INotificationEmitter NotificationEmitter);
+        InsuranceIntelligence.Application.Notifications.INotificationEmitter NotificationEmitter,
+        IMissingDocumentRequestService MissingDocumentRequestService,
+        IWhatsAppRuntimeSettingsProvider WhatsAppSettingsProvider,
+        ILogger<MissingDocumentRequestLogMarker> Logger);
 
     private sealed class FakeCommunicationSendingProvider : ICommunicationSendingProvider
     {
