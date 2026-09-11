@@ -12,7 +12,9 @@ public sealed class FraudRuleEngineTests
         string claimType = "Motor",
         decimal completeness = 0.9m,
         DateTimeOffset? createdAt = null,
-        Guid? caseId = null) =>
+        Guid? caseId = null,
+        DateOnly? policyEffectiveFrom = null,
+        decimal? policySumInsured = null) =>
         new(
             caseId ?? Guid.NewGuid(),
             name,
@@ -21,7 +23,9 @@ public sealed class FraudRuleEngineTests
             policy,
             claimType,
             completeness,
-            createdAt ?? new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            createdAt ?? new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            policyEffectiveFrom,
+            policySumInsured);
 
     [Fact]
     public void Evaluate_NoClaims_ReturnsNoSignals()
@@ -122,6 +126,86 @@ public sealed class FraudRuleEngineTests
         foreach (var signal in FraudRuleEngine.Evaluate(claims))
         {
             foreach (var banned in new[] { "confirmed fraud", "fraudster", "guilty", "is fraud" })
+            {
+                Assert.DoesNotContain(banned, signal.Title, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain(banned, signal.Description, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+    }
+
+    // WO 7.3: AML/CFT advisory signals — same "advisory only, never a determination" discipline
+    // as the fraud rules above, evaluated from real policy data (EffectiveFrom/SumInsured), not
+    // fabricated fields.
+
+    [Fact]
+    public void Evaluate_ClaimFiledWithinEarlyClaimWindow_RaisesAmlEarlyClaimSignal()
+    {
+        var claims = new[]
+        {
+            Claim("Grace Auma", phone: "+256700000200",
+                createdAt: new DateTimeOffset(2026, 1, 10, 0, 0, 0, TimeSpan.Zero),
+                policyEffectiveFrom: new DateOnly(2026, 1, 1)),
+        };
+
+        var signal = Assert.Single(FraudRuleEngine.Evaluate(claims), s => s.RuleId == "R-AML-EARLY-CLAIM");
+        Assert.Equal(FraudSignalSeverity.PotentialAnomaly, signal.Severity);
+        Assert.Contains("AML/CFT", signal.SignalType);
+    }
+
+    [Fact]
+    public void Evaluate_ClaimFiledWellAfterPolicyInception_DoesNotRaiseEarlyClaimSignal()
+    {
+        var claims = new[]
+        {
+            Claim("Grace Auma", phone: "+256700000201",
+                createdAt: new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero),
+                policyEffectiveFrom: new DateOnly(2026, 1, 1)),
+        };
+
+        Assert.DoesNotContain(FraudRuleEngine.Evaluate(claims), s => s.RuleId == "R-AML-EARLY-CLAIM");
+    }
+
+    [Fact]
+    public void Evaluate_NoPolicyEffectiveDateKnown_DoesNotRaiseEarlyClaimSignal()
+    {
+        var claims = new[] { Claim("Grace Auma", phone: "+256700000202") }; // policyEffectiveFrom defaults to null
+
+        Assert.DoesNotContain(FraudRuleEngine.Evaluate(claims), s => s.RuleId == "R-AML-EARLY-CLAIM");
+    }
+
+    [Fact]
+    public void Evaluate_SumInsuredMeetsThreshold_RaisesAmlHighValueSignal()
+    {
+        var claims = new[] { Claim("Wealthy Client", phone: "+256700000300", policySumInsured: 150_000_000m) };
+
+        var signal = Assert.Single(FraudRuleEngine.Evaluate(claims), s => s.RuleId == "R-AML-HIGH-VALUE");
+        Assert.Equal(FraudSignalSeverity.AdvisorySignal, signal.Severity);
+        Assert.Contains("AML/CFT", signal.SignalType);
+    }
+
+    [Fact]
+    public void Evaluate_SumInsuredBelowThreshold_DoesNotRaiseHighValueSignal()
+    {
+        var claims = new[] { Claim("Modest Client", phone: "+256700000301", policySumInsured: 5_000_000m) };
+
+        Assert.DoesNotContain(FraudRuleEngine.Evaluate(claims), s => s.RuleId == "R-AML-HIGH-VALUE");
+    }
+
+    [Fact]
+    public void Evaluate_AmlCftSignals_NeverEmitAccusatoryLanguage()
+    {
+        var claims = new[]
+        {
+            Claim("Grace Auma", phone: "+256700000400",
+                createdAt: new DateTimeOffset(2026, 1, 5, 0, 0, 0, TimeSpan.Zero),
+                policyEffectiveFrom: new DateOnly(2026, 1, 1), policySumInsured: 200_000_000m),
+        };
+
+        var signals = FraudRuleEngine.Evaluate(claims).Where(s => s.RuleId.StartsWith("R-AML-", StringComparison.Ordinal)).ToArray();
+        Assert.NotEmpty(signals);
+        foreach (var signal in signals)
+        {
+            foreach (var banned in new[] { "confirmed", "guilty", "laundering has occurred", "is money laundering" })
             {
                 Assert.DoesNotContain(banned, signal.Title, StringComparison.OrdinalIgnoreCase);
                 Assert.DoesNotContain(banned, signal.Description, StringComparison.OrdinalIgnoreCase);
