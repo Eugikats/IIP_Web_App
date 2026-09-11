@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, MessageSquare, PlugZap, RefreshCcw, ShieldCheck, Unplug } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Mail, MessageSquare, PlugZap, RefreshCcw, ShieldCheck, Unplug } from "lucide-react";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import { useUI } from "@/context/UIStateContext";
 import {
   type ConnectionStatus,
   type ConnectionType,
+  EMAIL_PROVIDER_FIELDS,
   SMS_PROVIDER_FIELDS,
   deleteConnection,
   getConnectionProviders,
@@ -23,7 +24,13 @@ import {
 // field guide in lib/connections.ts — the screen, dialogs, and API calls stay the same.
 const CONNECTION_TYPES: { type: ConnectionType; label: string; icon: typeof MessageSquare; description: string }[] = [
   { type: "sms", label: "SMS", icon: MessageSquare, description: "Send text messages to customers — claim status, magic links, decision outcomes." },
+  { type: "email", label: "Email", icon: Mail, description: "Send email to customers over any SMTP-speaking mail system — no Azure tenant needed." },
 ];
+
+const FIELD_GUIDE_BY_TYPE: Record<ConnectionType, Record<string, import("@/lib/connections").ConnectionFieldSpec[]>> = {
+  sms: SMS_PROVIDER_FIELDS,
+  email: EMAIL_PROVIDER_FIELDS,
+};
 
 export default function ConnectionSettings() {
   return (
@@ -81,11 +88,11 @@ function ConnectionCard({
   useEffect(() => { void load(); }, [role, type]);
 
   const fieldGuide = useMemo(
-    () => (type === "sms" ? SMS_PROVIDER_FIELDS[selectedProvider] ?? [] : []),
+    () => FIELD_GUIDE_BY_TYPE[type][selectedProvider] ?? [],
     [type, selectedProvider]
   );
 
-  const requiredFields = fieldGuide.filter((f) => f.key !== "senderId" && f.key !== "sandbox");
+  const requiredFields = fieldGuide.filter((f) => !f.optional);
   const canSubmitConnect = selectedProvider.length > 0 && requiredFields.every((f) => (fieldValues[f.key] ?? "").trim().length > 0);
 
   async function onConnect(reason: string) {

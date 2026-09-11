@@ -52,6 +52,27 @@ public interface ISmsProviderFactory
     ISmsProvider CreateFallback();
 }
 
+/// <summary>Sends outbound email — separated from ICommunicationSendingProvider (SMS + Email
+/// together) so email has its own tenant-connectable seam (blueprint §7.2), the same way
+/// ISmsProvider does for SMS.</summary>
+public interface IEmailSendingProvider
+{
+    Task<CommunicationSendResult> SendEmailAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Constructs a live IEmailSendingProvider from a provider key and settings — the email
+/// equivalent of ISmsProviderFactory. Only SMTP is tenant-connectable (a username/password any
+/// insurer can supply); Graph requires an Entra app registration and stays deployment-level, so it
+/// is available only via CreateFallback, never via Create.</summary>
+public interface IEmailSendingProviderFactory
+{
+    IReadOnlyCollection<string> SupportedProviderKeys { get; }
+
+    IEmailSendingProvider? Create(string providerKey, IReadOnlyDictionary<string, string> settings);
+
+    IEmailSendingProvider CreateFallback();
+}
+
 public sealed record CommunicationSendRequest(
     TenantScope Scope,
     Guid CaseId,

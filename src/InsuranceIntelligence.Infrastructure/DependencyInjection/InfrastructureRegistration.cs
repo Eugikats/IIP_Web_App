@@ -101,12 +101,16 @@ public static class InfrastructureRegistration
         services.AddSingleton<ISmsProviderFactory, SmsProviderFactory>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, EgoSmsConnectionValidator>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, AfricasTalkingConnectionValidator>();
+        services.AddSingleton<IEmailSendingProviderFactory, EmailSendingProviderFactory>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, SmtpConnectionValidator>();
 
-        // ISmsProvider is always TenantAwareSmsProvider now — the three-step resolver (tenant
-        // Connection, then SmsProvider env var, then Not configured). SmsProvider/AfricasTalking
-        // options below still govern step 2, the fallback, exactly as before. Scoped because it
-        // depends on the scoped connection repository.
+        // ISmsProvider/IEmailSendingProvider are always the tenant-aware resolvers now — the
+        // three-step order (tenant Connection, then env var fallback, then Not configured).
+        // SmsProvider/AfricasTalking and CommunicationProvider/GraphMail options below still govern
+        // step 2, the fallback, exactly as before. Scoped because they depend on the scoped
+        // connection repository.
         services.AddScoped<ISmsProvider, TenantAwareSmsProvider>();
+        services.AddScoped<IEmailSendingProvider, TenantAwareEmailSendingProvider>();
 
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
         {
@@ -266,6 +270,7 @@ public static class InfrastructureRegistration
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
             ClientPortalBaseUrl = configuration["INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL"],
             SmsWebhookSharedSecret = configuration["INSURANCEINTELLIGENCE_SMS_WEBHOOK_SHARED_SECRET"],
+            ApiPublicBaseUrl = configuration["INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL"],
             AzureRegion = configuration["INSURANCEINTELLIGENCE_AZURE_REGION"],
             DataResidencyCountry = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY"],
             DataResidencyGeography = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY"],

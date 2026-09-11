@@ -19,6 +19,12 @@ public sealed record WhatsAppChannelConfiguration
 {
     public required TenantScope Scope { get; init; }
     public required string PhoneNumberId { get; init; }
+
+    /// <summary>The WhatsApp Business Account id, from Meta Business Settings next to the phone
+    /// number — required to register the webhook via subscribed_apps (blueprint §4.3). Optional
+    /// on the record so existing saved configurations (from before this field existed) still
+    /// deserialize; SaveConfiguration requires it for new/updated connections.</summary>
+    public string? WabaId { get; init; }
     public string? BusinessDisplayName { get; init; }
     public required string EncryptedAccessToken { get; init; }
     public required string EncryptedAppSecret { get; init; }
@@ -29,6 +35,15 @@ public sealed record WhatsAppChannelConfiguration
     public DateTimeOffset? LastValidatedAt { get; init; }
     public string? LastValidationStatus { get; init; }
     public string? LastValidationError { get; init; }
+
+    /// <summary>The callback URL registered with Meta — shown in the settings screen so the
+    /// operator has the exact value if auto-registration ever needs to be redone manually.</summary>
+    public string? WebhookCallbackUrl { get; init; }
+
+    /// <summary>"Registered" | "RegistrationFailed" | "ManualRequired" | null (never attempted).
+    /// See WhatsAppConfigurationEndpoints.SaveConfiguration.</summary>
+    public string? WebhookRegistrationStatus { get; init; }
+    public string? WebhookRegistrationError { get; init; }
 
     /// <summary>Deterministic per-tenant id, same DeterministicId pattern used elsewhere in this
     /// codebase — a tenant saving new credentials always updates its one row rather than

@@ -54,6 +54,86 @@ public sealed class MetaGraphWhatsAppValidationClient(HttpClient httpClient) : I
         }
     }
 
+    public async Task<WhatsAppWebhookRegistrationResult> RegisterWebhookAsync(
+        string graphBaseUrl,
+        string wabaId,
+        string accessToken,
+        string callbackUrl,
+        string verifyToken,
+        int timeoutSeconds,
+        CancellationToken cancellationToken = default)
+    {
+        // Meta caps override_callback_uri at 200 characters (blueprint §4.3) — fail locally with a
+        // clear reason rather than let Meta reject it opaquely.
+        if (callbackUrl.Length > 200)
+        {
+            return new WhatsAppWebhookRegistrationResult(false, "The webhook callback URL exceeds Meta's 200-character limit — shorten the configured API public base URL.");
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 5, 30)));
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{graphBaseUrl.TrimEnd('/')}/{Uri.EscapeDataString(wabaId)}/subscribed_apps");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Content = JsonContent.Create(new SubscribedAppsRequest(callbackUrl, verifyToken));
+
+        try
+        {
+            using var response = await httpClient.SendAsync(request, timeout.Token);
+            var body = await response.Content.ReadAsStringAsync(timeout.Token);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new WhatsAppWebhookRegistrationResult(false, SafeWebhookErrorFrom(body, response.StatusCode));
+            }
+
+            var parsed = JsonSerializer.Deserialize<SubscribedAppsResponse>(body);
+            return parsed?.Success == true
+                ? new WhatsAppWebhookRegistrationResult(true, null)
+                : new WhatsAppWebhookRegistrationResult(false, "Meta accepted the request but did not confirm the webhook was registered.");
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new WhatsAppWebhookRegistrationResult(false, "Meta did not respond in time while registering the webhook.");
+        }
+        catch (HttpRequestException)
+        {
+            return new WhatsAppWebhookRegistrationResult(false, "Could not reach the Meta Graph API to register the webhook.");
+        }
+        catch (JsonException)
+        {
+            return new WhatsAppWebhookRegistrationResult(false, "Meta returned a response IIP could not parse while registering the webhook.");
+        }
+    }
+
+    private static string SafeWebhookErrorFrom(string body, System.Net.HttpStatusCode statusCode)
+    {
+        try
+        {
+            var error = JsonSerializer.Deserialize<GraphErrorEnvelope>(body);
+            var message = error?.Error?.Message;
+            if (!string.IsNullOrWhiteSpace(message) && message.Contains("permission", StringComparison.OrdinalIgnoreCase))
+            {
+                return "The access token is missing the whatsapp_business_management permission required to register a webhook. Add that scope to the token in Meta Business Settings, or register the webhook manually using the callback URL and verify token shown below.";
+            }
+
+            return string.IsNullOrWhiteSpace(message)
+                ? $"Meta rejected the webhook registration request ({(int)statusCode})."
+                : "Meta rejected the webhook registration request. Register it manually using the callback URL and verify token shown below.";
+        }
+        catch (JsonException)
+        {
+            return $"Meta rejected the webhook registration request ({(int)statusCode}).";
+        }
+    }
+
+    private sealed record SubscribedAppsRequest(
+        [property: JsonPropertyName("override_callback_uri")] string OverrideCallbackUri,
+        [property: JsonPropertyName("verify_token")] string VerifyToken);
+
+    private sealed record SubscribedAppsResponse([property: JsonPropertyName("success")] bool Success);
+
     private static string SafeErrorFrom(string body, System.Net.HttpStatusCode statusCode)
     {
         try

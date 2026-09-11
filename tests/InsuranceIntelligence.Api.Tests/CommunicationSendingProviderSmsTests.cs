@@ -23,10 +23,7 @@ public sealed class CommunicationSendingProviderSmsTests
     public async Task GraphCommunicationSendingProvider_SendSmsAsync_DelegatesToInjectedSmsProvider()
     {
         var smsProvider = new RecordingSmsProvider("Sent");
-        var provider = new GraphCommunicationSendingProvider(
-            new InfrastructureOptions { CommunicationProvider = "GraphEmail" },
-            new StubGraphMailClient(),
-            smsProvider);
+        var provider = new GraphCommunicationSendingProvider(new DisabledEmailSendingProvider(), smsProvider);
 
         var result = await provider.SendSmsAsync(Request());
 
@@ -42,7 +39,7 @@ public sealed class CommunicationSendingProviderSmsTests
         // "Disabled" only ever meant "email sending is disabled" — SMS must not have been coupled
         // to it at all.
         var smsProvider = new RecordingSmsProvider("Sent");
-        var provider = new DisabledCommunicationSendingProvider(smsProvider);
+        var provider = new DisabledCommunicationSendingProvider(new DisabledEmailSendingProvider(), smsProvider);
 
         var result = await provider.SendSmsAsync(Request());
 
@@ -51,14 +48,29 @@ public sealed class CommunicationSendingProviderSmsTests
     }
 
     [Fact]
-    public async Task DisabledCommunicationSendingProvider_SendEmailAsync_StillReportsConfigurationRequired()
+    public async Task DisabledCommunicationSendingProvider_SendEmailAsync_DelegatesToInjectedEmailProvider()
     {
-        // Email behavior is deliberately untouched by this fix — only SMS's dead-end was real.
-        var provider = new DisabledCommunicationSendingProvider(new RecordingSmsProvider("Sent"));
+        // Email now resolves through the same Connection model as SMS (blueprint §7.2/§14 Phase 1)
+        // — DisabledCommunicationSendingProvider no longer hardcodes the email outcome either.
+        var emailProvider = new RecordingEmailProvider("Sent");
+        var provider = new DisabledCommunicationSendingProvider(emailProvider, new RecordingSmsProvider("Sent"));
 
         var result = await provider.SendEmailAsync(Request());
 
-        Assert.Equal("ConfigurationRequired", result.DeliveryStatus);
+        Assert.Equal("Sent", result.DeliveryStatus);
+        Assert.True(emailProvider.WasCalled);
+    }
+
+    [Fact]
+    public async Task GraphCommunicationSendingProvider_SendEmailAsync_DelegatesToInjectedEmailProvider()
+    {
+        var emailProvider = new RecordingEmailProvider("Sent");
+        var provider = new GraphCommunicationSendingProvider(emailProvider, new RecordingSmsProvider("Sent"));
+
+        var result = await provider.SendEmailAsync(Request());
+
+        Assert.Equal("Sent", result.DeliveryStatus);
+        Assert.True(emailProvider.WasCalled);
     }
 
     private static CommunicationSendRequest Request() =>
@@ -75,18 +87,14 @@ public sealed class CommunicationSendingProviderSmsTests
         }
     }
 
-    private sealed class StubGraphMailClient : IGraphMailClient
+    private sealed class RecordingEmailProvider(string deliveryStatus) : IEmailSendingProvider
     {
-        public Task<IReadOnlyCollection<GraphMailboxMessage>> ReadMessagesAsync(MailboxConnection mailbox, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("Not exercised by these SMS-focused tests.");
+        public bool WasCalled { get; private set; }
 
-        public Task<GraphAttachmentContent> DownloadAttachmentAsync(string mailboxAddress, string externalMessageId, string externalAttachmentId, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("Not exercised by these SMS-focused tests.");
-
-        public Task MoveMessageAsync(string mailboxAddress, string externalMessageId, string folderName, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("Not exercised by these SMS-focused tests.");
-
-        public Task<GraphMailSendResult> SendMailAsync(GraphMailSendRequest request, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("Not exercised by these SMS-focused tests.");
+        public Task<CommunicationSendResult> SendEmailAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default)
+        {
+            WasCalled = true;
+            return Task.FromResult(new CommunicationSendResult(deliveryStatus, "msg-1", null));
+        }
     }
 }
