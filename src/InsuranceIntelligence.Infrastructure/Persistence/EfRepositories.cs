@@ -303,6 +303,17 @@ public sealed class EfCommunicationRepository(InsuranceIntelligenceDbContext dbC
             .Where(record => record.CaseId == caseId)
             .Select(record => Deserialize<Communication>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
+
+    // ProviderMessageId lives inside the JSON payload, not a dedicated column, so this filters
+    // in memory after a scoped load rather than in SQL — acceptable at today's per-tenant
+    // communication volume; revisit with a real column/index if that changes.
+    public async Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default)
+    {
+        var records = await Scoped(DbContext.Communications.AsNoTracking(), scope).ToArrayAsync(cancellationToken);
+        return records
+            .Select(record => Deserialize<Communication>(record.PayloadJson))
+            .FirstOrDefault(communication => string.Equals(communication.ProviderMessageId, providerMessageId, StringComparison.Ordinal));
+    }
 }
 
 public sealed class EfTenantConfigurationRepository(InsuranceIntelligenceDbContext dbContext)

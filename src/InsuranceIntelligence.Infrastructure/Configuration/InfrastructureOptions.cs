@@ -19,6 +19,12 @@ public sealed record InfrastructureOptions
     /// used to build magic-link URLs sent to claimants. Required outside Development for
     /// magic-link issuance to work — see ClaimantAuthenticationEndpoints.</summary>
     public string? ClientPortalBaseUrl { get; init; }
+    /// <summary>Path secret an SMS gateway's delivery-status webhook must present (as a route
+    /// segment) to be accepted. The payload EgoSMS/Africa's Talking POST back carries no signature
+    /// and no tenant identifier — this unguessable segment is what stops an outsider from posting
+    /// fabricated delivery statuses, and what lets the endpoint find the one deployment-configured
+    /// tenant scope to update. See docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md §5.4.</summary>
+    public string? SmsWebhookSharedSecret { get; init; }
     public string? AzureRegion { get; init; }
     public string? DataResidencyCountry { get; init; }
     public string? DataResidencyGeography { get; init; }

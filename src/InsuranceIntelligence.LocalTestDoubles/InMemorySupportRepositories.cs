@@ -74,6 +74,13 @@ public sealed class InMemoryCommunicationRepository : ICommunicationRepository
         var matches = communications.Values.Where(item => item.CaseId == caseId && item.Scope.Matches(scope)).OrderByDescending(item => item.CreatedAt).ToArray();
         return Task.FromResult<IReadOnlyCollection<Communication>>(matches);
     }
+
+    public Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default)
+    {
+        var match = communications.Values.FirstOrDefault(item =>
+            item.Scope.Matches(scope) && string.Equals(item.ProviderMessageId, providerMessageId, StringComparison.Ordinal));
+        return Task.FromResult(match);
+    }
 }
 
 public sealed class InMemoryClaimReviewRequestRepository : IClaimReviewRequestRepository

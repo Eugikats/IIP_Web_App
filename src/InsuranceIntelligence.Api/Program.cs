@@ -879,6 +879,25 @@ app.MapDelete("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurati
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
 app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);
+
+// Generic connection settings surface (blueprint §3.4) — the /app/admin/connections screen's
+// backend. {connectionType} is "sms" or "email" today; adding a type is a new ConnectionType enum
+// value plus IConnectionValidator implementations, no new routes.
+app.MapGet("/api/v1/integrations/connections/{connectionType}/providers", ConnectionEndpoints.ListProviders)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/connections/{connectionType}", ConnectionEndpoints.GetStatus)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/integrations/connections/{connectionType}", ConnectionEndpoints.SaveConfiguration)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/integrations/connections/{connectionType}/test", ConnectionEndpoints.TestConfiguration)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapDelete("/api/v1/integrations/connections/{connectionType}", ConnectionEndpoints.DeleteConfiguration)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+
+// SMS delivery-status webhook (blueprint §5.4) — unauthenticated by header (the gateway's payload
+// carries no signature), gated by the unguessable path secret instead. No PermissionEndpointFilter:
+// the caller is an external SMS gateway, not an authenticated platform user.
+app.MapPost("/api/v1/integrations/sms/status/{pathSecret}", SmsIntegrationEndpoints.ReceiveDeliveryStatus);
 app.MapGet("/api/v1/channels/whatsapp/threads/{threadId}", WhatsAppIntegrationEndpoints.GetThread)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
 app.MapPost("/api/v1/channels/whatsapp/threads/{threadId}/messages", WhatsAppIntegrationEndpoints.SendMessage)

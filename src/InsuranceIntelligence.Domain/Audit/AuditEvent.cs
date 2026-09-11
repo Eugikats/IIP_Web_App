@@ -403,6 +403,50 @@ public sealed record AuditEvent(
             AuditReason: auditReason,
             CorrelationId: correlationId);
 
+    /// <summary>Generalizes WhatsAppConfigurationSaved to every IntegrationConnection type —
+    /// connecting a tenant-configured provider (SMS, email, ...) is a governed action.</summary>
+    public static AuditEvent ConnectionSaved(
+        TenantScope scope, string userId, string connectionType, string providerKey, string auditReason, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            $"integration.connection.{connectionType.ToLowerInvariant()}.saved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: "Connected",
+            EvidenceIds: [providerKey],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "validated",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ConnectionRemoved(
+        TenantScope scope, string userId, string connectionType, string? providerKey, string auditReason, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            $"integration.connection.{connectionType.ToLowerInvariant()}.removed",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: "Connected",
+            AfterStatus: "Disconnected",
+            EvidenceIds: providerKey is null ? Array.Empty<string>() : [providerKey],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
     public static AuditEvent AssistantPolicyQuestionAnswered(AgentActionLog actionLog) =>
         new(
             Guid.NewGuid(),

@@ -276,7 +276,8 @@ public static class CommunicationEndpoints
             SentBy = actor,
             DeliveryStatus = result.DeliveryStatus,
             CreatedAt = DateTimeOffset.UtcNow,
-            CorrelationId = httpContext.TraceIdentifier
+            CorrelationId = httpContext.TraceIdentifier,
+            ProviderMessageId = string.IsNullOrWhiteSpace(result.ProviderMessageId) ? null : result.ProviderMessageId,
         };
         await repository.SaveAsync(communication, cancellationToken);
         var (auditAction, providerName) = AuditProvider(channel, options.CommunicationProvider);

@@ -38,6 +38,14 @@ public sealed record ClaimantMagicLinkToken
     public required DateTimeOffset CreatedAt { get; init; }
     public required string CorrelationId { get; init; }
 
+    /// <summary>What actually happened when this token's link was sent — "Sent", "Failed", or
+    /// "ConfigurationRequired". Never shown to the anonymous requester (the endpoint's response is
+    /// deliberately identical either way, to preserve anti-enumeration); it exists so a failure is
+    /// visible somewhere — logs, and here for future support tooling — instead of silently
+    /// discarded. See ClaimantAuthenticationEndpoints.IssueAndSendAsync.</summary>
+    public string? DeliveryStatus { get; init; }
+    public string? DeliverySafeError { get; init; }
+
     public bool IsRedeemableAt(DateTimeOffset now) => ConsumedAt is null && now < ExpiresAt;
 }
 

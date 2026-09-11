@@ -47,3 +47,16 @@ Clear the 27-point checklist in `docs/03-design-architecture/iip_ui_craft_guardr
 ## Deploying to Azure
 
 When explicitly asked to push/deploy to Azure, read [`docs/05-deployment-release-enablement/AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md`](docs/05-deployment-release-enablement/AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md) first — it is the authoritative index of which subscriptions/resource groups actually hold IIP resources, who has access, and the verified deploy procedure. Do not guess resource names or assume `deploy-staging.yml` targets a live environment — confirm live via `az` before deploying, the same way that document was produced, since Azure resources here have been deleted/renamed out-of-band before.
+
+## Readiness, gaps and channel/agent configuration work
+
+Before working on customer channels (WhatsApp, SMS, email), agent/system-prompt configuration, knowledge-base surfacing, customer acquisition, FNOL, navigation, or anything framed as "closing gaps for the submission/demo", read [`docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md`](docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md) first.
+
+It is the current gap index: what is REAL, PARTIAL, STATIC, MISSING or BLOCKED in each area, verified against source rather than against older documentation, with the file paths that prove each claim and a phased implementation plan. It also carries the IRA/Data Protection and Privacy Act research and an honesty register of what must not be claimed about the platform.
+
+Two rules it establishes that apply beyond its own scope:
+
+- Provider *credentials* belong in the per-tenant, encrypted, validated-before-save Connection model, not in startup environment variables. `WhatsAppConfigurationEndpoints` is the reference implementation; secrets stay write-only from the browser.
+- A tenant may configure an agent's voice and scope, never its authority. The immutable platform preamble carrying the human-decision boundary is not tenant-editable.
+
+If the blueprint and the code disagree, the code wins — re-verify and correct the document rather than implementing from a stale claim.

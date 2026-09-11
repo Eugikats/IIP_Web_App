@@ -472,6 +472,42 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                     b.ToTable("CaseDocuments", (string)null);
                 });
 
+            modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedCaseReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("CaseReviewId");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("WorkspaceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "WorkspaceId");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "CaseId");
+
+                    b.ToTable("CaseReviews", (string)null);
+                });
+
             modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedClaimReviewRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -590,40 +626,6 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("ClaimantPortalSessions", (string)null);
-                });
-
-            modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedCaseReview", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("CaseReviewId");
-
-                    b.Property<Guid>("CaseId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("WorkspaceId")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "WorkspaceId", "CaseId");
-
-                    b.ToTable("CaseReviews", (string)null);
                 });
 
             modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedCommandCenterConversation", b =>
@@ -915,6 +917,37 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                     b.HasIndex("TenantId", "WorkspaceId");
 
                     b.ToTable("InboundEmails", (string)null);
+                });
+
+            modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedIntegrationConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("ConnectionId");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("WorkspaceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "WorkspaceId");
+
+                    b.ToTable("IntegrationConnections", (string)null);
                 });
 
             modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedKnowledgeDocument", b =>

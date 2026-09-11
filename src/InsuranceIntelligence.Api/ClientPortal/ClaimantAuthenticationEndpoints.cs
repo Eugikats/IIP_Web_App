@@ -7,6 +7,7 @@ using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace InsuranceIntelligence.Api.ClientPortal;
 
@@ -33,6 +34,7 @@ public static class ClaimantAuthenticationEndpoints
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
+        ILogger<ClaimantMagicLinkLogMarker> logger,
         CancellationToken cancellationToken)
     {
         if (!ClientPortalScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
@@ -102,7 +104,7 @@ public static class ClaimantAuthenticationEndpoints
         {
             await IssueAndSendAsync(
                 policyNumber, claimCase.CaseId, request.ContactValue, claimCase.CustomerEmail, claimCase.CustomerPhone,
-                scope, communicationProvider, tokenRepository, options, correlationId, cancellationToken);
+                scope, communicationProvider, tokenRepository, options, correlationId, logger, cancellationToken);
         }
         else if (policy is not null)
         {
@@ -111,7 +113,7 @@ public static class ClaimantAuthenticationEndpoints
                 : await customerRepository.GetAsync(policy.CustomerId, scope, cancellationToken);
             await IssueAndSendAsync(
                 policyNumber, caseId: null, request.ContactValue, customer?.Email, customer?.Phone,
-                scope, communicationProvider, tokenRepository, options, correlationId, cancellationToken);
+                scope, communicationProvider, tokenRepository, options, correlationId, logger, cancellationToken);
         }
 
         await auditRepository.WriteAsync(
@@ -281,6 +283,7 @@ public static class ClaimantAuthenticationEndpoints
         IClaimantMagicLinkTokenRepository tokenRepository,
         InfrastructureOptions options,
         string correlationId,
+        ILogger<ClaimantMagicLinkLogMarker> logger,
         CancellationToken cancellationToken)
     {
         var channel = ClaimantContactMatcher.ClassifyChannel(requestedContactValue);
@@ -329,9 +332,28 @@ public static class ClaimantAuthenticationEndpoints
             LowRisk: true,
             correlationId);
 
-        _ = channel == ClaimantContactChannel.Email
+        // Previously fire-and-forget (`_ = await ...`): the result was awaited but discarded, so a
+        // delivery failure produced the exact same "we've sent a link" response as a real send,
+        // with no record anywhere that it didn't go out. Now the outcome is logged and recorded on
+        // the token — but the anonymous caller's response is deliberately left untouched by this
+        // fix: it must stay identical whether delivery succeeded, failed, or was never attempted
+        // (no match), or the response shape itself becomes an enumeration oracle. This is a fix for
+        // visibility (ops, and future support tooling reading DeliveryStatus off the token), not a
+        // change to what the requester is told.
+        var sendResult = channel == ClaimantContactChannel.Email
             ? await communicationProvider.SendEmailAsync(sendRequest, cancellationToken)
             : await communicationProvider.SendSmsAsync(sendRequest, cancellationToken);
+
+        if (!string.Equals(sendResult.DeliveryStatus, "Sent", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(
+                "Claimant magic-link delivery did not succeed. Channel={Channel} Status={Status} CorrelationId={CorrelationId}",
+                channel, sendResult.DeliveryStatus, correlationId);
+        }
+
+        await tokenRepository.SaveAsync(
+            token with { DeliveryStatus = sendResult.DeliveryStatus, DeliverySafeError = sendResult.SafeError },
+            cancellationToken);
     }
 
     private static string GetCorrelationId(HttpContext httpContext)
@@ -370,3 +392,8 @@ public sealed record ClaimantCreateClaimRequest(
     MotorFnolDetails? MotorFnolDetails = null);
 
 public sealed record ClaimantCreateClaimResponse(Guid CaseId);
+
+/// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
+/// static-class endpoint (ILogger&lt;ClaimantAuthenticationEndpoints&gt; is not usable — the class
+/// is static).</summary>
+public sealed class ClaimantMagicLinkLogMarker;

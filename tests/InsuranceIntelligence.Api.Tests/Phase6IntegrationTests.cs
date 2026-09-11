@@ -691,7 +691,7 @@ public sealed class Phase6IntegrationTests
     {
         var graphClient = new FakeGraphMailClient();
         var options = GraphOptions() with { CommunicationProvider = "GraphEmail" };
-        var provider = new GraphCommunicationSendingProvider(options, graphClient);
+        var provider = new GraphCommunicationSendingProvider(options, graphClient, new DisabledSmsProvider());
         var deps = CreateDeps(options, graphClient, provider);
         var claimCase = await CreateCaseAsync(deps);
         var pendingUpdate = await CreateUpdateAsync(deps, claimCase.CaseId, CommunicationChannel.Email, CustomerUpdateStatus.PendingApproval);
@@ -917,7 +917,7 @@ public sealed class Phase6IntegrationTests
     {
         var deps = CreateDeps(
             new InfrastructureOptions { CommunicationProvider = "GraphEmail" },
-            communicationSendingProvider: new DisabledCommunicationSendingProvider());
+            communicationSendingProvider: new DisabledCommunicationSendingProvider(new DisabledSmsProvider()));
         var claimCase = await CreateCaseAsync(deps);
         var approvedUpdate = await CreateUpdateAsync(deps, claimCase.CaseId, CommunicationChannel.Email, CustomerUpdateStatus.Approved);
         var result = await CommunicationEndpoints.SendEmail(

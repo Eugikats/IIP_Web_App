@@ -91,46 +91,55 @@ public static class InfrastructureRegistration
             services.AddSingleton<IEmailAttachmentProcessor, InsuranceIntelligence.Infrastructure.Email.LocalEmailAttachmentProcessor>();
         }
         services.AddScoped<IEmailToCaseMatcher, RuleBasedEmailToCaseMatcher>();
+        // Connection model (docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md
+        // §3): tenant-configured provider credentials, validated against the real provider before
+        // persisting, encrypted at rest, write-only from the browser once saved — generalized from
+        // the WhatsApp settings screen to every connection type. Scoped: resolves through
+        // IIntegrationConnectionRepository, which is DbContext-backed.
+        services.AddScoped<InsuranceIntelligence.Domain.Integrations.IIntegrationConnectionRepository, InsuranceIntelligence.Infrastructure.Connections.EfIntegrationConnectionRepository>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionSecretProtector, InsuranceIntelligence.Infrastructure.Connections.DataProtectionConnectionSecretProtector>();
+        services.AddSingleton<ISmsProviderFactory, SmsProviderFactory>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, EgoSmsConnectionValidator>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, AfricasTalkingConnectionValidator>();
+
+        // ISmsProvider is always TenantAwareSmsProvider now — the three-step resolver (tenant
+        // Connection, then SmsProvider env var, then Not configured). SmsProvider/AfricasTalking
+        // options below still govern step 2, the fallback, exactly as before. Scoped because it
+        // depends on the scoped connection repository.
+        services.AddScoped<ISmsProvider, TenantAwareSmsProvider>();
+
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
         {
-            services.AddSingleton<ICommunicationSendingProvider, GraphCommunicationSendingProvider>();
+            services.AddScoped<ICommunicationSendingProvider, GraphCommunicationSendingProvider>();
         }
         else
         {
-            services.AddSingleton<ICommunicationSendingProvider, DisabledCommunicationSendingProvider>();
-        }
-        if (options.SmsProvider.Equals("AfricasTalking", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddHttpClient<ISmsProvider, AfricasTalkingSmsProvider>();
-        }
-        else
-        {
-            services.AddSingleton<ISmsProvider, DisabledSmsProvider>();
+            services.AddScoped<ICommunicationSendingProvider, DisabledCommunicationSendingProvider>();
         }
 
         // Registered unconditionally — the settings screen (WhatsAppConfigurationEndpoints) must be
         // able to capture, validate, and store WhatsApp credentials even before an operator has
         // also switched INSURANCEINTELLIGENCE_CHANNEL_PROVIDER to WhatsAppCloudApi at the
-        // deployment level. Which concrete inbound/outbound provider class is active (real vs
-        // Disabled) still follows that env var below — this only controls where their credentials
-        // come from once active.
+        // deployment level.
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppChannelConfigurationRepository, EfWhatsAppChannelConfigurationRepository>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IWhatsAppCredentialProtector, DataProtectionWhatsAppCredentialProtector>();
         services.AddSingleton<IWhatsAppRuntimeSettingsProvider, WhatsAppRuntimeSettingsProvider>();
         services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppGraphValidationClient, MetaGraphWhatsAppValidationClient>();
 
-        if (options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
-            services.AddHttpClient<IWhatsAppOutboundProvider, WhatsAppCloudApiOutboundProvider>();
-            services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
-        }
-        else
-        {
-            services.AddSingleton<IWhatsAppInboundProvider, DisabledWhatsAppInboundProvider>();
-            services.AddSingleton<IWhatsAppOutboundProvider, DisabledWhatsAppOutboundProvider>();
-            services.AddSingleton<IWhatsAppAttachmentProcessor, DisabledWhatsAppAttachmentProcessor>();
-        }
+        // The real inbound/outbound providers are registered unconditionally now (blueprint §3.3,
+        // §4.4) rather than gated on INSURANCEINTELLIGENCE_CHANNEL_PROVIDER — this was previously
+        // the whole reason a validated WhatsApp connection still needed a redeploy to go live.
+        // It is safe to drop the gate because WhatsAppCloudApiInboundProvider/OutboundProvider
+        // already fail closed on their own: IsConfigured is exactly
+        // `settingsProvider.Current is not null`, and WhatsAppRuntimeSettingsProvider already
+        // implements the same three-step resolution as TenantAwareSmsProvider — a saved, active
+        // tenant connection first, then INSURANCEINTELLIGENCE_WHATSAPP_* environment configuration,
+        // then null (honestly "not configured", identical to what DisabledWhatsAppInboundProvider
+        // reported). ChannelProvider itself is untouched and still governs the separate
+        // AzureProviderStartupValidator fail-closed check for Staging/Production.
+        services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
+        services.AddHttpClient<IWhatsAppOutboundProvider, WhatsAppCloudApiOutboundProvider>();
+        services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
 
         services.AddScoped<IWhatsAppToCaseMatcher, RuleBasedWhatsAppToCaseMatcher>();
         services.AddScoped<WhatsAppInboundDocumentIngestionService>();
@@ -256,6 +265,7 @@ public static class InfrastructureRegistration
             EntraAudience = configuration["INSURANCEINTELLIGENCE_ENTRA_AUDIENCE"],
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
             ClientPortalBaseUrl = configuration["INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL"],
+            SmsWebhookSharedSecret = configuration["INSURANCEINTELLIGENCE_SMS_WEBHOOK_SHARED_SECRET"],
             AzureRegion = configuration["INSURANCEINTELLIGENCE_AZURE_REGION"],
             DataResidencyCountry = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY"],
             DataResidencyGeography = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY"],

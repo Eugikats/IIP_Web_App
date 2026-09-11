@@ -10,6 +10,11 @@ public interface ICommunicationRepository
     Task<IReadOnlyCollection<Communication>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyCollection<Communication>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default);
+
+    /// <summary>Finds the communication a delivery-status webhook refers to, by the sending
+    /// provider's own message id. Used by SmsIntegrationEndpoints to turn a raw "Success"/"Failed"
+    /// callback into a real delivery-status update on the right record.</summary>
+    Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default);
 }
 
 public interface ICommunicationSendingProvider
@@ -22,6 +27,29 @@ public interface ICommunicationSendingProvider
 public interface ISmsProvider
 {
     Task<CommunicationSendResult> SendAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Constructs a live ISmsProvider from a provider key and a flat settings dictionary — either
+/// decrypted per-tenant connection settings or deployment env-var settings. This is the seam that
+/// makes "add a new SMS gateway" a new class registered here, not a re-architecture: see
+/// EgoSmsProvider and AfricasTalkingSmsProvider in InsuranceIntelligence.Infrastructure.Communications.
+/// </summary>
+public interface ISmsProviderFactory
+{
+    /// <summary>Provider keys this factory can construct (e.g. "AfricasTalking", "EgoSms").</summary>
+    IReadOnlyCollection<string> SupportedProviderKeys { get; }
+
+    /// <summary>Builds a provider from tenant-supplied connection settings. Returns null if
+    /// providerKey is not recognized — the caller treats that as a real configuration error, not a
+    /// silent fallback.</summary>
+    ISmsProvider? Create(string providerKey, IReadOnlyDictionary<string, string> settings);
+
+    /// <summary>Builds the deployment-level fallback provider from environment configuration —
+    /// the second step of the three-step resolution order (tenant connection, then env fallback,
+    /// then Not configured). Never null: resolves to a provider that honestly reports
+    /// ConfigurationRequired when no environment provider is configured.</summary>
+    ISmsProvider CreateFallback();
 }
 
 public sealed record CommunicationSendRequest(
