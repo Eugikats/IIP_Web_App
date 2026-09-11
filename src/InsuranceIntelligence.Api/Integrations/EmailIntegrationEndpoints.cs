@@ -10,6 +10,7 @@ using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Net.Mail;
 
 namespace InsuranceIntelligence.Api.Integrations;
@@ -290,6 +291,8 @@ public static class EmailIntegrationEndpoints
         ICaseDocumentRepository documentRepository,
         IEmailAttachmentProcessor attachmentProcessor,
         IAuditRepository auditRepository,
+        InsuranceIntelligence.Application.Cases.IFnolAcknowledgementService acknowledgementService,
+        ILogger<EmailFnolAcknowledgementLogMarker> logger,
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken)
@@ -378,6 +381,17 @@ public static class EmailIntegrationEndpoints
         if (auditAction == "email.case_created")
         {
             await caseRepository.SaveAsync(claimCase, cancellationToken);
+
+            // A failed or blocked acknowledgement must never fail email processing, which already
+            // succeeded above — see IFnolAcknowledgementService's own doc comment.
+            try
+            {
+                await acknowledgementService.SendAsync(claimCase, httpContext.TraceIdentifier, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "FNOL acknowledgement failed for email-derived case {CaseId}", claimCase.CaseId);
+            }
         }
 
         foreach (var document in processedAttachments)
@@ -637,3 +651,8 @@ public static class EmailIntegrationEndpoints
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });
 }
+
+/// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
+/// static-class endpoint (ILogger&lt;EmailIntegrationEndpoints&gt; is not usable — the class is
+/// static), matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
+public sealed class EmailFnolAcknowledgementLogMarker;

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Security.Claims;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.Cases;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Administration;
@@ -9,12 +10,15 @@ using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace InsuranceIntelligence.Api.Tests;
 
@@ -34,6 +38,8 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             httpContext,
             CancellationToken.None);
 
@@ -49,8 +55,11 @@ public sealed class CaseEndpointsTests
         Assert.Equal("UAX 123B", response.MotorFnolDetails?.VehicleRegistration);
         Assert.Equal("17:40", response.MotorFnolDetails?.AccidentTime);
         Assert.Equal("Kampala Road", response.MotorFnolDetails?.AccidentLocation);
-        Assert.Equal(1, response.Audit.EventCount);
-        Assert.Equal("case.created", response.Audit.LastActionName);
+        // Two audit events now: case.created, then fnol.acknowledgement (WO 5.2) — ValidRequest()
+        // supplies a CustomerPhone, so the FNOL acknowledgement actually sends via the fake
+        // always-succeeds communication provider and writes its own audit event.
+        Assert.Equal(2, response.Audit.EventCount);
+        Assert.Equal("fnol.acknowledgement", response.Audit.LastActionName);
         Assert.Contains(response.AllowedActions, action =>
             action.Action == "openCaseReview"
             && action.RequiredPermission == "ViewAssignedClaims");
@@ -91,6 +100,8 @@ public sealed class CaseEndpointsTests
                     "Dr. Kintu", "Malaria treatment", "Phone", null)),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             httpContext,
             CancellationToken.None);
 
@@ -116,6 +127,8 @@ public sealed class CaseEndpointsTests
             ValidRequest() with { CustomerName = "" },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             httpContext,
             CancellationToken.None);
 
@@ -133,6 +146,8 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             new DefaultHttpContext(),
             CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
@@ -165,6 +180,8 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             context,
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -200,6 +217,8 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             context,
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -220,6 +239,8 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             createContext,
             CancellationToken.None);
         var (_, created) = await ExecuteAsync<CaseResponse>(createResult);
@@ -248,6 +269,8 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             createContext,
             CancellationToken.None);
         var (_, created) = await ExecuteAsync<CaseResponse>(createResult);
@@ -280,6 +303,8 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             createContext,
             CancellationToken.None);
         var (_, created) = await ExecuteAsync<CaseResponse>(createResult);
@@ -343,6 +368,8 @@ public sealed class CaseEndpointsTests
             ValidRequest() with { CustomerName = "Tenant A Customer", PolicyNumber = "POL-TENANT-A-001" },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             tenantAContext,
             CancellationToken.None);
         var (createAStatus, caseA) = await ExecuteAsync<CaseResponse>(createA);
@@ -351,6 +378,8 @@ public sealed class CaseEndpointsTests
             ValidRequest() with { CustomerName = "Tenant B Customer", PolicyNumber = "POL-TENANT-B-001" },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             tenantBContext,
             CancellationToken.None);
         var (createBStatus, caseB) = await ExecuteAsync<CaseResponse>(createB);
@@ -604,6 +633,8 @@ public sealed class CaseEndpointsTests
             },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -621,6 +652,8 @@ public sealed class CaseEndpointsTests
             ValidRequest() with { ClaimType = "Third-party property damage" },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.Logger,
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -857,15 +890,52 @@ public sealed class CaseEndpointsTests
         var auditRepository = new InMemoryAuditRepository();
         var scoringService = new CompletenessScoringService();
         var notificationRepository = new InMemoryNotificationRepository();
+        var checklistProvider = new StaticDocumentChecklistProvider(scoringService);
+        var acknowledgementService = new FnolAcknowledgementService(
+            checklistProvider,
+            new AlwaysSucceedsCommunicationSendingProvider(),
+            new InMemoryCommunicationRepository(),
+            auditRepository);
         return new Dependencies(
             new CaseIntakeService(caseRepository, auditRepository),
             caseRepository,
             new InMemoryCaseDocumentRepository(),
-            new StaticDocumentChecklistProvider(scoringService),
+            checklistProvider,
             auditRepository,
             new BasicSlaCalculator(),
             new NotificationService(new TenantContextAccessor(), notificationRepository),
-            notificationRepository);
+            notificationRepository,
+            acknowledgementService,
+            NullLogger<CaseFnolAcknowledgementLogMarker>.Instance);
+    }
+
+    private sealed class AlwaysSucceedsCommunicationSendingProvider : ICommunicationSendingProvider
+    {
+        public Task<CommunicationSendResult> SendEmailAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CommunicationSendResult("Sent", "fake-email-provider-id", null));
+
+        public Task<CommunicationSendResult> SendSmsAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CommunicationSendResult("Sent", "fake-sms-provider-id", null));
+    }
+
+    private sealed class InMemoryCommunicationRepository : ICommunicationRepository
+    {
+        private readonly List<Communication> communications = [];
+
+        public Task SaveAsync(Communication communication, CancellationToken cancellationToken = default)
+        {
+            communications.Add(communication);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyCollection<Communication>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Communication>>(communications.Where(c => c.Scope.Matches(scope)).ToArray());
+
+        public Task<IReadOnlyCollection<Communication>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Communication>>(communications.Where(c => c.CaseId == caseId && c.Scope.Matches(scope)).ToArray());
+
+        public Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(communications.SingleOrDefault(c => c.Scope.Matches(scope) && c.ProviderMessageId == providerMessageId));
     }
 
     private static CreateCaseRequest ValidRequest() =>
@@ -980,5 +1050,7 @@ public sealed class CaseEndpointsTests
         IAuditRepository AuditRepository,
         ISlaCalculator SlaCalculator,
         INotificationEmitter NotificationEmitter,
-        InMemoryNotificationRepository NotificationRepository);
+        InMemoryNotificationRepository NotificationRepository,
+        IFnolAcknowledgementService AcknowledgementService,
+        ILogger<CaseFnolAcknowledgementLogMarker> Logger);
 }

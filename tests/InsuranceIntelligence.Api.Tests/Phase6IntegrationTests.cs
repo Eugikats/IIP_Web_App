@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text;
 using System.Security.Claims;
+using InsuranceIntelligence.Application.Cases;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Api.Communications;
 using InsuranceIntelligence.Api.Integrations;
@@ -19,6 +20,8 @@ using InsuranceIntelligence.Infrastructure.Persistence;
 using InsuranceIntelligence.LocalTestDoubles;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace InsuranceIntelligence.Api.Tests;
 
@@ -234,6 +237,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             Options(),
             Context(userId: "runtime-it-admin", auditReason: auditReason),
             CancellationToken.None);
@@ -275,6 +280,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             Options(),
             Context(userId: "runtime-it-admin", auditReason: auditReason),
             CancellationToken.None);
@@ -306,6 +313,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             Options(),
             Context(userId: "runtime-it-admin", auditReason: "Processing an unmatched, unidentified inbound email."),
             CancellationToken.None);
@@ -335,6 +344,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             Options(),
             Context(auditReason: null),
             CancellationToken.None);
@@ -369,6 +380,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             Options(),
             Context(),
             CancellationToken.None);
@@ -513,6 +526,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             GraphOptions(),
             Context(),
             CancellationToken.None);
@@ -526,6 +541,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             GraphOptions(),
             Context(),
             CancellationToken.None);
@@ -578,6 +595,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             GraphOptions(),
             Context(),
             CancellationToken.None);
@@ -628,6 +647,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             GraphOptions(),
             Context(),
             CancellationToken.None);
@@ -675,6 +696,8 @@ public sealed class Phase6IntegrationTests
             deps.Documents,
             deps.AttachmentProcessor,
             deps.Audit,
+            deps.AcknowledgementService,
+            deps.Logger,
             Options(),
             Context(),
             CancellationToken.None);
@@ -1072,6 +1095,13 @@ public sealed class Phase6IntegrationTests
         IEmailAttachmentProcessor attachmentProcessor = effectiveOptions.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase)
             ? new GraphEmailAttachmentProcessor(effectiveOptions, graphClient, new TestDocumentStorageProvider(), new MockDocumentProcessingProvider())
             : new MockEmailAttachmentProcessor();
+        var audit = new InMemoryAuditRepository();
+        var communications = new InMemoryCommunicationRepository();
+        var acknowledgementService = new FnolAcknowledgementService(
+            new StaticDocumentChecklistProvider(new CompletenessScoringService()),
+            communicationProvider,
+            communications,
+            audit);
         return new Deps(
             new InMemoryMailboxConnectionRepository(),
             new InMemoryInboundEmailRepository(),
@@ -1081,12 +1111,14 @@ public sealed class Phase6IntegrationTests
             new InMemoryCaseDocumentRepository(),
             new RuleBasedEmailToCaseMatcher(cases, customers, policies),
             attachmentProcessor,
-            new InMemoryAuditRepository(),
-            new InMemoryCommunicationRepository(),
+            audit,
+            communications,
             communicationProvider,
             new InMemoryCustomerUpdateRepository(),
             customers,
-            policies);
+            policies,
+            acknowledgementService,
+            NullLogger<EmailFnolAcknowledgementLogMarker>.Instance);
     }
 
     private static async Task<ClaimCase> CreateCaseAsync(Deps deps)
@@ -1297,7 +1329,9 @@ public sealed class Phase6IntegrationTests
         ICommunicationSendingProvider CommunicationProvider,
         InMemoryCustomerUpdateRepository CustomerUpdates,
         InMemoryCustomerRepository Customers,
-        InMemoryPolicyRepository Policies);
+        InMemoryPolicyRepository Policies,
+        IFnolAcknowledgementService AcknowledgementService,
+        ILogger<EmailFnolAcknowledgementLogMarker> Logger);
 
     private sealed class FakeGraphMailClient : IGraphMailClient
     {

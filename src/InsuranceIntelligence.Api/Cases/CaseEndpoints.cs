@@ -8,6 +8,7 @@ using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
+using Microsoft.Extensions.Logging;
 
 namespace InsuranceIntelligence.Api.Cases;
 
@@ -17,6 +18,8 @@ public static class CaseEndpoints
         CreateCaseRequest request,
         CaseIntakeService service,
         IAuditRepository auditRepository,
+        InsuranceIntelligence.Application.Cases.IFnolAcknowledgementService acknowledgementService,
+        ILogger<CaseFnolAcknowledgementLogMarker> logger,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -56,6 +59,18 @@ public static class CaseEndpoints
                 request.MedicalFnolDetails);
 
             var claimCase = await service.CreateCaseAsync(command, cancellationToken);
+
+            // A failed or blocked acknowledgement must never fail claim creation, which already
+            // happened above — see IFnolAcknowledgementService's own doc comment.
+            try
+            {
+                await acknowledgementService.SendAsync(claimCase, correlationId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "FNOL acknowledgement failed for case {CaseId}", claimCase.CaseId);
+            }
+
             var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);
             var response = CaseMapper.ToResponse(claimCase, auditEvents);
 
@@ -451,3 +466,8 @@ public static class CaseEndpoints
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
 }
+
+/// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
+/// static-class endpoint (ILogger&lt;CaseEndpoints&gt; is not usable — the class is static),
+/// matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
+public sealed class CaseFnolAcknowledgementLogMarker;
