@@ -851,7 +851,7 @@ The highest-leverage phase. It converts "a developer must edit app settings and 
 | 1.2 | `IConnectionValidator` + `ISmsProviderFactory`/`TenantAwareSmsProvider` implementing the three-step resolution order (section 3.2) | 1.1 | 1.5 | **Done**, scoped to SMS |
 | 1.3 | `EgoSmsProvider` + balance-call validator (section 5.2, 5.3); `AfricasTalkingConnectionValidator` alongside it | 1.2 | 1.5 | **Done** |
 | 1.4 | SMS delivery-receipt webhook with a path secret (section 5.4) | 1.3 | 1 | **Done**, deployment-level secret — see the honest status note below on why not per-tenant |
-| 1.5 | `/app/admin/connections` screen, all six states (section 3.4) | 1.2 | 2 | **Done** for SMS; Email not modeled yet (needs 1.8 first) |
+| 1.5 | `/app/admin/connections` screen, all six states (section 3.4) | 1.2 | 2 | **Done** for SMS and Email (added once 1.8 landed) |
 | 1.6 | Migrate WhatsApp onto the Connection model; delete `RequiresChannelProviderDeploymentChange` and its UI block | 1.2, 1.5 | 1 | **Done differently, and more cheaply, than planned** — see below |
 | 1.7 | WhatsApp webhook generation + auto-registration via `subscribed_apps` override (section 4.3) | 1.6 | 1.5 | **Done differently than planned** — WABA id is an explicit operator field, not auto-discovered; see note below |
 | 1.8 | `SmtpEmailProvider` as an Email connection (section 7.2) | 1.2 | 1.5 | **Done for sending**; `ImapEmailIngestionProvider` (inbound) not started |
