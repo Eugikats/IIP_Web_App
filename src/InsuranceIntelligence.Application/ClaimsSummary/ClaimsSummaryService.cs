@@ -127,7 +127,7 @@ public sealed class ClaimsSummaryService(
 
         var prompt = BuildPrompt(claimCase, fairInputDocuments, policy, retrieval, knowledgeQuery);
         var chatResult = await chatCompletionProvider.CompleteAsync(
-            new ChatCompletionRequest(prompt, scope.TenantId, scope.WorkspaceId, correlationId),
+            new ChatCompletionRequest(prompt, scope.TenantId, scope.WorkspaceId, correlationId, AgentKey),
             cancellationToken);
 
         var (summary, riskSignals) = ParseModelOutput(chatResult.Content);

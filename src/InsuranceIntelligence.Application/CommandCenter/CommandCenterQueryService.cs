@@ -374,7 +374,7 @@ public sealed class CommandCenterQueryService(
         ]);
 
         var chatResult = await chatCompletionProvider.CompleteAsync(
-            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId),
+            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId, "policy-intelligence"),
             cancellationToken);
 
         var blocks = new List<CommandCenterResponseBlock>
@@ -668,7 +668,7 @@ public sealed class CommandCenterQueryService(
         ]);
 
         var chatResult = await chatCompletionProvider.CompleteAsync(
-            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId),
+            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId, "customer-update-drafting"),
             cancellationToken);
         var validated = await aiOutputValidator.ValidateCustomerSafeDraftAsync(
             chatResult.Content,
@@ -797,7 +797,7 @@ public sealed class CommandCenterQueryService(
         ]);
 
         var chatResult = await chatCompletionProvider.CompleteAsync(
-            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId),
+            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId, "report-insight"),
             cancellationToken);
         var validated = await aiOutputValidator.ValidateManagementSummaryAsync(
             chatResult.Content,

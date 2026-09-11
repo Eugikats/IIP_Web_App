@@ -268,9 +268,12 @@ else
 
 if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<IAiAssistantProvider, AzureOpenAiAssistantProvider>();
+    // Scoped, not Singleton: both now depend on the scoped IAgentBehaviourProfileRepository
+    // (blueprint §6.3) to compose the tenant's configured system prompt on every call. Embeddings
+    // carry no per-call prompt, so that one stays Singleton.
+    builder.Services.AddScoped<IAiAssistantProvider, AzureOpenAiAssistantProvider>();
     builder.Services.AddSingleton<IEmbeddingProvider, AzureOpenAiEmbeddingProvider>();
-    builder.Services.AddSingleton<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
+    builder.Services.AddScoped<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
 }
 else
 {
@@ -294,7 +297,8 @@ else
 builder.Services.AddSingleton<IWorkflowRuleProvider, StaticWorkflowRuleProvider>();
 if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<ICustomerUpdateDraftingProvider, AzureOpenAiCustomerUpdateDraftingProvider>();
+    // Scoped, not Singleton — see the AzureOpenAiAssistantProvider registration above; same reason.
+    builder.Services.AddScoped<ICustomerUpdateDraftingProvider, AzureOpenAiCustomerUpdateDraftingProvider>();
 }
 else
 {
@@ -893,6 +897,17 @@ app.MapPost("/api/v1/integrations/connections/{connectionType}/test", Connection
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapDelete("/api/v1/integrations/connections/{connectionType}", ConnectionEndpoints.DeleteConfiguration)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+
+// Agent behaviour configuration (blueprint §6.3) — a tenant's voice/scope customization per
+// agent, never its authority. Every save is a new version; nothing is overwritten in place.
+app.MapGet("/api/v1/agents/{agentKey}/behaviour", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.GetCurrent)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapGet("/api/v1/agents/{agentKey}/behaviour/versions", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.ListVersions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapPost("/api/v1/agents/{agentKey}/behaviour", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.SaveVersion)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapPost("/api/v1/agents/{agentKey}/behaviour/test", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.TestBehaviour)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 
 // SMS delivery-status webhook (blueprint §5.4) — unauthenticated by header (the gateway's payload
 // carries no signature), gated by the unguessable path secret instead. No PermissionEndpointFilter:

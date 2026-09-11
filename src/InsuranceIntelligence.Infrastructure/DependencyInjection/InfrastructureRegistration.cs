@@ -97,6 +97,7 @@ public static class InfrastructureRegistration
         // the WhatsApp settings screen to every connection type. Scoped: resolves through
         // IIntegrationConnectionRepository, which is DbContext-backed.
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IIntegrationConnectionRepository, InsuranceIntelligence.Infrastructure.Connections.EfIntegrationConnectionRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Agents.IAgentBehaviourProfileRepository, InsuranceIntelligence.Infrastructure.Agents.EfAgentBehaviourProfileRepository>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionSecretProtector, InsuranceIntelligence.Infrastructure.Connections.DataProtectionConnectionSecretProtector>();
         services.AddSingleton<ISmsProviderFactory, SmsProviderFactory>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, EgoSmsConnectionValidator>();

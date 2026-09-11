@@ -799,6 +799,7 @@ public sealed class Phase7ProviderTests
                     }
                 },
                 NullLogger<AzureOpenAiAssistantProvider>.Instance,
+                null,
                 new HttpClient(handler),
                 new StaticTokenCredential());
             var question = new AssistantQuestion(
@@ -871,6 +872,7 @@ public sealed class Phase7ProviderTests
                 }
             },
             NullLogger<AzureOpenAiAssistantProvider>.Instance,
+            null,
             new HttpClient(new CapturingOpenAiHandler("{}", System.Net.HttpStatusCode.TooManyRequests)),
             new StaticTokenCredential());
         var question = new AssistantQuestion(
@@ -938,6 +940,7 @@ public sealed class Phase7ProviderTests
             OpenAiOptions(),
             new StaticWorkflowRuleProvider(),
             NullLogger<AzureOpenAiCustomerUpdateDraftingProvider>.Instance,
+            null,
             new HttpClient(handler),
             new StaticTokenCredential());
         var claimCase = Case(TenantScope.Create("tenant-demo", "workspace-claims"));
