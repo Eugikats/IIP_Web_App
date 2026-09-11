@@ -1,5 +1,5 @@
 "use client";
-import { useId, useMemo, useState } from "react";
+import { Fragment, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
@@ -7,9 +7,9 @@ import { Input, Select, Field as UIField } from "@/components/ui/Input";
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
 import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, EmptyFilteredStateSurface } from "@/components/ui/StateSurfaces";
 import {
-  useKnowledgeDocs, SELECTABLE_SENSITIVITIES, type KnowledgeDocView, type KnowledgeSensitivity,
+  useKnowledgeDocs, SELECTABLE_SENSITIVITIES, type KnowledgeDocView, type KnowledgeSensitivity, type KnowledgeChunkView,
 } from "@/lib/lovable-parity/data/knowledge";
-import { BookOpen, Search, Upload, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
+import { BookOpen, Search, Upload, RefreshCw, Loader2, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import PolicyQuestionPanel from "@/components/PolicyQuestionPanel";
@@ -45,12 +45,35 @@ type PendingAction =
   | { kind: "archive"; doc: KnowledgeDocView };
 
 export default function Knowledge() {
-  const { docs, loading, error, upload, approve, classify, archive, reindex } = useKnowledgeDocs();
+  const { docs, loading, error, upload, approve, classify, archive, reindex, loadChunks } = useKnowledgeDocs();
   const [q, setQ] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [reindexing, setReindexing] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
+  // WO 7.4: per-document chunk preview — which chunks this document was actually split into for
+  // retrieval, fetched on demand when a row is expanded rather than with the document list.
+  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+  const [chunksByDoc, setChunksByDoc] = useState<Record<string, KnowledgeChunkView[]>>({});
+  const [chunksLoadingId, setChunksLoadingId] = useState<string | null>(null);
+  const [chunksErrorByDoc, setChunksErrorByDoc] = useState<Record<string, string>>({});
+
+  async function toggleChunkPreview(docId: string) {
+    if (expandedDocId === docId) {
+      setExpandedDocId(null);
+      return;
+    }
+    setExpandedDocId(docId);
+    if (chunksByDoc[docId] || chunksLoadingId === docId) return;
+    setChunksLoadingId(docId);
+    const result = await loadChunks(docId);
+    setChunksLoadingId(null);
+    if (result.ok) {
+      setChunksByDoc((current) => ({ ...current, [docId]: result.chunks ?? [] }));
+    } else {
+      setChunksErrorByDoc((current) => ({ ...current, [docId]: result.message ?? "Could not load the chunk preview." }));
+    }
+  }
   const [pendingSensitivity, setPendingSensitivity] = useState<Record<string, KnowledgeSensitivity>>({});
   const [form, setForm] = useState({ documentName: "", productLine: "", documentType: "PolicyWording", version: "1.0", effectiveDate: "", expiryDate: "" });
   const [file, setFile] = useState<File | null>(null);
@@ -213,9 +236,20 @@ export default function Knowledge() {
               const stuck = d.status === "Approved" && !d.retrievalEligible;
               const selectedSensitivity = pendingSensitivity[d.id];
               return (
-                <TableRow key={d.id} className={"align-top" + (stuck ? " bg-dls-warning-tint" : "")}>
+                <Fragment key={d.id}>
+                <TableRow className={"align-top" + (stuck ? " bg-dls-warning-tint" : "")}>
                   <TableCell>
-                    <div className="flex items-center gap-2 text-dls-text-primary"><BookOpen className="h-4 w-4 text-dls-info-text" aria-hidden="true" />{d.title}</div>
+                    <button
+                      type="button"
+                      onClick={() => toggleChunkPreview(d.id)}
+                      className="dls-focus-outline flex items-center gap-2 text-dls-text-primary hover:text-dls-info-text"
+                      aria-expanded={expandedDocId === d.id}
+                      title="Preview the chunks this document was split into for retrieval"
+                    >
+                      {expandedDocId === d.id ? <ChevronDown className="h-4 w-4 shrink-0 text-dls-text-muted" aria-hidden="true" /> : <ChevronRight className="h-4 w-4 shrink-0 text-dls-text-muted" aria-hidden="true" />}
+                      <BookOpen className="h-4 w-4 text-dls-info-text" aria-hidden="true" />
+                      {d.title}
+                    </button>
                     <div className="text-[11px] text-dls-text-muted">{d.id}</div>
                   </TableCell>
                   <TableCell className="text-dls-text-secondary">{d.category}</TableCell>
@@ -282,6 +316,18 @@ export default function Knowledge() {
                     </div>
                   </TableCell>
                 </TableRow>
+                {expandedDocId === d.id ? (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <ChunkPreview
+                        loading={chunksLoadingId === d.id}
+                        error={chunksErrorByDoc[d.id] ?? null}
+                        chunks={chunksByDoc[d.id]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+                </Fragment>
               );
             })}
           </TableBody>
@@ -310,6 +356,37 @@ export default function Knowledge() {
         onConfirm={handleConfirm}
       />
     </>
+  );
+}
+
+// WO 7.4: per-document chunk preview — the actual chunks a document was split into for
+// retrieval, with the same excerpt + source label an AI answer's citation already shows (see
+// SourceCitationList), so an officer can see exactly what the assistant could ground an answer
+// in, not just that "some chunk somewhere" exists.
+function ChunkPreview({ loading, error, chunks }: { loading: boolean; error: string | null; chunks?: KnowledgeChunkView[] }) {
+  if (loading) {
+    return <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">Loading chunk preview…</div>;
+  }
+  if (error) {
+    return <div className="rounded-dls-card bg-dls-danger-tint p-4 text-[12.5px] text-dls-danger-text">{error}</div>;
+  }
+  if (!chunks || chunks.length === 0) {
+    return <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">No chunks yet — this document has not been indexed.</div>;
+  }
+  return (
+    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">
+        {chunks.length} chunk{chunks.length === 1 ? "" : "s"} — what retrieval can ground an answer in
+      </div>
+      <ul className="space-y-2">
+        {chunks.map((chunk) => (
+          <li key={chunk.chunkId} className="rounded-dls-control border border-dls-border-subtle bg-dls-surface p-3">
+            <p className="font-mono text-[11.5px] font-semibold text-dls-text-primary">{chunk.sourceLabel}</p>
+            <p className="mt-1 text-[12.5px] leading-6 text-dls-text-secondary">{chunk.excerpt}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
