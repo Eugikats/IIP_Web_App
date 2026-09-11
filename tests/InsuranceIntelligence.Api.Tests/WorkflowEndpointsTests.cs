@@ -9,6 +9,7 @@ using InsuranceIntelligence.Application.Cases;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
@@ -1058,6 +1059,7 @@ public sealed class WorkflowEndpointsTests
             new NoOpWhatsAppMessageRepository(),
             new FakeCommunicationSendingProvider(),
             new NoOpCommunicationRepository(),
+            new NoOpConsentRepository(),
             auditRepository);
 
         return new Dependencies(
@@ -1106,6 +1108,17 @@ public sealed class WorkflowEndpointsTests
         public Task<IReadOnlyCollection<Communication>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyCollection<Communication>>([]);
         public Task<IReadOnlyCollection<Communication>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyCollection<Communication>>([]);
         public Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default) => Task.FromResult<Communication?>(null);
+    }
+
+    // No case in this file originates on WhatsApp (see CreateCaseAsync's Channel = "WebPortal"),
+    // so MissingDocumentRequestService's WhatsApp consent branch is never reached here — a real
+    // FakeConsentRepository lives in MissingDocumentRequestServiceTests.cs where that path is
+    // actually exercised.
+    private sealed class NoOpConsentRepository : IConsentRepository
+    {
+        public Task SaveAsync(ConsentRecord record, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<ConsentRecord?> GetCurrentAsync(TenantScope scope, string customerIdentifier, string purpose, CancellationToken cancellationToken = default) => Task.FromResult<ConsentRecord?>(null);
+        public Task<IReadOnlyCollection<ConsentRecord>> ListForCustomerAsync(TenantScope scope, string customerIdentifier, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyCollection<ConsentRecord>>([]);
     }
 
     private sealed class NullWhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsProvider

@@ -2,6 +2,7 @@ using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Workflow;
@@ -27,6 +28,11 @@ public enum MissingDocumentRequestOutcome
     /// approval, an unconfigured provider, or a provider-side failure. The reason is in the audit
     /// trail, not swallowed.</summary>
     NotSent,
+
+    /// <summary>WhatsApp only (blueprint §14 Phase 6, WO 6.1): no active ConsentRecord exists for
+    /// this customer and purpose — the original inbound conversation that would have captured one
+    /// may be long over. Never sends without one.</summary>
+    NoActiveConsent,
 }
 
 public interface IMissingDocumentRequestService
@@ -52,9 +58,11 @@ public sealed class MissingDocumentRequestService(
     IWhatsAppMessageRepository whatsAppMessageRepository,
     ICommunicationSendingProvider communicationSendingProvider,
     ICommunicationRepository communicationRepository,
+    IConsentRepository consentRepository,
     IAuditRepository auditRepository) : IMissingDocumentRequestService
 {
     private const string SystemActorId = "system:missing-document-request";
+    private const string WhatsAppMessagingPurpose = "whatsapp_messaging";
 
     public async Task<MissingDocumentRequestOutcome> SendAsync(
         ClaimCase claimCase,
@@ -93,6 +101,17 @@ public sealed class MissingDocumentRequestService(
         }
 
         var waId = NormalizeWaId(claimCase.CustomerPhone);
+
+        // WO 6.1 outbound enforcement — this send has no fresh inbound message to lean on (it is
+        // triggered by workflow evaluation, not a live webhook), so the consent capture from the
+        // original conversation is the only thing that can permit it.
+        var consent = await consentRepository.GetCurrentAsync(claimCase.Scope, waId, WhatsAppMessagingPurpose, cancellationToken);
+        if (!ConsentEnforcementGuard.IsPermitted(consent))
+        {
+            await WriteAuditAsync(claimCase, "NoActiveConsent", correlationId, cancellationToken);
+            return MissingDocumentRequestOutcome.NoActiveConsent;
+        }
+
         var idempotencyKey = Guid.NewGuid().ToString("N");
         var result = await whatsAppOutboundProvider.SendAsync(new WhatsAppProviderSendRequest(
             businessPhoneNumberId, waId, messageBody, TemplateName: null, Language: "en",

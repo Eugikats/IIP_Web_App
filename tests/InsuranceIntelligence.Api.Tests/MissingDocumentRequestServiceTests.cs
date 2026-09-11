@@ -3,6 +3,7 @@ using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Workflow;
@@ -68,6 +69,23 @@ public sealed class MissingDocumentRequestServiceTests
         var outcome = await fixture.Service.SendAsync(claimCase, checklist, "corr-1", whatsAppBusinessPhoneNumberId: "phone-id-1");
 
         Assert.Equal(MissingDocumentRequestOutcome.NotSent, outcome);
+        Assert.Empty(fixture.WhatsAppMessageRepository.Saved);
+    }
+
+    [Fact]
+    public async Task SendAsync_WhatsAppChannel_NoActiveConsent_NeverSends()
+    {
+        // WO 6.1: this send has no fresh inbound message to lean on (triggered by workflow
+        // evaluation, not a live webhook) — a prior captured consent is the only thing that can
+        // permit it, and here there is none.
+        var fixture = Fixture.Create(whatsAppConsentGranted: false);
+        var claimCase = fixture.Case(channel: "WhatsApp", phone: "256700111222");
+        var checklist = fixture.Checklist(missing: [DocumentType.PoliceAbstract]);
+
+        var outcome = await fixture.Service.SendAsync(claimCase, checklist, "corr-1", whatsAppBusinessPhoneNumberId: "phone-id-1");
+
+        Assert.Equal(MissingDocumentRequestOutcome.NoActiveConsent, outcome);
+        Assert.Empty(fixture.WhatsAppProvider.SentRequests);
         Assert.Empty(fixture.WhatsAppMessageRepository.Saved);
     }
 
@@ -141,14 +159,19 @@ public sealed class MissingDocumentRequestServiceTests
         public FakeCommunicationRepository CommunicationRepository { get; }
         public FakeAuditRepository AuditRepository { get; }
 
-        public static Fixture Create(bool whatsAppConfigured = true, CommunicationSendResult? sendResult = null)
+        // Defaults to granted so every existing WhatsApp-success test proves what it means to
+        // prove (send composition, channel selection) without also having to seed consent by
+        // hand; whatsAppConsentGranted: false is for the one test that specifically proves
+        // enforcement blocks a send with no active grant.
+        public static Fixture Create(bool whatsAppConfigured = true, CommunicationSendResult? sendResult = null, bool whatsAppConsentGranted = true)
         {
             var whatsAppProvider = new FakeWhatsAppOutboundProvider(whatsAppConfigured);
             var whatsAppMessageRepository = new FakeWhatsAppMessageRepository();
             var communicationProvider = new FakeCommunicationSendingProvider(sendResult ?? new CommunicationSendResult("Sent", "provider-msg-1", null));
             var communicationRepository = new FakeCommunicationRepository();
+            var consentRepository = new FakeConsentRepository(whatsAppConsentGranted);
             var auditRepository = new FakeAuditRepository();
-            var service = new MissingDocumentRequestService(whatsAppProvider, whatsAppMessageRepository, communicationProvider, communicationRepository, auditRepository);
+            var service = new MissingDocumentRequestService(whatsAppProvider, whatsAppMessageRepository, communicationProvider, communicationRepository, consentRepository, auditRepository);
             return new Fixture(service, whatsAppProvider, whatsAppMessageRepository, communicationProvider, communicationRepository, auditRepository);
         }
 
@@ -206,6 +229,22 @@ public sealed class MissingDocumentRequestServiceTests
             SentRequests.Add(request);
             return Task.FromResult(new WhatsAppProviderSendResult(true, $"wamid.{Guid.NewGuid():N}", null, null));
         }
+    }
+
+    private sealed class FakeConsentRepository(bool granted) : IConsentRepository
+    {
+        public Task SaveAsync(ConsentRecord record, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<ConsentRecord?> GetCurrentAsync(TenantScope scope, string customerIdentifier, string purpose, CancellationToken cancellationToken = default) =>
+            Task.FromResult(granted
+                ? new ConsentRecord
+                {
+                    RecordId = Guid.NewGuid(), Scope = scope, CustomerIdentifier = customerIdentifier,
+                    Basis = ConsentBasis.CustomerInitiatedConversation, Purpose = purpose, Channel = "WhatsApp",
+                    RecordedByUserId = "system:customer-assistant", RecordedAt = DateTimeOffset.UtcNow, CorrelationId = "corr-consent-seed",
+                }
+                : null);
+        public Task<IReadOnlyCollection<ConsentRecord>> ListForCustomerAsync(TenantScope scope, string customerIdentifier, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<ConsentRecord>>([]);
     }
 
     private sealed class FakeWhatsAppMessageRepository : IWhatsAppMessageRepository

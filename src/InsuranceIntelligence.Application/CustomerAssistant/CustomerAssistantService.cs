@@ -5,6 +5,7 @@ using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Integrations;
@@ -62,10 +63,15 @@ public sealed class CustomerAssistantService(
     IWhatsAppMessageRepository whatsAppMessageRepository,
     ICustomerConversationRepository conversationRepository,
     IAgentBehaviourProfileRepository behaviourProfileRepository,
+    IConsentRepository consentRepository,
     IAuditRepository auditRepository) : ICustomerAssistantService
 {
     private const string SystemActorId = "system:customer-assistant";
     private const string GroundingAgentKey = "policy-intelligence"; // the same grounded-answer capability, reused for customers
+
+    /// <summary>WO 6.1's real referent for what every hardcoded "customer_initiated_conversation"
+    /// ConsentBasis string in this codebase used to stand in for.</summary>
+    private const string WhatsAppMessagingPurpose = "whatsapp_messaging";
 
     // The demo-seed policy number format (NSA/{product}/{year}/{seq}) plus a looser generic
     // fallback — a real customer will not always type the format perfectly, and this must not be
@@ -98,6 +104,24 @@ public sealed class CustomerAssistantService(
         var waId = NormalizeWaId(inbound.SenderWaId);
         var threadId = WhatsAppMessagingService.BuildThreadId(inbound.BusinessPhoneNumberId, waId);
         var intent = intentClassifier.Classify(text);
+
+        // WO 6.1 capture point: the customer messaging first is the real basis every hardcoded
+        // "customer_initiated_conversation" string in this codebase was standing in for — record
+        // it as a real, queryable, auditable grant instead of an ambient assumption. Every inbound
+        // message refreshes it (append-only, so the full history survives), which is also what
+        // keeps SendReplyAsync's enforcement check below permitted for an active conversation.
+        await consentRepository.SaveAsync(new ConsentRecord
+        {
+            RecordId = Guid.NewGuid(),
+            Scope = scope,
+            CustomerIdentifier = waId,
+            Basis = ConsentBasis.CustomerInitiatedConversation,
+            Purpose = WhatsAppMessagingPurpose,
+            Channel = "WhatsApp",
+            RecordedByUserId = SystemActorId,
+            RecordedAt = DateTimeOffset.UtcNow,
+            CorrelationId = correlationId,
+        }, cancellationToken);
 
         var (reply, outcome, citations, caseId, leadId) = intent switch
         {
@@ -295,6 +319,16 @@ public sealed class CustomerAssistantService(
         if (!outboundProvider.IsConfigured)
         {
             return; // Honest no-op — never fabricate a send that didn't happen.
+        }
+
+        // WO 6.1 outbound enforcement: the capture point above just wrote this on every inbound
+        // message in this same call, so this will pass for a genuinely active conversation — but
+        // it is the real gate, not a formality, for any future caller that reaches SendReplyAsync
+        // without having just captured consent itself (e.g. a retry path reading a stale message).
+        var consent = await consentRepository.GetCurrentAsync(scope, waId, WhatsAppMessagingPurpose, cancellationToken);
+        if (!ConsentEnforcementGuard.IsPermitted(consent))
+        {
+            return; // Honest no-op — no active consent basis to send on.
         }
 
         var idempotencyKey = Guid.NewGuid().ToString("N");

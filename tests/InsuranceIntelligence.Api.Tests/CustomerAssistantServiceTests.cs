@@ -4,6 +4,7 @@ using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Integrations;
@@ -272,6 +273,7 @@ public sealed class CustomerAssistantServiceTests
             var whatsAppMessages = new FakeWhatsAppMessageRepository();
             var conversations = new FakeConversationRepository();
             var behaviourProfiles = new FakeAgentBehaviourProfileRepository();
+            var consent = new FakeConsentRepository();
             var audit = new FakeAuditRepository();
             var retrieval = new FakeRetrievalProvider();
             var assistant = new FakeAiAssistantProvider();
@@ -288,6 +290,7 @@ public sealed class CustomerAssistantServiceTests
                 whatsAppMessages,
                 conversations,
                 behaviourProfiles,
+                consent,
                 audit);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, service);
@@ -439,6 +442,27 @@ public sealed class CustomerAssistantServiceTests
         public Task<IReadOnlyCollection<AgentBehaviourProfile>> ListCurrentForAllAgentsAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyCollection<AgentBehaviourProfile>>([]);
         public Task SaveAsync(AgentBehaviourProfile version, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    // Real in-memory behaviour (not an always-permissive stub): CustomerAssistantService captures
+    // a ConsentRecord on every inbound message before it ever checks one, so a real store/retrieve
+    // fake proves the capture-then-check flow actually works end to end, the same way a live
+    // EfConsentRepository would for a single-message conversation.
+    private sealed class FakeConsentRepository : IConsentRepository
+    {
+        private readonly List<ConsentRecord> records = [];
+        public Task SaveAsync(ConsentRecord record, CancellationToken cancellationToken = default)
+        {
+            records.Add(record);
+            return Task.CompletedTask;
+        }
+        public Task<ConsentRecord?> GetCurrentAsync(TenantScope scope, string customerIdentifier, string purpose, CancellationToken cancellationToken = default) =>
+            Task.FromResult(records
+                .Where(r => r.Scope.Matches(scope) && r.CustomerIdentifier == customerIdentifier && r.Purpose == purpose)
+                .OrderByDescending(r => r.RecordedAt)
+                .FirstOrDefault());
+        public Task<IReadOnlyCollection<ConsentRecord>> ListForCustomerAsync(TenantScope scope, string customerIdentifier, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<ConsentRecord>>(records.Where(r => r.Scope.Matches(scope) && r.CustomerIdentifier == customerIdentifier).ToArray());
     }
 
     private sealed class FakeAuditRepository : IAuditRepository

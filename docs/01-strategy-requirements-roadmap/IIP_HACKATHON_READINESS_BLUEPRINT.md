@@ -979,14 +979,21 @@ This phase exists to satisfy "nothing in the middle should be missing." It close
 
 Software only. Filings and licensing sit with the business.
 
-| WO | Work | Days |
-|---|---|---|
-| 6.1 | `ConsentRecord` domain + capture points + outbound enforcement; wire the existing `ConsentBasis` field to real lookups (section 12.2) | 3 |
-| 6.2 | Case file export for disputes — timeline, documents, AI outputs with citations, decisions with reviewers, communications (section 12.5) | 2 |
-| 6.3 | `RetentionPolicy` per data class + scheduled enforcement job that writes what it deleted to audit (section 12.3) | 2 |
-| 6.4 | Data subject rights: export, rectification, erasure with a documented refusal path (section 12.4) | 2 |
+| WO | Work | Days | Status |
+|---|---|---|---|
+| 6.1 | `ConsentRecord` domain + capture points + outbound enforcement; wire the existing `ConsentBasis` field to real lookups (section 12.2) | 3 | **Done** — see note |
+| 6.2 | Case file export for disputes — timeline, documents, AI outputs with citations, decisions with reviewers, communications (section 12.5) | 2 | |
+| 6.3 | `RetentionPolicy` per data class + scheduled enforcement job that writes what it deleted to audit (section 12.3) | 2 | |
+| 6.4 | Data subject rights: export, rectification, erasure with a documented refusal path (section 12.4) | 2 | |
 
 **Exit test:** an officer exports a complete case file as a single document; a marketing-purpose send is blocked for a customer with no explicit consent; the retention job deletes an expired record and the deletion is in the audit trail.
+
+**Phase 6 notes, 2026-09-11.**
+
+- **6.1 built a real `ConsentRecord` domain** (`Domain.Compliance`) — append-only (same pattern as `AgentBehaviourProfile`/`CustomerConversationTurn`: every `SaveAsync` inserts a fresh row, so a withdrawal never erases the grant history that preceded it), with `IConsentRepository.GetCurrentAsync` resolving the most recent row for a (customer, purpose) pair and `ConsentEnforcementGuard.IsPermitted` — a single pure static function, matching `OutboundSmsGuard`/`CustomerAutoReplyGate`'s shape — as the one real gate. Migration `AddConsentRecords`, EF repository, DI registration.
+- **Scoped to WhatsApp for this pass, not every channel — a deliberate, honest scoping decision.** Every hardcoded `"customer_initiated_conversation"` `ConsentBasis` string this codebase had (`CustomerAssistantService`, `MissingDocumentRequestService`) now resolves to a real, queryable, auditable record instead of an ambient assumption: `CustomerAssistantService` captures a `ConsentRecord` on every inbound WhatsApp message (the real basis the hardcoded string was standing in for), and both `CustomerAssistantService.SendReplyAsync` and `MissingDocumentRequestService`'s WhatsApp branch check it before sending. SMS and email have no such gate today — there is no opt-out-list or marketing-consent policy modeled anywhere in this codebase to wire one to, and inventing one now risked either fabricating a policy nobody asked for or silently blocking the already-working, already-tested FNOL-acknowledgement and missing-document-request SMS/email paths built in Phase 5. Extending consent enforcement to SMS/email is real remaining work, not done here.
+- **No UI surface was built for this pass** — WO 6.1's own wording ("domain + capture points + outbound enforcement") does not require one, and there was no obviously cheap slot to add a consent-history view to in this session's time budget. A Customer 360/consent-history screen is a reasonable follow-up, not built here.
+- Tests: 5 new on `ConsentEnforcementGuard` directly (no record, active grant, withdrawn timestamp, withdrawn basis, every non-withdrawn basis permits) plus a new `SendAsync_WhatsAppChannel_NoActiveConsent_NeverSends` test on `MissingDocumentRequestService` proving the enforcement gate actually blocks a send with no prior consent captured — the case that matters most, since that service has no live inbound message to lean on the way `CustomerAssistantService` does. Every existing test kept passing unchanged: `CustomerAssistantService`'s own capture-then-check flow means a real in-memory `IConsentRepository` (not an always-permissive stub) satisfies them without modification. 1059/1059 backend tests passing (304 Domain + 755 Api), up from 1051. Clean build, 0 warnings.
 
 ### Phase 7 — Integration port, hardening and demo readiness (6-8 days)
 
