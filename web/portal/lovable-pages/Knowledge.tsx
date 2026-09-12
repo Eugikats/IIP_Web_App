@@ -145,7 +145,13 @@ export default function Knowledge() {
         title="Approved sources for grounded AI answers"
         sub="Every knowledge source is classified, versioned, and cited. Coverage answers must be grounded in approved sources — model memory alone is not acceptable."
         action={
-          <div className="flex gap-2">
+          // flex-wrap, not a rigid single row: at widths around 768px, SectionHeader's own
+          // sm:flex-row breakpoint (640px) puts the title block and this two-button action side
+          // by side, and "Re-index approved" + "Upload" together are wider than the space left —
+          // without wrap, "Upload" rendered past the viewport edge, silently clipped by the page's
+          // own overflow-x guard rather than visibly scrolling, so half the button was simply
+          // unclickable. Wrapping lets Upload drop to its own line instead of running off-screen.
+          <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" onClick={handleReindex} disabled={reindexing} icon={reindexing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}>
               Re-index approved
             </Button>
