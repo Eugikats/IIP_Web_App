@@ -199,6 +199,27 @@ public sealed class CustomerAssistantServiceTests
     }
 
     [Fact]
+    public async Task AgentDisabled_EscalatesEveryMessageWithoutClassifyingOrActing()
+    {
+        // The kill switch (Admin > Agents) must actually stop the agent, not just record a
+        // database row nothing reads — no case, no lead, no classification, every message
+        // escalated to a human instead.
+        var fixture = Fixture.Create(agentEnabled: false);
+        fixture.SeedPolicy(ValidPolicyNumber);
+
+        await fixture.HandleAsync($"I was in an accident, my policy is {ValidPolicyNumber}");
+
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerIntent.Unknown, turn.ClassifiedIntent); // never classified — the gate short-circuits before that
+        Assert.Equal(CustomerAssistantOutcome.Escalated, turn.Outcome);
+        Assert.Null(turn.CaseId);
+        Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
+        var auditEvent = Assert.Single(fixture.Audit.Written);
+        Assert.Equal("customer_assistant.agent_disabled", auditEvent.ActionName);
+        Assert.Contains("disabled", auditEvent.AuditReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task MediaOnlyMessage_IsSkippedEntirely()
     {
         var fixture = Fixture.Create();
@@ -262,7 +283,7 @@ public sealed class CustomerAssistantServiceTests
         public FakeAiAssistantProvider Assistant { get; }
         public CustomerAssistantService Service { get; }
 
-        public static Fixture Create(bool autoReplyEnabled = false)
+        public static Fixture Create(bool autoReplyEnabled = false, bool agentEnabled = true)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -277,6 +298,7 @@ public sealed class CustomerAssistantServiceTests
             var audit = new FakeAuditRepository();
             var retrieval = new FakeRetrievalProvider();
             var assistant = new FakeAiAssistantProvider();
+            var agentGate = agentEnabled ? new LocalTestAgentGate() : new LocalTestAgentGate("customer-assistant");
 
             var service = new CustomerAssistantService(
                 new KeywordCustomerIntentClassifier(),
@@ -291,6 +313,7 @@ public sealed class CustomerAssistantServiceTests
                 conversations,
                 behaviourProfiles,
                 consent,
+                agentGate,
                 audit);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, service);

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Domain.Agents;
@@ -64,9 +65,11 @@ public sealed class CustomerAssistantService(
     ICustomerConversationRepository conversationRepository,
     IAgentBehaviourProfileRepository behaviourProfileRepository,
     IConsentRepository consentRepository,
+    IAgentGate agentGate,
     IAuditRepository auditRepository) : ICustomerAssistantService
 {
     private const string SystemActorId = "system:customer-assistant";
+    private const string AgentKey = "customer-assistant";
     private const string GroundingAgentKey = "policy-intelligence"; // the same grounded-answer capability, reused for customers
 
     /// <summary>WO 6.1's real referent for what every hardcoded "customer_initiated_conversation"
@@ -103,6 +106,19 @@ public sealed class CustomerAssistantService(
         var text = inbound.CustomerSafeBody.Trim();
         var waId = NormalizeWaId(inbound.SenderWaId);
         var threadId = WhatsAppMessagingService.BuildThreadId(inbound.BusinessPhoneNumberId, waId);
+
+        // Fail-closed kill switch (Admin > Agents): this is the one agent in the catalog that can
+        // act on an unauthenticated inbound message with no staff user in the loop at all, so a
+        // tenant disabling it must actually stop it, not just record a database row nothing reads.
+        // No ITenantContextAccessor exists here (no signed-in user on the WhatsApp webhook path) —
+        // this is exactly what IAgentGate's scope-explicit overload exists for.
+        var gate = await agentGate.CheckAsync(scope, AgentKey, cancellationToken);
+        if (!gate.Enabled)
+        {
+            await HandleDisabledAsync(scope, inbound, threadId, waId, text, gate, correlationId, cancellationToken);
+            return;
+        }
+
         var intent = intentClassifier.Classify(text);
 
         // WO 6.1 capture point: the customer messaging first is the real basis every hardcoded
@@ -167,6 +183,45 @@ public sealed class CustomerAssistantService(
                 null, null, leadId is null ? [] : [leadId], "CustomerAssistant", null,
                 "recorded", null,
                 $"WhatsApp customer assistant classified this message as {intent} and took action {outcome}. Message body omitted from evidence.",
+                correlationId),
+            cancellationToken);
+    }
+
+    /// <summary>The kill-switch's actual effect: no classification, no grounded answer, no case or
+    /// lead created — every inbound message is escalated to a human while the agent is disabled.
+    /// The customer sees the same generic escalation message any other Unknown-intent message
+    /// gets; the internal reason (who disabled it, when, why) goes to the audit trail only — an
+    /// admin's kill-switch note is not something to hand back to a WhatsApp customer.</summary>
+    private async Task HandleDisabledAsync(
+        TenantScope scope, WhatsAppInboundMessage inbound, string threadId, string waId, string text,
+        AgentGateResult gate, string correlationId, CancellationToken cancellationToken)
+    {
+        var reply = DefaultEscalationMessage();
+        await SendReplyAsync(scope, inbound, threadId, waId, reply, caseId: null, cancellationToken);
+
+        await conversationRepository.SaveAsync(new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(),
+            Scope = scope,
+            ThreadId = threadId,
+            ContactWaId = waId,
+            InboundMessageText = text,
+            ClassifiedIntent = CustomerIntent.Unknown,
+            OutboundReplyText = reply,
+            Outcome = CustomerAssistantOutcome.Escalated,
+            CaseId = null,
+            LeadId = null,
+            OccurredAt = DateTimeOffset.UtcNow,
+            CorrelationId = correlationId,
+        }, cancellationToken);
+
+        await auditRepository.WriteAsync(
+            new AuditEvent(
+                Guid.NewGuid(), scope, null, null, SystemActorId, ActorType.Integration,
+                "customer_assistant.agent_disabled", DateTimeOffset.UtcNow,
+                null, null, [], "CustomerAssistant", null,
+                "refused", null,
+                $"WhatsApp customer assistant is disabled for this workspace{(gate.DisabledByUserId is null ? "" : $" (by {gate.DisabledByUserId} on {gate.DisabledAt:yyyy-MM-dd}{(string.IsNullOrWhiteSpace(gate.Reason) ? "" : $": {gate.Reason}")})")} — message escalated without classification. Message body omitted from evidence.",
                 correlationId),
             cancellationToken);
     }

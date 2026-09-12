@@ -89,6 +89,18 @@ public static class AgentCatalog
         // Rule-based: UnderwritingRuleEngine. No chat/LLM call site exists.
         new("underwriting-intelligence", "Underwriting Intelligence Agent", "Supports proposal and risk review with referral notes; never accepts, rejects, or prices risk.", "High", HumanApprovalRequired: true,
             AgentImplementationKind.RuleBased, ["knowledge.search", "document.read", "policy.read"]),
+        // Customer-facing, not staff-facing — a different category from the ten above (see
+        // docs/03-design-architecture/iip_ai_agent_architecture_tool_registry_updated.md's
+        // Customer-Facing Agents section). Intent classification is deterministic/rule-based
+        // (KeywordCustomerIntentClassifier); grounded GeneralQuestion answers are produced by
+        // delegating to policy-intelligence's own model-backed path, not a separate model call
+        // this agent owns. RiskLevel is High and HumanApprovalRequired is true because this is the
+        // one agent in the catalog that can act on an unauthenticated inbound message with no
+        // staff user in the loop at all — disabling it (Admin > Agents) is the fail-closed switch:
+        // CustomerAssistantService checks it before processing any inbound message and escalates
+        // to human instead when disabled.
+        new("customer-assistant", "Customer Assistant (WhatsApp)", "Classifies inbound WhatsApp messages into six intents; answers general questions from approved knowledge, opens provisional claims, and captures sales leads — never discloses case-specific detail without a matched policy number.", "High", HumanApprovalRequired: true,
+            AgentImplementationKind.RuleBased, ["customer.intent.classify", "knowledge.search", "case.create", "lead.create"]),
     ];
 
     public static AgentDescriptor? Find(string key) =>

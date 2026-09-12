@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Agents;
+using InsuranceIntelligence.Domain.Common;
 
 namespace InsuranceIntelligence.Application.Agents;
 
@@ -19,6 +20,11 @@ namespace InsuranceIntelligence.Application.Agents;
 public interface IAgentGate
 {
     Task<AgentGateResult> CheckAsync(string agentKey, CancellationToken cancellationToken = default);
+
+    /// <summary>Same check, for callers with no signed-in staff user to resolve
+    /// ITenantContextAccessor.Current from — e.g. CustomerAssistantService, invoked from the
+    /// unauthenticated WhatsApp webhook, which already holds a real TenantScope of its own.</summary>
+    Task<AgentGateResult> CheckAsync(TenantScope scope, string agentKey, CancellationToken cancellationToken = default);
 }
 
 public sealed record AgentGateResult(
@@ -39,13 +45,15 @@ public sealed class AgentGate(
     ITenantContextAccessor tenantContextAccessor,
     IAgentStateRepository stateRepository) : IAgentGate
 {
-    public async Task<AgentGateResult> CheckAsync(string agentKey, CancellationToken cancellationToken = default)
+    public Task<AgentGateResult> CheckAsync(string agentKey, CancellationToken cancellationToken = default) =>
+        CheckAsync(tenantContextAccessor.Current.Scope, agentKey, cancellationToken);
+
+    public async Task<AgentGateResult> CheckAsync(TenantScope scope, string agentKey, CancellationToken cancellationToken = default)
     {
         var descriptor = AgentCatalog.Find(agentKey)
             ?? throw new ArgumentException($"Unknown agent key: {agentKey}", nameof(agentKey));
 
-        var context = tenantContextAccessor.Current;
-        var states = await stateRepository.ListStatesAsync(context.TenantId, context.WorkspaceId, cancellationToken);
+        var states = await stateRepository.ListStatesAsync(scope.TenantId, scope.WorkspaceId, cancellationToken);
         var state = states.FirstOrDefault(s => string.Equals(s.AgentKey, agentKey, StringComparison.OrdinalIgnoreCase));
 
         // Absence means "enabled by default" — the same convention AgentRegistryMerge uses for

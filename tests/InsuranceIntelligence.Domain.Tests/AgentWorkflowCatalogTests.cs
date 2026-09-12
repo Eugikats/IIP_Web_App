@@ -7,12 +7,17 @@ namespace InsuranceIntelligence.Domain.Tests;
 public sealed class AgentWorkflowCatalogTests
 {
     [Fact]
-    public void Canonical_agent_catalog_contains_exactly_ten_governed_agents()
+    public void Canonical_agent_catalog_contains_the_ten_staff_agents_plus_the_customer_facing_assistant()
     {
-        Assert.Equal(10, AgentCatalog.Agents.Count);
-        Assert.Equal(10, AgentCatalog.Agents.Select(agent => agent.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        // The architecture doc's own ten-staff-agent count (docs/03-design-architecture/
+        // iip_ai_agent_architecture_tool_registry_updated.md §3.1) is unchanged; customer-assistant
+        // is an eleventh, deliberately separate entry — a customer-facing agent, not a staff one —
+        // added so it gets the same kill-switch/governance discipline the other ten already have.
+        Assert.Equal(11, AgentCatalog.Agents.Count);
+        Assert.Equal(11, AgentCatalog.Agents.Select(agent => agent.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "command-center");
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "underwriting-intelligence");
+        Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "customer-assistant");
     }
 
     [Fact]

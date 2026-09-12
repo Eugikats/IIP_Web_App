@@ -11,6 +11,28 @@
 
 ---
 
+## September 2026 Customer-Facing Agent Addition
+
+```text
+1. Added Customer Assistant (WhatsApp) as an eleventh catalog entry — AgentCatalog.Agents now
+   contains 11 agents, not 10. This is deliberately NOT a renumbering of the ten staff agents in
+   §3.1/§5 below: those ten are unchanged, and this is a new, separate category — a customer-
+   facing agent, not a staff-facing one — documented in new §6.11.
+2. The trigger: an audit found this agent (built to classify inbound WhatsApp messages, answer
+   general questions, open provisional claims, and capture sales leads) existed in code with no
+   entry in this registry, no kill-switch enforcement, and no AgentRun/audit trail distinct from a
+   generic AuditEvent — the exact "is every agentic part of the system governed the same way"
+   question this document exists to answer.
+3. Fixed: added the catalog entry (AgentCatalog.cs), wired IAgentGate's kill switch into
+   CustomerAssistantService (a new scope-explicit CheckAsync(TenantScope, ...) overload, since this
+   agent runs from an unauthenticated webhook with no ITenantContextAccessor to resolve), and
+   verified with a real test that disabling it stops all processing and escalates instead.
+4. This is the same category of "official count changes by an approved revision" the July 2026
+   update itself anticipated for the Fraud Signal Agent split — applied here instead to a new
+   agent category this document's original scope (staff-facing agents only, per §2's own baseline)
+   did not cover.
+```
+
 ## July 2026 Canonical Agentic Update
 
 ```text
@@ -60,7 +82,10 @@ This document uses the existing IIP project context and documentation pack: Mast
 
 ### 3.1 Canonical count
 
-The canonical IIP agent architecture contains **10 AI agents**:
+The canonical IIP agent architecture contains **10 staff-facing AI agents**, plus one
+customer-facing agent documented separately in §6.11 (`AgentCatalog.Agents` therefore has 11
+entries in total — see the September 2026 update above for why the eleventh is not folded into
+this count):
 
 ```text
 1. Command Center Agent
@@ -350,6 +375,59 @@ Boundary:
 - This is not an underwriting decision.
 ```
 
+### 6.11 Customer Assistant (WhatsApp) — customer-facing, distinct from the ten agents above
+
+```text
+Category:
+- Every agent in §6.1-6.10 is a staff-facing tool: a signed-in employee invokes it, reviews its
+  output, and remains the human in the loop by construction. This agent is the opposite case — it
+  runs on an inbound WhatsApp message from a customer, with no staff user involved at all until
+  and unless it escalates. That difference is why it is documented here separately rather than as
+  an eleventh row in §5's staff-agent table: the risk profile, the trigger, and the audience are
+  all different, and collapsing the distinction would make both harder to reason about.
+
+Role:
+- Classifies every inbound WhatsApp text message into one of six intents (GeneralQuestion,
+  NewClaim, ExistingClaimStatus, ProductInterest, HumanRequested, Unknown) using a deterministic,
+  rule-based classifier (KeywordCustomerIntentClassifier) — not a fourth live LLM call site.
+- For GeneralQuestion, delegates to the Policy Intelligence Agent's own grounded retrieval path
+  (§6.4) for the actual answer — this agent does not own a separate model call for that case.
+- For NewClaim, opens a provisional case (RequiresConfirmation = true; no SLA clock starts until a
+  human confirms it) once a policy number is matched — never on a bare WhatsApp number alone.
+- For ExistingClaimStatus, discloses only a coarse status label, and only once the message's
+  policy number matches a real policy on file — a bare WhatsApp number never unlocks case detail.
+- For ProductInterest and HumanRequested, creates a real sales lead via the same lead-write path a
+  staff-created lead uses, and replies that a human will follow up.
+
+Primary outputs:
+- A drafted or auto-sent reply (governed by the five-condition auto-reply gate below).
+- A provisional case, a sales lead, or neither, depending on intent.
+- A CustomerConversationTurn record for every inbound message, regardless of outcome.
+
+The five-condition auto-reply gate (CustomerAutoReplyGate):
+- Only a GeneralQuestion answer can ever auto-send. It must (1) be GeneralQuestion, (2) carry an
+  approved citation, (3) carry no customer-specific assertion, (4) fit the tenant's configured
+  response-length limit, and (5) have the tenant opted into auto-reply at all (conservative
+  default: off). Failing any condition means the answer is logged for human review, never sent —
+  this is the same "draft only, human decides" boundary §4 sets for every other agent, applied to
+  the one agent that can act before a human ever sees the message.
+
+Hard limits (all inherited from §4/§13, not weakened for this agent):
+- Must not disclose case-specific information without a policy-number match.
+- Must not auto-send anything but a grounded, cited GeneralQuestion answer.
+- Must not bind cover, settle, approve, or reject a claim — NewClaim only opens an unconfirmed case
+  a human must confirm.
+
+Governance (added by the September 2026 update, matching the other ten agents):
+- Catalog key: `customer-assistant`. Kill-switch enforced via IAgentGate.CheckAsync(TenantScope,
+  "customer-assistant", ...) at the top of every inbound message — disabling it in Admin > Agents
+  escalates every message to a human instead of processing it, with the reason recorded to the
+  audit trail (`customer_assistant.agent_disabled`), never surfaced to the customer.
+- Every turn writes an AuditEvent (`customer_assistant.<outcome>`) with the classified intent and
+  outcome, actor `system:customer-assistant` / ActorType.Integration — the unauthenticated-webhook
+  equivalent of the AgentRun/AIInteraction pattern §11 requires for staff agents.
+```
+
 ---
 
 ## 7. Tool registry schema
@@ -418,6 +496,9 @@ Agents should prefer `read` and `draft` tools. `write`, `external_send`, and `ap
 | `underwriting.referral.prepare` | draft | Underwriting Intelligence Agent | future `underwriting.assist` | None | Prepares referral note for human underwriter. |
 | `provider_health.read` | read | Command Center Agent, Document Checker Agent, Knowledge Assistant, Report Insight Agent | admin/provider visibility as configured | Provider-specific | Shows connected/degraded/not_configured/error; no secrets. |
 | `audit.write` | write | All agents via backend only | server-side only | None | Every agent run must be traceable. |
+| `customer.intent.classify` | read | Customer Assistant (§6.11) | None — unauthenticated webhook, HMAC-signature verified instead | None | Deterministic keyword classification only; never a live model call. |
+| `case.create` | write | Customer Assistant (§6.11) | None — system actor `system:customer-assistant`, `ActorType.Integration` | None | Only for `NewClaim` intent, and only with a policy number matched against a real policy; always `RequiresConfirmation = true`, never starts an SLA clock. |
+| `lead.create` | write | Customer Assistant (§6.11) | None — system actor `system:customer-assistant`, `ActorType.Integration` | None | Only for `ProductInterest`/`HumanRequested` intent; writes through the same `ISalesLeadWriteRepository` a staff-created lead uses. |
 
 ---
 
@@ -545,14 +626,17 @@ not the target-state registry, for "is X built." Update this table whenever `Age
 | 8 | Knowledge Assistant | **Not implemented** | — | No code path in this repository invokes a model, provider, or service under this agent key. Staff policy/knowledge questions are currently answered by the Policy Intelligence agent instead. Cannot be enabled (`AgentRegistryService.SetKillSwitchAsync` rejects it). |
 | 9 | Report Insight Agent | **AI agent (model-backed)** | `claims.sla.read`, `audit.read`, `provider_health.read`, `metrics.read` | `CommandCenterQueryService.BuildManagementSummaryResponseAsync`, reached via the `GenerateManagementSummary` intent. |
 | 10 | Underwriting Intelligence Agent | Rule-based (no AI call) | `knowledge.search`, `document.read`, `policy.read` | `UnderwritingRuleEngine`. No chat/LLM call site exists; no submission intake or decision endpoint exists either (out of scope — see the build contract's §7 scope boundary). |
+| 11 | Customer Assistant (WhatsApp) — customer-facing, see §6.11 | Rule-based (no AI call) for classification; delegates to policy-intelligence's model call for GeneralQuestion | `customer.intent.classify`, `knowledge.search`, `case.create`, `lead.create` | `CustomerAssistantService` + `KeywordCustomerIntentClassifier`, invoked from `WhatsAppIntegrationEndpoints.ReceiveWebhook`. Added to the catalog and gated by `IAgentGate` after an audit found it had no kill-switch enforcement or catalog entry despite being live in code. `ProductInterest`/`HumanRequested` write a real `SalesLead` via `ISalesLeadWriteRepository`; `NewClaim` opens a real, unconfirmed `ClaimCase` via `CaseIntakeService`. |
 
-**Summary: 5 of 10 catalogued agents are real, model-backed AI agents. 1 is AI-service-backed
-without a chat model. 3 are deterministic rule engines with no AI call of any kind. 1
-(Knowledge Assistant) has no implementation and cannot be enabled.** This is not a defect list —
-several of the "target state" capabilities in §6/§9 above (write-tier tools, additional read tools
-for agents with no current consumer) are legitimately not yet built; this table exists so that
-"agentic by architecture" claims about this platform can be checked against reality rather than
-against this document's aspiration alone.
+**Summary: 5 of 10 staff-facing catalogued agents are real, model-backed AI agents. 1 is
+AI-service-backed without a chat model. 3 are deterministic rule engines with no AI call of any
+kind. 1 (Knowledge Assistant) has no implementation and cannot be enabled. The eleventh, customer-
+facing catalog entry (Customer Assistant) is real and live, rule-based for classification, and
+delegates to the Policy Intelligence Agent's own model-backed path for grounded answers.** This is
+not a defect list — several of the "target state" capabilities in §6/§9 above (write-tier tools,
+additional read tools for agents with no current consumer) are legitimately not yet built; this
+table exists so that "agentic by architecture" claims about this platform can be checked against
+reality rather than against this document's aspiration alone.
 
 ---
 
