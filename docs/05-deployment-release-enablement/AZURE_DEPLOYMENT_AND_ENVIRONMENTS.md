@@ -167,6 +167,36 @@ endpoint — the `CaseReviews` table simply never got created in any environment
 `dotnet ef migrations add`**, and if you must edit one, confirm afterwards that
 `dotnet ef migrations list` still shows it.
 
+### Function App
+
+**This section did not exist until 2026-09-14, and the consequence was real:** `RetentionEnforcement`
+had been in the codebase since Phase 6 but was never live, because nothing here told anyone the
+Functions app needed its own deploy. Deploying the API does not deploy the functions. If you add or
+change anything in `InsuranceIntelligence.Functions`, this step is required or it simply never runs.
+
+The app is `func-iip-dev-h5girbnzrayqe`, Linux, `DOTNET-ISOLATED|8.0`, with
+`WEBSITE_RUN_FROM_PACKAGE=1` — so it takes a zip through `config-zip`, not `az webapp deploy`.
+
+```bash
+dotnet publish src/InsuranceIntelligence.Functions/InsuranceIntelligence.Functions.csproj   -c Release -o /tmp/func-publish
+# zip it (PowerShell: [System.IO.Compression.ZipFile]::CreateFromDirectory) -- about 12 MB
+az functionapp deployment source config-zip   --name func-iip-dev-h5girbnzrayqe --resource-group rg-iip-dev   --subscription 5f5765ae-985f-42e4-a443-8e2447be33ca   --src /tmp/func-publish.zip
+```
+
+**Check the publish output before deploying, and the live app after.** `functions.metadata` in the
+publish folder lists exactly what the build found; `az functionapp function list` lists what the
+platform actually registered. If a function is in the first and not the second, the deploy did not
+take effect — registration lags the deploy by up to a minute, so poll rather than concluding on the
+first empty result.
+
+```bash
+az functionapp function list --name func-iip-dev-h5girbnzrayqe --resource-group rg-iip-dev   --subscription 5f5765ae-985f-42e4-a443-8e2447be33ca   --query "[].{name:name,disabled:isDisabled}" -o table
+```
+
+As of 2026-09-14 that returns four, all enabled: `AgentWorkflowNodeExecute` (Service Bus),
+`TeamsNotificationDispatch` (Service Bus), `RetentionEnforcement` (timer, 02:00 UTC daily),
+`MailboxIngestion` (timer, every 5 minutes).
+
 ### Portal
 
 The Next.js standalone bundle needs careful assembly — see the detailed comments in
@@ -206,6 +236,32 @@ az webapp deploy \
 
 The portal's startup command is already set to `node server.js` — don't need to touch
 `az webapp config set` unless it's drifted (`az webapp config show ... --query appCommandLine`).
+
+### Inbound email is deployed but switched off in `dev` (verified 2026-09-14)
+
+The collection path exists and is live — `MailboxIngestion` runs every five minutes and
+`POST /api/v1/integrations/email/ingest` is registered — but **both the API and the Function App
+carry `INSURANCEINTELLIGENCE_EMAIL_PROVIDER=Disabled`**, so neither collects anything. That is
+deliberate honest behaviour, not a bug: the endpoint returns
+
+```json
+{"message":"Inbound email collection requires a configured Microsoft Graph mailbox connection.","provider":"Disabled"}
+```
+
+with HTTP 400, and the timer returns without acting. Nothing pretends to work.
+
+**To actually receive email in `dev`, three things are needed, in this order:**
+
+1. A Microsoft Graph app registration with `Mail.Read` (and `Mail.ReadWrite` if processed messages
+   should be moved), admin-consented in tenant `dcb0b132-fb9e-475c-a68e-b0671222e8d8`, plus the
+   `GraphMail__*` settings it needs.
+2. `INSURANCEINTELLIGENCE_EMAIL_PROVIDER=Graph` on **both** `app-api-dev-h5girbnzrayqe` and
+   `func-iip-dev-h5girbnzrayqe`. Setting it on only one gives a half-working channel: the admin
+   "collect now" button works and the schedule does not, or the reverse.
+3. A mailbox configured in the app at `/app/admin/email` with collection switched on.
+
+Until step 2, the Channels inbox will show WhatsApp traffic and no email, which is the truthful
+state and not something to "fix" by changing code.
 
 ### Known gotchas hit while doing this live
 
