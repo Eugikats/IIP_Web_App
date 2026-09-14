@@ -5,6 +5,7 @@ using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Domain.Integrations;
@@ -175,6 +176,90 @@ public sealed class Phase2ReadRepositoryTests
         Assert.Equal("Jane WhatsApp", row.CustomerName);
         Assert.Equal("whatsapp", row.Channel);
         Assert.Equal("256772118001", row.CustomerContact);
+    }
+
+    [Theory]
+    // The assistant's own classification has to survive the trip to the inbox: an officer opening
+    // this screen is deciding what to pick up next, and every thread reading "General" makes that
+    // decision impossible. Previously every WhatsApp row was hardcoded to general_service.
+    [InlineData(CustomerIntent.NewClaim, "claim_fnol")]
+    [InlineData(CustomerIntent.ExistingClaimStatus, "claim_status")]
+    [InlineData(CustomerIntent.ProductInterest, "quote_request")]
+    [InlineData(CustomerIntent.HumanRequested, "human_requested")]
+    [InlineData(CustomerIntent.GeneralQuestion, "general_service")]
+    public async Task Channels_Overview_ShowsTheIntentTheAssistantActuallyClassified(
+        CustomerIntent classified,
+        string expectedChannelIntent)
+    {
+        await using var dbContext = CreateDbContext();
+        SeedWhatsAppThread(dbContext, "wa:thread-intent", out _);
+        SeedConversationTurn(dbContext, "wa:thread-intent", classified, CustomerAssistantOutcome.AutoReplied);
+        await dbContext.SaveChangesAsync();
+
+        var rows = await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a");
+
+        Assert.Equal(expectedChannelIntent, Assert.Single(rows).DetectedIntent);
+    }
+
+    [Fact]
+    public async Task Channels_Overview_SurfacesAReplyHeldForApprovalAsWorkAnOfficerStillOwes()
+    {
+        // The governance-visible case: the assistant drafted a reply but the auto-reply gate held
+        // it. If the inbox reports WhatsApp's delivery state ("Received") instead, that pending
+        // approval is invisible and the draft sits unsent with nobody told.
+        await using var dbContext = CreateDbContext();
+        SeedWhatsAppThread(dbContext, "wa:thread-approval", out _);
+        SeedConversationTurn(
+            dbContext,
+            "wa:thread-approval",
+            CustomerIntent.GeneralQuestion,
+            CustomerAssistantOutcome.QueuedForHumanApproval);
+        await dbContext.SaveChangesAsync();
+
+        var row = Assert.Single(await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a"));
+
+        Assert.Equal("AwaitingApproval", row.Status);
+        Assert.Equal("Approve or edit the drafted reply", row.SuggestedRouting);
+    }
+
+    [Fact]
+    public async Task Channels_Overview_KeepsDeliveryStateForAThreadTheAssistantNeverHandled()
+    {
+        // No turn means no classification happened (agent gated off, or an outbound-only thread).
+        // Claiming an intent here would be fabricating one, so the row stays general and falls
+        // back to the only real fact available — what WhatsApp did with the message.
+        await using var dbContext = CreateDbContext();
+        SeedWhatsAppThread(dbContext, "wa:thread-unhandled", out _);
+        await dbContext.SaveChangesAsync();
+
+        var row = Assert.Single(await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a"));
+
+        Assert.Equal("general_service", row.DetectedIntent);
+        Assert.Equal("Received", row.Status);
+    }
+
+    [Fact]
+    public async Task Channels_Overview_IgnoresAnotherTenantsConversationTurns()
+    {
+        await using var dbContext = CreateDbContext();
+        SeedWhatsAppThread(dbContext, "wa:thread-isolated", out _);
+        var otherScope = TenantScope.Create("tenant-b", "workspace-a");
+        var foreignTurn = new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(), Scope = otherScope, ThreadId = "wa:thread-isolated",
+            ContactWaId = "256772118001", InboundMessageText = "Other tenant traffic.",
+            ClassifiedIntent = CustomerIntent.NewClaim, Outcome = CustomerAssistantOutcome.CaseOpened,
+            OccurredAt = DateTimeOffset.UtcNow, CorrelationId = "corr-foreign"
+        };
+        SeedJson(dbContext.CustomerConversationTurns, otherScope, foreignTurn.TurnId, foreignTurn,
+            entity => entity.ThreadId = foreignTurn.ThreadId);
+        await dbContext.SaveChangesAsync();
+
+        var row = Assert.Single(await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a"));
+
+        // Same ThreadId string, different tenant — must not leak across the scope boundary.
+        Assert.Equal("general_service", row.DetectedIntent);
+        Assert.Equal("Received", row.Status);
     }
 
     [Fact]
@@ -416,6 +501,46 @@ public sealed class Phase2ReadRepositoryTests
                 actionName, timestamp, null, null, Array.Empty<string>(),
                 null, null, "accepted", null, null, "corr-1"),
             entity => entity.CaseId = caseId);
+
+    private static void SeedWhatsAppThread(InsuranceIntelligenceDbContext dbContext, string threadId, out Guid caseId)
+    {
+        caseId = Guid.NewGuid();
+        SeedJson(dbContext.Cases, ScopeA, caseId, Claim(caseId, "Jane WhatsApp", "jane@example.com"));
+        var message = new WhatsAppMessage
+        {
+            MessageId = Guid.NewGuid(), Scope = ScopeA, CaseId = caseId,
+            ThreadId = threadId, BusinessPhoneNumberId = "phone-1",
+            ContactWaId = "256772118001", Direction = WhatsAppMessageDirection.Inbound,
+            ContentType = WhatsAppContentType.Text, CustomerSafeBody = "Hello.",
+            ProviderMessageId = $"wamid.{threadId}", DeliveryState = WhatsAppDeliveryState.Received,
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, CorrelationId = "corr-wa"
+        };
+        var linkedCaseId = caseId;
+        SeedJson(dbContext.WhatsAppMessages, ScopeA, message.MessageId, message, entity =>
+        {
+            entity.CaseId = linkedCaseId;
+            entity.ThreadId = message.ThreadId;
+            entity.ProviderMessageId = message.ProviderMessageId;
+            entity.CreatedAt = message.CreatedAt;
+        });
+    }
+
+    private static void SeedConversationTurn(
+        InsuranceIntelligenceDbContext dbContext,
+        string threadId,
+        CustomerIntent intent,
+        CustomerAssistantOutcome outcome)
+    {
+        var turn = new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(), Scope = ScopeA, ThreadId = threadId,
+            ContactWaId = "256772118001", InboundMessageText = "Hello.",
+            ClassifiedIntent = intent, Outcome = outcome,
+            OccurredAt = DateTimeOffset.UtcNow, CorrelationId = "corr-turn"
+        };
+        SeedJson(dbContext.CustomerConversationTurns, ScopeA, turn.TurnId, turn,
+            entity => entity.ThreadId = threadId);
+    }
 
     private static void SeedJson<TEntity>(
         DbSet<TEntity> set,

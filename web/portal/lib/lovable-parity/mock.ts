@@ -54,7 +54,7 @@ export interface ChannelConversation {
   updated: string;
   unread: number;
   needsApproval: boolean;
-  intent: "New claim" | "Claim update" | "Quote request" | "Complaint" | "General";
+  intent: "New claim" | "Claim update" | "Claim status" | "Quote request" | "Complaint" | "Wants a person" | "General";
   customerContact?: string | null;
 }
 export const conversations: ChannelConversation[] = [

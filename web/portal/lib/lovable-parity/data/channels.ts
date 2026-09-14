@@ -73,14 +73,22 @@ const CHANNEL_MAP: Record<string, Channel> = {
 
 const INTENT_MAP: Record<string, ChannelConversation["intent"]> = {
   claim_fnol: "New claim",
+  claim_status: "Claim status",
   quote_request: "Quote request",
   renewal: "Quote request",
   complaint: "Complaint",
   policy_inquiry: "General",
   document_upload: "Claim update",
   payment_inquiry: "General",
+  human_requested: "Wants a person",
   general_service: "General",
 };
+
+// Work states the backend emits for a conversation the assistant actually handled (see
+// EfChannelReadRepository.StatusFor). Matching these exactly beats sniffing the string for
+// "approval"/"review": WhatsApp delivery states are also carried in this field for threads the
+// assistant never touched, and one of those must never be mistaken for a pending approval.
+const STATUSES_NEEDING_A_PERSON = new Set(["awaitingapproval", "needsreview"]);
 
 function relativeTime(iso: string): string {
   const t = Date.parse(iso);
@@ -109,7 +117,7 @@ function mapRow(row: OverviewRow): ChannelConversation {
     snippet: row.lastMessage || "",
     updated: relativeTime(row.lastActivityAt),
     unread: 0,
-    needsApproval: status.includes("approval") || status.includes("review"),
+    needsApproval: STATUSES_NEEDING_A_PERSON.has(status.replace(/[\s_-]/g, "")),
     intent,
     customerContact: row.customerContact ?? null,
   };
