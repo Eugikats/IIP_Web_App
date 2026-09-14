@@ -876,6 +876,11 @@ app.MapGet("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.Lis
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.CreateMailbox)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+// Available in every runtime, unlike test-ingestion below: an insurer who connects a mailbox in
+// Staging or Production needs a way to collect mail on demand and see that the connection works.
+// The MailboxIngestion timer function does this on a schedule; this is the same service, on demand.
+app.MapPost("/api/v1/integrations/email/ingest", EmailIntegrationEndpoints.Ingest)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 if (developmentDiagnosticsEnabled)
 {
     app.MapPost("/api/v1/integrations/email/test-ingestion", EmailIntegrationEndpoints.TestIngestion)

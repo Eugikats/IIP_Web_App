@@ -2,6 +2,7 @@ using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Admin;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Integrations;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -168,6 +169,55 @@ public static class EmailIntegrationEndpoints
             cancellationToken);
 
         return Results.Created($"/api/v1/integrations/email/mailboxes/{mailbox.MailboxConnectionId}", mailbox);
+    }
+
+    /// <summary>
+    /// Collect waiting mail now, in any runtime. The scheduled MailboxIngestion timer is what makes
+    /// a connected mailbox work unattended; this is how an administrator proves it works without
+    /// waiting for the next tick, and it is deliberately not the dev-only TestIngestion below --
+    /// that one is gated behind development diagnostics and does not exist in Staging or
+    /// Production, which is precisely why connected mailboxes silently delivered nothing there.
+    /// Same service the timer calls, so what an admin sees here is what the schedule does.
+    /// </summary>
+    public static async Task<IResult> Ingest(
+        IMailboxIngestionService ingestionService,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
+        {
+            return Validation("tenantScope", validationError);
+        }
+
+        if (!TryReadMutationAuditContext(httpContext, out var actor, out _, out var auditError))
+        {
+            return auditError!;
+        }
+
+        if (!options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new
+            {
+                message = "Inbound email collection requires a configured Microsoft Graph mailbox connection.",
+                provider = options.EmailProvider
+            });
+        }
+
+        var result = await ingestionService.IngestAsync(scope, httpContext.TraceIdentifier, actor, cancellationToken);
+
+        return Results.Ok(new
+        {
+            mailboxesPolled = result.MailboxesPolled,
+            messagesIngested = result.MessagesIngested,
+            alreadyPresent = result.AlreadyPresent,
+            mailboxesUnavailable = result.MailboxesUnavailable
+        });
     }
 
     public static async Task<IResult> TestIngestion(
