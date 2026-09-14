@@ -10,7 +10,7 @@ public interface IRetentionEnforcementService
 {
     /// <summary>Runs retention enforcement for every real data class this platform has a delete
     /// path for (blueprint §14 Phase 6, WO 6.3), for one tenant scope. Always writes one audit
-    /// event per data class per run — "the retention job deletes an expired record and the
+    /// event per data class per run, "the retention job deletes an expired record and the
     /// deletion is in the audit trail" is this WO's own exit test, and a run that deleted nothing
     /// still writes its own honest "0 deleted" event, so a quiet period is provable, not
     /// indistinguishable from the job never having run at all.</summary>

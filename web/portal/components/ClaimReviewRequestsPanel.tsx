@@ -14,7 +14,7 @@ type Props = {
 };
 
 function formatWhen(value: string | null): string {
-  if (!value) return "—";
+  if (!value) return "-";
   const parsed = Date.parse(value);
   if (Number.isNaN(parsed)) return value;
   return new Date(parsed).toLocaleString();

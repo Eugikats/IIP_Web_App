@@ -6,11 +6,11 @@ namespace InsuranceIntelligence.Domain.Agents;
 /// Every AI execution is reconstructable: which agent, which tools, what inputs, whose
 /// authority, what outcome (docs/03-design-architecture/iip_ai_agent_architecture_tool_registry_
 /// updated.md §11). Before this type existed, agent activity was recorded only as whatever
-/// AuditEvent a given call site happened to write — there was no single, queryable record
+/// AuditEvent a given call site happened to write, there was no single, queryable record
 /// answering "what did this agent do, with what tools, on whose behalf."
 ///
 /// AgentKey must be a real InsuranceIntelligence.Domain.Agents.AgentCatalog key, not a free-text
-/// display name — that is what lets a run be correlated back to the agent's kill-switch state
+/// display name, that is what lets a run be correlated back to the agent's kill-switch state
 /// and catalog entry. Never store prompts, secrets, or raw provider payloads here (AGENTS.md I8);
 /// InputRefs and the tool trace carry references and safe metadata only.
 /// </summary>

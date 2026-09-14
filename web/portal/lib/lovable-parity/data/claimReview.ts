@@ -237,7 +237,7 @@ export function useClaimReview(claimId: string) {
       setDetail(nextDetail);
       setLoadState(settledState(nextDetail, false));
 
-      // Timeline is best-effort — a claim can be valid without timeline events.
+      // Timeline is best-effort, a claim can be valid without timeline events.
       try {
         const tlRes = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/timeline`, { headers });
         if (tlRes.ok) {
@@ -478,7 +478,7 @@ export function useClaimReview(claimId: string) {
     }
   }, [claimId, load, role]);
 
-  // WO 6.2: the export endpoint only ever returned an object key — a real single-document export
+  // WO 6.2: the export endpoint only ever returned an object key, a real single-document export
   // existed but the officer had no way to actually get the file. Fetches it as a blob (the
   // permission-gated GET needs the same scoped headers a plain <a href> can't carry) and triggers
   // a normal browser download.

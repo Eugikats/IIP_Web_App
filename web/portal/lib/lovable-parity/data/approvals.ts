@@ -56,7 +56,7 @@ function mapDto(dto: ApprovalDto): ApprovalView {
     title: dto.approvalType,
     claim: dto.caseId,
     requester: dto.requestedByUserId,
-    reviewer: dto.reviewerUserId || "—",
+    reviewer: dto.reviewerUserId || "-",
     risk: dto.riskLevel,
     ageHrs: ageHours(dto.createdAt),
     summary: dto.evidenceSummary,

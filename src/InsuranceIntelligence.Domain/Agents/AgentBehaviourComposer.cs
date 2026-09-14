@@ -6,7 +6,7 @@ namespace InsuranceIntelligence.Domain.Agents;
 /// Assembles the actual system prompt an agent runs with: an immutable platform preamble, then
 /// the tenant's configuration (or the agent's own built-in default if none is set), then
 /// refusal-topic handling. This is the one place the human-decision boundary is enforced in
-/// prompt text — a tenant's AgentBehaviourProfile has no field that can touch the preamble, by
+/// prompt text, a tenant's AgentBehaviourProfile has no field that can touch the preamble, by
 /// construction, not by convention. See docs/01-strategy-requirements-roadmap/
 /// IIP_HACKATHON_READINESS_BLUEPRINT.md §6.3.
 /// </summary>
@@ -14,7 +14,7 @@ public static class AgentBehaviourComposer
 {
     /// <summary>Never tenant-editable, never omitted, always first. Every clause here is load-
     /// bearing against a specific prohibited action from AGENTS.md's human-supervised insurance
-    /// rule — this is not general safety boilerplate, it is that rule in imperative form.</summary>
+    /// rule, this is not general safety boilerplate, it is that rule in imperative form.</summary>
     public const string PlatformPreamble =
         "You operate inside a human-supervised insurance platform. You do not approve, reject, deny, or repudiate " +
         "claims; settle, release, or authorize payments; bind policies or set final premiums; make final underwriting " +
@@ -39,14 +39,14 @@ public static class AgentBehaviourComposer
 
         if (profile?.RefusalTopics is { Count: > 0 })
         {
-            sb.Append("\n\nIf asked about any of the following, do not answer — respond exactly with the escalation message given below: ")
+            sb.Append("\n\nIf asked about any of the following, do not answer, respond exactly with the escalation message given below: ")
               .Append(string.Join(", ", profile.RefusalTopics));
             sb.Append("\nEscalation message: \"").Append(profile.EscalationMessage.Trim()).Append('"');
         }
 
         if (profile?.MaxResponseCharacters is { } limit and > 0)
         {
-            sb.Append("\n\nKeep your reply under ").Append(limit).Append(" characters — it is delivered over SMS/WhatsApp.");
+            sb.Append("\n\nKeep your reply under ").Append(limit).Append(" characters, it is delivered over SMS/WhatsApp.");
         }
 
         if (profile?.RequireCitation ?? true)
@@ -58,7 +58,7 @@ public static class AgentBehaviourComposer
     }
 
     /// <summary>Splits an already-composed prompt back into (preamble, everything after) purely
-    /// for display — so the behaviour screen can render the immutable section visually distinct
+    /// for display, so the behaviour screen can render the immutable section visually distinct
     /// from what the tenant actually controls, without re-deriving it from scratch.</summary>
     public static (string Preamble, string TenantVisible) SplitForDisplay(string composed) =>
         composed.StartsWith(PlatformPreamble, StringComparison.Ordinal)

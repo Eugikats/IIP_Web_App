@@ -57,7 +57,7 @@ export function useCustomersList() {
       setCustomers(rows.map((r) => ({
         id: r.customerId,
         name: r.fullName,
-        contact: r.email || r.phone || "—",
+        contact: r.email || r.phone || "-",
         activeClaims: r.activeClaims,
       })));
     } catch (err) {

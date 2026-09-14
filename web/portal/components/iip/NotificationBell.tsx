@@ -24,7 +24,7 @@ function timeAgo(iso: string): string {
 }
 
 // WO-14: the bell previously had no unread indicator at all (removed in WO-02 for being
-// unconditional/fake) — this reinstates it bound to a real feed.
+// unconditional/fake), this reinstates it bound to a real feed.
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);

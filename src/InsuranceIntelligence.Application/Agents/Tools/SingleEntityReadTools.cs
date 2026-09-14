@@ -6,7 +6,7 @@ using InsuranceIntelligence.Domain.Policies;
 
 namespace InsuranceIntelligence.Application.Agents.Tools;
 
-/// <summary>claim.read — single claim, tenant/workspace filter mandatory (docs §9). Requires the
+/// <summary>claim.read, single claim, tenant/workspace filter mandatory (docs §9). Requires the
 /// "caseId" parameter. Added for WO-10 (claims-summary), the first real consumer.</summary>
 public sealed class ClaimReadTool(ICaseRepository caseRepository, IPermissionService permissionService)
     : AgentToolBase(permissionService)
@@ -36,7 +36,7 @@ public sealed class ClaimReadTool(ICaseRepository caseRepository, IPermissionSer
     }
 }
 
-/// <summary>document.read — no cross-claim access unless authorized (docs §9). Requires the
+/// <summary>document.read, no cross-claim access unless authorized (docs §9). Requires the
 /// "caseId" parameter.</summary>
 public sealed class DocumentReadTool(ICaseDocumentRepository documentRepository, IPermissionService permissionService)
     : AgentToolBase(permissionService)
@@ -61,7 +61,7 @@ public sealed class DocumentReadTool(ICaseDocumentRepository documentRepository,
     }
 }
 
-/// <summary>policy.read — do not infer policy terms from memory (docs §9). Requires the
+/// <summary>policy.read, do not infer policy terms from memory (docs §9). Requires the
 /// "policyNumber" parameter.</summary>
 public sealed class PolicyReadTool(IPolicyRepository policyRepository, IPermissionService permissionService)
     : AgentToolBase(permissionService)
@@ -81,7 +81,7 @@ public sealed class PolicyReadTool(IPolicyRepository policyRepository, IPermissi
             return Denied("The \"policyNumber\" parameter is required.");
         }
 
-        // IPolicyRepository has no lookup by PolicyNumber (only by PolicyId) — filter the
+        // IPolicyRepository has no lookup by PolicyNumber (only by PolicyId), filter the
         // tenant-scoped list. Acceptable at current data volumes; revisit if this becomes a
         // hot path once real customer books are loaded.
         var policies = await policyRepository.ListAsync(invocation.Scope, cancellationToken);

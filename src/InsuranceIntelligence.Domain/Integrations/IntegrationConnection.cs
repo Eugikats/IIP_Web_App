@@ -7,7 +7,7 @@ namespace InsuranceIntelligence.Domain.Integrations;
 
 /// <summary>
 /// The category of external service a tenant can connect. Each type has exactly one active
-/// connection per tenant workspace at a time — connecting a new provider for the same type
+/// connection per tenant workspace at a time, connecting a new provider for the same type
 /// replaces the previous one, mirroring how WhatsAppChannelConfiguration already works for
 /// WhatsApp specifically. See docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md §3.
 /// </summary>
@@ -16,7 +16,7 @@ public enum ConnectionType
     Sms,
     Email,
 
-    /// <summary>An insurer's policy administration system (blueprint §14 Phase 7, WO 7.2) — the
+    /// <summary>An insurer's policy administration system (blueprint §14 Phase 7, WO 7.2), the
     /// generic REST adapter behind IPolicyLookupProvider. StorageKey hashes the enum name, not its
     /// ordinal, so adding this here does not disturb Sms/Email's existing storage keys.</summary>
     PolicySystem,
@@ -27,7 +27,7 @@ public enum ConnectionType
 /// Generalizes the pattern WhatsAppChannelConfiguration pioneered: credentials entered through a
 /// settings screen, validated against the real provider before anything is persisted, encrypted
 /// at rest, and never returned to a browser once saved (see ConnectionEndpoints.GetStatus, which
-/// mirrors WhatsAppConfigurationEndpoints.GetStatus — booleans and non-secret metadata only).
+/// mirrors WhatsAppConfigurationEndpoints.GetStatus, booleans and non-secret metadata only).
 /// </summary>
 public sealed record IntegrationConnection
 {
@@ -37,11 +37,11 @@ public sealed record IntegrationConnection
 
     /// <summary>Provider-specific secret fields (credentials), JSON-serialized as one object then
     /// encrypted as a single blob via IConnectionSecretProtector. Never returned to a browser once
-    /// saved — only whether it is present.</summary>
+    /// saved, only whether it is present.</summary>
     public required string EncryptedSecretSettingsJson { get; init; }
 
     /// <summary>Provider-specific non-secret fields (sender id, base url, display name, sandbox
-    /// flag) as plain JSON — safe to read back and display without decryption.</summary>
+    /// flag) as plain JSON, safe to read back and display without decryption.</summary>
     public string? NonSecretSettingsJson { get; init; }
 
     public bool IsActive { get; init; } = true;
@@ -52,10 +52,10 @@ public sealed record IntegrationConnection
     public string? LastValidationError { get; init; }
 
     /// <summary>Non-secret facts the last validation discovered (e.g. current SMS balance, a
-    /// verified display name) — safe to show in the connections screen.</summary>
+    /// verified display name), safe to show in the connections screen.</summary>
     public string? LastValidationDiscoveredJson { get; init; }
 
-    /// <summary>Deterministic per-(tenant, connection type) id — same DeterministicId pattern as
+    /// <summary>Deterministic per-(tenant, connection type) id, same DeterministicId pattern as
     /// WhatsAppChannelConfiguration.StorageKey. Saving a new provider for the same connection type
     /// overwrites the previous one: one active connection per type, not an accumulating list.</summary>
     public static Guid StorageKey(TenantScope scope, ConnectionType connectionType)
@@ -77,7 +77,7 @@ public interface IIntegrationConnectionRepository
 
 /// <summary>Encrypts/decrypts connection secret fields at rest, generalized from
 /// IWhatsAppCredentialProtector. Implemented over ASP.NET Core Data Protection (a real,
-/// key-rotation-capable, deployment-scoped protector) — never a hand-rolled cipher, never hashing
+/// key-rotation-capable, deployment-scoped protector), never a hand-rolled cipher, never hashing
 /// (the plaintext must be recoverable to actually call the provider).</summary>
 public interface IConnectionSecretProtector
 {
@@ -87,7 +87,7 @@ public interface IConnectionSecretProtector
 }
 
 /// <summary>Proves a connection's credentials actually work against the real provider before
-/// anything is persisted — the same guarantee WhatsAppConfigurationEndpoints already provides via
+/// anything is persisted, the same guarantee WhatsAppConfigurationEndpoints already provides via
 /// IWhatsAppGraphValidationClient, generalized to every connection type and provider. One
 /// validator per (ConnectionType, ProviderKey) pair.</summary>
 public interface IConnectionValidator
@@ -108,7 +108,7 @@ public sealed record ConnectionValidationResult(
 
 /// <summary>
 /// Splits a flat settings dictionary into secret vs non-secret fields for storage, and merges
-/// them back into one dictionary for use. Pure JSON plumbing shared by every connection type —
+/// them back into one dictionary for use. Pure JSON plumbing shared by every connection type,
 /// no Infrastructure dependency, so it lives in Domain alongside IntegrationConnection.
 /// </summary>
 public static class ConnectionSettingsCodec
@@ -154,7 +154,7 @@ public static class ConnectionSettingsCodec
         return merged;
     }
 
-    /// <summary>Non-secret fields only, decoded without touching the protector — safe to call when
+    /// <summary>Non-secret fields only, decoded without touching the protector, safe to call when
     /// displaying a connection's status (e.g. sender id, base url) without decrypting anything.</summary>
     public static IReadOnlyDictionary<string, string> DecodeNonSecret(IntegrationConnection connection)
     {

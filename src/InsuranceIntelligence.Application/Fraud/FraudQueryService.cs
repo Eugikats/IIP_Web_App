@@ -11,7 +11,7 @@ namespace InsuranceIntelligence.Application.Fraud;
 /// Surfaces deterministic, rule-based fraud AND AML/CFT advisory signals (blueprint §14 Phase 7,
 /// WO 7.3) for the current tenant/workspace. Reads real claims (tenant-scoped by the claims read
 /// repository) and runs the pure <see cref="FraudRuleEngine"/>. Produces advisory
-/// signals only — never a verdict (DEC-014, AGENTS.md decision boundary).
+/// signals only, never a verdict (DEC-014, AGENTS.md decision boundary).
 /// </summary>
 public sealed class FraudQueryService(
     IClaimsReadRepository claimsReadRepository,
@@ -33,7 +33,7 @@ public sealed class FraudQueryService(
         var inputs = new List<FraudClaimInput>(claims.Count);
         foreach (var claim in claims)
         {
-            // AML/CFT rules need the policy's own EffectiveFrom/SumInsured (WO 7.3) — a real
+            // AML/CFT rules need the policy's own EffectiveFrom/SumInsured (WO 7.3), a real
             // per-claim lookup, not fabricated data; a claim whose policy number doesn't resolve
             // (or never existed) simply carries null for those two fields, and the two AML/CFT
             // rules honestly skip it rather than guessing.
@@ -44,7 +44,7 @@ public sealed class FraudQueryService(
         }
 
         var signals = FraudRuleEngine.Evaluate(inputs);
-        // WO-19: signals are recomputed fresh every call — join each one to its persisted
+        // WO-19: signals are recomputed fresh every call, join each one to its persisted
         // disposition (if any) by the same deterministic id the disposition service uses, so the
         // workflow state survives even though the signal itself is never stored.
         var dispositions = (await dispositionRepository.ListAsync(scope, cancellationToken))

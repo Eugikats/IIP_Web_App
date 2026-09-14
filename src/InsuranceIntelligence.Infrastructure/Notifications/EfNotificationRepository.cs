@@ -46,7 +46,7 @@ public sealed class EfNotificationRepository(InsuranceIntelligenceDbContext dbCo
         TenantScope scope, string recipientUserId, NotificationType type, Guid caseId, CancellationToken cancellationToken = default)
     {
         // Type is only in the JSON payload (not a typed column, matching the rest of this
-        // codebase's scoped-JSON persistence convention) — the candidate set per case/recipient
+        // codebase's scoped-JSON persistence convention), the candidate set per case/recipient
         // is always small, so filtering it in memory after a scoped/indexed query is cheap.
         var candidates = await Scoped(DbContext.Notifications.AsNoTracking(), scope)
             .Where(record => record.RecipientUserId == recipientUserId)

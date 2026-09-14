@@ -6,7 +6,7 @@ using InsuranceIntelligence.Domain.Integrations;
 namespace InsuranceIntelligence.Application.Integrations;
 
 /// <summary>What one ingestion pass actually did. Honest about the difference between "nothing was
-/// waiting" and "nothing could be collected" — a mailbox the provider refused is reported, not
+/// waiting" and "nothing could be collected", a mailbox the provider refused is reported, not
 /// folded into a zero.</summary>
 public sealed record MailboxIngestionResult(
     int MailboxesPolled,
@@ -31,14 +31,14 @@ public interface IMailboxIngestionService
 /// store, which is what the Channels inbox reads.
 ///
 /// This exists because nothing else did it. `EmailIntegrationEndpoints.GraphWebhook` only answers
-/// Microsoft's subscription-validation handshake — it never pulls the messages a change
-/// notification refers to — and the one real pull path (`TestIngestion`) is mapped only when
+/// Microsoft's subscription-validation handshake, it never pulls the messages a change
+/// notification refers to, and the one real pull path (`TestIngestion`) is mapped only when
 /// development diagnostics are enabled, so it does not exist in Staging or Production at all.
 /// The practical effect was that an insurer could connect a mailbox in a deployed environment and
 /// no email would ever appear, with no error to explain why.
 ///
-/// Deliberately stops at ingestion. Turning an email into a claim stays where it already is — a
-/// permissioned human action with a recorded reason (`ProcessMessage`) — because opening claims
+/// Deliberately stops at ingestion. Turning an email into a claim stays where it already is, a
+/// permissioned human action with a recorded reason (`ProcessMessage`), because opening claims
 /// automatically from unattended mail is a decision about human authority, not a gap in plumbing.
 /// An ingested-but-unprocessed email shows in the inbox with "Process into a claim" against it,
 /// which is the honest state: it arrived, and a person still owes it something.

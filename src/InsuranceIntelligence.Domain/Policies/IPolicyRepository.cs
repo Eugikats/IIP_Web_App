@@ -7,7 +7,7 @@ public interface IPolicyRepository
     Task<Policy?> GetAsync(string policyId, TenantScope scope, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Looks a policy up by the human-readable number a claimant or officer actually has —
+    /// Looks a policy up by the human-readable number a claimant or officer actually has,
     /// distinct from <see cref="Policy.PolicyId"/>, which is an internal identifier nobody types.
     /// Case-insensitive: policy numbers are read off paperwork, not copy-pasted.
     /// </summary>

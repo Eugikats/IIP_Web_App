@@ -11,7 +11,7 @@ public interface ISalesLeadQueryService
 }
 
 /// <summary>
-/// Manual sales-lead creation — the Gate 0 origination path (staff capture a walk-in /
+/// Manual sales-lead creation, the Gate 0 origination path (staff capture a walk-in /
 /// phone / referral lead). Channel ingestion and integration-fabric import are later-gate
 /// sources that will write into the same store; until then those sources are honest-gated
 /// and this manual path is the only origination.

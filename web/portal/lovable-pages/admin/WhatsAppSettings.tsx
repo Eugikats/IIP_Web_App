@@ -17,7 +17,7 @@ import {
 } from "@/lib/whatsappSettings";
 
 // No verify-token field: IIP generates that itself and registers it with Meta directly (blueprint
-// §4.3) — the operator never types or stores it.
+// §4.3), the operator never types or stores it.
 const FIELD_GUIDE: { key: keyof FormState; label: string; placeholder: string; help: string; secret: boolean }[] = [
   { key: "phoneNumberId", label: "Phone number ID", placeholder: "109876543210987", help: "Meta Business Settings → WhatsApp Accounts → your number → Phone number ID.", secret: false },
   { key: "wabaId", label: "WhatsApp Business Account ID", placeholder: "102290129340398", help: "Meta Business Settings → WhatsApp Accounts → shown next to the phone number. Used to register the webhook automatically.", secret: false },
@@ -30,7 +30,7 @@ const EMPTY_FORM: FormState = { phoneNumberId: "", wabaId: "", accessToken: "", 
 
 const WEBHOOK_STATUS_LABEL: Record<string, string> = {
   Registered: "Webhook registered with Meta",
-  RegistrationFailed: "Webhook registration failed — manual setup needed",
+  RegistrationFailed: "Webhook registration failed, manual setup needed",
   ManualRequired: "Webhook needs manual setup",
 };
 
@@ -112,7 +112,7 @@ export default function WhatsAppSettings() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard access can fail (permissions, insecure context) — the URL is still selectable text.
+      // Clipboard access can fail (permissions, insecure context), the URL is still selectable text.
     }
   }
 
@@ -217,7 +217,7 @@ export default function WhatsAppSettings() {
                 <div className="text-[14px] font-bold text-dls-text-primary">Connect your WhatsApp Business number</div>
               </div>
               <p className="mb-4 text-[12px] leading-5 text-dls-text-secondary">
-                You&apos;ll need a Meta Business app with the WhatsApp product added. Each field below says exactly where to find it — the webhook is registered automatically once these validate.
+                You&apos;ll need a Meta Business app with the WhatsApp product added. Each field below says exactly where to find it, the webhook is registered automatically once these validate.
               </p>
 
               <div className="space-y-4">
@@ -235,7 +235,7 @@ export default function WhatsAppSettings() {
                     )}
                   </WhatsAppField>
                 ))}
-                <UIField label="Display name (optional — we'll use Meta's verified name if you leave this blank)" htmlFor={displayNameId}>
+                <UIField label="Display name (optional, we'll use Meta's verified name if you leave this blank)" htmlFor={displayNameId}>
                   <Input
                     id={displayNameId}
                     value={form.businessDisplayName}
@@ -266,14 +266,14 @@ export default function WhatsAppSettings() {
         title="Connect WhatsApp Business"
         target={form.phoneNumberId || "New WhatsApp connection"}
         impact="IIP will call Meta's Graph API to confirm these credentials work, then encrypt and store them, and register a webhook so Meta can deliver messages here. This does not send any message to customers."
-        auditNotice="Connecting a channel is recorded in the audit trail with your name against it — note why you are connecting this number."
+        auditNotice="Connecting a channel is recorded in the audit trail with your name against it, note why you are connecting this number."
         confirmLabel="Validate and save"
         onClose={() => setConnectDialogOpen(false)}
         onConfirm={onConnect}
         evidence={
           <div className="rounded-dls-control border border-dls-border-subtle bg-dls-bg-page p-3 text-[12px] text-dls-text-secondary">
-            <div>Phone number ID: <span className="font-semibold text-dls-text-primary">{form.phoneNumberId || "—"}</span></div>
-            <div>WABA ID: <span className="font-semibold text-dls-text-primary">{form.wabaId || "—"}</span></div>
+            <div>Phone number ID: <span className="font-semibold text-dls-text-primary">{form.phoneNumberId || "-"}</span></div>
+            <div>WABA ID: <span className="font-semibold text-dls-text-primary">{form.wabaId || "-"}</span></div>
             {form.businessDisplayName && <div>Display name: <span className="font-semibold text-dls-text-primary">{form.businessDisplayName}</span></div>}
           </div>
         }
@@ -284,7 +284,7 @@ export default function WhatsAppSettings() {
         title="Disconnect WhatsApp Business"
         target={status?.businessDisplayName || status?.phoneNumberId || "This WhatsApp connection"}
         impact="Inbound and outbound WhatsApp messages will stop working immediately for this workspace until a connection is configured again."
-        auditNotice="Disconnecting a live channel is recorded in the audit trail with your name against it — note why."
+        auditNotice="Disconnecting a live channel is recorded in the audit trail with your name against it, note why."
         confirmLabel="Disconnect"
         tone="danger"
         onClose={() => setDisconnectDialogOpen(false)}

@@ -6,7 +6,7 @@ namespace InsuranceIntelligence.Api.Tests;
 
 /// <summary>
 /// WO 5.6: "every step across every channel in one place" only holds if every real audit action
-/// this codebase actually writes for a case gets a real, specific summary — not the generic
+/// this codebase actually writes for a case gets a real, specific summary, not the generic
 /// fallback. This is a characterization test over the full, real action-name surface (kept in
 /// sync with AuditEvent.cs's factory methods and every inline ActionName literal this session's
 /// WhatsApp/email/FNOL-acknowledgement/missing-document work introduced), so a newly added action

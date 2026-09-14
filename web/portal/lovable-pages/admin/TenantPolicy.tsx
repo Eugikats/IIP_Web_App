@@ -40,7 +40,7 @@ export default function TenantPolicy() {
       <SectionHeader
         eyebrow="Admin · Tenant Agent Policy"
         title="Tenant agent policy"
-        sub="Baseline guardrails every agent in this workspace inherits. Each row names the actual code path or configuration key that enforces it — this is a live report, not a description."
+        sub="Baseline guardrails every agent in this workspace inherits. Each row names the actual code path or configuration key that enforces it, this is a live report, not a description."
       />
       <div className="mb-4"><GuardrailBanner /></div>
 

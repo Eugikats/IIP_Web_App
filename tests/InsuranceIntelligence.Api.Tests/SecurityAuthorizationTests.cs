@@ -510,15 +510,15 @@ public sealed class SecurityAuthorizationTests
     public async Task RuntimeContext_UsesMembershipStoreScopeOutsideDevelopment()
     {
         // ADR-0005: /me reflects the store-resolved membership (set by the per-request middleware),
-        // NOT the token's tid/roles claims — even a token carrying different claims is ignored.
+        // NOT the token's tid/roles claims, even a token carrying different claims is ignored.
         var context = new DefaultHttpContext();
         context.RequestServices = ServicesWithOptions(ProductionDeploymentOptions);
         context.User = new ClaimsPrincipal(new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, "entra-user"),
             new Claim(ClaimTypes.Name, "Maya Morgan"),
-            new Claim(ClaimTypes.Role, "Admin"),          // token claim — must be IGNORED
-            new Claim("tenant_id", "attacker-tenant")      // token tid — must be IGNORED
+            new Claim(ClaimTypes.Role, "Admin"),          // token claim, must be IGNORED
+            new Claim("tenant_id", "attacker-tenant")      // token tid, must be IGNORED
         ], "Entra"));
         var resolved = TenantContextWith("tenant-a", "workspace-a", "entra-user", "ITAdmin");
 
@@ -801,7 +801,7 @@ public sealed class SecurityAuthorizationTests
     // Program.cs registers GET /api/v1/customers (CustomerProfileEndpoints.ListCustomers), and
     // Domain/CustomerEndpoints.cs maps a group on the same base path. A `group.MapGet("/")` there
     // produces a second endpoint matching the same request, so ASP.NET throws
-    // AmbiguousMatchException at request time and the Customers page returns 500 — invisible to a
+    // AmbiguousMatchException at request time and the Customers page returns 500, invisible to a
     // build and to every handler-level test, because both registrations are individually valid.
     [Fact]
     public void CustomerGroup_DoesNotRestOnTheSamePathAsTheCustomerList()

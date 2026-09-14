@@ -5,13 +5,13 @@ namespace InsuranceIntelligence.Api.ClientPortal;
 
 /// <summary>
 /// Verifies the X-Client-Portal-Session header against a stored <see cref="ClaimantPortalSession"/>
-/// before a claimant-facing route runs, and — on success — stashes the session's verified contact
+/// before a claimant-facing route runs, and, on success, stashes the session's verified contact
 /// value in HttpContext.Items for the handler to use instead of trusting client-supplied identity
 /// headers.
 ///
 /// Outside Development, a missing or invalid session token fails the request closed (401) here,
 /// before the handler runs. In Development, a missing session is allowed through so the existing
-/// demo-header-based local testing flow keeps working — ClientPortalEndpoints itself falls back to
+/// demo-header-based local testing flow keeps working, ClientPortalEndpoints itself falls back to
 /// header trust only in that same case, so the two must agree.
 /// </summary>
 public sealed class ClaimantSessionEndpointFilter : IEndpointFilter

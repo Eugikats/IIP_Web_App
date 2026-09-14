@@ -8,19 +8,19 @@ namespace InsuranceIntelligence.Domain.Communications;
 ///
 /// Staff surfaces render assistant markdown properly (web/portal's MarkdownText). SMS and WhatsApp
 /// do not: SMS has no formatting at all, and WhatsApp's own syntax is *single* asterisks, so the
-/// **double** asterisks a model emits are not bold there — a policyholder simply receives the
+/// **double** asterisks a model emits are not bold there, a policyholder simply receives the
 /// literal characters. Anything model-generated that crosses into one of those channels has to be
 /// flattened first, or the customer reads raw markup.
 ///
 /// Deliberately a strip-and-reflow, not a translation into WhatsApp's own syntax: the same text
 /// may go out over SMS (no formatting), WhatsApp (its own syntax), or a future channel, and
-/// emphasis is never load-bearing in these messages — the words carry the meaning. Flattening once
+/// emphasis is never load-bearing in these messages, the words carry the meaning. Flattening once
 /// is predictable everywhere; per-channel markup would need a different transform per channel and
 /// would still be wrong the moment a message is retried over a different one.
 /// </summary>
 public static class PlainTextForCustomerChannel
 {
-    // **bold**, *italic*, _italic_, `code` — capture the inner text, drop the delimiters.
+    // **bold**, *italic*, _italic_, `code`, capture the inner text, drop the delimiters.
     private static readonly Regex Bold = new(@"\*\*(?<text>[^*]+)\*\*", RegexOptions.Compiled);
     private static readonly Regex Italic = new(@"(?<![*\w])\*(?<text>[^*\n]+)\*(?!\*)", RegexOptions.Compiled);
     private static readonly Regex Underscore = new(@"(?<![_\w])_(?<text>[^_\n]+)_(?!_)", RegexOptions.Compiled);

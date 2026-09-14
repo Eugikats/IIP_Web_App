@@ -115,7 +115,7 @@ public static class WhatsAppIntegrationEndpoints
             if (inbound.Length > 0)
             {
                 // Best-effort: the customer assistant classifies intent and (when the tenant has
-                // opted in) drafts/sends a grounded reply. It must never fail the webhook —
+                // opted in) drafts/sends a grounded reply. It must never fail the webhook,
                 // Meta retries on non-2xx, and the inbound message is already durably saved above.
                 try
                 {
@@ -206,6 +206,6 @@ public sealed record SendWhatsAppMessageRequest(
     IReadOnlyDictionary<string, string>? TemplateParameters);
 
 /// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
-/// static-class endpoint (ILogger&lt;WhatsAppIntegrationEndpoints&gt; is not usable — the class is
+/// static-class endpoint (ILogger&lt;WhatsAppIntegrationEndpoints&gt; is not usable, the class is
 /// static), matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
 public sealed class WhatsAppCustomerAssistantLogMarker;

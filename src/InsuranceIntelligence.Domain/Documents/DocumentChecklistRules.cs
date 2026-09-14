@@ -31,7 +31,7 @@ public static class DocumentChecklistRules
 
     /// <summary>
     /// Claim-type discriminator on the single governed path. Falls back to product-line rules
-    /// when the claim type is unknown — including for every non-Motor product line, since the
+    /// when the claim type is unknown, including for every non-Motor product line, since the
     /// own-damage/third-party/theft/injury taxonomy only applies to Motor (ClaimTypeClassifier
     /// returns Unknown for other product lines).
     /// </summary>

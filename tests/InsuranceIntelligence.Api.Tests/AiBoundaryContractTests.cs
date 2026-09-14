@@ -348,7 +348,7 @@ public sealed class AiBoundaryContractTests
     public async Task DraftCustomerUpdate_DecisionOutcome_NeverStatesTheDecision_AndAlwaysRequiresApproval()
     {
         // WO 5.5: a human decided the claim's outcome, but AGENTS.md bars AI from communicating a
-        // final claim decision — the draft must tell the customer only that a decision exists and
+        // final claim decision, the draft must tell the customer only that a decision exists and
         // to expect contact, never approved/declined/settled/an amount, and must always require
         // approval regardless of content (unlike StatusUpdate, which can auto-clear as non-sensitive).
         var deps = CreateWorkflowDeps();
@@ -449,7 +449,7 @@ public sealed class AiBoundaryContractTests
             new InMemoryAuditRepository());
     }
 
-    // WO-16: Approved/LowRisk are no longer client-trusted request fields — the send endpoint
+    // WO-16: Approved/LowRisk are no longer client-trusted request fields, the send endpoint
     // derives them from a real persisted, approved CustomerUpdateDraft. These red-team tests must
     // reference a genuine approved draft so a 403 for the agent actor proves the human-actor gate
     // itself blocks the send, not merely that the referenced update couldn't be found.

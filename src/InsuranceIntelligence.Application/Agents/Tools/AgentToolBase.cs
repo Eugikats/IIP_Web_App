@@ -5,7 +5,7 @@ namespace InsuranceIntelligence.Application.Agents.Tools;
 /// <summary>
 /// Shared permission and provider-health enforcement so individual tools stay small: each one
 /// implements only ExecuteDataAsync, the actual query. Fails closed on both permission denial and
-/// an unconfigured/unhealthy required provider (AGENTS.md I9) — never throws past the registry
+/// an unconfigured/unhealthy required provider (AGENTS.md I9), never throws past the registry
 /// boundary, always returns a structured, honest AgentToolResult.
 /// </summary>
 public abstract class AgentToolBase(IPermissionService permissionService, IProviderHealthCheck? providerHealthCheck = null) : IAgentTool

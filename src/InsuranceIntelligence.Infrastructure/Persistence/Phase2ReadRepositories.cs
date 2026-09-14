@@ -18,7 +18,7 @@ namespace InsuranceIntelligence.Infrastructure.Persistence;
 
 // Read-side adapters that back the Phase 2 query services. Follows the same
 // "materialize tenant-scoped rows, then deserialize the JSON payload in memory"
-// approach used by EfClaimsReadRepository — the persisted aggregates are stored as
+// approach used by EfClaimsReadRepository, the persisted aggregates are stored as
 // scoped JSON, so filtering happens after deserialization.
 
 /// <summary>
@@ -366,7 +366,7 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
 }
 
 /// <summary>
-/// Tenant-scoped channel overview projected from durable WhatsApp messages and inbound email —
+/// Tenant-scoped channel overview projected from durable WhatsApp messages and inbound email,
 /// every channel that can land a claim, so an officer working the inbox sees all of them in one
 /// place rather than needing a separate admin screen per channel.
 /// </summary>
@@ -394,7 +394,7 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
         // The customer assistant already classified every inbound WhatsApp message and recorded
         // what it did about it (CustomerConversationTurn). Without reading that back, this screen
         // fell through to "general_service" for every thread and showed WhatsApp's delivery state
-        // as though it were a work state — so an officer could not see which conversations were
+        // as though it were a work state, so an officer could not see which conversations were
         // new claims, and a reply held for human approval looked identical to one already sent.
         var latestTurnByThread = (await Scoped(DbContext.CustomerConversationTurns.AsNoTracking(), scope)
                 .Select(record => record.PayloadJson)
@@ -485,7 +485,7 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
     private static string RoutingFor(CustomerConversationTurn? turn, bool hasLinkedCase) => turn?.Outcome switch
     {
         CustomerAssistantOutcome.QueuedForHumanApproval => "Approve or edit the drafted reply",
-        CustomerAssistantOutcome.Escalated => "Escalated — needs a person",
+        CustomerAssistantOutcome.Escalated => "Escalated, needs a person",
         CustomerAssistantOutcome.CaseOpened => "Open linked claim",
         CustomerAssistantOutcome.LeadCreated => "Follow up on the new enquiry",
         CustomerAssistantOutcome.AwaitingMoreInformation => "Waiting on the customer",
@@ -510,5 +510,5 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
         };
 }
 
-// Sales-lead persistence moved to EfSalesLeadRepository (real scoped-JSON store) — the manual
+// Sales-lead persistence moved to EfSalesLeadRepository (real scoped-JSON store), the manual
 // create path (Gate 0) writes real leads; channel ingestion / fabric import feed the same store later.

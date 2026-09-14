@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace InsuranceIntelligence.Infrastructure.Communications;
 
 /// <summary>
-/// The three-step resolution order (blueprint §3.2), applied to email — the exact structure of
+/// The three-step resolution order (blueprint §3.2), applied to email, the exact structure of
 /// TenantAwareSmsProvider: an active tenant IntegrationConnection first (SMTP), then the
 /// deployment's environment-configured fallback (Graph, or Not configured), then honestly
 /// reporting ConfigurationRequired. Registered as the one IEmailSendingProvider the rest of the

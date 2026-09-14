@@ -131,25 +131,25 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     return () => window.clearInterval(timer);
   }, [claimId, hasReview, parityMode, claimStatus, loadReview]);
   // Gates the upload control on the signed-in user's real permission, never on the preview role
-  // switcher — a role without UploadDocument (e.g. ITAdmin, Compliance) must not see a button
+  // switcher, a role without UploadDocument (e.g. ITAdmin, Compliance) must not see a button
   // that the server will refuse with 403.
   const canUploadDocuments = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "UploadDocument")
     : hasPermission(runtimeContext?.permissions ?? [], "UploadDocument");
   // "Draft customer update" and "Draft document follow-up" both call
-  // POST /cases/{id}/customer-updates/draft, which requires ManageCustomerCommunications —
+  // POST /cases/{id}/customer-updates/draft, which requires ManageCustomerCommunications,
   // a role that can view the claim (e.g. Compliance) does not necessarily hold it.
   const canDraftCustomerUpdates = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "ManageCustomerCommunications")
     : hasPermission(runtimeContext?.permissions ?? [], "ManageCustomerCommunications");
   // "Export claim pack" calls POST /compliance/cases/{id}/audit-pack/export, which requires
-  // ExportEvidencePack — most claim-viewing roles (ClaimsOfficer, CustomerService, Broker) do
+  // ExportEvidencePack, most claim-viewing roles (ClaimsOfficer, CustomerService, Broker) do
   // not hold it; only ClaimsSupervisor and Compliance do.
   const canExportEvidencePack = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "ExportEvidencePack")
     : hasPermission(runtimeContext?.permissions ?? [], "ExportEvidencePack");
   // CustomerUpdatePanel's allowedActions/blockedActions reflect the update's workflow state
-  // only (see CaseActions.cs — it does not know the caller's permission); approve/send must be
+  // only (see CaseActions.cs, it does not know the caller's permission); approve/send must be
   // gated here too, on the same permissions POST /customer-updates/{id}/approve and /send
   // actually require server-side.
   const canApproveCustomerUpdate = canDraftCustomerUpdates; // both require ManageCustomerCommunications
@@ -188,7 +188,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     const res = await draftDecisionOutcomeUpdate();
     if (res.ok) {
       toast.success("Decision-outcome update drafted", {
-        description: "The draft tells the customer to expect contact — it never states the decision itself. Review it below before approval or send.",
+        description: "The draft tells the customer to expect contact, it never states the decision itself. Review it below before approval or send.",
       });
     } else {
       toast.error(res.message ?? "Could not draft decision-outcome update");
@@ -247,7 +247,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       const res = await acknowledgeReviewRequest(requestId);
       if (res.ok) {
         toast.success("Re-review request acknowledged", {
-          description: "Workflow state only — this does not settle, deny, or pay the claim.",
+          description: "Workflow state only, this does not settle, deny, or pay the claim.",
         });
       } else {
         toast.error(res.message ?? "Could not acknowledge re-review request");
@@ -398,7 +398,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 <div className="text-[13px] font-bold text-dls-text-primary">This claim needs confirmation</div>
                 <p className="mt-1 max-w-2xl text-[12.5px] leading-snug text-dls-text-secondary">
                   IIP created this claim automatically from an identified {detail.channel} sender. The details below are
-                  a best-effort guess from the raw message — review and correct them, then confirm to start the SLA
+                  a best-effort guess from the raw message, review and correct them, then confirm to start the SLA
                   clock. Until confirmed, this claim is excluded from SLA and attention metrics.
                 </p>
               </div>
@@ -495,7 +495,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               <div>
                 <div className="text-[14px] font-bold text-dls-text-primary">Claimant re-review requests</div>
                 <div className="mt-1 text-[11.5px] text-dls-text-muted">
-                  Acknowledge or resolve contestability requests. This updates workflow state only — it does not settle, deny, or pay the claim.
+                  Acknowledge or resolve contestability requests. This updates workflow state only, it does not settle, deny, or pay the claim.
                 </div>
               </div>
               {reviewRequests.some((request) => request.status === "Open" || request.status === "Acknowledged") ? (

@@ -21,10 +21,10 @@ import {
 } from "@/lib/connections";
 
 // Every connection type this screen manages. Adding a type means adding one entry here plus a
-// field guide in lib/connections.ts — the screen, dialogs, and API calls stay the same.
+// field guide in lib/connections.ts, the screen, dialogs, and API calls stay the same.
 const CONNECTION_TYPES: { type: ConnectionType; label: string; icon: typeof MessageSquare; description: string }[] = [
-  { type: "sms", label: "SMS", icon: MessageSquare, description: "Send text messages to customers — claim status, magic links, decision outcomes." },
-  { type: "email", label: "Email", icon: Mail, description: "Send email to customers over any SMTP-speaking mail system — no Azure tenant needed." },
+  { type: "sms", label: "SMS", icon: MessageSquare, description: "Send text messages to customers, claim status, magic links, decision outcomes." },
+  { type: "email", label: "Email", icon: Mail, description: "Send email to customers over any SMTP-speaking mail system, no Azure tenant needed." },
 ];
 
 const FIELD_GUIDE_BY_TYPE: Record<ConnectionType, Record<string, import("@/lib/connections").ConnectionFieldSpec[]>> = {
@@ -256,13 +256,13 @@ function ConnectionCard({
         title={`Connect ${label}`}
         target={selectedProvider || `New ${label} connection`}
         impact={`IIP will call ${selectedProvider}'s API to confirm these credentials work, then encrypt and store them. This does not send any message to customers.`}
-        auditNotice={`Connecting a ${label.toLowerCase()} channel is a governed action — record why this is being connected now.`}
+        auditNotice={`Connecting a ${label.toLowerCase()} channel is a governed action, record why this is being connected now.`}
         confirmLabel="Validate and save"
         onClose={() => setConnectDialogOpen(false)}
         onConfirm={onConnect}
         evidence={
           <div className="rounded-dls-control border border-dls-border-subtle bg-dls-bg-page p-3 text-[12px] text-dls-text-secondary">
-            <div>Provider: <span className="font-semibold text-dls-text-primary">{selectedProvider || "—"}</span></div>
+            <div>Provider: <span className="font-semibold text-dls-text-primary">{selectedProvider || "-"}</span></div>
           </div>
         }
       />
@@ -272,7 +272,7 @@ function ConnectionCard({
         title={`Disconnect ${label}`}
         target={status?.providerKey || `This ${label.toLowerCase()} connection`}
         impact={`Outbound ${label.toLowerCase()} will stop working immediately for this workspace until a connection is configured again.`}
-        auditNotice={`Disconnecting a live ${label.toLowerCase()} channel is a governed action — record why.`}
+        auditNotice={`Disconnecting a live ${label.toLowerCase()} channel is a governed action, record why.`}
         confirmLabel="Disconnect"
         tone="danger"
         onClose={() => setDisconnectDialogOpen(false)}

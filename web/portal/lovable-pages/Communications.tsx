@@ -60,7 +60,7 @@ export default function Communications() {
       <SectionHeader
         eyebrow="Customer Communications"
         title="Customer update queue"
-        sub="AI drafts customer-safe messages. Every send requires named human approval — no sensitive message is dispatched automatically."
+        sub="AI drafts customer-safe messages. Every send requires named human approval, no sensitive message is dispatched automatically."
       />
       <div className="mb-4"><GuardrailBanner text="Drafts must not promise settlement, coverage, or payment. Approved drafts are dispatched via the configured provider and logged in Audit." /></div>
 
@@ -113,7 +113,7 @@ export default function Communications() {
                         <Button variant="secondary" onClick={() => setPending({ kind: "approve", item })}>Approve</Button>
                       )}
                       {allows(item, "approveCustomerUpdate") && (
-                        // Button's destructive variant is zero-padding by design (§8.4 — a text
+                        // Button's destructive variant is zero-padding by design (§8.4, a text
                         // link, not a row action); hand-sized here to match its bordered/filled
                         // siblings in this row, same treatment Workflows.tsx already established.
                         <button

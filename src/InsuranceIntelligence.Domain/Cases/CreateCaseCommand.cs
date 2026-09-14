@@ -19,6 +19,6 @@ public sealed record CreateCaseCommand(
     MedicalFnolDetails? MedicalFnolDetails = null,
     /// <summary>True for a claim IIP created on its own from an identified WhatsApp/email
     /// sender, before any human has looked at it. Such a case starts no SLA clock (CaseIntakeService
-    /// leaves SlaDueAt null) and is excluded from SLA/attention metrics for exactly that reason —
+    /// leaves SlaDueAt null) and is excluded from SLA/attention metrics for exactly that reason,
     /// see ClaimCase.RequiresConfirmation. A human confirming it is what starts the real SLA.</summary>
     bool RequiresConfirmation = false);

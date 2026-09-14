@@ -4,7 +4,7 @@ using InsuranceIntelligence.Domain.Common;
 namespace InsuranceIntelligence.Domain.Tests.Approvals;
 
 /// <summary>
-/// Seam: platform ceiling — non-human actors cannot Decide/Send/Execute consequential actions.
+/// Seam: platform ceiling, non-human actors cannot Decide/Send/Execute consequential actions.
 /// </summary>
 public sealed class ApprovalDecisionGuardTests
 {

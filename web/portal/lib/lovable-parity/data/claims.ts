@@ -47,7 +47,7 @@ type ClaimListItemDto = {
 
 function formatWhen(iso: string): string {
   const t = Date.parse(iso);
-  if (Number.isNaN(t)) return iso || "—";
+  if (Number.isNaN(t)) return iso || "-";
   return new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
@@ -65,7 +65,7 @@ function mapDto(dto: ClaimListItemDto): ClaimRowView {
     channel: dto.channel,
     updated: formatWhen(dto.updatedAt),
     confidence: Math.max(0, Math.min(1, dto.completenessScore / 100)),
-    region: "—",
+    region: "-",
     assignedUserId: dto.assignedUserId ?? null,
     assignedTeam: dto.assignedTeam ?? null,
     requiresConfirmation: Boolean(dto.requiresConfirmation),

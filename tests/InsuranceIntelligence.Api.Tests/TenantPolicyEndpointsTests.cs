@@ -15,7 +15,7 @@ public sealed class TenantPolicyEndpointsTests
     {
         // Locks in a real, verified finding: no numeric confidence threshold gating document
         // review exists anywhere in this codebase (blueprint §14 WO 3.4). This row previously
-        // claimed "Pilot: 0.80 confidence — configurable" with no code behind it — this test
+        // claimed "Pilot: 0.80 confidence, configurable" with no code behind it, this test
         // exists so nobody accidentally reintroduces that false claim without also building the
         // feature it describes.
         var result = TenantPolicyEndpoints.GetPolicy(Context(), Options());

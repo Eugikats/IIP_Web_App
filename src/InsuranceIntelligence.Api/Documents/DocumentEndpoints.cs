@@ -122,7 +122,7 @@ public static class DocumentEndpoints
             await auditRepository.WriteAsync(AuditEvent.DocumentProcessed(processedDocument, correlationId), cancellationToken);
 
             // Reuses the exact same low-confidence/warned/not-yet-approved condition that blocks
-            // ApproveExtraction (DocumentActionState.BlockedActions) — a document only notifies here
+            // ApproveExtraction (DocumentActionState.BlockedActions), a document only notifies here
             // when it genuinely needs a human to verify it, not on every upload.
             if (DocumentActionState.BlockedActions(processedDocument).Count > 0)
             {
@@ -581,7 +581,7 @@ public static class DocumentEndpoints
     }
 
     // WO-15: lets FNOL intake show the real required-documents checklist for the selected product
-    // line before a case exists, instead of a hardcoded client list (A1) — reuses the exact same
+    // line before a case exists, instead of a hardcoded client list (A1), reuses the exact same
     // DocumentChecklistRules the platform uses everywhere else once a case is created.
     public static IResult PreviewChecklist(
         string? productLine,

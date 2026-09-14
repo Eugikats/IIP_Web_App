@@ -75,7 +75,7 @@ public static class RuntimeContextEndpoints
             return Results.Unauthorized();
         }
 
-        // ADR-0005: outside Development, the runtime authority is IIP's membership store — resolved by
+        // ADR-0005: outside Development, the runtime authority is IIP's membership store, resolved by
         // the per-request middleware into the TenantContext. Never derive tenant/workspace/role from
         // the token's tid/roles claims here. No active membership => fail closed.
         if (!tenantContext.HasCurrent)

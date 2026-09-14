@@ -51,7 +51,7 @@ public static class ClaimsSummaryEndpoints
         catch (CaseNotFoundException)
         {
             // Defensive: WorkflowEndpoints.GetScopedCaseAsync above already checked existence and
-            // scope with the same permission, so this should not occur in practice — kept as a
+            // scope with the same permission, so this should not occur in practice, kept as a
             // safety net rather than letting an internal-consistency gap surface as a raw 500.
             return WorkflowEndpoints.NotFoundCase();
         }

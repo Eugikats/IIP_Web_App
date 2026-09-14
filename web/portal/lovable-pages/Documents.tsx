@@ -16,13 +16,13 @@ import { canPreviewPermission, hasPermission } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 
-// WO-18: documents attach to a claim in this domain — there is no unattached-document concept
-// (A1) — so upload here means picking the claim first, then reusing the exact same
+// WO-18: documents attach to a claim in this domain, there is no unattached-document concept
+// (A1), so upload here means picking the claim first, then reusing the exact same
 // DocumentUploadWidget ClaimReview.tsx already uses (A2: never a second uploader).
 //
 // design language v2 §8.24 note (ui-migration-ledger.md screen-6 entry): this screen has no
 // filter or search over the document list itself (only the upload panel's claim finder, a
-// distinct control), so "empty-after-filter" does not apply here — same accepted, documented
+// distinct control), so "empty-after-filter" does not apply here, same accepted, documented
 // partial as screen 1's precedent, not an invented feature to force the checklist item green.
 // "Not configured" and "no permission" are likewise inapplicable: this hook has no per-provider
 // configuration state to report, and the shell's route gate handles no-permission before this
@@ -187,7 +187,7 @@ export default function Documents() {
                   <TableCell className="text-dls-text-secondary">{d.type}</TableCell>
                   <TableCell className="font-semibold text-dls-primary">{d.claim}</TableCell>
                   <TableCell><StatusBadge status={d.status} /></TableCell>
-                  <TableCell>{d.confidence > 0 ? <ConfidenceBadge value={d.confidence} /> : <span className="text-dls-text-muted">—</span>}</TableCell>
+                  <TableCell>{d.confidence > 0 ? <ConfidenceBadge value={d.confidence} /> : <span className="text-dls-text-muted">-</span>}</TableCell>
                   <TableCell className="text-dls-text-muted">{d.uploaded}</TableCell>
                   <TableCell>
                     {reviewHref ? (

@@ -30,7 +30,7 @@ export function setApiAccessToken(token: string | null) {
 
 const ACTIVE_WORKSPACE_STORAGE_KEY = "iip.active-workspace-id";
 // The header the backend re-validates against the user's real membership before honoring
-// (see RuntimeClaimTypes.RequestedWorkspaceHeaderName) — never trusted client-side.
+// (see RuntimeClaimTypes.RequestedWorkspaceHeaderName), never trusted client-side.
 export const requestedWorkspaceHeaderName = "X-Requested-Workspace-Id";
 
 /** The workspace the user last chose via the settings workspace switcher, if any. */
@@ -52,7 +52,7 @@ export function setActiveWorkspaceOverride(workspaceId: string | null) {
       window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
     }
   } catch {
-    // Best effort — falling back to the server's default workspace is safe.
+    // Best effort, falling back to the server's default workspace is safe.
   }
 }
 
@@ -75,7 +75,7 @@ export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<strin
       headers["X-Tenant-Id"] = defaultTenantId;
     }
 
-    // A workspace chosen via the settings switcher overrides the configured default —
+    // A workspace chosen via the settings switcher overrides the configured default,
     // trusted here only because local development headers are already fully trusted scope.
     const effectiveWorkspaceId = workspaceOverride || defaultWorkspaceId;
     if (effectiveWorkspaceId) {
@@ -84,7 +84,7 @@ export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<strin
 
     headers["x-demo-role"] = role;
     // Fall back to the configured local development user so a caller that omits
-    // the userId (e.g. the /app parity-data hooks) still supplies an identity —
+    // the userId (e.g. the /app parity-data hooks) still supplies an identity,
     // the API's tenant-context middleware needs one. No effect in deployed
     // runtimes, where localDevelopmentUserId is empty and bearer auth is used.
     const effectiveUserId = userId || localDevelopmentUserId;
@@ -97,7 +97,7 @@ export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<strin
       headers.Authorization = `Bearer ${apiAccessToken}`;
     }
 
-    // A hint only — the API re-validates it against the signed-in user's real membership
+    // A hint only, the API re-validates it against the signed-in user's real membership
     // and fails closed if they don't belong to it (never client-side scope substitution).
     if (workspaceOverride) {
       headers[requestedWorkspaceHeaderName] = workspaceOverride;

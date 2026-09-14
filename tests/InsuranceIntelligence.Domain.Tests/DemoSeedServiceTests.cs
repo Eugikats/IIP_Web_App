@@ -13,7 +13,7 @@ namespace InsuranceIntelligence.Domain.Tests;
 /// Exercises the full seed run end-to-end against in-memory fakes. This exists because the
 /// service was twice caught only by a live Azure SQL run (a string primary key that had to
 /// be a real GUID under the hood; Math.Round called with a negative digit count, which the
-/// decimal overload does not support) — both would have failed fast here instead.
+/// decimal overload does not support), both would have failed fast here instead.
 /// </summary>
 public sealed class DemoSeedServiceTests
 {
@@ -65,7 +65,7 @@ public sealed class DemoSeedServiceTests
         }
 
         // The primary-key fields on these five entities are Guid.Parse()'d by the real EF
-        // repositories despite being typed as string in the domain contract — every id must
+        // repositories despite being typed as string in the domain contract, every id must
         // therefore be a real GUID, not a human-readable code.
         foreach (var customer in await customerRepository.ListAsync(Scope, default))
         {
@@ -126,7 +126,7 @@ public sealed class DemoSeedServiceTests
 
 // Minimal in-memory fakes for the five string-keyed repositories DemoSeedService depends on.
 // These mirror the real EF repositories' scoping semantics but skip the Guid.Parse() the real
-// implementations perform on the id — the GUID-format assertions above are what actually
+// implementations perform on the id, the GUID-format assertions above are what actually
 // guard against that mismatch reappearing.
 
 file sealed class InMemoryCustomerRepository : ICustomerRepository

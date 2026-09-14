@@ -14,7 +14,7 @@ import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import PolicyQuestionPanel from "@/components/PolicyQuestionPanel";
 
-// "violet" is Badge's legacy tone alias — it degrades to "info" internally (design language §8.7:
+// "violet" is Badge's legacy tone alias, it degrades to "info" internally (design language §8.7:
 // violet marks actions, not status), so customer_confidential uses "info" directly in new code.
 const SENS_TONE: Record<KnowledgeSensitivity, "success" | "info" | "warning" | "error" | "neutral"> = {
   approved: "success",
@@ -34,7 +34,7 @@ const SENS_LABEL: Record<KnowledgeSensitivity, string> = {
   unknown: "Unknown",
 };
 
-// CompanyProfile/ProductOverview/Faq are acquisition-facing (blueprint section 8.4) — content
+// CompanyProfile/ProductOverview/Faq are acquisition-facing (blueprint section 8.4), content
 // meant for a prospect, not an existing policyholder. Only classifying a document `approved`
 // makes it eligible for customer-channel retrieval; DocumentType alone grants nothing.
 const DOCUMENT_TYPES = ["PolicyWording", "ClaimsChecklist", "CustomerFaq", "ClaimsProcedure", "RegulatoryGuidance", "CompanyProfile", "ProductOverview", "Faq", "Other"];
@@ -51,7 +51,7 @@ export default function Knowledge() {
   const [uploading, setUploading] = useState(false);
   const [reindexing, setReindexing] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
-  // WO 7.4: per-document chunk preview — which chunks this document was actually split into for
+  // WO 7.4: per-document chunk preview, which chunks this document was actually split into for
   // retrieval, fetched on demand when a row is expanded rather than with the document list.
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
   const [chunksByDoc, setChunksByDoc] = useState<Record<string, KnowledgeChunkView[]>>({});
@@ -143,11 +143,11 @@ export default function Knowledge() {
       <SectionHeader
         eyebrow="Knowledge Hub"
         title="Approved sources for grounded AI answers"
-        sub="Every knowledge source is classified, versioned, and cited. Coverage answers must be grounded in approved sources — model memory alone is not acceptable."
+        sub="Every knowledge source is classified, versioned, and cited. Coverage answers must be grounded in approved sources, model memory alone is not acceptable."
         action={
           // flex-wrap, not a rigid single row: at widths around 768px, SectionHeader's own
           // sm:flex-row breakpoint (640px) puts the title block and this two-button action side
-          // by side, and "Re-index approved" + "Upload" together are wider than the space left —
+          // by side, and "Re-index approved" + "Upload" together are wider than the space left,
           // without wrap, "Upload" rendered past the viewport edge, silently clipped by the page's
           // own overflow-x guard rather than visibly scrolling, so half the button was simply
           // unclickable. Wrapping lets Upload drop to its own line instead of running off-screen.
@@ -168,7 +168,7 @@ export default function Knowledge() {
         <div className="mb-4 flex items-center gap-2.5 rounded-dls-card bg-dls-warning-tint px-4 py-3 text-[12.5px] text-dls-warning-text">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
-            {stuckCount} approved document{stuckCount === 1 ? " is" : "s are"} marked <b>Approved</b> but blocked from retrieval — approved before a sensitivity classification was required, so nothing has ever been able to answer from them.
+            {stuckCount} approved document{stuckCount === 1 ? " is" : "s are"} marked <b>Approved</b> but blocked from retrieval, approved before a sensitivity classification was required, so nothing has ever been able to answer from them.
             Set a classification below to fix each one.
           </span>
         </div>
@@ -305,7 +305,7 @@ export default function Knowledge() {
                         </div>
                       )}
                       {canArchive && (
-                        // Same hand-sized destructive treatment as Communications.tsx's Reject —
+                        // Same hand-sized destructive treatment as Communications.tsx's Reject,
                         // Button's destructive variant is zero-padding by design (§8.4) and would
                         // misalign here.
                         <button
@@ -365,7 +365,7 @@ export default function Knowledge() {
   );
 }
 
-// WO 7.4: per-document chunk preview — the actual chunks a document was split into for
+// WO 7.4: per-document chunk preview, the actual chunks a document was split into for
 // retrieval, with the same excerpt + source label an AI answer's citation already shows (see
 // SourceCitationList), so an officer can see exactly what the assistant could ground an answer
 // in, not just that "some chunk somewhere" exists.
@@ -377,12 +377,12 @@ function ChunkPreview({ loading, error, chunks }: { loading: boolean; error: str
     return <div className="rounded-dls-card bg-dls-danger-tint p-4 text-[12.5px] text-dls-danger-text">{error}</div>;
   }
   if (!chunks || chunks.length === 0) {
-    return <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">No chunks yet — this document has not been indexed.</div>;
+    return <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">No chunks yet, this document has not been indexed.</div>;
   }
   return (
     <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
       <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">
-        {chunks.length} chunk{chunks.length === 1 ? "" : "s"} — what retrieval can ground an answer in
+        {chunks.length} chunk{chunks.length === 1 ? "" : "s"}, what retrieval can ground an answer in
       </div>
       <ul className="space-y-2">
         {chunks.map((chunk) => (
@@ -396,7 +396,7 @@ function ChunkPreview({ loading, error, chunks }: { loading: boolean; error: str
   );
 }
 
-// Delegates to components/ui/Input.tsx's Field/Input/Select — same precedent as FNOL.tsx's local
+// Delegates to components/ui/Input.tsx's Field/Input/Select, same precedent as FNOL.tsx's local
 // wrapper, kept local here since only this screen's upload form needs it and it isn't used at
 // FNOL.tsx's ~25-call-site scale.
 function Field({

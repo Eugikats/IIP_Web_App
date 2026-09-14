@@ -23,7 +23,7 @@ public sealed class ProviderRequirementResolver : IProviderRequirementResolver
             new ProviderRequirement("azure_ai_search", "Azure AI Search")
         ],
 
-        // Grounded policy answers need both the model and the retrieval index — without
+        // Grounded policy answers need both the model and the retrieval index, without
         // retrieval this would be an ungrounded policy answer, which the product forbids.
         IntentType.AnswerPolicyQuestion =>
         [

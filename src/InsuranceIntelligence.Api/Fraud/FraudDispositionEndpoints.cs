@@ -6,8 +6,8 @@ using InsuranceIntelligence.Domain.Fraud;
 
 namespace InsuranceIntelligence.Api.Fraud;
 
-// WO-19: a raised signal can now be worked to closure — triage, assign for investigation, record
-// outcome, close — with a real actor and a real audit reason on every transition (I7). Every
+// WO-19: a raised signal can now be worked to closure, triage, assign for investigation, record
+// outcome, close, with a real actor and a real audit reason on every transition (I7). Every
 // method delegates its permission check and workflow-state validation to FraudDispositionService;
 // this layer only reads/validates the HTTP-shaped request.
 public static class FraudDispositionEndpoints

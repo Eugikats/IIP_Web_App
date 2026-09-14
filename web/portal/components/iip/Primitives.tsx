@@ -1,12 +1,12 @@
 // Design language v2. This is the most widely shared legacy component file in the portal (38
-// screens import from it) — migrated once, here, rather than patched per screen. Every exported
+// screens import from it), migrated once, here, rather than patched per screen. Every exported
 // signature is unchanged so no caller needs to change.
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 
 // `level` is kept for API compatibility (two not-yet-migrated screens pass level={3}) but design
-// language v2 has no multi-tier elevation concept — every static card is a flat, bordered,
+// language v2 has no multi-tier elevation concept, every static card is a flat, bordered,
 // shadowless surface (craft guardrails §8: "box-shadow: none on every static card").
 export function GlassCard({ className, children }: { className?: string; children: ReactNode; level?: 1 | 2 | 3 }) {
   return <div className={cn("rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6 shadow-dls-none", className)}>{children}</div>;
@@ -28,16 +28,16 @@ export function SectionHeader({
   title: string;
   sub?: string;
   action?: ReactNode;
-  /** §3.1 — "Section › Object › Current page", current page not a link. Optional, additive. */
+  /** §3.1, "Section › Object › Current page", current page not a link. Optional, additive. */
   breadcrumb?: { label: string; href?: string }[];
 }) {
-  // Foundation fix, not a per-screen patch (see ui-migration-ledger.md): this component — not
-  // components/PageHeader.tsx — is the header every real screen imports (35 of 39 on the ledger).
+  // Foundation fix, not a per-screen patch (see ui-migration-ledger.md): this component, not
+  // components/PageHeader.tsx, is the header every real screen imports (35 of 39 on the ledger).
   // PageHeader.tsx was built spec-correct in the original foundation slice but never adopted by a
   // single screen; SectionHeader kept shipping design language v2's page-header slot at the wrong
   // size (26/28px) with no breadcrumb support. Fixed here, once, to §3.1-3.2 exactly, so all 35
   // callers correct themselves without a 35-file diff. PageHeader.tsx removed as the dead,
-  // never-consumed duplicate — same call as the SideDrawer precedent (2026-09-09 ledger entry).
+  // never-consumed duplicate, same call as the SideDrawer precedent (2026-09-09 ledger entry).
   return (
     <div className="mb-6">
       {breadcrumb && breadcrumb.length > 0 && (
@@ -75,9 +75,9 @@ export function SectionHeader({
   );
 }
 
-// Kept for API compatibility only — every new caller should use components/ui/StatusPill
+// Kept for API compatibility only, every new caller should use components/ui/StatusPill
 // directly. `error` maps to StatusPill's `danger`; `violet` (never a valid dot colour per design
-// language §8.7 — violet marks actions, not status) maps to `info`, the closest neutral-ish
+// language §8.7, violet marks actions, not status) maps to `info`, the closest neutral-ish
 // semantic tone, so any surviving caller degrades to something plausible rather than crashing.
 type Tone = "info" | "success" | "warning" | "error" | "violet" | "neutral";
 const TONE_TO_PILL: Record<Tone, PillTone> = {
@@ -98,7 +98,7 @@ const DOT_CLASS: Record<PillTone, string> = {
 };
 
 // Badge takes arbitrary `children` (StatusPill takes only a string `label`), so it cannot simply
-// delegate — this renders the same neutral-pill-plus-dot shape by hand.
+// delegate, this renders the same neutral-pill-plus-dot shape by hand.
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-1.5 rounded-dls-pill border border-dls-border-pill px-2.5 py-[3px] text-xs font-medium text-dls-text-primary", className)}>
@@ -115,7 +115,7 @@ export function Dot({ tone = "info" }: { tone?: Tone }) {
 // Status vocabulary mirrors iip_workflow_legibility_contract.md §10.1-10.3 exactly for the raw
 // Domain enum names it covers (CaseStatus, AgentWorkItemStatus, ApprovalStatus). Every other value
 // this is called with (agent-flow run states, integration/provider states, document states, etc.)
-// is outside that contract's scope and is not a raw enum identifier needing translation — it is
+// is outside that contract's scope and is not a raw enum identifier needing translation, it is
 // passed through as its own label.
 const STATUS_NEW = { label: "Received", tone: "info" } as const;
 const STATUS_IN_REVIEW = { label: "Under review", tone: "info" } as const;
@@ -137,7 +137,7 @@ const STATUS_VOCAB: Record<string, { label: string; tone: PillTone }> = {
   "Awaiting Documents": STATUS_MISSING_DOCS,
   ReadyForReview: STATUS_READY_FOR_REVIEW,
   "Ready for Review": STATUS_READY_FOR_REVIEW,
-  // Two case-detail phrasings this codebase uses for "a human needs to review this claim now" —
+  // Two case-detail phrasings this codebase uses for "a human needs to review this claim now",
   // neither is a literal CaseStatus enum name, but both describe the same ReadyForReview state.
   "Human Review Required": STATUS_READY_FOR_REVIEW,
   "Needs Review": STATUS_READY_FOR_REVIEW,
@@ -167,7 +167,7 @@ const STATUS_VOCAB: Record<string, { label: string; tone: PillTone }> = {
   // Found while migrating the Documents screen: "Reviewed" was previously falling through to
   // OTHER_STATUS_TONE with the wrong tone (neutral, not success); "Review Required" was rendering
   // its input string almost-but-not-quite verbatim ("Review Required" instead of the contract's
-  // "Needs review") with the wrong tone (neutral, not warning) — the exact raw-label-leak pattern
+  // "Needs review") with the wrong tone (neutral, not warning), the exact raw-label-leak pattern
   // this table exists to prevent, just not literally PascalCase this time.
   Reviewed: { label: "Reviewed", tone: "success" },
   "Review Required": { label: "Needs review", tone: "warning" },
@@ -193,7 +193,7 @@ const OTHER_STATUS_TONE: Record<string, PillTone> = {
   Active: "success",
   Operational: "success",
   // Document-library fixture values with no single confirmed DocumentProcessingStatus mapping
-  // (see the ui-migration-ledger.md screen-6 entry) — tone-only, in-flight/informational rather
+  // (see the ui-migration-ledger.md screen-6 entry), tone-only, in-flight/informational rather
   // than a guessed label rewrite of text this file can't confirm against a real DTO.
   "Extraction Pending": "info",
   Extracted: "info",
@@ -215,10 +215,10 @@ export function RiskBadge({ risk }: { risk: string }) {
   return <StatusPill tone={map[risk] ?? "neutral"} label={`Risk · ${risk}`} />;
 }
 
-// Channel is a free-form string end to end (ClaimCase.Channel has no backend enum — see
+// Channel is a free-form string end to end (ClaimCase.Channel has no backend enum, see
 // docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md §14 WO 2.5), so this
 // only normalizes the values callers actually send today (FNOL's "StaffEntry", email ingestion's
-// "Email") into a readable label — it never invents a channel the data doesn't say. An
+// "Email") into a readable label, it never invents a channel the data doesn't say. An
 // unrecognized value still renders, verbatim, rather than disappearing or falling back to a guess.
 const CHANNEL_LABELS: Record<string, string> = {
   StaffEntry: "Manual entry",
@@ -235,7 +235,7 @@ export function ChannelBadge({ channel }: { channel: string }) {
 export function ConfidenceBadge({ value }: { value: number }) {
   // Kept the established "Confidence · Word · NN%" wording multiple screens' tests assert on
   // exactly, rather than switching to design language §8.22's literal "0.71 · Below threshold"
-  // example — that exact wording needs a backend-supplied pass/fail threshold this data doesn't
+  // example, that exact wording needs a backend-supplied pass/fail threshold this data doesn't
   // carry (see the migration ledger's screen-5 note), so it would only be a partial, unverified
   // approximation of the spec anyway. Still a word plus a number, never a coloured bar alone.
   const pct = Math.round(value * 100);

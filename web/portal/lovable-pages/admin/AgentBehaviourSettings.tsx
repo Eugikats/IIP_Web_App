@@ -139,7 +139,7 @@ export default function AgentBehaviourSettings() {
       <SectionHeader
         eyebrow="Admin · Agents"
         title={`${label} · Behaviour`}
-        sub="Shape this agent's voice and scope. The platform's decision boundary below is never editable — a tenant can change how the agent talks, never what it is allowed to decide."
+        sub="Shape this agent's voice and scope. The platform's decision boundary below is never editable, a tenant can change how the agent talks, never what it is allowed to decide."
       />
 
       {loading && <GlassCard><LoadingSkeleton rows={5} /></GlassCard>}
@@ -153,7 +153,7 @@ export default function AgentBehaviourSettings() {
               <div className="text-[14px] font-bold text-dls-text-primary">Effective prompt</div>
               {status.isCustomized ? <Badge tone="info">Customized · v{status.currentVersion?.version}</Badge> : <Badge tone="neutral">Platform default</Badge>}
             </div>
-            <p className="mb-3 text-[12px] text-dls-text-secondary">This is exactly what the model receives — the immutable section first, then what this workspace configured below.</p>
+            <p className="mb-3 text-[12px] text-dls-text-secondary">This is exactly what the model receives, the immutable section first, then what this workspace configured below.</p>
             <div className="rounded-dls-control border border-dls-warning-dot bg-dls-warning-tint p-3 text-[12px] leading-5 text-dls-text-primary">
               <div className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-dls-warning-text">Platform preamble · not editable</div>
               {status.effectivePreamble}
@@ -167,7 +167,7 @@ export default function AgentBehaviourSettings() {
           <GlassCard>
             <div className="mb-3 text-[14px] font-bold text-dls-text-primary">Configure</div>
             <div className="space-y-4">
-              <FormField label="System prompt override (optional — leave blank to use the platform default shown above)">
+              <FormField label="System prompt override (optional, leave blank to use the platform default shown above)">
                 {(id) => (
                   <textarea
                     id={id}
@@ -190,10 +190,10 @@ export default function AgentBehaviourSettings() {
                 {(id) => <Input id={id} value={form.refusalTopics} onChange={(e) => setForm({ ...form, refusalTopics: e.target.value })} placeholder="e.g. premium pricing, legal advice" />}
               </FormField>
               <FormField label="Escalation message">
-                {(id) => <Input id={id} value={form.escalationMessage} onChange={(e) => setForm({ ...form, escalationMessage: e.target.value })} placeholder="I'm not able to help with that directly — let me connect you with a member of our team." />}
+                {(id) => <Input id={id} value={form.escalationMessage} onChange={(e) => setForm({ ...form, escalationMessage: e.target.value })} placeholder="I'm not able to help with that directly, let me connect you with a member of our team." />}
               </FormField>
               <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
-                <FormField label="Max response length in characters (optional — for SMS/WhatsApp)">
+                <FormField label="Max response length in characters (optional, for SMS/WhatsApp)">
                   {(id) => <Input id={id} value={form.maxResponseCharacters} onChange={(e) => setForm({ ...form, maxResponseCharacters: e.target.value.replace(/[^0-9]/g, "") })} placeholder="e.g. 320" />}
                 </FormField>
                 <CitationToggle
@@ -222,7 +222,7 @@ export default function AgentBehaviourSettings() {
             <GlassCard>
               <div className="mb-3 text-[14px] font-bold text-dls-text-primary">Version history</div>
               {versions.length === 0 ? (
-                <p className="text-[12px] text-dls-text-secondary">No changes have been saved yet — this agent is running on the platform default.</p>
+                <p className="text-[12px] text-dls-text-secondary">No changes have been saved yet, this agent is running on the platform default.</p>
               ) : (
                 <div className="space-y-2">
                   {versions.map((v) => (
@@ -255,7 +255,7 @@ export default function AgentBehaviourSettings() {
               <div className={`mt-3 rounded-dls-control p-3 text-[12px] ${testResult.ok ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-warning-tint text-dls-text-secondary"}`}>
                 <div className="flex items-start gap-2">
                   {testResult.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
-                  {/* Only the success branch is model output — render its markdown the same way
+                  {/* Only the success branch is model output, render its markdown the same way
                       every other assistant surface does. The failure branch is our own error copy,
                       which stays literal so it is never reinterpreted as formatting. */}
                   {testResult.ok
@@ -278,7 +278,7 @@ export default function AgentBehaviourSettings() {
         title={`Change ${label}'s behaviour`}
         target={label}
         impact="This changes what the agent says and how, for every request in this workspace from now on. It cannot change what the agent is allowed to decide."
-        auditNotice="This change is recorded in the audit trail with your name against it — note why you are making it."
+        auditNotice="This change is recorded in the audit trail with your name against it, note why you are making it."
         confirmLabel="Save"
         onClose={() => setSaveDialogOpen(false)}
         onConfirm={onSave}

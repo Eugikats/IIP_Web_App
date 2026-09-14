@@ -22,7 +22,7 @@ public sealed class CaseTimelineProvider : ICaseTimelineProvider
             .ToArray();
 
     // WO 5.6: "every step across every channel in one place" only holds if every real audit
-    // action this codebase actually writes for a case has a real label here — a case timeline
+    // action this codebase actually writes for a case has a real label here, a case timeline
     // that falls back to "A case event was recorded" for, say, every WhatsApp or email event
     // would silently hide exactly the cross-channel activity this screen exists to show. Kept in
     // the rough chronological order a claim's life touches them: intake -> documents -> customer

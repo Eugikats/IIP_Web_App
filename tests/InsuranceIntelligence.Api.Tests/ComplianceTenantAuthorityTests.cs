@@ -200,7 +200,7 @@ public sealed class ComplianceTenantAuthorityTests
     [Fact]
     public async Task DownloadAuditPackExport_RoundTripsAPreviouslyExportedPack()
     {
-        // WO 6.2: StoreAsync's ObjectKey was write-only until this — a real single-document
+        // WO 6.2: StoreAsync's ObjectKey was write-only until this, a real single-document
         // export existed but nothing could ever retrieve it again after the initial upload.
         var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
         var claimCase = Case(membershipScope) with { Status = CaseStatus.ReadyForExport };
@@ -237,7 +237,7 @@ public sealed class ComplianceTenantAuthorityTests
     [Fact]
     public async Task DownloadAuditPackExport_RejectsAnObjectKeyNeverActuallyExportedForThisCase()
     {
-        // The audit trail is the authorization check — a client cannot just guess/construct an
+        // The audit trail is the authorization check, a client cannot just guess/construct an
         // object key path and pull an arbitrary blob.
         var scope = TenantScope.Create("tenant-membership", "workspace-membership");
         var claimCase = Case(scope) with { Status = CaseStatus.ReadyForExport };

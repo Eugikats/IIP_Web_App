@@ -174,8 +174,8 @@ public static class WorkflowEndpoints
                     cancellationToken);
             }
 
-            // WO 5.4: the moment a case actually transitions INTO MissingDocuments — not every
-            // time workflow evaluation merely confirms it is still there — tell the customer what
+            // WO 5.4: the moment a case actually transitions INTO MissingDocuments, not every
+            // time workflow evaluation merely confirms it is still there, tell the customer what
             // is missing, over the channel the claim itself arrived on. A failed or blocked
             // request must never fail workflow evaluation, which already succeeded above.
             if (nextStatus == CaseStatus.MissingDocuments && beforeCase.Status != CaseStatus.MissingDocuments)
@@ -346,7 +346,7 @@ public static class WorkflowEndpoints
         await taskRepository.SaveAsync(updated, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.WorkflowTaskAssigned(updated, assignedBy, task.Status.ToString()), cancellationToken);
 
-        // WO-14: only the approval-flavored task types are "an approval assigned" — other task
+        // WO-14: only the approval-flavored task types are "an approval assigned", other task
         // types (document requests, case review, etc.) are out of this notification's scope.
         if (updated.TaskType is WorkflowTaskType.SupervisorApproval or WorkflowTaskType.CustomerUpdateApproval)
         {
@@ -571,6 +571,6 @@ public static class WorkflowEndpoints
 }
 
 /// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
-/// static-class endpoint (ILogger&lt;WorkflowEndpoints&gt; is not usable — the class is static),
+/// static-class endpoint (ILogger&lt;WorkflowEndpoints&gt; is not usable, the class is static),
 /// matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
 public sealed class MissingDocumentRequestLogMarker;

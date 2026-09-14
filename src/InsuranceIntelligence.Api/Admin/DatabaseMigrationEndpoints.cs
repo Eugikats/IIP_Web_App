@@ -11,16 +11,16 @@ namespace InsuranceIntelligence.Api.Admin;
 /// Admin-triggered "apply pending EF Core migrations" operation. Uses the API's own
 /// already-authorized SQL connection (managed identity in deployed environments) rather
 /// than requiring anyone to be granted direct database access. Purely additive/idempotent
-/// (EF Core skips already-applied migrations) — never destructive. Gated the same way as
+/// (EF Core skips already-applied migrations), never destructive. Gated the same way as
 /// demo data seeding: Admin permission, and blocked in protected runtime profiles as an
-/// extra safety margin even though applying migrations is itself safe in Production too —
+/// extra safety margin even though applying migrations is itself safe in Production too,
 /// the intent of this endpoint is operational convenience for non-protected environments.
 /// </summary>
 public static class DatabaseMigrationEndpoints
 {
     /// <summary>
     /// Migrations whose target tables were already present in the deployed dev database
-    /// before __EFMigrationsHistory tracking began (evidenced by Diagnose's table list) —
+    /// before __EFMigrationsHistory tracking began (evidenced by Diagnose's table list),
     /// reconciled here by recording them as applied WITHOUT re-running their SQL, so
     /// ApplyPending can then correctly apply only the migrations that are genuinely new.
     /// </summary>
@@ -191,7 +191,7 @@ public static class DatabaseMigrationEndpoints
         -- database: its Up() recreates ~28 tables that already exist here (identical
         -- CreateTable calls to migrations already applied above) alongside the one genuinely
         -- new table, CommandCenterConversations. Database.Migrate() cannot run that migration
-        -- as-is against this database — it fails on the very first already-present table.
+        -- as-is against this database, it fails on the very first already-present table.
         -- Only the new table is created here; the migration is then recorded as applied
         -- below, exactly as the AgentWorkflowControlPlane partial-migration case is.
         IF OBJECT_ID('CommandCenterConversations', 'U') IS NULL
@@ -216,7 +216,7 @@ public static class DatabaseMigrationEndpoints
     // 20260807120533_AddWhatsAppMessagingContracts is deliberately NOT here: unlike the
     // migrations above, its target table (WhatsAppMessages) does not exist yet and its Up()
     // is clean (no duplicate CreateTable calls), so it must go through ApplyPending's real
-    // Database.MigrateAsync() and actually run — recording it here without creating the
+    // Database.MigrateAsync() and actually run, recording it here without creating the
     // table would silently mark it "applied" while the table stays missing.
     private static readonly string[] RemainingMigrationsCoveredByReconcile =
     [

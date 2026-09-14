@@ -207,7 +207,7 @@ public static class CommunicationEndpoints
         }
 
         // The approved draft this send is for. Approved/LowRisk/MessageBody/CaseId all come from
-        // this persisted record — never from the request — so a caller cannot dispatch an
+        // this persisted record, never from the request, so a caller cannot dispatch an
         // unapproved or arbitrary message by pointing at an approved update's id (I4).
         var update = await updateRepository.GetAsync(request.CustomerUpdateId, scope, cancellationToken);
         if (update is null)
@@ -302,7 +302,7 @@ public static class CommunicationEndpoints
                 httpContext.TraceIdentifier),
             cancellationToken);
 
-        // Keep the draft's own status consistent with reality — it was just sent through this
+        // Keep the draft's own status consistent with reality, it was just sent through this
         // path, not through customer-updates/{id}/send, so nothing else would mark it Sent.
         await updateRepository.SaveAsync(
             update with

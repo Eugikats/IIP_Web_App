@@ -83,7 +83,7 @@ public sealed class AgentBehaviourEndpointsTests
         var (_, versionsBody) = await ExecuteAsync<JsonElement>(versionsResult);
         var versions = versionsBody.GetProperty("versions").EnumerateArray().ToArray();
         Assert.Equal(2, versions.Length);
-        // Newest first, and the first version's reason is still there — nothing was overwritten.
+        // Newest first, and the first version's reason is still there, nothing was overwritten.
         Assert.Equal(2, versions[0].GetProperty("version").GetInt32());
         Assert.Equal(1, versions[1].GetProperty("version").GetInt32());
         Assert.Equal("First version.", versions[1].GetProperty("changeReason").GetString());

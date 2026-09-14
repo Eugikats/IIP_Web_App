@@ -100,10 +100,10 @@ export const syntheticWorkspaceSnapshot = {
     providers: [
       { name: "azureOpenAI", displayName: "Azure OpenAI · GPT-4o", category: "AI", mode: "AzureOpenAI", status: "healthy", detail: "Synthetic healthy response for development UI verification only.", latency: "412ms" },
       { name: "documentIntelligence", displayName: "Azure AI Document Intelligence", category: "Document", mode: "AzureDocumentIntelligence", status: "healthy", detail: "Synthetic healthy response for development UI verification only.", latency: "1.1s" },
-      { name: "aiSearch", displayName: "Azure AI Search (RAG)", category: "AI", mode: "NotConfigured", status: "not_configured", detail: "Not configured in this synthetic workspace.", latency: "—" },
-      { name: "whatsApp", displayName: "WhatsApp Cloud API", category: "Channel", mode: "NotConfigured", status: "not_configured", detail: "Not configured in this synthetic workspace.", latency: "—" },
+      { name: "aiSearch", displayName: "Azure AI Search (RAG)", category: "AI", mode: "NotConfigured", status: "not_configured", detail: "Not configured in this synthetic workspace.", latency: "-" },
+      { name: "whatsApp", displayName: "WhatsApp Cloud API", category: "Channel", mode: "NotConfigured", status: "not_configured", detail: "Not configured in this synthetic workspace.", latency: "-" },
       { name: "graphMail", displayName: "Microsoft Graph / Outlook", category: "Channel", mode: "Graph", status: "degraded", detail: "Synthetic degraded response for recovery-state verification.", latency: "2.4s" },
-      { name: "sms", displayName: "SMS Gateway", category: "Channel", mode: "NotConfigured", status: "missing", detail: "No SMS provider is configured in this synthetic workspace.", latency: "—" },
+      { name: "sms", displayName: "SMS Gateway", category: "Channel", mode: "NotConfigured", status: "missing", detail: "No SMS provider is configured in this synthetic workspace.", latency: "-" },
     ],
   },
 } satisfies SyntheticWorkspaceSnapshot;

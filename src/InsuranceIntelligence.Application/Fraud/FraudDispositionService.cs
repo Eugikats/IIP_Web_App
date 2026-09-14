@@ -13,7 +13,7 @@ public sealed class FraudDispositionConflictException(string message, string blo
     public string BlockedAction { get; } = blockedAction;
 }
 
-// WO-19: human accountability on every transition (I7) — every method here requires a real actor,
+// WO-19: human accountability on every transition (I7), every method here requires a real actor,
 // a real audit reason, and writes a real AuditEvent. Outcomes are process outcomes only, never an
 // adverse fraud determination (see FraudDispositionOutcome).
 public interface IFraudDispositionService

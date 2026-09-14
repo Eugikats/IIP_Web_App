@@ -22,7 +22,7 @@ import { resetFirstRunOrientation } from "./FirstRunOrientation";
 
 const EXPANDED_STORAGE_KEY = "iip.sidebar.expanded";
 
-// Grouped rail destinations (navigation model §5.2, amended — see
+// Grouped rail destinations (navigation model §5.2, amended, see
 // docs/03-design-architecture/iip_ux_cognitive_load_and_navigation_model.md §5.2 for why: the
 // document's original plan nested these as tabs within a seven-item rail; that nesting was never
 // built, so these routes existed and worked but had no link pointing at them anywhere in the app.
@@ -108,7 +108,7 @@ function RailButton({
 }
 
 // Navigation model §5.2, §5.4, §10.4 (readiness blueprint): only the avatar is pinned at the
-// bottom now — Settings, Search, Integrations, Support, and Admin console all live in the profile
+// bottom now, Settings, Search, Integrations, Support, and Admin console all live in the profile
 // menu behind it. The previous three-control pinned cluster (Settings icon, Search icon, avatar)
 // left too little room for the scrollable destination list on short viewports, and a saved-but-
 // hard-to-notice overflow read as "some icons cannot be reached."
@@ -152,14 +152,14 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navRef = useRef<HTMLElement>(null);
 
-  // Expanded is the default for new users — collapsed is an expert affordance a returning user
+  // Expanded is the default for new users, collapsed is an expert affordance a returning user
   // opts into, not something anyone should discover by accident on their first day.
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(EXPANDED_STORAGE_KEY);
       if (stored !== null) setExpanded(stored === "true");
     } catch {
-      // Private browsing / blocked storage — keep the default.
+      // Private browsing / blocked storage, keep the default.
     }
     setExpandedLoaded(true);
   }, []);
@@ -170,7 +170,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
       try {
         window.localStorage.setItem(EXPANDED_STORAGE_KEY, String(next));
       } catch {
-        // Not persisted this session — still applied to the live view.
+        // Not persisted this session, still applied to the live view.
       }
       return next;
     });
@@ -407,7 +407,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
               role="menuitem"
               onClick={handleSignOut}
               disabled={signingOut || canUseLocalTestDoubles}
-              title={canUseLocalTestDoubles ? "Local development identity — no session to sign out of." : undefined}
+              title={canUseLocalTestDoubles ? "Local development identity, no session to sign out of." : undefined}
               className="flex w-full items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page disabled:opacity-50"
             >
               <LogOut className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> {signingOut ? "Signing out…" : "Sign out"}

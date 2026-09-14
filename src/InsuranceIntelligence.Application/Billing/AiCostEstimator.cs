@@ -2,7 +2,7 @@ namespace InsuranceIntelligence.Application.Billing;
 
 /// <summary>
 /// Estimates Azure OpenAI cost in USD from token counts using published list prices.
-/// All figures are approximations — actual billing comes from the Azure Cost Management portal.
+/// All figures are approximations, actual billing comes from the Azure Cost Management portal.
 /// Prices are per 1 000 tokens (as of the gpt-4o family, 2024-08 vintage).
 /// </summary>
 public static class AiCostEstimator

@@ -13,7 +13,7 @@ namespace InsuranceIntelligence.Api.ClientPortal;
 
 /// <summary>
 /// Magic-link authentication for claimants: a claimant has no platform account, so these two
-/// routes are intentionally unauthenticated (that is the point — they establish identity, they
+/// routes are intentionally unauthenticated (that is the point, they establish identity, they
 /// don't assume it). Every response is deliberately generic regardless of whether a case or
 /// contact value actually matched, so this can never be used to enumerate claims or the people on
 /// them. See ClaimantSessionEndpointFilter for how the session this issues is verified on every
@@ -69,7 +69,7 @@ public static class ClaimantAuthenticationEndpoints
         // Constant-shape response regardless of match: an unknown policy number or a contact value
         // that doesn't match must look identical to the caller as a real match, or this becomes an
         // oracle for enumerating claims and the people on them. A claimant only ever knows their
-        // policy number, not IIP's internal case id, so this — not a case id — is the lookup key;
+        // policy number, not IIP's internal case id, so this, not a case id, is the lookup key;
         // a policy can have more than one claim, so this picks the most recently created one, the
         // same tie-break PolicyLookupEndpoints already uses for duplicate detection at intake.
         var allCases = await caseRepository.ListAsync(scope, cancellationToken);
@@ -79,7 +79,7 @@ public static class ClaimantAuthenticationEndpoints
             .OrderByDescending(c => c.CreatedAt)
             .FirstOrDefault();
 
-        // No existing claim on that policy for this contact — check whether they're a verified
+        // No existing claim on that policy for this contact, check whether they're a verified
         // policyholder who simply hasn't filed one yet. If so, issue a token scoped to that policy
         // with no case id: it can only ever be redeemed into a "start a new claim" session (see
         // CreateClaim), never used to read or touch anyone's existing case.
@@ -190,7 +190,7 @@ public static class ClaimantAuthenticationEndpoints
         await sessionRepository.SaveAsync(session, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.ClaimantSessionEstablished(session, correlationId), cancellationToken);
 
-        // A new-claim session has nothing for the claimant to view yet — hand back the policy's
+        // A new-claim session has nothing for the claimant to view yet, hand back the policy's
         // product line so the intake form can prefill/lock it instead of asking a verified
         // policyholder a question IIP already knows the answer to.
         string? productLine = null;
@@ -206,7 +206,7 @@ public static class ClaimantAuthenticationEndpoints
 
     /// <summary>
     /// Submits a new claim from a verified "no claim yet" session (see RequestMagicLink / policy
-    /// match branch). Requires ClaimantSessionEndpointFilter to have run — this route has no
+    /// match branch). Requires ClaimantSessionEndpointFilter to have run, this route has no
     /// {caseId} segment, so the filter's route-match check never fires; the CaseId is null check
     /// below is what stops a session for an existing claim from being reused to spam-create
     /// unrelated ones.
@@ -281,7 +281,7 @@ public static class ClaimantAuthenticationEndpoints
         triageQueue?.Enqueue(claimCase.Scope, claimCase.CaseId, correlationId, "claimant_portal");
 
         // Upgrade the session in place so the claimant lands straight on their new claim's status
-        // page with the same link — no second magic link needed for the thing they just did.
+        // page with the same link, no second magic link needed for the thing they just did.
         var upgraded = session with { CaseId = claimCase.CaseId };
         await sessionRepository.SaveAsync(upgraded, cancellationToken);
         await auditRepository.WriteAsync(
@@ -306,7 +306,7 @@ public static class ClaimantAuthenticationEndpoints
         CancellationToken cancellationToken)
     {
         var channel = ClaimantContactMatcher.ClassifyChannel(requestedContactValue);
-        // Deliver to the value verified on file, not whatever the requester typed — the requester
+        // Deliver to the value verified on file, not whatever the requester typed, the requester
         // is unauthenticated at this point, so the recipient must always be the record's own
         // stored contact, never attacker-supplied input.
         var recipient = channel == ClaimantContactChannel.Email ? verifiedEmail : verifiedPhone;
@@ -354,7 +354,7 @@ public static class ClaimantAuthenticationEndpoints
         // Previously fire-and-forget (`_ = await ...`): the result was awaited but discarded, so a
         // delivery failure produced the exact same "we've sent a link" response as a real send,
         // with no record anywhere that it didn't go out. Now the outcome is logged and recorded on
-        // the token — but the anonymous caller's response is deliberately left untouched by this
+        // the token, but the anonymous caller's response is deliberately left untouched by this
         // fix: it must stay identical whether delivery succeeded, failed, or was never attempted
         // (no match), or the response shape itself becomes an enumeration oracle. This is a fix for
         // visibility (ops, and future support tooling reading DeliveryStatus off the token), not a
@@ -416,6 +416,6 @@ public sealed record ClaimantCreateClaimRequest(
 public sealed record ClaimantCreateClaimResponse(Guid CaseId);
 
 /// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
-/// static-class endpoint (ILogger&lt;ClaimantAuthenticationEndpoints&gt; is not usable — the class
+/// static-class endpoint (ILogger&lt;ClaimantAuthenticationEndpoints&gt; is not usable, the class
 /// is static).</summary>
 public sealed class ClaimantMagicLinkLogMarker;

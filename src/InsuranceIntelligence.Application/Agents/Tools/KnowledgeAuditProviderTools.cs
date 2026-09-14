@@ -5,7 +5,7 @@ using InsuranceIntelligence.Domain.Knowledge;
 
 namespace InsuranceIntelligence.Application.Agents.Tools;
 
-/// <summary>knowledge.search — must return citations and source IDs (docs §9). Requires the
+/// <summary>knowledge.search, must return citations and source IDs (docs §9). Requires the
 /// "query" parameter; an empty query returns a denied result rather than searching blindly.</summary>
 public sealed class KnowledgeSearchTool(IRetrievalProvider retrievalProvider, IPermissionService permissionService)
     : AgentToolBase(permissionService)
@@ -40,7 +40,7 @@ public sealed class KnowledgeSearchTool(IRetrievalProvider retrievalProvider, IP
     }
 }
 
-/// <summary>audit.read — sensitive; scope by tenant/workspace/entity (docs §9).</summary>
+/// <summary>audit.read, sensitive; scope by tenant/workspace/entity (docs §9).</summary>
 public sealed class AuditReadTool(IAuditRepository auditRepository, IPermissionService permissionService)
     : AgentToolBase(permissionService)
 {
@@ -58,7 +58,7 @@ public sealed class AuditReadTool(IAuditRepository auditRepository, IPermissionS
     }
 }
 
-/// <summary>provider_health.read — shows connected/degraded/not_configured/error; no secrets
+/// <summary>provider_health.read, shows connected/degraded/not_configured/error; no secrets
 /// (docs §9). Requires the "providerCode" parameter naming which provider to check.</summary>
 public sealed class ProviderHealthReadTool(IProviderHealthCheck providerHealthCheck, IPermissionService permissionService)
     : AgentToolBase(permissionService)

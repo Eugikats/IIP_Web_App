@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace InsuranceIntelligence.Infrastructure.Communications;
 
 /// <summary>
-/// Builds a live IEmailSendingProvider from a provider key and settings — the email equivalent of
+/// Builds a live IEmailSendingProvider from a provider key and settings, the email equivalent of
 /// SmsProviderFactory. Only "Smtp" is buildable from tenant connection settings; the Graph fallback
 /// requires deployment-level Entra app registration and is only ever reached via CreateFallback.
 /// </summary>

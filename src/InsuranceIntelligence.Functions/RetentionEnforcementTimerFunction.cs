@@ -8,13 +8,13 @@ namespace InsuranceIntelligence.Functions;
 
 /// <summary>
 /// The real "scheduled enforcement job" blueprint §14 Phase 6 WO 6.3 asks for. Runs the exact same
-/// RetentionEnforcementService the manual RetentionEndpoints.EnforceRetention path uses — the
+/// RetentionEnforcementService the manual RetentionEndpoints.EnforceRetention path uses, the
 /// scheduled and manual triggers are provably the same code, not two implementations that can
 /// drift apart.
 ///
 /// Resolves its tenant scope from the deployment's own InfrastructureOptions.TenantId/WorkspaceId,
 /// the same "one Managed Application per insurer" single-tenant-per-deployment pattern
-/// WhatsAppOptions already uses — there is no cross-tenant "list every tenant" capability
+/// WhatsAppOptions already uses, there is no cross-tenant "list every tenant" capability
 /// anywhere in this codebase's repositories to iterate instead, because this edition of the
 /// platform does not have one.
 /// </summary>
@@ -23,7 +23,7 @@ public class RetentionEnforcementTimerFunction(
     InfrastructureOptions options,
     ILogger<RetentionEnforcementTimerFunction> logger)
 {
-    // Once a day at 02:00 UTC — a low-traffic window, and daily is frequent enough that an expired
+    // Once a day at 02:00 UTC, a low-traffic window, and daily is frequent enough that an expired
     // record never sits around materially longer than its own configured retention window.
     [Function("RetentionEnforcement")]
     public async Task Run([TimerTrigger("0 0 2 * * *")] TimerInfo timer, CancellationToken cancellationToken)

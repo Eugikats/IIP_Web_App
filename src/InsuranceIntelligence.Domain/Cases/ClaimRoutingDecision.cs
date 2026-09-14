@@ -4,7 +4,7 @@ namespace InsuranceIntelligence.Domain.Cases;
 
 /// <summary>
 /// Optional runtime signals that force designated-human escalation on any claim type.
-/// Fraud and contested liability must remain contestable operator signals — never auto-verdicts.
+/// Fraud and contested liability must remain contestable operator signals, never auto-verdicts.
 /// </summary>
 public sealed record ClaimRoutingSignals(
     bool ContestedLiability = false,

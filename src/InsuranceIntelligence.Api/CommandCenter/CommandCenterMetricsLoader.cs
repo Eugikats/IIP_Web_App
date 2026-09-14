@@ -72,7 +72,7 @@ public static class CommandCenterMetricsLoader
         var approvals = await approvalRepository.ListAsync(scope, cancellationToken);
         var tasks = await taskRepository.ListAsync(scope, cancellationToken);
         var updates = await updateRepository.ListAsync(scope, cancellationToken);
-        // Paired with the owning case, not a flat status array — SlaBreached must exclude closed
+        // Paired with the owning case, not a flat status array, SlaBreached must exclude closed
         // claims (an operational "needs attention" count, not a historical one), which needs the
         // case's own status alongside its computed SLA status.
         var caseSlaStatuses = cases

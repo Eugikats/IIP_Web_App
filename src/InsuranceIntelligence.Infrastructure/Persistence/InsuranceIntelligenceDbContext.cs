@@ -138,7 +138,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.CreatedAt });
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.IsRead });
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimantMagicLinkToken>(), "ClaimantMagicLinkTokens", "TokenId");
-        // CaseId is intentionally nullable — a token verifying a policyholder with no claim yet
+        // CaseId is intentionally nullable, a token verifying a policyholder with no claim yet
         // (see ClaimantAuthenticationEndpoints.RequestMagicLink) has none. Do not add
         // .IsRequired() here: EF's fluent IsRequired overrides CLR nullability inference and would
         // force this column NOT NULL despite the Guid? type, which would throw at save time for
@@ -146,7 +146,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedClaimantMagicLinkToken>().Property(entity => entity.TokenHash).HasMaxLength(64).IsRequired();
         modelBuilder.Entity<PersistedClaimantMagicLinkToken>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.TokenHash }).IsUnique();
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimantPortalSession>(), "ClaimantPortalSessions", "SessionId");
-        // CaseId is nullable for the same reason as PersistedClaimantMagicLinkToken above — do not
+        // CaseId is nullable for the same reason as PersistedClaimantMagicLinkToken above, do not
         // add .IsRequired() to it.
         modelBuilder.Entity<PersistedClaimantPortalSession>().Property(entity => entity.SessionTokenHash).HasMaxLength(64).IsRequired();
         modelBuilder.Entity<PersistedClaimantPortalSession>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.SessionTokenHash }).IsUnique();

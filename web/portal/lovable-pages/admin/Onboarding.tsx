@@ -42,7 +42,7 @@ export default function Onboarding() {
       <SectionHeader
         eyebrow="Admin · Tenant Onboarding"
         title="Insurer onboarding & admin consent"
-        sub="Create a pending insurer tenant, then send its administrator through Microsoft Entra tenant-wide admin consent. IIP stores the returned tenant only as a lookup key — runtime access comes from IIP's own membership store."
+        sub="Create a pending insurer tenant, then send its administrator through Microsoft Entra tenant-wide admin consent. IIP stores the returned tenant only as a lookup key, runtime access comes from IIP's own membership store."
       />
 
       <div className="mb-4 flex items-center justify-between">
@@ -96,7 +96,7 @@ export default function Onboarding() {
                     <Badge tone={r.status === "Consented" || r.status === "Active" ? "success" : r.status === "Blocked" ? "error" : "warning"}>{r.status}</Badge>
                   </div>
                   <div className="mt-0.5 break-words text-[12.5px] text-dls-text-secondary">{r.adminContactEmail} · {r.expectedEntraTenantOrDomain || "tenant TBD"}</div>
-                  <div className="mt-1 break-words text-[11.5px] text-dls-text-muted">Internal tenant: <span className="break-all font-mono">{r.internalTenantId}</span> · Workspaces: {r.targetWorkspaces.join(", ") || "—"}{r.externalEntraTenantId ? <> · External Entra: <span className="break-all font-mono">{r.externalEntraTenantId}</span></> : null}</div>
+                  <div className="mt-1 break-words text-[11.5px] text-dls-text-muted">Internal tenant: <span className="break-all font-mono">{r.internalTenantId}</span> · Workspaces: {r.targetWorkspaces.join(", ") || "-"}{r.externalEntraTenantId ? <> · External Entra: <span className="break-all font-mono">{r.externalEntraTenantId}</span></> : null}</div>
                   <div className="mt-1 break-words text-[11.5px] text-dls-text-muted">Azure subscriptions: <span className="break-all font-mono">{r.azureSubscriptionIds.join(", ") || "not provided"}</span></div>
                   {consent[r.onboardingId] && (
                     <div className="mt-2 text-[12px]">

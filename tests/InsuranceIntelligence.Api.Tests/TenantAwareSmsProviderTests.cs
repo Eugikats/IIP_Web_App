@@ -13,7 +13,7 @@ namespace InsuranceIntelligence.Api.Tests;
 /// tenant IntegrationConnection first, then the deployment's environment-configured fallback,
 /// then Not configured. Also covers the bug this whole model exists to fix:
 /// ICommunicationSendingProvider.SendSmsAsync previously ignored SmsProvider/Connection state
-/// entirely and always returned ConfigurationRequired — see CommunicationSendingProviderSmsTests.
+/// entirely and always returned ConfigurationRequired, see CommunicationSendingProviderSmsTests.
 /// </summary>
 public sealed class TenantAwareSmsProviderTests
 {

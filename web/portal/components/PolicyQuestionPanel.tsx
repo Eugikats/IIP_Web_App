@@ -17,7 +17,7 @@ const COVERAGE_TONE: Record<CoverageState, "success" | "warning" | "error"> = {
 
 const COVERAGE_LABEL: Record<CoverageState, string> = {
   GroundedAnswerAvailable: "Grounded answer",
-  CoverageUnclear: "Coverage unclear — escalate",
+  CoverageUnclear: "Coverage unclear, escalate",
   ConflictingSources: "Conflicting approved sources",
   InsufficientApprovedEvidence: "No approved evidence found",
 };
@@ -26,7 +26,7 @@ export default function PolicyQuestionPanel({
   caseId,
   productLine,
   title = "Ask a policy question",
-  sub = "Answers are grounded in approved knowledge sources only — never model memory alone. Every answer is logged with its sources and confidence.",
+  sub = "Answers are grounded in approved knowledge sources only, never model memory alone. Every answer is logged with its sources and confidence.",
 }: {
   caseId?: string;
   productLine?: string;
@@ -97,7 +97,7 @@ export default function PolicyQuestionPanel({
           {/* Model prose, not plain text: the assistant emits markdown (bold, bullet lists), so
               rendering it into a bare <p> showed literal ** characters and collapsed every list
               into one run-on paragraph. MarkdownText is the same injection-safe renderer the
-              Command Center and claim summary already use — React elements only, never
+              Command Center and claim summary already use, React elements only, never
               dangerouslySetInnerHTML, so model output can't inject markup. */}
           <MarkdownText className="text-[13px] leading-relaxed text-dls-text-primary" content={answer.answer} />
           {answer.guardrailMessage && answer.guardrailMessage !== answer.answer ? (

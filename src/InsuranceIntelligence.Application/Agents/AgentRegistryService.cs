@@ -47,7 +47,7 @@ public sealed class AgentRegistryService(
             throw new AgentRegistryValidationException(nameof(reason), "A reason is required for a kill-switch change.");
         }
 
-        // WO-11: an agent with no real implementation cannot be enabled — the admin surface must
+        // WO-11: an agent with no real implementation cannot be enabled, the admin surface must
         // not offer a switch that appears to control something that does not exist.
         if (enabled && descriptorForValidation.ImplementationKind == AgentImplementationKind.NotImplemented)
         {
@@ -105,7 +105,7 @@ public sealed class AgentRegistryService(
             entry.Descriptor.ImplementationKind.ToString(),
             entry.Descriptor.Tools,
             // WO-11: an unimplemented agent is never shown enabled, regardless of what stale
-            // persisted state says — the switch controls nothing real for it.
+            // persisted state says, the switch controls nothing real for it.
             entry.Descriptor.ImplementationKind == AgentImplementationKind.NotImplemented ? false : entry.Enabled,
             entry.UpdatedByUserId,
             entry.UpdatedAt?.ToString("O"),

@@ -129,7 +129,7 @@ export default function GlobalSearch({ initialQuery }: { initialQuery: string })
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-dls-text-muted">
             <span>{response?.returnedCount ?? 0} authorized result{response?.returnedCount === 1 ? "" : "s"}</span>
-            {response?.hasMore ? <span>More matches exist—refine the query to narrow results.</span> : null}
+            {response?.hasMore ? <span>More matches exist-refine the query to narrow results.</span> : null}
           </div>
           {groups.map((group) => (
             <section key={group.type} aria-labelledby={`search-group-${group.type}`}>

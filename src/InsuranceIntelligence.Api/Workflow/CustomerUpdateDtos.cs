@@ -11,7 +11,7 @@ public sealed record DraftCustomerUpdateRequest(
 public sealed record CustomerUpdateDecisionRequest(string? Recipient = null);
 
 // WO-16: lets Communications.tsx show a tenant-wide, actionable customer-update queue instead of
-// a per-case-only view — each row carries just enough case/customer context to act on it (approve/
+// a per-case-only view, each row carries just enough case/customer context to act on it (approve/
 // send) without a second round trip per row.
 public sealed record CustomerUpdateWithCaseResponse(
     CustomerUpdateResponse Update,

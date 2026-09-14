@@ -27,7 +27,7 @@ public sealed record ClaimCase
 
     /// <summary>True for a claim IIP created on its own from an identified WhatsApp/email sender
     /// (see RuleBasedWhatsAppToCaseMatcher / RuleBasedEmailToCaseMatcher's identified-no-case
-    /// path) — a human has not yet looked at it. SlaDueAt stays null until a human confirms it via
+    /// path), a human has not yet looked at it. SlaDueAt stays null until a human confirms it via
     /// CaseEndpoints.ConfirmCase, which is also what excludes it from SLA/attention metrics
     /// (BasicSlaCalculator treats a null SlaDueAt as never at risk or breached) without a
     /// dedicated CaseStatus value or a fourth duplicated metrics carve-out.</summary>

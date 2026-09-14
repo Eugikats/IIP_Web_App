@@ -20,7 +20,7 @@ public interface ICommandCenterQueryService
 }
 
 // WO-09: knowledgeRepository, approvalRepository, taskRepository, updateRepository,
-// slaCalculator, and providerHealthCheck are no longer injected here — their data access moved
+// slaCalculator, and providerHealthCheck are no longer injected here, their data access moved
 // into the WO-08 tool registry (claims.attention.read, approvals.queue.read, metrics.read,
 // provider_health.read). caseRepository/caseDocumentRepository/retrievalProvider/
 // actionLogRepository remain: they're still used directly for single-case lookups
@@ -116,7 +116,7 @@ public sealed class CommandCenterQueryService(
         // so the AgentRun recorded below carries a real tool trace instead of an empty one.
         var toolTrace = new List<AgentRunToolTraceEntry>();
 
-        // WO-07: every AI execution — completed or refused — is reconstructable as a single
+        // WO-07: every AI execution, completed or refused, is reconstructable as a single
         // AgentRun (docs §11). Shares scope/correlation/user across all branches below; only
         // the agent key, outcome, and trigger differ per branch.
         Task RecordRun(string agentKey, AgentRunStatus status, string triggerType, string? errorCategory = null) =>
@@ -277,7 +277,7 @@ public sealed class CommandCenterQueryService(
     /// WO-09: data access now goes through the WO-08 tool registry (claims.attention.read,
     /// approvals.queue.read, metrics.read) instead of calling repositories directly. Every
     /// downstream shape (CommandCenterCaseView, CommandCenterApprovalView, CommandCenterQueryData)
-    /// is unchanged — only how the data is fetched changed, not the response.
+    /// is unchanged, only how the data is fetched changed, not the response.
     /// </summary>
     private async Task<CommandCenterQueryData> LoadQueryDataAsync(
         Domain.Common.TenantScope scope,
@@ -329,7 +329,7 @@ public sealed class CommandCenterQueryService(
     }
 
     /// <summary>Calls a read-tier tool as the command-center agent and appends its outcome to the
-    /// run's tool trace. Returns null (never throws) if the tool was denied — callers already
+    /// run's tool trace. Returns null (never throws) if the tool was denied, callers already
     /// treat "no data" as the honest empty case, matching AGENTS.md I9.</summary>
     private async Task<T?> CallToolAsync<T>(
         string toolName,
@@ -367,7 +367,7 @@ public sealed class CommandCenterQueryService(
         }
 
         // Honest fallback if metrics.read is denied for this caller (should not happen in
-        // practice — the command-center agent always holds ViewCommandCenter, the same
+        // practice, the command-center agent always holds ViewCommandCenter, the same
         // permission the outer QueryAsync call already required): zeroed, not fabricated.
         return new CommandCenterMetricsResponse(0, 0, 0m, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
@@ -376,7 +376,7 @@ public sealed class CommandCenterQueryService(
     /// Answers a policy-knowledge question from approved, indexed knowledge only. Retrieval
     /// runs first and the model is given exactly those excerpts; if retrieval returns nothing
     /// the model is never called and the user is told the knowledge base has no approved
-    /// source — the product forbids answering policy questions without grounding, so an
+    /// source, the product forbids answering policy questions without grounding, so an
     /// honest "not covered by approved sources" is the required behaviour, not a guess.
     /// </summary>
     private async Task<CommandCenterQueryResponse> BuildPolicyAnswerResponseAsync(
@@ -390,8 +390,8 @@ public sealed class CommandCenterQueryService(
         var scope = context.Scope;
 
         // WO-09: routed through knowledge.search (WO-08) instead of calling IRetrievalProvider
-        // directly. Audience is not a retrieval input — no provider implementation branches on
-        // it — so passing it through the tool's fixed "InternalUser" default does not change
+        // directly. Audience is not a retrieval input, no provider implementation branches on
+        // it, so passing it through the tool's fixed "InternalUser" default does not change
         // retrieval behaviour; only .Chunks/.Citations are consumed below, both preserved exactly.
         var retrieval = await CallToolAsync<RetrievalResult>(
             "knowledge.search",
@@ -716,7 +716,7 @@ public sealed class CommandCenterQueryService(
 
     /// <summary>
     /// The kill-switch refusal path (WO-06). Reuses the existing safe-error block/audit
-    /// machinery — same as BuildErrorResponseAsync — rather than adding a new response shape,
+    /// machinery, same as BuildErrorResponseAsync, rather than adding a new response shape,
     /// since the frontend's ErrorBlock already renders a distinguishable, honest refusal with a
     /// correlation reference and no risk of falling through to the "unsupported block" default.
     /// </summary>

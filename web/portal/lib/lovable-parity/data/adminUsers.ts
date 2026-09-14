@@ -37,7 +37,7 @@ export type AdminRoleView = {
   caseVisibilityScope: string;
 };
 
-// WO-12: real client for GET/POST /api/v1/admin/users and PUT /api/v1/admin/users/{id}/role —
+// WO-12: real client for GET/POST /api/v1/admin/users and PUT /api/v1/admin/users/{id}/role,
 // these endpoints existed with no UI caller at all before this. Roles come from
 // GET /api/v1/admin/roles (server-derived from RolePermissionMap), never a hardcoded client list.
 export function useAdminUsers() {

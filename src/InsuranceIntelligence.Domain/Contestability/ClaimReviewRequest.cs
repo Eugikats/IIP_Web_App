@@ -20,7 +20,7 @@ public enum ClaimReviewRequestOrigin
 
 /// <summary>
 /// A contestability record: a claimant (directly, or via a field agent / SMS) asks that a human
-/// re-review their claim. Creating one only flags work for a human — it is never itself a decision,
+/// re-review their claim. Creating one only flags work for a human, it is never itself a decision,
 /// so it sits inside the human-supervised boundary without an approval guard. Traceable and auditable.
 /// </summary>
 public sealed record ClaimReviewRequest(

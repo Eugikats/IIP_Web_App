@@ -51,7 +51,7 @@ public sealed class DataSubjectRightsServiceTests
 
         Assert.NotNull(rectified);
         Assert.Equal("Amina O. Nabatanzi", rectified!.FullName);
-        Assert.Equal("amina@example.test", rectified.Email); // untouched — null in the request means "leave as is"
+        Assert.Equal("amina@example.test", rectified.Email); // untouched, null in the request means "leave as is"
         var auditEvent = Assert.Single(fixture.Audit.Events);
         Assert.Equal("data_subject.rectified", auditEvent.ActionName);
         Assert.Equal("compliance-officer-1", auditEvent.UserId);

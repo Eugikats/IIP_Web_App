@@ -35,7 +35,7 @@ public sealed class Phase2ReadRepositoryTests
 
         SeedAudit(dbContext, ScopeA, caseId, "claim.decision_made", "user-1", DateTimeOffset.UtcNow);
         SeedAudit(dbContext, ScopeA, caseId, "document.uploaded", "user-2", DateTimeOffset.UtcNow.AddMinutes(-5));
-        // Different tenant workspace — must never appear.
+        // Different tenant workspace, must never appear.
         SeedAudit(dbContext, TenantScope.Create("tenant-b", "workspace-a"), Guid.NewGuid(), "claim.decision_made", "user-1", DateTimeOffset.UtcNow);
         await dbContext.SaveChangesAsync();
 
@@ -69,12 +69,12 @@ public sealed class Phase2ReadRepositoryTests
         SeedJson(dbContext.Policies, ScopeA, Guid.NewGuid(),
             new Policy("pol-1", "tenant-a", "workspace-a", "POL-1", "Motor", "Comprehensive", "cust-1", null,
                 new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31)));
-        // Policy for another customer — excluded by FK.
+        // Policy for another customer, excluded by FK.
         SeedJson(dbContext.Policies, ScopeA, Guid.NewGuid(),
             new Policy("pol-2", "tenant-a", "workspace-a", "POL-2", "Home", null, "cust-2", null, null, null));
 
         SeedJson(dbContext.Cases, ScopeA, matchingCaseId, Claim(matchingCaseId, "Jane Doe", "jane@example.com"));
-        // Case for a different customer (different email) — must not leak in.
+        // Case for a different customer (different email), must not leak in.
         SeedJson(dbContext.Cases, ScopeA, Guid.NewGuid(), Claim(Guid.NewGuid(), "John Other", "other@example.com"));
 
         SeedJson(dbContext.Communications, ScopeA, Guid.NewGuid(),
@@ -227,7 +227,7 @@ public sealed class Phase2ReadRepositoryTests
     {
         // No turn means no classification happened (agent gated off, or an outbound-only thread).
         // Claiming an intent here would be fabricating one, so the row stays general and falls
-        // back to the only real fact available — what WhatsApp did with the message.
+        // back to the only real fact available, what WhatsApp did with the message.
         await using var dbContext = CreateDbContext();
         SeedWhatsAppThread(dbContext, "wa:thread-unhandled", out _);
         await dbContext.SaveChangesAsync();
@@ -257,7 +257,7 @@ public sealed class Phase2ReadRepositoryTests
 
         var row = Assert.Single(await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a"));
 
-        // Same ThreadId string, different tenant — must not leak across the scope boundary.
+        // Same ThreadId string, different tenant, must not leak across the scope boundary.
         Assert.Equal("general_service", row.DetectedIntent);
         Assert.Equal("Received", row.Status);
     }
@@ -305,7 +305,7 @@ public sealed class Phase2ReadRepositoryTests
             ["Confirm details"], ["Contact customer"], "officer-1", null, "Jane Doe", "jane@example.test",
             DateTimeOffset.UtcNow, "user-1");
         await repository.CreateAsync("tenant-a", "workspace-a", lead);
-        // Different tenant workspace — must never see it.
+        // Different tenant workspace, must never see it.
         await repository.CreateAsync("tenant-b", "workspace-a",
             lead with { LeadId = "LEAD-2", CustomerName = "Other Tenant" });
 
@@ -348,7 +348,7 @@ public sealed class Phase2ReadRepositoryTests
         { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = "workspace-a", UserId = "oid-user-1", RoleCode = "ClaimsOfficer" });
         dbContext.RolePermissions.Add(new InsuranceIntelligence.Infrastructure.Persistence.RolePermissionEntity
         { Id = Guid.NewGuid(), TenantId = "tenant-a", WorkspaceId = "workspace-a", RoleCode = "ClaimsOfficer", PermissionCode = "ViewAssignedClaims" });
-        // Inactive membership in another tenant — must never resolve.
+        // Inactive membership in another tenant, must never resolve.
         dbContext.UserTenantMemberships.Add(new InsuranceIntelligence.Infrastructure.Persistence.UserTenantMembershipEntity
         { Id = Guid.NewGuid(), TenantId = "tenant-b", WorkspaceId = "workspace-a", UserId = "oid-user-1", IsActive = false });
         await dbContext.SaveChangesAsync();
@@ -384,7 +384,7 @@ public sealed class Phase2ReadRepositoryTests
         Assert.Equal("tenant-b", resolved!.TenantId);
     }
 
-    // WO-13: proves the workspace switcher's core server-side mechanism — a user with active
+    // WO-13: proves the workspace switcher's core server-side mechanism, a user with active
     // membership in more than one workspace of the SAME tenant is disambiguated by workspaceHint
     // (the portal sends this as a request header the API re-validates here; see
     // RuntimeClaimTypes.RequestedWorkspaceHeaderName), and a hint naming a workspace the user does

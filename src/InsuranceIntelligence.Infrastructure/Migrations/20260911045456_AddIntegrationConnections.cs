@@ -32,7 +32,7 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                 columns: new[] { "TenantId", "WorkspaceId" });
 
             // NOTE: `dotnet ef migrations add` also generated an `IX_CaseReviews_TenantId_WorkspaceId`
-            // index here — pre-existing drift between the CaseReviews model and its own migration
+            // index here, pre-existing drift between the CaseReviews model and its own migration
             // (20260906150000_AddCaseReviews only created the 3-column
             // IX_CaseReviews_TenantId_WorkspaceId_CaseId), unrelated to IntegrationConnections.
             // Deliberately left out of this migration so it stays scoped to its own change; flagged

@@ -13,7 +13,7 @@ function RiskPill({ r }: { r: string }) {
   return <Badge tone={tone as any}>{r}</Badge>;
 }
 
-// WO-11: honest labels for what an agent actually is, verified against real backend call sites —
+// WO-11: honest labels for what an agent actually is, verified against real backend call sites,
 // never implies every catalog entry is a working AI agent.
 function ImplementationPill({ kind }: { kind: string }) {
   switch (kind) {
@@ -36,7 +36,7 @@ export default function Agents() {
     const reason = window.prompt(`Reason to ${action} "${name}" (recorded in the audit trail):`);
     if (!reason || !reason.trim()) return;
     const ok = await setKillSwitch(key, !currentlyEnabled, reason.trim());
-    toast[ok ? "success" : "error"](ok ? `Agent ${action}d — recorded in audit` : "Kill-switch update failed");
+    toast[ok ? "success" : "error"](ok ? `Agent ${action}d, recorded in audit` : "Kill-switch update failed");
   }
 
   return (
@@ -46,7 +46,7 @@ export default function Agents() {
         title="Agent registry"
         sub="Every agent is versioned, permissioned, and auditable. Human approval remains required for regulated actions."
       />
-      <div className="mb-4"><GuardrailBanner text="Disabled agents cannot be invoked. The kill switch is a governed, audited control — it constrains agents; it never grants them autonomy over a decision." /></div>
+      <div className="mb-4"><GuardrailBanner text="Disabled agents cannot be invoked. The kill switch is a governed, audited control, it constrains agents; it never grants them autonomy over a decision." /></div>
 
       {loading ? (
         <GlassCard><LoadingSkeleton rows={5} /></GlassCard>
@@ -101,7 +101,7 @@ export default function Agents() {
                         {a.enabled ? "Disable" : "Enable"}
                       </button>
                     ) : (
-                      <span className="text-[11.5px] text-dls-text-muted" title="No code path in the backend invokes this agent — there is nothing for a switch to control.">
+                      <span className="text-[11.5px] text-dls-text-muted" title="No code path in the backend invokes this agent, there is nothing for a switch to control.">
                         Not implemented
                       </span>
                     )}

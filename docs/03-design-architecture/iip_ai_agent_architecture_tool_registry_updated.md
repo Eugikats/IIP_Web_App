@@ -11,6 +11,28 @@
 
 ---
 
+## September 2026 Customer Summary Agent and Chat Actions
+
+Added on 2026-09-15, ahead of a customer demonstration, after walking every demo path against the
+live API showed the model answering while almost nothing a person saw used it.
+
+- **Customer Summary Agent (`customer-summary`, twelfth catalog entry).** Briefs staff on one
+  customer from that customer's own records only: policies, claims, messages, documents and
+  consent. Every point cites the record it came from, and the Customer 360 page lists those sources
+  with links. No knowledge base is supplied, so there is nothing to draw on except what the insurer
+  recorded. Contact details are withheld from the prompt. See section 6.12.
+- **Claims Summary Agent runs on every new claim.** Staff intake, the claimant portal and email
+  intake enqueue the claim for an in-process background worker that runs this agent as
+  `system:claim-triage` with the Claims Supervisor role. Previously it ran only when someone pressed
+  "Generate summary" on the claim page.
+- **Command Center accepts three instructions** (`CommandCenterActionService`): draft a message to a
+  customer (saved for approval, never sent), assign a claim to a named person (audited with the
+  words typed), and run the Claims Summary Agent on a claim. Targets resolve from a claim reference
+  or a customer's name; an ambiguous name returns the candidate claims and asks which was meant.
+- **Readable references.** Agent prompts and replies refer to claims as `CLM-` plus the first eight
+  hex characters of the id (`ClaimReference`), and model completions are stripped of em dashes at
+  the provider boundary (`DisplayText.WithoutEmDashes`).
+
 ## September 2026 Customer-Facing Agent Addition
 
 ```text
@@ -430,6 +452,22 @@ Governance (added by the September 2026 update, matching the other ten agents):
 
 ---
 
+### 6.12 Customer Summary Agent
+
+| Field | Value |
+|---|---|
+| Key | `customer-summary` |
+| Purpose | A short briefing on one customer for the staff member viewing their Customer 360 page. |
+| Trigger | Opening the Customer 360 page (`POST /api/v1/customers/{customerId}/summary`); a prepared briefing is reused for 30 minutes per workspace and customer, and "Refresh" prepares a new one. |
+| Inputs | That customer's policies, claims, up to eight most recent messages, up to twelve documents and consent record, read through `ICustomerReadRepository` for the caller's workspace. |
+| Output | Two headed bullet lists (Overview, Needs attention), each bullet ending in source tags that map to real records. |
+| Grounding | Records only. No retrieval, no knowledge base, no model memory. |
+| Must not | Recommend or imply a claim decision; characterise the customer's honesty; print internal identifiers or contact details. |
+| Human boundary | Informational. `CanTriggerDecision` is false; the briefing supports a person's judgement. |
+| Kill switch | `IAgentGate` with key `customer-summary`; a disabled agent returns an honest "switched off" state. |
+| Audit | `AgentActionLog`, `AuditEvent.CommandCenterAssistantAnswered` and an `AgentRun` for every briefing, including provider failures. |
+| Implementation | `CustomerSummaryService`, `CustomerSummaryEndpoints`. |
+
 ## 7. Tool registry schema
 
 | Field | Description | Required |
@@ -627,6 +665,7 @@ not the target-state registry, for "is X built." Update this table whenever `Age
 | 9 | Report Insight Agent | **AI agent (model-backed)** | `claims.sla.read`, `audit.read`, `provider_health.read`, `metrics.read` | `CommandCenterQueryService.BuildManagementSummaryResponseAsync`, reached via the `GenerateManagementSummary` intent. |
 | 10 | Underwriting Intelligence Agent | Rule-based (no AI call) | `knowledge.search`, `document.read`, `policy.read` | `UnderwritingRuleEngine`. No chat/LLM call site exists; no submission intake or decision endpoint exists either (out of scope — see the build contract's §7 scope boundary). |
 | 11 | Customer Assistant (WhatsApp) — customer-facing, see §6.11 | Rule-based (no AI call) for classification; delegates to policy-intelligence's model call for GeneralQuestion | `customer.intent.classify`, `knowledge.search`, `case.create`, `lead.create` | `CustomerAssistantService` + `KeywordCustomerIntentClassifier`, invoked from `WhatsAppIntegrationEndpoints.ReceiveWebhook`. Added to the catalog and gated by `IAgentGate` after an audit found it had no kill-switch enforcement or catalog entry despite being live in code. `ProductInterest`/`HumanRequested` write a real `SalesLead` via `ISalesLeadWriteRepository`; `NewClaim` opens a real, unconfirmed `ClaimCase` via `CaseIntakeService`. |
+| 12 | Customer Summary Agent, see section 6.12 | Model-backed (Azure OpenAI) | `customer.profile.read` (repository read, not a registered tool) | `CustomerSummaryService`, called from `CustomerSummaryEndpoints` on the Customer 360 page. Added 2026-09-15; the Customer 360 summary panel was previously a hardcoded "Not configured" state wired to nothing. |
 
 **Summary: 5 of 10 staff-facing catalogued agents are real, model-backed AI agents. 1 is
 AI-service-backed without a chat model. 3 are deterministic rule engines with no AI call of any

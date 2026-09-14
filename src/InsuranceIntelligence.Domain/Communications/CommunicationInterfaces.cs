@@ -30,7 +30,7 @@ public interface ISmsProvider
 }
 
 /// <summary>
-/// Constructs a live ISmsProvider from a provider key and a flat settings dictionary — either
+/// Constructs a live ISmsProvider from a provider key and a flat settings dictionary, either
 /// decrypted per-tenant connection settings or deployment env-var settings. This is the seam that
 /// makes "add a new SMS gateway" a new class registered here, not a re-architecture: see
 /// EgoSmsProvider and AfricasTalkingSmsProvider in InsuranceIntelligence.Infrastructure.Communications.
@@ -41,18 +41,18 @@ public interface ISmsProviderFactory
     IReadOnlyCollection<string> SupportedProviderKeys { get; }
 
     /// <summary>Builds a provider from tenant-supplied connection settings. Returns null if
-    /// providerKey is not recognized — the caller treats that as a real configuration error, not a
+    /// providerKey is not recognized, the caller treats that as a real configuration error, not a
     /// silent fallback.</summary>
     ISmsProvider? Create(string providerKey, IReadOnlyDictionary<string, string> settings);
 
-    /// <summary>Builds the deployment-level fallback provider from environment configuration —
+    /// <summary>Builds the deployment-level fallback provider from environment configuration,
     /// the second step of the three-step resolution order (tenant connection, then env fallback,
     /// then Not configured). Never null: resolves to a provider that honestly reports
     /// ConfigurationRequired when no environment provider is configured.</summary>
     ISmsProvider CreateFallback();
 }
 
-/// <summary>Sends outbound email — separated from ICommunicationSendingProvider (SMS + Email
+/// <summary>Sends outbound email, separated from ICommunicationSendingProvider (SMS + Email
 /// together) so email has its own tenant-connectable seam (blueprint §7.2), the same way
 /// ISmsProvider does for SMS.</summary>
 public interface IEmailSendingProvider
@@ -60,7 +60,7 @@ public interface IEmailSendingProvider
     Task<CommunicationSendResult> SendEmailAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Constructs a live IEmailSendingProvider from a provider key and settings — the email
+/// <summary>Constructs a live IEmailSendingProvider from a provider key and settings, the email
 /// equivalent of ISmsProviderFactory. Only SMTP is tenant-connectable (a username/password any
 /// insurer can supply); Graph requires an Entra app registration and stays deployment-level, so it
 /// is available only via CreateFallback, never via Create.</summary>

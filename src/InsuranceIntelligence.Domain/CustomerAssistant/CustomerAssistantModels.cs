@@ -4,7 +4,7 @@ namespace InsuranceIntelligence.Domain.CustomerAssistant;
 
 /// <summary>
 /// The six-intent set for the customer-facing WhatsApp assistant (blueprint §8.3). Deliberately
-/// small — every intent except GeneralQuestion results in a human or a structured flow, never a
+/// small, every intent except GeneralQuestion results in a human or a structured flow, never a
 /// free-form AI conversation about it.
 /// </summary>
 public enum CustomerIntent
@@ -22,7 +22,7 @@ public interface ICustomerIntentClassifier
     CustomerIntent Classify(string messageText);
 }
 
-/// <summary>What actually happened to one inbound customer message — always recorded, regardless
+/// <summary>What actually happened to one inbound customer message, always recorded, regardless
 /// of outcome (blueprint §8.3 "conversation persistence"). This is both the audit trail and the
 /// "why did the system say that?" answer.</summary>
 public enum CustomerAssistantOutcome
@@ -59,7 +59,7 @@ public interface ICustomerConversationRepository
 
     Task<IReadOnlyCollection<CustomerConversationTurn>> ListForThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default);
 
-    /// <summary>Blueprint §14 Phase 6, WO 6.3 — real deletion, not a soft-delete flag: retention
+    /// <summary>Blueprint §14 Phase 6, WO 6.3, real deletion, not a soft-delete flag: retention
     /// enforcement for this data class means the raw conversation content is actually gone.
     /// Returns what was deleted (count, oldest/newest OccurredAt) so the caller can write an
     /// honest audit summary without a second read.</summary>
@@ -67,12 +67,12 @@ public interface ICustomerConversationRepository
 }
 
 /// <summary>
-/// The five-condition auto-reply gate (blueprint §8.3) — mirrors OutboundSmsGuard's shape exactly:
+/// The five-condition auto-reply gate (blueprint §8.3), mirrors OutboundSmsGuard's shape exactly:
 /// a static, pure function every caller must pass through before a customer-facing AI-composed
 /// answer is sent without human review. Everything that fails this gate is drafted and logged,
 /// never sent. Note this governs only AI-composed GeneralQuestion answers; fixed, non-disclosing
 /// template acknowledgements (a claim reference number, "please share your policy number", a lead
-/// confirmation) are a structurally different, lower-risk category and are not subject to it —
+/// confirmation) are a structurally different, lower-risk category and are not subject to it,
 /// the same distinction OutboundSmsGuard already draws between AI-drafted content and low-risk
 /// transactional sends.
 /// </summary>

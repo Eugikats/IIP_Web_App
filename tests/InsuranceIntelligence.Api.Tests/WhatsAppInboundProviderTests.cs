@@ -313,7 +313,7 @@ public sealed class WhatsAppInboundProviderTests
             new CaseIntakeService(caseRepository, auditRepository),
             auditRepository,
             NullLogger<WhatsAppInboundDocumentIngestionService>.Instance);
-        // Caption carries no case GUID/policy number IIP already knows about — only sender identity resolves this.
+        // Caption carries no case GUID/policy number IIP already knows about, only sender identity resolves this.
         var body = Encoding.UTF8.GetBytes(SampleWebhook);
 
         var result = await service.IngestWebhookPayloadAsync(body, Sign("app-secret", body));

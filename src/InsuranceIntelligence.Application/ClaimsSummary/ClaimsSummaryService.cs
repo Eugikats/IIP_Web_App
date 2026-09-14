@@ -14,9 +14,9 @@ using InsuranceIntelligence.Domain.Policies;
 namespace InsuranceIntelligence.Application.ClaimsSummary;
 
 /// <summary>
-/// WO-10: closes the one real agent-catalog gap found during the build (docs §6.2 — Claims
+/// WO-10: closes the one real agent-catalog gap found during the build (docs §6.2, Claims
 /// Summary Agent had no implementation of any kind). Summarizes claim facts, timeline, documents,
-/// and policy context from tools only — every statement traces to a retrieved source, never model
+/// and policy context from tools only, every statement traces to a retrieved source, never model
 /// memory (AGENTS.md I6). Output is explicitly informational: "Required before decision use," not
 /// a recommendation, and never itself a claim decision (I4).
 ///

@@ -34,7 +34,7 @@ public sealed class TenantAwareSmsProvider(
             }
 
             // A saved connection with an unrecognized provider key is a real misconfiguration
-            // (e.g. a provider was removed from the platform after being connected) — report it
+            // (e.g. a provider was removed from the platform after being connected), report it
             // plainly rather than silently falling back to the deployment default, which would be
             // surprising and could send through the wrong account.
             logger.LogWarning(

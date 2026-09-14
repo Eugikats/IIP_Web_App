@@ -18,7 +18,7 @@ export type OperationsSummaryView = {
   slaAtRisk: number;
   slaBreached: number;
   // Closed claims are excluded from slaBreached (an operational "needs attention" count) but
-  // tracked here separately — a closed claim that breached SLA before closing is a real fact,
+  // tracked here separately, a closed claim that breached SLA before closing is a real fact,
   // never summed into slaBreached.
   closedClaimsWithSlaBreach: number;
   claimsByStatus: { label: string; count: number }[];

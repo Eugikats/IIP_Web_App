@@ -64,7 +64,7 @@ public sealed class DocumentEndpointsTests
     [Fact]
     public void PreviewChecklist_ReturnsMedicalRules_NotInjuryRules_ForMedicalProductLine()
     {
-        // WO-15: the exact regression this work order fixes — before, this returned the
+        // WO-15: the exact regression this work order fixes, before, this returned the
         // motor InjuryFatality checklist (PoliceAbstract/PhotoEvidence) because the claim type
         // text contained "medical".
         var result = DocumentEndpoints.PreviewChecklist(

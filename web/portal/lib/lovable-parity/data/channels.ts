@@ -12,7 +12,7 @@ import { conversations as fixtureConversations, type Channel, type ChannelConver
  * In LovableVisualParity mode we serve the static prototype fixtures so the
  * screen can be QA'd against the Lovable reference. Otherwise we fetch the real
  * tenant-scoped `/api/v1/channels/overview` and map it onto the same shape the
- * prototype UI already renders — so the layout is identical but the data is real,
+ * prototype UI already renders, so the layout is identical but the data is real,
  * and an unpopulated workspace shows an honest empty state rather than samples.
  */
 
@@ -92,7 +92,7 @@ const STATUSES_NEEDING_A_PERSON = new Set(["awaitingapproval", "needsreview"]);
 
 function relativeTime(iso: string): string {
   const t = Date.parse(iso);
-  if (Number.isNaN(t)) return iso || "—";
+  if (Number.isNaN(t)) return iso || "-";
   const diffMs = Date.now() - t;
   const mins = Math.round(diffMs / 60000);
   if (mins < 1) return "just now";
@@ -136,7 +136,7 @@ export function useChannelConversations() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/channels/overview`, { headers: scopedHeaders(role, "") });
-      // Design language v2 §8.24 / AGENTS.md — never surface a raw provider error, stack trace, or
+      // Design language v2 §8.24 / AGENTS.md, never surface a raw provider error, stack trace, or
       // status code to the user. A thrown HTTP-status message previously reached the screen as-is.
       if (!response.ok) throw new Error("Channels failed to load.");
       const rows = (await response.json()) as OverviewRow[];
@@ -176,7 +176,7 @@ export function useWhatsAppThread(threadId?: string | null) {
         headers: scopedHeaders(role, ""),
         cache: "no-store",
       });
-      // §8.24 / AGENTS.md — never surface a raw provider error, stack trace, or status code.
+      // §8.24 / AGENTS.md, never surface a raw provider error, stack trace, or status code.
       if (!response.ok) throw new Error("WhatsApp thread failed to load.");
       setMessages((await response.json()) as WhatsAppMessage[]);
     } catch {
@@ -204,7 +204,7 @@ export function useWhatsAppThread(threadId?: string | null) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok && response.status !== 202) {
-      // §8.24 / AGENTS.md — a backend-supplied safe message (payload.message / payload.safeError)
+      // §8.24 / AGENTS.md, a backend-supplied safe message (payload.message / payload.safeError)
       // is legitimate and kept; only the raw-status-code fallback is replaced with a generic one.
       throw new Error(payload.message || payload.safeError || "WhatsApp send failed.");
     }

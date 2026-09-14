@@ -11,7 +11,7 @@ using InsuranceIntelligence.Infrastructure.WhatsApp;
 namespace InsuranceIntelligence.Api.Compliance;
 
 /// <summary>Data subject rights (blueprint §14 Phase 6, WO 6.4): export, rectification, and
-/// erasure with a documented refusal path — all three are immediate, audited, permission-gated
+/// erasure with a documented refusal path, all three are immediate, audited, permission-gated
 /// actions, not a ticket-tracking workflow, matching how this codebase already treats the other
 /// compliance actions (evidence-pack export, retention enforcement) rather than adding a
 /// differently-shaped subsystem for this one.</summary>

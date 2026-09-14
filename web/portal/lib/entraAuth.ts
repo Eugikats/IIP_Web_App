@@ -69,7 +69,7 @@ export async function getEntraApiAccessToken(): Promise<string | null> {
 
 /**
  * Ends the signed-in session. Outside Entra mode (local development / visual parity),
- * identity is header-driven per request — there is no browser session to destroy — so
+ * identity is header-driven per request, there is no browser session to destroy, so
  * this just clears the cached API token and returns to the sign-in landing page.
  */
 export async function signOut(): Promise<void> {

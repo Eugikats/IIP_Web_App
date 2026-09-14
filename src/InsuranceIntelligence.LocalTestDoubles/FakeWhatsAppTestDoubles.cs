@@ -2,7 +2,7 @@ using InsuranceIntelligence.Domain.Integrations;
 
 namespace InsuranceIntelligence.LocalTestDoubles;
 
-/// <summary>Reversible, non-secure stand-in for Data Protection in tests — never use outside
+/// <summary>Reversible, non-secure stand-in for Data Protection in tests, never use outside
 /// tests. Prefixes so a test can assert a value was actually run through Protect/Unprotect rather
 /// than stored as plaintext by mistake.</summary>
 public sealed class FakeWhatsAppCredentialProtector : IWhatsAppCredentialProtector
@@ -15,7 +15,7 @@ public sealed class FakeWhatsAppCredentialProtector : IWhatsAppCredentialProtect
         ciphertext.StartsWith(Prefix, StringComparison.Ordinal) ? ciphertext[Prefix.Length..] : ciphertext;
 }
 
-/// <summary>Scripted IWhatsAppGraphValidationClient — never calls the real Meta API.</summary>
+/// <summary>Scripted IWhatsAppGraphValidationClient, never calls the real Meta API.</summary>
 public sealed class FakeWhatsAppGraphValidationClient(
     WhatsAppGraphValidationResult result,
     WhatsAppWebhookRegistrationResult? webhookResult = null) : IWhatsAppGraphValidationClient

@@ -14,7 +14,7 @@ public interface IPermissionReadRepository
     /// Resolves the authenticated user's effective IIP membership from the runtime authority
     /// (membership/role/permission store), keyed by the user's stable id (Entra <c>oid</c>). The
     /// tenant/workspace hints (from the token's <c>tid</c> / an IIP-issued claim) are only used to
-    /// disambiguate when a user belongs to more than one tenant/workspace — they never grant access.
+    /// disambiguate when a user belongs to more than one tenant/workspace, they never grant access.
     /// Returns <c>null</c> when the user has no active membership for the resolved scope (fail closed).
     /// See ADR-0005.
     /// </summary>

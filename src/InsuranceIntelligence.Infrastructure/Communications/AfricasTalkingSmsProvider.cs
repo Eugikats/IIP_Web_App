@@ -14,7 +14,7 @@ namespace InsuranceIntelligence.Infrastructure.Communications;
 /// Live sending requires an Africa's Talking username + API key; the adapter builds and
 /// unit-tests without any credentials or network access. Takes AfricasTalkingOptions directly
 /// (not the full InfrastructureOptions) so it is trivially constructible either from deployment
-/// env-var configuration or from a tenant's decrypted IntegrationConnection settings — see
+/// env-var configuration or from a tenant's decrypted IntegrationConnection settings, see
 /// SmsProviderFactory, the seam both paths go through.
 /// </summary>
 public sealed class AfricasTalkingSmsProvider(
@@ -30,7 +30,7 @@ public sealed class AfricasTalkingSmsProvider(
         CancellationToken cancellationToken = default)
     {
         // Human-supervised boundary: a customer-facing SMS must not leave the platform unless a
-        // human has approved it — or it is a low-risk, non-consequential transactional message and
+        // human has approved it, or it is a low-risk, non-consequential transactional message and
         // the tenant has opted into transactional auto-send. See OutboundSmsGuard.
         if (!OutboundSmsGuard.IsDispatchPermitted(request, autoSendTransactionalSmsEnabled))
         {
@@ -152,14 +152,14 @@ public sealed class AfricasTalkingSmsProvider(
 }
 
 /// <summary>
-/// Human-supervised send policy for outbound customer SMS (tiered — see
+/// Human-supervised send policy for outbound customer SMS (tiered, see
 /// docs/research/sms-auto-send-policy.md, grounded in Uganda's Data Protection and Privacy Act 2019,
 /// the UCC Text &amp; Multimedia Messaging Regulations 2019, and AGENTS.md §4/§16).
 ///
 /// A message may leave the platform when EITHER:
 ///  - a human has explicitly approved it (<c>request.Approved</c>); or
 ///  - it is low-risk / non-consequential (<c>request.LowRisk</c>, set upstream to
-///    <c>!RequiresApproval</c> — i.e. a transactional status notice, not a claim decision) AND the
+///    <c>!RequiresApproval</c>, i.e. a transactional status notice, not a claim decision) AND the
 ///    tenant has opted into transactional auto-send.
 ///
 /// Consequential messages (claim decisions, payouts, rejections, sensitive content) are never

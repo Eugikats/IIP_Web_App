@@ -23,7 +23,7 @@
   --color-text-primary:       16 24 40;     /* #101828  headings, body, stat numbers */
   --color-text-secondary:     82 92 110;    /* #525C6E  labels, captions, descriptions */
   --color-text-muted:         107 114 128;  /* #6B7280  ANY meaningful small text */
-  --color-text-faint:         152 162 179;  /* #98A2B3  DECORATIVE ONLY — fails WCAG AA, never for text */
+  --color-text-faint:         152 162 179;  /* #98A2B3  DECORATIVE ONLY, fails WCAG AA, never for text */
   --color-text-inverse:       255 255 255;  /* #FFFFFF  text on primary fills */
 
   --color-border-subtle:      236 238 242;  /* #ECEEF2  card, panel, rail, table-row borders */
@@ -56,7 +56,7 @@
   --color-scrim:              16 24 40;     /* #101828 at 45% for modal backdrops, see .dls-scrim */
 
   /* ---- Avatar background set (design language §8.12) ----
-     Fixed, deterministic set — chosen by hashing the user's stable id, never their name and never
+     Fixed, deterministic set, chosen by hashing the user's stable id, never their name and never
      random per render. Declared as tokens (not inline hex) so components/ui/Avatar.tsx has no
      literal colour values. */
   --color-avatar-1: 29 41 57;      /* #1D2939 */
@@ -77,7 +77,7 @@
      new palette without a rewrite. A handful of `lovable-pages/*` screens
      also read a SEPARATE, parallel HSL token family in app/lovable.css
      (--navy, --stone, --cloud, --violet, --success, --warning, --error,
-     --info, --background, --foreground, --border, --input, --ring) —
+     --info, --background, --foreground, --border, --input, --ring),
      that file is intentionally NOT touched here. It is the "parity-mode
      shim" the migration map's step 7 deletes once step 6 has migrated
      every screen that still depends on it; touching it now would be
@@ -94,7 +94,7 @@
   --color-surface-muted: 249 250 251;   /* -> --color-surface-sunken */
   --color-surface-raised: 255 255 255;  /* -> --color-surface (unchanged) */
 
-  /* AI-specific surfaces — retired as a separate accent; AI provenance now
+  /* AI-specific surfaces, retired as a separate accent; AI provenance now
      uses the same violet family as --color-primary-soft (step 1). */
   --color-surface-ai: 245 243 255;        /* -> --color-primary-soft-alt */
   --color-surface-ai-strong: 241 236 254; /* -> --color-primary-soft */
@@ -123,7 +123,7 @@
   --color-primary-soft: 241 236 254;    /* -> --color-primary-soft */
   --color-primary-border: 220 209 251;  /* -> --color-primary-border */
 
-  /* AI accent — retired; same violet as primary (step 1) */
+  /* AI accent, retired; same violet as primary (step 1) */
   --color-ai: 91 42 232;                /* -> --color-primary */
   --color-ai-hover: 76 34 201;          /* -> --color-primary-hover */
   --color-ai-soft: 241 236 254;         /* -> --color-primary-soft */
@@ -168,7 +168,7 @@
   --color-workflow-rejected: 217 45 32; /* -> --color-danger-text */
   --color-workflow-escalated: 91 42 232; /* -> --color-primary */
 
-  /* Shadows — legacy names kept (step 1 is colour-only); retoned neutral in
+  /* Shadows, legacy names kept (step 1 is colour-only); retoned neutral in
      step 3 below and the two permitted gradients are declared there too. */
   --shadow-xs: 0 1px 2px rgb(16 24 40 / 0.04);
   --shadow-sm: 0 1px 3px rgb(16 24 40 / 0.06), 0 1px 2px rgb(16 24 40 / 0.04);
@@ -184,7 +184,7 @@
   --shadow-l4: 0 24px 60px -12px rgb(16 24 40 / 0.35);
   --shadow-glass: none;
 
-  /* Gradients — restricted to the two permitted uses (design language §4.5):
+  /* Gradients, restricted to the two permitted uses (design language §4.5):
      the Assistant empty-state orb and chart bars. The legacy gradient
      utility classes below (.gradient-primary etc.) are NOT used by any new
      step-4/5 code; they remain only for not-yet-migrated consumers. */
@@ -195,7 +195,7 @@
   --gradient-tertiary: linear-gradient(135deg, #5B2AE8 0%, #5B2AE8 100%);
   --gradient-ambient: none;
 
-  /* Radii — design language §6.2 */
+  /* Radii, design language §6.2 */
   --radius-tight: 4px;
   --radius-control: 8px;
   --radius-chip: 9px;
@@ -211,7 +211,7 @@
   --radius-xl: 16px;
   --radius-2xl: 16px;
 
-  /* Motion — design language §6.4 */
+  /* Motion, design language §6.4 */
   --motion-fast: 120ms cubic-bezier(0.2, 0, 0, 1);
   --motion-base: 160ms cubic-bezier(0.2, 0, 0, 1);
   --motion-exit: 100ms ease-in;
@@ -319,7 +319,7 @@ textarea:focus-visible {
 }
 
 /* Design language v2 §8.1/§7: a solid 2px outline for the new components/ui/ primitives and the
-   app shell (rail, rail buttons, Button, IconButton) — distinct from the input-style box-shadow
+   app shell (rail, rail buttons, Button, IconButton), distinct from the input-style box-shadow
    ring above (§8.5), which stays the default for every not-yet-migrated control. This rule is
    deliberately unlayered (like the block above) so it wins over the `@tailwind utilities` layer;
    Tailwind's `focus-visible:outline-*` utilities alone cannot override the block above because

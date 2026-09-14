@@ -76,7 +76,7 @@ public sealed class MissingDocumentRequestServiceTests
     public async Task SendAsync_WhatsAppChannel_NoActiveConsent_NeverSends()
     {
         // WO 6.1: this send has no fresh inbound message to lean on (triggered by workflow
-        // evaluation, not a live webhook) — a prior captured consent is the only thing that can
+        // evaluation, not a live webhook), a prior captured consent is the only thing that can
         // permit it, and here there is none.
         var fixture = Fixture.Create(whatsAppConsentGranted: false);
         var claimCase = fixture.Case(channel: "WhatsApp", phone: "256700111222");

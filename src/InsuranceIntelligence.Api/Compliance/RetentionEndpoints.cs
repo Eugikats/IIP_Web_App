@@ -9,7 +9,7 @@ using InsuranceIntelligence.Infrastructure.Configuration;
 
 namespace InsuranceIntelligence.Api.Compliance;
 
-/// <summary>Manual/administrative surface for retention (blueprint §14 Phase 6, WO 6.3) —
+/// <summary>Manual/administrative surface for retention (blueprint §14 Phase 6, WO 6.3),
 /// EnforceRetention is what a real scheduled job (see RetentionEnforcementTimerFunction) calls on
 /// a timer; exposing it here too means an officer or the demo run doesn't have to wait for the
 /// clock, and the manual and scheduled paths are provably the same code, not two implementations

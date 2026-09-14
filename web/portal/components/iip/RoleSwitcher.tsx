@@ -33,11 +33,11 @@ export default function RoleSwitcher() {
   return (
     // WO: the row used to also carry a trailing "experience · Preview only" caption. With the
     // sidebar's fixed 240px expanded width, that caption plus the longest role name
-    // ("Workspace Administrator") never fit on one nowrap flex row — the caption span rendered
+    // ("Workspace Administrator") never fit on one nowrap flex row, the caption span rendered
     // with a squeezed effective width and, because the label allows visible overflow, painted
     // outside its own parent's box instead of wrapping or clipping, reading as a stray fragment of
     // text floating below the row. "Previewing" already states the same fact the caption
-    // repeated, so the fix is to drop the redundant caption rather than fight the width — and
+    // repeated, so the fix is to drop the redundant caption rather than fight the width, and
     // min-w-0 + truncate on the select is a genuine width guard, not just a fix for today's
     // longest label, in case a future role name is longer still.
     <label className="hidden md:flex items-center gap-2 text-[12px] text-ink-soft rounded-xl border border-line bg-white/70 px-2.5 py-1.5 hover-lift cursor-pointer">

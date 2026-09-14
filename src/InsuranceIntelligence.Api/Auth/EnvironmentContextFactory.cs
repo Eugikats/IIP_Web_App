@@ -8,7 +8,7 @@ namespace InsuranceIntelligence.Api.Auth;
 /// configuration. This is the single authoritative source of the review-mode signal
 /// the portal uses to render its environment banner, so a synthetic demo environment
 /// can never be visually mistaken for live production. The server derives it from its
-/// own profile and seed state — it is not something the browser can spoof.
+/// own profile and seed state, it is not something the browser can spoof.
 /// </summary>
 public static class EnvironmentContextFactory
 {
@@ -23,7 +23,7 @@ public static class EnvironmentContextFactory
             _ => "Local Development"
         };
         var dataClassification = syntheticData
-            ? "Synthetic — not real customer data"
+            ? "Synthetic, not real customer data"
             : "Live customer data";
         var mode = options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)
             ? "LocalTest"

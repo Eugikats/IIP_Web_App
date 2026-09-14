@@ -8,15 +8,19 @@ namespace InsuranceIntelligence.Domain.Common;
 /// feel reading a claim review or a customer update, so every model completion passes through here
 /// once, at the provider boundary, rather than each screen trying to catch it.
 ///
-/// A spaced dash (the way models almost always use it) becomes a comma, which reads correctly in
+/// A spaced em dash (the way models almost always use it) becomes a comma, which reads correctly in
 /// nearly every sentence it appears in. An unspaced em dash becomes a plain hyphen. Spaced en
-/// dashes get the same treatment as em dashes, because models substitute them for one another;
-/// unspaced en dashes are left alone, since those are number ranges ("2020–2021").
+/// dashes get the same treatment, because models substitute one for the other; unspaced en dashes
+/// are left alone, since those are number ranges.
+///
+/// The dash characters are written as numeric code points, never as literals. A literal em dash in
+/// this file is exactly what a repository-wide clean-up would rewrite, silently turning this helper
+/// into one that mangles ordinary hyphens and lets real em dashes through.
 /// </summary>
 public static class DisplayText
 {
-    private const char EmDash = '—';
-    private const char EnDash = '–';
+    private static readonly char EmDash = (char)0x2014;
+    private static readonly char EnDash = (char)0x2013;
 
     public static string WithoutEmDashes(string? text)
     {
@@ -25,14 +29,16 @@ public static class DisplayText
             return text ?? string.Empty;
         }
 
-        if (text.IndexOf(EmDash) < 0 && text.IndexOf($" {EnDash} ", StringComparison.Ordinal) < 0)
+        var spacedEm = $" {EmDash} ";
+        var spacedEn = $" {EnDash} ";
+        if (text.IndexOf(EmDash) < 0 && !text.Contains(spacedEn, StringComparison.Ordinal))
         {
             return text;
         }
 
         return text
-            .Replace($" {EmDash} ", ", ", StringComparison.Ordinal)
-            .Replace($" {EnDash} ", ", ", StringComparison.Ordinal)
+            .Replace(spacedEm, ", ", StringComparison.Ordinal)
+            .Replace(spacedEn, ", ", StringComparison.Ordinal)
             .Replace($"{EmDash} ", ", ", StringComparison.Ordinal)
             .Replace($" {EmDash}", ",", StringComparison.Ordinal)
             .Replace(EmDash.ToString(), "-", StringComparison.Ordinal);

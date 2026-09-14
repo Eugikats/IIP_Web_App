@@ -155,7 +155,7 @@ public sealed class ClientPortalEndpointTests
 
         // An unauthenticated request (no JwtBearer principal, no ITenantContextAccessor, no
         // magic-link session) that merely sends the right headers must never be treated as the
-        // claimant, even outside Development — this is the gap magic-link auth closes.
+        // claimant, even outside Development, this is the gap magic-link auth closes.
         var context = new DefaultHttpContext { TraceIdentifier = "trace-client-portal-unauth" };
         context.Request.Headers["X-Tenant-Id"] = scope.TenantId;
         context.Request.Headers["X-Workspace-Id"] = scope.WorkspaceId;

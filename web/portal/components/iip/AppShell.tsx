@@ -15,7 +15,7 @@ import { canUseLocalTestDoubles } from "@/lib/config";
 import { Loader2, PanelRightOpen, PanelRightClose, ShieldAlert } from "lucide-react";
 
 // Design language v2 §3: 64px rail (Sidebar) + an optional contextual panel + a left-aligned
-// content column. There is no fixed top bar — a page's own breadcrumb/h1/primary action live at
+// content column. There is no fixed top bar, a page's own breadcrumb/h1/primary action live at
 // the top of its content column. This slot exists for screens with genuine sub-navigation or
 // history (navigation model §5.1); no screen populates it yet, so it renders nothing today.
 function ContextualPanel({ children }: { children?: ReactNode }) {
@@ -88,7 +88,7 @@ function ShellInner({ children }: { children: ReactNode }) {
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-dls-bg-page">
       <EnvironmentBanner />
       <div className="relative flex flex-1 overflow-hidden">
-        {/* The rail is always present at every viewport width (navigation model §5.1) — it never
+        {/* The rail is always present at every viewport width (navigation model §5.1), it never
             collapses into an off-canvas drawer, so there is no mobile open/close state to manage. */}
         <Sidebar />
         <ContextualPanel />

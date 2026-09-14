@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
-// Design language v2 §8.14 — modal. Shared by 8 screens across tiers 1/2/3/5 (admin
+// Design language v2 §8.14, modal. Shared by 8 screens across tiers 1/2/3/5 (admin
 // EmailInbox/Users/WhatsAppSettings, ClaimReview, Communications, FraudIntelligence, Knowledge,
 // plus CustomerUpdateGovernedDialog), so this is migrated once here rather than per screen.
 
@@ -48,7 +48,7 @@ export function GovernedActionDialog({
     }
   }, [open]);
 
-  // Captured only on the false->true transition, in its own effect keyed solely on `open` — the
+  // Captured only on the false->true transition, in its own effect keyed solely on `open`, the
   // trap effect below re-runs whenever `onClose`/`isSubmitting` change (a new `onClose` closure
   // on every parent render is normal), and re-deriving "previousFocus" from document.activeElement
   // on one of those re-runs would capture an element already inside the dialog, not the real

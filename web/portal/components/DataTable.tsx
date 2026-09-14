@@ -1,4 +1,4 @@
-// Migrated onto design language v2 §8.10. External API unchanged — callers still supply their own
+// Migrated onto design language v2 §8.10. External API unchanged, callers still supply their own
 // <thead>/<tbody> children; this only governs the outer surface.
 import { type ReactNode } from "react";
 

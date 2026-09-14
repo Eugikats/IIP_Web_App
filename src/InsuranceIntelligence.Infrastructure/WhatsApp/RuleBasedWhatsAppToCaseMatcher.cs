@@ -11,8 +11,8 @@ namespace InsuranceIntelligence.Infrastructure.WhatsApp;
 /// <summary>
 /// Deterministic case match from WhatsApp caption/filename (GUID or policy number), same rules as
 /// email inbound matching. When neither matches, falls back to identifying the sender's WA ID
-/// against a customer's phone number on file — never against the message content, which the
-/// sender fully controls — so an inbound-ingestion pipeline can tell a genuinely identified
+/// against a customer's phone number on file, never against the message content, which the
+/// sender fully controls, so an inbound-ingestion pipeline can tell a genuinely identified
 /// customer apart from an unverified stranger before deciding whether to auto-create a case.
 /// Still never invents a case for a sender it cannot identify.
 /// </summary>

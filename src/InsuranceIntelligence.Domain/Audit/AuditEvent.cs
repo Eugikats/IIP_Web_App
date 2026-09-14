@@ -330,7 +330,7 @@ public sealed record AuditEvent(
             DateTimeOffset.UtcNow,
             BeforeStatus: null,
             // Never let AfterStatus/logs distinguish "matched" from "not matched" in anything a
-            // caller could observe over the API — this field exists only for staff investigating
+            // caller could observe over the API, this field exists only for staff investigating
             // abuse in the audit log, not as an enumeration side-channel.
             AfterStatus: matched ? "Issued" : "NoMatch",
             EvidenceIds: Array.Empty<string>(),
@@ -403,7 +403,7 @@ public sealed record AuditEvent(
             AuditReason: auditReason,
             CorrelationId: correlationId);
 
-    /// <summary>Generalizes WhatsAppConfigurationSaved to every IntegrationConnection type —
+    /// <summary>Generalizes WhatsAppConfigurationSaved to every IntegrationConnection type,
     /// connecting a tenant-configured provider (SMS, email, ...) is a governed action.</summary>
     public static AuditEvent ConnectionSaved(
         TenantScope scope, string userId, string connectionType, string providerKey, string auditReason, string correlationId) =>

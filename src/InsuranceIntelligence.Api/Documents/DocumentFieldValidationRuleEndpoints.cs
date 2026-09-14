@@ -7,7 +7,7 @@ using InsuranceIntelligence.Domain.Documents;
 namespace InsuranceIntelligence.Api.Documents;
 
 /// <summary>
-/// Tenant rule management for <see cref="DocumentFieldValidationRule"/> — lets a tenant with real
+/// Tenant rule management for <see cref="DocumentFieldValidationRule"/>, lets a tenant with real
 /// regulatory knowledge correct or extend the field-shape checks (the Uganda-verified national-ID
 /// length rule and any others) without a deployment. See DocumentFieldValidationRuleDefaults for
 /// why this repository starts effectively empty and ResolveRules layers it over the defaults.

@@ -19,7 +19,7 @@ public sealed record Communication
     public required string CorrelationId { get; init; }
 
     /// <summary>The sending provider's own message id (e.g. Africa's Talking's messageId or
-    /// EgoSMS's MsgFollowUpUniqueCode) — the correlation key a delivery-status webhook uses to
+    /// EgoSMS's MsgFollowUpUniqueCode), the correlation key a delivery-status webhook uses to
     /// find this communication again and update DeliveryStatus from "Sent" to a real outcome.
     /// Null for channels/providers that don't return one, or for inbound messages.</summary>
     public string? ProviderMessageId { get; init; }

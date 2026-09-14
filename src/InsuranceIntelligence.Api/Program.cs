@@ -57,7 +57,7 @@ builder.Logging.AddFilter<ApplicationInsightsLoggerProvider>("InsuranceIntellige
 
 // Gate 1 (G1.6): load deployment secrets from Azure Key Vault when configured. The vault URI is a
 // non-secret pointer (Azure:KeyVaultUri / Azure__KeyVaultUri); secrets are read via managed identity
-// (DefaultAzureCredential) — no secrets in config files or env. Only activates when a URI is set, so
+// (DefaultAzureCredential), no secrets in config files or env. Only activates when a URI is set, so
 // local/dev is unaffected. Key Vault secret names map to config keys ("--" for nested sections).
 var keyVaultUri = builder.Configuration["Azure:KeyVaultUri"] ?? builder.Configuration["Azure__KeyVaultUri"];
 if (!string.IsNullOrWhiteSpace(keyVaultUri))
@@ -107,9 +107,9 @@ builder.Services.AddProblemDetails();
 // (see docs/api/IIP_API_Contracts_Master.md, ADR-0004). The interactive Swagger UI and
 // the JSON document are exposed ONLY in Development/LocalTest (see developmentDiagnosticsEnabled
 // below) so no schema/endpoint enumeration surface is published in deployed environments.
-// Backs IWhatsAppCredentialProtector (and any future at-rest secret encryption) — real, reversible
+// Backs IWhatsAppCredentialProtector (and any future at-rest secret encryption), real, reversible
 // encryption keyed by a key ring, not a hand-rolled cipher. Default persistence is the local
-// filesystem, which on a single-instance Azure App Service is %HOME%\ASP.NET\DataProtection-Keys —
+// filesystem, which on a single-instance Azure App Service is %HOME%\ASP.NET\DataProtection-Keys,
 // durable across app restarts on this deployment's current single-instance B1 plan. Scaling to
 // multiple instances would need PersistKeysToAzureBlobStorage + ProtectKeysWithAzureKeyVault so
 // every instance shares one key ring; noted here rather than built speculatively.
@@ -122,7 +122,7 @@ builder.Services.AddSwaggerGen(swagger =>
     {
         Title = "IIP Operations API",
         Version = "v1",
-        Description = "Insurance Intelligence Platform (IIP) — canonical /api/v1 contract. "
+        Description = "Insurance Intelligence Platform (IIP), canonical /api/v1 contract. "
             + "Human-reviewed insurance intelligence; AI prepares, humans decide.",
     });
     // Minimal-API route params without a type constraint (e.g. {customerId}) can collide
@@ -203,7 +203,7 @@ else
 
 // In-memory storage is permitted only for developer-machine execution, so the team can run
 // the platform with no Azure account. Deny-by-default on the runtime profile: anything that
-// is not explicitly a local profile — including an unrecognised value — is refused. This is
+// is not explicitly a local profile, including an unrecognised value, is refused. This is
 // one of three independent blocks; AddInsuranceIntelligenceInfrastructure applies the same
 // profile test, and AzureProviderStartupValidator.ValidateProduction separately refuses to
 // boot Staging/Production/ManagedApplicationReviewer/Demo on non-SqlServer storage.
@@ -297,7 +297,7 @@ else
 builder.Services.AddSingleton<IWorkflowRuleProvider, StaticWorkflowRuleProvider>();
 if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
 {
-    // Scoped, not Singleton — see the AzureOpenAiAssistantProvider registration above; same reason.
+    // Scoped, not Singleton, see the AzureOpenAiAssistantProvider registration above; same reason.
     builder.Services.AddScoped<ICustomerUpdateDraftingProvider, AzureOpenAiCustomerUpdateDraftingProvider>();
 }
 else
@@ -395,7 +395,7 @@ builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.IClaimTriageQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>());
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ClaimTriageWorker>();
 // WO-14: one instance backs both the emitter (called from the 5 real event sites) and the
-// recipient's own feed (list/read-state) — same underlying repository either way.
+// recipient's own feed (list/read-state), same underlying repository either way.
 builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.NotificationService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.INotificationEmitter>(
     sp => sp.GetRequiredService<InsuranceIntelligence.Application.Notifications.NotificationService>());
@@ -425,7 +425,7 @@ await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Enviro
 
 // Offline developer mode: with in-memory storage the database starts empty on every run, so
 // seed the demo dataset at boot to give the app something to show without any Azure account.
-// Guarded to in-memory storage only — this can never run against SqlServer, and the storage
+// Guarded to in-memory storage only, this can never run against SqlServer, and the storage
 // provider itself is already restricted to local runtimes.
 if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
     && infrastructureOptions.SeedDemoData)
@@ -438,7 +438,7 @@ if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.Or
         string.IsNullOrWhiteSpace(infrastructureOptions.WorkspaceId) ? "workspace-operations" : infrastructureOptions.WorkspaceId);
     // Provenance stays with the system seeder; assignment goes to the identity an offline operator
     // actually signs in as (the same default DemoAuthorization.GetUserId falls back to), so "My Work"
-    // and the notification feed — both filtered by the current user — are populated on a fresh run
+    // and the notification feed, both filtered by the current user, are populated on a fresh run
     // instead of showing empty states over a workspace that visibly has 46 claims in it.
     var seedResult = await seedService.SeedAsync(seedScopeIds, "system:local-seed", DemoAuthorization.DefaultLocalUserId);
     app.Logger.LogInformation(
@@ -451,7 +451,7 @@ app.UseExceptionHandler();
 
 app.UseCors();
 
-// Swagger UI + JSON contract document — Development/LocalTest only (secure baseline).
+// Swagger UI + JSON contract document, Development/LocalTest only (secure baseline).
 if (developmentDiagnosticsEnabled)
 {
     app.UseSwagger();
@@ -514,7 +514,7 @@ app.Use(async (context, next) =>
         }
         else if (context.User.Identity?.IsAuthenticated == true)
         {
-            // Deployed (Entra) — ADR-0005: runtime authority is IIP's membership store, keyed by the
+            // Deployed (Entra), ADR-0005: runtime authority is IIP's membership store, keyed by the
             // authenticated user's stable id (oid). The token tid/workspace claims are ONLY
             // disambiguation hints, never authority. Fine-grained permissions come from the store and
             // are stashed for the synchronous permission checks. No membership => fail closed.
@@ -525,7 +525,7 @@ app.Use(async (context, next) =>
                     .Select(t => context.User.FindFirst(t)?.Value)
                     .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
                 // The portal's workspace switcher (WO-13) sends the user's chosen workspace as a
-                // request header, not a claim — a new token isn't minted per switch. It is only ever
+                // request header, not a claim, a new token isn't minted per switch. It is only ever
                 // a hint: GetEffectiveMembershipAsync below re-validates it against the user's real
                 // active membership and fails closed if they don't belong to it, so this can never
                 // grant access to a workspace the user isn't actually a member of (I5).
@@ -569,7 +569,7 @@ app.MapGet("/health/ready", HealthEndpoints.Ready);
 
 app.MapGet("/api/v1/me", RuntimeContextEndpoints.GetMe);
 
-// WO-14: the recipient's own feed — self-scoped like /api/v1/me, no extra permission (any
+// WO-14: the recipient's own feed, self-scoped like /api/v1/me, no extra permission (any
 // authenticated tenant member can see their own notifications).
 app.MapGet("/api/v1/notifications", InsuranceIntelligence.Api.Notifications.NotificationEndpoints.GetFeed);
 app.MapPost("/api/v1/notifications/{notificationId:guid}/read", InsuranceIntelligence.Api.Notifications.NotificationEndpoints.MarkRead);
@@ -579,7 +579,7 @@ app.MapGet("/api/v1/search", SearchEndpoints.Search)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 
 // A claimant is never a tenant member, so these cannot be gated by PermissionEndpointFilter (which
-// requires resolved membership permissions outside Development — no claimant will ever have one).
+// requires resolved membership permissions outside Development, no claimant will ever have one).
 // ClaimantSessionEndpointFilter is the real gate: a verified magic-link session outside
 // Development, or the existing demo-header trust inside it.
 app.MapGet("/api/v1/client-portal/claims/{caseId:guid}", ClientPortalEndpoints.GetClaim)
@@ -756,7 +756,7 @@ app.MapPut("/api/v1/admin/users/{userId}", AdminEndpoints.UpdateUserRole)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPut("/api/v1/admin/users/{userId}/role", AdminEndpoints.UpdateUserRole)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
-// Demo dataset seeding — hard-gated inside the handler to non-protected runtime profiles
+// Demo dataset seeding, hard-gated inside the handler to non-protected runtime profiles
 // (see DemoSeedEndpoints), never reachable in Staging/Production/ManagedApplicationReviewer.
 app.MapPost("/api/v1/admin/demo-seed", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.Run);
 app.MapPost("/api/v1/admin/db-migrate", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ApplyPending);
@@ -798,7 +798,7 @@ app.MapGet("/api/v1/onboarding/{onboardingId}", InsuranceIntelligence.Api.Onboar
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
 app.MapGet("/api/v1/onboarding/{onboardingId}/consent-url", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.GetConsentUrl)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
-// Admin-consent redirect target — authorized by the opaque state value, not a permission.
+// Admin-consent redirect target, authorized by the opaque state value, not a permission.
 // Deliberately OFF /api/v1: the insurer admin returns here from Microsoft UNAUTHENTICATED to IIP,
 // so it must bypass the /api/v1 authenticated-request guard (like /health).
 app.MapGet("/onboarding/consent-callback", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.ConsentCallback);
@@ -807,7 +807,7 @@ app.MapGet("/api/v1/audit/events", AuditEndpoints.ListEvents)
 // Initiative LP: rule-based fraud advisory signals (deterministic, tenant-scoped, advisory-only).
 app.MapGet("/api/v1/fraud/signals", InsuranceIntelligence.Api.Fraud.FraudEndpoints.GetSignals)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
-// WO-19: fraud signal disposition — triage, assign for investigation, record outcome, close.
+// WO-19: fraud signal disposition, triage, assign for investigation, record outcome, close.
 app.MapPost("/api/v1/fraud/signals/triage", InsuranceIntelligence.Api.Fraud.FraudDispositionEndpoints.Triage)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
 app.MapPost("/api/v1/fraud/signals/{signalId:guid}/assign", InsuranceIntelligence.Api.Fraud.FraudDispositionEndpoints.Assign)
@@ -819,7 +819,7 @@ app.MapPost("/api/v1/fraud/signals/{signalId:guid}/close", InsuranceIntelligence
 // Initiative LP: rule-based underwriting advisory reviews (deterministic, advisory-only).
 app.MapGet("/api/v1/underwriting/reviews", InsuranceIntelligence.Api.Underwriting.UnderwritingEndpoints.GetReviews)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewUnderwriting));
-// Initiative LP: AI Agent Registry — catalog + tenant-scoped persisted kill switch (ADR-0002).
+// Initiative LP: AI Agent Registry, catalog + tenant-scoped persisted kill switch (ADR-0002).
 app.MapGet("/api/v1/admin/agents", InsuranceIntelligence.Api.Admin.Agents.AgentRegistryEndpoints.ListAgents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 app.MapPost("/api/v1/admin/agents/{agentKey}/kill-switch", InsuranceIntelligence.Api.Admin.Agents.AgentRegistryEndpoints.SetKillSwitch)
@@ -853,7 +853,7 @@ app.MapGet("/api/v1/agent-work-items/{workItemId:guid}", InsuranceIntelligence.A
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ReviewAgentWorkItems));
 app.MapPost("/api/v1/agent-work-items/{workItemId:guid}/decision", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.DecideWorkItem)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ReviewAgentWorkItems));
-// Initiative LP: Billing & entitlements — default package + real usage meters (ADR-0003).
+// Initiative LP: Billing & entitlements, default package + real usage meters (ADR-0003).
 app.MapGet("/api/v1/admin/billing", InsuranceIntelligence.Api.Admin.Billing.BillingEndpoints.GetSummary)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
 // Initiative LP: cross-case document library.
@@ -918,7 +918,7 @@ app.MapDelete("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurati
 app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
 app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);
 
-// Generic connection settings surface (blueprint §3.4) — the /app/admin/connections screen's
+// Generic connection settings surface (blueprint §3.4), the /app/admin/connections screen's
 // backend. {connectionType} is "sms" or "email" today; adding a type is a new ConnectionType enum
 // value plus IConnectionValidator implementations, no new routes.
 app.MapGet("/api/v1/integrations/connections/{connectionType}/providers", ConnectionEndpoints.ListProviders)
@@ -932,7 +932,7 @@ app.MapPost("/api/v1/integrations/connections/{connectionType}/test", Connection
 app.MapDelete("/api/v1/integrations/connections/{connectionType}", ConnectionEndpoints.DeleteConfiguration)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 
-// Agent behaviour configuration (blueprint §6.3) — a tenant's voice/scope customization per
+// Agent behaviour configuration (blueprint §6.3), a tenant's voice/scope customization per
 // agent, never its authority. Every save is a new version; nothing is overwritten in place.
 app.MapGet("/api/v1/agents/{agentKey}/behaviour", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.GetCurrent)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
@@ -943,11 +943,11 @@ app.MapPost("/api/v1/agents/{agentKey}/behaviour", InsuranceIntelligence.Api.Age
 app.MapPost("/api/v1/agents/{agentKey}/behaviour/test", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.TestBehaviour)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 
-// Tenant agent policy (blueprint §6.4, WO 3.4) — real enforcement-source data, not a hardcoded array.
+// Tenant agent policy (blueprint §6.4, WO 3.4), real enforcement-source data, not a hardcoded array.
 app.MapGet("/api/v1/admin/tenant-policy", InsuranceIntelligence.Api.Administration.TenantPolicyEndpoints.GetPolicy)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 
-// SMS delivery-status webhook (blueprint §5.4) — unauthenticated by header (the gateway's payload
+// SMS delivery-status webhook (blueprint §5.4), unauthenticated by header (the gateway's payload
 // carries no signature), gated by the unguessable path secret instead. No PermissionEndpointFilter:
 // the caller is an external SMS gateway, not an authenticated platform user.
 app.MapPost("/api/v1/integrations/sms/status/{pathSecret}", SmsIntegrationEndpoints.ReceiveDeliveryStatus);

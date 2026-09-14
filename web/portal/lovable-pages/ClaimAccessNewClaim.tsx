@@ -18,7 +18,7 @@ const MOTOR_CLAIM_TYPES = ["Own damage", "Third-party property", "Theft", "Bodil
 const MEDICAL_CLAIM_TYPES = ["Medical reimbursement", "Hospitalisation", "Outpatient treatment"];
 const SUPPORTED_PRODUCT_LINES = ["Motor", "Medical"];
 
-// Claimant-facing (tier 6 — stricter rules). Confirmed: this screen only ever shows the
+// Claimant-facing (tier 6, stricter rules). Confirmed: this screen only ever shows the
 // claimant's own policy number and what they themselves type; no staff-only content is in scope.
 export default function ClaimAccessNewClaim() {
   const router = useRouter();
@@ -212,7 +212,7 @@ export default function ClaimAccessNewClaim() {
               </div>
             )}
 
-            {/* Full-width, taller, trailing-icon submit — hand-styled to Button's primary
+            {/* Full-width, taller, trailing-icon submit, hand-styled to Button's primary
                 variant, same reason as FNOL.tsx's "Next" and /access's submit button. */}
             <button
               type="submit"

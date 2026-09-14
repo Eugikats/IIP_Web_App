@@ -13,7 +13,7 @@ import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { useAdminUsers, type AdminUserView } from "@/lib/lovable-parity/data/adminUsers";
 
 // WO-12: real UI for the previously-unreachable admin/users endpoints. Roles come from
-// GET /api/v1/admin/roles (server-derived), never a hardcoded client list — see useAdminUsers.
+// GET /api/v1/admin/roles (server-derived), never a hardcoded client list, see useAdminUsers.
 export default function Users() {
   const { users, roles, loading, error, createUser, updateUserRole } = useAdminUsers();
   const [showCreate, setShowCreate] = useState(false);
@@ -64,7 +64,7 @@ export default function Users() {
         }
       />
       <div className="mb-4">
-        <GuardrailBanner text="Roles determine server-side permission — never client display state. The last active tenant administrator cannot be demoted." />
+        <GuardrailBanner text="Roles determine server-side permission, never client display state. The last active tenant administrator cannot be demoted." />
       </div>
 
       {showCreate ? (
@@ -122,7 +122,7 @@ export default function Users() {
                     <div className="text-[11px] text-dls-text-muted">{u.email}</div>
                   </TableCell>
                   <TableCell><Badge tone="neutral">{u.role}</Badge></TableCell>
-                  <TableCell className="text-dls-text-secondary">{[u.department, u.branch].filter(Boolean).join(" · ") || "—"}</TableCell>
+                  <TableCell className="text-dls-text-secondary">{[u.department, u.branch].filter(Boolean).join(" · ") || "-"}</TableCell>
                   <TableCell>{u.status === "Active" ? <Badge tone="success">Active</Badge> : <Badge tone="warning">{u.status}</Badge>}</TableCell>
                   <TableCell numeric>
                     <Select

@@ -33,7 +33,7 @@ export type ClaimsSummaryOutcome =
   | { ok: false; kind: "agent_disabled" | "error"; message: string };
 
 // WO-10: thin client for POST /api/v1/cases/{caseId}/summary (the claims-summary agent). Follows
-// the same data-hook shape every other lovable-parity/data module uses — real API call, honest
+// the same data-hook shape every other lovable-parity/data module uses, real API call, honest
 // error/refusal states, no synthetic fallback.
 export function useClaimsSummary(caseId: string, role: string) {
   const [summary, setSummary] = useState<ClaimsSummaryView | null>(null);

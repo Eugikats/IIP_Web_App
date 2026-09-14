@@ -14,7 +14,7 @@ namespace InsuranceIntelligence.Api.Tests;
 // FNOL six-step intake, step 2 (docs/03-design-architecture/iip_fnol_six_step_intake_design.md):
 // resolve a policy number into real context and flag a possible duplicate before the claimant is
 // asked anything else. PolicyId (an internal GUID nobody types) and PolicyNumber (what a claimant
-// actually has) are deliberately different fields — this proves lookup works by the human one.
+// actually has) are deliberately different fields, this proves lookup works by the human one.
 public sealed class PolicyLookupEndpointsTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);

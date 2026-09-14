@@ -3,7 +3,7 @@ using InsuranceIntelligence.Domain.Communications;
 namespace InsuranceIntelligence.Domain.Tests.Communications;
 
 /// <summary>
-/// This text goes to a real policyholder over SMS/WhatsApp, where no markdown renders — so the
+/// This text goes to a real policyholder over SMS/WhatsApp, where no markdown renders, so the
 /// only acceptable outcome is that no markdown syntax survives the conversion.
 /// </summary>
 public sealed class PlainTextForCustomerChannelTests

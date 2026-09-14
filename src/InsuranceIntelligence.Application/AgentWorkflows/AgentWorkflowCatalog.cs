@@ -6,7 +6,7 @@ namespace InsuranceIntelligence.Application.AgentWorkflows;
 /// The governed Releases 1-5 shipped with IIP. These are configuration records,
 /// not demo business data. Release 1 is executable on the current orchestration
 /// path; Releases 2–5 remain visibly held (inspectable, not runnable) until
-/// their providers and earlier services are proven — see
+/// their providers and earlier services are proven, see
 /// <see cref="AgentWorkflowReleaseOneBound"/>.
 /// </summary>
 public static class AgentWorkflowCatalog

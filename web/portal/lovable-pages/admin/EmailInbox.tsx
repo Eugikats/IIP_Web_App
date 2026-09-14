@@ -25,7 +25,7 @@ import {
 } from "@/lib/emailIntegration";
 
 // EmailProcessingStatus has no string-enum converter server-side, so it comes back as its raw
-// ordinal (0-3) — see InboundEmailMessage.processingStatus in lib/emailIntegration.ts.
+// ordinal (0-3), see InboundEmailMessage.processingStatus in lib/emailIntegration.ts.
 const STATUS_TONE: Record<number, "neutral" | "info" | "success" | "warning"> = {
   0: "neutral",
   1: "info",
@@ -34,7 +34,7 @@ const STATUS_TONE: Record<number, "neutral" | "info" | "success" | "warning"> = 
 };
 
 const STATUS_LABEL: Record<number, string> = {
-  0: "Received — not yet processed",
+  0: "Received, not yet processed",
   1: "Linked to existing claim",
   2: "Claim created",
   3: "Processing failed",
@@ -111,7 +111,7 @@ export default function EmailInbox() {
       toast.error(result.error);
       return;
     }
-    toast.success("Test message received", { description: "A sample email was added below — turn it into a claim to see the whole path work." });
+    toast.success("Test message received", { description: "A sample email was added below, turn it into a claim to see the whole path work." });
     void load();
   }
 
@@ -255,7 +255,7 @@ export default function EmailInbox() {
         title="Add a claim mailbox"
         target={mailboxForm.mailboxAddress || "New mailbox"}
         impact="Once this is switched on, email sent to this address is collected automatically and appears in the inbox, ready to be turned into a claim."
-        auditNotice="Adding a mailbox is recorded in the audit trail with your name against it — note why you are adding it."
+        auditNotice="Adding a mailbox is recorded in the audit trail with your name against it, note why you are adding it."
         confirmLabel="Add mailbox"
         onClose={() => setMailboxDialogOpen(false)}
         onConfirm={onCreateMailbox}
@@ -306,9 +306,9 @@ export default function EmailInbox() {
       <GovernedActionDialog
         open={processingMessage !== null}
         title="Process inbound email"
-        target={processingMessage ? `${processingMessage.subject} — ${processingMessage.sender}` : "Inbound email"}
+        target={processingMessage ? `${processingMessage.subject}, ${processingMessage.sender}` : "Inbound email"}
         impact="IIP will verify the sender against customer and policy records, then link this email to a matching claim or create a new one. An unidentified sender's claim still gets created, but flagged as needing confirmation before its SLA starts."
-        auditNotice="Turning an email into a claim is recorded in the audit trail with your name against it — note why."
+        auditNotice="Turning an email into a claim is recorded in the audit trail with your name against it, note why."
         confirmLabel="Process message"
         onClose={() => setProcessingMessage(null)}
         onConfirm={onProcessMessage}

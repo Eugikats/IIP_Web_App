@@ -3,7 +3,7 @@ using InsuranceIntelligence.Domain.Integrations;
 namespace InsuranceIntelligence.Infrastructure.Email;
 
 /// <summary>
-/// Synthetic email ingestion for local/offline runs (EmailProvider != "Graph") — the sanctioned
+/// Synthetic email ingestion for local/offline runs (EmailProvider != "Graph"), the sanctioned
 /// Synthetic provider path, not a test double. Lets "Run test ingestion" in the Email Mailboxes
 /// admin screen actually produce an inbound message end to end without a real mailbox connection.
 /// Real deployments configure EmailProvider=Graph, where this type is registered but never called

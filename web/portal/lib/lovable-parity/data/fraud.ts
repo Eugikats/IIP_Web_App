@@ -103,7 +103,7 @@ function mapDto(dto: FraudSignalDto): FraudSignalView {
     title: dto.signalType || dto.title,
     detail: dto.description,
     severity: SEVERITY_MAP[dto.severity] ?? "Advisory",
-    linked: dto.relatedCaseIds.length > 0 ? dto.relatedCaseIds.join(", ") : "—",
+    linked: dto.relatedCaseIds.length > 0 ? dto.relatedCaseIds.join(", ") : "-",
     relatedCaseIds: dto.relatedCaseIds,
     evidence: dto.evidence,
     disposition: mapDisposition(dto.disposition),

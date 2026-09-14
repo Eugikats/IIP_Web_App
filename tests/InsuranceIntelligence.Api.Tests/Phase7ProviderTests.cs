@@ -989,7 +989,7 @@ public sealed class Phase7ProviderTests
 
         Assert.IsType<DisabledEmailIngestionProvider>(provider.GetRequiredService<IEmailIngestionProvider>());
         Assert.IsType<DisabledWebhookSubscriptionProvider>(provider.GetRequiredService<IWebhookSubscriptionProvider>());
-        // ISmsProvider is always TenantAwareSmsProvider now — SMS_PROVIDER unset here means its
+        // ISmsProvider is always TenantAwareSmsProvider now, SMS_PROVIDER unset here means its
         // env-var fallback (SmsProviderFactory.CreateFallback) resolves to DisabledSmsProvider,
         // which is exactly what this test cares about; see TenantAwareSmsProviderTests for
         // resolution-order coverage.

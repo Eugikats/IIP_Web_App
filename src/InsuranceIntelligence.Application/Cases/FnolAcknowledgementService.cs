@@ -7,7 +7,7 @@ using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Application.Cases;
 
-/// <summary>What actually happened when the platform tried to acknowledge a new claim — always
+/// <summary>What actually happened when the platform tried to acknowledge a new claim, always
 /// truthful, never a fabricated "sent" when nothing went out (blueprint §14 Phase 5, WO 5.2).</summary>
 public enum FnolAcknowledgementOutcome
 {
@@ -15,14 +15,14 @@ public enum FnolAcknowledgementOutcome
     Sent,
 
     /// <summary>WhatsApp-originated claims are acknowledged inline by CustomerAssistantService's
-    /// own reply — sending a second, separate acknowledgement here would double-notify the
+    /// own reply, sending a second, separate acknowledgement here would double-notify the
     /// customer over the same channel for the same event.</summary>
     SkippedAlreadyAcknowledgedInline,
 
     /// <summary>Neither a phone number nor an email address is on file for this claim.</summary>
     NoRecipientAvailable,
 
-    /// <summary>A channel and recipient were resolved, but the send did not go out — could be
+    /// <summary>A channel and recipient were resolved, but the send did not go out, could be
     /// pending human approval (the tenant has not opted into WhatsAppOptions/AfricasTalkingOptions-
     /// style auto-send for low-risk transactional messages), a provider that is not configured, or
     /// a provider-side failure. The specific reason is in the audit trail, not swallowed.</summary>
@@ -33,7 +33,7 @@ public interface IFnolAcknowledgementService
 {
     /// <summary>Sends (or honestly declines to send) a low-risk transactional acknowledgement for
     /// a newly created claim: a reference number plus the required-documents checklist, over
-    /// whichever channel the claim actually has a contact for. Never throws — a failure to
+    /// whichever channel the claim actually has a contact for. Never throws, a failure to
     /// acknowledge must not fail claim creation, which has already happened by the time this
     /// runs.</summary>
     Task<FnolAcknowledgementOutcome> SendAsync(ClaimCase claimCase, string correlationId, CancellationToken cancellationToken = default);
@@ -146,7 +146,7 @@ public sealed class FnolAcknowledgementService(
 }
 
 /// <summary>Document-type display labels, shared with the claimant-portal checklist rendering
-/// (see StaticDocumentChecklistProvider.LabelFor in the Api layer) — duplicated rather than
+/// (see StaticDocumentChecklistProvider.LabelFor in the Api layer), duplicated rather than
 /// referenced because Application must not depend on the Api project; keep the two in sync by
 /// hand if a new DocumentType is ever added.</summary>
 internal static class StaticDocumentTypeLabel

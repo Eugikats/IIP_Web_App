@@ -141,7 +141,7 @@ public sealed class DeterministicThenAiIntentClassifier : IIntentClassifier
 
         // Nothing operational matched. If the user actually asked something (rather than
         // greeting or typing a fragment), send it to grounded retrieval + AI instead of
-        // silently returning the standing workspace briefing — answering "how does X work?"
+        // silently returning the standing workspace briefing, answering "how does X work?"
         // with an unrelated claims summary reads as a broken assistant.
         if (LooksLikeAQuestion(normalized))
         {

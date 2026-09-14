@@ -179,7 +179,7 @@ export default function Channels() {
                   <div className="text-[16px] font-bold text-dls-text-primary">{active.customer}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!active.matched && <Badge tone="warning">Unmatched — link to customer</Badge>}
+                  {!active.matched && <Badge tone="warning">Unmatched, link to customer</Badge>}
                   <StatusBadge status={active.needsApproval ? "Human Review Required" : "Active"} />
                 </div>
               </div>
@@ -281,7 +281,7 @@ export default function Channels() {
               </div>
 
               {source === "live" ? (
-                <p className="mt-2 text-[11px] text-dls-text-muted">Live data · tenant-scoped. Actions are governed — nothing dispatches automatically.</p>
+                <p className="mt-2 text-[11px] text-dls-text-muted">Live data · tenant-scoped. Actions are governed, nothing dispatches automatically.</p>
               ) : null}
             </>
           )}
@@ -309,11 +309,11 @@ function fnolHandoffUrl(conversation: ChannelConversation | null): string {
 function deliveryCopy(state: string) {
   switch (state) {
     case "Queued": return "Queued internally";
-    case "ProviderAccepted": return "Accepted by WhatsApp — delivery not confirmed";
+    case "ProviderAccepted": return "Accepted by WhatsApp, delivery not confirmed";
     case "Delivered": return "Delivered";
     case "Read": return "Read";
     case "Failed": return "Delivery failed";
-    case "Unknown": return "No clear answer back from WhatsApp — check before sending again";
+    case "Unknown": return "No clear answer back from WhatsApp, check before sending again";
     default: return state;
   }
 }

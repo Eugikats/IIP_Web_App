@@ -15,7 +15,7 @@ using InsuranceIntelligence.LocalTestDoubles;
 namespace InsuranceIntelligence.Api.Tests;
 
 /// <summary>
-/// Covers the orchestrator itself — KeywordCustomerIntentClassifierTests and
+/// Covers the orchestrator itself, KeywordCustomerIntentClassifierTests and
 /// CustomerAutoReplyGateTests already cover its two pure building blocks in isolation. Uses the
 /// real KeywordCustomerIntentClassifier (not a stub) so these tests exercise the same
 /// text-in/outcome-out path a real WhatsApp message takes.
@@ -92,7 +92,7 @@ public sealed class CustomerAssistantServiceTests
     public async Task ExistingClaimStatus_WithUnrecognizedPolicyNumber_IsDeclined()
     {
         var fixture = Fixture.Create();
-        // Note: no SeedPolicy call — the number is well-formed but unknown to the repository.
+        // Note: no SeedPolicy call, the number is well-formed but unknown to the repository.
 
         await fixture.HandleAsync($"What is the status of my claim on {ValidPolicyNumber}?");
 
@@ -202,7 +202,7 @@ public sealed class CustomerAssistantServiceTests
     public async Task AgentDisabled_EscalatesEveryMessageWithoutClassifyingOrActing()
     {
         // The kill switch (Admin > Agents) must actually stop the agent, not just record a
-        // database row nothing reads — no case, no lead, no classification, every message
+        // database row nothing reads, no case, no lead, no classification, every message
         // escalated to a human instead.
         var fixture = Fixture.Create(agentEnabled: false);
         fixture.SeedPolicy(ValidPolicyNumber);
@@ -210,7 +210,7 @@ public sealed class CustomerAssistantServiceTests
         await fixture.HandleAsync($"I was in an accident, my policy is {ValidPolicyNumber}");
 
         var turn = Assert.Single(fixture.Conversations.Saved);
-        Assert.Equal(CustomerIntent.Unknown, turn.ClassifiedIntent); // never classified — the gate short-circuits before that
+        Assert.Equal(CustomerIntent.Unknown, turn.ClassifiedIntent); // never classified, the gate short-circuits before that
         Assert.Equal(CustomerAssistantOutcome.Escalated, turn.Outcome);
         Assert.Null(turn.CaseId);
         Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));

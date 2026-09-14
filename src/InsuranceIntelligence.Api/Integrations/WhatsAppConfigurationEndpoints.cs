@@ -15,10 +15,10 @@ namespace InsuranceIntelligence.Api.Integrations;
 /// Self-service WhatsApp Business API connection settings. AccessToken/AppSecret/VerifyToken are
 /// write-only from the browser's perspective: GetStatus never returns them, only whether each is
 /// present, so a saved secret can never be read back out through this API even by an admin.
-/// SaveConfiguration always validates against the real Meta Graph API before persisting anything —
+/// SaveConfiguration always validates against the real Meta Graph API before persisting anything,
 /// a wrong phone number id or expired token fails immediately with Meta's own (sanitized) reason,
 /// never a silent "saved" that only breaks on the next webhook. It then registers the webhook
-/// itself via Meta's subscribed_apps override (blueprint §4.3) — the operator supplies the WABA
+/// itself via Meta's subscribed_apps override (blueprint §4.3), the operator supplies the WABA
 /// id; IIP generates the verify token and never asks for it.
 /// </summary>
 public static class WhatsAppConfigurationEndpoints
@@ -73,7 +73,7 @@ public static class WhatsAppConfigurationEndpoints
         if (string.IsNullOrWhiteSpace(request.PhoneNumberId)) missing["phoneNumberId"] = ["A WhatsApp phone number id is required."];
         if (string.IsNullOrWhiteSpace(request.AccessToken)) missing["accessToken"] = ["A permanent access token is required."];
         if (string.IsNullOrWhiteSpace(request.AppSecret)) missing["appSecret"] = ["The Meta app secret is required to verify inbound webhooks."];
-        if (string.IsNullOrWhiteSpace(request.WabaId)) missing["wabaId"] = ["The WhatsApp Business Account id is required to register the webhook — find it in Meta Business Settings next to the phone number."];
+        if (string.IsNullOrWhiteSpace(request.WabaId)) missing["wabaId"] = ["The WhatsApp Business Account id is required to register the webhook, find it in Meta Business Settings next to the phone number."];
         if (missing.Count > 0)
         {
             return Results.ValidationProblem(missing);
@@ -98,7 +98,7 @@ public static class WhatsAppConfigurationEndpoints
         }
 
         // Guide-through validation: confirm the credentials actually work against the real Meta
-        // API before anything is persisted — never store a connection that is silently broken.
+        // API before anything is persisted, never store a connection that is silently broken.
         var validation = await validationClient.ValidateAsync(
             options.WhatsApp.GraphBaseUrl,
             request.PhoneNumberId.Trim(),
@@ -110,7 +110,7 @@ public static class WhatsAppConfigurationEndpoints
             return Results.BadRequest(new { deliveryStatus = "ValidationFailed", message = validation.SafeError });
         }
 
-        // The verify token is generated here, not typed by the operator — it is a shared secret
+        // The verify token is generated here, not typed by the operator, it is a shared secret
         // between IIP and Meta, never something a human needs to invent or remember (blueprint §4.3
         // point 2). Reuses the same cryptographically random generator as claimant portal tokens.
         var verifyToken = ClaimantTokenGenerator.GenerateRawToken();
@@ -121,7 +121,7 @@ public static class WhatsAppConfigurationEndpoints
         if (callbackUrl is null)
         {
             webhookRegistrationStatus = "ManualRequired";
-            webhookRegistrationError = "This deployment has no configured public API base URL (INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL) — the webhook cannot be auto-registered. Ask whoever manages your deployment to set it, or register manually in Meta Business Settings.";
+            webhookRegistrationError = "This deployment has no configured public API base URL (INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL), the webhook cannot be auto-registered. Ask whoever manages your deployment to set it, or register manually in Meta Business Settings.";
         }
         else
         {
@@ -249,7 +249,7 @@ public static class WhatsAppConfigurationEndpoints
         return Results.Ok(new { message = "WhatsApp connection removed." });
     }
 
-    // Built from a deployment-level setting, not derived from the inbound request's Host header —
+    // Built from a deployment-level setting, not derived from the inbound request's Host header,
     // trusting a client-supplied host for a value registered with an external provider would let a
     // spoofed Host header redirect Meta's webhook traffic elsewhere.
     private static string? BuildCallbackUrl(InfrastructureOptions options) =>
@@ -259,7 +259,7 @@ public static class WhatsAppConfigurationEndpoints
 
     // Note: the ChannelProviderActive/RequiresChannelProviderDeploymentChange fields below are
     // retired as of the Phase 1 DI fix (InfrastructureRegistration.cs registers the real WhatsApp
-    // inbound/outbound providers unconditionally now — see the blueprint's Phase 1 status table).
+    // inbound/outbound providers unconditionally now, see the blueprint's Phase 1 status table).
     // A saved, validated connection here is live immediately; no deployment change is ever
     // required. Kept as always-true/always-false rather than removed outright, so any client still
     // reading them gets an honest (if now-constant) answer instead of a breaking API removal.

@@ -170,10 +170,10 @@ public static class KnowledgeEndpoints
             return Validation("userId", "Authenticated user context is required to approve knowledge.");
         }
 
-        // WO-17: sensitivity is captured atomically with approval — a document can never become
+        // WO-17: sensitivity is captured atomically with approval, a document can never become
         // Approved without a human explicitly classifying it (I3: no half-finished governance
         // state). Secrets/unapproved-PII classifications can never be approved for AI grounding at
-        // all, regardless of reason — those categories describe content that should never be in
+        // all, regardless of reason, those categories describe content that should never be in
         // the corpus, not content pending a milder review.
         var (governanceRequest, governanceValidation) = await ReadGovernanceRequestAsync(httpContext, cancellationToken);
         if (governanceValidation is not null)
@@ -214,11 +214,11 @@ public static class KnowledgeEndpoints
     }
 
     /// <summary>
-    /// Sets or corrects the sensitivity classification on a document that is already Approved —
+    /// Sets or corrects the sensitivity classification on a document that is already Approved,
     /// without touching its approval state. ApproveKnowledgeDocument makes classification atomic
     /// with approval for every document going forward, but it refuses to run a second time on an
     /// already-approved document (KnowledgeMapper.ApproveBlockedReason), so any document approved
-    /// before that gate existed is permanently stuck at Sensitivity=Unknown — retrieval-ineligible
+    /// before that gate existed is permanently stuck at Sensitivity=Unknown, retrieval-ineligible
     /// (KnowledgeDocument.IsActiveOn) with no governed path back. This is that path: same
     /// human-reason-and-classification requirement as approval, but scoped to documents that are
     /// already Approved, and it re-indexes so the fix takes effect immediately rather than waiting
@@ -520,7 +520,7 @@ public static class KnowledgeEndpoints
         });
 
     // Shared by ApproveKnowledgeDocument and ClassifyKnowledgeDocument: Unknown can never be
-    // (re)granted — that is the whole point of the gate — and content already known to contain
+    // (re)granted, that is the whole point of the gate, and content already known to contain
     // secrets or unapproved PII can never be approved for AI grounding at all, regardless of who
     // is asking or why.
     private static (KnowledgeSensitivity Sensitivity, IResult? Error) ResolveGrantableSensitivity(

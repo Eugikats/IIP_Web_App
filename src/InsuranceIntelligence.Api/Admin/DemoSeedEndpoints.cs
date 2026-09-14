@@ -52,7 +52,7 @@ public static class DemoSeedEndpoints
         var userId = DemoAuthorization.GetUserId(httpContext);
 
         var purged = await purgeService.PurgeCasesAsync(LegacyCaseIdsToPurge, scope, cancellationToken);
-        // The caller asked for this demo dataset, so assign its work to them — otherwise their own
+        // The caller asked for this demo dataset, so assign its work to them, otherwise their own
         // "My Work" stays empty over the very data they just seeded.
         var result = await seedService.SeedAsync(scope, userId, userId, cancellationToken);
 

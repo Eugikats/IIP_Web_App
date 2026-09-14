@@ -11,13 +11,13 @@ namespace InsuranceIntelligence.Application.DemoSeeding;
 
 /// <summary>
 /// Builds a realistic, deeply varied demo dataset for a Ugandan composite insurer
-/// ("Nile Shield Assurance") spanning Motor, Medical, Life, General, and Agriculture —
+/// ("Nile Shield Assurance") spanning Motor, Medical, Life, General, and Agriculture,
 /// so a reviewer can see claims in every workflow state, with real Uganda-grounded
 /// premium bands, real per-line document checklists, and enough narrative detail for
 /// AI triage/summarisation to make credible, checkable inferences.
 ///
 /// Every record is written directly through the same repositories the real API uses
-/// (no shortcuts, no separate seed-only storage) — the only difference from normal API
+/// (no shortcuts, no separate seed-only storage), the only difference from normal API
 /// traffic is that CreatedAt/UpdatedAt/SlaDueAt are set explicitly here so the dataset
 /// can show genuine age and SLA variety, which CaseIntakeService's live "now" semantics
 /// cannot produce. This service must only ever run behind the Demo/local-profile gate
@@ -39,11 +39,11 @@ public sealed class DemoSeedService(
     /// <param name="assignedToUserId">
     /// Who the seeded work is currently assigned to. Defaults to <paramref name="seededByUserId"/>
     /// for callers that don't care, but offline/demo runs pass the identity the operator actually
-    /// signs in as — otherwise every seeded claim is owned by a synthetic id nobody signs in as, and
+    /// signs in as, otherwise every seeded claim is owned by a synthetic id nobody signs in as, and
     /// "My Work" (which filters on assignment) and the notification feed (which is per-recipient)
     /// both render empty on a freshly seeded workspace. Assignment is current state, so pointing it
     /// at the demo user is truthful; provenance fields (created-by, audit actor, who approved what)
-    /// deliberately stay on <paramref name="seededByUserId"/> — the system did seed them, and a demo
+    /// deliberately stay on <paramref name="seededByUserId"/>, the system did seed them, and a demo
     /// user must never appear in the audit trail as having taken an action they did not take.
     /// </param>
     public async Task<DemoSeedResult> SeedAsync(
@@ -312,7 +312,7 @@ public sealed class DemoSeedService(
     ];
 
     /// <summary>
-    /// Math.Round(decimal, int) only accepts 0-28 (decimal places after the point) — it has
+    /// Math.Round(decimal, int) only accepts 0-28 (decimal places after the point), it has
     /// no "round to the nearest power of 10" mode like some other rounding APIs. This is
     /// that mode, used throughout for tidy UGX figures (nearest 100/1,000/10,000).
     /// </summary>
@@ -349,7 +349,7 @@ public sealed class DemoSeedService(
     // ICustomerRepository all Guid.Parse() their string Id fields internally (the EF
     // implementations key the underlying table on a Guid column), even though the domain
     // contracts type them as plain string. Human-readable identifiers therefore cannot be
-    // used as the *Id* — Guid.NewGuid().ToString() is required there; readable codes still
+    // used as the *Id*, Guid.NewGuid().ToString() is required there; readable codes still
     // appear elsewhere (PolicyNumber, CustomerName) for anything actually shown in the UI.
     private static IReadOnlyList<Branch> BuildBranches(TenantScope scope) =>
         BranchDefinitions
@@ -411,7 +411,7 @@ public sealed class DemoSeedService(
 
         var coverage = new Coverage(
             Guid.NewGuid().ToString(), scope.TenantId, scope.WorkspaceId, policyId,
-            $"{coverType} — {line.Name}",
+            $"{coverType}, {line.Name}",
             $"UGX {sumInsured:N0}",
             $"UGX {RoundToNearest(sumInsured * 0.02m, 1000m):N0}",
             line.Name == "Motor" ? "Insured vehicle" : line.Name == "Agriculture" ? "Insured crop/livestock" : "Insured risk",
@@ -642,7 +642,7 @@ public sealed class DemoSeedService(
             RequestedByUserId = "system:agent-workflow-worker",
             // Decided approvals keep the seeder as the decider (never attribute a decision to a demo
             // operator who did not make it). Undecided ones are current state, not history: some are
-            // picked up by the assignee, the rest stay in the unassigned team queue — so both "Mine"
+            // picked up by the assignee, the rest stay in the unassigned team queue, so both "Mine"
             // and "Unassigned" in My Work have something real to show on a freshly seeded workspace.
             ReviewerUserId = isDecided ? userId : assignToReviewer ? assignee : null,
             Decision = isDecided ? ApprovalDecision.Approved : null,

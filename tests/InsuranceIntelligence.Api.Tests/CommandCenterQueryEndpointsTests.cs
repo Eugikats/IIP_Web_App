@@ -72,7 +72,7 @@ public sealed class CommandCenterQueryEndpointsTests
         Assert.Contains(auditEvents, evt => evt.ActionName == "assistant.command_center.answered");
 
         // WO-07: the AI execution is also reconstructable as a single AgentRun with correct
-        // scope, user, correlation, and outcome — not only as an AgentActionLog/AuditEvent.
+        // scope, user, correlation, and outcome, not only as an AgentActionLog/AuditEvent.
         var run = Assert.Single(harness.RecordedAgentRuns);
         Assert.Equal("command-center", run.AgentKey);
         Assert.Equal(AgentRunStatus.Completed, run.Status);
@@ -80,7 +80,7 @@ public sealed class CommandCenterQueryEndpointsTests
         Assert.NotNull(run.CompletedAt);
         Assert.NotEqual(default, run.StartedAt);
 
-        // WO-09: data access is now real tool calls, so the trace is no longer empty — it names
+        // WO-09: data access is now real tool calls, so the trace is no longer empty, it names
         // the exact WO-08 tools this request's data actually came from.
         var toolNames = run.ToolTrace.Select(entry => entry.ToolName).ToArray();
         Assert.Contains("claims.attention.read", toolNames);
@@ -250,7 +250,7 @@ public sealed class CommandCenterQueryEndpointsTests
         // Providers must be healthy here specifically so the request reaches the agent gate
         // rather than being refused earlier by the provider-not-configured gate (see
         // AiDependentIntentReturnsNotConfiguredAndWritesAudit for that path). The chat provider
-        // throws if invoked — proof the model genuinely never runs, not just that the response
+        // throws if invoked, proof the model genuinely never runs, not just that the response
         // happens to look like a refusal.
         var harness = new Harness(
             providerHealthCheck: new AlwaysReadyProviderHealthCheck(),
@@ -272,7 +272,7 @@ public sealed class CommandCenterQueryEndpointsTests
     public async Task EnabledReportInsightAgent_StillReachesTheModel()
     {
         // Negative control for the test above: with the same healthy providers and the agent
-        // enabled, the request must actually reach the model — proving the prior test's refusal
+        // enabled, the request must actually reach the model, proving the prior test's refusal
         // came from the kill switch, not from some other reason the model was never called.
         var harness = new Harness(
             providerHealthCheck: new AlwaysReadyProviderHealthCheck(),
@@ -553,7 +553,7 @@ public sealed class CommandCenterQueryEndpointsTests
         /// <summary>WO-09: CommandCenterQueryService now reaches its data through the WO-08 tool
         /// registry rather than repositories directly, so the harness must build one backed by
         /// the exact same in-memory repositories the tests seed via SeedIncompleteCaseAsync /
-        /// SeedPendingApprovalAsync — otherwise the tools would see empty state and every
+        /// SeedPendingApprovalAsync, otherwise the tools would see empty state and every
         /// data-dependent assertion in this file would break. Mirrors Program.cs's real
         /// registration set.</summary>
         private InsuranceIntelligence.Application.Agents.Tools.IAgentToolRegistry BuildToolRegistry(IPermissionService permissionService)
@@ -735,7 +735,7 @@ public sealed class CommandCenterQueryEndpointsTests
             ChatCompletionRequest request,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
-                "The chat completion provider was invoked despite the agent being disabled — the kill switch was bypassed.");
+                "The chat completion provider was invoked despite the agent being disabled, the kill switch was bypassed.");
     }
 
     private sealed class AlwaysReadyProviderHealthCheck : IProviderHealthCheck

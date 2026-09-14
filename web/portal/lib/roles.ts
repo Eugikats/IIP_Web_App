@@ -131,7 +131,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/support", requiredAny: ["ConfigureIntegrations", "ManageTenantSettings"] },
   { path: "/app/audit", requiredAny: ["ViewAuditLog"] },
   { path: "/app/admin/users", requiredAny: ["ManageTenantSettings"] },
-  // Prefix-matched below covers /app/admin/agents/{key}/behaviour too — no separate entry needed.
+  // Prefix-matched below covers /app/admin/agents/{key}/behaviour too, no separate entry needed.
   { path: "/app/admin/agents", requiredAny: ["ManageAgents"] },
   { path: "/app/admin/billing", requiredAny: ["ViewBilling"] },
   { path: "/app/admin/onboarding", requiredAny: ["ManageTenantOnboarding"] },
@@ -140,7 +140,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/admin/email", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin/connections", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin", requiredAny: ["ManageTenantSettings"], exact: true },
-  // Every authenticated user reaches their own profile/settings — it has no admin-only content.
+  // Every authenticated user reaches their own profile/settings, it has no admin-only content.
   { path: "/app/settings", requiredAny: [] },
   { path: "/app", requiredAny: ["ViewCommandCenter"], exact: true },
 ];
@@ -206,10 +206,10 @@ export function canPreviewPermission(role: Role, permission: Permission): boolea
 }
 
 // Gates a single action control (a button, not a whole route) on the signed-in user's REAL
-// server-resolved permissions. Never gate an action on the preview role switcher — it changes
+// server-resolved permissions. Never gate an action on the preview role switcher, it changes
 // what a user sees, never their actual authority (RoleSwitcher.tsx). Callers follow the same
 // usePreviewRole pattern as canAccess/canAccessWithPermissions for route gating: in local-test
-// or visual-parity mode, check canPreviewPermission(role, permission) instead — that mirrors
+// or visual-parity mode, check canPreviewPermission(role, permission) instead, that mirrors
 // what the backend's x-demo-role header would actually grant in that mode.
 export function hasPermission(permissions: readonly string[], permission: Permission): boolean {
   return permissions.includes(permission);

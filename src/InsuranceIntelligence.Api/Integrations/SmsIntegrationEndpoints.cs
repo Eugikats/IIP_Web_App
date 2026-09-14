@@ -11,12 +11,12 @@ namespace InsuranceIntelligence.Api.Integrations;
 /// belongs to via ProviderMessageId and updates DeliveryStatus, so the Communications screen shows
 /// real delivery rather than "sent and hoped."
 ///
-/// Neither gateway's delivery-status payload is signed — this is documented in
+/// Neither gateway's delivery-status payload is signed, this is documented in
 /// docs/comms-api-reference.md and is a real, acknowledged limitation, not an oversight. The path
 /// secret below is the mitigation: it is unguessable, it is how this single-tenant-per-deployment
 /// edition (see WhatsAppChannelConfiguration's own "one Managed Application per insurer" precedent)
 /// knows which deployment-configured TenantScope to update, and delivery status is treated as
-/// advisory display data only — it is never evidence in a claim decision.
+/// advisory display data only, it is never evidence in a claim decision.
 /// </summary>
 public static class SmsIntegrationEndpoints
 {
@@ -32,7 +32,7 @@ public static class SmsIntegrationEndpoints
             || !CryptographicEquals(pathSecret, options.SmsWebhookSharedSecret))
         {
             // Deliberately the same 404 whether the secret is simply unconfigured or the caller
-            // guessed wrong — never confirm to an outsider that a webhook endpoint exists here.
+            // guessed wrong, never confirm to an outsider that a webhook endpoint exists here.
             return Results.NotFound();
         }
 
@@ -51,7 +51,7 @@ public static class SmsIntegrationEndpoints
         var communication = await repository.FindByProviderMessageIdAsync(scope, payload.MessageId, cancellationToken);
         if (communication is null)
         {
-            // Not an error from the gateway's point of view — just nothing to update on our side
+            // Not an error from the gateway's point of view, just nothing to update on our side
             // (e.g. an older message from before ProviderMessageId capture was added).
             return Results.Ok(new { status = "Unmatched" });
         }
@@ -88,5 +88,5 @@ public sealed record SmsDeliveryStatusPayload(
 }
 
 /// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
-/// static-class endpoint (ILogger&lt;SmsIntegrationEndpoints&gt; is not usable — the class is static).</summary>
+/// static-class endpoint (ILogger&lt;SmsIntegrationEndpoints&gt; is not usable, the class is static).</summary>
 public sealed class SmsDeliveryStatusLogMarker;

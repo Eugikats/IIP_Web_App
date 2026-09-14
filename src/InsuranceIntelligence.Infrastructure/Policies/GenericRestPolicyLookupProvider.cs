@@ -7,7 +7,7 @@ namespace InsuranceIntelligence.Infrastructure.Policies;
 
 /// <summary>
 /// Settings for the generic REST policy adapter (blueprint §14 Phase 7, WO 7.2), parsed from the
-/// flat Connection settings dictionary — mirrors EgoSmsSettings.TryParse's defensive parsing
+/// flat Connection settings dictionary, mirrors EgoSmsSettings.TryParse's defensive parsing
 /// style. Field-mapping settings default to this platform's own Policy field names, so a partner
 /// whose API happens to use the same shape needs to configure only BaseUrl and the auth header.
 /// </summary>
@@ -40,10 +40,10 @@ public sealed record GenericRestPolicySettings(
 /// <summary>
 /// The configurable REST adapter WO 7.2 asks for: a real, working HTTP client that calls a
 /// partner's policy API using tenant-configured base URL, auth header, and response field mapping
-/// — not a specific insurer's specific integration (that needs a partnership and a real API
+///, not a specific insurer's specific integration (that needs a partnership and a real API
 /// contract this codebase cannot invent), but the seam that turns "no integration" into "an
 /// integration awaiting a partner's endpoint." Convention: GET {baseUrl}/policies/{policyNumber}
-/// and GET {baseUrl}/customers/{customerId}/policies — documented, not negotiable per-tenant in
+/// and GET {baseUrl}/customers/{customerId}/policies, documented, not negotiable per-tenant in
 /// this pass; a real partner's actual path shape is exactly the kind of detail a partnership
 /// deliverable settles, not something guessable in advance.
 /// </summary>
@@ -56,7 +56,7 @@ public sealed class GenericRestPolicyLookupProvider(
     {
         if (string.IsNullOrWhiteSpace(settings.BaseUrl))
         {
-            return null; // Honest no-op — never fabricate a policy from an unconfigured adapter.
+            return null; // Honest no-op, never fabricate a policy from an unconfigured adapter.
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.BaseUrl}/policies/{Uri.EscapeDataString(policyNumber)}");
@@ -136,7 +136,7 @@ public sealed class GenericRestPolicyLookupProvider(
         var policyNumber = GetString(root, settings.PolicyNumberField);
         if (string.IsNullOrWhiteSpace(policyNumber))
         {
-            return null; // The one field every mapping must resolve — without it there is no policy.
+            return null; // The one field every mapping must resolve, without it there is no policy.
         }
 
         return new Policy(

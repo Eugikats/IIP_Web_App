@@ -74,7 +74,7 @@ export function describePerson(
   fallback = "Unassigned",
 ): string {
   const value = (id ?? "").trim();
-  if (!value || value === "—" || value.toLowerCase() === "unknown") return fallback;
+  if (!value || value === "-" || value.toLowerCase() === "unknown") return fallback;
   if (currentUserId && value === currentUserId) return "You";
   if (value.toLowerCase().startsWith("system:")) {
     return SYSTEM_ACTORS[value.toLowerCase()] ?? `${humanizeIdentifier(value.slice(7))} (automatic)`;

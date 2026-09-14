@@ -5,7 +5,7 @@ namespace InsuranceIntelligence.Domain.Documents;
 
 /// <summary>
 /// Pure evaluator: extracted field data in, real DocumentValidationWarning out. Deliberately
-/// provider-agnostic — it runs once, at the point a document's classification and the owning
+/// provider-agnostic, it runs once, at the point a document's classification and the owning
 /// claim's product line are both known (DocumentEndpoints.UploadDocuments), rather than being
 /// duplicated inside each IDocumentProcessingProvider implementation.
 /// </summary>
@@ -49,7 +49,7 @@ public static class DocumentFieldValidator
             var match = extractedFields.FirstOrDefault(field =>
                 rule.FieldKeyAliases.Any(alias => field.Key.Contains(alias, StringComparison.OrdinalIgnoreCase)));
 
-            // The field simply wasn't extracted at all — that is a completeness/checklist concern
+            // The field simply wasn't extracted at all, that is a completeness/checklist concern
             // (DocumentChecklistRules), not a shape concern. This validator only speaks to values
             // that were found and look wrong, so it never accuses a document of missing what it
             // was never asked to check for.

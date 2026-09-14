@@ -1,4 +1,4 @@
-// Design language v2 §8.17 — chat surface. Shared by the Assistant landing (AIConversations)
+// Design language v2 §8.17, chat surface. Shared by the Assistant landing (AIConversations)
 // and the shell's CopilotPanel; keep every exported signature stable across both callers.
 import { Sparkles, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,7 +36,7 @@ export function Composer({ value, onChange, onSend, disabled, placeholder, ariaL
   ariaLabel?: string;
   // Escape hatch for the disclaimer line's background: CopilotPanel sits it on bg-dls-surface
   // (white), but AIConversations' hero sits it directly on bg-dls-bg-page, where the default
-  // text-dls-text-muted measures 4.47:1 — below WCAG AA 4.5:1 (gate-17).
+  // text-dls-text-muted measures 4.47:1, below WCAG AA 4.5:1 (gate-17).
   disclaimerClassName?: string;
 }) {
   // Derive the send button's accessible name from the composer's own label so

@@ -52,7 +52,7 @@ public sealed class EfTenantOnboardingRepository(InsuranceIntelligenceDbContext 
 /// <summary>
 /// Bootstraps the consenting admin's membership into IIP's own runtime-authority store
 /// (ADR-0005): an active membership + an Admin role assignment for the new tenant/workspace.
-/// Idempotent — repeated consent callbacks do not duplicate membership.
+/// Idempotent, repeated consent callbacks do not duplicate membership.
 /// </summary>
 public sealed class EfTenantMembershipWriter(InsuranceIntelligenceDbContext dbContext) : ITenantMembershipWriter
 {

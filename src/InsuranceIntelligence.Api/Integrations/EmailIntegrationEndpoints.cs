@@ -434,7 +434,7 @@ public static class EmailIntegrationEndpoints
             await caseRepository.SaveAsync(claimCase, cancellationToken);
 
             // A failed or blocked acknowledgement must never fail email processing, which already
-            // succeeded above — see IFnolAcknowledgementService's own doc comment.
+            // succeeded above, see IFnolAcknowledgementService's own doc comment.
             try
             {
                 await acknowledgementService.SendAsync(claimCase, httpContext.TraceIdentifier, cancellationToken);
@@ -558,7 +558,7 @@ public static class EmailIntegrationEndpoints
     /// unverified: an unidentified sender's claimed policy number lives only in free-text email
     /// content it fully controls, and even an identified sender's incident details are a guess
     /// from the raw email. Both paths always set <c>RequiresConfirmation = true</c> so the case
-    /// carries no SLA clock until a claims officer reviews and confirms it — see
+    /// carries no SLA clock until a claims officer reviews and confirms it, see
     /// <see cref="ClaimCase.RequiresConfirmation"/>.
     /// </summary>
     private static ClaimCase NewEmailCase(
@@ -706,6 +706,6 @@ public static class EmailIntegrationEndpoints
 }
 
 /// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
-/// static-class endpoint (ILogger&lt;EmailIntegrationEndpoints&gt; is not usable — the class is
+/// static-class endpoint (ILogger&lt;EmailIntegrationEndpoints&gt; is not usable, the class is
 /// static), matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
 public sealed class EmailFnolAcknowledgementLogMarker;

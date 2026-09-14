@@ -40,13 +40,13 @@ requireText("components/iip/AppShell.tsx", "RuntimeContextProvider", "must resol
 requireText("components/iip/AppShell.tsx", "canAccessWithPermissions(runtimeContext?.permissions", "protected /app presentation must use server-returned effective permissions.");
 requireText("components/iip/AppShell.tsx", "firstAccessibleRoute(runtimeContext?.permissions", "denied routes must fall back to an actually permitted destination.");
 // Design language v2 §3 / navigation model §5.1 (2026-09-08): the primary rail is now a fixed
-// 64px icon rail present at every viewport width, not a collapsible/dismissible drawer — so there
+// 64px icon rail present at every viewport width, not a collapsible/dismissible drawer, so there
 // is no more "open on mobile, then close after navigating" state machine to assert on. The
 // underlying guarantee (navigation is always reachable and never stranded behind an unclosed
 // overlay) is instead enforced by requiring the rail to render unconditionally and rejecting any
 // reintroduction of the old drawer-viewport state it used to depend on.
-requireText("components/iip/AppShell.tsx", "<Sidebar />", "the rail must always render — it is not a dismissible mobile drawer (navigation model §5.1).");
-rejectPattern("components/iip/AppShell.tsx", /mobileDrawerOpen|mobileViewport/, "the rail must not reintroduce a mobile open/close drawer state — it must be present at every viewport width.");
+requireText("components/iip/AppShell.tsx", "<Sidebar />", "the rail must always render, it is not a dismissible mobile drawer (navigation model §5.1).");
+rejectPattern("components/iip/AppShell.tsx", /mobileDrawerOpen|mobileViewport/, "the rail must not reintroduce a mobile open/close drawer state, it must be present at every viewport width.");
 requireText("components/iip/AppShell.tsx", "<CopilotPanel />", "must render the right evidence/context rail.");
 requireText("components/iip/AppShell.tsx", "<StatusBar />", "must render the environment/status footer.");
 requireText("components/iip/AppShell.tsx", "!runtimeContext", "must withhold protected shell content until /api/v1/me resolves.");
@@ -66,7 +66,7 @@ rejectPattern("lib/runtimeContext.tsx", /headers:\s*\{[\s\S]*?(X-Tenant-Id|X-Wor
 requireText("components/iip/Sidebar.tsx", "const permissions = runtimeContext?.permissions", "protected navigation must be effective-permission-filtered from the resolved runtime context.");
 // Navigation model §5.2 amendment (2026-09-11, readiness blueprint §10.2): the rail moved from a
 // flat seven-item list to grouped, expandable destinations, each still filtered through the same
-// canAccessWithPermissions(permissions, ...) call — now reached via a shared `can()` helper rather
+// canAccessWithPermissions(permissions, ...) call, now reached via a shared `can()` helper rather
 // than inlined per item, so the literal call site reads `canAccessWithPermissions(permissions, path)`.
 requireText("components/iip/Sidebar.tsx", "canAccessWithPermissions(permissions, path)", "every rail destination must be filtered on the resolved effective permissions.");
 requireText("components/iip/Sidebar.tsx", "usePreviewRole", "browser role preview must remain explicitly separated from protected navigation.");
@@ -120,7 +120,7 @@ requireText("lib/lovable-parity/data/approvals.ts", "execute-next-step", "approv
 requireText("lib/providerHealth.ts", "not configured", "communication/provider utilities must preserve honest not-configured states.");
 requireText("lib/uiLoadState.ts", "export type UiLoadState<T>", "shared UI load states must distinguish loading, success, empty, authority, configuration, offline, retryable, and terminal outcomes.");
 requireText("lib/uiLoadState.ts", "export class UiServiceError", "service failures must use a safe structured UI error model.");
-requireText("lovable-pages/UniversalMyWork.tsx", 'value={error ? "—"', "My Work summaries must not render numeric zero when the request failed.");
+requireText("lovable-pages/UniversalMyWork.tsx", 'value={error ? "-"', "My Work summaries must not render numeric zero when the request failed.");
 requireText("next.config.ts", 'phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next"', "development and production servers must use isolated Next.js output directories.");
 requireText("package.json", '"dev": "node scripts/run-next-dev.mjs"', "all development servers must use the shared compiler lock.");
 requireText("package.json", '"build": "node scripts/run-next-build.mjs"', "all production builds must use fail-closed configuration validation.");

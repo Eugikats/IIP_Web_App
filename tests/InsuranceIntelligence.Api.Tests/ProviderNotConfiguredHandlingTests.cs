@@ -8,7 +8,7 @@ namespace InsuranceIntelligence.Api.Tests;
 
 /// <summary>
 /// Covers WO-04: a missing provider must produce an honest, structured, capability-identifying
-/// response — never a raw provider error and never a silent fallback. Two things are proven:
+/// response, never a raw provider error and never a silent fallback. Two things are proven:
 /// (1) the exception boundary converts ProviderNotConfiguredException into the documented shape;
 /// (2) every NotConfigured provider actually throws that typed exception with a real capability
 /// name, not a plain untyped exception the boundary would miss.
@@ -54,7 +54,7 @@ public sealed class ProviderNotConfiguredHandlingTests
 
         Assert.False(handled);
         // Falling through to the default handler is the correct behaviour for anything that is
-        // not a missing-provider failure — this handler must not swallow other exception types.
+        // not a missing-provider failure, this handler must not swallow other exception types.
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
     }
 

@@ -35,7 +35,7 @@ public sealed record CaseResponse(
     IReadOnlyCollection<ActionStateResponse> BlockedActions,
     RequiredDocumentsResponse? RequiredDocuments = null);
 
-/// <summary>The document-completeness check at the moment this response was built — WO 5.3: tell
+/// <summary>The document-completeness check at the moment this response was built, WO 5.3: tell
 /// the submitter what is missing at submission, not only after extraction runs later. Null when
 /// the caller did not resolve a checklist (e.g. actions unrelated to intake); a real checklist
 /// with an empty Missing collection is a genuine "nothing outstanding," not the same as null.</summary>

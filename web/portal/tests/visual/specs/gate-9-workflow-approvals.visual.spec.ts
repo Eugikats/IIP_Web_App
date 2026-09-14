@@ -70,7 +70,7 @@ test("Gate 9 My Work reports an unavailable snapshot without false zero metrics"
   await expect(page.getByText("Reference corr-runtime-recovery")).toBeVisible();
 
   for (const label of ["Visible work", "Overdue", "Unassigned", "Needs approval"]) {
-    await expect(page.getByText(label).locator("..").getByText("—", { exact: true })).toBeVisible();
+    await expect(page.getByText(label).locator("..").getByText("-", { exact: true })).toBeVisible();
   }
 
   await expect(page.getByText("Failed to fetch", { exact: true })).toHaveCount(0);

@@ -9,7 +9,7 @@ export type { Claim, ClaimStatus, SLAState, RiskState } from "@/lib/lovable-pari
 export const claims = syntheticWorkspaceSnapshot.claims;
 
 export const activityStream = [
-  { time: "09:42", actor: "AI Copilot", text: "Prepared claim summary for CLM-1048 — 3 evidence links, medium-risk advisory.", type: "ai" },
+  { time: "09:42", actor: "AI Copilot", text: "Prepared claim summary for CLM-1048, 3 evidence links, medium-risk advisory.", type: "ai" },
   { time: "09:31", actor: "T. Okello", text: "Marked evidence reviewed on CLM-1061.", type: "human" },
   { time: "09:14", actor: "AI Copilot", text: "Extracted 12 fields from repair quotation on CLM-1082 (avg. confidence 0.87).", type: "ai" },
   { time: "08:58", actor: "System", text: "WhatsApp connector re-connected. Backlog cleared.", type: "system" },
@@ -101,12 +101,12 @@ export interface DocRecord {
   uploaded: string;
 }
 export const documentLibrary: DocRecord[] = [
-  { id: "DOC-77201", name: "Police report — UPF/KLA/2098.pdf", type: "Police report", claim: "CLM-1048", customer: "Aisha Nakato", status: "Reviewed", confidence: 0.86, evidence: "EV-88291", uploaded: "2 hr ago" },
-  { id: "DOC-77202", name: "Repair quotation — SwiftFix.pdf", type: "Repair quotation", claim: "CLM-1048", customer: "Aisha Nakato", status: "Review Required", confidence: 0.72, evidence: "EV-88280", uploaded: "3 hr ago" },
+  { id: "DOC-77201", name: "Police report, UPF/KLA/2098.pdf", type: "Police report", claim: "CLM-1048", customer: "Aisha Nakato", status: "Reviewed", confidence: 0.86, evidence: "EV-88291", uploaded: "2 hr ago" },
+  { id: "DOC-77202", name: "Repair quotation, SwiftFix.pdf", type: "Repair quotation", claim: "CLM-1048", customer: "Aisha Nakato", status: "Review Required", confidence: 0.72, evidence: "EV-88280", uploaded: "3 hr ago" },
   { id: "DOC-77203", name: "Driving permit.jpg", type: "Driving permit", claim: "CLM-1052", customer: "David Mensah", status: "Extraction Pending", evidence: "EV-88270", uploaded: "1 hr ago" },
   { id: "DOC-77204", name: "Vehicle photos (5).zip", type: "Vehicle photos", claim: "CLM-1061", customer: "Grace Wanjiku", status: "Extracted", confidence: 0.91, evidence: "EV-88260", uploaded: "yesterday" },
   { id: "DOC-77205", name: "Assessor report.pdf", type: "Assessor report", claim: "CLM-1064", customer: "Samuel Otieno", status: "Failed", evidence: "EV-88250", uploaded: "yesterday" },
-  { id: "DOC-77206", name: "National ID — front.jpg", type: "National ID", claim: "CLM-1071", customer: "Fatima Suleiman", status: "Extracted", confidence: 0.98, evidence: "EV-88240", uploaded: "20 min ago" },
+  { id: "DOC-77206", name: "National ID, front.jpg", type: "National ID", claim: "CLM-1071", customer: "Fatima Suleiman", status: "Extracted", confidence: 0.98, evidence: "EV-88240", uploaded: "20 min ago" },
   { id: "DOC-77207", name: "Policy schedule.pdf", type: "Policy schedule", claim: "CLM-1090", customer: "John Ekakoro", status: "Reviewed", confidence: 0.95, evidence: "EV-88230", uploaded: "2 days ago" },
   { id: "DOC-77208", name: "Random attachment.docx", type: "Unknown", customer: "Unknown", status: "Rejected", evidence: "EV-88220", uploaded: "3 days ago" },
 ];
@@ -130,7 +130,7 @@ export const communications: Communication[] = [
   { id: "CM-5503", claim: "CLM-1090", customer: "John Ekakoro", channel: "Email", subject: "Claim pack ready for export", preview: "Please find attached the final claim documentation for your records…", status: "Approved", drafted: "1 hr ago", reviewer: "J. Mugisha" },
   { id: "CM-5504", claim: "CLM-1061", customer: "Grace Wanjiku", channel: "Email", subject: "Windscreen claim acknowledged", preview: "We have received your claim and required documentation…", status: "Sent", drafted: "yesterday", reviewer: "T. Okello" },
   { id: "CM-5505", claim: "CLM-1052", customer: "David Mensah", channel: "SMS", subject: "Document request", preview: "Please share a clearer image of your driving permit…", status: "Send Failed", drafted: "2 hr ago", reviewer: "S. Achieng" },
-  { id: "CM-5506", claim: "CLM-1071", customer: "Fatima Suleiman", channel: "WhatsApp", subject: "Draft with reserve figure", preview: "Rejected — draft referenced internal reserve figures.", status: "Rejected", drafted: "3 hr ago", reviewer: "L. Byaruhanga" },
+  { id: "CM-5506", claim: "CLM-1071", customer: "Fatima Suleiman", channel: "WhatsApp", subject: "Draft with reserve figure", preview: "Rejected, draft referenced internal reserve figures.", status: "Rejected", drafted: "3 hr ago", reviewer: "L. Byaruhanga" },
 ];
 
 // ---------- Providers / health ----------
@@ -192,7 +192,7 @@ export const agents: AgentDef[] = [
   { id: "AG-10", name: "Review and Audit Agent", purpose: "Assembles evidence bundles for reviewers and auditors", status: "Active", version: "v1.0", owner: "Compliance", risk: "Medium", modules: ["Audit", "Claims"], tools: ["bundle_evidence"], knowledge: ["Audit Rules"], humanApproval: "Not required (read-only)", confidenceThreshold: 0.8, lastUpdated: "1 week ago", lastRun: "30 min ago", runsToday: 22, costEstimate: "US$ 1.20", promptVersion: "aud-v1.0", model: "gpt-4o-mini" },
   { id: "AG-11", name: "Underwriting Support Agent", purpose: "Summarizes submissions and drafts underwriter questions", status: "Testing", version: "v0.4", owner: "Underwriting", risk: "Medium", modules: ["Underwriting"], tools: ["read_submission"], knowledge: ["Underwriting Guidelines"], humanApproval: "Required for any recommendation", confidenceThreshold: 0.85, lastUpdated: "Yesterday", lastRun: "1 hr ago", runsToday: 6, costEstimate: "US$ 0.40", promptVersion: "uw-v0.4", model: "gpt-4o" },
   { id: "AG-12", name: "Early Warning Agent", purpose: "Surfaces operational anomalies to executives", status: "Testing", version: "v0.3", owner: "Executive", risk: "Medium", modules: ["Executive"], tools: ["metric_watch"], knowledge: ["Metric Playbook"], humanApproval: "Not required (advisory)", confidenceThreshold: 0.75, lastUpdated: "Yesterday", lastRun: "2 hr ago", runsToday: 4, costEstimate: "US$ 0.30", promptVersion: "ew-v0.3", model: "gpt-4o-mini" },
-  { id: "AG-13", name: "Broker Assistant Agent", purpose: "Assists brokers with safe status information", status: "Disabled", version: "v0.2", owner: "Sales", risk: "Medium", modules: ["Acquisition"], tools: ["broker_lookup"], knowledge: ["Broker Playbook"], humanApproval: "Required for any outbound", confidenceThreshold: 0.85, lastUpdated: "1 month ago", lastRun: "—", runsToday: 0, costEstimate: "US$ 0.00", promptVersion: "brk-v0.2", model: "gpt-4o-mini" },
+  { id: "AG-13", name: "Broker Assistant Agent", purpose: "Assists brokers with safe status information", status: "Disabled", version: "v0.2", owner: "Sales", risk: "Medium", modules: ["Acquisition"], tools: ["broker_lookup"], knowledge: ["Broker Playbook"], humanApproval: "Required for any outbound", confidenceThreshold: 0.85, lastUpdated: "1 month ago", lastRun: "-", runsToday: 0, costEstimate: "US$ 0.00", promptVersion: "brk-v0.2", model: "gpt-4o-mini" },
 ];
 
 // ---------- Knowledge ----------
@@ -232,9 +232,9 @@ export interface ApprovalTask {
 }
 export const approvals: ApprovalTask[] = [
   { id: "AP-3301", title: "Route CLM-1064 to supervisor", claim: "CLM-1064", requester: "AI Copilot", reviewer: "J. Mugisha", risk: "High", ageHrs: 4, summary: "Third-party bodily injury exceeds officer threshold. Requires supervisor review before next workflow step.", status: "Pending" },
-  { id: "AP-3302", title: "Send customer update — CLM-2025-00928", claim: "CLM-2025-00928", requester: "S. Achieng", reviewer: "T. Okello", risk: "Medium", ageHrs: 0.5, summary: "Draft prepared by Customer Update Agent v1.4. No reserves or internal notes included.", status: "Pending" },
+  { id: "AP-3302", title: "Send customer update, CLM-2025-00928", claim: "CLM-2025-00928", requester: "S. Achieng", reviewer: "T. Okello", risk: "Medium", ageHrs: 0.5, summary: "Draft prepared by Customer Update Agent v1.4. No reserves or internal notes included.", status: "Pending" },
   { id: "AP-3303", title: "Approve knowledge document upload", requester: "G. Wanjiku", reviewer: "T. Okello", risk: "Low", ageHrs: 2, summary: "Home Contents Wording v0.6 requires sensitivity classification before retrieval eligibility.", status: "Pending" },
-  { id: "AP-3304", title: "Reassess repair quotation — CLM-1048", claim: "CLM-1048", requester: "AI Copilot", reviewer: "T. Okello", risk: "Medium", ageHrs: 1, summary: "Quotation 22% above regional median. Advisory only — requires reviewer decision.", status: "Pending" },
+  { id: "AP-3304", title: "Reassess repair quotation, CLM-1048", claim: "CLM-1048", requester: "AI Copilot", reviewer: "T. Okello", risk: "Medium", ageHrs: 1, summary: "Quotation 22% above regional median. Advisory only, requires reviewer decision.", status: "Pending" },
 ];
 
 // ---------- Underwriting ----------
@@ -279,7 +279,7 @@ export const usage = {
   docsProcessed: 3120, docsLimit: 6000,
   channelMessages: 7860, channelLimit: 15000,
   storageGB: 128, storageLimit: 500,
-  billingPeriod: "Nov 1 – Nov 30, 2026",
+  billingPeriod: "Nov 1, Nov 30, 2026",
   supportTier: "Priority · 24×7",
 };
 

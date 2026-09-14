@@ -6,7 +6,7 @@ using InsuranceIntelligence.LocalTestDoubles;
 
 namespace InsuranceIntelligence.Api.Tests;
 
-// WO-14: proves the in-app notification domain end to end — creation from an emitter call,
+// WO-14: proves the in-app notification domain end to end, creation from an emitter call,
 // a user- and tenant-scoped feed, read-state transitions, and cross-user isolation (I5).
 public sealed class NotificationTests
 {

@@ -24,7 +24,7 @@ export default function RecentConversations() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ kind: "unauthorized" | "unavailable"; message: string } | null>(null);
   // Distinct from `error` (the whole list failed to load): a single row's archive/restore action
-  // failing must not blank the list out from under every other row — it shows inline instead.
+  // failing must not blank the list out from under every other row, it shows inline instead.
   const [actionError, setActionError] = useState<string | null>(null);
   const [changingId, setChangingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");

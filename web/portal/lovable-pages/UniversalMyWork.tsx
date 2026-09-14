@@ -53,10 +53,10 @@ export default function UniversalMyWork({ onOpenSpecialist }: { onOpenSpecialist
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Summary label="Visible work" value={error ? "—" : summary?.total ?? "—"} icon={<Inbox className="h-4 w-4" aria-hidden="true" />} />
-        <Summary label="Overdue" value={error ? "—" : summary?.overdue ?? "—"} icon={<Clock3 className="h-4 w-4" aria-hidden="true" />} tone="warning" />
-        <Summary label="Unassigned" value={error ? "—" : summary?.unassigned ?? "—"} icon={<Users className="h-4 w-4" aria-hidden="true" />} />
-        <Summary label="Needs approval" value={error ? "—" : summary?.approvalRequired ?? "—"} icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" />} tone="warning" />
+        <Summary label="Visible work" value={error ? "-" : summary?.total ?? "-"} icon={<Inbox className="h-4 w-4" aria-hidden="true" />} />
+        <Summary label="Overdue" value={error ? "-" : summary?.overdue ?? "-"} icon={<Clock3 className="h-4 w-4" aria-hidden="true" />} tone="warning" />
+        <Summary label="Unassigned" value={error ? "-" : summary?.unassigned ?? "-"} icon={<Users className="h-4 w-4" aria-hidden="true" />} />
+        <Summary label="Needs approval" value={error ? "-" : summary?.approvalRequired ?? "-"} icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" />} tone="warning" />
       </div>
 
       <GlassCard className="!p-4">

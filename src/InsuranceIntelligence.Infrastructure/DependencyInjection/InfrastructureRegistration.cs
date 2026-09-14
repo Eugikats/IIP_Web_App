@@ -80,7 +80,7 @@ public static class InfrastructureRegistration
         services.AddSingleton<IGraphMailProvider, GraphMailProvider>();
         if (options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
         {
-            // TestIngestion pulls live mail through IGraphMailProvider in Graph mode — this type is
+            // TestIngestion pulls live mail through IGraphMailProvider in Graph mode, this type is
             // registered to satisfy DI but is never actually invoked there.
             services.AddSingleton<IEmailIngestionProvider, DisabledEmailIngestionProvider>();
             services.AddScoped<IEmailAttachmentProcessor, GraphEmailAttachmentProcessor>();
@@ -93,7 +93,7 @@ public static class InfrastructureRegistration
         services.AddScoped<IEmailToCaseMatcher, RuleBasedEmailToCaseMatcher>();
         // Connection model (docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md
         // §3): tenant-configured provider credentials, validated against the real provider before
-        // persisting, encrypted at rest, write-only from the browser once saved — generalized from
+        // persisting, encrypted at rest, write-only from the browser once saved, generalized from
         // the WhatsApp settings screen to every connection type. Scoped: resolves through
         // IIntegrationConnectionRepository, which is DbContext-backed.
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IIntegrationConnectionRepository, InsuranceIntelligence.Infrastructure.Connections.EfIntegrationConnectionRepository>();
@@ -105,7 +105,7 @@ public static class InfrastructureRegistration
         services.AddSingleton<IEmailSendingProviderFactory, EmailSendingProviderFactory>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, SmtpConnectionValidator>();
 
-        // ISmsProvider/IEmailSendingProvider are always the tenant-aware resolvers now — the
+        // ISmsProvider/IEmailSendingProvider are always the tenant-aware resolvers now, the
         // three-step order (tenant Connection, then env var fallback, then Not configured).
         // SmsProvider/AfricasTalking and CommunicationProvider/GraphMail options below still govern
         // step 2, the fallback, exactly as before. Scoped because they depend on the scoped
@@ -113,7 +113,7 @@ public static class InfrastructureRegistration
         services.AddScoped<ISmsProvider, TenantAwareSmsProvider>();
         services.AddScoped<IEmailSendingProvider, TenantAwareEmailSendingProvider>();
 
-        // Policy lookup port (blueprint §14 Phase 7, WO 7.1/7.2) — same tenant-aware resolution
+        // Policy lookup port (blueprint §14 Phase 7, WO 7.1/7.2), same tenant-aware resolution
         // shape as SMS/email above, except the fallback (this platform's own policy storage) is
         // always a meaningful answer, so there is no third "not configured" state.
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, InsuranceIntelligence.Infrastructure.Policies.GenericRestPolicyConnectionValidator>();
@@ -129,7 +129,7 @@ public static class InfrastructureRegistration
             services.AddScoped<ICommunicationSendingProvider, DisabledCommunicationSendingProvider>();
         }
 
-        // Registered unconditionally — the settings screen (WhatsAppConfigurationEndpoints) must be
+        // Registered unconditionally, the settings screen (WhatsAppConfigurationEndpoints) must be
         // able to capture, validate, and store WhatsApp credentials even before an operator has
         // also switched INSURANCEINTELLIGENCE_CHANNEL_PROVIDER to WhatsAppCloudApi at the
         // deployment level.
@@ -139,12 +139,12 @@ public static class InfrastructureRegistration
         services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppGraphValidationClient, MetaGraphWhatsAppValidationClient>();
 
         // The real inbound/outbound providers are registered unconditionally now (blueprint §3.3,
-        // §4.4) rather than gated on INSURANCEINTELLIGENCE_CHANNEL_PROVIDER — this was previously
+        // §4.4) rather than gated on INSURANCEINTELLIGENCE_CHANNEL_PROVIDER, this was previously
         // the whole reason a validated WhatsApp connection still needed a redeploy to go live.
         // It is safe to drop the gate because WhatsAppCloudApiInboundProvider/OutboundProvider
         // already fail closed on their own: IsConfigured is exactly
         // `settingsProvider.Current is not null`, and WhatsAppRuntimeSettingsProvider already
-        // implements the same three-step resolution as TenantAwareSmsProvider — a saved, active
+        // implements the same three-step resolution as TenantAwareSmsProvider, a saved, active
         // tenant connection first, then INSURANCEINTELLIGENCE_WHATSAPP_* environment configuration,
         // then null (honestly "not configured", identical to what DisabledWhatsAppInboundProvider
         // reported). ChannelProvider itself is untouched and still governs the separate
@@ -254,7 +254,7 @@ public static class InfrastructureRegistration
     /// <summary>
     /// True only for developer-machine execution (LocalTest / Development / Test), where
     /// non-durable in-memory storage is permitted. Deny-by-default: any profile that is not
-    /// explicitly one of these — including anything unrecognised — is treated as deployed and
+    /// explicitly one of these, including anything unrecognised, is treated as deployed and
     /// refused, so a typo or a new profile name can never silently unlock in-memory storage
     /// in an environment that may hold real data.
     /// </summary>

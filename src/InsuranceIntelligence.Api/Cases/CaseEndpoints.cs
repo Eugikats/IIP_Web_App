@@ -63,7 +63,7 @@ public static class CaseEndpoints
             var claimCase = await service.CreateCaseAsync(command, cancellationToken);
 
             // A failed or blocked acknowledgement must never fail claim creation, which already
-            // happened above — see IFnolAcknowledgementService's own doc comment.
+            // happened above, see IFnolAcknowledgementService's own doc comment.
             try
             {
                 await acknowledgementService.SendAsync(claimCase, correlationId, cancellationToken);
@@ -79,7 +79,7 @@ public static class CaseEndpoints
 
             var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);
 
-            // WO 5.3: the completeness check runs right here, at submission — no documents exist
+            // WO 5.3: the completeness check runs right here, at submission, no documents exist
             // yet, so every RequiredDocuments entry starts out Missing by definition. That is the
             // point: the submitter sees the full checklist immediately, not only after extraction
             // runs on whatever gets uploaded later.
@@ -251,7 +251,7 @@ public static class CaseEndpoints
             AuditEvent.CaseEscalated(before, updated.ToAuditSnapshot(), userId, correlationId, request.AuditReason.Trim()),
             cancellationToken);
 
-        // Notify the officer already assigned to this claim — escalation doesn't reassign it,
+        // Notify the officer already assigned to this claim, escalation doesn't reassign it,
         // it changes its priority/queue, so they need to know their claim's status changed.
         await notificationEmitter.NotifyAsync(
             updated.Scope,
@@ -268,7 +268,7 @@ public static class CaseEndpoints
     /// <summary>
     /// A human confirming a claim IIP auto-created from an identified WhatsApp/email sender (see
     /// RuleBasedWhatsAppToCaseMatcher / RuleBasedEmailToCaseMatcher). This is what starts the real
-    /// SLA clock and removes it from the "needs confirmation" state — a claim IIP created on its
+    /// SLA clock and removes it from the "needs confirmation" state, a claim IIP created on its
     /// own never counts toward SLA or attention metrics until a human has looked at it.
     /// </summary>
     public static async Task<IResult> ConfirmCase(
@@ -375,7 +375,7 @@ public static class CaseEndpoints
                     : "Ready For Review";
             var slaStatus = slaCalculator.Calculate(claimCase, DateTimeOffset.UtcNow);
 
-            // WO-14: SLA breach has no one-shot write-time event in this codebase — it's a pure,
+            // WO-14: SLA breach has no one-shot write-time event in this codebase, it's a pure,
             // recomputed-on-every-read calculation (BasicSlaCalculator). NotifyOnceAsync makes the
             // first observation of a breach for this case/officer durable without spamming a new
             // notification on every subsequent list load.
@@ -480,6 +480,6 @@ public static class CaseEndpoints
 }
 
 /// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
-/// static-class endpoint (ILogger&lt;CaseEndpoints&gt; is not usable — the class is static),
+/// static-class endpoint (ILogger&lt;CaseEndpoints&gt; is not usable, the class is static),
 /// matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
 public sealed class CaseFnolAcknowledgementLogMarker;

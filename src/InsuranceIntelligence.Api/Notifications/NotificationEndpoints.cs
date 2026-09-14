@@ -7,7 +7,7 @@ namespace InsuranceIntelligence.Api.Notifications;
 
 /// <summary>
 /// The tenant- and recipient-scoped in-app notification feed (WO-14). Every response is
-/// implicitly scoped to the caller's own resolved TenantContext — there is no way to pass another
+/// implicitly scoped to the caller's own resolved TenantContext, there is no way to pass another
 /// user's id, so this can never leak another user's notifications even within the same tenant (I5).
 /// </summary>
 public static class NotificationEndpoints

@@ -5,7 +5,7 @@ namespace InsuranceIntelligence.Api.ClientPortal;
 /// <summary>
 /// Resolves tenant scope for claimant-facing endpoints from plain X-Tenant-Id/X-Workspace-Id
 /// headers, regardless of AuthMode. Unlike <see cref="InsuranceIntelligence.Api.Common.TenantScopeReader"/>
-/// (used for staff routes), this never requires an authenticated Entra principal — a claimant
+/// (used for staff routes), this never requires an authenticated Entra principal, a claimant
 /// reaching the portal through a magic link is never an Entra tenant member and so can never carry
 /// the claims TenantScopeReader requires outside Development.
 ///

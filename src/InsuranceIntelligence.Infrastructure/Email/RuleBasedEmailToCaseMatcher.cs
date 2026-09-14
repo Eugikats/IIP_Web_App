@@ -10,9 +10,9 @@ namespace InsuranceIntelligence.Infrastructure.Email;
 
 /// <summary>
 /// Deterministic case match from email subject/body (GUID or policy number). When neither matches,
-/// falls back to identifying the sender's From address against a customer's email on file — never
+/// falls back to identifying the sender's From address against a customer's email on file, never
 /// against the message content, which the sender fully controls (a spoofed or unrelated From
-/// header can claim any policy number in its body) — so <see cref="EmailToCaseMatchResult.CreateNewCase"/>
+/// header can claim any policy number in its body), so <see cref="EmailToCaseMatchResult.CreateNewCase"/>
 /// carries a verified identity, not just an unverified claim in free text.
 /// </summary>
 public sealed class RuleBasedEmailToCaseMatcher(

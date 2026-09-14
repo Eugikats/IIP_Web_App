@@ -85,9 +85,9 @@ export default function FraudIntelligence() {
       <div className="mb-4"><GuardrailBanner text="Use safer wording: Fraud signal detected · Requires investigation · Potential anomaly · Advisory signal. Never: fraud confirmed." /></div>
 
       {/* Not StatTile (§8.9): every tile here needs its own "Advisory" badge underneath the
-          figure — a safety-relevant reinforcement (AGENTS.md: never let an AI-flagged signal read
+          figure, a safety-relevant reinforcement (AGENTS.md: never let an AI-flagged signal read
           as a finding) StatTile's fixed label+value body has no slot for. No tile links anywhere
-          either — there is no per-severity filtered sub-view to link to, and inventing one is out
+          either, there is no per-severity filtered sub-view to link to, and inventing one is out
           of scope for a presentation-only migration (same accepted, documented §8.9 partial as
           screen 6/Documents.tsx). */}
       <div className="mb-6 grid gap-3 md:grid-cols-4">
@@ -143,7 +143,7 @@ export default function FraudIntelligence() {
                     <div className="mt-1.5 text-[11px] text-dls-text-muted">Assigned to {describe(s.disposition.assignedToUserId)}</div>
                   )}
                   {s.disposition.outcome && (
-                    <div className="mt-1 text-[11px] text-dls-text-muted">Outcome: {OUTCOME_LABEL[s.disposition.outcome] ?? s.disposition.outcome}{s.disposition.outcomeNotes ? ` — ${s.disposition.outcomeNotes}` : ""}</div>
+                    <div className="mt-1 text-[11px] text-dls-text-muted">Outcome: {OUTCOME_LABEL[s.disposition.outcome] ?? s.disposition.outcome}{s.disposition.outcomeNotes ? `, ${s.disposition.outcomeNotes}` : ""}</div>
                   )}
                 </div>
               </div>

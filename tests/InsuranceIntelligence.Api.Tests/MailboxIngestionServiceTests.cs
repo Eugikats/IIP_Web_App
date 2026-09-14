@@ -9,7 +9,7 @@ namespace InsuranceIntelligence.Api.Tests;
 /// <summary>
 /// Covers the path that previously did not exist at all: mail arriving in the inbound store without
 /// a human pressing anything. Before this service, a deployed environment had no working inbound
-/// email route — the Graph webhook only answered the subscription handshake, and the one real pull
+/// email route, the Graph webhook only answered the subscription handshake, and the one real pull
 /// endpoint was mapped only when development diagnostics were on.
 /// </summary>
 public sealed class MailboxIngestionServiceTests

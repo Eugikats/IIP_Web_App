@@ -23,13 +23,13 @@ type Msg =
 
 // Static, fabrication-free governance guidance per route, plus starter questions that route into
 // the same real POST /api/v1/command-center/query path the full Command Center page uses. No
-// counts or IDs are invented here — real numbers only ever come back through a live answer.
+// counts or IDs are invented here, real numbers only ever come back through a live answer.
 function blocksFor(pathname: string): Ctx {
   if (pathname.startsWith("/app/claims")) return {
     title: "Claim context",
     blocks: [
       { icon: FileText, label: "What AI does here", text: "Prepares extractions, summaries, drafts, and advisory signals for the claim in view." },
-      { icon: ShieldCheck, label: "Recommended actions", text: "Surface from the case — request missing documents, confirm details, prepare the officer summary." },
+      { icon: ShieldCheck, label: "Recommended actions", text: "Surface from the case, request missing documents, confirm details, prepare the officer summary." },
       { icon: MessageSquare, label: "Customer comms", text: "Customer updates require officer approval before they are sent." },
     ],
     starters: ["Show claims that need attention.", "Which claims are missing documents?"],
@@ -39,7 +39,7 @@ function blocksFor(pathname: string): Ctx {
     title: "Channels snapshot",
     blocks: [
       { icon: Inbox, label: "Inbound", text: "Conversations arrive from WhatsApp, web, email, SMS, and brokers once channels are configured." },
-      { icon: AlertTriangle, label: "Approval-gated replies", text: "Outbound drafts require human approval — sensitive messages never dispatch automatically." },
+      { icon: AlertTriangle, label: "Approval-gated replies", text: "Outbound drafts require human approval, sensitive messages never dispatch automatically." },
       { icon: Plug, label: "Provider health", text: "Live provider status is shown below." },
     ],
     starters: ["Which channel messages need manual review?", "Show unmatched conversations."],
@@ -59,7 +59,7 @@ function blocksFor(pathname: string): Ctx {
     blocks: [
       { icon: FileText, label: "Flow", text: "Uploaded documents pass through extraction and human review." },
       { icon: ShieldCheck, label: "Threshold", text: "Low-confidence fields route to human review before use." },
-      { icon: TrendingUp, label: "Retry", text: "Retries are idempotent — external actions are not duplicated." },
+      { icon: TrendingUp, label: "Retry", text: "Retries are idempotent, external actions are not duplicated." },
     ],
     starters: ["Which documents need extraction review?"],
   };
@@ -114,10 +114,10 @@ function blocksFor(pathname: string): Ctx {
     blocks: [
       { icon: ShieldCheck, label: "Approvals", text: "Tasks await human decision across your team." },
       { icon: AlertTriangle, label: "Escalations", text: "Escalated items route to a supervisor for review." },
-      { icon: TrendingUp, label: "Workload", text: "Reassignment suggestions are advisory — a human decides." },
+      { icon: TrendingUp, label: "Workload", text: "Reassignment suggestions are advisory, a human decides." },
     ],
     starters: ["Show pending approvals."],
-    footer: "Approvals advance workflow only — they do not settle, pay, deny, or accuse fraud.",
+    footer: "Approvals advance workflow only, they do not settle, pay, deny, or accuse fraud.",
   };
   if (pathname.startsWith("/app/executive")) return {
     title: "Executive brief",
@@ -133,7 +133,7 @@ function blocksFor(pathname: string): Ctx {
     blocks: [
       { icon: ScrollText, label: "Coverage", text: "AI runs, human overrides, approvals, integrations, communications, and knowledge." },
       { icon: ShieldCheck, label: "Evidence", text: "Every event carries a correlation ID and evidence link." },
-      { icon: FileText, label: "Export", text: "CSV export for regulator packs — no secrets, no unnecessary PII." },
+      { icon: FileText, label: "Export", text: "CSV export for regulator packs, no secrets, no unnecessary PII." },
     ],
     starters: [],
   };
@@ -229,7 +229,7 @@ export default function CopilotPanel() {
           </div>
           <div>
             <div className="text-[13px] font-bold text-dls-text-primary">{hasConversation ? "IIP Copilot" : ctx.title}</div>
-            <div className="text-[11px] text-dls-text-muted">Ask a question — real, grounded answers</div>
+            <div className="text-[11px] text-dls-text-muted">Ask a question, real, grounded answers</div>
           </div>
         </div>
         <div className="flex items-center gap-1">

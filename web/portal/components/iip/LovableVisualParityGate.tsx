@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * Historically this gate blocked the entire app in production unless the
- * LovableVisualParity dev flag was set — a safety net while `/app/*` screens
+ * LovableVisualParity dev flag was set, a safety net while `/app/*` screens
  * still rendered prototype fixtures. That prerequisite is now met: every screen
  * either fetches real `/api/v1` data or shows an honest empty/"Not configured"
  * state, and prototype fixtures render only when NEXT_PUBLIC_VISUAL_PARITY_MODE

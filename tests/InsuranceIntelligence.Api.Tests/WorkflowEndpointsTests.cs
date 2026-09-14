@@ -251,7 +251,7 @@ public sealed class WorkflowEndpointsTests
     public async Task DraftCustomerUpdate_DisabledCustomerUpdateDraftingAgent_RefusesInsteadOfDrafting()
     {
         // WO-06: this is the endpoint entry point CustomerUpdateEndpoints.DraftCustomerUpdate
-        // uses — also directly reachable from the portal's "Draft customer update" button
+        // uses, also directly reachable from the portal's "Draft customer update" button
         // (ClaimReview.tsx, WO-05). Distinct from, but the same agent key as, the draft path
         // Command Center reaches through BuildCustomerUpdateDraftResponseAsync.
         var dependencies = CreateDependencies();
@@ -597,7 +597,7 @@ public sealed class WorkflowEndpointsTests
     [Fact]
     public async Task ListAllCustomerUpdates_AggregatesAcrossCases_ButNotAcrossTenants()
     {
-        // WO-16: backs Communications.tsx's tenant-wide queue — the per-case listing endpoint
+        // WO-16: backs Communications.tsx's tenant-wide queue, the per-case listing endpoint
         // (ListCustomerUpdates) can't power a cross-case screen at all.
         var dependencies = CreateDependencies();
         var caseA = await CreateCaseAsync(dependencies, createdByUserId: "user-claims-1");
@@ -1089,7 +1089,7 @@ public sealed class WorkflowEndpointsTests
     {
         public bool IsConfigured => false;
         public Task<WhatsAppProviderSendResult> SendAsync(WhatsAppProviderSendRequest request, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("Not configured — should never be called in these tests (no case here originates on WhatsApp).");
+            throw new InvalidOperationException("Not configured, should never be called in these tests (no case here originates on WhatsApp).");
     }
 
     private sealed class NoOpWhatsAppMessageRepository : IWhatsAppMessageRepository
@@ -1111,7 +1111,7 @@ public sealed class WorkflowEndpointsTests
     }
 
     // No case in this file originates on WhatsApp (see CreateCaseAsync's Channel = "WebPortal"),
-    // so MissingDocumentRequestService's WhatsApp consent branch is never reached here — a real
+    // so MissingDocumentRequestService's WhatsApp consent branch is never reached here, a real
     // FakeConsentRepository lives in MissingDocumentRequestServiceTests.cs where that path is
     // actually exercised.
     private sealed class NoOpConsentRepository : IConsentRepository
@@ -1229,7 +1229,7 @@ public sealed class WorkflowEndpointsTests
             string correlationId,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
-                "The drafting provider was invoked despite the agent being disabled — the kill switch was bypassed.");
+                "The drafting provider was invoked despite the agent being disabled, the kill switch was bypassed.");
     }
 
     private sealed record Dependencies(

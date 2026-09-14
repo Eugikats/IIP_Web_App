@@ -11,7 +11,7 @@ using InsuranceIntelligence.Domain.Policies;
 namespace InsuranceIntelligence.Application.Compliance;
 
 /// <summary>Everything this platform actually holds about one customer (blueprint §14 Phase 6, WO
-/// 6.4's export right) — the same aggregate CustomerEndpoints' Customer 360 view already builds,
+/// 6.4's export right), the same aggregate CustomerEndpoints' Customer 360 view already builds,
 /// extended with the two data classes this session added (ConsentRecords, conversation content)
 /// that a subject-access request must also cover.</summary>
 public sealed record DataSubjectExportDto(
@@ -27,7 +27,7 @@ public interface IDataSubjectRightsService
     /// <summary>whatsAppBusinessPhoneNumberId is optional and, like
     /// MissingDocumentRequestService's identical parameter, resolved and passed in by the Api-layer
     /// caller (IWhatsAppRuntimeSettingsProvider is an Infrastructure-layer provider this Application
-    /// service cannot reference directly) — without it, WhatsApp conversation history cannot be
+    /// service cannot reference directly), without it, WhatsApp conversation history cannot be
     /// located (it is keyed by business-number + customer-wa-id, not customer id) and the export
     /// honestly omits it rather than guessing.</summary>
     Task<DataSubjectExportDto?> ExportAsync(TenantScope scope, string customerId, string? whatsAppBusinessPhoneNumberId, CancellationToken cancellationToken = default);
@@ -51,7 +51,7 @@ public sealed class DataSubjectRightsService(
     IAuditRepository auditRepository) : IDataSubjectRightsService
 {
     // A case is "still open" for erasure-refusal purposes using the same terminal-status set
-    // CaseAssignmentPolicy already established (see its OpenStatuses) — Settled/Closed are the
+    // CaseAssignmentPolicy already established (see its OpenStatuses), Settled/Closed are the
     // only two statuses this codebase treats as finished.
     private static readonly CaseStatus[] TerminalStatuses = [CaseStatus.Settled, CaseStatus.Closed];
 
@@ -75,7 +75,7 @@ public sealed class DataSubjectRightsService(
             : await consentRepository.ListForCustomerAsync(scope, NormalizePhone(customer.Phone), cancellationToken);
 
         // Conversation turns are keyed by thread (business number + customer wa id), not customer
-        // id directly — without a resolved business number id this data class is honestly omitted
+        // id directly, without a resolved business number id this data class is honestly omitted
         // rather than guessed at; WhatsApp is the only channel that captures it today.
         var conversationHistory = !string.IsNullOrWhiteSpace(customer.Phone) && !string.IsNullOrWhiteSpace(whatsAppBusinessPhoneNumberId)
             ? await conversationRepository.ListForThreadAsync(
@@ -150,7 +150,7 @@ public sealed class DataSubjectRightsService(
             return new DataSubjectErasureResult(customerId, DataSubjectErasureOutcome.RefusedActiveCase, reason, now);
         }
 
-        // Anonymize the identifying fields — never delete the customer row outright, and never
+        // Anonymize the identifying fields, never delete the customer row outright, and never
         // touch case/policy/communication records: those carry their own retention obligations
         // independent of this request, and this platform's compliance posture depends on the case
         // record continuing to exist even after the customer who filed it is erased.
@@ -171,7 +171,7 @@ public sealed class DataSubjectRightsService(
     }
 
     // Same heuristic CustomerEndpoints' existing Customer 360 view already uses (name/email match)
-    // — an acknowledged, pre-existing limitation ("client-side filtering for MVP" in that file's
+    //, an acknowledged, pre-existing limitation ("client-side filtering for MVP" in that file's
     // own comment), not one this service introduces.
     private async Task<IReadOnlyCollection<ClaimCase>> FindMatchingCasesAsync(TenantScope scope, Customer customer, CancellationToken cancellationToken)
     {

@@ -11,7 +11,7 @@ public sealed class AgentWorkflowCatalogTests
     {
         // The architecture doc's own ten-staff-agent count (docs/03-design-architecture/
         // iip_ai_agent_architecture_tool_registry_updated.md §3.1) is unchanged; customer-assistant
-        // is an eleventh, deliberately separate entry — a customer-facing agent, not a staff one —
+        // is an eleventh, deliberately separate entry, a customer-facing agent, not a staff one,
         // added so it gets the same kill-switch/governance discipline the other ten already have.
         // customer-summary (September 2026) is a twelfth: a staff agent for the Customer 360 page.
         Assert.Equal(12, AgentCatalog.Agents.Count);

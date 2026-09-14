@@ -27,7 +27,7 @@ export const Disabled: Story = {
       <Button variant="primary" disabled>
         Approve claim
       </Button>
-      <p className="text-[13px] text-dls-text-muted">Disabled stays violet — it reads as &quot;not yet&quot;, never &quot;broken&quot;.</p>
+      <p className="text-[13px] text-dls-text-muted">Disabled stays violet, it reads as &quot;not yet&quot;, never &quot;broken&quot;.</p>
     </div>
   ),
 };

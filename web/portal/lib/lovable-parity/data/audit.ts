@@ -124,7 +124,7 @@ const PARITY_POSTURE: CompliancePostureView = {
 
 function formatTime(iso: string): string {
   const t = Date.parse(iso);
-  if (Number.isNaN(t)) return iso || "—";
+  if (Number.isNaN(t)) return iso || "-";
   return new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
@@ -134,9 +134,9 @@ function mapDto(dto: AuditEventDto): AuditRowView {
     time: formatTime(dto.occurredAt),
     actor: dto.actorUserId || "System",
     action: dto.eventType,
-    target: [dto.targetId, dto.summary].filter(Boolean).join(" · ") || "—",
+    target: [dto.targetId, dto.summary].filter(Boolean).join(" · ") || "-",
     targetType: dto.targetType || "other",
-    correlation: dto.correlationId || "—",
+    correlation: dto.correlationId || "-",
   };
 }
 

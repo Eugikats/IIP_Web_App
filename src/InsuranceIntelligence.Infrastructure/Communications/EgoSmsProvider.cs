@@ -9,7 +9,7 @@ namespace InsuranceIntelligence.Infrastructure.Communications;
 
 /// <summary>
 /// Tenant-supplied settings for the EgoSMS / Comms Platform gateway (docs/comms-api-reference.md).
-/// Parsed defensively from the flat connection settings dictionary — never throws on a malformed
+/// Parsed defensively from the flat connection settings dictionary, never throws on a malformed
 /// or missing field; callers get a clear error string instead.
 /// </summary>
 public sealed record EgoSmsSettings(
@@ -60,7 +60,7 @@ public sealed record EgoSmsSettings(
 }
 
 /// <summary>
-/// Real outbound SMS adapter for EgoSMS / Comms Platform (docs/comms-api-reference.md) — a second,
+/// Real outbound SMS adapter for EgoSMS / Comms Platform (docs/comms-api-reference.md), a second,
 /// independently working ISmsProvider alongside AfricasTalkingSmsProvider, demonstrating that
 /// adding an SMS gateway to this platform is a new class, not a re-architecture. Follows the same
 /// provider contract exactly: the human-approval guard runs first, credentials are checked before
@@ -79,7 +79,7 @@ public sealed class EgoSmsProvider(
         CommunicationSendRequest request,
         CancellationToken cancellationToken = default)
     {
-        // Human-supervised boundary — identical guard to AfricasTalkingSmsProvider. Every SMS
+        // Human-supervised boundary, identical guard to AfricasTalkingSmsProvider. Every SMS
         // provider must enforce this independently; it is not safe to assume a shared caller does.
         if (!OutboundSmsGuard.IsDispatchPermitted(request, autoSendTransactionalSmsEnabled))
         {
@@ -110,7 +110,7 @@ public sealed class EgoSmsProvider(
         }
 
         // EgoSMS documents numbers without the leading '+' (e.g. "256700111222"), unlike Africa's
-        // Talking's E.164 "+256700111222" — strip it here rather than changing UgandaMsisdn.Normalize,
+        // Talking's E.164 "+256700111222", strip it here rather than changing UgandaMsisdn.Normalize,
         // whose '+' prefix other call sites (the claimant portal, WhatsApp) rely on.
         var egoRecipient = normalizedRecipient.TrimStart('+');
 
@@ -175,7 +175,7 @@ public sealed class EgoSmsProvider(
 }
 
 /// <summary>
-/// Validates EgoSMS credentials via the Balance API — proves the account is real and reachable
+/// Validates EgoSMS credentials via the Balance API, proves the account is real and reachable
 /// without sending a message or spending money. See docs/comms-api-reference.md "Checking Balance".
 /// </summary>
 public sealed class EgoSmsConnectionValidator(IHttpClientFactory httpClientFactory) : IConnectionValidator

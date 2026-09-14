@@ -7,7 +7,7 @@ namespace InsuranceIntelligence.Application.Claims;
 /// <summary>
 /// Application seam for the single governed claim path:
 /// FNOL → evidence intake → assignment → review → approval → communication → evidence-pack export.
-/// Claim type is a discriminator for evidence, queue, and designated-human escalation — not a parallel engine.
+/// Claim type is a discriminator for evidence, queue, and designated-human escalation, not a parallel engine.
 /// </summary>
 public interface IClaimGovernedPathService
 {

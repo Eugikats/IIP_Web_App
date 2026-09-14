@@ -7,7 +7,7 @@ namespace InsuranceIntelligence.Api.Tests;
 
 /// <summary>
 /// Exercises SmtpConnectionValidator's hand-rolled SMTP AUTH LOGIN handshake against a real TCP
-/// loopback server scripted to speak just enough SMTP to answer it — the highest-risk code in the
+/// loopback server scripted to speak just enough SMTP to answer it, the highest-risk code in the
 /// email connection work, since it is not built on SmtpClient and was never exercised against a
 /// real mail server in this session (blueprint §14 Phase 1 honest-status note).
 /// </summary>
@@ -56,10 +56,10 @@ public sealed class SmtpConnectionValidatorTests
         ["username"] = username,
         ["password"] = password,
         ["fromAddress"] = "claims@example.ug",
-        ["useSsl"] = "false", // plaintext loopback — the validator's non-TLS branch
+        ["useSsl"] = "false", // plaintext loopback, the validator's non-TLS branch
     };
 
-    /// <summary>Speaks just enough SMTP (greeting, EHLO, AUTH LOGIN) to answer the validator —
+    /// <summary>Speaks just enough SMTP (greeting, EHLO, AUTH LOGIN) to answer the validator,
     /// not a real mail server, only a script of the exact exchange it performs.</summary>
     private sealed class FakeSmtpServer : IDisposable
     {

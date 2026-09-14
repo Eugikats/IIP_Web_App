@@ -1145,7 +1145,7 @@ public sealed class Phase6IntegrationTests
         return claimCase;
     }
 
-    // WO-16: Approved/LowRisk are no longer client-trusted request fields — CommunicationEndpoints
+    // WO-16: Approved/LowRisk are no longer client-trusted request fields, CommunicationEndpoints
     // now derives them from a real persisted, approved (or not-yet-approved) CustomerUpdateDraft.
     private static async Task<CustomerUpdateDraft> CreateUpdateAsync(
         Deps deps,

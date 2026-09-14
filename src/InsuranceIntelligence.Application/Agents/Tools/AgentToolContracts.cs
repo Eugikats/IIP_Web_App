@@ -6,11 +6,11 @@ namespace InsuranceIntelligence.Application.Agents.Tools;
 /// <summary>
 /// The tool registry docs/03-design-architecture/iip_ai_agent_architecture_tool_registry_updated.md
 /// §7-9 calls for. Deliberately NOT a resurrection of the legacy IAgentTool/IAgentToolRegistry in
-/// InsuranceIntelligence.Domain.Agents.AgentContracts — that framework was dropped during the v2
+/// InsuranceIntelligence.Domain.Agents.AgentContracts, that framework was dropped during the v2
 /// migration (see the removed-framework note this file's Program.cs registration replaces) and is
 /// built around a prose message+module+intent shape from an orchestrator endpoint the deployed API
-/// does not expose. This registry is shaped around what CommandCenterQueryService actually needs —
-/// TenantScope-scoped, typed, permission-checked read operations — so WO-09 can genuinely route
+/// does not expose. This registry is shaped around what CommandCenterQueryService actually needs,
+/// TenantScope-scoped, typed, permission-checked read operations, so WO-09 can genuinely route
 /// Command Center's data access through it rather than gaining a second, unused implementation.
 ///
 /// Read tier only (side-effect level "read" per doc §8): every tool here is a pure query. Write,

@@ -46,7 +46,7 @@ public sealed class OfflineModeStorageGuardTests
     [InlineData("Staging")]
     [InlineData("Production")]
     [InlineData("ManagedApplicationReviewer")]
-    // An unrecognised profile must fail closed, not open — a typo or a newly-introduced
+    // An unrecognised profile must fail closed, not open, a typo or a newly-introduced
     // profile name can never silently unlock non-durable storage.
     [InlineData("Prod")]
     [InlineData("staging-2")]

@@ -133,7 +133,7 @@ public sealed class FraudRuleEngineTests
         }
     }
 
-    // WO 7.3: AML/CFT advisory signals — same "advisory only, never a determination" discipline
+    // WO 7.3: AML/CFT advisory signals, same "advisory only, never a determination" discipline
     // as the fraud rules above, evaluated from real policy data (EffectiveFrom/SumInsured), not
     // fabricated fields.
 

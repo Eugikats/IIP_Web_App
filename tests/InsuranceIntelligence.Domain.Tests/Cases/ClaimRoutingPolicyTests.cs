@@ -92,7 +92,7 @@ public sealed class ClaimRoutingPolicyTests
         // WO-15: the own-damage/third-party/theft/injury taxonomy is motor-specific. Before this
         // fix, a Medical claim's type text (routinely containing "medical") matched the
         // InjuryFatality keyword list and force-escalated every medical claim regardless of
-        // severity — proven below via ClaimRoutingPolicy.Evaluate too.
+        // severity, proven below via ClaimRoutingPolicy.Evaluate too.
         Assert.Equal(ClaimTypeKind.InjuryFatality, ClaimTypeClassifier.Classify("Medical reimbursement", productLine: "Motor"));
         Assert.Equal(ClaimTypeKind.Unknown, ClaimTypeClassifier.Classify("Medical reimbursement", productLine: "Medical"));
         Assert.Equal(ClaimTypeKind.InjuryFatality, ClaimTypeClassifier.Classify("Medical reimbursement"));

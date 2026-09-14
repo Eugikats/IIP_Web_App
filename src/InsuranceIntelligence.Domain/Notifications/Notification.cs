@@ -3,7 +3,7 @@ using InsuranceIntelligence.Domain.Common;
 namespace InsuranceIntelligence.Domain.Notifications;
 
 /// <summary>
-/// A user-facing, in-app notification (WO-14) — distinct from <see cref="TeamsNotification"/>,
+/// A user-facing, in-app notification (WO-14), distinct from <see cref="TeamsNotification"/>,
 /// which is an OUTBOUND delivery to Microsoft Teams. This is generated only from real events that
 /// already occur elsewhere in the system (an approval assignment, a claim escalation, an SLA
 /// breach, a document extraction needing review, a review request) and read by the recipient in
@@ -35,7 +35,7 @@ public interface INotificationRepository
 
     Task<Notification?> GetAsync(Guid notificationId, TenantScope scope, string recipientUserId, CancellationToken cancellationToken = default);
 
-    /// <summary>Most recent first. Scoped to both tenant/workspace AND the recipient — never
+    /// <summary>Most recent first. Scoped to both tenant/workspace AND the recipient, never
     /// another user's notifications, even within the same tenant (I5).</summary>
     Task<IReadOnlyCollection<Notification>> ListForUserAsync(
         TenantScope scope, string recipientUserId, int limit, CancellationToken cancellationToken = default);

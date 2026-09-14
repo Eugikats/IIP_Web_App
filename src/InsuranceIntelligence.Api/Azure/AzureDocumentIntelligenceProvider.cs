@@ -158,7 +158,7 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
             new DocumentClassificationResult(DocumentType.Unknown, 0.05m, "AzureDocumentIntelligence", DateTimeOffset.UtcNow),
             new DocumentExtractionResult(fields, fields.Keys.ToDictionary(key => key, _ => 0.05m), "AzureDocumentIntelligence", DateTimeOffset.UtcNow, false, null, null),
             warnings);
-        // Note: no ModelVersion or BoundingBoxes on the not-configured fallback path — those require a real extraction.
+        // Note: no ModelVersion or BoundingBoxes on the not-configured fallback path, those require a real extraction.
     }
 
     private static DocumentType Classify(string fileName, AnalyzeResult? analyzeResult = null)

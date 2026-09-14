@@ -7,7 +7,7 @@ namespace InsuranceIntelligence.Infrastructure.Agents;
 
 /// <summary>
 /// Append-only, exactly like EfAuditRepository: every SaveAsync call inserts a new row keyed by a
-/// fresh VersionId, never overwrites a previous one — that is what makes real version history
+/// fresh VersionId, never overwrites a previous one, that is what makes real version history
 /// possible without a separate history table.
 /// </summary>
 public sealed class EfAgentBehaviourProfileRepository(InsuranceIntelligenceDbContext dbContext)

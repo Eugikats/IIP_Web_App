@@ -46,7 +46,7 @@ public sealed class FraudSignalDispositionTests
     public void DispositionOutcome_NeverContainsAnAdverseFraudDetermination()
     {
         // WO-19 language contract (I4, DEC-014): IIP never asserts confirmed fraud, even as a
-        // human-recorded outcome. A structural guardrail — this fails the moment anyone adds an
+        // human-recorded outcome. A structural guardrail, this fails the moment anyone adds an
         // enum value implying a determination, forcing that choice to be reconsidered here rather
         // than slipping in silently.
         var forbiddenFragments = new[] { "confirm", "guilty", "fraudulent", "proven" };

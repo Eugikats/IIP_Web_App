@@ -24,7 +24,7 @@ export type BillingSummaryView = {
 };
 
 const PARITY: BillingSummaryView = {
-  packageName: "IIP Operations — Standard",
+  packageName: "IIP Operations, Standard",
   seatLimit: 50,
   modules: ["Command Center", "Channels", "Customer 360", "Claims Intelligence", "Document Intelligence", "Policy Intelligence", "Fraud Intelligence", "Underwriting Intelligence", "Workflow & Approvals", "Knowledge Hub", "Executive Intelligence", "Integrations", "Compliance & Audit", "AI & Agent Management", "Support & Health"],
   meters: [

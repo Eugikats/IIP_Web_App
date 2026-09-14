@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InsuranceIntelligence.Infrastructure.Compliance;
 
-/// <summary>Current-state, one-row-per-(tenant, data class) — same pattern as
+/// <summary>Current-state, one-row-per-(tenant, data class), same pattern as
 /// EfWhatsAppChannelConfigurationRepository, not the append-only versioned pattern
 /// EfAgentBehaviourProfileRepository uses: a retention *setting* changing is not itself the
 /// compliance-relevant fact, the deletions RetentionEnforcementService performs are, and those

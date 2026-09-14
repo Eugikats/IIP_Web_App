@@ -56,7 +56,7 @@ public sealed class CaseEndpointsTests
         Assert.Equal("UAX 123B", response.MotorFnolDetails?.VehicleRegistration);
         Assert.Equal("17:40", response.MotorFnolDetails?.AccidentTime);
         Assert.Equal("Kampala Road", response.MotorFnolDetails?.AccidentLocation);
-        // Two audit events now: case.created, then fnol.acknowledgement (WO 5.2) — ValidRequest()
+        // Two audit events now: case.created, then fnol.acknowledgement (WO 5.2), ValidRequest()
         // supplies a CustomerPhone, so the FNOL acknowledgement actually sends via the fake
         // always-succeeds communication provider and writes its own audit event.
         Assert.Equal(2, response.Audit.EventCount);
@@ -75,7 +75,7 @@ public sealed class CaseEndpointsTests
             && action.RequiredPermission == "ManageCustomerCommunications");
         Assert.Empty(response.BlockedActions);
 
-        // WO 5.3: the completeness check is visible immediately at submission — no documents
+        // WO 5.3: the completeness check is visible immediately at submission, no documents
         // exist yet, so every required document starts out Missing.
         Assert.NotNull(response.RequiredDocuments);
         Assert.Contains("Claim form", response.RequiredDocuments!.Required);
@@ -566,7 +566,7 @@ public sealed class CaseEndpointsTests
     public async Task EscalateCase_NotifiesTheAssignedOfficer_ButNotAnotherUser()
     {
         // WO-14: proves the real "claim escalated" event actually creates a real, recipient-scoped
-        // in-app notification — not just an audit row.
+        // in-app notification, not just an audit row.
         var dependencies = CreateDependencies();
         var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
         await CaseEndpoints.AssignCase(
@@ -600,7 +600,7 @@ public sealed class CaseEndpointsTests
     [Fact]
     public async Task ListCases_NotifiesTheAssignedOfficerOnceForABreachedSla_NotOnEveryList()
     {
-        // WO-14: SLA breach has no one-shot event — it's recomputed on every list read — so this
+        // WO-14: SLA breach has no one-shot event, it's recomputed on every list read, so this
         // proves NotifyOnceAsync's dedup actually works end to end through the real endpoint.
         var dependencies = CreateDependencies();
         var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
@@ -696,7 +696,7 @@ public sealed class CaseEndpointsTests
 
         var result = await CaseEndpoints.EscalateCase(
             created.CaseId,
-            new EscalateCaseRequest("Injury confirmed — route to designated human.", null),
+            new EscalateCaseRequest("Injury confirmed, route to designated human.", null),
             dependencies.CaseRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
@@ -766,7 +766,7 @@ public sealed class CaseEndpointsTests
             ValidCommand() with
             {
                 ClaimType = "WhatsApp Intake",
-                IncidentDescription = "Reported via WhatsApp — no description provided; documents attached for review.",
+                IncidentDescription = "Reported via WhatsApp, no description provided; documents attached for review.",
                 RequiresConfirmation = true
             },
             CancellationToken.None);

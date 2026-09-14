@@ -2,12 +2,12 @@ namespace InsuranceIntelligence.Domain.CustomerAssistant;
 
 /// <summary>
 /// Deterministic, rule-based classification of an inbound customer message into the six-intent
-/// set — matches the RuleBased implementation kind pattern already used for routing and
+/// set, matches the RuleBased implementation kind pattern already used for routing and
 /// risk-fraud-signal (AgentCatalog), rather than adding a fourth live-untested LLM call site to a
 /// codebase where every existing Azure OpenAI call site is genuinely load-bearing and worth
 /// keeping to a minimum. Keyword order matters: more specific/urgent intents are checked first so
 /// a message like "I want to make a claim, can I speak to someone" resolves to NewClaim, not
-/// HumanRequested — see the test suite for the exact precedence this encodes.
+/// HumanRequested, see the test suite for the exact precedence this encodes.
 /// </summary>
 public sealed class KeywordCustomerIntentClassifier : ICustomerIntentClassifier
 {
@@ -41,7 +41,7 @@ public sealed class KeywordCustomerIntentClassifier : ICustomerIntentClassifier
         if (ContainsAny(normalized, HumanRequestedKeywords)) return CustomerIntent.HumanRequested;
 
         // A real question (contains a question mark, or starts with a common question word) with
-        // enough content to plausibly be answerable — otherwise Unknown, which escalates rather
+        // enough content to plausibly be answerable, otherwise Unknown, which escalates rather
         // than guessing.
         var looksLikeAQuestion = normalized.Contains('?')
             || StartsWithAny(normalized, "what", "how", "when", "where", "why", "can i", "does my", "is my", "do i", "am i");

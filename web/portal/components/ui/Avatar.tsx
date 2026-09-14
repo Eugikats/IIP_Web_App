@@ -1,5 +1,5 @@
 // Design language v2 §8.12. Background chosen deterministically by hashing the user's stable id
-// — never their name, and never random per render — from the fixed `dls.avatar.*` token set
+//, never their name, and never random per render, from the fixed `dls.avatar.*` token set
 // (app/globals.css, tailwind.config.ts). No literal hex here.
 import { cn } from "@/lib/utils";
 

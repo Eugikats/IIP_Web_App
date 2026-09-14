@@ -10,7 +10,7 @@ using InsuranceIntelligence.Infrastructure.Configuration;
 namespace InsuranceIntelligence.Api.Integrations;
 
 /// <summary>
-/// Generic connection settings surface — the /app/admin/connections screen's backend, generalized
+/// Generic connection settings surface, the /app/admin/connections screen's backend, generalized
 /// from WhatsAppConfigurationEndpoints to every ConnectionType (blueprint §3.4). Secret fields are
 /// write-only from the browser: GetStatus never returns them, only whether each is present, and
 /// SaveConfiguration always validates against the real provider before persisting anything, the
@@ -138,7 +138,7 @@ public static class ConnectionEndpoints
         foreach (var (key, value) in request.NonSecretFields) allFields[key] = value;
 
         // Guide-through validation: confirm the credentials actually work against the real
-        // provider before anything is persisted — never store a connection that is silently broken.
+        // provider before anything is persisted, never store a connection that is silently broken.
         var validation = await validator.ValidateAsync(allFields, cancellationToken);
         if (!validation.Success)
         {

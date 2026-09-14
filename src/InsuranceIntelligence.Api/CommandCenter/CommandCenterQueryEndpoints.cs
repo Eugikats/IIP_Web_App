@@ -9,7 +9,7 @@ namespace InsuranceIntelligence.Api.CommandCenter;
 /// <summary>
 /// Chat-first Command Center query endpoint: <c>POST /api/v1/command-center/query</c>.
 /// Returns a governed, tenant-scoped set of typed answer blocks assembled by a deterministic
-/// planner from real data. Preparation only — the envelope's <c>canTriggerDecision</c> is always
+/// planner from real data. Preparation only, the envelope's <c>canTriggerDecision</c> is always
 /// <c>false</c> and every proposed action requires human approval.
 /// </summary>
 public static class CommandCenterQueryEndpoints

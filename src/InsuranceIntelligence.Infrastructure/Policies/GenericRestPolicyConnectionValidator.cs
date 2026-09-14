@@ -3,7 +3,7 @@ using InsuranceIntelligence.Domain.Integrations;
 namespace InsuranceIntelligence.Infrastructure.Policies;
 
 /// <summary>
-/// Validates a PolicySystem connection's settings structurally, not by calling a live endpoint —
+/// Validates a PolicySystem connection's settings structurally, not by calling a live endpoint,
 /// unlike AfricasTalkingConnectionValidator/EgoSmsConnectionValidator, which can prove credentials
 /// against a real, known API shape (a balance check that spends no money), there is no known live
 /// partner PAS contract here to probe: a generic REST adapter's actual path and payload shape

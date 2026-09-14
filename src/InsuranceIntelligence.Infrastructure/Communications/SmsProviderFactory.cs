@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace InsuranceIntelligence.Infrastructure.Communications;
 
 /// <summary>
-/// Builds a live ISmsProvider from a provider key and settings — either a tenant's decrypted
+/// Builds a live ISmsProvider from a provider key and settings, either a tenant's decrypted
 /// IntegrationConnection settings, or (via CreateFallback) the deployment's environment
 /// configuration. Registering a third SMS gateway means adding one case here and one
 /// IConnectionValidator; nothing else in the resolution chain changes.
@@ -63,7 +63,7 @@ public sealed class SmsProviderFactory(InfrastructureOptions options, ILoggerFac
 
 /// <summary>
 /// Validates Africa's Talking credentials via the Application Data endpoint, which returns the
-/// account balance without sending a message or spending money — mirroring EgoSmsConnectionValidator.
+/// account balance without sending a message or spending money, mirroring EgoSmsConnectionValidator.
 /// </summary>
 public sealed class AfricasTalkingConnectionValidator(IHttpClientFactory httpClientFactory) : IConnectionValidator
 {

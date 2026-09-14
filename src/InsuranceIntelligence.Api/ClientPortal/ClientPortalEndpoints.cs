@@ -233,7 +233,7 @@ public static class ClientPortalEndpoints
             request.RequestId,
             request.Status.ToString(),
             request.RequestedAt,
-            "Your request for a human re-review has been logged. A claims officer will review it. This decision is not final AI — a person will look at it."));
+            "Your request for a human re-review has been logged. A claims officer will review it. This decision is not final AI, a person will look at it."));
     }
 
     private static ClientPortalClaimResponse ToResponse(
@@ -333,11 +333,11 @@ public static class ClientPortalEndpoints
 
     /// <summary>
     /// Resolves tenant scope for a claimant-facing request. Tries the staff resolution path first
-    /// (Entra claims in protected mode, or demo headers in Development) — this preserves every
+    /// (Entra claims in protected mode, or demo headers in Development), this preserves every
     /// existing behavior unchanged. A claimant reaching the portal through a magic link carries
     /// neither, so this falls back to reading X-Tenant-Id/X-Workspace-Id headers directly
     /// (ClientPortalScopeReader): safe here because knowing a tenant id alone grants no case
-    /// access — BelongsToCustomer below is the actual gate.
+    /// access, BelongsToCustomer below is the actual gate.
     /// </summary>
     private static bool ResolveScope(HttpContext httpContext, out InsuranceIntelligence.Domain.Common.TenantScope scope, out string validationError) =>
         WorkflowEndpoints.TryResolveScope(httpContext, out scope, out _, out validationError)
@@ -354,13 +354,13 @@ public static class ClientPortalEndpoints
 
     /// <summary>
     /// Three trust tiers, highest first: (1) a verified magic-link session (stashed by
-    /// ClaimantSessionEndpointFilter) — the intended path for a real claimant; (2) a genuinely
+    /// ClaimantSessionEndpointFilter), the intended path for a real claimant; (2) a genuinely
     /// authenticated principal or a server-resolved ITenantContextAccessor, neither of which a
-    /// browser can spoof by sending a header; (3) outside Development, nothing else is trusted — a
+    /// browser can spoof by sending a header; (3) outside Development, nothing else is trusted, a
     /// raw X-User-Id/x-demo-user-id header is never sufficient on its own, mirroring
     /// DemoAuthorization.RequireAny's fail-closed treatment of demo headers outside Development.
     /// Before this method took `options`, WorkflowEndpoints.GetActor's raw-header fallback was
-    /// reachable unconditionally — an unauthenticated request could set X-User-Id to any claimant's
+    /// reachable unconditionally, an unauthenticated request could set X-User-Id to any claimant's
     /// email and read their case in any AuthMode. Tier 3 closes that.
     /// </summary>
     private static bool BelongsToCustomer(ClaimCase claimCase, HttpContext httpContext, InfrastructureOptions options)

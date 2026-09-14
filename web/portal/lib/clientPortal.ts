@@ -6,7 +6,7 @@ const SESSION_STORAGE_KEY = "iip.client-portal-session";
 
 export type ClientPortalSession = {
   sessionToken: string;
-  /** Null means: verified policyholder, no claim submitted yet — see createClaim. */
+  /** Null means: verified policyholder, no claim submitted yet, see createClaim. */
   caseId: string | null;
   policyNumber: string;
   productLine: string | null;
@@ -61,11 +61,11 @@ export type ClientPortalClaim = {
 };
 
 /**
- * X-Tenant-Id/X-Workspace-Id are always sent, in every runtime — unlike scopedHeaders (used by
+ * X-Tenant-Id/X-Workspace-Id are always sent, in every runtime, unlike scopedHeaders (used by
  * the staff app), which omits them outside Development because staff scope is resolved
  * server-side from the Entra token. A claimant has no Entra token: the portal itself is deployed
  * per-tenant (one insurer per Managed Application), so these two values just say which insurer's
- * portal this is — not who the caller is. That is safe to send unauthenticated; the actual access
+ * portal this is, not who the caller is. That is safe to send unauthenticated; the actual access
  * gate is the magic-link session token below (see ClaimantSessionEndpointFilter).
  */
 export function clientPortalHeaders(sessionToken?: string | null): Record<string, string> {

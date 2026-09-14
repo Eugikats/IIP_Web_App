@@ -10,7 +10,7 @@ namespace InsuranceIntelligence.Api.Tests;
 /// <summary>
 /// Regression coverage for the SMS bug fixed in this change: SendSmsAsync on both
 /// ICommunicationSendingProvider implementations was hardcoded to always return
-/// ConfigurationRequired, regardless of SmsProvider or IntegrationConnection state — because
+/// ConfigurationRequired, regardless of SmsProvider or IntegrationConnection state, because
 /// CommunicationProvider ("GraphEmail"/"Disabled") only ever governed email mode, but SMS's own
 /// independent resolution was never actually reached through this interface. See
 /// docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md §14 Phase 0/1.
@@ -36,7 +36,7 @@ public sealed class CommunicationSendingProviderSmsTests
     {
         // The historical bug, precisely: CommunicationProvider="Disabled" used to make SMS
         // unconditionally fail even when SMS_PROVIDER=AfricasTalking/EgoSms was fully configured.
-        // "Disabled" only ever meant "email sending is disabled" — SMS must not have been coupled
+        // "Disabled" only ever meant "email sending is disabled", SMS must not have been coupled
         // to it at all.
         var smsProvider = new RecordingSmsProvider("Sent");
         var provider = new DisabledCommunicationSendingProvider(new DisabledEmailSendingProvider(), smsProvider);
@@ -51,7 +51,7 @@ public sealed class CommunicationSendingProviderSmsTests
     public async Task DisabledCommunicationSendingProvider_SendEmailAsync_DelegatesToInjectedEmailProvider()
     {
         // Email now resolves through the same Connection model as SMS (blueprint §7.2/§14 Phase 1)
-        // — DisabledCommunicationSendingProvider no longer hardcodes the email outcome either.
+        //, DisabledCommunicationSendingProvider no longer hardcodes the email outcome either.
         var emailProvider = new RecordingEmailProvider("Sent");
         var provider = new DisabledCommunicationSendingProvider(emailProvider, new RecordingSmsProvider("Sent"));
 

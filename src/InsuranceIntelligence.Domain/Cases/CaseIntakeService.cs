@@ -16,7 +16,7 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
         var routing = ClaimRoutingPolicy.Evaluate(command.ClaimType, motorFnol, productLine: command.ProductLine);
 
         // Name a real owner, not just a team, wherever the routed team's case history has enough
-        // information to infer one — see CaseAssignmentPolicy for why this is inferred rather than
+        // information to infer one, see CaseAssignmentPolicy for why this is inferred rather than
         // backed by a staff directory this codebase does not have.
         var existingCases = await caseRepository.ListAsync(command.Scope, cancellationToken);
         var assignee = CaseAssignmentPolicy.SelectAssignee(routing.AssignedTeam, existingCases);
@@ -69,7 +69,7 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
 
     /// <summary>
     /// A human confirming a claim IIP auto-created from an identified WhatsApp/email sender
-    /// (RequiresConfirmation) — this is what starts the real SLA clock. Optional corrections let
+    /// (RequiresConfirmation), this is what starts the real SLA clock. Optional corrections let
     /// the confirming officer fix the best-effort product line/claim type/description IIP guessed
     /// from the raw inbound message before the SLA is set, without a second round trip.
     /// </summary>

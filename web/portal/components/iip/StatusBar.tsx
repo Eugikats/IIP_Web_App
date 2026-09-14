@@ -6,7 +6,7 @@ import { useRuntimeContext } from "@/lib/runtimeContext";
 
 export default function StatusBar() {
   const { providers, loading, source } = useProviderHealth();
-  // The rail's avatar button is icon-only — this is the only always-visible statement of the
+  // The rail's avatar button is icon-only, this is the only always-visible statement of the
   // real signed-in authority, independent of whatever role the preview switcher is showing.
   const { runtimeContext, loading: runtimeLoading } = useRuntimeContext();
   const roleLabel = runtimeContext?.roleLabel ?? (runtimeLoading ? "Authority resolving" : "Authority unavailable");

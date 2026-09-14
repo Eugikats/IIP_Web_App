@@ -22,7 +22,7 @@ export default function Customers() {
       <SectionHeader
         eyebrow="Customer 360"
         title="Customers"
-        sub="Internal staff workspace. Customers do not see this view — sensitive fields are hidden from customer-facing surfaces."
+        sub="Internal staff workspace. Customers do not see this view, sensitive fields are hidden from customer-facing surfaces."
       />
       <div className="mb-4 max-w-md">
         <Input

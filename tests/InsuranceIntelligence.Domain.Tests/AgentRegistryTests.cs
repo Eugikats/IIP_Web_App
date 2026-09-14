@@ -88,7 +88,7 @@ public sealed class AgentRegistryTests
     [Fact]
     public async Task SetKillSwitch_CanStillDisableAnAlreadyDisabledNotImplementedAgent()
     {
-        // Disabling is always safe — it only ever tightens what runs (ADR-0002).
+        // Disabling is always safe, it only ever tightens what runs (ADR-0002).
         var service = new AgentRegistryService(
             Context(),
             new AllowPermissionService(),
@@ -164,7 +164,7 @@ public sealed class AgentRegistryTests
     {
         // WO-06 end-to-end proof: the same write path Admin > Agents uses
         // (AgentRegistryService.SetKillSwitchAsync) against the same persisted state an
-        // AgentGate reads at invocation time. Before AgentGate existed, this loop was open —
+        // AgentGate reads at invocation time. Before AgentGate existed, this loop was open,
         // disabling an agent in the admin UI wrote a row that no runtime code ever consulted.
         var repo = new InMemoryAgentStateRepository();
         var registryService = new AgentRegistryService(Context(), new AllowPermissionService(), repo, new NullAuditWriter(), NoOpOperationalTelemetry.Instance);

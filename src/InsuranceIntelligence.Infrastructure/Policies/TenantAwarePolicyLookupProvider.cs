@@ -7,7 +7,7 @@ namespace InsuranceIntelligence.Infrastructure.Policies;
 
 /// <summary>
 /// The same three-step resolution TenantAwareSmsProvider/TenantAwareEmailSendingProvider already
-/// establish, applied to policy lookup — registered as the one IPolicyLookupProvider the rest of
+/// establish, applied to policy lookup, registered as the one IPolicyLookupProvider the rest of
 /// the application ever sees:
 ///
 ///   1. An active PolicySystem Connection for this tenant → the generic REST adapter (WO 7.2).
@@ -15,8 +15,8 @@ namespace InsuranceIntelligence.Infrastructure.Policies;
 ///      manually onboarded).
 ///
 /// Unlike SMS/email, there is no third "ConfigurationRequired" state: InternalPolicyLookupProvider
-/// is always a meaningful, real answer — every tenant has policy data in this platform's own
-/// storage, whether or not a PAS partner is connected — so falling back to it is never dishonest
+/// is always a meaningful, real answer, every tenant has policy data in this platform's own
+/// storage, whether or not a PAS partner is connected, so falling back to it is never dishonest
 /// the way silently no-op'ing an unconfigured SMS send would be.
 /// </summary>
 public sealed class TenantAwarePolicyLookupProvider(
@@ -49,7 +49,7 @@ public sealed class TenantAwarePolicyLookupProvider(
         var settings = ConnectionSettingsCodec.Decode(protector, connection);
         if (!string.Equals(connection.ProviderKey, "GenericRest", StringComparison.OrdinalIgnoreCase))
         {
-            return fallback; // Unrecognized provider key — fall back rather than fail policy lookup entirely.
+            return fallback; // Unrecognized provider key, fall back rather than fail policy lookup entirely.
         }
 
         var restSettings = GenericRestPolicySettings.FromSettings(settings);

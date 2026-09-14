@@ -305,7 +305,7 @@ public sealed class EfCommunicationRepository(InsuranceIntelligenceDbContext dbC
             .ToArrayAsync(cancellationToken);
 
     // ProviderMessageId lives inside the JSON payload, not a dedicated column, so this filters
-    // in memory after a scoped load rather than in SQL — acceptable at today's per-tenant
+    // in memory after a scoped load rather than in SQL, acceptable at today's per-tenant
     // communication volume; revisit with a real column/index if that changes.
     public async Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default)
     {

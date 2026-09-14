@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InsuranceIntelligence.Infrastructure.CustomerAssistant;
 
-/// <summary>Append-only, same pattern as EfAuditRepository/EfAgentBehaviourProfileRepository —
+/// <summary>Append-only, same pattern as EfAuditRepository/EfAgentBehaviourProfileRepository,
 /// every SaveAsync inserts a new row keyed by a fresh TurnId, so the full conversation history for
 /// a thread is always reconstructable.</summary>
 public sealed class EfCustomerConversationRepository(InsuranceIntelligenceDbContext dbContext)

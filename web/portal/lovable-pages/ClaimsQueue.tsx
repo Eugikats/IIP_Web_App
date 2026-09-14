@@ -102,7 +102,7 @@ export default function ClaimsQueue() {
     <>
       <SectionHeader
         eyebrow="Claims Intelligence"
-        // text-dls-text-muted measures 4.47:1 against this page's bg-dls-bg-page at 11px bold —
+        // text-dls-text-muted measures 4.47:1 against this page's bg-dls-bg-page at 11px bold,
         // just under WCAG AA's 4.5:1 (gate-17). text-dls-text-secondary is already used
         // platform-wide for "labels, captions, descriptions" (app/globals.css) and clears 6.23:1
         // here, so it fits this eyebrow's intent without introducing a new color.
@@ -131,7 +131,7 @@ export default function ClaimsQueue() {
                 onClick={() => setF(x)}
                 className={`dls-focus-outline min-h-11 rounded-dls-chip border px-3 py-2 text-[12px] font-semibold transition-colors duration-dls-fast ease-dls ${f === x ? "border-dls-primary bg-dls-primary text-dls-text-inverse" : "border-dls-border-input bg-dls-surface text-dls-text-secondary hover:border-dls-primary"}`}
               >
-                {x} <span className="ml-1 text-[10px] opacity-80">{snapshotAvailable ? quickCounts.get(x) ?? 0 : "—"}</span>
+                {x} <span className="ml-1 text-[10px] opacity-80">{snapshotAvailable ? quickCounts.get(x) ?? 0 : "-"}</span>
               </button>
             ))}
           </div>

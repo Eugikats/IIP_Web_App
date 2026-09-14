@@ -6,15 +6,15 @@ namespace InsuranceIntelligence.Domain.Cases;
 /// this?" had no answer until a supervisor happened to open it and assign it by hand.
 ///
 /// There is no staff directory or team-roster table anywhere in this codebase (InsuranceUser is
-/// declared but never wired to anything, and no ITeamRosterProvider exists) — building one is a
+/// declared but never wired to anything, and no ITeamRosterProvider exists), building one is a
 /// materially bigger feature than "who gets the next claim." Rather than invent a roster, this
 /// policy infers the routed team's current membership from case history: anyone who already holds
 /// an open case on that team, for this tenant, is a real member of it right now. Among that
 /// inferred roster, the least-loaded member gets the case; a tie (equal open-case count) breaks in
 /// favour of whoever was assigned to that team least recently, so load naturally rotates.
 ///
-/// A team no one has ever been assigned to yet falls back to the existing behaviour — team-only,
-/// AssignedUserId null — exactly as before this policy existed. That is an honest "no one to name
+/// A team no one has ever been assigned to yet falls back to the existing behaviour, team-only,
+/// AssignedUserId null, exactly as before this policy existed. That is an honest "no one to name
 /// yet," not a bug: the very first case on a brand-new team still needs a supervisor's first
 /// manual assignment (CaseEndpoints.AssignCase, already a governed, audited action), which is
 /// also how a genuinely new team's roster comes into existence for this policy to observe.

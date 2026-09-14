@@ -7,7 +7,7 @@ namespace InsuranceIntelligence.Domain.Integrations;
 /// <summary>
 /// Tenant-supplied WhatsApp Business API credentials, configured through the settings screen
 /// instead of a deployment environment variable. AccessToken, AppSecret, and VerifyToken are
-/// never stored in plain text — only the ciphertext produced by IWhatsAppCredentialProtector
+/// never stored in plain text, only the ciphertext produced by IWhatsAppCredentialProtector
 /// (backed by ASP.NET Core Data Protection) is persisted, and the plaintext values are never
 /// sent back to a browser once saved (see WhatsAppConfigurationEndpoints.GetStatus, which returns
 /// only booleans and non-secret metadata).
@@ -21,7 +21,7 @@ public sealed record WhatsAppChannelConfiguration
     public required string PhoneNumberId { get; init; }
 
     /// <summary>The WhatsApp Business Account id, from Meta Business Settings next to the phone
-    /// number — required to register the webhook via subscribed_apps (blueprint §4.3). Optional
+    /// number, required to register the webhook via subscribed_apps (blueprint §4.3). Optional
     /// on the record so existing saved configurations (from before this field existed) still
     /// deserialize; SaveConfiguration requires it for new/updated connections.</summary>
     public string? WabaId { get; init; }
@@ -36,7 +36,7 @@ public sealed record WhatsAppChannelConfiguration
     public string? LastValidationStatus { get; init; }
     public string? LastValidationError { get; init; }
 
-    /// <summary>The callback URL registered with Meta — shown in the settings screen so the
+    /// <summary>The callback URL registered with Meta, shown in the settings screen so the
     /// operator has the exact value if auto-registration ever needs to be redone manually.</summary>
     public string? WebhookCallbackUrl { get; init; }
 
@@ -46,7 +46,7 @@ public sealed record WhatsAppChannelConfiguration
     public string? WebhookRegistrationError { get; init; }
 
     /// <summary>Deterministic per-tenant id, same DeterministicId pattern used elsewhere in this
-    /// codebase — a tenant saving new credentials always updates its one row rather than
+    /// codebase, a tenant saving new credentials always updates its one row rather than
     /// accumulating duplicates.</summary>
     public static Guid StorageKey(TenantScope scope)
     {
@@ -66,7 +66,7 @@ public interface IWhatsAppChannelConfigurationRepository
 }
 
 /// <summary>Encrypts/decrypts WhatsApp secret fields at rest. Implemented over ASP.NET Core Data
-/// Protection (a real, key-rotation-capable, tenant-of-the-machine/deployment-scoped protector) —
+/// Protection (a real, key-rotation-capable, tenant-of-the-machine/deployment-scoped protector),
 /// never a hand-rolled cipher.</summary>
 public interface IWhatsAppCredentialProtector
 {

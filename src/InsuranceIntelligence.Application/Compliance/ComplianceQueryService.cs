@@ -210,7 +210,7 @@ public sealed class ComplianceQueryService(
             return null;
         }
 
-        // The audit trail is the authorization check, not a client-trusted object key alone —
+        // The audit trail is the authorization check, not a client-trusted object key alone,
         // only a key this tenant's own export actually produced for this case is downloadable.
         var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
         var exportEvent = auditEvents.FirstOrDefault(

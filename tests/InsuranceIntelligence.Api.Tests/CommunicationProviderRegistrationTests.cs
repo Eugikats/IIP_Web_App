@@ -18,7 +18,7 @@ public sealed class CommunicationProviderRegistrationTests
         using var provider = BuildProvider("GraphEmail");
 
         Assert.IsType<GraphCommunicationSendingProvider>(provider.GetRequiredService<ICommunicationSendingProvider>());
-        // ISmsProvider is always TenantAwareSmsProvider now (the three-step resolver) — it is no
+        // ISmsProvider is always TenantAwareSmsProvider now (the three-step resolver), it is no
         // longer coupled to CommunicationProvider ("GraphEmail" only ever governed email mode).
         // See TenantAwareSmsProviderTests for behavioral coverage of the resolution order itself.
         Assert.IsType<InsuranceIntelligence.Infrastructure.Communications.TenantAwareSmsProvider>(provider.GetRequiredService<ISmsProvider>());
@@ -36,7 +36,7 @@ public sealed class CommunicationProviderRegistrationTests
         // §4.4): a validated tenant connection can go live with no redeploy. Without
         // INSURANCEINTELLIGENCE_CHANNEL_PROVIDER=WhatsAppCloudApi or a saved connection in this
         // test's isolated database, the real provider still honestly reports IsConfigured == false
-        // — the same guarantee DisabledWhatsAppInboundProvider used to provide by being a different
+        //, the same guarantee DisabledWhatsAppInboundProvider used to provide by being a different
         // type, now provided by the real type's own state instead.
         Assert.False(provider.GetRequiredService<IWhatsAppInboundProvider>().IsConfigured);
     }

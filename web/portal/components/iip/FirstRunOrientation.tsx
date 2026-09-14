@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * First-run orientation — implements docs/03-design-architecture/iip_first_run_orientation_spec.md.
+ * First-run orientation, implements docs/03-design-architecture/iip_first_run_orientation_spec.md.
  *
  * The governing constraint from that spec: the orientation is a guest. It arrives once, it can be
  * refused in one action, it never blocks work, and after it leaves there is no trace of it in the
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
  * the destination it describes. Pointing someone at a screen their role cannot reach is a promise
  * the product breaks the moment they click, and teaches them the interface says untrue things
  * about their own account. That is why this is a hand-written component rather than intro.js or
- * driver.js — none of them can filter steps by permission, and all of them ship a stylesheet that
+ * driver.js, none of them can filter steps by permission, and all of them ship a stylesheet that
  * would then have to be fought to remove shadows and accents DESIGN.md forbids (spec §7).
  */
 
@@ -25,7 +25,7 @@ export function resetFirstRunOrientation() {
   try {
     window.localStorage.removeItem(STORAGE_KEY);
   } catch {
-    // Blocked storage — nothing to clear, and the tour will not have run anyway.
+    // Blocked storage, nothing to clear, and the tour will not have run anyway.
   }
 }
 
@@ -42,12 +42,12 @@ const STEPS: Step[] = [
   {
     anchor: "/app",
     title: "Start here",
-    body: "Ask for what you need in plain words — “what needs my attention today?” or “what does the policy say about flood damage?”. Answers about cover come only from your approved documents, with a link to the source.",
+    body: "Ask for what you need in plain words, “what needs my attention today?” or “what does the policy say about flood damage?”. Answers about cover come only from your approved documents, with a link to the source.",
   },
   {
     anchor: "/app/work-items",
     title: "What is waiting for you",
-    body: "Everything assigned to you, in one list — claims to review, approvals to give, documents to check. This is the one place that answers “what should I do next?”.",
+    body: "Everything assigned to you, in one list, claims to review, approvals to give, documents to check. This is the one place that answers “what should I do next?”.",
   },
   {
     anchor: "/app/claims",
@@ -140,7 +140,7 @@ export default function FirstRunOrientation({
     try {
       if (userId) window.localStorage.setItem(STORAGE_KEY, userId);
     } catch {
-      // Not persisted — it will offer itself again next time. Better than failing to close.
+      // Not persisted, it will offer itself again next time. Better than failing to close.
     }
     returnFocusRef.current?.focus?.();
   }, [userId]);
@@ -220,7 +220,7 @@ export default function FirstRunOrientation({
         aria-hidden="true"
       />
 
-      {/* The ring marks what is being talked about — the one sanctioned use of the accent. */}
+      {/* The ring marks what is being talked about, the one sanctioned use of the accent. */}
       {rect && (
         <div
           className="pointer-events-none fixed z-[71] rounded-dls-control ring-2 ring-dls-primary transition-all duration-dls-panel ease-dls"

@@ -73,7 +73,7 @@ public sealed class CaseIntakeServiceTests
     public async Task CreateCaseAsync_MedicalClaim_PersistsMedicalFnolDetails_AndDoesNotForceEscalate()
     {
         // WO-15: proves the second product line end to end through the same intake path Motor
-        // uses — including that it no longer force-escalates on the word "medical" (the bug fixed
+        // uses, including that it no longer force-escalates on the word "medical" (the bug fixed
         // alongside this work order).
         var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
         var medicalDetails = new MedicalFnolDetails(
@@ -144,7 +144,7 @@ public sealed class CaseIntakeServiceTests
         var claimCase = await service.CreateCaseAsync(ValidCommand() with
         {
             ClaimType = "WhatsApp Intake",
-            IncidentDescription = "Reported via WhatsApp — no description provided; documents attached for review.",
+            IncidentDescription = "Reported via WhatsApp, no description provided; documents attached for review.",
             RequiresConfirmation = true
         });
 

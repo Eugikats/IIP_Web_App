@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace InsuranceIntelligence.Infrastructure.Communications;
 
 /// <summary>
-/// Tenant-supplied SMTP settings — parsed defensively from the flat connection settings
+/// Tenant-supplied SMTP settings, parsed defensively from the flat connection settings
 /// dictionary, never throws on a malformed or missing field.
 /// </summary>
 public sealed record SmtpSettings(string Host, int Port, string Username, string Password, string FromAddress, bool UseSsl, int RequestTimeoutSeconds)
@@ -62,10 +62,10 @@ public sealed record SmtpSettings(string Host, int Port, string Username, string
 }
 
 /// <summary>
-/// Real outbound email adapter for any SMTP-speaking mail system — no Azure tenant, no Entra app
+/// Real outbound email adapter for any SMTP-speaking mail system, no Azure tenant, no Entra app
 /// registration, just host/port/username/password (blueprint §7.2). Uses the built-in
 /// System.Net.Mail.SmtpClient rather than adding a new package dependency (MailKit is the natural
-/// upgrade path if this needs to scale — see docs/01-strategy-requirements-roadmap/
+/// upgrade path if this needs to scale, see docs/01-strategy-requirements-roadmap/
 /// IIP_HACKATHON_READINESS_BLUEPRINT.md §7.2); sufficient for a first working connection-based
 /// email provider.
 /// </summary>
@@ -107,7 +107,7 @@ public sealed class SmtpEmailProvider(SmtpSettings settings, ILogger<SmtpEmailPr
             logger.LogInformation(
                 "SMTP email dispatched. CaseId={CaseId} CorrelationId={CorrelationId}",
                 request.CaseId, request.CorrelationId);
-            // SmtpClient has no provider message id to report — the send either throws or succeeds.
+            // SmtpClient has no provider message id to report, the send either throws or succeeds.
             return new CommunicationSendResult("Sent", string.Empty, null);
         }
         catch (Exception exception) when (exception is SmtpException or SmtpFailedRecipientException or InvalidOperationException or OperationCanceledException)
@@ -121,8 +121,8 @@ public sealed class SmtpEmailProvider(SmtpSettings settings, ILogger<SmtpEmailPr
 }
 
 /// <summary>
-/// Validates SMTP credentials by opening a real connection and completing AUTH LOGIN — never MAIL
-/// FROM/RCPT TO/DATA — so nothing is ever sent or queued for delivery (blueprint §7.2). Hand-rolled
+/// Validates SMTP credentials by opening a real connection and completing AUTH LOGIN, never MAIL
+/// FROM/RCPT TO/DATA, so nothing is ever sent or queued for delivery (blueprint §7.2). Hand-rolled
 /// against the raw protocol rather than SmtpClient.Send(), because SmtpClient has no
 /// "authenticate only" call: sending to a placeholder recipient risks a real mail server actually
 /// accepting and queuing that message, which is not what "validate without sending" means.
@@ -251,7 +251,7 @@ public sealed class SmtpConnectionValidator : InsuranceIntelligence.Domain.Integ
     }
 
     // A multi-line SMTP response ("250-..." continuation lines ending in "250 ...") only matters
-    // for EHLO's capability list, which this validator never parses — reading one line at a time
+    // for EHLO's capability list, which this validator never parses, reading one line at a time
     // and using only the final line's status code is sufficient for every check performed here.
     private static async Task<string> ReadResponseAsync(System.IO.StreamReader reader, CancellationToken cancellationToken)
     {

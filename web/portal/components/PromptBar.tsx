@@ -9,7 +9,7 @@ export type ChatContextItem = { label: string; value: string };
  * Pinned chat composer used by AI-chat surfaces only (not global chrome).
  * Render it as the last child of a flex-column container whose transcript
  * area is `flex-1 overflow-y-auto`, so the conversation scrolls while this
- * bar stays fixed at the bottom — ChatGPT-style.
+ * bar stays fixed at the bottom, ChatGPT-style.
  *
  * The optional `context` list is surfaced in a collapsible "context window"
  * so the operator can see exactly what grounds the assistant (transparency).

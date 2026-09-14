@@ -18,7 +18,7 @@ export function EmptyState({ title, description }: { title: string; description:
   );
 }
 
-// Distinct from EmptyState — never show the same message for both (§8.24).
+// Distinct from EmptyState, never show the same message for both (§8.24).
 export function EmptyFilteredState({ onClear }: { onClear: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-dls-card border border-dashed border-dls-border-input bg-dls-bg-page px-6 py-10 text-center">

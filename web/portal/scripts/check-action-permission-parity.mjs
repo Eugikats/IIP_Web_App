@@ -4,7 +4,7 @@ import { join } from "node:path";
 // WO-05: the portal's PREVIEW_PERMISSIONS (lib/roles.ts) is a hand-maintained mirror of the
 // backend's authoritative RolePermissionMap (src/InsuranceIntelligence.Domain/Administration).
 // Action controls gate their visibility on this mirror in local-test/parity mode (see
-// canPreviewPermission usages in ClaimReview.tsx) — if the mirror drifts from the real map, a
+// canPreviewPermission usages in ClaimReview.tsx), if the mirror drifts from the real map, a
 // role could see a button the server will actually refuse (the exact bug this work order fixed:
 // ITAdmin/Compliance saw "Upload document" despite lacking UploadDocument server-side). This
 // script fails the build the moment the two tables diverge, in either direction.
@@ -60,7 +60,7 @@ if (backendPermissionsByRole.size === 0) findings.push("Could not parse any role
 if (allBackendPermissions.length === 0) findings.push("Could not parse the Permission enum from Permission.cs.");
 
 // --- Compare ---
-// PlatformRole.Client is the client-portal (policyholder-facing) role — it never appears in the
+// PlatformRole.Client is the client-portal (policyholder-facing) role, it never appears in the
 // staff Role type or PREVIEW_PERMISSIONS (see lib/roles.ts STAFF_ROLES / ROLES), because it is
 // not a staff preview experience at all; it is handled entirely by ClientPortalEndpoints.cs on a
 // separate surface. Deliberate, not drift.
@@ -90,14 +90,14 @@ for (const role of roles) {
   for (const permission of backendSet) {
     if (!frontendSet.has(permission)) {
       findings.push(
-        `Role "${role}" has "${permission}" server-side (RolePermissionMap.cs) but PREVIEW_PERMISSIONS in lib/roles.ts is missing it — a preview/parity user could see an action control this permission does not gate that the server would actually allow, or (more dangerously) the reverse: an action control gated on this permission would be hidden even though the server grants it.`,
+        `Role "${role}" has "${permission}" server-side (RolePermissionMap.cs) but PREVIEW_PERMISSIONS in lib/roles.ts is missing it, a preview/parity user could see an action control this permission does not gate that the server would actually allow, or (more dangerously) the reverse: an action control gated on this permission would be hidden even though the server grants it.`,
       );
     }
   }
   for (const permission of frontendSet) {
     if (!backendSet.has(permission)) {
       findings.push(
-        `Role "${role}" has "${permission}" in PREVIEW_PERMISSIONS (lib/roles.ts) but RolePermissionMap.cs does not grant it server-side — an action control gated on this permission would render in preview/parity mode and then be refused with 403 by the real server, exactly the class of bug WO-05 fixed for UploadDocument.`,
+        `Role "${role}" has "${permission}" in PREVIEW_PERMISSIONS (lib/roles.ts) but RolePermissionMap.cs does not grant it server-side, an action control gated on this permission would render in preview/parity mode and then be refused with 403 by the real server, exactly the class of bug WO-05 fixed for UploadDocument.`,
       );
     }
   }

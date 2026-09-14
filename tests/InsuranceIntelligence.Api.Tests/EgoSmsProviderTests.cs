@@ -94,7 +94,7 @@ public sealed class EgoSmsProviderTests
 
     [Theory]
     [InlineData("IIP", true)]
-    [InlineData("TwelveChars1", false)] // 12 characters — exceeds the 11-character limit
+    [InlineData("TwelveChars1", false)] // 12 characters, exceeds the 11-character limit
     public void TryParse_EnforcesSenderIdLengthLimit(string senderId, bool expectedSuccess)
     {
         var settings = new Dictionary<string, string> { ["username"] = "u", ["apiKey"] = "k", ["senderId"] = senderId };

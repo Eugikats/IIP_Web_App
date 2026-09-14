@@ -50,7 +50,7 @@ public sealed class WhatsAppConfigurationEndpointsTests
 
         var stored = await repository.GetAsync(Scope(), CancellationToken.None);
         Assert.NotNull(stored);
-        // The stored value must never be the plaintext secret — only what the protector produced.
+        // The stored value must never be the plaintext secret, only what the protector produced.
         Assert.NotEqual("secret-token", stored!.EncryptedAccessToken);
         Assert.Equal("secret-token", protector.Unprotect(stored.EncryptedAccessToken));
         Assert.True(settingsProvider.Refreshed);
@@ -82,7 +82,7 @@ public sealed class WhatsAppConfigurationEndpointsTests
     public async Task SaveConfiguration_NeverAsksTheOperatorForAVerifyToken_GeneratesOneServerSide()
     {
         // The request shape itself is the assertion: WhatsAppSaveConfigurationRequest has no
-        // VerifyToken parameter (blueprint §4.3 point 2) — this only compiles if that is still true.
+        // VerifyToken parameter (blueprint §4.3 point 2), this only compiles if that is still true.
         var repository = new InMemoryWhatsAppChannelConfigurationRepository();
         var protector = new FakeWhatsAppCredentialProtector();
         var validationClient = new FakeWhatsAppGraphValidationClient(new WhatsAppGraphValidationResult(true, "+256700000000", "Acme Insurer", null));
@@ -141,7 +141,7 @@ public sealed class WhatsAppConfigurationEndpointsTests
     public async Task SaveConfiguration_WhenMetaRejectsWebhookRegistration_StillPersistsCredentialsWithFailureRecorded()
     {
         // Valid credentials plus a broken webhook registration must not be treated as a total
-        // failure — the connection is real and testable, the webhook just needs manual setup.
+        // failure, the connection is real and testable, the webhook just needs manual setup.
         var validationClient = new FakeWhatsAppGraphValidationClient(
             new WhatsAppGraphValidationResult(true, "+256700000000", "Acme Insurer", null),
             new WhatsAppWebhookRegistrationResult(false, "Meta rejected the webhook registration request."));

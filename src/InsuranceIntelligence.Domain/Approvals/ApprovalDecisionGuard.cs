@@ -27,7 +27,7 @@ public static class ApprovalDecisionGuard
     }
 
     /// <summary>
-    /// Every approve/reject/override/escalate decision must carry a reviewer-authored reason —
+    /// Every approve/reject/override/escalate decision must carry a reviewer-authored reason,
     /// enforced here (domain layer) rather than only at the API boundary, so no future caller of
     /// this guard can approve a claim decision silently by skipping validation.
     /// </summary>

@@ -175,7 +175,7 @@ const config: Config = {
         "glow-danger": "0 8px 24px rgba(220, 38, 38, 0.12)",
         "glow-success": "0 8px 24px rgba(5, 150, 105, 0.12)",
         "glow-warning": "0 8px 24px rgba(217, 119, 6, 0.12)",
-        // Design language §6.3 — the only three shadows a new component may use.
+        // Design language §6.3, the only three shadows a new component may use.
         "dls-popover": "var(--shadow-popover)",
         "dls-modal": "var(--shadow-drawer)",
         "dls-primary": "0 1px 2px rgb(91 42 232 / 0.25)",
@@ -187,7 +187,7 @@ const config: Config = {
         "gradient-tertiary": "var(--gradient-tertiary)",
         "gradient-ambient": "var(--gradient-ambient)",
         "brand-gradient": "var(--gradient-primary)",
-        // Design language §4.5 — the only two permitted gradients, nowhere else.
+        // Design language §4.5, the only two permitted gradients, nowhere else.
         "dls-orb": "var(--gradient-orb)",
         "dls-chart-bar": "var(--gradient-chart-bar)",
       },
@@ -199,7 +199,7 @@ const config: Config = {
         xl: "var(--radius-xl)",
         "2xl": "var(--radius-2xl)",
         pill: "var(--radius-pill)",
-        // Design language §6.2 — nothing above 16px on any operational surface.
+        // Design language §6.2, nothing above 16px on any operational surface.
         "dls-tight": "var(--radius-tight)",
         "dls-control": "var(--radius-control)",
         "dls-chip": "var(--radius-chip)",

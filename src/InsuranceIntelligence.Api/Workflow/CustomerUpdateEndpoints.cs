@@ -171,7 +171,7 @@ public static class CustomerUpdateEndpoints
         return Results.Created($"/api/v1/customer-updates/{update.UpdateId}", WorkflowMapper.ToResponse(update));
     }
 
-    // WO-16: tenant-wide view backing Communications.tsx — the previous ListCustomerUpdates below
+    // WO-16: tenant-wide view backing Communications.tsx, the previous ListCustomerUpdates below
     // is per-case only. Each row is filtered through the same ClaimAccessGuard that gates every
     // other cross-case read (e.g. CommunicationEndpoints.ListHistory), so an officer scoped to only
     // their assigned claims never sees another officer's customer updates.

@@ -104,9 +104,9 @@ public sealed class AzureOpenAiChatCompletionProvider(
 }
 
 /// <summary>Shared by all three Azure OpenAI chat-completion call sites (blueprint §6.3, §14 Phase
-/// 3) — looks up the tenant's AgentBehaviourProfile for the given agent key, if any, and composes
-/// the actual system prompt via AgentBehaviourComposer. Every path through this — configured,
-/// unconfigured, repository unavailable — still returns a prompt carrying the immutable platform
+/// 3), looks up the tenant's AgentBehaviourProfile for the given agent key, if any, and composes
+/// the actual system prompt via AgentBehaviourComposer. Every path through this, configured,
+/// unconfigured, repository unavailable, still returns a prompt carrying the immutable platform
 /// preamble; there is no way to reach a chat completion without it.</summary>
 internal static class AgentBehaviourResolution
 {
@@ -546,7 +546,7 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
                 "A human has reached a decision on this claim. Tell the customer only that a decision has " +
                 "been made and that a member of the claims team will contact them directly to discuss it. " +
                 "Never state, imply, or hint at what the decision was (approved, declined, an amount, or a reason) " +
-                "— that must come from the human who made the decision, not this draft.");
+                "- that must come from the human who made the decision, not this draft.");
         }
 
         return string.Join('\n', lines);

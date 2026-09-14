@@ -63,11 +63,11 @@ public sealed class MetaGraphWhatsAppValidationClient(HttpClient httpClient) : I
         int timeoutSeconds,
         CancellationToken cancellationToken = default)
     {
-        // Meta caps override_callback_uri at 200 characters (blueprint §4.3) — fail locally with a
+        // Meta caps override_callback_uri at 200 characters (blueprint §4.3), fail locally with a
         // clear reason rather than let Meta reject it opaquely.
         if (callbackUrl.Length > 200)
         {
-            return new WhatsAppWebhookRegistrationResult(false, "The webhook callback URL exceeds Meta's 200-character limit — shorten the configured API public base URL.");
+            return new WhatsAppWebhookRegistrationResult(false, "The webhook callback URL exceeds Meta's 200-character limit, shorten the configured API public base URL.");
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -140,7 +140,7 @@ public sealed class MetaGraphWhatsAppValidationClient(HttpClient httpClient) : I
         {
             var error = JsonSerializer.Deserialize<GraphErrorEnvelope>(body);
             var message = error?.Error?.Message;
-            // Never echo Meta's raw error text verbatim to the browser — it can include the
+            // Never echo Meta's raw error text verbatim to the browser, it can include the
             // access token's own app id and other adapter internals (A/A9-style boundary already
             // applied elsewhere in this codebase to provider errors).
             return string.IsNullOrWhiteSpace(message)

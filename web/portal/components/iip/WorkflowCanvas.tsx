@@ -5,12 +5,12 @@ import { cn } from "@/lib/utils";
 import type { WorkflowDefinition, WorkflowNode, WorkflowNodeRun } from "@/lib/agentWorkflows";
 
 // Design language v2 migration (ui-migration-ledger.md, tier 4). Foundation-level shared
-// dependency, not a per-screen patch — used by AgentFlows.tsx, AgentFlowInspector.tsx,
+// dependency, not a per-screen patch, used by AgentFlows.tsx, AgentFlowInspector.tsx,
 // AgentFlowBuilder.tsx, and AgentRunDebugger.tsx (4 of tier 4's 6 screens), so migrated once here
 // before any of them, same precedent as the earlier chat-surface and Primitives.tsx fixes.
 //
 // Removed outright: backdrop-blur node cards (glassmorphism), the bg-gradient-secondary icon
-// tile (gradient outside the two permitted uses), and every shadow-glow-* status treatment — a
+// tile (gradient outside the two permitted uses), and every shadow-glow-* status treatment, a
 // glowing node on state change is exactly the "neon accent / ambient glow" pattern craft
 // guardrails §2 item 3 catalogues. Status is now border + tint background only, matching how
 // every other status surface in the product signals state.
@@ -87,7 +87,7 @@ export default function WorkflowCanvas({ definition, nodeRuns = [], selectedNode
         style={{
           width,
           height,
-          // A dot-grid canvas texture, not a brand gradient — kept on a design-system colour
+          // A dot-grid canvas texture, not a brand gradient, kept on a design-system colour
           // (border-strong) at low alpha rather than the previous literal rgba(11,15,59,…).
           backgroundImage: "radial-gradient(circle, rgb(var(--color-border-strong) / 0.5) 1px, transparent 1px)",
           backgroundSize: "22px 22px",
@@ -105,7 +105,7 @@ export default function WorkflowCanvas({ definition, nodeRuns = [], selectedNode
             const bend = Math.max(40, Math.abs(x2 - x1) * 0.45);
             return (
               <g key={`${edge.sourceNodeKey}-${edge.targetNodeKey}-${index}`}>
-                {/* Flat structural colour, not the two named gradient exceptions (§4.5) — edges
+                {/* Flat structural colour, not the two named gradient exceptions (§4.5), edges
                     are connective tissue, not a call to action. */}
                 <path
                   d={`M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`}

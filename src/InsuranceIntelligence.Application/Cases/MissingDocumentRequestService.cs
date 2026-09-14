@@ -10,13 +10,13 @@ using InsuranceIntelligence.Domain.Workflow;
 namespace InsuranceIntelligence.Application.Cases;
 
 /// <summary>What actually happened when the platform tried to ask a customer for missing
-/// documents (blueprint §14 Phase 5, WO 5.4) — always truthful.</summary>
+/// documents (blueprint §14 Phase 5, WO 5.4), always truthful.</summary>
 public enum MissingDocumentRequestOutcome
 {
     /// <summary>Actually delivered to the sending provider.</summary>
     Sent,
 
-    /// <summary>Nothing is missing — there is no request to send.</summary>
+    /// <summary>Nothing is missing, there is no request to send.</summary>
     SkippedNoMissingDocuments,
 
     /// <summary>The claim's channel has no usable contact on file (a WhatsApp id or a phone
@@ -24,13 +24,13 @@ public enum MissingDocumentRequestOutcome
     /// was not resolved by the caller.</summary>
     NoRecipientAvailable,
 
-    /// <summary>A channel and recipient were resolved but the send did not go out — pending human
+    /// <summary>A channel and recipient were resolved but the send did not go out, pending human
     /// approval, an unconfigured provider, or a provider-side failure. The reason is in the audit
     /// trail, not swallowed.</summary>
     NotSent,
 
     /// <summary>WhatsApp only (blueprint §14 Phase 6, WO 6.1): no active ConsentRecord exists for
-    /// this customer and purpose — the original inbound conversation that would have captured one
+    /// this customer and purpose, the original inbound conversation that would have captured one
     /// may be long over. Never sends without one.</summary>
     NoActiveConsent,
 }
@@ -39,9 +39,9 @@ public interface IMissingDocumentRequestService
 {
     /// <summary>Sends (or honestly declines to send) a request for the claim's still-missing
     /// required documents, over the channel the claim actually originated on (blueprint WO 5.4's
-    /// explicit requirement — unlike WO 5.2's acknowledgement, which is channel-agnostic).
+    /// explicit requirement, unlike WO 5.2's acknowledgement, which is channel-agnostic).
     /// whatsAppBusinessPhoneNumberId is the tenant's configured WhatsApp Cloud API phone number id
-    /// (IWhatsAppRuntimeSettingsProvider.Current?.PhoneNumberId) — resolved and passed in by the
+    /// (IWhatsAppRuntimeSettingsProvider.Current?.PhoneNumberId), resolved and passed in by the
     /// caller, which lives in the Api layer and can reach Infrastructure; this service cannot
     /// reference that provider directly for the same reason CustomerAssistantService takes
     /// autoReplyEnabled as a parameter instead of reading InfrastructureOptions itself.</summary>
@@ -102,7 +102,7 @@ public sealed class MissingDocumentRequestService(
 
         var waId = NormalizeWaId(claimCase.CustomerPhone);
 
-        // WO 6.1 outbound enforcement — this send has no fresh inbound message to lean on (it is
+        // WO 6.1 outbound enforcement, this send has no fresh inbound message to lean on (it is
         // triggered by workflow evaluation, not a live webhook), so the consent capture from the
         // original conversation is the only thing that can permit it.
         var consent = await consentRepository.GetCurrentAsync(claimCase.Scope, waId, WhatsAppMessagingPurpose, cancellationToken);

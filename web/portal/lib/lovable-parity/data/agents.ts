@@ -8,7 +8,7 @@ import { agents as fixtureAgents } from "@/lib/lovable-parity/mock";
 
 // WO-11: matches InsuranceIntelligence.Domain.Agents.AgentImplementationKind exactly (see
 // AgentRegistry.cs). "NotImplemented" means no code path in the backend invokes anything under
-// this agent key — the admin surface must say so plainly, not imply it is a working AI agent.
+// this agent key, the admin surface must say so plainly, not imply it is a working AI agent.
 export type AgentImplementationKind = "ModelBacked" | "AiServiceBacked" | "RuleBased" | "NotImplemented";
 
 export type AgentEntryView = {
