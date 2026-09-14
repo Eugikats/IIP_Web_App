@@ -106,3 +106,25 @@ export function policyStanding(effectiveFrom?: string | null, effectiveTo?: stri
   if (to && now > new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59)) return "Expired";
   return "Active";
 }
+
+// How a claim or message arrived, in words. The backend stores Channel as free text (see
+// ChannelBadge in components/iip/Primitives.tsx), so unknown values are humanised, never hidden.
+const CHANNEL_LABELS: Record<string, string> = {
+  StaffEntry: "Manual entry",
+  ClientPortal: "Claimant portal",
+  PortalSubmission: "Claimant portal",
+  Email: "Email",
+  WhatsApp: "WhatsApp",
+  Sms: "SMS",
+  SMS: "SMS",
+  Branch: "Branch",
+  Broker: "Broker",
+  CallCentre: "Call centre",
+  CallCenter: "Call centre",
+};
+
+export function channelLabel(channel: string | null | undefined): string {
+  const value = (channel ?? "").trim();
+  if (!value) return "Not recorded";
+  return CHANNEL_LABELS[value] ?? humanizeIdentifier(value);
+}

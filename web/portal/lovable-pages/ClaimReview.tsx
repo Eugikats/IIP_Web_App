@@ -38,7 +38,7 @@ import { extractionHref } from "@/lib/workItemLinks";
 import { canPreviewPermission, hasPermission } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useRuntimeContext } from "@/lib/runtimeContext";
-import { claimReference } from "@/lib/format";
+import { channelLabel, claimReference, formatDate } from "@/lib/format";
 import { usePeople } from "@/lib/people";
 import AssignClaimControl from "@/components/iip/AssignClaimControl";
 
@@ -677,8 +677,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               <Row k="Customer" v={detail.customerName} />
               <Row k="Policy" v={`${detail.policyNumber} · ${detail.productLine}`} />
               <Row k="Claim type" v={detail.claimType} />
-              <Row k="Channel" v={detail.channel} />
-              <Row k="Incident date" v={detail.incidentDate} />
+              <Row k="Channel" v={channelLabel(detail.channel)} />
+              <Row k="Incident date" v={formatDate(detail.incidentDate)} />
               <Row k="Assigned to" v={describe(detail.assignedUserId, "Nobody yet")} />
               <AssignClaimControl caseId={detail.claimId} currentAssigneeId={detail.assignedUserId} onAssigned={reload} />
               {detail.customerEmail ? <Row k="Email" v={detail.customerEmail} /> : null}

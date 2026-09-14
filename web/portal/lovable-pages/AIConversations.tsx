@@ -1,5 +1,4 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useMemo, useCallback } from "react";
 import { Sparkles, ListChecks, AlertTriangle, CheckCircle2, CircleHelp } from "lucide-react";
 import { AIMessageBubble, UserMessageBubble, Composer } from "@/components/iip/ChatPrimitives";
@@ -29,7 +28,6 @@ function timeOfDayGreeting(): string {
 }
 
 export default function AIConversations({ conversationId: requestedConversationId }: { conversationId?: string }) {
-  const router = useRouter();
   const { runtimeContext } = useRuntimeContext();
   const { roleDef } = useUI();
   const { ask, loading } = useCommandCenterQuery();
@@ -141,7 +139,11 @@ export default function AIConversations({ conversationId: requestedConversationI
     const answer = result.answer;
     if (answer?.conversationId && !conversationId) {
       setConversationId(answer.conversationId);
-      router.replace(`/app/conversations/${answer.conversationId}`);
+      // Update the address without remounting. router.replace swapped to the conversation route,
+      // which reloaded this conversation from history: the answer just given was relabelled as a
+      // historical response with its actions disabled, and a follow-up typed during the swap was
+      // sent from the page being torn down and never shown. A reload still restores it properly.
+      window.history.replaceState(window.history.state, "", `/app/conversations/${answer.conversationId}`);
     }
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: "ai", answer }]);
     setInput("");
@@ -207,8 +209,7 @@ export default function AIConversations({ conversationId: requestedConversationI
               </div>
               <div className="mt-1">{grounding.safeChangeSummary}</div>
               <div className="mt-1 text-[10.5px] text-dls-text-muted">
-                Saved {new Date(grounding.historicalTimestamp).toLocaleString()} &middot; version {grounding.historicalVersion}
-                {grounding.currentVersion ? ` · current ${grounding.currentVersion}` : ""}
+                Saved {new Date(grounding.historicalTimestamp).toLocaleString()}
               </div>
             </div>
           ) : null}

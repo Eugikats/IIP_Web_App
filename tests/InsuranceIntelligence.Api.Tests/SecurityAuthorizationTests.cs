@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Api.ClientPortal;
 using System.Security.Claims;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -684,6 +685,62 @@ public sealed class SecurityAuthorizationTests
         var result = RuntimeHeaderGuard.RejectUnauthenticatedApiOutsideDevelopment(context, ProductionOptions);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void RuntimeHeaderGuard_AllowsClientPortalScopeHeadersOutsideDevelopment()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/v1/client-portal/magic-links";
+        context.Request.Headers["X-Tenant-Id"] = "configured-tenant";
+        context.Request.Headers["X-Workspace-Id"] = "configured-workspace";
+
+        Assert.Null(RuntimeHeaderGuard.RejectBrowserAuthorityOutsideDevelopment(context, ProductionOptions));
+    }
+
+    [Fact]
+    public async Task RuntimeHeaderGuard_StillRejectsDemoIdentityHeadersOnClientPortalOutsideDevelopment()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/v1/client-portal/magic-links";
+        context.Request.Headers["x-demo-role"] = "Admin";
+
+        var result = RuntimeHeaderGuard.RejectBrowserAuthorityOutsideDevelopment(context, ProductionOptions);
+
+        Assert.NotNull(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, await ExecuteStatusAsync(result!));
+    }
+
+    [Theory]
+    [InlineData("/api/v1/client-portal/magic-links")]
+    [InlineData("/api/v1/client-portal/claims")]
+    [InlineData("/api/v1/integrations/whatsapp/webhook")]
+    public void RuntimeHeaderGuard_AllowsCallersWithoutEntraTokensOnTheirOwnRoutesOutsideDevelopment(string path)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = path;
+
+        Assert.Null(RuntimeHeaderGuard.RejectUnauthenticatedApiOutsideDevelopment(context, ProductionOptions));
+    }
+
+    [Fact]
+    public void ClientPortalScopeReader_PinsScopeToTheDeploymentOutsideDevelopment()
+    {
+        var context = new DefaultHttpContext { RequestServices = ServicesWithOptions(ProductionDeploymentOptions) };
+
+        Assert.True(ClientPortalScopeReader.TryGetFromHeaders(context, out var scope, out _));
+        Assert.Equal("configured-tenant", scope.TenantId);
+        Assert.Equal("configured-workspace", scope.WorkspaceId);
+    }
+
+    [Fact]
+    public void ClientPortalScopeReader_RefusesAHeaderNamingAnotherTenantOutsideDevelopment()
+    {
+        var context = new DefaultHttpContext { RequestServices = ServicesWithOptions(ProductionDeploymentOptions) };
+        context.Request.Headers["X-Tenant-Id"] = "some-other-tenant";
+
+        Assert.False(ClientPortalScopeReader.TryGetFromHeaders(context, out _, out var error));
+        Assert.Contains("different insurer", error);
     }
 
     [Fact]

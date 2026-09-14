@@ -8,7 +8,7 @@ import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { useCustomerProfile } from "@/lib/lovable-parity/data/customers";
 import { useCustomerSummary, type CustomerSummarySource } from "@/lib/lovable-parity/data/customerSummary";
-import { claimReference, formatDate, formatDateTime, formatPercent, humanizeIdentifier, isGuid, policyStanding } from "@/lib/format";
+import { channelLabel, claimReference, formatDate, formatDateTime, formatPercent, humanizeIdentifier, isGuid, policyStanding } from "@/lib/format";
 
 // Customer 360. Each record type gets its own purpose-built row, never a generic key/value dump:
 // the API returns records as string dictionaries keyed by field name, and printing those keys
@@ -56,7 +56,7 @@ function ClaimRow({ claim }: { claim: Row }) {
           <span>Incident {formatDate(v(claim, "incidentDate"))}</span>
           <span>Reported {formatDate(v(claim, "createdAt"))}</span>
           <span>Documents {formatPercent(v(claim, "completenessScore"))} complete</span>
-          {v(claim, "channel") ? <span>Via {humanizeIdentifier(v(claim, "channel"))}</span> : null}
+          {v(claim, "channel") ? <span>Via {channelLabel(v(claim, "channel"))}</span> : null}
           {v(claim, "policyNumber") ? <span>Policy {v(claim, "policyNumber")}</span> : null}
         </div>
       </div>
@@ -77,9 +77,9 @@ function PolicyRow({ policy }: { policy: Row }) {
   const standing = policyStanding(v(policy, "effectiveFrom"), v(policy, "effectiveTo"));
   return (
     <div className="py-3 first:pt-0 last:pb-0">
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
         <div className="min-w-0">
-          <div className="break-words text-[13px] font-semibold text-dls-text-primary">{v(policy, "policyNumber") ?? "Policy"}</div>
+          <div className="whitespace-nowrap text-[13px] font-semibold tabular-nums text-dls-text-primary">{v(policy, "policyNumber") ?? "Policy"}</div>
           <div className="mt-0.5 text-[12px] text-dls-text-secondary">
             {[v(policy, "productLine"), v(policy, "coverType")].filter(Boolean).join(" · ") || "Cover not recorded"}
           </div>

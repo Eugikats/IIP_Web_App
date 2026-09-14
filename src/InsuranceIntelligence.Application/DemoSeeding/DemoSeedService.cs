@@ -384,6 +384,100 @@ public sealed class DemoSeedService(
         "Tumusiime", "Wanyama", "Kato", "Namuli", "Bwambale", "Kyomuhendo", "Atim", "Rukundo"
     ];
 
+    /// <summary>
+    /// Adds policyholders who hold an active policy and have never filed a claim, so the claimant
+    /// portal's first-claim journey can be demonstrated. The main seed gives every customer a claim,
+    /// which leaves nobody who could file a first one: the portal only offers "start a new claim" to
+    /// a verified policyholder with no claim on that policy.
+    ///
+    /// Safe to run more than once. Names and emails are derived from a fixed seed per slot, and a
+    /// policyholder whose email already exists is returned as it is rather than created again.
+    /// Must only run behind the same Demo gate as <see cref="SeedAsync"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<DemoPolicyholder>> SeedPolicyholdersWithoutClaimsAsync(
+        TenantScope scope,
+        int count,
+        CancellationToken cancellationToken)
+    {
+        count = Math.Clamp(count, 1, 5);
+        var existingCustomers = await customerRepository.ListAsync(scope, cancellationToken);
+        var existingPolicies = await policyRepository.ListAsync(scope, cancellationToken);
+
+        var branchId = existingPolicies
+            .Select(policy => policy.BranchId)
+            .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
+        if (branchId is null)
+        {
+            var branches = BuildBranches(scope);
+            foreach (var branch in branches)
+            {
+                await branchRepository.UpsertAsync(branch, cancellationToken);
+            }
+
+            branchId = branches[0].BranchId;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var results = new List<DemoPolicyholder>();
+
+        for (var slot = 0; slot < count; slot++)
+        {
+            var index = 900 + slot;
+            var rng = new Random(Seed + index);
+            var line = ProductLines[slot % ProductLines.Length];
+            var customer = BuildCustomer(scope, index, line, rng);
+
+            var existing = existingCustomers.FirstOrDefault(item =>
+                string.Equals(item.Email, customer.Email, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                var existingPolicy = existingPolicies.FirstOrDefault(policy => policy.CustomerId == existing.CustomerId);
+                if (existingPolicy is not null)
+                {
+                    results.Add(new DemoPolicyholder(existing.FullName, existing.Email ?? string.Empty, existing.Phone ?? string.Empty,
+                        existingPolicy.PolicyNumber, existingPolicy.ProductLine, Created: false));
+                    continue;
+                }
+
+                customer = existing;
+            }
+            else
+            {
+                await customerRepository.UpsertAsync(customer, cancellationToken);
+            }
+
+            // In force today, so the demonstration is of an ordinary claim, not an expired-cover edge case.
+            var effectiveFrom = today.AddDays(-45);
+            var policyId = Guid.NewGuid().ToString();
+            var policyNumber = $"NSA/{line.Name.ToUpperInvariant()[..2]}/{effectiveFrom.Year}/{index + 1:D5}";
+            var premium = line.PremiumFactory(rng);
+            var sumInsured = line.SumInsuredFactory(rng);
+            var coverType = line.CoverTypes[rng.Next(line.CoverTypes.Length)];
+
+            await policyRepository.UpsertAsync(
+                new Policy(
+                    policyId, scope.TenantId, scope.WorkspaceId, policyNumber, line.Name, coverType,
+                    customer.CustomerId, branchId, effectiveFrom, effectiveFrom.AddYears(1),
+                    premium, "UGX", sumInsured),
+                cancellationToken);
+
+            await coverageRepository.UpsertAsync(
+                new Coverage(
+                    Guid.NewGuid().ToString(), scope.TenantId, scope.WorkspaceId, policyId,
+                    $"{coverType}, {line.Name}",
+                    $"UGX {sumInsured:N0}",
+                    $"UGX {RoundToNearest(sumInsured * 0.02m, 1000m):N0}",
+                    line.Name == "Motor" ? "Insured vehicle" : line.Name == "Agriculture" ? "Insured crop/livestock" : "Insured risk",
+                    $"{coverType} cover under the {line.Name} product line, sum insured UGX {sumInsured:N0}, annual premium UGX {premium:N0}."),
+                cancellationToken);
+
+            results.Add(new DemoPolicyholder(customer.FullName, customer.Email ?? string.Empty, customer.Phone ?? string.Empty,
+                policyNumber, line.Name, Created: true));
+        }
+
+        return results;
+    }
+
     private static Customer BuildCustomer(TenantScope scope, int index, ProductLineTemplate line, Random rng)
     {
         var first = FirstNames[rng.Next(FirstNames.Length)];
@@ -657,6 +751,9 @@ public sealed class DemoSeedService(
         };
     }
 }
+
+/// <summary>A demonstration policyholder with an active policy and no claim, and whether this run created it.</summary>
+public sealed record DemoPolicyholder(string FullName, string Email, string Phone, string PolicyNumber, string ProductLine, bool Created);
 
 public sealed record DemoSeedResult(
     string InsurerName,
