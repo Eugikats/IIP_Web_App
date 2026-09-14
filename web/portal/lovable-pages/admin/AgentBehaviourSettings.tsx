@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { AlertTriangle, CheckCircle2, History, Loader2, PlayCircle, ShieldCheck } from "lucide-react";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
+import { MarkdownText } from "@/components/iip/MarkdownText";
 import { Button } from "@/components/ui/Button";
 import { Input, Field as UIField } from "@/components/ui/Input";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
@@ -254,7 +255,12 @@ export default function AgentBehaviourSettings() {
               <div className={`mt-3 rounded-dls-control p-3 text-[12px] ${testResult.ok ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-warning-tint text-dls-text-secondary"}`}>
                 <div className="flex items-start gap-2">
                   {testResult.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
-                  <span className="whitespace-pre-wrap">{testResult.message}</span>
+                  {/* Only the success branch is model output — render its markdown the same way
+                      every other assistant surface does. The failure branch is our own error copy,
+                      which stays literal so it is never reinterpreted as formatting. */}
+                  {testResult.ok
+                    ? <MarkdownText className="min-w-0 flex-1" content={testResult.message} />
+                    : <span className="whitespace-pre-wrap">{testResult.message}</span>}
                 </div>
                 {testResult.citations && testResult.citations.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">

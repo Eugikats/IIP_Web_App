@@ -138,7 +138,10 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
           {(block as Extract<CommandCenterBlock, { type: "management_summary" }>).sections.map((s, i) => (
             <div key={i} className="mb-2">
               <div className="text-[12px] font-semibold text-dls-text-primary">{s.heading}</div>
-              <div className="text-[12.5px] text-dls-text-secondary">{s.body}</div>
+              {/* Section bodies are model prose from the Report Insight agent and carry the same
+                  markdown the "text" block above already renders — keep the two consistent so a
+                  management summary never shows raw ** or un-bulleted lists. */}
+              <MarkdownText className="text-[12.5px] text-dls-text-secondary" content={s.body} />
             </div>
           ))}
         </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, FileText, Loader2, ShieldQuestion, Sparkles } from "lucide-react";
 import { Badge, GlassCard } from "@/components/iip/Primitives";
+import { MarkdownText } from "@/components/iip/MarkdownText";
 import { Button } from "@/components/ui/Button";
 import { useUI } from "@/context/UIStateContext";
 import { askPolicyQuestion, type CoverageState, type PolicyQuestionAnswer } from "@/lib/policyAssistant";
@@ -93,9 +94,14 @@ export default function PolicyQuestionPanel({
             <Badge tone="neutral">{Math.round(answer.confidenceScore * 100)}% confidence</Badge>
             {answer.escalationRequired ? <Badge tone="warning">Escalation recommended</Badge> : null}
           </div>
-          <p className="text-[13px] leading-relaxed text-dls-text-primary">{answer.answer}</p>
+          {/* Model prose, not plain text: the assistant emits markdown (bold, bullet lists), so
+              rendering it into a bare <p> showed literal ** characters and collapsed every list
+              into one run-on paragraph. MarkdownText is the same injection-safe renderer the
+              Command Center and claim summary already use — React elements only, never
+              dangerouslySetInnerHTML, so model output can't inject markup. */}
+          <MarkdownText className="text-[13px] leading-relaxed text-dls-text-primary" content={answer.answer} />
           {answer.guardrailMessage && answer.guardrailMessage !== answer.answer ? (
-            <p className="text-[11.5px] italic text-dls-text-muted">{answer.guardrailMessage}</p>
+            <MarkdownText className="text-[11.5px] italic text-dls-text-muted" content={answer.guardrailMessage} />
           ) : null}
           {answer.sources.length > 0 ? (
             <div>
