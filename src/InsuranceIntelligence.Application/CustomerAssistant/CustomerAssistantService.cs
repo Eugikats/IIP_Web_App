@@ -6,6 +6,7 @@ using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.CustomerAssistant;
@@ -139,7 +140,7 @@ public sealed class CustomerAssistantService(
             CorrelationId = correlationId,
         }, cancellationToken);
 
-        var (reply, outcome, citations, caseId, leadId) = intent switch
+        var (rawReply, outcome, citations, caseId, leadId) = intent switch
         {
             CustomerIntent.GeneralQuestion => await HandleGeneralQuestionAsync(scope, text, waId, correlationId, autoReplyEnabled, cancellationToken),
             CustomerIntent.NewClaim => await HandleNewClaimAsync(scope, text, waId, inbound.BusinessPhoneNumberId, correlationId, cancellationToken),
@@ -148,6 +149,13 @@ public sealed class CustomerAssistantService(
             CustomerIntent.HumanRequested => await HandleHumanRequestedAsync(scope, text, waId, cancellationToken),
             _ => (DefaultEscalationMessage(), CustomerAssistantOutcome.Escalated, Array.Empty<string>(), (Guid?)null, (string?)null),
         };
+
+        // GeneralQuestion replies are model prose and arrive with markdown in them — the staff
+        // portal renders that, WhatsApp does not (its bold is *single* asterisks, so a model's
+        // ** reaches the customer as literal characters). Flatten before the reply is either sent
+        // or recorded, so the stored CustomerConversationTurn is exactly what the customer got.
+        // A no-op for the fixed template replies, which contain no markdown to begin with.
+        var reply = rawReply is null ? null : PlainTextForCustomerChannel.Convert(rawReply);
 
         // QueuedForHumanApproval means the five-condition gate (CustomerAutoReplyGate) declined to
         // auto-send an AI-composed answer — it must be logged for a human to review, never sent to
