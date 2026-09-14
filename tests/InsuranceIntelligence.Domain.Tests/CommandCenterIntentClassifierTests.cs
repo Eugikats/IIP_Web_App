@@ -41,11 +41,58 @@ public sealed class CommandCenterIntentClassifierTests
         Assert.Equal(expected, Classify(message));
 
     [Theory]
+    // Greetings used to classify as Unsupported and fall through to the standing operational
+    // briefing, so saying "Hey" was answered with a count of claims nobody had asked about.
     [InlineData("Hey")]
     [InlineData("hello")]
+    [InlineData("Hi there")]
+    [InlineData("Good morning")]
+    [InlineData("How are you?")]
+    [InlineData("hows it going")]
+    [InlineData("How's it going?")]
+    public void Greetings_AreAnsweredAsGreetings(string message) =>
+        Assert.Equal(IntentType.Conversational, Classify(message));
+
+    [Theory]
+    [InlineData("thanks")]
+    [InlineData("Thank you!")]
+    [InlineData("thanks a lot")]
+    [InlineData("much appreciated")]
+    [InlineData("bye")]
+    [InlineData("Goodbye")]
+    [InlineData("that's all")]
+    [InlineData("What can you do?")]
+    [InlineData("help")]
+    [InlineData("who are you")]
+    public void ThanksFarewellsAndCapabilityQuestions_AreAlsoConversational(string message) =>
+        Assert.Equal(IntentType.Conversational, Classify(message));
+
+    [Theory]
+    // The whole point of matching the entire message rather than looking for a greeting inside
+    // it: an operational request that merely opens politely is still an operational request.
+    [InlineData("hey, which claims are overdue?", IntentType.ShowSlaBreaches)]
+    [InlineData("Hi, show me pending approvals", IntentType.ShowPendingApprovals)]
+    [InlineData("Good morning, what needs my attention today?", IntentType.ShowAttentionClaims)]
+    [InlineData("thanks, now what is missing on these claims?", IntentType.ShowMissingDocuments)]
+    [InlineData("hello, what are the exclusions on the motor policy?", IntentType.AnswerPolicyQuestion)]
+    public void APoliteOpenerDoesNotHijackARealRequest(string message, IntentType expected) =>
+        Assert.Equal(expected, Classify(message));
+
+    [Theory]
+    // Still nothing to answer: not a greeting, not a question, not an operational request.
     [InlineData("...")]
-    public void GreetingsAndFragments_FallBackToBriefing(string message) =>
+    [InlineData("asdf")]
+    [InlineData("??")]
+    public void Fragments_StillFallBackToTheBriefing(string message) =>
         Assert.Equal(IntentType.Unsupported, Classify(message));
+
+    [Fact]
+    public void AGreetingNeedsNoModelOrRetrievalProvider()
+    {
+        // A fixed reply must never be gated behind Azure OpenAI being configured -- an insurer
+        // who has not connected a model should still be greeted rather than shown "not configured".
+        Assert.Empty(new ProviderRequirementResolver().GetRequiredProviders(IntentType.Conversational));
+    }
 
     [Fact]
     public void PolicyAnswer_RequiresBothModelAndRetrievalProviders()
