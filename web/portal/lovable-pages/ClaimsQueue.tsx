@@ -11,6 +11,8 @@ import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, EmptyFilteredSta
 import { useClaims } from "@/lib/lovable-parity/data/claims";
 import type { ClaimRowView } from "@/lib/lovable-parity/data/claims";
 import { useRuntimeContext } from "@/lib/runtimeContext";
+import { claimReference } from "@/lib/format";
+import { usePeople } from "@/lib/people";
 
 const quickFilters = [
   "All",
@@ -29,6 +31,7 @@ export default function ClaimsQueue() {
   const error = "error" in loadState ? loadState.error : null;
   const snapshotAvailable = loadState.status === "success" || loadState.status === "empty";
   const { runtimeContext } = useRuntimeContext();
+  const { describe } = usePeople();
   const [f, setF] = useState<QuickFilter>("All");
   const [q, setQ] = useState("");
   const [productFilter, setProductFilter] = useState("All");
@@ -53,9 +56,9 @@ export default function ClaimsQueue() {
     if (productFilter !== "All" && c.productLine !== productFilter) return false;
     if (riskFilter !== "All" && c.risk !== riskFilter) return false;
     if (channelFilter !== "All" && c.channel !== channelFilter) return false;
-    if (q && !`${c.id} ${c.customer} ${c.policy} ${c.productLine} ${c.claimType} ${c.status} ${c.assignedUserId ?? ""} ${c.assignedTeam ?? ""}`.toLowerCase().includes(q.toLowerCase())) return false;
+    if (q && !`${c.id} ${claimReference(c.id)} ${describe(c.assignedUserId, "")} ${c.customer} ${c.policy} ${c.productLine} ${c.claimType} ${c.status} ${c.assignedUserId ?? ""} ${c.assignedTeam ?? ""}`.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }), [channelFilter, claims, f, productFilter, q, riskFilter, runtimeContext?.userId]);
+  }), [channelFilter, claims, describe, f, productFilter, q, riskFilter, runtimeContext?.userId]);
 
   const activeStructuredFilters = [productFilter, riskFilter, channelFilter].filter((value) => value !== "All").length;
   const hasActiveFilters = f !== "All" || q.length > 0 || activeStructuredFilters > 0;
@@ -77,7 +80,7 @@ export default function ClaimsQueue() {
     setBusyCaseId(caseId);
     try {
       const result = await assignCase(caseId, runtimeContext.userId);
-      if (result.ok) toast.success("Case assigned", { description: "The work queue was refreshed from the backend." });
+      if (result.ok) toast.success("Claim assigned to you", { description: "The queue has been refreshed." });
       else toast.error(result.message ?? "Assignment failed.");
     } finally {
       setBusyCaseId(null);
@@ -105,7 +108,7 @@ export default function ClaimsQueue() {
         // here, so it fits this eyebrow's intent without introducing a new color.
         eyebrowClassName="text-dls-text-secondary"
         title="Work Queue"
-        sub="Claims requiring officer attention across Motor Operations. AI has pre-processed extractions, evidence, and risk signals — officers decide."
+        sub="Claims requiring officer attention across Motor Operations. AI has already read the documents and flagged anything worth checking. Officers decide."
         action={
           <Link to="/app/claims/new" className="dls-focus-outline inline-flex min-h-11 items-center justify-center gap-1.5 rounded-dls-control bg-dls-primary px-4 py-[9px] text-[13px] font-bold text-dls-text-inverse shadow-dls-primary hover:bg-dls-primary-hover">
             + New claim
@@ -175,7 +178,7 @@ export default function ClaimsQueue() {
               <article key={claim.id} data-testid="claim-card" className="space-y-3 p-4">
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="break-words text-[14px] font-bold text-dls-text-primary">{claim.id}</h2>
+                    <h2 className="break-words text-[14px] font-bold text-dls-text-primary">{claimReference(claim.id)}</h2>
                     <p className="mt-0.5 break-words text-[12.5px] text-dls-text-secondary">{claim.customer} · {claim.policy}</p>
                   </div>
                   <StatusBadge status={claim.status} />
@@ -183,7 +186,7 @@ export default function ClaimsQueue() {
                 <div className="flex flex-wrap gap-2">{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}<SLABadge sla={claim.sla} /><RiskBadge risk={claim.risk} /><ChannelBadge channel={claim.channel} /></div>
                 <dl className="grid gap-2 text-[12px] text-dls-text-secondary min-[360px]:grid-cols-2">
                   <div><dt className="text-dls-text-muted">Evidence</dt><dd>{claim.complete ? "Documents complete" : "Documents incomplete"}</dd></div>
-                  <div><dt className="text-dls-text-muted">Owner</dt><dd className="break-words">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</dd></div>
+                  <div><dt className="text-dls-text-muted">Owner</dt><dd className="break-words">{claim.assignedUserId ? describe(claim.assignedUserId) : claim.assignedTeam ?? "Unassigned"}</dd></div>
                   <div><dt className="text-dls-text-muted">Product</dt><dd>{claim.productLine} · {claim.claimType}</dd></div>
                   <div><dt className="text-dls-text-muted">Updated</dt><dd>{claim.updated}</dd></div>
                 </dl>
@@ -201,7 +204,7 @@ export default function ClaimsQueue() {
                 {rows.map((claim) => (
                   <TableRow key={claim.id}>
                     <TableCell>
-                      <div className="flex items-center gap-2"><span className="font-semibold text-dls-text-primary">{claim.id}</span>{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}</div>
+                      <div className="flex items-center gap-2"><span className="font-semibold text-dls-text-primary">{claimReference(claim.id)}</span>{claim.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}</div>
                       <div className="text-[11px] text-dls-text-muted">{claim.customer}</div>
                       <details className="mt-2">
                         <summary className="dls-focus-outline min-h-6 cursor-pointer text-[11.5px] font-semibold text-dls-primary">More details</summary>
@@ -216,7 +219,7 @@ export default function ClaimsQueue() {
                     </TableCell>
                     <TableCell><StatusBadge status={claim.status} /></TableCell>
                     <TableCell><SLABadge sla={claim.sla} /></TableCell>
-                    <TableCell className="max-w-40 break-words text-dls-text-secondary">{claim.assignedUserId ?? claim.assignedTeam ?? "Unassigned"}</TableCell>
+                    <TableCell className="max-w-40 break-words text-dls-text-secondary">{claim.assignedUserId ? describe(claim.assignedUserId) : claim.assignedTeam ?? "Unassigned"}</TableCell>
                     <TableCell>
                       <Link to={`/app/claims/${claim.id}`} className="dls-focus-outline inline-flex min-h-11 items-center gap-1 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 font-semibold text-dls-primary hover:bg-dls-bg-page">Review <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
                     </TableCell>
@@ -240,7 +243,7 @@ export default function ClaimsQueue() {
                   <TableRow key={c.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-dls-text-primary">{c.id}</span>
+                        <span className="font-semibold text-dls-text-primary">{claimReference(c.id)}</span>
                         {c.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}
                       </div>
                       <div className="text-[11px] text-dls-text-muted">{c.policy}</div>
@@ -256,7 +259,7 @@ export default function ClaimsQueue() {
                     <TableCell><RiskBadge risk={c.risk} /></TableCell>
                     <TableCell><ConfidenceBadge value={c.confidence} /></TableCell>
                     <TableCell className="whitespace-nowrap text-dls-text-secondary">
-                      {c.assignedUserId ? c.assignedUserId : c.assignedTeam ?? "Unassigned"}
+                      {c.assignedUserId ? describe(c.assignedUserId) : c.assignedTeam ?? "Unassigned"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-dls-text-muted">{c.updated}</TableCell>
                     <TableCell>
@@ -341,7 +344,7 @@ function ClaimActions({ claim, busy, onAssign, onEscalate, compact = false }: { 
     <div className={`flex flex-wrap items-center gap-2 ${compact ? "border-t border-dls-border-subtle pt-3" : ""}`}>
       <Link to={`/app/claims/${claim.id}`} className="dls-focus-outline inline-flex min-h-11 items-center gap-1 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[12px] font-semibold text-dls-primary hover:bg-dls-bg-page">Review <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
       <button type="button" onClick={() => void onAssign(claim.id)} disabled={busy} className="dls-focus-outline inline-flex min-h-11 items-center gap-1 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[12px] font-semibold text-dls-text-primary hover:bg-dls-bg-page disabled:opacity-50">
-        <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />Assign
+        <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />Assign to me
       </button>
       <button type="button" onClick={() => void onEscalate(claim.id)} disabled={busy || claim.status === "Escalated"} className="dls-focus-outline inline-flex min-h-11 items-center gap-1 rounded-dls-control border border-dls-warning-dot bg-dls-surface px-3 py-2 text-[12px] font-semibold text-dls-warning-text disabled:opacity-50">
         <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />Escalate

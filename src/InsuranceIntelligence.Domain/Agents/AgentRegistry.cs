@@ -62,6 +62,10 @@ public static class AgentCatalog
             AgentImplementationKind.ModelBacked, ["claims.attention.read", "claims.sla.read", "documents.gaps.read", "approvals.queue.read", "knowledge.search", "provider_health.read", "metrics.read"]),
         new("claims-summary", "Claims Summary Agent", "Summarises claim facts, timelines, issues, and cited evidence for human review.", "Low", HumanApprovalRequired: false,
             AgentImplementationKind.ModelBacked, ["claim.read", "document.read", "policy.read", "knowledge.search", "claims.attention.read", "audit.read"]),
+        // Briefs staff on one customer from that customer's own records only (policies, claims,
+        // messages, documents, consent), citing the record behind every point. No knowledge base.
+        new("customer-summary", "Customer Summary Agent", "Summarises one customer's policies, claims, messages and documents for staff, citing the record behind each point.", "Low", HumanApprovalRequired: false,
+            AgentImplementationKind.ModelBacked, ["customer.profile.read"]),
         // Document Checker calls a real Azure AI service (Document Intelligence: OCR + field
         // extraction) but never a chat/LLM completion — a genuinely different capability from a
         // rule engine, since its output quality depends on a live AI service, not fixed logic.

@@ -13,7 +13,7 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useParams } from "@/components/iip/NextRouterCompat";
 import { CustomerUpdateGovernedDialog, type PendingCustomerUpdateAction } from "@/components/CustomerUpdateGovernedDialog";
 import { CustomerUpdatePanel, type CustomerUpdate } from "@/components/CustomerUpdatePanel";
@@ -38,6 +38,9 @@ import { extractionHref } from "@/lib/workItemLinks";
 import { canPreviewPermission, hasPermission } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useRuntimeContext } from "@/lib/runtimeContext";
+import { claimReference } from "@/lib/format";
+import { usePeople } from "@/lib/people";
+import AssignClaimControl from "@/components/iip/AssignClaimControl";
 
 const FRAUD_SEVERITY_TONE: Record<FraudSeverity, "error" | "warning" | "violet"> = {
   Investigation: "error",
@@ -100,6 +103,33 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const displayedSummary = claimsSummary ?? persistedReview;
   const summaryIsLoading = summarizing || reviewLoading;
   const { runtimeContext, parityMode } = useRuntimeContext();
+  const { describe } = usePeople();
+
+  // Every new claim is reviewed by the claims agent in the background the moment it is submitted.
+  // If the page opens before that review lands, check back for a minute rather than looking empty.
+  const [awaitingAutomaticReview, setAwaitingAutomaticReview] = useState(false);
+  const pollAttempts = useRef(0);
+  const hasReview = Boolean(displayedSummary);
+  const claimStatus = detail?.status;
+  useEffect(() => { pollAttempts.current = 0; }, [claimId]);
+  useEffect(() => {
+    if (!claimId || hasReview || parityMode) {
+      setAwaitingAutomaticReview(false);
+      return;
+    }
+    if (claimStatus && !["New", "Assigned"].includes(claimStatus)) return;
+    setAwaitingAutomaticReview(true);
+    const timer = window.setInterval(() => {
+      pollAttempts.current += 1;
+      if (pollAttempts.current > 12) {
+        window.clearInterval(timer);
+        setAwaitingAutomaticReview(false);
+        return;
+      }
+      void loadReview();
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [claimId, hasReview, parityMode, claimStatus, loadReview]);
   // Gates the upload control on the signed-in user's real permission, never on the preview role
   // switcher — a role without UploadDocument (e.g. ITAdmin, Compliance) must not see a button
   // that the server will refuse with 403.
@@ -298,7 +328,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Claims
       </Link>
       <span>/</span>
-      <span className="text-dls-text-primary">{claimId}</span>
+      <span className="text-dls-text-primary">{claimReference(claimId)}</span>
     </div>
   );
 
@@ -343,7 +373,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       <SectionHeader
         eyebrow={`Case Review · ${detail.policyNumber}`}
         eyebrowClassName="text-dls-text-secondary"
-        title={`${detail.claimId.slice(0, 8)} · ${detail.customerName}`}
+        title={`${claimReference(detail.claimId)} · ${detail.customerName}`}
         sub={detail.incidentDescription}
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -527,7 +557,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               <div>
                 <div className="text-[14px] font-bold text-dls-text-primary">Claim summary</div>
                 <div className="mt-1 text-[11.5px] text-dls-text-muted">
-                  Prepared from this claim&apos;s facts, documents, policy, and approved knowledge. Required before decision use — not a decision itself.
+                  Prepared by the claims agent from this claim&apos;s facts, documents, policy and approved knowledge. It prepares the claim for a decision and is not a decision itself.
                 </div>
               </div>
               <Button variant="secondary" icon={<MessageSquareText />} disabled={summarizing} onClick={() => { void generateSummary(); }} className="shrink-0">
@@ -539,7 +569,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{summaryError}</span>
               </div>
-            ) : summaryIsLoading && !displayedSummary ? (
+            ) : summaryIsLoading && !displayedSummary && !awaitingAutomaticReview ? (
               <LoadingSkeleton rows={3} />
             ) : displayedSummary ? (
               <div className="space-y-3">
@@ -568,7 +598,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                       ))}
                     </ul>
                     <div className="mt-2 text-[11px] text-dls-text-muted">
-                      Advisory observations only — a human reviewer decides what, if anything, to do.
+                      Advisory observations only. A person decides what, if anything, to do.
                     </div>
                   </div>
                 ) : null}
@@ -588,7 +618,9 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               </div>
             ) : (
               <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
-                No summary generated yet.
+                {awaitingAutomaticReview
+                  ? "The claims agent reviews every new claim as soon as it arrives. Its review usually appears here within a minute."
+                  : "No review yet. Use Generate summary to ask the claims agent for one."}
               </div>
             )}
           </GlassCard>
@@ -647,7 +679,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               <Row k="Claim type" v={detail.claimType} />
               <Row k="Channel" v={detail.channel} />
               <Row k="Incident date" v={detail.incidentDate} />
-              {detail.assignedUserId ? <Row k="Assigned" v={detail.assignedUserId} /> : null}
+              <Row k="Assigned to" v={describe(detail.assignedUserId, "Nobody yet")} />
+              <AssignClaimControl caseId={detail.claimId} currentAssigneeId={detail.assignedUserId} onAssigned={reload} />
               {detail.customerEmail ? <Row k="Email" v={detail.customerEmail} /> : null}
               {detail.customerPhone ? <Row k="Phone" v={detail.customerPhone} /> : null}
             </div>
@@ -713,7 +746,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       <GovernedActionDialog
         open={exportDialogOpen}
         title="Export claim evidence pack"
-        target={`Case ${detail.claimId}`}
+        target={`Claim ${claimReference(detail.claimId)}`}
         impact="Creates a durable JSON evidence-pack artifact from sanitized audit, document, assistant-action, approval, and customer-update records for this claim."
         auditNotice="Evidence-pack export is a compliance-sensitive action. The exported artifact is stored through the configured evidence storage provider and the export event is written to the audit trail."
         confirmLabel="Export claim pack"
@@ -733,7 +766,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       <GovernedActionDialog
         open={confirmDialogOpen}
         title="Confirm claim"
-        target={`Case ${detail.claimId}`}
+        target={`Claim ${claimReference(detail.claimId)}`}
         impact="Starts this claim's SLA clock and includes it in officer SLA and attention metrics. Correct any details IIP guessed from the raw channel message before confirming."
         auditNotice="Confirming this claim is recorded in the audit trail. Both the version before you confirmed it and the version after are kept."
         confirmLabel="Confirm claim"

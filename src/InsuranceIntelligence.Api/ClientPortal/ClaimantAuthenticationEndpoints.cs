@@ -35,7 +35,8 @@ public static class ClaimantAuthenticationEndpoints
         InfrastructureOptions options,
         HttpContext httpContext,
         ILogger<ClaimantMagicLinkLogMarker> logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IHostEnvironment? hostEnvironment = null)
     {
         if (!ClientPortalScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
         {
@@ -99,10 +100,11 @@ public static class ClaimantAuthenticationEndpoints
         }
 
         var matched = claimCase is not null || policy is not null;
+        string? undeliveredLink = null;
 
         if (claimCase is not null)
         {
-            await IssueAndSendAsync(
+            undeliveredLink = await IssueAndSendAsync(
                 policyNumber, claimCase.CaseId, request.ContactValue, claimCase.CustomerEmail, claimCase.CustomerPhone,
                 scope, communicationProvider, tokenRepository, options, correlationId, logger, cancellationToken);
         }
@@ -111,7 +113,7 @@ public static class ClaimantAuthenticationEndpoints
             var customer = string.IsNullOrWhiteSpace(policy.CustomerId)
                 ? null
                 : await customerRepository.GetAsync(policy.CustomerId, scope, cancellationToken);
-            await IssueAndSendAsync(
+            undeliveredLink = await IssueAndSendAsync(
                 policyNumber, caseId: null, request.ContactValue, customer?.Email, customer?.Phone,
                 scope, communicationProvider, tokenRepository, options, correlationId, logger, cancellationToken);
         }
@@ -125,8 +127,21 @@ public static class ClaimantAuthenticationEndpoints
                 correlationId),
             cancellationToken);
 
+        // Demo sandbox only: with no SMS or email provider connected, a real match would otherwise
+        // leave the claimant with no way in, and the claimant portal could not be demonstrated at all.
+        // The link is returned only when a genuine match was found and delivery did not happen, and
+        // never on a protected runtime (Staging, Production, ManagedApplicationReviewer), where the
+        // constant-shape response below is the only thing a requester ever sees.
+        var runtimeProfile = hostEnvironment is null
+            ? "Production"
+            : ProviderModeSupport.ResolveRuntimeProfile(options, hostEnvironment.EnvironmentName);
+        var sandboxLink = undeliveredLink is not null && !ProviderModeSupport.IsProtectedRuntime(runtimeProfile)
+            ? undeliveredLink
+            : null;
+
         return Results.Ok(new ClaimantMagicLinkRequestResponse(
-            "If that policy number and contact value match a claim on file — or a policy you hold — we've sent a secure access link."));
+            "If that policy number and contact detail match a claim on file, or a policy you hold, we have sent you a secure access link.",
+            sandboxLink));
     }
 
     public static async Task<IResult> RedeemMagicLink(
@@ -204,7 +219,8 @@ public static class ClaimantAuthenticationEndpoints
         IClaimantPortalSessionRepository sessionRepository,
         IAuditRepository auditRepository,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null)
     {
         if (httpContext.Items.TryGetValue(ClaimantSessionEndpointFilter.SessionItemKey, out var stashed) is false
             || stashed is not ClaimantPortalSession session)
@@ -261,6 +277,9 @@ public static class ClaimantAuthenticationEndpoints
             return Validation(ex.ParamName ?? "request", ex.Message);
         }
 
+        // A claim a customer files themselves gets the same immediate agent review as one entered by staff.
+        triageQueue?.Enqueue(claimCase.Scope, claimCase.CaseId, correlationId, "claimant_portal");
+
         // Upgrade the session in place so the claimant lands straight on their new claim's status
         // page with the same link — no second magic link needed for the thing they just did.
         var upgraded = session with { CaseId = claimCase.CaseId };
@@ -272,7 +291,7 @@ public static class ClaimantAuthenticationEndpoints
         return Results.Created($"/api/v1/client-portal/claims/{claimCase.CaseId}", new ClaimantCreateClaimResponse(claimCase.CaseId));
     }
 
-    private static async Task IssueAndSendAsync(
+    private static async Task<string?> IssueAndSendAsync(
         string policyNumber,
         Guid? caseId,
         string requestedContactValue,
@@ -293,7 +312,7 @@ public static class ClaimantAuthenticationEndpoints
         var recipient = channel == ClaimantContactChannel.Email ? verifiedEmail : verifiedPhone;
         if (string.IsNullOrWhiteSpace(recipient))
         {
-            return;
+            return null;
         }
 
         var rawToken = ClaimantTokenGenerator.GenerateRawToken();
@@ -354,6 +373,9 @@ public static class ClaimantAuthenticationEndpoints
         await tokenRepository.SaveAsync(
             token with { DeliveryStatus = sendResult.DeliveryStatus, DeliverySafeError = sendResult.SafeError },
             cancellationToken);
+
+        // Handed back only so a Demo sandbox can show it; see RequestMagicLink.
+        return string.Equals(sendResult.DeliveryStatus, "Sent", StringComparison.OrdinalIgnoreCase) ? null : link;
     }
 
     private static string GetCorrelationId(HttpContext httpContext)
@@ -373,7 +395,7 @@ public static class ClaimantAuthenticationEndpoints
 
 public sealed record ClaimantMagicLinkRequest(string PolicyNumber, string ContactValue);
 
-public sealed record ClaimantMagicLinkRequestResponse(string Message);
+public sealed record ClaimantMagicLinkRequestResponse(string Message, string? SandboxAccessLink = null);
 
 public sealed record ClaimantMagicLinkRedeemRequest(string Token);
 

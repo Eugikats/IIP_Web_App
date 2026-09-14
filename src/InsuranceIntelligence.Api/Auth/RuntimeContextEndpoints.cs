@@ -16,7 +16,8 @@ public static class RuntimeContextEndpoints
         IHostEnvironment hostEnvironment,
         IWorkspaceCatalogService workspaceCatalog,
         ITenantContextAccessor tenantContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IUserAccountRepository? userAccounts = null)
     {
         var environment = EnvironmentContextFactory.Build(options, hostEnvironment.EnvironmentName, source: "Runtime");
         if (options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
@@ -92,6 +93,10 @@ public static class RuntimeContextEndpoints
             .DefaultIfEmpty(PlatformRole.Client)
             .First();
         var displayName = FirstClaimValue(httpContext.User, RuntimeClaimTypes.DisplayNames) ?? current.UserId;
+        var email = httpContext.User.FindFirst("preferred_username")?.Value
+            ?? httpContext.User.FindFirst("email")?.Value
+            ?? httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        await RecordSignInAsync(userAccounts, scope, current.UserId, displayName, email, role, cancellationToken);
         return Results.Ok(BuildResponse(
             userId: current.UserId,
             displayName: displayName,
@@ -141,6 +146,75 @@ public static class RuntimeContextEndpoints
         return string.IsNullOrWhiteSpace(scope.WorkspaceId)
             ? []
             : [new WorkspaceSummaryDto(scope.WorkspaceId, scope.WorkspaceId, "default")];
+    }
+
+    /// <summary>
+    /// Records each person the first time they use the app, and keeps their name current after
+    /// that, so screens can show a colleague's name instead of their directory object id (see
+    /// PeopleEndpoints). Written at most every ten minutes per person, not on every page load.
+    /// An admin-set role or status is never overwritten here: the membership store, not this
+    /// directory, decides what someone may do. A failure is swallowed on purpose, because signing
+    /// in must never fail on account of a display-name write.
+    /// </summary>
+    private static async Task RecordSignInAsync(
+        IUserAccountRepository? repository,
+        TenantScope scope,
+        string userId,
+        string? displayName,
+        string? email,
+        PlatformRole role,
+        CancellationToken cancellationToken)
+    {
+        if (repository is null || string.IsNullOrWhiteSpace(userId))
+        {
+            return;
+        }
+
+        try
+        {
+            var existing = await repository.GetAsync(userId, scope, cancellationToken);
+            var name = string.IsNullOrWhiteSpace(displayName) || displayName == userId ? null : displayName.Trim();
+            var now = DateTimeOffset.UtcNow;
+
+            if (existing is null)
+            {
+                if (name is null)
+                {
+                    return;
+                }
+
+                await repository.SaveAsync(new InsuranceUserAccount
+                {
+                    UserId = userId,
+                    Scope = scope,
+                    Name = name,
+                    Email = email ?? string.Empty,
+                    Role = role,
+                    EntraObjectId = userId,
+                    LastLogin = now,
+                }, cancellationToken);
+                return;
+            }
+
+            var nameChanged = name is not null && name != existing.Name;
+            var stale = existing.LastLogin is null || now - existing.LastLogin > TimeSpan.FromMinutes(10);
+            if (!nameChanged && !stale)
+            {
+                return;
+            }
+
+            await repository.SaveAsync(existing with
+            {
+                Name = name ?? existing.Name,
+                Email = string.IsNullOrWhiteSpace(email) ? existing.Email : email,
+                EntraObjectId = existing.EntraObjectId ?? userId,
+                LastLogin = now,
+            }, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Deliberately ignored; see the summary above.
+        }
     }
 
     private static bool HasDemoIdentityHeaders(HttpContext httpContext) =>

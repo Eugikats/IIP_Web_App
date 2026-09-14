@@ -84,8 +84,10 @@ public sealed class AzureOpenAiChatCompletionProvider(
             throw new InvalidOperationException("Azure OpenAI response did not include chat completion content.");
         }
 
+        // Model prose passes through DisplayText once, here, so no agent's output reaches a person
+        // carrying the em dashes that mark text as machine-written.
         return new ChatCompletionResult(
-            content,
+            InsuranceIntelligence.Domain.Common.DisplayText.WithoutEmDashes(content),
             "AzureOpenAI",
             options.AzureOpenAI.ChatDeployment,
             DateTimeOffset.UtcNow,
@@ -328,7 +330,7 @@ public sealed class AzureOpenAiAssistantProvider(
     private static string Sanitize(string value)
     {
         var blocked = new[] { "claim is denied", "settlement approved", "fraudulent claim", "authorize payment", "bind policy" };
-        var sanitized = value;
+        var sanitized = InsuranceIntelligence.Domain.Common.DisplayText.WithoutEmDashes(value);
         foreach (var phrase in blocked)
         {
             sanitized = sanitized.Replace(phrase, "requires human review", StringComparison.OrdinalIgnoreCase);

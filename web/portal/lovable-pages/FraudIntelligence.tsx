@@ -1,4 +1,5 @@
 "use client";
+import { usePeople } from "@/lib/people";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
@@ -48,6 +49,7 @@ type PendingAction =
 
 export default function FraudIntelligence() {
   const { signals, loading, error, counts, triage, assign, recordOutcome, close } = useFraudSignals();
+  const { describe } = usePeople();
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [assigneeDraft, setAssigneeDraft] = useState<Record<string, string>>({});
   const [outcomeDraft, setOutcomeDraft] = useState<Record<string, { outcome: string; notes: string }>>({});
@@ -138,7 +140,7 @@ export default function FraudIntelligence() {
                     </div>
                   ) : null}
                   {s.disposition.assignedToUserId && (
-                    <div className="mt-1.5 text-[11px] text-dls-text-muted">Assigned to: {s.disposition.assignedToUserId}</div>
+                    <div className="mt-1.5 text-[11px] text-dls-text-muted">Assigned to {describe(s.disposition.assignedToUserId)}</div>
                   )}
                   {s.disposition.outcome && (
                     <div className="mt-1 text-[11px] text-dls-text-muted">Outcome: {OUTCOME_LABEL[s.disposition.outcome] ?? s.disposition.outcome}{s.disposition.outcomeNotes ? ` — ${s.disposition.outcomeNotes}` : ""}</div>

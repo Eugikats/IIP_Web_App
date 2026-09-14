@@ -1,4 +1,5 @@
 "use client";
+import { claimReference, humanizeIdentifier, shortReference } from "@/lib/format";
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -428,12 +429,12 @@ export default function FNOL() {
                   <ul className="mt-2 space-y-1 text-[12px] text-dls-text-secondary">
                     {lookup.result.possibleDuplicateClaims.map((duplicate) => (
                       <li key={duplicate.caseId}>
-                        Claim <span className="font-mono">{duplicate.caseId.slice(0, 8)}</span> — {duplicate.status}
+                        <a href={`/app/claims/${duplicate.caseId}`} className="dls-focus-outline rounded-dls-tight font-semibold text-dls-primary hover:underline">Claim {claimReference(duplicate.caseId)}</a>, {humanizeIdentifier(duplicate.status).toLowerCase()}
                         {duplicate.incidentDate ? `, incident ${duplicate.incidentDate}` : ""}
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-1.5 text-[11.5px] text-dls-text-secondary">This does not block intake — confirm it&apos;s not the same incident before continuing.</div>
+                  <div className="mt-1.5 text-[11.5px] text-dls-text-secondary">This does not stop you continuing. Check it is not the same incident first.</div>
                 </div>
               )}
 

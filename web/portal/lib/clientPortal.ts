@@ -130,7 +130,9 @@ function safeNetworkFailure(reason: unknown, fallback: string): string {
   return fallback;
 }
 
-export type RequestMagicLinkResult = { ok: true; message: string } | { ok: false; error: string };
+// sandboxLink is only ever set by the API on the Demo profile, when no SMS or email provider is
+// connected to deliver the link; Staging and Production never return it.
+export type RequestMagicLinkResult = { ok: true; message: string; sandboxLink: string | null } | { ok: false; error: string };
 
 export async function requestMagicLink(policyNumber: string, contactValue: string): Promise<RequestMagicLinkResult> {
   try {
@@ -142,8 +144,8 @@ export async function requestMagicLink(policyNumber: string, contactValue: strin
     if (!response.ok) {
       return { ok: false, error: await safeError(response, "We could not process that request. Try again shortly.") };
     }
-    const payload = (await response.json()) as { message: string };
-    return { ok: true, message: payload.message };
+    const payload = (await response.json()) as { message: string; sandboxAccessLink?: string | null };
+    return { ok: true, message: payload.message, sandboxLink: payload.sandboxAccessLink ?? null };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "We could not process that request. Try again shortly.") };
   }

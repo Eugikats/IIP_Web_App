@@ -17,7 +17,7 @@ Visual reference for the language: [`docs/03-design-architecture/reference/bevay
 
 A calm, border-led, light-first insurance operations console. One violet accent (`#5B2AE8`) used only to mark the next action. Inter throughout. Hairline borders instead of shadows. Colour rationed to 6px status dots and single figures. A 64px icon rail, a contextual panel, and a left-aligned content column. It should read as **a precise instrument, not a product tour.**
 
-## The ten rules that are never waived
+## The rules that are never waived
 
 1. **No emoji anywhere** — UI, code, chat output, commit messages, docs. Guardrails §3.
 2. **One violet primary action per screen region.** Violet marks what to do next; it never decorates.
@@ -29,6 +29,7 @@ A calm, border-led, light-first insurance operations console. One violet accent 
 8. **No fabricated data.** No fake numbers, placeholder names, dead buttons, or "coming soon". Missing capability renders `Not configured`.
 9. **AI prepares; humans decide** — and the interface shows the difference. Prepared work sits in the AI narrative card; the decision sits in a separate neutral decision bar with an explicit verb and a consequence preview.
 10. **Every actionable AI assertion carries a citation** that opens its source. No citation, no render.
+11. **No em dashes anywhere.** UI copy, code, comments, model output, commit messages and docs. A comma, colon, full stop or parentheses reads better and does not mark the text as machine-written. Guardrails section 3.
 
 ## Where things live
 

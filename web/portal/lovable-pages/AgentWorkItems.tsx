@@ -1,4 +1,5 @@
 "use client";
+import { claimReference, humanizeIdentifier, shortReference } from "@/lib/format";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -135,7 +136,7 @@ export default function AgentWorkItems({ embedded = false }: { embedded?: boolea
                     {selected.evidence.map((evidence, index) => (
                       <div key={`${evidence.sourceType}-${evidence.sourceId}-${index}`} className="flex items-start gap-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
                         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-dls-control bg-dls-info-tint text-dls-info-text"><FileSearch className="h-4 w-4" aria-hidden="true" /></span>
-                        <div className="min-w-0 flex-1"><div className="text-[12.5px] font-semibold text-dls-text-primary">{evidence.displayLabel ?? evidence.sourceId}</div><div className="mt-1 break-all font-mono text-[10.5px] text-dls-text-muted">{evidence.sourceType} · {evidence.sourceId}{evidence.pageNumber ? ` · page ${evidence.pageNumber}` : ""}</div></div>
+                        <div className="min-w-0 flex-1"><div className="text-[12.5px] font-semibold text-dls-text-primary">{evidence.displayLabel ?? humanizeIdentifier(evidence.sourceType)}</div><div className="mt-1 text-[11px] text-dls-text-muted">{humanizeIdentifier(evidence.sourceType)}{evidence.pageNumber ? ` · page ${evidence.pageNumber}` : ""}</div></div>
                         {typeof evidence.confidence === "number" ? <ConfidenceBadge value={evidence.confidence} /> : <Badge tone="neutral">Confidence unavailable</Badge>}
                       </div>
                     ))}
@@ -145,8 +146,8 @@ export default function AgentWorkItems({ embedded = false }: { embedded?: boolea
 
                 {detailTab === "Run trace" ? (
                   <div className="grid gap-3 py-5 sm:grid-cols-2">
-                    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4"><div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Run ID</div><div className="mt-2 break-all font-mono text-[11px] text-dls-text-primary">{selected.runId}</div></div>
-                    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4"><div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Correlation ID</div><div className="mt-2 break-all font-mono text-[11px] text-dls-text-primary">{selected.correlationId}</div></div>
+                    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4"><div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Agent run</div><div className="mt-2 text-[12px] font-semibold tabular-nums text-dls-text-primary">{shortReference("RUN", selected.runId)}</div></div>
+                    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4"><div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Support reference</div><div className="mt-2 break-all text-[11px] text-dls-text-secondary">{selected.correlationId}</div><div className="mt-1 text-[11px] text-dls-text-muted">Quote this if you contact support about this run.</div></div>
                     <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 sm:col-span-2"><div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Human boundary</div><div className="mt-2 text-[12px] leading-5 text-dls-text-secondary">This review records acceptance or correction of an AI-prepared artifact only. Consequential action remains in the dedicated approval and execution services.</div></div>
                   </div>
                 ) : null}

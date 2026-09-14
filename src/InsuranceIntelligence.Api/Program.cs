@@ -387,6 +387,13 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgent
 builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgentTool, InsuranceIntelligence.Application.Agents.Tools.PolicyReadTool>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgentToolRegistry, InsuranceIntelligence.Application.Agents.Tools.AgentToolRegistry>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.ClaimsSummary.IClaimsSummaryService, InsuranceIntelligence.Application.ClaimsSummary.ClaimsSummaryService>();
+// Customer 360 briefing, chat instructions, and the automatic review every new claim receives.
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerSummary.ICustomerSummaryService, InsuranceIntelligence.Application.CustomerSummary.CustomerSummaryService>();
+builder.Services.AddScoped<ICommandCenterActionService, CommandCenterActionService>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.IClaimTriageQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>());
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ClaimTriageWorker>();
 // WO-14: one instance backs both the emitter (called from the 5 real event sites) and the
 // recipient's own feed (list/read-state) — same underlying repository either way.
 builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.NotificationService>();
@@ -770,6 +777,11 @@ app.MapGet("/api/v1/customers", CustomerProfileEndpoints.ListCustomers)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustomerProfile)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+app.MapPost("/api/v1/customers/{customerId}/summary", InsuranceIntelligence.Api.Customer.CustomerSummaryEndpoints.Summarize)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+// Names for ids, for any staff member who can see claims or customers; also feeds the assignment picker.
+app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEndpoints.ListPeople)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers));
 app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)

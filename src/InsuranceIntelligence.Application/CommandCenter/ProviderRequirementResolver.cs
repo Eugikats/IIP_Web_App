@@ -31,6 +31,12 @@ public sealed class ProviderRequirementResolver : IProviderRequirementResolver
             new ProviderRequirement("azure_ai_search", "Azure AI Search")
         ],
 
+        // Chat instructions that call the model. Assigning a claim does not, so it needs nothing.
+        IntentType.DraftCustomerMessage or IntentType.SummarizeClaim =>
+        [
+            new ProviderRequirement("azure_openai", "Azure OpenAI")
+        ],
+
         _ => Array.Empty<ProviderRequirement>()
     };
 }

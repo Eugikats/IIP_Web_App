@@ -22,7 +22,8 @@ public static class CaseEndpoints
         IDocumentChecklistProvider checklistProvider,
         ILogger<CaseFnolAcknowledgementLogMarker> logger,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
         {
@@ -71,6 +72,10 @@ public static class CaseEndpoints
             {
                 logger.LogError(ex, "FNOL acknowledgement failed for case {CaseId}", claimCase.CaseId);
             }
+
+            // The claims agent reviews every new claim straight away, in the background, so the
+            // review is waiting when the handler opens the claim. Never blocks the response.
+            triageQueue?.Enqueue(claimCase.Scope, claimCase.CaseId, correlationId, "staff_intake");
 
             var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);
 

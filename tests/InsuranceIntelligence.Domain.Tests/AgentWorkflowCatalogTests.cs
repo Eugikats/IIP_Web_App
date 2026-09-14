@@ -13,8 +13,10 @@ public sealed class AgentWorkflowCatalogTests
         // iip_ai_agent_architecture_tool_registry_updated.md §3.1) is unchanged; customer-assistant
         // is an eleventh, deliberately separate entry — a customer-facing agent, not a staff one —
         // added so it gets the same kill-switch/governance discipline the other ten already have.
-        Assert.Equal(11, AgentCatalog.Agents.Count);
-        Assert.Equal(11, AgentCatalog.Agents.Select(agent => agent.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        // customer-summary (September 2026) is a twelfth: a staff agent for the Customer 360 page.
+        Assert.Equal(12, AgentCatalog.Agents.Count);
+        Assert.Equal(12, AgentCatalog.Agents.Select(agent => agent.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "customer-summary");
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "command-center");
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "underwriting-intelligence");
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "customer-assistant");

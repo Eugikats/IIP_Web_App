@@ -10,6 +10,11 @@ public enum IntentType
     PrepareCustomerUpdateDraft,
     AnswerPolicyQuestion,
 
+    /// <summary>Instructions rather than questions: see CommandCenterActionIntentParser.</summary>
+    DraftCustomerMessage,
+    AssignClaim,
+    SummarizeClaim,
+
     /// <summary>A greeting, a thank-you, a goodbye, or "what can you do?". Not an operational
     /// query and not a policy question -- it needs an answer in kind, not a claims briefing.</summary>
     Conversational,
@@ -83,6 +88,13 @@ public sealed class DeterministicThenAiIntentClassifier : IIntentClassifier
             if (Thanks.Contains(conversational)) return Conversational(ConversationalKind.Thanks);
             if (Farewells.Contains(conversational)) return Conversational(ConversationalKind.Farewell);
             if (CapabilityQuestions.Contains(conversational)) return Conversational(ConversationalKind.Capabilities);
+        }
+
+        // Instructions ("send a message to Eugene", "assign CLM-726E3445 to me") before any of the
+        // question intents below, which would otherwise read "message" or "claim" as a query.
+        if (CommandCenterActionIntentParser.TryParse(message, out var actionIntent))
+        {
+            return actionIntent;
         }
 
         // Vocabulary that only ever appears in a policy-knowledge question, never in an

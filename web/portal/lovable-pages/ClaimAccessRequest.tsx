@@ -18,6 +18,7 @@ export default function ClaimAccessRequest() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
+  const [sandboxLink, setSandboxLink] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -35,6 +36,7 @@ export default function ClaimAccessRequest() {
       return;
     }
     setSent(result.message);
+    setSandboxLink(result.sandboxLink);
   }
 
   return (
@@ -103,12 +105,27 @@ export default function ClaimAccessRequest() {
                   <div className="mt-1 text-xs leading-5 text-dls-text-muted">{sent}</div>
                 </div>
               </div>
+              {sandboxLink ? (
+                <div className="mb-6 rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-4">
+                  <div className="text-sm font-semibold text-dls-text-primary">Demo sandbox: your link is shown here</div>
+                  <p className="mt-1 text-xs leading-5 text-dls-text-muted">
+                    This environment is not connected to SMS or email, so the secure link that would normally be sent to you
+                    is shown here instead. A live environment never shows it on screen.
+                  </p>
+                  <a
+                    href={sandboxLink}
+                    className="dls-focus-outline mt-3 inline-flex items-center gap-1.5 rounded-dls-control bg-dls-primary px-4 py-2 text-sm font-bold text-dls-text-inverse hover:bg-dls-primary-hover"
+                  >
+                    Open my secure link <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                </div>
+              ) : null}
               <p className="text-sm leading-6 text-dls-text-secondary">
                 Didn&apos;t get anything after a few minutes? Check the spam folder, confirm the contact details
                 match what is on your claim, or try again below.
               </p>
               <div className="mt-6">
-                <Button variant="secondary" onClick={() => setSent(null)}>
+                <Button variant="secondary" onClick={() => { setSent(null); setSandboxLink(null); }}>
                   Try a different claim
                 </Button>
               </div>

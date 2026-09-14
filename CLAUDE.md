@@ -18,6 +18,7 @@ The direction: a calm, border-led, light-first insurance operations console. One
 Rules that are never waived when writing UI:
 
 - No emoji anywhere — UI, code, model output rendered to users, commit messages, docs.
+- No em dashes anywhere: UI copy, code, comments, model output shown to users, commit messages and docs. Use a comma, colon, full stop or parentheses instead, and do not substitute a double hyphen. Readers treat the em dash as the plainest sign that text was machine-written. Model completions are cleaned at the provider boundary (`DisplayText.WithoutEmDashes`); everything a person or an agent writes into the repository must follow the rule by hand.
 - No gradients outside the two named uses; no glassmorphism, glow, hover-lift, or decorative motion.
 - One violet primary action per screen region. Status is a neutral pill plus a coloured dot plus a word, never colour alone.
 - Six states or it is not finished: loading, empty, empty-after-filter, error, not configured, no permission.

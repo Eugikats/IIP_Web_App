@@ -345,7 +345,8 @@ public static class EmailIntegrationEndpoints
         ILogger<EmailFnolAcknowledgementLogMarker> logger,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null)
     {
         if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
         {
@@ -442,6 +443,8 @@ public static class EmailIntegrationEndpoints
             {
                 logger.LogError(ex, "FNOL acknowledgement failed for email-derived case {CaseId}", claimCase.CaseId);
             }
+
+            triageQueue?.Enqueue(scope, claimCase.CaseId, httpContext.TraceIdentifier, "email_intake");
         }
 
         foreach (var document in processedAttachments)

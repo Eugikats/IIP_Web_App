@@ -42,7 +42,8 @@ public sealed class CommandCenterQueryService(
     INotificationDraftService notificationDraftService,
     IAgentGate agentGate,
     IAgentRunRecorder agentRunRecorder,
-    Agents.Tools.IAgentToolRegistry agentToolRegistry) : ICommandCenterQueryService
+    Agents.Tools.IAgentToolRegistry agentToolRegistry,
+    ICommandCenterActionService? actionService = null) : ICommandCenterQueryService
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
@@ -154,6 +155,12 @@ public sealed class CommandCenterQueryService(
                 correlationId,
                 now,
                 cancellationToken);
+        }
+
+        if (actionService is not null
+            && intent.Intent is IntentType.DraftCustomerMessage or IntentType.AssignClaim or IntentType.SummarizeClaim)
+        {
+            return await actionService.HandleAsync(question, intent, context, correlationId, now, cancellationToken);
         }
 
         if (intent.Intent == IntentType.PrepareCustomerUpdateDraft)

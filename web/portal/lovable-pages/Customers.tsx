@@ -57,7 +57,6 @@ export default function Customers() {
               <TableRow key={c.id}>
                 <TableCell>
                   <div className="font-semibold text-dls-text-primary">{c.name}</div>
-                  <div className="text-[11px] text-dls-text-muted">{c.id}</div>
                 </TableCell>
                 <TableCell className="text-dls-text-secondary">{c.contact}</TableCell>
                 <TableCell numeric>{c.activeClaims > 0 ? <Badge tone="info">{c.activeClaims}</Badge> : <span className="text-dls-text-muted">0</span>}</TableCell>

@@ -175,7 +175,7 @@ export default function Channels() {
             <>
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">{active.channel} · {active.id}</div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">{active.channel}</div>
                   <div className="text-[16px] font-bold text-dls-text-primary">{active.customer}</div>
                 </div>
                 <div className="flex items-center gap-2">
