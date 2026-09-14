@@ -131,6 +131,42 @@ az webapp deploy \
 Verify: `curl https://app-api-dev-h5girbnzrayqe.azurewebsites.net/health` should return
 `{"status":"healthy",...}`.
 
+### Applying database migrations — a required, separate step after deploying the API
+
+**The API does not migrate on startup.** Nothing in `Program.cs` calls `Database.Migrate()`, by
+design. Deploying code that reads a new table therefore succeeds, starts healthy, and then returns
+`500 Invalid object name '<Table>'` on every request that touches it — `/health` will not catch
+this, because it does not query those tables. This bit us on 2026-09-14: the API deployed and
+reported healthy while `/cases/{id}/case-review`, `/cases/{id}/summary` and
+`/integrations/whatsapp/configuration` all 500'd, because the live database was **nine migrations
+behind** (since 2026-09-04, long before that day's deploy).
+
+After deploying the API, apply migrations through the app's own admin endpoints — they use the API's
+managed-identity SQL connection, so nobody needs direct database access. They are additive and
+idempotent (EF skips already-applied migrations) and are blocked under protected runtime profiles
+(`Staging`/`Production`/`ManagedApplicationReviewer`); `dev` runs `Demo`, which is permitted.
+
+```bash
+# Bearer token for the API's own scope, as a signed-in Entra user with ManageTenantSettings:
+az account get-access-token --resource api://d55fe46b-1fba-4c5b-81e1-4ee1918ecf73 --query accessToken -o tsv
+
+GET  /api/v1/admin/db-migrate/diagnose   # table list + applied-migration history — always run first
+POST /api/v1/admin/db-migrate            # applies pending migrations; returns wasPending/appliedAfter
+```
+
+Compare `diagnose`'s `appliedMigrationHistory` count against
+`ls src/InsuranceIntelligence.Infrastructure/Migrations/*.cs | grep -v Designer | grep -v Snapshot | wc -l`.
+They should match. If they don't, migrations are pending regardless of what `/health` says.
+
+**A migration EF cannot see will not appear as pending, and `diagnose` will not flag it.** EF
+discovers migrations via the `[DbContext]`/`[Migration]` attributes in each migration's
+`.Designer.cs`. `20260906150000_AddCaseReviews` was hand-written on 2026-09-08 without one, so it
+was invisible to `dotnet ef migrations list`, to `GetPendingMigrations()`, and to the db-migrate
+endpoint — the `CaseReviews` table simply never got created in any environment. Fixed on
+2026-09-14 by adding the missing Designer. **Never hand-write a migration file; always use
+`dotnet ef migrations add`**, and if you must edit one, confirm afterwards that
+`dotnet ef migrations list` still shows it.
+
 ### Portal
 
 The Next.js standalone bundle needs careful assembly — see the detailed comments in
