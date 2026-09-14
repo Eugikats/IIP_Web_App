@@ -7,7 +7,7 @@ import {
   MessageSquare, ListChecks, FileSearch, Inbox, FileText, GitBranch, LineChart,
   Users, Building2, Mail, BookOpen, ShieldAlert, Gavel, ScrollText,
   Search, LogOut, ShieldCheck, Plug, LifeBuoy, Settings,
-  ChevronsLeft, ChevronsRight,
+  ChevronsLeft, ChevronsRight, Compass,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
@@ -18,6 +18,7 @@ import { signOut } from "@/lib/entraAuth";
 import { Avatar } from "@/components/ui/Avatar";
 import { Popover, PopoverGroupLabel } from "@/components/ui/Popover";
 import RoleSwitcher from "./RoleSwitcher";
+import { resetFirstRunOrientation } from "./FirstRunOrientation";
 
 const EXPANDED_STORAGE_KEY = "iip.sidebar.expanded";
 
@@ -82,6 +83,9 @@ function RailButton({
       onClick={onNavigate}
       title={expanded ? undefined : label}
       aria-label={label}
+      // Anchor for the first-run orientation (iip_first_run_orientation_spec.md). Keyed on the
+      // route rather than the label, so renaming a destination cannot silently break the tour.
+      data-tour={to}
       className={cn(
         "group relative flex h-10 shrink-0 items-center gap-2.5 rounded-dls-control transition-colors duration-dls-fast ease-dls",
         "dls-focus-outline",
@@ -322,6 +326,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
         <button
           ref={profileTriggerRef}
           type="button"
+          data-tour="profile"
           aria-haspopup="menu"
           aria-expanded={profileOpen}
           aria-label={`${displayName}. Signed in as ${roleLabel}. Open profile menu`}
@@ -382,6 +387,21 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
                 <ShieldCheck className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Admin console
               </Link>
             )}
+            {/* The only way back into the first-run orientation. Reloading is how the tour picks
+                the cleared flag back up -- it evaluates once on mount by design, so that it can
+                never re-trigger itself mid-session (orientation spec, "it arrives once"). */}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                resetFirstRunOrientation();
+                setProfileOpen(false);
+                window.location.assign("/app");
+              }}
+              className="flex w-full items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page"
+            >
+              <Compass className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Show me around
+            </button>
             <button
               type="button"
               role="menuitem"

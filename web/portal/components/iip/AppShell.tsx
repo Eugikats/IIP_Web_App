@@ -3,6 +3,7 @@ import { useLocation, Navigate } from "@/components/iip/NextRouterCompat";
 import { type ReactNode } from "react";
 import Link from "next/link";
 import Sidebar from "./Sidebar";
+import FirstRunOrientation from "./FirstRunOrientation";
 import StatusBar from "./StatusBar";
 import CopilotPanel from "./CopilotPanel";
 import EnvironmentBanner from "./EnvironmentBanner";
@@ -91,6 +92,12 @@ function ShellInner({ children }: { children: ReactNode }) {
             collapses into an off-canvas drawer, so there is no mobile open/close state to manage. */}
         <Sidebar />
         <ContextualPanel />
+
+        {/* First-run orientation (docs/03-design-architecture/iip_first_run_orientation_spec.md).
+            Mounted here rather than on a page so it anchors to the rail, which lives at this level.
+            `ready` gates it on permissions having resolved -- a step must never be shown or dropped
+            on the basis of access that was still unknown. */}
+        <FirstRunOrientation userId={runtimeContext?.userId ?? null} ready={!loading} />
 
         <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">
