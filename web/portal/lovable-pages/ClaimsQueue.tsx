@@ -108,7 +108,7 @@ export default function ClaimsQueue() {
         sub="Claims requiring officer attention across Motor Operations. AI has pre-processed extractions, evidence, and risk signals — officers decide."
         action={
           <Link to="/app/claims/new" className="dls-focus-outline inline-flex min-h-11 items-center justify-center gap-1.5 rounded-dls-control bg-dls-primary px-4 py-[9px] text-[13px] font-bold text-dls-text-inverse shadow-dls-primary hover:bg-dls-primary-hover">
-            + New Claim (FNOL)
+            + New claim
           </Link>
         }
       />
@@ -163,7 +163,7 @@ export default function ClaimsQueue() {
         <GlassCard>
           <div className="flex flex-col items-center gap-2 p-10 text-center">
             <ClipboardList className="h-6 w-6 text-dls-text-muted" aria-hidden="true" />
-            <EmptyStateSurface message="Claims appear here once created from FNOL intake or channel conversations." />
+            <EmptyStateSurface message="Claims appear here once someone records a new claim, or once one arrives on a connected channel." />
           </div>
         </GlassCard>
       ) : rows.length === 0 ? (

@@ -39,7 +39,7 @@ export default function Customers() {
       ) : error ? (
         <GlassCard><ErrorStateSurface title="Customers could not be loaded" message={error} /></GlassCard>
       ) : customers.length === 0 ? (
-        <GlassCard><EmptyStateSurface message="Customers created from channel conversations or FNOL intake appear here." /></GlassCard>
+        <GlassCard><EmptyStateSurface message="Customers appear here once they are created from a new claim or from a conversation on one of your channels." /></GlassCard>
       ) : rows.length === 0 ? (
         <GlassCard><EmptyFilteredStateSurface onClear={() => setQ("")} /></GlassCard>
       ) : (

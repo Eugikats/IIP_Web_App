@@ -52,8 +52,8 @@ const FRAUD_SEVERITY_LABEL: Record<FraudSeverity, string> = {
 };
 
 const FRAUD_STATUS_LABEL: Record<string, string> = {
-  NotTriaged: "Not yet triaged",
-  Triaged: "Triaged",
+  NotTriaged: "Not yet reviewed",
+  Triaged: "Reviewed",
   UnderInvestigation: "Under investigation",
   OutcomeRecorded: "Outcome recorded",
   Closed: "Closed",
@@ -735,7 +735,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         title="Confirm claim"
         target={`Case ${detail.claimId}`}
         impact="Starts this claim's SLA clock and includes it in officer SLA and attention metrics. Correct any details IIP guessed from the raw channel message before confirming."
-        auditNotice="Confirming an auto-created claim is a governed action. The prior (unconfirmed) and confirmed states are both written to the audit trail."
+        auditNotice="Confirming this claim is recorded in the audit trail. Both the version before you confirmed it and the version after are kept."
         confirmLabel="Confirm claim"
         tone="primary"
         evidence={

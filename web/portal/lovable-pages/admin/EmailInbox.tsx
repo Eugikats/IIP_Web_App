@@ -111,7 +111,7 @@ export default function EmailInbox() {
       toast.error(result.error);
       return;
     }
-    toast.success("Test message ingested", { description: "A synthetic inbound email was added below — process it to see claim intake end to end." });
+    toast.success("Test message received", { description: "A sample email was added below — turn it into a claim to see the whole path work." });
     void load();
   }
 
@@ -163,7 +163,7 @@ export default function EmailInbox() {
                   disabled={runningTestIngestion}
                   icon={runningTestIngestion ? <Loader2 className="animate-spin" aria-hidden="true" /> : <PlayCircle aria-hidden="true" />}
                 >
-                  Run test ingestion
+                  Send a test email
                 </Button>
               ) : null}
               <Button variant="secondary" onClick={() => void load()} icon={<RefreshCcw aria-hidden="true" />}>
@@ -190,7 +190,7 @@ export default function EmailInbox() {
                     <div className="text-[13px] font-semibold text-dls-text-primary">{mailbox.displayName}</div>
                     <div className="text-[11.5px] text-dls-text-muted">{mailbox.mailboxAddress}</div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      <Badge tone={mailbox.ingestionEnabled ? "success" : "neutral"}>{mailbox.ingestionEnabled ? "Ingestion on" : "Ingestion off"}</Badge>
+                      <Badge tone={mailbox.ingestionEnabled ? "success" : "neutral"}>{mailbox.ingestionEnabled ? "Collecting mail" : "Not collecting"}</Badge>
                       {mailbox.productLine ? <Badge tone="info">{mailbox.productLine}</Badge> : null}
                     </div>
                   </div>
@@ -254,8 +254,8 @@ export default function EmailInbox() {
         open={mailboxDialogOpen}
         title="Add a claim mailbox"
         target={mailboxForm.mailboxAddress || "New mailbox"}
-        impact="Email sent to this address will be pulled in for claim intake once ingestion is enabled."
-        auditNotice="Configuring a mailbox is a governed action — record why this mailbox is being added now."
+        impact="Once this is switched on, email sent to this address is collected automatically and appears in the inbox, ready to be turned into a claim."
+        auditNotice="Adding a mailbox is recorded in the audit trail with your name against it — note why you are adding it."
         confirmLabel="Add mailbox"
         onClose={() => setMailboxDialogOpen(false)}
         onConfirm={onCreateMailbox}
@@ -292,7 +292,7 @@ export default function EmailInbox() {
                 onChange={(event) => setMailboxForm((current) => ({ ...current, ingestionEnabled: event.target.checked }))}
                 className="h-4 w-4 rounded border-dls-border-input"
               />
-              Enable ingestion immediately
+              Start collecting mail from this address straight away
             </label>
             {mailboxFormError ? (
               <div className="flex items-start gap-2 rounded-dls-control bg-dls-danger-tint p-3 text-[12px] text-dls-danger-text">
@@ -308,7 +308,7 @@ export default function EmailInbox() {
         title="Process inbound email"
         target={processingMessage ? `${processingMessage.subject} — ${processingMessage.sender}` : "Inbound email"}
         impact="IIP will verify the sender against customer and policy records, then link this email to a matching claim or create a new one. An unidentified sender's claim still gets created, but flagged as needing confirmation before its SLA starts."
-        auditNotice="Processing an inbound email into a claim is a governed action — record why."
+        auditNotice="Turning an email into a claim is recorded in the audit trail with your name against it — note why."
         confirmLabel="Process message"
         onClose={() => setProcessingMessage(null)}
         onConfirm={onProcessMessage}

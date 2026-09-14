@@ -61,7 +61,7 @@ export default function Documents() {
       <SectionHeader
         eyebrow="Documents"
         title="Document library"
-        sub="All documents ingested across claims, customers, and channels. AI extraction is human-reviewed — low-confidence fields are treated as incomplete."
+        sub="Every document received across claims, customers, and channels. A person checks what the AI reads off a document, and anything it is unsure about is treated as still missing."
         action={
           canUploadDocuments ? (
             <Button variant="primary" icon={<Upload aria-hidden="true" />} onClick={() => setPanelOpen((v) => !v)}>
@@ -157,7 +157,7 @@ export default function Documents() {
         </GlassCard>
       ) : documents.length === 0 ? (
         <GlassCard>
-          <EmptyStateSurface message="Only documents uploaded to a tenant-scoped claim appear here." />
+          <EmptyStateSurface message="Only documents attached to a claim in this workspace appear here." />
         </GlassCard>
       ) : (
         <Table label="Document library">

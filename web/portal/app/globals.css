@@ -384,6 +384,28 @@ textarea:focus-visible {
   box-shadow: var(--shadow-l3);
 }
 
+/* The Assistant empty-state orb breathes rather than sitting dead on the page.
+   Design language v2 otherwise forbids decorative motion; this is a deliberate,
+   product-owner-sanctioned exception, scoped to exactly one element on one screen
+   (see DESIGN.md "Sanctioned motion exceptions"). Kept slow and small enough to
+   read as ambient -- an 8px drift over 6 seconds is below the threshold where
+   motion competes with content for attention, and it stops nowhere near any text.
+   The global reduced-motion block below neutralises it. */
+@keyframes dls-orb-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.dls-orb-float {
+  animation: dls-orb-float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
 /* Respect reduced-motion preferences for the lift interaction. */
 @media (prefers-reduced-motion: reduce) {
   *,

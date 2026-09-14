@@ -278,7 +278,7 @@ export default function AgentBehaviourSettings() {
         title={`Change ${label}'s behaviour`}
         target={label}
         impact="This changes what the agent says and how, for every request in this workspace from now on. It cannot change what the agent is allowed to decide."
-        auditNotice="Changing an agent's configured behaviour is a governed action — record why."
+        auditNotice="This change is recorded in the audit trail with your name against it — note why you are making it."
         confirmLabel="Save"
         onClose={() => setSaveDialogOpen(false)}
         onConfirm={onSave}

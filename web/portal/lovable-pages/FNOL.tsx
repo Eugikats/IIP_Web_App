@@ -502,7 +502,7 @@ export default function FNOL() {
           )}
 
           {step === 4 && (
-            <StepSection icon={FileText} title={`${productLine} details`} sub={`${productLine}-specific FNOL fields are persisted as structured case data.`}>
+            <StepSection icon={FileText} title={`${productLine} details`} sub={`Details specific to ${productLine.toLowerCase()} claims. These are saved with the claim.`}>
               <div className="grid gap-4 md:grid-cols-2">
                 {productLine === "Motor" ? (
                   <>

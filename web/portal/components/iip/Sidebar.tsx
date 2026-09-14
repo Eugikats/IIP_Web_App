@@ -95,7 +95,7 @@ function RailButton({
         aria-hidden="true"
       />
       {expanded && (
-        <span className={cn("truncate text-[13px] font-semibold", active ? "text-dls-primary" : "text-dls-text-secondary")}>
+        <span className={cn("animate-label-in truncate text-[13px] font-semibold", active ? "text-dls-primary" : "text-dls-text-secondary")}>
           {label}
         </span>
       )}
@@ -227,7 +227,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
     <aside
       aria-label="Primary navigation"
       className={cn(
-        "flex h-full shrink-0 flex-col border-r border-dls-border-subtle bg-dls-surface py-3.5 transition-[width] duration-dls-fast ease-dls",
+        "flex h-full shrink-0 flex-col border-r border-dls-border-subtle bg-dls-surface py-3.5 transition-[width] duration-dls-panel ease-dls",
         expanded ? "w-60 items-stretch px-3" : "w-16 items-center",
         !expandedLoaded && "invisible", // avoid a flash of the wrong width before localStorage loads
       )}
@@ -273,7 +273,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
         <span className={cn(!expanded && "sr-only", expanded && "grid h-6 w-6 shrink-0 place-items-center rounded-dls-chip bg-dls-primary/[0.14] text-[11px]")}>
           {workspaceName.slice(0, 2).toUpperCase()}
         </span>
-        {expanded && <span className="truncate text-dls-text-primary">{workspaceName}</span>}
+        {expanded && <span className="animate-label-in truncate text-dls-text-primary">{workspaceName}</span>}
       </div>
 
       <div className="relative min-h-0 flex-1">
@@ -287,7 +287,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
           {groups.map((group) => (
             <div key={group.label} className={cn("flex flex-col", expanded ? "gap-0.5" : "contents")}>
               {expanded && (
-                <div className="px-2.5 pb-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-dls-text-muted">
+                <div className="animate-label-in px-2.5 pb-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-dls-text-muted">
                   {group.label}
                 </div>
               )}

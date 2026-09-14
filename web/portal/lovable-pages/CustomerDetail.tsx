@@ -67,7 +67,7 @@ export default function CustomerDetail() {
                   <div className="text-[14px] font-bold text-dls-text-primary">Prepared for staff review</div>
                 </div>
               </div>
-              <NotConfiguredStateSurface what="A grounded, cited customer summary appears here once the customer-summary service is configured. IIP does not summarise from model memory — without approved source grounding this stays not configured rather than guessing." />
+              <NotConfiguredStateSurface what="A customer summary appears here once the summary service is set up, with a link to the source behind every statement. Without approved sources to draw on, this stays empty rather than guessing." />
             </GlassCard>
 
             <GlassCard>

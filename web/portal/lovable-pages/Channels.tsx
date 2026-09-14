@@ -74,7 +74,7 @@ export default function Channels() {
       const copy = result.deliveryState === "ProviderAccepted"
         ? "Accepted by WhatsApp. Delivery is not confirmed yet."
         : result.deliveryState === "Unknown"
-          ? "Provider response unknown. Reconcile before retrying."
+          ? "We did not get a clear answer back from WhatsApp. Check whether it arrived before sending again."
           : `WhatsApp state: ${result.deliveryState}.`;
       toast(result.deliveryState === "Failed" ? "WhatsApp did not accept the message" : "WhatsApp attempt recorded", { description: copy });
       if (result.deliveryState !== "Unknown") setDraft("");
@@ -91,7 +91,7 @@ export default function Channels() {
       <SectionHeader
         eyebrow="Integrations & Channels"
         title="Channels inbox"
-        sub="Unified customer, broker, and internal channel traffic routed into the platform. AI drafts responses — humans approve sensitive replies."
+        sub="Messages from customers and brokers across every connected channel, in one place. AI drafts replies; a person approves anything sensitive before it is sent."
       />
 
       <div className="mb-4"><GuardrailBanner text="Sensitive outbound messages route through approval before send. Nothing dispatches automatically." /></div>
@@ -120,7 +120,7 @@ export default function Channels() {
             ) : error ? (
               <ErrorStateSurface title="Conversations could not be loaded" message={error} />
             ) : conversations.length === 0 ? (
-              <EmptyStateSurface message="Conversation intake activates when a WhatsApp / web-chat provider is configured and ingesting. Until then this inbox stays empty rather than showing sample conversations." />
+              <EmptyStateSurface message="Customer conversations appear here once WhatsApp, email or web chat is connected. Until then this stays empty rather than showing made-up examples." />
             ) : list.length === 0 ? (
               <EmptyFilteredStateSurface onClear={clearFilters} />
             ) : (
@@ -313,7 +313,7 @@ function deliveryCopy(state: string) {
     case "Delivered": return "Delivered";
     case "Read": return "Read";
     case "Failed": return "Delivery failed";
-    case "Unknown": return "Provider response unknown — reconcile before retrying";
+    case "Unknown": return "No clear answer back from WhatsApp — check before sending again";
     default: return state;
   }
 }

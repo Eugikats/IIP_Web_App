@@ -153,7 +153,7 @@ export default function AIConversations({ conversationId: requestedConversationI
       {/* Navigation model §6.2 — exactly four elements, vertically centred, nothing else. */}
       {!hasContent && (
         <div className="mx-auto flex w-full max-w-[520px] flex-1 flex-col items-center justify-center gap-5 py-10 text-center">
-          <div className="h-16 w-16 rounded-full bg-dls-orb" aria-hidden="true" />
+          <div className="dls-orb-float h-16 w-16 rounded-full bg-dls-orb" aria-hidden="true" />
           <div>
             <h1 className="text-[26px] font-extrabold leading-tight text-dls-text-primary">
               {givenName ? `${timeOfDayGreeting()}, ${givenName},` : `${timeOfDayGreeting()},`}

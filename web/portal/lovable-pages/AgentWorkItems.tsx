@@ -139,7 +139,7 @@ export default function AgentWorkItems({ embedded = false }: { embedded?: boolea
                         {typeof evidence.confidence === "number" ? <ConfidenceBadge value={evidence.confidence} /> : <Badge tone="neutral">Confidence unavailable</Badge>}
                       </div>
                     ))}
-                    {selected.evidence.length === 0 ? <div className="rounded-dls-card border border-dashed border-dls-border-subtle p-8 text-center text-[12px] text-dls-text-muted">No evidence references were attached. Return this prepared work if grounding is required.</div> : null}
+                    {selected.evidence.length === 0 ? <div className="rounded-dls-card border border-dashed border-dls-border-subtle p-8 text-center text-[12px] text-dls-text-muted">No sources were attached to this. Send it back if you need to see what it was based on.</div> : null}
                   </div>
                 ) : null}
 

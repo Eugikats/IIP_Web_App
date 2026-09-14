@@ -266,7 +266,7 @@ export default function WhatsAppSettings() {
         title="Connect WhatsApp Business"
         target={form.phoneNumberId || "New WhatsApp connection"}
         impact="IIP will call Meta's Graph API to confirm these credentials work, then encrypt and store them, and register a webhook so Meta can deliver messages here. This does not send any message to customers."
-        auditNotice="Connecting a messaging channel is a governed action — record why this number is being connected now."
+        auditNotice="Connecting a channel is recorded in the audit trail with your name against it — note why you are connecting this number."
         confirmLabel="Validate and save"
         onClose={() => setConnectDialogOpen(false)}
         onConfirm={onConnect}
@@ -284,7 +284,7 @@ export default function WhatsAppSettings() {
         title="Disconnect WhatsApp Business"
         target={status?.businessDisplayName || status?.phoneNumberId || "This WhatsApp connection"}
         impact="Inbound and outbound WhatsApp messages will stop working immediately for this workspace until a connection is configured again."
-        auditNotice="Disconnecting a live messaging channel is a governed action — record why."
+        auditNotice="Disconnecting a live channel is recorded in the audit trail with your name against it — note why."
         confirmLabel="Disconnect"
         tone="danger"
         onClose={() => setDisconnectDialogOpen(false)}
