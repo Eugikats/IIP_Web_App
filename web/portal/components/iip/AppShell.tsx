@@ -97,7 +97,7 @@ function ShellInner({ children }: { children: ReactNode }) {
             Mounted here rather than on a page so it anchors to the rail, which lives at this level.
             `ready` gates it on permissions having resolved -- a step must never be shown or dropped
             on the basis of access that was still unknown. */}
-        <FirstRunOrientation userId={runtimeContext?.userId ?? null} ready={!loading} />
+        <FirstRunOrientation userId={runtimeContext?.userId ?? null} ready={!loading} pathname={loc.pathname} />
 
         <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">

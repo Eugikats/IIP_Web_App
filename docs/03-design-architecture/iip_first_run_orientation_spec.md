@@ -23,7 +23,7 @@ If any change to this feature would make that sentence untrue, the change is wro
 
 | Question | Answer |
 |---|---|
-| When does it run? | On first arrival at `/app` for a signed-in user who has not seen or dismissed it. |
+| When does it run? | On first arrival at `/app` for a signed-in user who has not seen or dismissed it. The route check is explicit, not implied by where the component is mounted: it lives in the shell, which wraps every `/app` route, so without it a user following a deep link into a claim would be shown "Start here" pointing at the Assistant while looking at something else. |
 | What records that? | `localStorage`, key `iip.orientation.seen.v1`, value the user's own id. |
 | Why per user id? | Two people sharing a workstation each get their own first run. A shared key would silently skip the second person. |
 | Why `v1` in the key? | A future revision with materially different content can re-run once without a migration. Bumping it is a deliberate act, not a side effect of editing copy. |
@@ -122,7 +122,33 @@ Inherited from the craft guardrails, restated because tour copy is where product
 
 ---
 
-## 9. What this deliberately does not do
+## 9. Verified in browser
+
+Checked at 1280px and 768px against the parity-mode portal on 2026-09-14, not inferred:
+
+| Check | Result |
+|---|---|
+| Appears on `/app`, absent on `/app/channels` and `/app/claims` | Pass |
+| Seven steps for a Workspace Administrator, counter consistent throughout | Pass |
+| Highlight ring lands on the described rail item | Pass |
+| Card fully on-screen at both widths (340px wide at x=241) | Pass |
+| Final button reads Done, not Next | Pass |
+| Dismisses, and stays dismissed across a reload | Pass |
+| Escape closes it | Pass |
+| No horizontal page overflow at 768px | Pass |
+| No console errors on any route visited | Pass |
+
+Three real defects were found by looking rather than reasoning, and fixed:
+
+- The tour ran on every `/app` route, not just the landing screen (the §2 row above now states the rule the code enforces).
+- The composer placeholder wrapped to two lines at 768px and had its second line clipped outright — a `rows=1` textarea with a fixed min-height has no scrollbar for placeholder text.
+- The conversation list clipped its search placeholder mid-word and wrapped timestamps onto two lines.
+
+A fourth finding was a false alarm worth recording: the rail's width transition measured 150ms rather than the intended 220ms. That was a dev server serving CSS from before the Tailwind config change, not a defect — the built stylesheet contained `.duration-dls-panel{transition-duration:.22s}` all along, and a restarted server measured 220ms. **Verify against a server started after a `tailwind.config.ts` change, or the measurement is of stale CSS.**
+
+---
+
+## 10. What this deliberately does not do
 
 - It does not gate anything. A user can dismiss it and use the product immediately.
 - It does not track completion server-side, report progress, or feed analytics.

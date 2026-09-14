@@ -86,7 +86,15 @@ function readAnchor(selectorValue: string): AnchorRect | null {
   return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
 }
 
-export default function FirstRunOrientation({ userId, ready }: { userId: string | null; ready: boolean }) {
+export default function FirstRunOrientation({
+  userId,
+  ready,
+  pathname,
+}: {
+  userId: string | null;
+  ready: boolean;
+  pathname: string;
+}) {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -103,6 +111,11 @@ export default function FirstRunOrientation({ userId, ready }: { userId: string 
     // Spec §2 and §6 "Loading": waits for permissions to resolve, so a step can never be shown or
     // dropped based on access that was still unknown.
     if (!ready || !userId) return;
+    // Spec section 2: first arrival at /app, the landing screen. This component is mounted in the
+    // shell, which wraps every /app route -- without this check a user following a deep link into
+    // a claim would be shown "Start here" pointing at the Assistant while looking at something
+    // else entirely. An orientation that describes a screen you are not on is worse than none.
+    if (pathname !== "/app") return;
     let seen: string | null = null;
     try {
       seen = window.localStorage.getItem(STORAGE_KEY);
@@ -119,7 +132,7 @@ export default function FirstRunOrientation({ userId, ready }: { userId: string 
 
     returnFocusRef.current = document.activeElement as HTMLElement | null;
     setOpen(true);
-  }, [ready, userId]);
+  }, [ready, userId, pathname]);
 
   const dismiss = useCallback(() => {
     setOpen(false);

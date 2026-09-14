@@ -102,9 +102,9 @@ export default function Channels() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search customers, threads…"
+              placeholder="Search conversations…"
               leadingIcon={<Search aria-hidden="true" />}
-              aria-label="Search customers, threads"
+              aria-label="Search conversations"
             />
             <div className="mt-2 flex flex-wrap gap-1.5">
               {CHANNEL_FILTERS.map((f) => (
@@ -139,9 +139,9 @@ export default function Channels() {
                         <I className="h-4 w-4" aria-hidden="true" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <div className="truncate text-[13px] font-semibold text-dls-text-primary">{c.customer}</div>
-                          <div className="text-[11px] text-dls-text-muted">{c.updated}</div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 truncate text-[13px] font-semibold text-dls-text-primary">{c.customer}</div>
+                          <div className="shrink-0 whitespace-nowrap text-[11px] text-dls-text-muted">{c.updated}</div>
                         </div>
                         <div className="truncate text-[12px] text-dls-text-secondary">{c.snippet}</div>
                       </div>
@@ -150,7 +150,7 @@ export default function Channels() {
                       <Badge tone="info">{c.channel}</Badge>
                       <Badge tone="neutral">{c.intent}</Badge>
                       {!c.matched && <Badge tone="warning">Unmatched customer</Badge>}
-                      {c.needsApproval && <Badge tone="info">Approval gated</Badge>}
+                      {c.needsApproval && <Badge tone="warning">Needs your approval</Badge>}
                       {c.unread > 0 && <Badge tone="error">{c.unread} new</Badge>}
                     </div>
                   </button>
