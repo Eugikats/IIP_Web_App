@@ -207,7 +207,9 @@ public static class AdminEndpoints
         IUserAccountRepository repository,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Application.Onboarding.ITenantMembershipWriter? membershipWriter = null,
+        IAuditRepository? auditRepository = null)
     {
         if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden)
         {
@@ -224,6 +226,11 @@ public static class AdminEndpoints
             return Validation("role", "A supported role is required.");
         }
 
+        if (string.IsNullOrWhiteSpace(request.UserId))
+        {
+            return Validation("userId", "The person's Microsoft Entra object id is required, so their sign-in can be matched to this workspace.");
+        }
+
         var user = new InsuranceUserAccount
         {
             UserId = request.UserId,
@@ -236,6 +243,23 @@ public static class AdminEndpoints
             Branch = request.Branch
         };
         await repository.SaveAsync(user, cancellationToken);
+
+        // The directory entry alone never let anyone in: the per-request membership lookup reads the
+        // membership store. Grant it here so adding a user actually gives them the workspace.
+        if (membershipWriter is not null)
+        {
+            await membershipWriter.GrantMembershipAsync(scope.TenantId, scope.WorkspaceId, user.UserId.Trim(), role.ToString(), cancellationToken);
+            if (auditRepository is not null)
+            {
+                await auditRepository.WriteAsync(
+                    new AuditEvent(
+                        Guid.NewGuid(), scope, null, user.UserId, ResolveActor(httpContext) ?? "unknown", ActorType.User,
+                        "admin.workspace_member.granted", DateTimeOffset.UtcNow, null, role.ToString(), [],
+                        "AdminConsole", null, "accepted", null, AuditReasonReader.Read(httpContext), httpContext.TraceIdentifier),
+                    cancellationToken);
+            }
+        }
+
         var users = await repository.ListAsync(scope, cancellationToken);
         return Results.Created($"/api/v1/admin/users/{user.UserId}", MapUser(user, ActiveAdminCount(users)));
     }
@@ -247,7 +271,8 @@ public static class AdminEndpoints
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Application.Onboarding.ITenantMembershipWriter? membershipWriter = null)
     {
         if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden)
         {
@@ -299,6 +324,12 @@ public static class AdminEndpoints
 
         var updated = user with { Role = role };
         await repository.SaveAsync(updated, cancellationToken);
+        // Keep the membership store, which decides what the person may actually do, in step with the
+        // role shown in the directory.
+        if (membershipWriter is not null)
+        {
+            await membershipWriter.GrantMembershipAsync(scope.TenantId, scope.WorkspaceId, updated.UserId, role.ToString(), cancellationToken);
+        }
         await auditRepository.WriteAsync(
             new AuditEvent(
                 Guid.NewGuid(),

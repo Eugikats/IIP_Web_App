@@ -29,6 +29,14 @@ public interface ITenantOnboardingRepository
 public interface ITenantMembershipWriter
 {
     Task CreateAdminMembershipAsync(string tenantId, string workspaceId, string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gives a person an active membership of a workspace with exactly one role, replacing any
+    /// other role they held there. This is what actually lets someone use the workspace: the
+    /// per-request membership lookup reads these records, not the user directory, so an admin
+    /// adding a user without this never granted any access. Safe to call repeatedly.
+    /// </summary>
+    Task GrantMembershipAsync(string tenantId, string workspaceId, string userId, string roleCode, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Non-secret Entra settings needed to build the admin-consent redirect. Supplied by the API layer.</summary>
