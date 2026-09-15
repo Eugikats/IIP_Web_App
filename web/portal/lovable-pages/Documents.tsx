@@ -15,6 +15,7 @@ import { useUI } from "@/context/UIStateContext";
 import { canPreviewPermission, hasPermission } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useRuntimeContext } from "@/lib/runtimeContext";
+import { claimReference, documentTypeLabel, isGuid } from "@/lib/format";
 
 // WO-18: documents attach to a claim in this domain, there is no unattached-document concept
 // (A1), so upload here means picking the claim first, then reusing the exact same
@@ -106,7 +107,7 @@ export default function Documents() {
                     >
                       <div className="min-w-0">
                         <div className="truncate text-[13px] font-semibold text-dls-text-primary">{c.customer} · {c.policy}</div>
-                        <div className="truncate text-[11px] text-dls-text-muted">{c.id.slice(0, 8)} · {c.productLine} · {c.claimType}</div>
+                        <div className="truncate text-[11px] text-dls-text-muted">{claimReference(c.id)} · {c.productLine} · {c.claimType}</div>
                       </div>
                       <StatusBadge status={c.status} />
                     </button>
@@ -119,7 +120,7 @@ export default function Documents() {
               <div className="mb-3 flex items-center justify-between gap-3 rounded-dls-control border border-dls-border-subtle bg-dls-surface-sunken px-3 py-2.5">
                 <div className="min-w-0">
                   <div className="truncate text-[13px] font-semibold text-dls-text-primary">{selectedClaim.customer} · {selectedClaim.policy}</div>
-                  <div className="truncate text-[11px] text-dls-text-muted">{selectedClaim.id.slice(0, 8)} · {selectedClaim.productLine}</div>
+                  <div className="truncate text-[11px] text-dls-text-muted">{claimReference(selectedClaim.id)} · {selectedClaim.productLine}</div>
                 </div>
                 <button
                   type="button"
@@ -182,10 +183,9 @@ export default function Documents() {
                       <FileText className="h-4 w-4 text-dls-info-text" aria-hidden="true" />
                       {d.name}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-dls-text-muted">{d.id}</div>
                   </TableCell>
-                  <TableCell className="text-dls-text-secondary">{d.type}</TableCell>
-                  <TableCell className="font-semibold text-dls-primary">{d.claim}</TableCell>
+                  <TableCell className="text-dls-text-secondary">{documentTypeLabel(d.type)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{isGuid(d.claim) ? <Link to={`/app/claims/${d.claim}`} className="dls-focus-outline rounded-dls-tight font-semibold text-dls-primary hover:underline">{claimReference(d.claim)}</Link> : <span className="text-dls-text-muted">Not linked</span>}</TableCell>
                   <TableCell><StatusBadge status={d.status} /></TableCell>
                   <TableCell>{d.confidence > 0 ? <ConfidenceBadge value={d.confidence} /> : <span className="text-dls-text-muted">-</span>}</TableCell>
                   <TableCell className="text-dls-text-muted">{d.uploaded}</TableCell>

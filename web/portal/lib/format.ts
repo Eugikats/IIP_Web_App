@@ -128,3 +128,28 @@ export function channelLabel(channel: string | null | undefined): string {
   if (!value) return "Not recorded";
   return CHANNEL_LABELS[value] ?? humanizeIdentifier(value);
 }
+
+// Document types as a person would say them. "Unknown" is shown as "Unclassified": an unclassified
+// document is something a person should notice, not a blank.
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  ClaimForm: "Claim form",
+  PoliceAbstract: "Police abstract",
+  MedicalReport: "Medical report",
+  PhotoEvidence: "Photo evidence",
+  CustomerId: "Customer ID",
+  GarageEstimate: "Garage estimate",
+  Unknown: "Unclassified",
+};
+
+export function documentTypeLabel(type: string | null | undefined): string {
+  const value = (type ?? "").trim();
+  if (!value) return "Unclassified";
+  return DOCUMENT_TYPE_LABELS[value] ?? humanizeIdentifier(value);
+}
+
+/** What an agent run or work item is about: "CLM-1A2B3C4D" for a claim, a short reference otherwise. */
+export function businessReference(type: string | null | undefined, id: string | null | undefined): string {
+  const kind = (type ?? "").trim().toLowerCase();
+  if (kind === "case" || kind === "claim") return claimReference(id);
+  return shortReference("REF", id);
+}

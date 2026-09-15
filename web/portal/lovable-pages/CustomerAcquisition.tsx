@@ -77,7 +77,6 @@ export default function CustomerAcquisition() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <div className="text-[14px] font-bold text-dls-text-primary">{l.customerName}</div>
-                    <div className="text-[11.5px] text-dls-text-muted">· {l.leadId}</div>
                   </div>
                   <div className="mt-0.5 inline-flex items-center gap-1.5 text-[12.5px] text-dls-text-secondary">
                     <Building2 className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" /> {l.leadSource} · {l.productFit}

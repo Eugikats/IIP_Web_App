@@ -256,7 +256,6 @@ export default function Knowledge() {
                       <BookOpen className="h-4 w-4 text-dls-info-text" aria-hidden="true" />
                       {d.title}
                     </button>
-                    <div className="text-[11px] text-dls-text-muted">{d.id}</div>
                   </TableCell>
                   <TableCell className="text-dls-text-secondary">{d.category}</TableCell>
                   <TableCell><Badge tone={SENS_TONE[d.sensitivity]}>{SENS_LABEL[d.sensitivity]}</Badge></TableCell>

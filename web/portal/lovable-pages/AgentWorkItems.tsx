@@ -1,5 +1,5 @@
 "use client";
-import { claimReference, humanizeIdentifier, shortReference } from "@/lib/format";
+import { businessReference, claimReference, humanizeIdentifier, shortReference } from "@/lib/format";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -87,7 +87,7 @@ export default function AgentWorkItems({ embedded = false }: { embedded?: boolea
                   className={`dls-focus-outline w-full rounded-dls-card border p-3 text-left transition-colors duration-dls-fast ease-dls ${selectedId === item.workItemId ? "border-dls-primary-border bg-dls-primary-soft-alt" : "border-transparent hover:border-dls-border-subtle hover:bg-dls-bg-page"}`}
                 >
                   <div className="flex items-start justify-between gap-2"><span className="text-[12.5px] font-bold leading-4 text-dls-text-primary">{item.title}</span><StatusBadge status={item.status} /></div>
-                  <div className="mt-2 text-[11.5px] text-dls-text-secondary">{item.businessReferenceType} · <span className="font-semibold text-dls-text-primary">{item.businessReferenceId}</span></div>
+                  <div className="mt-2 text-[11.5px] text-dls-text-secondary">{humanizeIdentifier(item.businessReferenceType)} · <span className="font-semibold text-dls-text-primary">{businessReference(item.businessReferenceType, item.businessReferenceId)}</span></div>
                   <div className="mt-2 flex items-center justify-between gap-2 text-[10.5px] text-dls-text-muted"><span className="truncate">{item.workflowKey}</span><span>{new Date(item.createdAt).toLocaleString()}</span></div>
                 </button>
               ))}
@@ -101,7 +101,7 @@ export default function AgentWorkItems({ embedded = false }: { embedded?: boolea
                   <div>
                     <div className="flex flex-wrap items-center gap-2"><StatusBadge status={selected.status} /><Badge tone="neutral">Human accountable</Badge></div>
                     <h2 className="mt-3 text-xl font-bold text-dls-text-primary">{selected.title}</h2>
-                    <div className="mt-1 text-[12px] text-dls-text-muted">{selected.businessReferenceType} · {selected.businessReferenceId} · {selected.nodeKey}</div>
+                    <div className="mt-1 text-[12px] text-dls-text-muted">{humanizeIdentifier(selected.businessReferenceType)} · {businessReference(selected.businessReferenceType, selected.businessReferenceId)} · {humanizeIdentifier(selected.nodeKey)}</div>
                   </div>
                   <Link href={`/app/runs/${selected.runId}`} className="dls-focus-outline inline-flex items-center gap-2 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[11.5px] font-bold text-dls-text-primary hover:bg-dls-bg-page"><History className="h-3.5 w-3.5" aria-hidden="true" /> Open run debugger</Link>
                 </div>

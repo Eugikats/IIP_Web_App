@@ -1,5 +1,6 @@
 "use client";
 
+import { businessReference, humanizeIdentifier } from "@/lib/format";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Activity, Clock3, Database, RefreshCw, ShieldCheck, TerminalSquare } from "lucide-react";
@@ -21,7 +22,7 @@ export default function AgentRunDebugger() {
       <SectionHeader
         eyebrow="Agent Operations · Run Debugger"
         title={definition.name}
-        sub={`${run.businessReferenceType} · ${run.businessReferenceId}`}
+        sub={`${humanizeIdentifier(run.businessReferenceType)} · ${businessReference(run.businessReferenceType, run.businessReferenceId)}`}
         action={
           <Button variant="secondary" onClick={() => void refresh()} icon={<RefreshCw aria-hidden="true" />}>
             Refresh state
@@ -39,8 +40,9 @@ export default function AgentRunDebugger() {
           <div className="mt-3 text-[12.5px] font-semibold text-dls-text-primary">{new Date(run.updatedAt).toLocaleString()}</div>
         </GlassCard>
         <GlassCard className="!p-4">
-          <div className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.12em] text-dls-text-muted"><TerminalSquare className="h-4 w-4 text-dls-text-secondary" aria-hidden="true" /> Correlation</div>
-          <div className="mt-3 truncate font-mono text-[10.5px] text-dls-text-primary" title={run.correlationId}>{run.correlationId}</div>
+          <div className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.12em] text-dls-text-muted"><TerminalSquare className="h-4 w-4 text-dls-text-secondary" aria-hidden="true" /> Support reference</div>
+          <div className="mt-3 break-all text-[10.5px] text-dls-text-secondary">{run.correlationId}</div>
+          <div className="mt-1 text-[11px] text-dls-text-muted">Quote this if you contact support about this run.</div>
         </GlassCard>
         <GlassCard className="!p-4">
           <div className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.12em] text-dls-text-muted"><ShieldCheck className="h-4 w-4 text-dls-success-text" aria-hidden="true" /> Authority</div>

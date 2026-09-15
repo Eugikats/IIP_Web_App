@@ -14,6 +14,7 @@ import { useAgentWorkflows, type WorkflowDefinition, type WorkflowNode } from "@
 import { useUI } from "@/context/UIStateContext";
 import { canPreviewPermission } from "@/lib/roles";
 import { useRuntimeContext } from "@/lib/runtimeContext";
+import { businessReference } from "@/lib/format";
 import { canUseLocalTestDoubles } from "@/lib/config";
 
 function releaseLabel(flow: WorkflowDefinition) {
@@ -185,8 +186,7 @@ export default function AgentFlows() {
               <div className="mt-3 space-y-2">
                 {runs.filter((run) => run.workflowKey === selected?.key).slice(0, 5).map((run) => (
                   <Link key={run.runId} href={`/app/runs/${run.runId}`} className="dls-focus-outline block rounded-dls-control border border-dls-border-subtle bg-dls-surface p-3 transition-colors duration-dls-fast ease-dls hover:bg-dls-bg-page">
-                    <div className="flex items-center justify-between gap-2"><span className="truncate text-[11.5px] font-semibold text-dls-text-primary">{run.businessReferenceId}</span><StatusBadge status={run.status} /></div>
-                    <div className="mt-1 truncate font-mono text-[10px] text-dls-text-muted">{run.correlationId}</div>
+                    <div className="flex items-center justify-between gap-2"><span className="truncate text-[11.5px] font-semibold text-dls-text-primary">{businessReference(run.businessReferenceType, run.businessReferenceId)}</span><StatusBadge status={run.status} /></div>
                   </Link>
                 ))}
                 {runs.filter((run) => run.workflowKey === selected?.key).length === 0 ? (
