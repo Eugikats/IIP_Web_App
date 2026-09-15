@@ -263,6 +263,39 @@ with HTTP 400, and the timer returns without acting. Nothing pretends to work.
 Until step 2, the Channels inbox will show WhatsApp traffic and no email, which is the truthful
 state and not something to "fix" by changing code.
 
+### Claimant portal and WhatsApp under Entra auth (fixed 2026-09-15)
+
+Until 2026-09-15 neither the claimant portal nor the WhatsApp webhook could work in `dev`, and the
+code would have failed the same way in any deployed environment:
+
+- `RuntimeHeaderGuard` rejected `X-Tenant-Id` and `X-Workspace-Id` on every route outside
+  Development, while the claimant portal relies on exactly those headers to name its insurer
+  (403 on every link request).
+- The unauthenticated-API guard exempted only the Graph webhook, so claimant routes and Meta's
+  `GET`/`POST /api/v1/integrations/whatsapp/webhook` were answered with 401. Neither caller can
+  ever hold an Entra token.
+
+Both are fixed in code: client-portal routes and the WhatsApp webhook are exempt from the sign-in
+guard (they are protected by the magic-link session and by Meta's `X-Hub-Signature-256`
+respectively), and `ClientPortalScopeReader` pins claimant scope to the deployment's own
+`INSURANCEINTELLIGENCE_TENANT_ID`/`INSURANCEINTELLIGENCE_WORKSPACE_ID`, refusing any header that
+names another insurer.
+
+Two pieces of configuration the claimant portal needs in `dev`, both now in place:
+
+1. `INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL` on the API, set to the portal URL. Without it the
+   API refuses to issue links at all.
+2. A way for the claimant to receive the link. `dev` has no SMS or email provider, so on the Demo
+   runtime profile only, when a real match is found and delivery did not happen, the link is shown
+   on the claimant's screen with a label saying so. Staging, Production and
+   ManagedApplicationReviewer never return it.
+
+To demonstrate a claimant filing a first claim, the policyholder must have no existing claim on
+that policy; the main demo seed gives every customer one. `POST /api/v1/admin/demo-seed/policyholders?count=3`
+(Demo profile only, `ManageTenantSettings`) adds policyholders with an active policy and no claim,
+and returns their names, emails and policy numbers. It is safe to call again: existing ones are
+returned rather than duplicated.
+
 ### Known gotchas hit while doing this live
 
 - **`pnpm build` can crash with a Windows access violation (exit code `0xC0000005` /
