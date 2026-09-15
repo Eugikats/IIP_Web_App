@@ -296,6 +296,21 @@ that policy; the main demo seed gives every customer one. `POST /api/v1/admin/de
 and returns their names, emails and policy numbers. It is safe to call again: existing ones are
 returned rather than duplicated.
 
+### Portal start-up time and Always On (set 2026-09-15)
+
+The portal container needs a long time to start on the B1 plan: the first start after the
+2026-09-15 deploy failed Azure's startup probe at the default 230 second limit, and the retry only
+passed after 210 seconds. Two settings now guard against that:
+
+- WEBSITES_CONTAINER_START_TIME_LIMIT is 600 on app-portal-dev-h5girbnzrayqe, so a slow start is
+  given time instead of being killed and retried.
+- Always On is enabled on both app-portal-dev-h5girbnzrayqe and app-api-dev-h5girbnzrayqe. With it
+  off, Azure unloads an idle app after about twenty minutes, and the next visitor waits for a full
+  cold start: several minutes for the portal. Always On is included in the Basic tier at no extra cost.
+
+After any portal deploy or setting change, expect the portal to be unavailable for up to about four
+minutes while it restarts, and check the container log before concluding a deploy has failed.
+
 ### Known gotchas hit while doing this live
 
 - **`pnpm build` can crash with a Windows access violation (exit code `0xC0000005` /
