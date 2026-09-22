@@ -546,6 +546,23 @@ public sealed record AuditEvent(
     public static AuditEvent CustomerUpdateRejected(CustomerUpdateDraft update, string rejectedByUserId, string? auditReason = null) =>
         ForCustomerUpdate(update, rejectedByUserId, ActorType.User, "customer_update.rejected", null, update.Status.ToString(), "rejected", auditReason: auditReason);
 
+    public static AuditEvent CustomerUpdateEdited(CustomerUpdateDraft update, string editedByUserId, bool approvedInSameStep, string? auditReason = null) =>
+        ForCustomerUpdate(
+            update,
+            editedByUserId,
+            ActorType.User,
+            approvedInSameStep ? "customer_update.edited_and_approved" : "customer_update.edited",
+            null,
+            update.Status.ToString(),
+            "edited",
+            auditReason: auditReason);
+
+    public static AuditEvent CustomerUpdateWritten(CustomerUpdateDraft update) =>
+        ForCustomerUpdate(update, update.CreatedByUserId, ActorType.User, "customer_update.written", null, update.Status.ToString(), "written");
+
+    public static AuditEvent CustomerUpdateCreatedFromTemplate(CustomerUpdateDraft update) =>
+        ForCustomerUpdate(update, update.CreatedByUserId, ActorType.User, "customer_update.from_template", null, update.Status.ToString(), "created", modelProvider: update.SourceTemplateKey ?? "Template");
+
     public static AuditEvent CustomerUpdateSent(CustomerUpdateDraft update, string sentByUserId, string? auditReason = null) =>
         ForCustomerUpdate(
             update,
@@ -612,6 +629,33 @@ public sealed record AuditEvent(
             ModelProvider: null,
             Confidence: null,
             ValidationResult: status,
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    public static AuditEvent CommunicationTemplateSaved(
+        TenantScope scope,
+        string userId,
+        string templateKey,
+        int version,
+        bool active,
+        string auditReason,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: templateKey,
+            userId,
+            ActorType.User,
+            "communication_template.saved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: active ? "Active" : "Inactive",
+            EvidenceIds: [templateKey, $"v{version}"],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
             ApprovalId: null,
             AuditReason: auditReason,
             CorrelationId: correlationId);

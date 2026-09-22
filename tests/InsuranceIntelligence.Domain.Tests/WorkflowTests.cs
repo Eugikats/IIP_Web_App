@@ -131,6 +131,8 @@ public sealed class WorkflowTests
             Channel = CommunicationChannel.Portal,
             Status = requiresApproval ? CustomerUpdateStatus.PendingApproval : CustomerUpdateStatus.Draft,
             MessageBody = "Customer-safe status update.",
+            ShortMessageBody = "Customer-safe status update.",
+            CreationMethod = CustomerUpdateCreationMethod.ManuallyWritten,
             RequiresApproval = requiresApproval,
             Sensitive = sensitive,
             CreatedByUserId = "user-1",

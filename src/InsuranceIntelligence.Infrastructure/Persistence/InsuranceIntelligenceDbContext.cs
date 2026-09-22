@@ -53,6 +53,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedConsentRecord> ConsentRecords => Set<PersistedConsentRecord>();
     public DbSet<PersistedRetentionPolicy> RetentionPolicies => Set<PersistedRetentionPolicy>();
     public DbSet<PersistedProductVersion> ProductVersions => Set<PersistedProductVersion>();
+    public DbSet<PersistedCommunicationTemplate> CommunicationTemplates => Set<PersistedCommunicationTemplate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -164,6 +165,10 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedProductVersion>().Property(entity => entity.ProductId).IsRequired();
         modelBuilder.Entity<PersistedProductVersion>().Property(entity => entity.Version).IsRequired();
         modelBuilder.Entity<PersistedProductVersion>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ProductId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedCommunicationTemplate>(), "CommunicationTemplates", "VersionId");
+        modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.TemplateKey).HasMaxLength(200).IsRequired();
+        modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.Version).IsRequired();
+        modelBuilder.Entity<PersistedCommunicationTemplate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.TemplateKey });
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)
@@ -343,6 +348,11 @@ public sealed class PersistedCaseReview : PersistedScopedJson { public Guid Case
 public sealed class PersistedProductVersion : PersistedScopedJson
 {
     public Guid ProductId { get; set; }
+    public int Version { get; set; }
+}
+public sealed class PersistedCommunicationTemplate : PersistedScopedJson
+{
+    public string TemplateKey { get; set; } = string.Empty;
     public int Version { get; set; }
 }
 public sealed class PersistedPolicy : PersistedScopedJson;

@@ -189,7 +189,8 @@ public sealed class MyWorkServiceTests
         {
             UpdateId = Guid.NewGuid(), Scope = scope, CaseId = caseId, ReasonCategory = CustomerUpdateReasonCategory.StatusUpdate,
             Channel = CommunicationChannel.WhatsApp, Status = CustomerUpdateStatus.PendingApproval,
-            MessageBody = "Sensitive customer message", RequiresApproval = true, Sensitive = true,
+            MessageBody = "Sensitive customer message", ShortMessageBody = "Sensitive customer message",
+            CreationMethod = CustomerUpdateCreationMethod.ManuallyWritten, RequiresApproval = true, Sensitive = true,
             CreatedByUserId = creator, CreatedAt = DateTimeOffset.UtcNow.AddHours(-2), UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-20),
             CorrelationId = Guid.NewGuid().ToString("N")
         };

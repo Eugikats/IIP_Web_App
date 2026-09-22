@@ -61,6 +61,13 @@ public static class WorkflowMapper
             update.Channel.ToString(),
             update.Status.ToString(),
             update.MessageBody,
+            update.ShortMessageBody,
+            update.Language,
+            update.CreationMethod.ToString(),
+            update.OriginalMessageBody,
+            update.EditedByUserId,
+            update.EditedAt,
+            update.SourceTemplateKey,
             update.RequiresApproval,
             update.Sensitive,
             update.DeliveryStatus,
@@ -93,6 +100,11 @@ internal static class CustomerUpdateActions
     public static IReadOnlyCollection<ActionStateResponse> Allowed(CustomerUpdateDraft update)
     {
         var actions = new List<ActionStateResponse>();
+        if (CanEdit(update))
+        {
+            actions.Add(Action("editCustomerUpdate", "Edit before sending", Permission.ManageCustomerCommunications));
+        }
+
         if (update.Status == CustomerUpdateStatus.PendingApproval)
         {
             actions.Add(Action("approveCustomerUpdate", "Approve update", Permission.ManageCustomerCommunications));
@@ -110,6 +122,11 @@ internal static class CustomerUpdateActions
     public static IReadOnlyCollection<ActionStateResponse> Blocked(CustomerUpdateDraft update)
     {
         var actions = new List<ActionStateResponse>();
+        if (!CanEdit(update))
+        {
+            actions.Add(Action("editCustomerUpdate", "Edit before sending", Permission.ManageCustomerCommunications, "A sent message can never be edited, a correction is a new message."));
+        }
+
         if (update.Status != CustomerUpdateStatus.PendingApproval)
         {
             actions.Add(Action(
@@ -135,6 +152,9 @@ internal static class CustomerUpdateActions
 
         return actions;
     }
+
+    private static bool CanEdit(CustomerUpdateDraft update) =>
+        update.Status is not (CustomerUpdateStatus.Sent or CustomerUpdateStatus.SimulatedSent);
 
     private static bool CanSend(CustomerUpdateDraft update, out string? reason)
     {

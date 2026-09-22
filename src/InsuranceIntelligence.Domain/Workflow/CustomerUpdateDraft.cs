@@ -2,6 +2,15 @@ using InsuranceIntelligence.Domain.Common;
 
 namespace InsuranceIntelligence.Domain.Workflow;
 
+/// <summary>How this draft's MessageBody came to exist (outcome D): the audit trail must be able
+/// to show which of the three happened for any given message.</summary>
+public enum CustomerUpdateCreationMethod
+{
+    AiDrafted,
+    ManuallyWritten,
+    Template
+}
+
 public sealed record CustomerUpdateDraft
 {
     public required Guid UpdateId { get; init; }
@@ -11,6 +20,25 @@ public sealed record CustomerUpdateDraft
     public required CommunicationChannel Channel { get; init; }
     public required CustomerUpdateStatus Status { get; init; }
     public required string MessageBody { get; init; }
+
+    /// <summary>A short, plain-language form that fits an SMS, required on every message because
+    /// most phones in this market are not smartphones (outcome D). Falls back to MessageBody itself
+    /// only where a caller has not yet supplied a distinct short form.</summary>
+    public required string ShortMessageBody { get; init; }
+
+    public string Language { get; init; } = "en";
+    public required CustomerUpdateCreationMethod CreationMethod { get; init; }
+
+    /// <summary>The model's original text, kept alongside MessageBody once a person edits it, so
+    /// the audit trail shows both (outcome D). Null when CreationMethod is not AiDrafted, or when an
+    /// AI draft has never been edited (MessageBody still equals the original).</summary>
+    public string? OriginalMessageBody { get; init; }
+    public string? EditedByUserId { get; init; }
+    public DateTimeOffset? EditedAt { get; init; }
+
+    /// <summary>The template this message started from, if CreationMethod is Template.</summary>
+    public string? SourceTemplateKey { get; init; }
+
     public required bool RequiresApproval { get; init; }
     public required bool Sensitive { get; init; }
     public string? DeliveryStatus { get; init; }

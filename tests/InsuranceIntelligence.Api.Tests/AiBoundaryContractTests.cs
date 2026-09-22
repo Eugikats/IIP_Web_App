@@ -465,6 +465,8 @@ public sealed class AiBoundaryContractTests
             Channel = CommunicationChannel.Email,
             Status = CustomerUpdateStatus.Approved,
             MessageBody = "Your claim is progressing. We will contact you with next steps.",
+            ShortMessageBody = "Your claim is progressing. We will contact you.",
+            CreationMethod = CustomerUpdateCreationMethod.ManuallyWritten,
             RequiresApproval = true,
             Sensitive = false,
             CreatedByUserId = "user-claims-1",

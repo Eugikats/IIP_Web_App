@@ -427,6 +427,9 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
             Channel = channel,
             Status = requiresApproval ? CustomerUpdateStatus.PendingApproval : CustomerUpdateStatus.Draft,
             MessageBody = message,
+            ShortMessageBody = BuildShortForm(message),
+            CreationMethod = CustomerUpdateCreationMethod.AiDrafted,
+            OriginalMessageBody = message,
             RequiresApproval = requiresApproval,
             Sensitive = sensitive,
             DeliveryStatus = null,
@@ -435,6 +438,28 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
             UpdatedAt = now,
             CorrelationId = correlationId
         };
+    }
+
+    /// <summary>A plain, deterministic SMS-safe derivation of the drafted message, not a second
+    /// model call, most phones in this market are not smartphones so every message needs a short
+    /// form, but doubling the AI call just to shorten text is not worth the added cost and failure
+    /// surface. Kept if it already fits; otherwise the leading sentences up to the SMS budget.</summary>
+    private static string BuildShortForm(string message, int maxLength = 160)
+    {
+        if (message.Length <= maxLength)
+        {
+            return message;
+        }
+
+        var truncated = message[..maxLength];
+        var lastSentenceBreak = truncated.LastIndexOfAny(['.', '!', '?']);
+        if (lastSentenceBreak > maxLength / 2)
+        {
+            return truncated[..(lastSentenceBreak + 1)];
+        }
+
+        var lastSpace = truncated.LastIndexOf(' ');
+        return (lastSpace > 0 ? truncated[..lastSpace] : truncated).TrimEnd() + "…";
     }
 
     private async Task<string> BuildMessageAsync(

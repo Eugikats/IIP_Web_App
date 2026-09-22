@@ -837,6 +837,8 @@ public sealed class SecurityAuthorizationTests
             Channel = CommunicationChannel.Email,
             Status = status,
             MessageBody = "Customer update draft.",
+            ShortMessageBody = "Customer update draft.",
+            CreationMethod = CustomerUpdateCreationMethod.ManuallyWritten,
             RequiresApproval = requiresApproval,
             Sensitive = false,
             CreatedByUserId = "claims-user",

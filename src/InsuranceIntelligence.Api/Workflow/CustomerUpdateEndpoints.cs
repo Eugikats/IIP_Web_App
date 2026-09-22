@@ -171,6 +171,256 @@ public static class CustomerUpdateEndpoints
         return Results.Created($"/api/v1/customer-updates/{update.UpdateId}", WorkflowMapper.ToResponse(update));
     }
 
+    /// <summary>Writes a customer message from scratch, no model involved (outcome D). Goes
+    /// through the exact same approval rule as an AI draft, a human-written message about a
+    /// sensitive reason category still needs a second person's approval before it can send.</summary>
+    public static async Task<IResult> WriteCustomerUpdate(
+        Guid caseId,
+        WriteCustomerUpdateRequest request,
+        ICaseRepository caseRepository,
+        ICustomerUpdateRepository updateRepository,
+        IWorkflowRuleProvider workflowRuleProvider,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return WorkflowEndpoints.Validation("tenantScope", validationError);
+        }
+
+        var claimCase = await WorkflowEndpoints.GetScopedCaseAsync(caseRepository, caseId, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return WorkflowEndpoints.NotFoundCase();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.MessageBody))
+        {
+            return WorkflowEndpoints.Validation("messageBody", "Message text is required.");
+        }
+
+        if (!Enum.TryParse<CustomerUpdateReasonCategory>(request.ReasonCategory ?? "StatusUpdate", true, out var reasonCategory))
+        {
+            return WorkflowEndpoints.Validation("reasonCategory", "A supported customer update reason category is required.");
+        }
+
+        if (!Enum.TryParse<CommunicationChannel>(request.Channel ?? "Portal", true, out var channel))
+        {
+            return WorkflowEndpoints.Validation("channel", "A supported communication channel is required.");
+        }
+
+        var actor = WorkflowEndpoints.GetActor(httpContext, null);
+        if (string.IsNullOrWhiteSpace(actor))
+        {
+            return WorkflowEndpoints.Validation("userId", "Authenticated user context is required to write a customer update.");
+        }
+
+        var messageBody = request.MessageBody.Trim();
+        var shortMessageBody = string.IsNullOrWhiteSpace(request.ShortMessageBody) ? Truncate(messageBody, 160) : request.ShortMessageBody.Trim();
+        var sensitive = workflowRuleProvider.CustomerUpdateRequiresApproval(messageBody);
+        var requiresApproval = CustomerUpdateApprovalPolicy.RequiresApproval(sensitive, reasonCategory);
+        var now = DateTimeOffset.UtcNow;
+        var correlationId = WorkflowEndpoints.GetCorrelationId(httpContext);
+
+        var update = new CustomerUpdateDraft
+        {
+            UpdateId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = caseId,
+            ReasonCategory = reasonCategory,
+            Channel = channel,
+            Status = requiresApproval ? CustomerUpdateStatus.PendingApproval : CustomerUpdateStatus.Draft,
+            MessageBody = messageBody,
+            ShortMessageBody = shortMessageBody,
+            CreationMethod = CustomerUpdateCreationMethod.ManuallyWritten,
+            RequiresApproval = requiresApproval,
+            Sensitive = sensitive,
+            CreatedByUserId = actor,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CorrelationId = correlationId
+        };
+
+        await updateRepository.SaveAsync(update, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CustomerUpdateWritten(update), cancellationToken);
+
+        return Results.Created($"/api/v1/customer-updates/{update.UpdateId}", WorkflowMapper.ToResponse(update));
+    }
+
+    /// <summary>Sends off a configured template, filled with this claim's own facts (outcome D).
+    /// Creates an ordinary CustomerUpdateDraft, obeying the exact same approval rule as any other
+    /// message, a template is a starting point, not a way around review.</summary>
+    public static async Task<IResult> CreateCustomerUpdateFromTemplate(
+        Guid caseId,
+        CreateCustomerUpdateFromTemplateRequest request,
+        ICaseRepository caseRepository,
+        ICaseDocumentRepository documentRepository,
+        IDocumentChecklistProvider checklistProvider,
+        ICommunicationTemplateRepository templateRepository,
+        ICustomerUpdateRepository updateRepository,
+        IWorkflowRuleProvider workflowRuleProvider,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return WorkflowEndpoints.Validation("tenantScope", validationError);
+        }
+
+        var claimCase = await WorkflowEndpoints.GetScopedCaseAsync(caseRepository, caseId, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return WorkflowEndpoints.NotFoundCase();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.TemplateKey))
+        {
+            return WorkflowEndpoints.Validation("templateKey", "A template is required.");
+        }
+
+        var template = await templateRepository.GetCurrentAsync(scope, request.TemplateKey.Trim(), cancellationToken);
+        if (template is null || !template.Active)
+        {
+            return Results.NotFound(new { message = "That template was not found or is not active for the current tenant workspace." });
+        }
+
+        var channel = Enum.TryParse<CommunicationChannel>(request.Channel, true, out var requestedChannel) ? requestedChannel : template.Channel;
+
+        var documents = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        var checklist = await checklistProvider.BuildChecklistAsync(claimCase, documents, cancellationToken);
+        var missingDocuments = checklist.MissingRequiredDocuments.Count == 0
+            ? "the required supporting documents"
+            : string.Join(", ", checklist.MissingRequiredDocuments.Select(document => document.Label));
+        var variables = new CommunicationTemplateVariables(
+            claimCase.CustomerName,
+            claimCase.PolicyNumber,
+            missingDocuments,
+            claimCase.AssignedUserId);
+
+        var actor = WorkflowEndpoints.GetActor(httpContext, null);
+        if (string.IsNullOrWhiteSpace(actor))
+        {
+            return WorkflowEndpoints.Validation("userId", "Authenticated user context is required to send a template.");
+        }
+
+        var messageBody = CommunicationTemplateRenderer.Render(template.Body, variables);
+        var shortMessageBody = CommunicationTemplateRenderer.Render(template.ShortBody, variables);
+        var sensitive = workflowRuleProvider.CustomerUpdateRequiresApproval(messageBody);
+        var requiresApproval = CustomerUpdateApprovalPolicy.RequiresApproval(sensitive, template.ReasonCategory);
+        var now = DateTimeOffset.UtcNow;
+        var correlationId = WorkflowEndpoints.GetCorrelationId(httpContext);
+
+        var update = new CustomerUpdateDraft
+        {
+            UpdateId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = caseId,
+            ReasonCategory = template.ReasonCategory,
+            Channel = channel,
+            Language = template.Language,
+            Status = requiresApproval ? CustomerUpdateStatus.PendingApproval : CustomerUpdateStatus.Draft,
+            MessageBody = messageBody,
+            ShortMessageBody = shortMessageBody,
+            CreationMethod = CustomerUpdateCreationMethod.Template,
+            SourceTemplateKey = template.TemplateKey,
+            RequiresApproval = requiresApproval,
+            Sensitive = sensitive,
+            CreatedByUserId = actor,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CorrelationId = correlationId
+        };
+
+        await updateRepository.SaveAsync(update, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CustomerUpdateCreatedFromTemplate(update), cancellationToken);
+
+        return Results.Created($"/api/v1/customer-updates/{update.UpdateId}", WorkflowMapper.ToResponse(update));
+    }
+
+    /// <summary>Edits a drafted message before it is sent (outcome D). The model's (or the
+    /// previous edit's) original text is always kept in OriginalMessageBody, and who changed it and
+    /// when is always recorded. Editing an Approved draft returns it to PendingApproval unless the
+    /// editor approves in the same step, which is recorded as exactly that, never as a silent
+    /// override. A sent message can never be edited, a correction is a new message.</summary>
+    public static async Task<IResult> EditCustomerUpdate(
+        Guid updateId,
+        EditCustomerUpdateRequest request,
+        ICaseRepository caseRepository,
+        ICustomerUpdateRepository updateRepository,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return WorkflowEndpoints.Validation("tenantScope", validationError);
+        }
+
+        var update = await updateRepository.GetAsync(updateId, scope, cancellationToken);
+        if (update is null)
+        {
+            return Results.NotFound(new { message = "Customer update was not found for the requested tenant workspace." });
+        }
+
+        var claimCase = await WorkflowEndpoints.GetScopedCaseAsync(caseRepository, update.CaseId, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return WorkflowEndpoints.NotFoundCase();
+        }
+
+        if (update.Status is CustomerUpdateStatus.Sent or CustomerUpdateStatus.SimulatedSent)
+        {
+            return Results.Conflict(new { message = "A sent message can never be edited, a correction is a new message." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.MessageBody))
+        {
+            return WorkflowEndpoints.Validation("messageBody", "Message text is required.");
+        }
+
+        var actor = WorkflowEndpoints.GetActor(httpContext, null);
+        if (string.IsNullOrWhiteSpace(actor))
+        {
+            return WorkflowEndpoints.Validation("userId", "Authenticated user context is required to edit a customer update.");
+        }
+
+        var auditReason = AuditReasonReader.Read(httpContext);
+        if (string.IsNullOrWhiteSpace(auditReason))
+        {
+            return WorkflowEndpoints.Validation("auditReason", "A reason is required to edit a customer update.");
+        }
+
+        var messageBody = request.MessageBody.Trim();
+        var shortMessageBody = string.IsNullOrWhiteSpace(request.ShortMessageBody) ? Truncate(messageBody, 160) : request.ShortMessageBody.Trim();
+        var wasApproved = update.Status == CustomerUpdateStatus.Approved;
+        var approveInSameStep = wasApproved && request.ApproveInSameStep;
+        var now = DateTimeOffset.UtcNow;
+
+        var edited = update with
+        {
+            MessageBody = messageBody,
+            ShortMessageBody = shortMessageBody,
+            // The very first text this message ever had, kept once, on the first edit only.
+            OriginalMessageBody = update.OriginalMessageBody ?? (update.CreationMethod == CustomerUpdateCreationMethod.AiDrafted ? update.MessageBody : null),
+            EditedByUserId = actor,
+            EditedAt = now,
+            Status = wasApproved && !approveInSameStep ? CustomerUpdateStatus.PendingApproval : update.Status,
+            ApprovedByUserId = approveInSameStep ? actor : update.ApprovedByUserId,
+            ApprovedAt = approveInSameStep ? now : update.ApprovedAt,
+            UpdatedAt = now
+        };
+
+        await updateRepository.SaveAsync(edited, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CustomerUpdateEdited(edited, actor, approveInSameStep, auditReason), cancellationToken);
+
+        return Results.Ok(WorkflowMapper.ToResponse(edited));
+    }
+
+    private static string Truncate(string text, int maxLength) =>
+        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "…";
+
     // WO-16: tenant-wide view backing Communications.tsx, the previous ListCustomerUpdates below
     // is per-case only. Each row is filtered through the same ClaimAccessGuard that gates every
     // other cross-case read (e.g. CommunicationEndpoints.ListHistory), so an officer scoped to only
