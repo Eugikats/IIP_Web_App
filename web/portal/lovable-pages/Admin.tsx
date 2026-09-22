@@ -1,13 +1,14 @@
 "use client";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
-import { Building2, Users, FileText, Workflow, Sparkles, Plug, ShieldCheck, ScrollText, Bot, CreditCard, Gavel, ArrowRight, MessageCircle, Mail, Radio } from "lucide-react";
+import { Building2, Users, FileText, Workflow, Sparkles, Plug, ShieldCheck, ScrollText, Bot, CreditCard, Gavel, ArrowRight, MessageCircle, Mail, Radio, PackageCheck } from "lucide-react";
 import { useUI } from "@/context/UIStateContext";
 import { canAccess, canAccessWithPermissions } from "@/lib/roles";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 import { canUseLocalTestDoubles } from "@/lib/config";
 
 const cards = [
+  { to: "/app/admin/products", icon: PackageCheck, title: "Products", desc: "Configure a product's claim process, document matrix and IRA approval. Every change is versioned and audited." },
   { to: "/app/admin/users", icon: Users, title: "Users & roles", desc: "Add users, resolved from server-side membership and permission data. Role changes are audited." },
   { to: "/app/admin/agents", icon: Bot, title: "Agents", desc: "Registry · versions · permissions · kill switch · run logs · feedback." },
   { to: "/app/admin/tenant-policy", icon: Gavel, title: "Agent Policy", desc: "Baseline guardrails inherited by all agents in this workspace." },

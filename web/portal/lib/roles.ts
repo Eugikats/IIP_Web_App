@@ -45,7 +45,8 @@ export type Permission =
   | "ManageAgentWorkflows"
   | "ReviewAgentWorkItems"
   | "ViewBilling"
-  | "ManageTenantOnboarding";
+  | "ManageTenantOnboarding"
+  | "ManageProducts";
 
 export const STAFF_ROLES: Role[] = [
   "Admin", "ClaimsOfficer", "ClaimsSupervisor", "CustomerService", "Broker",
@@ -60,6 +61,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "ViewChannels", "ViewCustomers", "ViewSalesLeads", "ManageSalesLeads", "ViewFraudSignals",
   "ViewUnderwriting", "ManageAgents", "ViewAgentWorkflows", "RunAgentWorkflows",
   "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling", "ManageTenantOnboarding",
+  "ManageProducts",
 ];
 
 // Development presentation contract only. Protected runtimes use server-resolved permissions.
@@ -69,7 +71,7 @@ export const PREVIEW_PERMISSIONS: Record<Role, Permission[]> = {
   ITAdmin: [
     "ViewCommandCenter", "ViewAuditLog", "ExportEvidencePack", "ConfigureIntegrations",
     "ManageTenantSettings", "ManageAgents", "ViewAgentWorkflows", "RunAgentWorkflows",
-    "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling",
+    "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling", "ManageProducts",
   ],
   ClaimsOfficer: [
     "ViewCommandCenter", "CreateClaim", "UploadDocument", "ViewAssignedClaims", "ViewAiOutputs",
@@ -81,7 +83,7 @@ export const PREVIEW_PERMISSIONS: Record<Role, Permission[]> = {
     "ApproveSettlementWorkflowStep", "ViewAuditLog", "ExportEvidencePack", "ViewAiOutputs",
     "OverrideAiRecommendation", "ManageCustomerCommunications", "SendCustomerUpdate", "ViewChannels",
     "ViewCustomers", "ViewFraudSignals", "ViewUnderwriting", "ViewAgentWorkflows",
-    "RunAgentWorkflows", "ReviewAgentWorkItems",
+    "RunAgentWorkflows", "ReviewAgentWorkItems", "ManageProducts",
   ],
   CustomerService: [
     "ViewCommandCenter", "CreateClaim", "UploadDocument", "ViewAssignedClaims", "ViewAiOutputs",
@@ -133,6 +135,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/admin/users", requiredAny: ["ManageTenantSettings"] },
   // Prefix-matched below covers /app/admin/agents/{key}/behaviour too, no separate entry needed.
   { path: "/app/admin/agents", requiredAny: ["ManageAgents"] },
+  { path: "/app/admin/products", requiredAny: ["ManageProducts"] },
   { path: "/app/admin/billing", requiredAny: ["ViewBilling"] },
   { path: "/app/admin/onboarding", requiredAny: ["ManageTenantOnboarding"] },
   { path: "/app/admin/tenant-policy", requiredAny: ["ManageTenantSettings"] },
