@@ -585,6 +585,37 @@ public sealed record AuditEvent(
             AuditReason: auditReason,
             CorrelationId: correlationId);
 
+    /// <summary>Every product version save, whether a content edit or a status transition
+    /// (submitted/approved/rejected/retired), is an append-only audited event, never a silent
+    /// overwrite (outcomes A and C).</summary>
+    public static AuditEvent ProductVersionSaved(
+        TenantScope scope,
+        string userId,
+        Guid productId,
+        int version,
+        string status,
+        string actionName,
+        string auditReason,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: productId.ToString(),
+            userId,
+            ActorType.User,
+            actionName,
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: status,
+            EvidenceIds: [productId.ToString(), $"v{version}"],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: status,
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
     private static AuditEvent ForCase(
         ClaimCaseSnapshot snapshot,
         string? userId,

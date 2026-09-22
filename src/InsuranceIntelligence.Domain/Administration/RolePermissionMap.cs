@@ -18,7 +18,8 @@ public static class RolePermissionMap
                 Permission.RunAgentWorkflows,
                 Permission.ManageAgentWorkflows,
                 Permission.ReviewAgentWorkItems,
-                Permission.ViewBilling
+                Permission.ViewBilling,
+                Permission.ManageProducts
             ],
             [PlatformRole.ClaimsOfficer] =
             [
@@ -55,7 +56,8 @@ public static class RolePermissionMap
                 Permission.ViewUnderwriting,
                 Permission.ViewAgentWorkflows,
                 Permission.RunAgentWorkflows,
-                Permission.ReviewAgentWorkItems
+                Permission.ReviewAgentWorkItems,
+                Permission.ManageProducts
             ],
             [PlatformRole.CustomerService] =
             [

@@ -1227,6 +1227,45 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                     b.ToTable("Producers", (string)null);
                 });
 
+            modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedProductVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("VersionId");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WorkspaceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "WorkspaceId");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "ProductId");
+
+                    b.ToTable("ProductVersions", (string)null);
+                });
+
             modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.PersistedRetentionPolicy", b =>
                 {
                     b.Property<Guid>("Id")

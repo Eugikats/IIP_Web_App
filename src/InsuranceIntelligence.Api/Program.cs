@@ -347,6 +347,8 @@ builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQueryService, InsuranceIntelligence.Application.Products.ProductQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCommandService, InsuranceIntelligence.Application.Products.ProductCommandService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingService, InsuranceIntelligence.Application.Onboarding.TenantOnboardingService>();
@@ -789,6 +791,32 @@ app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapPost("/api/v1/sales-leads", SalesLeadEndpoints.CreateLead)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+
+// Product configuration, the spine everything else in claim handling reads from (blueprint
+// outcome A/C). Every save is a new version; publishing needs an IRA approval reference and a
+// second person, distinct from whoever submitted it.
+app.MapGet("/api/v1/products", InsuranceIntelligence.Api.Products.ProductEndpoints.ListProducts)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/default-stage-library", InsuranceIntelligence.Api.Products.ProductEndpoints.GetDefaultStageLibrary)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/{productId:guid}", InsuranceIntelligence.Api.Products.ProductEndpoints.GetCurrent)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/{productId:guid}/versions", InsuranceIntelligence.Api.Products.ProductEndpoints.ListVersions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/{productId:guid}/versions/{version:int}", InsuranceIntelligence.Api.Products.ProductEndpoints.GetVersion)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products", InsuranceIntelligence.Api.Products.ProductEndpoints.CreateDraft)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPut("/api/v1/products/{productId:guid}", InsuranceIntelligence.Api.Products.ProductEndpoints.UpdateDraft)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/submit", InsuranceIntelligence.Api.Products.ProductEndpoints.SubmitForPublishApproval)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/approve", InsuranceIntelligence.Api.Products.ProductEndpoints.ApprovePublish)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/reject", InsuranceIntelligence.Api.Products.ProductEndpoints.RejectPublish)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/retire", InsuranceIntelligence.Api.Products.ProductEndpoints.Retire)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 
 // Gate 1 (G1.7): platform-operator tenant onboarding + Entra admin-consent flow (ADR-0005).
 app.MapPost("/api/v1/onboarding", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.Create)
