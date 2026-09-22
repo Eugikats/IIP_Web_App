@@ -63,16 +63,18 @@ public sealed class MyWorkService(
             AddAgentWork(candidates, await agentWorkItemRepository.ListAsync(context.Scope, cancellationToken), visibleCases);
         }
 
+        var now = DateTimeOffset.UtcNow;
         var filtered = candidates
             .Where(item => MatchesOwnership(item, query.Ownership, context.UserId))
             .Where(item => query.SourceType is null || item.SourceType == query.SourceType)
             .Where(item => query.State is null || item.State == query.State)
-            .OrderBy(item => DueRank(item.DueState))
-            .ThenBy(item => StateRank(item.State))
-            .ThenBy(item => PriorityRank(item.Priority))
-            .ThenBy(item => item.DueAt ?? DateTimeOffset.MaxValue)
-            .ThenByDescending(item => item.UpdatedAt)
-            .ThenBy(item => item.Id, StringComparer.Ordinal)
+            .Select(item => (Item: item, Score: MyWorkRanking.Explain(
+                item.DueState, item.EvidenceReadiness, item.ApprovalRequired, item.State, item.Priority,
+                item.OwnerUserId is not null, item.UpdatedAt, now).Score))
+            .OrderByDescending(pair => pair.Score)
+            .ThenByDescending(pair => pair.Item.UpdatedAt)
+            .ThenBy(pair => pair.Item.Id, StringComparer.Ordinal)
+            .Select(pair => pair.Item)
             .ToArray();
         var items = filtered.Take(query.Limit).ToArray();
         var summary = new MyWorkSummary(
@@ -249,11 +251,19 @@ public sealed class MyWorkService(
         string? priority = null)
     {
         var dueAt = claimCase?.SlaDueAt;
+        var dueState = DueState(dueAt);
+        var normalizedOwner = Normalize(ownerUserId);
+        var resolvedPriority = priority ?? claimCase?.Priority.ToString() ?? "Normal";
+        var caseReference = claimCase is null ? null : $"{claimCase.PolicyNumber} - {claimCase.CustomerName}";
+        var (_, reason) = MyWorkRanking.Explain(
+            dueState, evidence, approvalRequired, state, resolvedPriority,
+            normalizedOwner is not null, updatedAt, DateTimeOffset.UtcNow);
+
         return new MyWorkItemDto(
             $"{type}:{sourceId}", type, sourceId.ToString(), caseId?.ToString(), title, requiredAction,
-            sourceStatus, state, Normalize(ownerUserId), Normalize(ownerTeam), ownerBasis,
-            priority ?? claimCase?.Priority.ToString() ?? "Normal", dueAt, DueState(dueAt), evidence,
-            approvalRequired, href, updatedAt);
+            sourceStatus, state, normalizedOwner, Normalize(ownerTeam), ownerBasis,
+            resolvedPriority, dueAt, dueState, evidence,
+            approvalRequired, href, updatedAt, caseReference, reason);
     }
 
     private static bool MatchesOwnership(MyWorkItemDto item, MyWorkOwnership ownership, string userId) => ownership switch
@@ -281,34 +291,6 @@ public sealed class MyWorkService(
         if (remaining <= TimeSpan.Zero) return MyWorkDueState.Overdue;
         return remaining <= TimeSpan.FromHours(24) ? MyWorkDueState.DueSoon : MyWorkDueState.OnTrack;
     }
-
-    private static int DueRank(MyWorkDueState value) => value switch
-    {
-        MyWorkDueState.Overdue => 0,
-        MyWorkDueState.DueSoon => 1,
-        MyWorkDueState.OnTrack => 2,
-        _ => 3
-    };
-
-    private static int StateRank(MyWorkState value) => value switch
-    {
-        MyWorkState.Escalated => 0,
-        MyWorkState.Ready => 1,
-        MyWorkState.InProgress => 2,
-        MyWorkState.Completed => 3,
-        _ => 4
-    };
-
-    private static int PriorityRank(string value) => value.ToLowerInvariant() switch
-    {
-        "critical" => 0,
-        "urgent" => 1,
-        "high" => 2,
-        "medium" => 3,
-        "normal" => 4,
-        "low" => 5,
-        _ => 6
-    };
 
     private sealed record ResolvedPermissions(
         bool ViewAllClaims,
