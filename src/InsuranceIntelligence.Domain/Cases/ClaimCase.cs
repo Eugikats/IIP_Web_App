@@ -32,6 +32,11 @@ public sealed record ClaimCase
     /// PolicyRiskSignalEvaluator. Advisory only, never a decision; empty when no matching policy
     /// was found to check against.</summary>
     public IReadOnlyList<string> AdvisoryRiskSignals { get; init; } = [];
+
+    /// <summary>When CaseFollowThroughService last prompted the customer for missing documents,
+    /// null if it never has. Read back on the next run so a reminder only repeats after the
+    /// configured wait, never every time the timer fires (outcome G).</summary>
+    public DateTimeOffset? LastMissingDocumentReminderAt { get; init; }
     public required string ClaimType { get; init; }
     public required string Channel { get; init; }
     public required DateOnly IncidentDate { get; init; }

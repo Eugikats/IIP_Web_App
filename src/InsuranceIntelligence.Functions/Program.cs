@@ -50,6 +50,14 @@ public class Program
                 services.AddScoped<IAgentWorkflowService, AgentWorkflowService>();
                 services.AddScoped<IAgentWorkflowNodeExecutor, AgentWorkflowNodeExecutor>();
                 services.AddScoped<IAgentWorkflowExecutionWorker, AgentWorkflowExecutionWorker>();
+                // Outcome G (follow-through timer): the same NotificationService/emitter pairing
+                // Api's Program.cs registers, so a notification created here reads back identically
+                // through the portal's own notification feed.
+                services.AddScoped<InsuranceIntelligence.Application.Notifications.NotificationService>();
+                services.AddScoped<InsuranceIntelligence.Application.Notifications.INotificationEmitter>(
+                    serviceProvider => serviceProvider.GetRequiredService<InsuranceIntelligence.Application.Notifications.NotificationService>());
+                services.AddScoped<InsuranceIntelligence.Application.Cases.IMissingDocumentRequestService, InsuranceIntelligence.Application.Cases.MissingDocumentRequestService>();
+                services.AddScoped<InsuranceIntelligence.Application.Cases.ICaseFollowThroughService, InsuranceIntelligence.Application.Cases.CaseFollowThroughService>();
                 if (options.QueueProvider.Equals("AzureServiceBus", StringComparison.OrdinalIgnoreCase))
                 {
                     services.AddSingleton<IMessageQueueDispatcher, FunctionsAzureServiceBusQueueDispatcher>();

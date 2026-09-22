@@ -28,6 +28,10 @@ public enum NotificationType
     DocumentReviewNeeded,
     ReviewRequested,
     ClaimAssigned,
+
+    /// <summary>A warning before the service standard is breached, not after (outcome G). Distinct
+    /// from SlaBreach, which fires once the due date has already passed.</summary>
+    SlaAtRisk,
 }
 
 public interface INotificationRepository
