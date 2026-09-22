@@ -5,13 +5,9 @@ import {
   TriangleAlert,
   ArrowLeft,
   CheckCircle2,
-  Download,
   FileText,
-  Gavel,
   MessageSquareText,
-  Send,
   ShieldAlert,
-  ShieldCheck,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Link, useParams } from "@/components/iip/NextRouterCompat";
@@ -25,7 +21,8 @@ import { Button } from "@/components/ui/Button";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import CompletenessCard from "@/components/iip/CompletenessCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
-import MotorLifecycle from "@/components/iip/MotorLifecycle";
+import ClaimProcessStages from "@/components/iip/ClaimProcessStages";
+import ClaimDecisionCard, { type DecisionAction } from "@/components/iip/ClaimDecisionCard";
 import { DocumentUploadWidget } from "@/components/iip/DocumentUploadWidget";
 import { MarkdownText } from "@/components/iip/MarkdownText";
 import { useClaimReview, type ConfirmClaimCorrections } from "@/lib/lovable-parity/data/claimReview";
@@ -367,6 +364,54 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   }));
   const firstExtractionHref = extractionHref(claimId, detail.documents[0]?.documentId);
 
+  // Outcome H: one primary action, everything else behind a More menu, not a wall of equally-
+  // weighted buttons. The first visible entry in this list becomes the primary action, ordered by
+  // what the claim's own state actually needs next.
+  const documentFollowUpAction: DecisionAction = {
+    key: "document-follow-up",
+    label: "Request missing documents",
+    onClick: () => void handleDraftDocumentFollowUp(),
+    disabled: drafting,
+    visible: canDraftCustomerUpdates && detail.status === "MissingDocuments",
+  };
+  const supervisorReviewAction: DecisionAction = {
+    key: "supervisor-review",
+    label: "Request supervisor review",
+    onClick: () => void handleSupervisorReview(),
+    disabled: requestingApproval,
+    visible: true,
+  };
+  const draftCustomerUpdateAction: DecisionAction = {
+    key: "draft-customer-update",
+    label: "Draft customer update",
+    onClick: () => void handleDraftCustomerUpdate(),
+    disabled: drafting,
+    visible: canDraftCustomerUpdates,
+  };
+  const draftDecisionOutcomeAction: DecisionAction = {
+    key: "draft-decision-outcome",
+    label: "Draft decision outcome update",
+    onClick: () => void handleDraftDecisionOutcomeUpdate(),
+    disabled: drafting,
+    visible: canDraftCustomerUpdates,
+  };
+  const exportClaimPackAction: DecisionAction = {
+    key: "export-claim-pack",
+    label: "Export claim pack",
+    onClick: () => setExportDialogOpen(true),
+    disabled: exporting,
+    visible: canExportEvidencePack,
+  };
+  const markEvidenceReviewedAction: DecisionAction = {
+    key: "mark-evidence-reviewed",
+    label: "Mark evidence reviewed",
+    onClick: () => unavailable("Mark evidence reviewed"),
+    visible: true,
+  };
+  const decisionActions: DecisionAction[] = detail.status === "MissingDocuments"
+    ? [documentFollowUpAction, supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction]
+    : [supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction, documentFollowUpAction];
+
   return (
     <>
       {crumb}
@@ -411,52 +456,18 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       ) : null}
 
       <div className="mb-4">
-        <MotorLifecycle status={detail.status} />
+        <ClaimProcessStages claimId={claimId} role={roleDef.key} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <GlassCard>
-            <div className="mb-3 flex items-center justify-between gap-4">
-              <div className="text-[14px] font-bold text-dls-text-primary">Human review actions</div>
-              <div className="text-[11.5px] text-dls-text-muted">Only wired actions execute. Unwired actions report Not configured.</div>
-            </div>
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              {canDraftCustomerUpdates ? (
-                <Button variant="secondary" icon={<MessageSquareText />} disabled={drafting} onClick={handleDraftCustomerUpdate}>
-                  Draft customer update
-                </Button>
-              ) : null}
-              <Button variant="secondary" icon={<ShieldCheck />} disabled={requestingApproval} onClick={handleSupervisorReview}>
-                Request supervisor review
-              </Button>
-              <UnavailableAction icon={CheckCircle2} label="Mark evidence reviewed" onClick={unavailable} />
-              {canDraftCustomerUpdates ? (
-                <Button variant="secondary" icon={<Send />} disabled={drafting} onClick={handleDraftDocumentFollowUp}>
-                  Draft document follow-up
-                </Button>
-              ) : null}
-              {canDraftCustomerUpdates ? (
-                <Button variant="secondary" icon={<Gavel />} disabled={drafting} onClick={handleDraftDecisionOutcomeUpdate}>
-                  Draft decision outcome update
-                </Button>
-              ) : null}
-              {canExportEvidencePack ? (
-                <Button variant="secondary" icon={<Download />} disabled={exporting} onClick={() => setExportDialogOpen(true)}>
-                  Export claim pack
-                </Button>
-              ) : null}
-            </div>
-            {!canDraftCustomerUpdates || !canExportEvidencePack ? (
-              <div className="mt-2.5 text-[11.5px] text-dls-text-muted">
-                {!canDraftCustomerUpdates && !canExportEvidencePack
-                  ? "Your role does not include drafting customer updates or exporting the claim pack."
-                  : !canDraftCustomerUpdates
-                    ? "Your role does not include drafting customer updates."
-                    : "Your role does not include exporting the claim pack."}
-              </div>
-            ) : null}
-          </GlassCard>
+          <ClaimDecisionCard
+            detail={detail}
+            openReviewRequestCount={reviewRequests.filter((request) => request.status === "Open" || request.status === "Acknowledged").length}
+            documentsReceivedCount={documentItems.filter((item) => item.present).length}
+            documentsRequiredCount={documentItems.length}
+            actions={decisionActions}
+          />
 
           <PolicyQuestionPanel
             caseId={detail.claimId}
@@ -572,36 +583,69 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             ) : summaryIsLoading && !displayedSummary && !awaitingAutomaticReview ? (
               <LoadingSkeleton rows={3} />
             ) : displayedSummary ? (
-              <div className="space-y-3">
-                <MarkdownText className="text-[13px] text-dls-text-secondary leading-relaxed" content={displayedSummary.summary} />
-                {displayedSummary.openQuestions.length > 0 ? (
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What happened</div>
+                  <MarkdownText className="text-[13px] text-dls-text-secondary leading-relaxed" content={displayedSummary.summary} />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Open questions</div>
-                    <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
-                      {displayedSummary.openQuestions.map((question) => (
-                        <li key={question}>- {question}</li>
-                      ))}
-                    </ul>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What we have</div>
+                    {documentItems.filter((item) => item.present).length === 0 ? (
+                      <p className="text-[12.5px] text-dls-text-muted">No documents received yet.</p>
+                    ) : (
+                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                        {documentItems.filter((item) => item.present).map((item) => (
+                          <li key={item.label} className="flex items-center gap-1.5">
+                            <CheckCircle2 className="h-3 w-3 shrink-0 text-dls-success-dot" aria-hidden="true" /> {item.label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                ) : null}
-                {displayedSummary.riskSignals?.length > 0 ? (
                   <div>
-                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Risk signals</div>
-                    <ul className="space-y-2">
-                      {displayedSummary.riskSignals.map((signal, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[12.5px] text-dls-text-secondary">
-                          <Badge tone={signal.category === "Fraud" ? "warning" : "neutral"} className="mt-0.5 shrink-0">
-                            {signal.category === "Fraud" ? "Fraud signal" : "Underwriting"}
-                          </Badge>
-                          <span>{signal.note}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What is missing</div>
+                    {documentItems.filter((item) => !item.present).length === 0 ? (
+                      <p className="text-[12.5px] text-dls-text-muted">Nothing outstanding.</p>
+                    ) : (
+                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                        {documentItems.filter((item) => !item.present).map((item) => (
+                          <li key={item.label}>{item.label}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                {(displayedSummary.openQuestions.length > 0 || displayedSummary.riskSignals?.length > 0) ? (
+                  <div>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What to watch</div>
+                    {displayedSummary.riskSignals?.length > 0 ? (
+                      <ul className="mb-2 space-y-2">
+                        {displayedSummary.riskSignals.map((signal, i) => (
+                          <li key={i} className="flex items-start gap-2 text-[12.5px] text-dls-text-secondary">
+                            <Badge tone={signal.category === "Fraud" ? "warning" : "neutral"} className="mt-0.5 shrink-0">
+                              {signal.category === "Fraud" ? "Fraud signal" : "Underwriting"}
+                            </Badge>
+                            <span>{signal.note}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {displayedSummary.openQuestions.length > 0 ? (
+                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                        {displayedSummary.openQuestions.map((question) => (
+                          <li key={question}>- {question}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                     <div className="mt-2 text-[11px] text-dls-text-muted">
                       Advisory observations only. A person decides what, if anything, to do.
                     </div>
                   </div>
                 ) : null}
+
                 {displayedSummary.knowledgeSources.length > 0 ? (
                   <div>
                     <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Sources</div>
@@ -809,22 +853,6 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         onConfirm={handleConfirmClaim}
       />
     </>
-  );
-}
-
-function UnavailableAction({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: typeof ShieldCheck;
-  label: string;
-  onClick: (label: string) => void;
-}) {
-  return (
-    <Button variant="secondary" icon={<Icon />} onClick={() => onClick(label)}>
-      {label}
-    </Button>
   );
 }
 

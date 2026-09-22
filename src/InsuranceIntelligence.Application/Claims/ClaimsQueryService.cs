@@ -125,7 +125,9 @@ public sealed class ClaimsQueryService(
             claim.AssignedTeam,
             claim.CreatedAt,
             claim.UpdatedAt,
-            documents.Select(ToDocumentSummary).ToArray());
+            documents.Select(ToDocumentSummary).ToArray(),
+            claim.ClaimedAmount,
+            claim.AdvisoryRiskSignals);
 
     private static DocumentSummaryDto ToDocumentSummary(CaseDocument document) =>
         new(

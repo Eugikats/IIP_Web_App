@@ -56,7 +56,9 @@ public sealed record ClaimDetailDto(
     string? AssignedTeam,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    IReadOnlyCollection<DocumentSummaryDto> Documents);
+    IReadOnlyCollection<DocumentSummaryDto> Documents,
+    decimal? ClaimedAmount = null,
+    IReadOnlyCollection<string>? AdvisoryRiskSignals = null);
 
 public sealed record DocumentSummaryDto(
     Guid DocumentId,

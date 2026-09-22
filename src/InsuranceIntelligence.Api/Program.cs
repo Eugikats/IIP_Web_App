@@ -610,6 +610,8 @@ app.MapGet("/api/v1/cases", CaseEndpoints.ListCases)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}", CaseEndpoints.GetCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/cases/{caseId:guid}/product-stages", CaseEndpoints.GetProductStages)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/assign", CaseEndpoints.AssignCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/escalate", CaseEndpoints.EscalateCase)

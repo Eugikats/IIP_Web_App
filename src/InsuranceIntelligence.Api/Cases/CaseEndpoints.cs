@@ -150,6 +150,52 @@ public static class CaseEndpoints
         return Results.Ok(CaseMapper.ToResponse(claimCase, auditEvents));
     }
 
+    /// <summary>The claim's progress (outcome H): the pinned product's own configured claim
+    /// process (outcome A), never a fabricated or claim-type-hardcoded stage list. Honestly
+    /// "not configured" when the claim has no pinned product, exactly like any other absent
+    /// capability. A separate, lightly-permissioned endpoint (claim-view, not ManageProducts)
+    /// rather than folding this into CaseResponse, so every claim list read does not pay for a
+    /// product lookup it does not need.</summary>
+    public static async Task<IResult> GetProductStages(
+        Guid caseId,
+        ICaseRepository caseRepository,
+        InsuranceIntelligence.Domain.Products.IProductRepository productRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["tenantScope"] = [validationError]
+            });
+        }
+
+        var claimCase = await GetScopedCaseAsync(caseId, caseRepository, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
+        if (claimCase.ProductId is not { } productId || claimCase.ProductVersion is not { } version)
+        {
+            return Results.Ok(new ClaimProcessResponse(false, null, null, []));
+        }
+
+        var product = await productRepository.GetVersionAsync(scope, productId, version, cancellationToken);
+        if (product is null)
+        {
+            return Results.Ok(new ClaimProcessResponse(false, null, null, []));
+        }
+
+        var stages = product.Stages
+            .OrderBy(stage => stage.SortOrder)
+            .Select(stage => new ClaimProcessStageResponse(stage.StageKey, stage.Name, stage.OwnerRole, stage.IsAutomatic, stage.SortOrder, stage.ServiceStandardWorkingDays))
+            .ToArray();
+
+        return Results.Ok(new ClaimProcessResponse(true, product.Name, product.Version, stages));
+    }
+
     public static async Task<IResult> AssignCase(
         Guid caseId,
         AssignCaseRequest request,

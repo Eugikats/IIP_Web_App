@@ -50,6 +50,8 @@ export type ClaimDetailView = {
   requiresConfirmation: boolean;
   assignedUserId: string | null;
   documents: ClaimDocumentView[];
+  claimedAmount: number | null;
+  advisoryRiskSignals: string[];
 };
 
 export type ConfirmClaimCorrections = {
@@ -108,6 +110,8 @@ function parityClaimDetail(claimId: string): ClaimDetailView | null {
     slaDueAt: null,
     requiresConfirmation: false,
     assignedUserId: claim.officer === "Unassigned" ? null : claim.officer,
+    claimedAmount: null,
+    advisoryRiskSignals: [],
     documents: documentLibrary
       .filter((document) => document.claim === claim.id)
       .map((document) => ({
@@ -232,6 +236,8 @@ export function useClaimReview(claimId: string) {
         completenessScore: d.completenessScore, riskLevel: d.riskLevel, priority: d.priority, slaDueAt: d.slaDueAt,
         requiresConfirmation: Boolean(d.requiresConfirmation),
         assignedUserId: d.assignedUserId,
+        claimedAmount: d.claimedAmount ?? null,
+        advisoryRiskSignals: d.advisoryRiskSignals ?? [],
         documents: (d.documents ?? []).map((x: ClaimDocumentView) => ({ ...x })),
       };
       setDetail(nextDetail);

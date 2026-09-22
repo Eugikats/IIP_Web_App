@@ -82,6 +82,22 @@ public sealed record EscalateCaseRequest(
     string AuditReason,
     string? AssignedTeam);
 
+/// <summary>The pinned product's configured claim process (outcome A/H). Configured false means
+/// this claim has no pinned product, an honest "not configured", never a fabricated stage list.</summary>
+public sealed record ClaimProcessResponse(
+    bool Configured,
+    string? ProductName,
+    int? ProductVersion,
+    IReadOnlyCollection<ClaimProcessStageResponse> Stages);
+
+public sealed record ClaimProcessStageResponse(
+    string StageKey,
+    string Name,
+    string OwnerRole,
+    bool IsAutomatic,
+    int SortOrder,
+    int? ServiceStandardWorkingDays);
+
 public sealed record ConfirmCaseRequest(
     string AuditReason,
     string? ProductLine = null,
