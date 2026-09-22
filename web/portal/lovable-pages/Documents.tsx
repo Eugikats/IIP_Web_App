@@ -8,6 +8,7 @@ import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } fro
 import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface } from "@/components/ui/StateSurfaces";
 import { ExternalLink, FileText, Search, Upload, X } from "lucide-react";
 import { useDocuments } from "@/lib/lovable-parity/data/documents";
+import { useDocumentAccuracy } from "@/lib/lovable-parity/data/documentQuality";
 import { useClaims } from "@/lib/lovable-parity/data/claims";
 import { extractionHref } from "@/lib/workItemLinks";
 import { DocumentUploadWidget } from "@/components/iip/DocumentUploadWidget";
@@ -36,6 +37,10 @@ export default function Documents() {
   const canUploadDocuments = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "UploadDocument")
     : hasPermission(runtimeContext?.permissions ?? [], "UploadDocument");
+  const canViewAccuracy = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "ManageProducts")
+    : hasPermission(runtimeContext?.permissions ?? [], "ManageProducts");
+  const accuracy = useDocumentAccuracy();
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [claimQuery, setClaimQuery] = useState("");
@@ -143,6 +148,35 @@ export default function Documents() {
               >
                 <ExternalLink className="h-3 w-3" aria-hidden="true" /> Open this claim
               </Link>
+            </div>
+          )}
+        </GlassCard>
+      )}
+
+      {canViewAccuracy && (
+        <GlassCard className="mb-4">
+          <div className="mb-1 text-[15px] font-bold text-dls-text-primary">Classification accuracy</div>
+          <div className="mb-3 text-[12px] text-dls-text-secondary">
+            How often the classifier's guess matched what a person confirmed, per document type. Learned from every reclassification and correction recorded so far.
+          </div>
+          {accuracy.loading ? (
+            <LoadingSkeleton rows={2} />
+          ) : accuracy.error ? (
+            <div className="text-[12.5px] text-dls-danger-text">{accuracy.error}</div>
+          ) : accuracy.rows.length === 0 ? (
+            <div className="text-[12.5px] text-dls-text-muted">No corrections recorded yet.</div>
+          ) : (
+            <div className="space-y-1.5">
+              {accuracy.rows.map((row) => (
+                <div key={row.documentType} className="flex items-center justify-between gap-3 rounded-dls-control border border-dls-border-subtle bg-dls-surface px-3 py-2 text-[12.5px]">
+                  <span className="font-semibold text-dls-text-primary">{documentTypeLabel(row.documentType)}</span>
+                  {row.accuracy === null ? (
+                    <span className="text-dls-text-muted">Not enough data yet ({row.sampleCount} of {row.minimumSampleCount} minimum)</span>
+                  ) : (
+                    <span className="text-dls-text-secondary">{Math.round(row.accuracy * 100)}% correct · {row.correctCount} of {row.sampleCount}</span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </GlassCard>

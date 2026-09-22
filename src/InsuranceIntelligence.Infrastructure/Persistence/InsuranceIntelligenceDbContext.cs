@@ -54,6 +54,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedRetentionPolicy> RetentionPolicies => Set<PersistedRetentionPolicy>();
     public DbSet<PersistedProductVersion> ProductVersions => Set<PersistedProductVersion>();
     public DbSet<PersistedCommunicationTemplate> CommunicationTemplates => Set<PersistedCommunicationTemplate>();
+    public DbSet<PersistedDocumentLabelledExample> DocumentLabelledExamples => Set<PersistedDocumentLabelledExample>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -166,6 +167,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedProductVersion>().Property(entity => entity.Version).IsRequired();
         modelBuilder.Entity<PersistedProductVersion>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ProductId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedCommunicationTemplate>(), "CommunicationTemplates", "VersionId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedDocumentLabelledExample>(), "DocumentLabelledExamples", "ExampleId");
         modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.TemplateKey).HasMaxLength(200).IsRequired();
         modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.Version).IsRequired();
         modelBuilder.Entity<PersistedCommunicationTemplate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.TemplateKey });
@@ -355,6 +357,7 @@ public sealed class PersistedCommunicationTemplate : PersistedScopedJson
     public string TemplateKey { get; set; } = string.Empty;
     public int Version { get; set; }
 }
+public sealed class PersistedDocumentLabelledExample : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;
 public sealed class PersistedBranch : PersistedScopedJson;

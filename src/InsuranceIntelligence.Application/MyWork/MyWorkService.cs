@@ -18,7 +18,8 @@ public sealed class MyWorkService(
     IAgentWorkItemRepository agentWorkItemRepository,
     ITenantContextAccessor tenantContextAccessor,
     IPermissionService permissionService,
-    IAuditWriter auditWriter) : IMyWorkService
+    IAuditWriter auditWriter,
+    ITenantConfigurationRepository? tenantConfigurationRepository = null) : IMyWorkService
 {
     public async Task<MyWorkResponse> ListAsync(MyWorkQuery query, CancellationToken cancellationToken = default)
     {
@@ -50,7 +51,10 @@ public sealed class MyWorkService(
         // Protected repositories share one scoped DbContext. Keep these reads sequential.
         if (permissions.CanReadClaims)
         {
-            await AddClaimOwnedWorkAsync(candidates, visibleCases, context.UserId, context.Scope, cancellationToken);
+            var confidenceThreshold = tenantConfigurationRepository is null
+                ? 0.8m
+                : (await tenantConfigurationRepository.GetAsync(context.Scope, cancellationToken)).DocumentClassificationConfidenceThreshold;
+            await AddClaimOwnedWorkAsync(candidates, visibleCases, context.UserId, context.Scope, confidenceThreshold, cancellationToken);
         }
 
         if (permissions.ApproveWork)
@@ -101,6 +105,7 @@ public sealed class MyWorkService(
         IReadOnlyDictionary<Guid, ClaimCase> visibleCases,
         string userId,
         Domain.Common.TenantScope scope,
+        decimal confidenceThreshold,
         CancellationToken cancellationToken)
     {
         var tasks = await taskRepository.ListAsync(scope, cancellationToken);
@@ -112,9 +117,9 @@ public sealed class MyWorkService(
         foreach (var claimCase in visibleCases.Values)
         {
             var documents = await documentRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken);
-            foreach (var document in documents.Where(document => document.ProcessingStatus == DocumentProcessingStatus.ReviewRequired))
+            foreach (var document in documents.Where(document => NeedsReview(document, confidenceThreshold)))
             {
-                items.Add(FromDocument(document, claimCase));
+                items.Add(FromDocument(document, claimCase, confidenceThreshold));
             }
         }
 
@@ -196,8 +201,49 @@ public sealed class MyWorkService(
             true, $"/app/work-items?approvalId={approval.ApprovalId}", approval.UpdatedAt,
             approval.RiskLevel);
 
-    private static MyWorkItemDto FromDocument(CaseDocument document, ClaimCase claimCase) =>
-        Item(
+    // A document is not reliable evidence until a person has looked at it: not yet approved, and
+    // either the classifier itself was unsure (confidence below this tenant's configured
+    // threshold, or it landed on Unknown outright) or extraction raised a validation warning.
+    // Mirrors InsuranceIntelligence.Api.Documents.DocumentMapper.ApproveExtractionBlockedReason's
+    // conditions; duplicated rather than referenced because Application cannot depend on Api
+    // (same reasoning as the Functions/Api split elsewhere in this codebase).
+    private static bool NeedsReview(CaseDocument document, decimal confidenceThreshold) =>
+        !document.Extraction.Approved
+        && document.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ReviewRequired
+        && (document.DocumentType == DocumentType.Unknown
+            || document.Classification.ConfidenceScore < confidenceThreshold
+            || document.ValidationWarnings.Count > 0);
+
+    // Outcome K acceptance: "a low confidence document lands in a person's queue with the reason
+    // shown" -- names the actual confidence/threshold/warning, not a generic sentence.
+    private static string ReviewReason(CaseDocument document, decimal confidenceThreshold)
+    {
+        if (document.DocumentType == DocumentType.Unknown)
+        {
+            return "The classifier could not identify this document's type.";
+        }
+
+        var reasons = new List<string>();
+        if (document.Classification.ConfidenceScore < confidenceThreshold)
+        {
+            reasons.Add($"classified as {document.DocumentType} at {document.Classification.ConfidenceScore:P0} confidence, below the {confidenceThreshold:P0} review threshold");
+        }
+
+        if (document.ValidationWarnings.Count > 0)
+        {
+            reasons.Add(document.ValidationWarnings.Count == 1
+                ? $"1 validation warning ({document.ValidationWarnings.First().Message})"
+                : $"{document.ValidationWarnings.Count} validation warnings");
+        }
+
+        return reasons.Count == 0
+            ? "This document needs a person to verify it before it can be used as evidence."
+            : $"Needs review: {string.Join(", ", reasons)}.";
+    }
+
+    private static MyWorkItemDto FromDocument(CaseDocument document, ClaimCase claimCase, decimal confidenceThreshold)
+    {
+        var item = Item(
             MyWorkSourceType.DocumentReview, document.DocumentId, document.CaseId,
             $"Review {document.OriginalFileName}", "Review extracted fields and source evidence",
             document.ProcessingStatus.ToString(), MyWorkState.Ready,
@@ -205,6 +251,12 @@ public sealed class MyWorkService(
             document.ValidationWarnings.Count > 0 ? MyWorkEvidenceReadiness.Gaps : MyWorkEvidenceReadiness.Ready,
             false, $"/app/claims/{document.CaseId}/extraction?documentId={document.DocumentId}",
             document.ProcessedAt ?? document.UploadedAt);
+
+        // The generic ranking reason (MyWorkRanking.Explain) has no document-specific fields to
+        // draw on; outcome K's acceptance needs the actual confidence number and threshold named,
+        // so this overrides it with that specific reason for document-review items only.
+        return item with { Reason = ReviewReason(document, confidenceThreshold) };
+    }
 
     private static MyWorkItemDto FromCustomerUpdate(CustomerUpdateDraft update, ClaimCase claimCase, string userId) =>
         Item(

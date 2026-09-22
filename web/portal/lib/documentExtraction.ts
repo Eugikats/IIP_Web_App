@@ -92,6 +92,23 @@ export function useDocumentExtraction(caseId: string) {
     }
   }, [caseId, load, role]);
 
+  const reclassify = useCallback(async (documentId: string, documentType: string, auditReason: string): Promise<ActionResult> => {
+    try {
+      const headers: Record<string, string> = { ...scopedHeaders(role, ""), "Content-Type": "application/json" };
+      if (auditReason.trim()) headers["X-Audit-Reason"] = auditReason.trim();
+      const response = await fetch(`${apiBaseUrl}/api/v1/cases/${caseId}/documents/${documentId}/reclassify`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ documentType, updatedByUserId: null }),
+      });
+      if (!response.ok) return { ok: false, message: await safeError(response, `Reclassification failed.`) };
+      await load();
+      return { ok: true };
+    } catch (reason) {
+      return { ok: false, message: safeNetworkFailure(reason, "Reclassification failed.") };
+    }
+  }, [caseId, load, role]);
+
   const preview = useCallback(async (document: DocumentItem): Promise<PreviewResult> => {
     try {
       const response = await fetch(`${apiBaseUrl}${document.previewUrl}`, { headers: scopedHeaders(role, "") });
@@ -103,5 +120,5 @@ export function useDocumentExtraction(caseId: string) {
     }
   }, [role]);
 
-  return { documents, loading, error, errorKind, load, correctField, approve, preview };
+  return { documents, loading, error, errorKind, load, correctField, approve, reclassify, preview };
 }
