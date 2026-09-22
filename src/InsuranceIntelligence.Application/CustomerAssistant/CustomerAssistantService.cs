@@ -13,6 +13,7 @@ using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Policies;
+using InsuranceIntelligence.Domain.Products;
 
 namespace InsuranceIntelligence.Application.CustomerAssistant;
 
@@ -67,7 +68,8 @@ public sealed class CustomerAssistantService(
     IAgentBehaviourProfileRepository behaviourProfileRepository,
     IConsentRepository consentRepository,
     IAgentGate agentGate,
-    IAuditRepository auditRepository) : ICustomerAssistantService
+    IAuditRepository auditRepository,
+    IProductRepository productRepository) : ICustomerAssistantService
 {
     private const string SystemActorId = "system:customer-assistant";
     private const string AgentKey = "customer-assistant";
@@ -282,7 +284,7 @@ public sealed class CustomerAssistantService(
         }
 
         var customer = string.IsNullOrWhiteSpace(policy.CustomerId) ? null : await customerRepository.GetAsync(policy.CustomerId, scope, cancellationToken);
-        var caseIntake = new CaseIntakeService(caseRepository, auditRepository);
+        var caseIntake = new CaseIntakeService(caseRepository, auditRepository, productRepository);
         var claimCase = await caseIntake.CreateCaseAsync(new CreateCaseCommand(
             scope,
             CustomerName: customer?.FullName ?? "WhatsApp customer",

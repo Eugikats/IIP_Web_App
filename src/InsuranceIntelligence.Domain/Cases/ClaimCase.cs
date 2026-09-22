@@ -13,6 +13,15 @@ public sealed record ClaimCase
     public string? CustomerPhone { get; init; }
     public required string PolicyNumber { get; init; }
     public required string ProductLine { get; init; }
+
+    /// <summary>The configured Product, and the exact Published version that was in force, resolved
+    /// by matching ProductLine to a published product's name at intake (outcome A/C). Null when no
+    /// matching product has been configured yet, ProductLine remains the source of truth either way.
+    /// Never re-resolved after intake (see CaseIntakeService), even if the product is later edited
+    /// or republished, that is the entire point: a claim already filed keeps the process and
+    /// document matrix version that was in force when it was filed.</summary>
+    public Guid? ProductId { get; init; }
+    public int? ProductVersion { get; init; }
     public required string ClaimType { get; init; }
     public required string Channel { get; init; }
     public required DateOnly IncidentDate { get; init; }

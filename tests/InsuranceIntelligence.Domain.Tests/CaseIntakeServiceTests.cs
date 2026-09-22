@@ -1,12 +1,102 @@
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Domain.Tests;
 
 public sealed class CaseIntakeServiceTests
 {
+    [Fact]
+    public async Task CreateCaseAsync_WithNoProductRepository_LeavesProductPinNull()
+    {
+        // The optional-dependency default: every existing caller that never wired a product
+        // repository keeps behaving exactly as before, the claim simply carries no pin.
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+
+        Assert.Null(claimCase.ProductId);
+        Assert.Null(claimCase.ProductVersion);
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_ResolvesAndPinsThePublishedProductMatchingProductLine()
+    {
+        var products = new RecordingProductRepository();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var product = PublishedProduct(scope, "Motor", version: 3);
+        await products.SaveAsync(product);
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository(), products);
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+
+        Assert.Equal(product.ProductId, claimCase.ProductId);
+        Assert.Equal(3, claimCase.ProductVersion);
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_IgnoresADraftProductWithTheSameName()
+    {
+        var products = new RecordingProductRepository();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        await products.SaveAsync(PublishedProduct(scope, "Motor", version: 1) with { Status = ProductStatus.Draft });
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository(), products);
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+
+        Assert.Null(claimCase.ProductId);
+        Assert.Null(claimCase.ProductVersion);
+    }
+
+    [Fact]
+    public async Task AnOpenClaim_KeepsItsProductVersion_AfterTheProductIsLaterRepublished()
+    {
+        // Outcome C's acceptance test: changing a product after a claim was filed against it must
+        // never rewrite the version that claim is running under.
+        var products = new RecordingProductRepository();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var v1 = PublishedProduct(scope, "Motor", version: 1);
+        await products.SaveAsync(v1);
+        var caseRepository = new RecordingCaseRepository();
+        var service = new CaseIntakeService(caseRepository, new RecordingAuditRepository(), products);
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+        Assert.Equal(1, claimCase.ProductVersion);
+
+        // The product is edited and republished as version 2, exactly like ProductCommandService's
+        // own versioning would produce (a new, higher-Version row, same ProductId).
+        var v2 = v1 with { VersionId = Guid.NewGuid(), Version = 2, Name = "Motor", Status = ProductStatus.Published };
+        await products.SaveAsync(v2);
+        var currentProduct = await products.GetCurrentAsync(scope, v1.ProductId);
+
+        var storedClaim = await caseRepository.GetAsync(claimCase.CaseId);
+
+        Assert.Equal(2, currentProduct!.Version);
+        Assert.Equal(1, storedClaim!.ProductVersion); // the open claim did not move
+        Assert.Equal(v1.ProductId, storedClaim.ProductId);
+    }
+
+    private static Product PublishedProduct(TenantScope scope, string name, int version) =>
+        new()
+        {
+            ProductId = Guid.NewGuid(),
+            VersionId = Guid.NewGuid(),
+            Scope = scope,
+            Version = version,
+            Name = name,
+            ProductClass = name,
+            IraApprovalReference = "IRA/2026/0001",
+            IraApprovalEffectiveDate = new DateOnly(2026, 1, 1),
+            Status = ProductStatus.Published,
+            Stages = DefaultClaimStageLibrary.Default(),
+            DocumentMatrix = [],
+            UpdatedByUserId = "admin-1",
+            UpdatedAt = DateTimeOffset.UtcNow,
+            ChangeReason = "Published for test.",
+        };
+
     [Fact]
     public async Task CreateCaseAsync_DefaultsStatusAndWritesAudit()
     {
@@ -294,6 +384,36 @@ public sealed class CaseIntakeServiceTests
 
         public Task<IReadOnlyCollection<ClaimCase>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyCollection<ClaimCase>>(cases.Values.Where(claimCase => claimCase.Scope.Matches(scope)).ToArray());
+    }
+
+    private sealed class RecordingProductRepository : IProductRepository
+    {
+        private readonly List<Product> versions = [];
+
+        public Task<Product?> GetCurrentAsync(TenantScope scope, Guid productId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(versions
+                .Where(v => v.Scope.Matches(scope) && v.ProductId == productId)
+                .OrderByDescending(v => v.Version)
+                .FirstOrDefault());
+
+        public Task<Product?> GetVersionAsync(TenantScope scope, Guid productId, int version, CancellationToken cancellationToken = default) =>
+            Task.FromResult(versions.FirstOrDefault(v => v.Scope.Matches(scope) && v.ProductId == productId && v.Version == version));
+
+        public Task<IReadOnlyCollection<Product>> ListVersionsAsync(TenantScope scope, Guid productId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Product>>(versions.Where(v => v.Scope.Matches(scope) && v.ProductId == productId).ToArray());
+
+        public Task<IReadOnlyCollection<Product>> ListCurrentForAllProductsAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Product>>(versions
+                .Where(v => v.Scope.Matches(scope))
+                .GroupBy(v => v.ProductId)
+                .Select(group => group.OrderByDescending(v => v.Version).First())
+                .ToArray());
+
+        public Task SaveAsync(Product version, CancellationToken cancellationToken = default)
+        {
+            versions.Add(version);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RecordingAuditRepository : IAuditRepository

@@ -1,10 +1,14 @@
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Domain.Cases;
 
-public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepository auditRepository)
+/// <summary>productRepository is optional so every existing caller keeps compiling unchanged;
+/// omitting it simply means claims it creates carry no ProductId/ProductVersion pin (outcome C),
+/// exactly like a tenant that has not configured that product yet.</summary>
+public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepository auditRepository, IProductRepository? productRepository = null)
 {
     public async Task<ClaimCase> CreateCaseAsync(CreateCaseCommand command, CancellationToken cancellationToken = default)
     {
@@ -24,6 +28,8 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             ? CaseStatus.Assigned
             : routing.InitialStatus;
 
+        var (productId, productVersion) = await ResolveProductPinAsync(command.Scope, command.ProductLine, cancellationToken);
+
         var claimCase = new ClaimCase
         {
             CaseId = Guid.NewGuid(),
@@ -33,6 +39,8 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             CustomerPhone = NormalizeOptional(command.CustomerPhone),
             PolicyNumber = command.PolicyNumber.Trim(),
             ProductLine = command.ProductLine.Trim(),
+            ProductId = productId,
+            ProductVersion = productVersion,
             ClaimType = command.ClaimType.Trim(),
             Channel = command.Channel.Trim(),
             IncidentDate = command.IncidentDate,
@@ -96,10 +104,15 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
         var incidentDate = corrections.IncidentDate ?? claimCase.IncidentDate;
 
         var routing = ClaimRoutingPolicy.Evaluate(claimType, claimCase.MotorFnolDetails, productLine: productLine);
+        var (productId, productVersion) = string.Equals(productLine, claimCase.ProductLine, StringComparison.OrdinalIgnoreCase)
+            ? (claimCase.ProductId, claimCase.ProductVersion)
+            : await ResolveProductPinAsync(claimCase.Scope, productLine, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         var confirmed = claimCase with
         {
             ProductLine = productLine,
+            ProductId = productId,
+            ProductVersion = productVersion,
             ClaimType = claimType,
             IncidentDescription = incidentDescription,
             IncidentDate = incidentDate,
@@ -145,6 +158,25 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>Matches a claim's free-text ProductLine to a configured, Published product by
+    /// name, and pins the exact version in force right now. Returns (null, null) when no product
+    /// repository is wired or no Published product matches, in which case ProductLine alone
+    /// continues to describe the claim, exactly as it always has.</summary>
+    private async Task<(Guid? ProductId, int? Version)> ResolveProductPinAsync(TenantScope scope, string productLine, CancellationToken cancellationToken)
+    {
+        if (productRepository is null || string.IsNullOrWhiteSpace(productLine))
+        {
+            return (null, null);
+        }
+
+        var products = await productRepository.ListCurrentForAllProductsAsync(scope, cancellationToken);
+        var match = products.FirstOrDefault(product =>
+            product.Status == ProductStatus.Published
+            && string.Equals(product.Name, productLine.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        return match is null ? (null, null) : (match.ProductId, match.Version);
+    }
 }
 
 public sealed record ConfirmCaseCorrections(

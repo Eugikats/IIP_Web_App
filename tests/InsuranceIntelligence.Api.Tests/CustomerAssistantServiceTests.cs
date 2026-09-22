@@ -10,6 +10,7 @@ using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Policies;
+using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.LocalTestDoubles;
 
 namespace InsuranceIntelligence.Api.Tests;
@@ -314,7 +315,8 @@ public sealed class CustomerAssistantServiceTests
                 behaviourProfiles,
                 consent,
                 agentGate,
-                audit);
+                audit,
+                new FakeProductRepository());
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, service);
         }
@@ -494,6 +496,19 @@ public sealed class CustomerAssistantServiceTests
                 .FirstOrDefault());
         public Task<IReadOnlyCollection<ConsentRecord>> ListForCustomerAsync(TenantScope scope, string customerIdentifier, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyCollection<ConsentRecord>>(records.Where(r => r.Scope.Matches(scope) && r.CustomerIdentifier == customerIdentifier).ToArray());
+    }
+
+    private sealed class FakeProductRepository : IProductRepository
+    {
+        public Task<Product?> GetCurrentAsync(TenantScope scope, Guid productId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Product?>(null);
+        public Task<Product?> GetVersionAsync(TenantScope scope, Guid productId, int version, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Product?>(null);
+        public Task<IReadOnlyCollection<Product>> ListVersionsAsync(TenantScope scope, Guid productId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Product>>([]);
+        public Task<IReadOnlyCollection<Product>> ListCurrentForAllProductsAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Product>>([]);
+        public Task SaveAsync(Product version, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FakeAuditRepository : IAuditRepository
