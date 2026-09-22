@@ -5,6 +5,7 @@ import Link from "next/link";
 import Sidebar from "./Sidebar";
 import FirstRunOrientation from "./FirstRunOrientation";
 import StatusBar from "./StatusBar";
+import AssistantBar from "./AssistantBar";
 import CopilotPanel from "./CopilotPanel";
 import EnvironmentBanner from "./EnvironmentBanner";
 import NotificationBell from "./NotificationBell";
@@ -128,6 +129,7 @@ function ShellInner({ children }: { children: ReactNode }) {
           <main className="flex-1 overflow-y-auto">
             <div className="mx-auto max-w-[1040px] px-8 pb-[60px] pt-7">{children}</div>
           </main>
+          <AssistantBar />
         </div>
 
         <div

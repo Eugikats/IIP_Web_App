@@ -2,9 +2,9 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.0 |
+| Version | 1.1 (§5.2 amended 2026-09-11; §6 revised 2026-09-22, chat-first landing replaced by the brief-first landing) |
 | Date | 2026-09-08 |
-| Status | **Approved interaction direction.** Owns the shell navigation model, the chat-first landing, progressive disclosure, and the attention/interruption policy for `web/portal`. |
+| Status | **Approved interaction direction.** Owns the shell navigation model, the brief-first landing, progressive disclosure, and the attention/interruption policy for `web/portal`. |
 | Applies to | The authenticated staff portal `/app/*`. |
 | Relationship to existing IA | `iip_information_architecture_navigation_and_screen_inventory.md` continues to own the canonical object model, route IDs, route-to-label map, and permission-derived visibility. **This document supersedes its navigation-layer and shell-chrome content**: the grouped multi-section sidebar it describes is replaced by the model in §5 here. Where the two conflict on chrome, this document wins; where they conflict on a route's existence or authority, that document and current code win. |
 | Companion documents | `iip_design_language_v2.md` (how it looks), `iip_workflow_legibility_contract.md` (what state must be visible), `iip_ui_craft_guardrails.md` (craft floor) |
@@ -89,7 +89,8 @@ The rail is now **expandable** rather than fixed-width: collapsed, it is the ori
 
 | Group | Destination | Route | Icon (lucide) | What it holds |
 |---|---|---|---|---|
-| Work | **Assistant** | `/app` | `message-square` | The default landing surface. Conversation with the agents, scoped to this user's tenant and permissions. |
+| Work | **Brief** | `/app` | `home` | The default landing surface (§6, revised 2026-09-22). At most five ranked items from real fields, each with one reason and one action, plus what was already handled. |
+| Work | **Assistant** | `/app/assistant` | `message-square` | Full conversation with the agents, scoped to this user's tenant and permissions. Reached from the rail or from the persistent ask bar on every other screen. |
 | Work | **My work** | `/app/work-items` | `list-checks` | Everything awaiting *this user*, across every workflow. The single queue. |
 | Work | **Claims** | `/app/claims` | `file-search` | Every claim in the tenant, filterable. The system of record view. |
 | Work | **Inbox** | `/app/channels` | `inbox` | Inbound customer contact — email, WhatsApp — before it becomes a claim. |
@@ -131,15 +132,25 @@ Tabs, not new destinations. Tabs use the filter-pill treatment from the design l
 
 ---
 
-## 6. The chat-first landing
+## 6. The brief-first landing (revised 2026-09-22)
 
-### 6.1 Why chat is the front door
+### 6.0 Why this revises the original chat-first decision
 
-The user's first screen is the Assistant at `/app`. The reasoning is the same as a coding agent's: enormous capability underneath, one text field on top. A claims officer should not have to know which of seven screens holds the answer to "what's stuck?" — they should be able to ask.
+This section originally made the Assistant, not a ranked queue, the user's first screen, reasoning that enormous capability underneath a single text field beats making a claims officer learn which of several screens holds the answer to "what's stuck?". That reasoning holds for *discovery* — a question whose shape is not known in advance. It does not hold for the single most common reason a person opens IIP: to find out what needs them right now, which is not a question that benefits from being typed. A ranked list answers it in under a second; a chat turn, however fast, does not. The build contract (`docs/01-strategy-requirements-roadmap/IIP_NEXT_BUILD_PROMPT.md`, outcome F) made this call explicitly: replace the empty-chat landing with the brief, and keep chat, not remove it, as a bar available everywhere. This section, its acceptance criteria, and the rail table in §5.2 are corrected to match; the reasoning is recorded here so the decision is deliberate, not silently overwritten.
 
-Chat is the **front door, not the whole house.** It answers, and then it hands off into the real surfaces where work is done. A chat that can only talk is a demo. See §7.
+### 6.1 The brief is the front door
 
-### 6.2 The empty state
+The user's first screen at `/app` is the **brief**: at most five items ranked by a deterministic Domain rule from real fields — document completeness, working days against the product's own service standard (§B of the build contract), value at stake, advisory risk signals, and how long the customer has waited — each with a one-sentence reason built from those same fields and exactly one primary action. Below it, a short **"Handled for you"** list drawn from the audit trail, so the person sees what already moved without having to ask. Honest empty state when nothing needs the person: say so plainly, do not show chips or prompts that lead nowhere.
+
+The brief never explains itself with a model. The reason sentence is assembled from the fields the ranking rule already used; a model may narrate a result this rule produced, never produce the result itself (AGENTS.md non-negotiable 2).
+
+### 6.2 Chat is a bar, not the whole house
+
+Chat is still everywhere, just not the first thing a person sees. A persistent, single-line ask affordance sits at the foot of every `/app/*` screen except the Assistant's own (which already has a full composer); submitting a question there hands off to the full conversation at `/app/assistant`, carrying the question with it. The Assistant screen itself is unchanged from what this section originally specified for `/app`: the same orb-greeting-chips empty state (§6.2a), the same reply and handoff contract (§7), the same governance (§6.3).
+
+A chat that can only talk is still a demo — the handoff contract in §7 is what stops it from being one, and it applies identically at its new address.
+
+### 6.2a The Assistant screen's empty state
 
 Exactly four elements, vertically centred, and nothing else: the orb, a greeting, a subhead, and up to three suggestion chips.
 
@@ -292,7 +303,7 @@ These are not a separate compliance workstream; they are the same problem.
 A navigation or interaction change is done when:
 
 1. Every real, permission-gated screen has a rail destination or is one click from one, grouped sensibly (§5.2, amended 2026-09-11), and every destination is reachable and permission-correct.
-2. `/app` renders the Assistant with dynamically generated chips derived from this user's real state.
+2. `/app` renders the brief: at most five items ranked from real fields, each with a one-sentence reason and one primary action, plus "Handled for you"; honestly empty when there is no work. `/app/assistant` renders the Assistant with dynamically generated chips derived from this user's real state (§6.2a), and a persistent ask bar reaches it from every other screen (§6.2).
 3. Every assistant reply concerning objects ends in action cards that carry context on click.
 4. Every toast raised satisfies all four conditions in §8.2, and the bell holds everything.
 5. Every filter and tab selection round-trips through the URL.

@@ -350,6 +350,7 @@ builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Brief.IBriefService, InsuranceIntelligence.Application.Brief.BriefService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQueryService, InsuranceIntelligence.Application.Products.ProductQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCommandService, InsuranceIntelligence.Application.Products.ProductCommandService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
@@ -806,6 +807,8 @@ app.MapPost("/api/v1/customers/{customerId}/summary", InsuranceIntelligence.Api.
 // Names for ids, for any staff member who can see claims or customers; also feeds the assignment picker.
 app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEndpoints.ListPeople)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers));
+app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBrief)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)

@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Sparkles, ListChecks, AlertTriangle, CheckCircle2, CircleHelp } from "lucide-react";
 import { AIMessageBubble, UserMessageBubble, Composer } from "@/components/iip/ChatPrimitives";
 import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
@@ -32,6 +33,8 @@ export default function AIConversations({ conversationId: requestedConversationI
   const { roleDef } = useUI();
   const { ask, loading } = useCommandCenterQuery();
   const { summary } = useOperationsSummary();
+  const searchParams = useSearchParams();
+  const autoSendRef = useRef(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState(requestedConversationId);
@@ -149,6 +152,18 @@ export default function AIConversations({ conversationId: requestedConversationI
     setInput("");
     setPendingRequest(null);
   }
+
+  // Opened from the persistent "Ask" bar available on every screen (navigation model, chat as a
+  // bar, not the whole screen): a question typed there arrives here as ?q=... and is sent once,
+  // then the query string is cleared so a refresh does not resend it.
+  useEffect(() => {
+    const question = searchParams.get("q");
+    if (!question || autoSendRef.current || requestedConversationId) return;
+    autoSendRef.current = true;
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+    void send(question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, requestedConversationId]);
 
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">

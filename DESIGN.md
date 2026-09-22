@@ -33,8 +33,8 @@ A calm, border-led, light-first insurance operations console. One violet accent 
 
 ## Where things live
 
-- Landing screen is the **Assistant** at `/app` — chat first, with suggestion chips generated from the user's real pending work, and replies that end in action cards which carry context into the real work surfaces.
-- The icon rail holds **seven destinations maximum**: Assistant, My work, Claims, Inbox, Documents, Automation, Insights. Everything else nests inside one of them. Navigation model §5.
+- Landing screen is the **Brief** at `/app` — at most five ranked items from real fields (document completeness, working days against the product's service standard, value at stake, risk signals, customer wait time), each with a one-sentence reason and one primary action, plus a "Handled for you" list. Honestly empty when nothing needs the person. The Assistant moved to `/app/assistant`; chat is a persistent bar available on every screen (navigation model §6, revised).
+- The icon rail groups destinations rather than capping them at seven; see navigation model §5.2 (amended 2026-09-11) for why and §6 for the landing decision.
 - Toasts are rare and governed: off-screen, this user's work, actionable now, not already shown. Everything else is a badge, an inline message, or the notification bell. Navigation model §8.
 
 ## Before you merge
