@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Domain.ClientPortal;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Contestability;
+using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Workflow;
@@ -359,6 +360,102 @@ public sealed record AuditEvent(
             ValidationResult: "accepted",
             ApprovalId: null,
             AuditReason: null,
+            CorrelationId: correlationId);
+
+    /// <summary>Outcome L: "every disclosure is logged against the verified session." Written on
+    /// every claimant-facing read (claim status, policy details) that would show a person
+    /// something specific to their own policy or claim, not just on authentication events.
+    /// <paramref name="disclosureType"/> names what was shown ("ClaimStatus", "Policy", ...).</summary>
+    public static AuditEvent ClaimantDisclosureViewed(
+        TenantScope scope,
+        Guid? caseId,
+        Guid sessionId,
+        string contactValue,
+        string disclosureType,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            DocumentId: null,
+            UserId: contactValue,
+            ActorType.User,
+            "client_portal.disclosure.viewed",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: disclosureType,
+            EvidenceIds: [sessionId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "disclosed",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ContactDetailChangeRequested(ContactDetailChangeRequest request) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: request.RequestedByUserId,
+            ActorType.User,
+            "customer.contact_change_requested",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "ClientPortal",
+            Confidence: null,
+            ValidationResult: request.PolicyNumber,
+            ApprovalId: null,
+            AuditReason: request.Note,
+            CorrelationId: request.CorrelationId);
+
+    public static AuditEvent ContactDetailChangeAcknowledged(
+        ContactDetailChangeRequest request,
+        string actorUserId,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: actorUserId,
+            ActorType.User,
+            "customer.contact_change_acknowledged",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: ContactDetailChangeStatus.Open.ToString(),
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "ClientPortal",
+            Confidence: null,
+            ValidationResult: "acknowledged",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ContactDetailChangeResolved(
+        ContactDetailChangeRequest request,
+        string actorUserId,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: actorUserId,
+            ActorType.User,
+            "customer.contact_change_resolved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "ClientPortal",
+            Confidence: null,
+            ValidationResult: "resolved",
+            ApprovalId: null,
+            AuditReason: request.ResolutionNote,
             CorrelationId: correlationId);
 
     public static AuditEvent WhatsAppConfigurationSaved(

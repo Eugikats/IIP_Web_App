@@ -102,14 +102,22 @@ export default function ClaimAccessNewClaim() {
   return (
     <main className="min-h-screen bg-dls-bg-page text-dls-text-primary">
       <header className="border-b border-dls-border-subtle bg-dls-surface">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 px-6 py-4">
-          <span className="grid h-9 w-9 place-items-center rounded-dls-control border border-dls-border-subtle bg-dls-surface">
-            <img src={iipLogo.url} alt="IIP" className="h-7 w-7 object-contain" />
-          </span>
-          <div>
-            <div className="text-sm font-semibold">Start your claim</div>
-            <div className="text-xs text-dls-text-muted">Policy {session.policyNumber}</div>
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 place-items-center rounded-dls-control border border-dls-border-subtle bg-dls-surface">
+              <img src={iipLogo.url} alt="IIP" className="h-7 w-7 object-contain" />
+            </span>
+            <div>
+              <div className="text-sm font-semibold">Start your claim</div>
+              <div className="text-xs text-dls-text-muted">Policy {session.policyNumber}</div>
+            </div>
           </div>
+          <a
+            href="/access/policy"
+            className="dls-focus-outline inline-flex min-h-9 items-center rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-1.5 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page"
+          >
+            My policy
+          </a>
         </div>
       </header>
 

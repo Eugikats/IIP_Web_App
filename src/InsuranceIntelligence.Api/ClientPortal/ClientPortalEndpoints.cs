@@ -1,7 +1,10 @@
+using InsuranceIntelligence.Api.Assistant;
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Workflow;
+using InsuranceIntelligence.Application.Agents;
+using InsuranceIntelligence.Application.Billing;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Audit;
@@ -9,8 +12,11 @@ using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.ClientPortal;
 using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Contestability;
+using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Notifications;
+using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -27,7 +33,8 @@ public static class ClientPortalEndpoints
         IClaimReviewRequestRepository reviewRequestRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IAuditRepository? auditRepository = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -48,7 +55,178 @@ public static class ClientPortalEndpoints
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         var reviewRequests = await reviewRequestRepository.ListForCaseAsync(caseId, scope, cancellationToken);
 
+        await LogDisclosureAsync(auditRepository, httpContext, scope, caseId, "ClaimStatus", cancellationToken);
+
         return Results.Ok(ToResponse(claimCase, checklist, documents, communications, reviewRequests));
+    }
+
+    /// <summary>Outcome L: "the customer sees their policy" -- cover dates, cover status (computed
+    /// deterministically from those dates), and coverage lines. Premium status is deliberately
+    /// reported as NotConfigured rather than guessed: no billing/payment-status subsystem exists
+    /// anywhere in this codebase to answer paid/due/lapsed honestly.</summary>
+    public static async Task<IResult> GetPolicy(
+        IPolicyRepository policyRepository,
+        ICoverageRepository coverageRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        IAuditRepository? auditRepository = null)
+    {
+        if (httpContext.Items.TryGetValue(ClaimantSessionEndpointFilter.SessionItemKey, out var stashed) is false
+            || stashed is not ClaimantPortalSession session)
+        {
+            return Results.Unauthorized();
+        }
+
+        var policy = await policyRepository.GetByPolicyNumberAsync(session.PolicyNumber, session.Scope, cancellationToken);
+        if (policy is null)
+        {
+            return Results.NotFound(new { message = "The policy on this access link could no longer be verified." });
+        }
+
+        var coverages = await coverageRepository.ListForPolicyAsync(policy.PolicyId, session.Scope, cancellationToken);
+
+        await LogDisclosureAsync(auditRepository, httpContext, session.Scope, session.CaseId, "Policy", cancellationToken, session);
+
+        return Results.Ok(ToPolicyResponse(policy, coverages));
+    }
+
+    /// <summary>Outcome L: "ask a question about the wording and get a cited answer." Reuses the
+    /// exact same retrieval/answer engine AssistantEndpoints.AskPolicyQuestion uses for staff, with
+    /// a claimant session in place of a staff permission: product line is resolved from the
+    /// session's own verified policy, never taken from the caller, and the audience is always
+    /// Customer, so this can never be used to probe grounded answers for a product the claimant
+    /// does not hold.</summary>
+    public static async Task<IResult> AskPolicyQuestion(
+        ClientPortalPolicyQuestionRequest request,
+        IPolicyRepository policyRepository,
+        IRetrievalProvider retrievalProvider,
+        IAiAssistantProvider assistantProvider,
+        IAgentGate agentGate,
+        IAgentActionLogRepository actionLogRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        IAuditRepository? auditRepository = null)
+    {
+        if (httpContext.Items.TryGetValue(ClaimantSessionEndpointFilter.SessionItemKey, out var stashed) is false
+            || stashed is not ClaimantPortalSession session)
+        {
+            return Results.Unauthorized();
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Question))
+        {
+            return Validation("question", "A question is required.");
+        }
+
+        var policy = await policyRepository.GetByPolicyNumberAsync(session.PolicyNumber, session.Scope, cancellationToken);
+        var correlationId = GetCorrelationId(httpContext);
+        var question = new AssistantQuestion(
+            session.Scope,
+            session.CaseId,
+            request.Question.Trim(),
+            policy?.ProductLine,
+            "Customer",
+            session.ContactValue,
+            correlationId);
+
+        var gate = await agentGate.CheckAsync(session.Scope, "policy-intelligence", cancellationToken);
+        var answer = gate.Enabled
+            ? await AnswerQuestionAsync(retrievalProvider, assistantProvider, question, cancellationToken)
+            : new AssistantAnswer(
+                gate.RefusalMessage,
+                AiConfidenceScore.Create(0m),
+                EscalationRequired: true,
+                Array.Empty<SourceCitation>(),
+                gate.RefusalMessage,
+                "agent_disabled",
+                "AgentDisabled",
+                null,
+                "not-configured",
+                "CustomerSafe");
+
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = session.Scope,
+            CaseId = question.CaseId,
+            UserId = question.UserId,
+            AgentName = "PolicyQnAAgent",
+            AssistantMode = AssistantMode.PolicyQnA,
+            InputSummary = SummarizeInput(question.Question),
+            RetrievedSources = answer.Sources,
+            ModelOutput = answer.AnswerText,
+            ConfidenceScore = answer.ConfidenceScore,
+            RiskFlag = answer.RiskFlag,
+            HumanOverride = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = correlationId,
+            ModelProvider = answer.ModelProvider,
+            ModelDeployment = answer.ModelDeployment,
+            PromptVersion = answer.PromptVersion,
+            Visibility = answer.Visibility,
+            CanTriggerDecision = answer.CanTriggerDecision,
+            ModelVersion = answer.ModelVersion,
+            PromptTokens = answer.PromptTokens,
+            CompletionTokens = answer.CompletionTokens,
+            EstimatedCostUsd = AiCostEstimator.Estimate(answer.PromptTokens, answer.CompletionTokens)
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        if (auditRepository is not null)
+        {
+            await auditRepository.WriteAsync(AuditEvent.AssistantPolicyQuestionAnswered(actionLog), cancellationToken);
+        }
+
+        await LogDisclosureAsync(auditRepository, httpContext, session.Scope, session.CaseId, "PolicyQuestion", cancellationToken, session);
+
+        return Results.Ok(new ClientPortalPolicyQuestionResponse(
+            answer.AnswerText,
+            answer.EscalationRequired,
+            answer.Sources.Select(AssistantMapper.ToResponse).ToArray()));
+    }
+
+    /// <summary>Outcome L: "request a change to their contact details for staff approval." Never
+    /// applies the change itself, only proposes it; ContactDetailChangeEndpoints (staff-side) is
+    /// where a person actually accepts or rejects it.</summary>
+    public static async Task<IResult> RequestContactDetailChange(
+        ClientPortalContactDetailChangeRequestBody body,
+        IContactDetailChangeRequestRepository changeRequestRepository,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (httpContext.Items.TryGetValue(ClaimantSessionEndpointFilter.SessionItemKey, out var stashed) is false
+            || stashed is not ClaimantPortalSession session)
+        {
+            return Results.Unauthorized();
+        }
+
+        if (body is null || (string.IsNullOrWhiteSpace(body.Email) && string.IsNullOrWhiteSpace(body.Phone)))
+        {
+            return Validation("request", "A new email address or phone number is required.");
+        }
+
+        var correlationId = GetCorrelationId(httpContext);
+        ContactDetailChangeRequest request;
+        try
+        {
+            request = ContactDetailChangeRequest.Create(
+                session.Scope, session.PolicyNumber, session.CaseId, session.ContactValue,
+                body.Email, body.Phone, body.Note, correlationId);
+        }
+        catch (ArgumentException ex)
+        {
+            return Validation("request", ex.Message);
+        }
+
+        await changeRequestRepository.SaveAsync(request, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.ContactDetailChangeRequested(request), cancellationToken);
+
+        return Results.Ok(new ClientPortalContactDetailChangeResponse(
+            request.RequestId,
+            request.Status.ToString(),
+            request.RequestedAt,
+            "Your request to update your contact details has been logged. A member of staff will review and confirm it before it takes effect."));
     }
 
     public static async Task<IResult> UploadDocuments(
@@ -385,6 +563,68 @@ public static class ClientPortalEndpoints
             && ClaimantContactMatcher.Matches(userId, claimCase.CustomerEmail, claimCase.CustomerPhone, claimCase.CreatedByUserId);
     }
 
+    private static string GetCorrelationId(HttpContext httpContext)
+    {
+        if (httpContext.Request.Headers.TryGetValue("X-Correlation-ID", out var header)
+            && !string.IsNullOrWhiteSpace(header))
+        {
+            return header.ToString();
+        }
+
+        return httpContext.TraceIdentifier;
+    }
+
+    private static async Task LogDisclosureAsync(
+        IAuditRepository? auditRepository,
+        HttpContext httpContext,
+        InsuranceIntelligence.Domain.Common.TenantScope scope,
+        Guid? caseId,
+        string disclosureType,
+        CancellationToken cancellationToken,
+        ClaimantPortalSession? session = null)
+    {
+        if (auditRepository is null)
+        {
+            return;
+        }
+
+        var sessionId = session?.SessionId ?? Guid.Empty;
+        var contactValue = session?.ContactValue ?? ResolveActor(httpContext);
+        await auditRepository.WriteAsync(
+            AuditEvent.ClaimantDisclosureViewed(scope, caseId, sessionId, contactValue, disclosureType, GetCorrelationId(httpContext)),
+            cancellationToken);
+    }
+
+    private static async Task<AssistantAnswer> AnswerQuestionAsync(
+        IRetrievalProvider retrievalProvider,
+        IAiAssistantProvider assistantProvider,
+        AssistantQuestion question,
+        CancellationToken cancellationToken)
+    {
+        var retrieval = await retrievalProvider.RetrieveAsync(question, cancellationToken);
+        return await assistantProvider.AnswerPolicyQuestionAsync(question, retrieval, cancellationToken);
+    }
+
+    private static string SummarizeInput(string question) =>
+        question.Length <= 180 ? question : $"{question[..180]}...";
+
+    private static ClientPortalPolicyResponse ToPolicyResponse(Policy policy, IReadOnlyCollection<Coverage> coverages) =>
+        new(
+            policy.PolicyNumber,
+            policy.ProductLine,
+            policy.CoverType,
+            policy.EffectiveFrom,
+            policy.EffectiveTo,
+            PolicyStanding.Resolve(policy.EffectiveFrom, policy.EffectiveTo, DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date)).ToString(),
+            policy.AnnualPremium,
+            policy.PremiumCurrency,
+            policy.SumInsured,
+            "NotConfigured",
+            coverages
+                .Select(coverage => new ClientPortalCoverageResponse(
+                    coverage.Name, coverage.Limit, coverage.Deductible, coverage.InsuredObject, coverage.Description))
+                .ToArray());
+
     private static bool IsCustomerSafeMessage(string value) =>
         !new[] { "raw prompt", "system message", "internal note", "fraud flag", "reserve", "hidden risk", "secret", "confidence" }
             .Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
@@ -501,3 +741,38 @@ public sealed record ClientPortalMessage(
     string MessageBody,
     DateTimeOffset CreatedAt,
     string DeliveryStatus);
+
+public sealed record ClientPortalPolicyResponse(
+    string PolicyNumber,
+    string ProductLine,
+    string? CoverType,
+    DateOnly? EffectiveFrom,
+    DateOnly? EffectiveTo,
+    string CoverStatus,
+    decimal? AnnualPremium,
+    string? PremiumCurrency,
+    decimal? SumInsured,
+    string PremiumStatus,
+    IReadOnlyCollection<ClientPortalCoverageResponse> Coverages);
+
+public sealed record ClientPortalCoverageResponse(
+    string Name,
+    string Limit,
+    string Deductible,
+    string InsuredObject,
+    string Description);
+
+public sealed record ClientPortalPolicyQuestionRequest(string Question);
+
+public sealed record ClientPortalPolicyQuestionResponse(
+    string AnswerText,
+    bool EscalationRequired,
+    IReadOnlyCollection<SourceCitationResponse> Sources);
+
+public sealed record ClientPortalContactDetailChangeRequestBody(string? Email, string? Phone, string? Note);
+
+public sealed record ClientPortalContactDetailChangeResponse(
+    Guid RequestId,
+    string Status,
+    DateTimeOffset RequestedAt,
+    string Message);

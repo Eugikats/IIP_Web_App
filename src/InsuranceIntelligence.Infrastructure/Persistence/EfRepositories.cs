@@ -281,6 +281,25 @@ public sealed class EfClaimReviewRequestRepository(InsuranceIntelligenceDbContex
             .ToArrayAsync(cancellationToken);
 }
 
+public sealed class EfContactDetailChangeRequestRepository(InsuranceIntelligenceDbContext dbContext)
+    : JsonRepositoryBase(dbContext), InsuranceIntelligence.Domain.Customers.IContactDetailChangeRequestRepository
+{
+    public Task SaveAsync(InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest request, CancellationToken cancellationToken = default) =>
+        UpsertAsync(DbContext.ContactDetailChangeRequests, request.RequestId, request.Scope, Serialize(request), record => record.CaseId = request.CaseId, cancellationToken);
+
+    public async Task<InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest?> GetAsync(Guid requestId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var record = await Scoped(DbContext.ContactDetailChangeRequests.AsNoTracking(), scope)
+            .FirstOrDefaultAsync(item => item.Id == requestId, cancellationToken);
+        return record is null ? null : Deserialize<InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest>(record.PayloadJson);
+    }
+
+    public async Task<IReadOnlyCollection<InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+        await Scoped(DbContext.ContactDetailChangeRequests.AsNoTracking(), scope)
+            .Select(record => Deserialize<InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest>(record.PayloadJson))
+            .ToArrayAsync(cancellationToken);
+}
+
 public sealed class EfCommunicationRepository(InsuranceIntelligenceDbContext dbContext)
     : JsonRepositoryBase(dbContext), ICommunicationRepository
 {

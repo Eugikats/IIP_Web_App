@@ -127,9 +127,17 @@ export default function ClaimAccessStatus() {
               <div className="text-xs text-dls-text-muted">Insurance Intelligence Platform</div>
             </div>
           </div>
-          <Button variant="secondary" onClick={signOut} icon={<LogOut aria-hidden="true" />}>
-            Done
-          </Button>
+          <div className="flex items-center gap-2">
+            <a
+              href="/access/policy"
+              className="dls-focus-outline inline-flex min-h-9 items-center rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-1.5 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page"
+            >
+              My policy
+            </a>
+            <Button variant="secondary" onClick={signOut} icon={<LogOut aria-hidden="true" />}>
+              Done
+            </Button>
+          </div>
         </div>
       </header>
 

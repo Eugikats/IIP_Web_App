@@ -288,3 +288,96 @@ export async function createClaim(session: ClientPortalSession, request: CreateC
     return { ok: false, error: safeNetworkFailure(reason, "We could not submit your claim.") };
   }
 }
+
+export type ClientPortalCoverage = {
+  name: string;
+  limit: string;
+  deductible: string;
+  insuredObject: string;
+  description: string;
+};
+
+export type ClientPortalPolicy = {
+  policyNumber: string;
+  productLine: string;
+  coverType: string | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  coverStatus: string;
+  annualPremium: number | null;
+  premiumCurrency: string | null;
+  sumInsured: number | null;
+  premiumStatus: string;
+  coverages: ClientPortalCoverage[];
+};
+
+export type GetPolicyResult = { ok: true; policy: ClientPortalPolicy } | { ok: false; error: string };
+
+export async function getPolicy(session: ClientPortalSession): Promise<GetPolicyResult> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/policy`, {
+      headers: clientPortalHeaders(session.sessionToken),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "Your policy could not be loaded.") };
+    }
+    return { ok: true, policy: (await response.json()) as ClientPortalPolicy };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "Your policy could not be loaded.") };
+  }
+}
+
+export type PolicyQuestionSource = {
+  knowledgeDocumentId: string;
+  chunkId: string;
+  documentName: string;
+  productLine: string;
+  version: string;
+  excerpt: string;
+  label: string;
+};
+
+export type AskPolicyQuestionResult =
+  | { ok: true; answerText: string; escalationRequired: boolean; sources: PolicyQuestionSource[] }
+  | { ok: false; error: string };
+
+export async function askPolicyQuestion(session: ClientPortalSession, question: string): Promise<AskPolicyQuestionResult> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/policy-questions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...clientPortalHeaders(session.sessionToken) },
+      body: JSON.stringify({ question }),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "We could not answer that question. Try again shortly.") };
+    }
+    const payload = (await response.json()) as { answerText: string; escalationRequired: boolean; sources: PolicyQuestionSource[] };
+    return { ok: true, answerText: payload.answerText, escalationRequired: payload.escalationRequired, sources: payload.sources };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "We could not answer that question.") };
+  }
+}
+
+export type RequestContactDetailChangeResult = { ok: true; message: string } | { ok: false; error: string };
+
+export async function requestContactDetailChange(
+  session: ClientPortalSession,
+  email: string | null,
+  phone: string | null,
+  note: string | null,
+): Promise<RequestContactDetailChangeResult> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/contact-detail-changes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...clientPortalHeaders(session.sessionToken) },
+      body: JSON.stringify({ email, phone, note }),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "We could not submit your request. Try again shortly.") };
+    }
+    const payload = (await response.json()) as { message: string };
+    return { ok: true, message: payload.message };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "We could not submit your request.") };
+  }
+}

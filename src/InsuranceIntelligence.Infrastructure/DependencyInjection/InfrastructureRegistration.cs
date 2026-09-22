@@ -193,6 +193,7 @@ public static class InfrastructureRegistration
         services.AddScoped<IApprovalRepository, EfApprovalRepository>();
         services.AddScoped<ICustomerUpdateRepository, EfCustomerUpdateRepository>();
         services.AddScoped<IClaimReviewRequestRepository, EfClaimReviewRequestRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Customers.IContactDetailChangeRequestRepository, EfContactDetailChangeRequestRepository>();
         services.AddScoped<ICommunicationRepository, EfCommunicationRepository>();
         services.AddScoped<ITenantConfigurationRepository, EfTenantConfigurationRepository>();
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
