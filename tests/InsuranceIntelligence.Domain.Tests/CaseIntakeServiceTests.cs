@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.Domain.Workflow;
 
@@ -76,6 +77,86 @@ public sealed class CaseIntakeServiceTests
         Assert.Equal(2, currentProduct!.Version);
         Assert.Equal(1, storedClaim!.ProductVersion); // the open claim did not move
         Assert.Equal(v1.ProductId, storedClaim.ProductId);
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_WithNoPolicyRepository_LeavesAdvisoryRiskSignalsEmpty()
+    {
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository());
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+
+        Assert.Empty(claimCase.AdvisoryRiskSignals);
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_PolicyLapsedBeforeIncident_RecordsAnAdvisorySignal()
+    {
+        var policies = new RecordingPolicyRepository();
+        policies.Seed(new Policy(
+            "POL-1001", "tenant-demo", "workspace-claims", "POL-1001", "Motor", "Comprehensive",
+            null, null, new DateOnly(2024, 1, 1), new DateOnly(2025, 1, 1), null, null, 5_000_000m));
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository(), policyRepository: policies);
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+
+        Assert.Contains(PolicyRiskSignalEvaluator.PolicyNotInForceSignal, claimCase.AdvisoryRiskSignals);
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_ClaimedAmountAboveSumInsured_RecordsAnAdvisorySignal()
+    {
+        var policies = new RecordingPolicyRepository();
+        policies.Seed(new Policy(
+            "POL-1001", "tenant-demo", "workspace-claims", "POL-1001", "Motor", "Comprehensive",
+            null, null, new DateOnly(2026, 1, 1), new DateOnly(2027, 1, 1), null, null, 2_000_000m));
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository(), policyRepository: policies);
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand() with { ClaimedAmount = 9_000_000m });
+
+        Assert.Contains(PolicyRiskSignalEvaluator.ClaimedAmountExceedsSumInsuredSignal, claimCase.AdvisoryRiskSignals);
+    }
+
+    [Fact]
+    public async Task CreateCaseAsync_HealthyPolicyAndAmount_RecordsNoAdvisorySignals()
+    {
+        var policies = new RecordingPolicyRepository();
+        policies.Seed(new Policy(
+            "POL-1001", "tenant-demo", "workspace-claims", "POL-1001", "Motor", "Comprehensive",
+            null, null, new DateOnly(2026, 1, 1), new DateOnly(2027, 1, 1), null, null, 20_000_000m));
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository(), policyRepository: policies);
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand() with { ClaimedAmount = 1_000_000m });
+
+        Assert.Empty(claimCase.AdvisoryRiskSignals);
+    }
+
+    private sealed class RecordingPolicyRepository : IPolicyRepository
+    {
+        private readonly List<Policy> policies = [];
+
+        public void Seed(Policy policy) => policies.Add(policy);
+
+        public Task<Policy?> GetAsync(string policyId, TenantScope scope, CancellationToken cancellationToken) =>
+            Task.FromResult(policies.FirstOrDefault(p => p.PolicyId == policyId && p.TenantId == scope.TenantId && p.WorkspaceId == scope.WorkspaceId));
+
+        public Task<Policy?> GetByPolicyNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken) =>
+            Task.FromResult(policies.FirstOrDefault(p =>
+                string.Equals(p.PolicyNumber, policyNumber, StringComparison.OrdinalIgnoreCase)
+                && p.TenantId == scope.TenantId && p.WorkspaceId == scope.WorkspaceId));
+
+        public Task<IReadOnlyCollection<Policy>> ListAsync(TenantScope scope, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Policy>>(policies.Where(p => p.TenantId == scope.TenantId && p.WorkspaceId == scope.WorkspaceId).ToArray());
+
+        public Task<IReadOnlyCollection<Policy>> ListByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Policy>>(policies.Where(p => p.CustomerId == customerId).ToArray());
+
+        public Task UpsertAsync(Policy policy, CancellationToken cancellationToken)
+        {
+            policies.RemoveAll(p => p.PolicyId == policy.PolicyId);
+            policies.Add(policy);
+            return Task.CompletedTask;
+        }
     }
 
     private static Product PublishedProduct(TenantScope scope, string name, int version) =>

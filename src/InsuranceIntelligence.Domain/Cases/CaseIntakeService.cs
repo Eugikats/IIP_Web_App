@@ -1,14 +1,21 @@
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Domain.Cases;
 
-/// <summary>productRepository is optional so every existing caller keeps compiling unchanged;
-/// omitting it simply means claims it creates carry no ProductId/ProductVersion pin (outcome C),
-/// exactly like a tenant that has not configured that product yet.</summary>
-public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepository auditRepository, IProductRepository? productRepository = null)
+/// <summary>productRepository and policyRepository are optional so every existing caller keeps
+/// compiling unchanged; omitting productRepository simply means claims it creates carry no
+/// ProductId/ProductVersion pin (outcome C), and omitting policyRepository means no advisory
+/// policy-in-force/sum-insured signal is computed (outcome E), exactly like a tenant that has not
+/// configured that capability yet.</summary>
+public sealed class CaseIntakeService(
+    ICaseRepository caseRepository,
+    IAuditRepository auditRepository,
+    IProductRepository? productRepository = null,
+    IPolicyRepository? policyRepository = null)
 {
     public async Task<ClaimCase> CreateCaseAsync(CreateCaseCommand command, CancellationToken cancellationToken = default)
     {
@@ -29,6 +36,7 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             : routing.InitialStatus;
 
         var (productId, productVersion) = await ResolveProductPinAsync(command.Scope, command.ProductLine, cancellationToken);
+        var advisoryRiskSignals = await ResolveAdvisoryRiskSignalsAsync(command.Scope, command.PolicyNumber, command.IncidentDate, command.ClaimedAmount, cancellationToken);
 
         var claimCase = new ClaimCase
         {
@@ -41,6 +49,8 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             ProductLine = command.ProductLine.Trim(),
             ProductId = productId,
             ProductVersion = productVersion,
+            ClaimedAmount = command.ClaimedAmount,
+            AdvisoryRiskSignals = advisoryRiskSignals,
             ClaimType = command.ClaimType.Trim(),
             Channel = command.Channel.Trim(),
             IncidentDate = command.IncidentDate,
@@ -176,6 +186,21 @@ public sealed class CaseIntakeService(ICaseRepository caseRepository, IAuditRepo
             && string.Equals(product.Name, productLine.Trim(), StringComparison.OrdinalIgnoreCase));
 
         return match is null ? (null, null) : (match.ProductId, match.Version);
+    }
+
+    /// <summary>Deterministic, rule-based advisory only (PolicyRiskSignalEvaluator), never a
+    /// decision and never blocks intake. Empty when no policy repository is wired or no policy
+    /// matches, exactly as honest as a tenant with no core-system connection at all.</summary>
+    private async Task<IReadOnlyList<string>> ResolveAdvisoryRiskSignalsAsync(
+        TenantScope scope, string policyNumber, DateOnly incidentDate, decimal? claimedAmount, CancellationToken cancellationToken)
+    {
+        if (policyRepository is null || string.IsNullOrWhiteSpace(policyNumber))
+        {
+            return [];
+        }
+
+        var policy = await policyRepository.GetByPolicyNumberAsync(policyNumber.Trim(), scope, cancellationToken);
+        return PolicyRiskSignalEvaluator.Evaluate(policy, incidentDate, claimedAmount);
     }
 }
 

@@ -22,6 +22,16 @@ public sealed record ClaimCase
     /// document matrix version that was in force when it was filed.</summary>
     public Guid? ProductId { get; init; }
     public int? ProductVersion { get; init; }
+
+    /// <summary>The amount the customer is claiming, when known at intake. Null is honest absence,
+    /// not zero, most intake paths do not collect this yet.</summary>
+    public decimal? ClaimedAmount { get; init; }
+
+    /// <summary>Deterministic, rule-based advisory signals from real policy fields (policy in force
+    /// on the loss date, claimed amount against the sum insured), computed once at intake by
+    /// PolicyRiskSignalEvaluator. Advisory only, never a decision; empty when no matching policy
+    /// was found to check against.</summary>
+    public IReadOnlyList<string> AdvisoryRiskSignals { get; init; } = [];
     public required string ClaimType { get; init; }
     public required string Channel { get; init; }
     public required DateOnly IncidentDate { get; init; }

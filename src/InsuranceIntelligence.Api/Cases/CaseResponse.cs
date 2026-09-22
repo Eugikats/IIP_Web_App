@@ -33,7 +33,9 @@ public sealed record CaseResponse(
     SafeAuditSummary Audit,
     IReadOnlyCollection<ActionStateResponse> AllowedActions,
     IReadOnlyCollection<ActionStateResponse> BlockedActions,
-    RequiredDocumentsResponse? RequiredDocuments = null);
+    RequiredDocumentsResponse? RequiredDocuments = null,
+    decimal? ClaimedAmount = null,
+    IReadOnlyCollection<string>? AdvisoryRiskSignals = null);
 
 /// <summary>The document-completeness check at the moment this response was built, WO 5.3: tell
 /// the submitter what is missing at submission, not only after extraction runs later. Null when

@@ -49,6 +49,8 @@ public static class CaseMapper
             checklist is null ? null : new RequiredDocumentsResponse(
                 checklist.RequiredDocuments.Select(StaticDocumentChecklistProvider.LabelFor).ToArray(),
                 checklist.OptionalDocuments.Select(StaticDocumentChecklistProvider.LabelFor).ToArray(),
-                checklist.MissingRequiredDocuments.Select(missing => missing.Label).ToArray()));
+                checklist.MissingRequiredDocuments.Select(missing => missing.Label).ToArray()),
+            claimCase.ClaimedAmount,
+            claimCase.AdvisoryRiskSignals);
     }
 }

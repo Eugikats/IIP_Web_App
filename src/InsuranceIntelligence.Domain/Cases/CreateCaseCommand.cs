@@ -17,6 +17,9 @@ public sealed record CreateCaseCommand(
     string CorrelationId,
     MotorFnolDetails? MotorFnolDetails = null,
     MedicalFnolDetails? MedicalFnolDetails = null,
+    /// <summary>The amount being claimed, when the submitter provides one. Feeds
+    /// PolicyRiskSignalEvaluator's advisory check against the policy's sum insured.</summary>
+    decimal? ClaimedAmount = null,
     /// <summary>True for a claim IIP created on its own from an identified WhatsApp/email
     /// sender, before any human has looked at it. Such a case starts no SLA clock (CaseIntakeService
     /// leaves SlaDueAt null) and is excluded from SLA/attention metrics for exactly that reason,

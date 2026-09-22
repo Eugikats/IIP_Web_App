@@ -59,7 +59,8 @@ public static class CaseEndpoints
                 userId,
                 correlationId,
                 request.MotorFnolDetails,
-                request.MedicalFnolDetails);
+                request.MedicalFnolDetails,
+                request.ClaimedAmount);
 
             var claimCase = await service.CreateCaseAsync(command, cancellationToken);
 
