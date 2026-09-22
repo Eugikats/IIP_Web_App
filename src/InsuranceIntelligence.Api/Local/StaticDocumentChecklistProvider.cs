@@ -1,16 +1,24 @@
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Products;
 
 namespace InsuranceIntelligence.Api.Local;
 
-public sealed class StaticDocumentChecklistProvider(ICompletenessScoringService scoringService) : IDocumentChecklistProvider
+/// <summary>productRepository is optional so every existing caller keeps compiling and behaving
+/// unchanged; omitting it simply means the built-in claim-type rules are always used, exactly the
+/// prior behavior. When present, a claim pinned to a configured product (outcome A/C) checks
+/// against that product's own document matrix instead, the whole point of letting an administrator
+/// configure it with no developer and no release.</summary>
+public sealed class StaticDocumentChecklistProvider(
+    ICompletenessScoringService scoringService,
+    IProductRepository? productRepository = null) : IDocumentChecklistProvider
 {
-    public Task<DocumentCompletenessChecklist> BuildChecklistAsync(
+    public async Task<DocumentCompletenessChecklist> BuildChecklistAsync(
         ClaimCase claimCase,
         IReadOnlyCollection<CaseDocument> documents,
         CancellationToken cancellationToken = default)
     {
-        var rules = DocumentChecklistRules.ForCase(claimCase);
+        var rules = await ResolveRulesAsync(claimCase, cancellationToken);
         var received = documents
             .Where(document => document.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved)
             .Select(document => document.DocumentType)
@@ -22,7 +30,7 @@ public sealed class StaticDocumentChecklistProvider(ICompletenessScoringService 
             .Select(required => new MissingDocumentRequirement(required, LabelFor(required), Required: true))
             .ToArray();
 
-        var checklist = new DocumentCompletenessChecklist(
+        return new DocumentCompletenessChecklist(
             claimCase.CaseId,
             claimCase.ProductLine,
             rules.RequiredDocuments,
@@ -30,8 +38,21 @@ public sealed class StaticDocumentChecklistProvider(ICompletenessScoringService 
             received,
             missing,
             score);
+    }
 
-        return Task.FromResult(checklist);
+    private async Task<DocumentChecklistRuleSet> ResolveRulesAsync(ClaimCase claimCase, CancellationToken cancellationToken)
+    {
+        if (productRepository is not null && claimCase.ProductId is { } productId && claimCase.ProductVersion is { } version)
+        {
+            var product = await productRepository.GetVersionAsync(claimCase.Scope, productId, version, cancellationToken);
+            var productRules = product is null ? null : DocumentChecklistRules.ForProduct(product);
+            if (productRules is not null)
+            {
+                return productRules;
+            }
+        }
+
+        return DocumentChecklistRules.ForCase(claimCase);
     }
 
     public static string LabelFor(DocumentType documentType) =>

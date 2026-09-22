@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using InsuranceIntelligence.Application.Agents;
+using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Domain.Agents;
@@ -12,6 +13,7 @@ using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Knowledge;
+using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Domain.Products;
 
@@ -69,7 +71,8 @@ public sealed class CustomerAssistantService(
     IConsentRepository consentRepository,
     IAgentGate agentGate,
     IAuditRepository auditRepository,
-    IProductRepository productRepository) : ICustomerAssistantService
+    IProductRepository productRepository,
+    INotificationEmitter notificationEmitter) : ICustomerAssistantService
 {
     private const string SystemActorId = "system:customer-assistant";
     private const string AgentKey = "customer-assistant";
@@ -299,6 +302,25 @@ public sealed class CustomerAssistantService(
             CreatedByUserId: SystemActorId,
             CorrelationId: correlationId,
             RequiresConfirmation: true), cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(claimCase.AssignedUserId))
+        {
+            try
+            {
+                await notificationEmitter.NotifyAsync(
+                    claimCase.Scope,
+                    claimCase.AssignedUserId,
+                    NotificationType.ClaimAssigned,
+                    $"New WhatsApp claim assigned to you on the {claimCase.AssignedTeam} team, awaiting confirmation.",
+                    claimCase.CaseId,
+                    cancellationToken);
+            }
+            catch
+            {
+                // Best effort, the claim itself has already been created; a notification failure
+                // must never surface to the customer or block their WhatsApp reply.
+            }
+        }
 
         var reference = claimCase.CaseId.ToString()[..8].ToUpperInvariant();
         return ($"Thank you, we've logged your claim. Your reference is {reference}. A claims officer will confirm the details and follow up with you shortly.",

@@ -27,6 +27,7 @@ public enum NotificationType
     SlaBreach,
     DocumentReviewNeeded,
     ReviewRequested,
+    ClaimAssigned,
 }
 
 public interface INotificationRepository

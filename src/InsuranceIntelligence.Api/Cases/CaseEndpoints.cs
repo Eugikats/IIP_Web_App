@@ -23,7 +23,8 @@ public static class CaseEndpoints
         ILogger<CaseFnolAcknowledgementLogMarker> logger,
         HttpContext httpContext,
         CancellationToken cancellationToken,
-        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null)
+        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null,
+        INotificationEmitter? notificationEmitter = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
         {
@@ -71,6 +72,27 @@ public static class CaseEndpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "FNOL acknowledgement failed for case {CaseId}", claimCase.CaseId);
+            }
+
+            // Outcome E: the officer a claim lands on at intake needs to hear about it, not
+            // discover it by refreshing their queue. A failed notification must never fail claim
+            // creation, which has already happened above.
+            if (notificationEmitter is not null && !string.IsNullOrWhiteSpace(claimCase.AssignedUserId))
+            {
+                try
+                {
+                    await notificationEmitter.NotifyAsync(
+                        claimCase.Scope,
+                        claimCase.AssignedUserId,
+                        NotificationType.ClaimAssigned,
+                        $"New {claimCase.ClaimType} claim assigned to you on the {claimCase.AssignedTeam} team.",
+                        claimCase.CaseId,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Assignment notification failed for case {CaseId}", claimCase.CaseId);
+                }
             }
 
             // The claims agent reviews every new claim straight away, in the background, so the
@@ -133,7 +155,8 @@ public static class CaseEndpoints
         ICaseRepository caseRepository,
         IAuditRepository auditRepository,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        INotificationEmitter? notificationEmitter = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
         {
@@ -179,6 +202,19 @@ public static class CaseEndpoints
         await auditRepository.WriteAsync(
             AuditEvent.CaseAssigned(before, updated.ToAuditSnapshot(), userId, correlationId, NormalizeOptional(request.AuditReason)),
             cancellationToken);
+
+        if (notificationEmitter is not null
+            && !string.IsNullOrWhiteSpace(updated.AssignedUserId)
+            && !string.Equals(updated.AssignedUserId, claimCase.AssignedUserId, StringComparison.Ordinal))
+        {
+            await notificationEmitter.NotifyAsync(
+                updated.Scope,
+                updated.AssignedUserId,
+                NotificationType.ClaimAssigned,
+                $"{claimCase.ClaimType} claim reassigned to you by {userId}.",
+                updated.CaseId,
+                cancellationToken);
+        }
 
         var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
         return Results.Ok(CaseMapper.ToResponse(updated, auditEvents));

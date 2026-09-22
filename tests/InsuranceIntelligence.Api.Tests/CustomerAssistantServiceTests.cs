@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Application.CustomerAssistant;
+using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
@@ -9,6 +10,7 @@ using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Knowledge;
+using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.LocalTestDoubles;
@@ -316,7 +318,8 @@ public sealed class CustomerAssistantServiceTests
                 consent,
                 agentGate,
                 audit,
-                new FakeProductRepository());
+                new FakeProductRepository(),
+                new NoOpNotificationEmitter());
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, service);
         }
@@ -496,6 +499,15 @@ public sealed class CustomerAssistantServiceTests
                 .FirstOrDefault());
         public Task<IReadOnlyCollection<ConsentRecord>> ListForCustomerAsync(TenantScope scope, string customerIdentifier, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyCollection<ConsentRecord>>(records.Where(r => r.Scope.Matches(scope) && r.CustomerIdentifier == customerIdentifier).ToArray());
+    }
+
+    private sealed class NoOpNotificationEmitter : INotificationEmitter
+    {
+        public Task NotifyAsync(TenantScope scope, string recipientUserId, NotificationType type, string message, Guid caseId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task NotifyOnceAsync(TenantScope scope, string recipientUserId, NotificationType type, string message, Guid caseId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 
     private sealed class FakeProductRepository : IProductRepository

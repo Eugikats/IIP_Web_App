@@ -536,6 +536,110 @@ public sealed class CaseEndpointsTests
     }
 
     [Fact]
+    public async Task AssignCase_NotifiesTheNewlyAssignedOfficer()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+        var context = ScopedContext("ClaimsSupervisor", "supervisor-1");
+
+        await CaseEndpoints.AssignCase(
+            created.CaseId,
+            new AssignCaseRequest("handler-42", "Motor Review", "Supervisor allocation"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None,
+            dependencies.NotificationEmitter);
+
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var notifications = await dependencies.NotificationRepository.ListForUserAsync(scope, "handler-42", 10, CancellationToken.None);
+        var notification = Assert.Single(notifications);
+        Assert.Equal(NotificationType.ClaimAssigned, notification.Type);
+        Assert.Equal(created.CaseId, notification.CaseId);
+        Assert.Contains("reassigned", notification.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AssignCase_ReassigningToTheSamePerson_DoesNotNotifyAgain()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+        var context = ScopedContext("ClaimsSupervisor", "supervisor-1");
+        await CaseEndpoints.AssignCase(
+            created.CaseId,
+            new AssignCaseRequest("handler-42", "Motor Review", "First assignment"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None,
+            dependencies.NotificationEmitter);
+
+        // A supervisor updating the team label without changing the named person is not a
+        // reassignment, the officer already knows about their own claim.
+        await CaseEndpoints.AssignCase(
+            created.CaseId,
+            new AssignCaseRequest("handler-42", "Motor Review Renamed", "Relabel only"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None,
+            dependencies.NotificationEmitter);
+
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var notifications = await dependencies.NotificationRepository.ListForUserAsync(scope, "handler-42", 10, CancellationToken.None);
+        Assert.Single(notifications);
+    }
+
+    [Fact]
+    public async Task CreateCase_WithAnAssignedOfficerFromWorkloadRouting_NotifiesThem()
+    {
+        var dependencies = CreateDependencies();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        // Seed prior team history so CaseAssignmentPolicy names a real owner rather than leaving
+        // the new claim team-only assigned (outcome E: "fixing the null assignment at intake").
+        await dependencies.CaseRepository.SaveAsync(new ClaimCase
+        {
+            CaseId = Guid.NewGuid(),
+            Scope = scope,
+            CustomerName = "Seed Customer",
+            PolicyNumber = "POL-SEED",
+            ProductLine = "Motor",
+            ClaimType = "Accident",
+            Channel = "WebPortal",
+            IncidentDate = new DateOnly(2026, 5, 1),
+            IncidentDescription = "Seeded for assignment.",
+            Status = CaseStatus.Closed,
+            CompletenessScore = 50,
+            AssignedUserId = "handler-quiet",
+            AssignedTeam = ClaimRoutingPolicy.ClaimsIntakeTeam,
+            CreatedByUserId = "seed",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "seed-correlation",
+        });
+        var httpContext = ScopedContext();
+
+        var result = await CaseEndpoints.CreateCase(
+            ValidRequest(),
+            dependencies.Service,
+            dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
+            httpContext,
+            CancellationToken.None,
+            triageQueue: null,
+            notificationEmitter: dependencies.NotificationEmitter);
+        var (_, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal("handler-quiet", response!.AssignedUserId);
+        var notifications = await dependencies.NotificationRepository.ListForUserAsync(scope, "handler-quiet", 10, CancellationToken.None);
+        var notification = Assert.Single(notifications);
+        Assert.Equal(NotificationType.ClaimAssigned, notification.Type);
+        Assert.Equal(response.CaseId, notification.CaseId);
+    }
+
+    [Fact]
     public async Task EscalateCase_SetsEscalatedUrgentAndWritesAudit()
     {
         var dependencies = CreateDependencies();

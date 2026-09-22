@@ -253,7 +253,10 @@ else
 }
 
 builder.Services.AddSingleton<ICompletenessScoringService, CompletenessScoringService>();
-builder.Services.AddSingleton<IDocumentChecklistProvider, StaticDocumentChecklistProvider>();
+// Scoped, not Singleton: StaticDocumentChecklistProvider now optionally depends on
+// IProductRepository (outcome E's product-document-matrix integration), which is itself Scoped
+// (it resolves through the per-request DbContext); a Singleton cannot consume a Scoped service.
+builder.Services.AddScoped<IDocumentChecklistProvider, StaticDocumentChecklistProvider>();
 builder.Services.AddSingleton<ISourceCitationFormatter, SourceCitationFormatter>();
 if (infrastructureOptions.RetrievalProvider.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase))
 {
