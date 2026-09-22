@@ -2,23 +2,11 @@
 
 import { Link } from "@/components/iip/NextRouterCompat";
 import { CheckCircle2 } from "lucide-react";
-import { GlassCard, SectionHeader } from "@/components/iip/Primitives";
-import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
+import { GlassCard, SectionHeader, StatusBadge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
 import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 import { useBrief } from "@/lib/lovable-parity/data/brief";
-
-const STATUS_TONE: Record<string, PillTone> = {
-  New: "neutral",
-  Assigned: "info",
-  InReview: "info",
-  MissingDocuments: "warning",
-  ReadyForReview: "info",
-  PendingApproval: "warning",
-  Escalated: "danger",
-  ReadyForExport: "success",
-};
 
 function timeOfDayGreeting(): string {
   const hour = new Date().getHours();
@@ -58,10 +46,11 @@ export default function Brief() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[14px] font-bold text-dls-text-primary">{item.customerName}</span>
-                    <StatusPill tone={STATUS_TONE[item.status] ?? "neutral"} label={item.status} />
+                    <StatusBadge status={item.status} />
                   </div>
                   <div className="mt-0.5 text-[12px] text-dls-text-muted">{item.policyNumber} · {item.claimType}</div>
-                  <p className="mt-2 text-[13px] text-dls-text-secondary">{item.reason}</p>
+                  <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Why am I seeing this?</div>
+                  <p className="text-[13px] text-dls-text-secondary">{item.reason}</p>
                 </div>
                 <Link to={item.primaryActionHref} className="dls-focus-outline shrink-0 rounded-dls-control">
                   <Button variant="primary">{item.primaryActionLabel}</Button>

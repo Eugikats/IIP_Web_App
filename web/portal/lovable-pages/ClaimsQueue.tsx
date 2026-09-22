@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { Link } from "@/components/iip/NextRouterCompat";
+import { Link, useNavigate } from "@/components/iip/NextRouterCompat";
 import { toast } from "sonner";
 import { TriangleAlert, ArrowRight, ClipboardList, Filter, Search, UserCheck, X } from "lucide-react";
 import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge, ConfidenceBadge, ChannelBadge } from "@/components/iip/Primitives";
@@ -26,6 +26,7 @@ const quickFilters = [
 type QuickFilter = (typeof quickFilters)[number];
 
 export default function ClaimsQueue() {
+  const navigate = useNavigate();
   const { claims, loadState, refresh, assignCase, escalateCase } = useClaims();
   const loading = loadState.status === "loading";
   const error = "error" in loadState ? loadState.error : null;
@@ -166,7 +167,10 @@ export default function ClaimsQueue() {
         <GlassCard>
           <div className="flex flex-col items-center gap-2 p-10 text-center">
             <ClipboardList className="h-6 w-6 text-dls-text-muted" aria-hidden="true" />
-            <EmptyStateSurface message="Claims appear here once someone records a new claim, or once one arrives on a connected channel." />
+            <EmptyStateSurface
+              message="Claims appear here once someone records a new claim, or once one arrives on a connected channel."
+              action={{ label: "Record a new claim", onClick: () => navigate("/app/claims/new") }}
+            />
           </div>
         </GlassCard>
       ) : rows.length === 0 ? (

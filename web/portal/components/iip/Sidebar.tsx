@@ -18,7 +18,7 @@ import { signOut } from "@/lib/entraAuth";
 import { Avatar } from "@/components/ui/Avatar";
 import { Popover, PopoverGroupLabel } from "@/components/ui/Popover";
 import RoleSwitcher from "./RoleSwitcher";
-import { resetFirstRunOrientation } from "./FirstRunOrientation";
+import { openFirstRunOrientation } from "./FirstRunOrientation";
 
 const EXPANDED_STORAGE_KEY = "iip.sidebar.expanded";
 
@@ -388,14 +388,14 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
                 <ShieldCheck className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Admin console
               </Link>
             )}
-            {/* The only way back into the first-run orientation. Reloading is how the tour picks
-                the cleared flag back up -- it evaluates once on mount by design, so that it can
-                never re-trigger itself mid-session (orientation spec, "it arrives once"). */}
+            {/* The only way the first-run orientation ever opens (outcome J: off by default,
+                available from here). Reloading is how it picks the request back up -- it
+                evaluates once on mount by design, so it can never re-trigger itself mid-session. */}
             <button
               type="button"
               role="menuitem"
               onClick={() => {
-                resetFirstRunOrientation();
+                openFirstRunOrientation();
                 setProfileOpen(false);
                 window.location.assign("/app");
               }}

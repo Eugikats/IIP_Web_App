@@ -1,21 +1,23 @@
 # First-run orientation — specification
 
-Owner: UI/UX. Status: specification, implemented 2026-09-14.
+Owner: UI/UX. Status: specification, implemented 2026-09-14, revised 2026-09-22 (build prompt outcome J: opt-in trigger).
 Governed by [`DESIGN.md`](../../DESIGN.md); this document owns the first-run orientation only.
 
 ---
 
 ## 1. Why this exists, and the rule it bends
 
-A claims officer opening IIP for the first time sees an icon rail of seven destinations, a chat box, and no explanation of either. Every destination is a noun they recognise — Claims, Inbox, Documents — but nothing tells them which one is *theirs*, what the Assistant is for, or that the AI prepares work rather than deciding it. They learn the product by clicking around it, which is how people form the impression that a system is complicated.
+A claims officer opening IIP for the first time sees an icon rail of seven destinations, a chat box, and no explanation of either. Every destination is a noun they recognise — Claims, Inbox, Documents — but nothing tells them which one is *theirs*, what the Assistant is for, or that the AI prepares work rather than deciding it. They learn the product by clicking around it, which is how people form the impression that a system is complicated. That is what the orientation is for, on the occasions a person actually wants it.
 
-This bends one line in `DESIGN.md`: *"It should read as a precise instrument, not a product tour."* That line is about the resting state of the product — the instrument must not be cluttered with tutorial furniture, coach marks that never go away, or a help panel competing with content. It is not an argument that a person's first sixty seconds should be unguided.
+This bends one line in `DESIGN.md`: *"It should read as a precise instrument, not a product tour."* That line is about the resting state of the product — the instrument must not be cluttered with tutorial furniture, coach marks that never go away, or a help panel competing with content. It is not an argument that the orientation itself, opened deliberately, should not exist.
 
 The resolution, and the constraint every decision below answers to:
 
-> **The orientation is a guest. It arrives once, it can be refused in one action, it never blocks work, and after it leaves there is no trace of it in the interface.**
+> **The orientation is a guest. It is off by default and only ever opens because someone asked for it. It can be refused in one action, it never blocks work, and after it leaves there is no trace of it in the interface.**
 
 If any change to this feature would make that sentence untrue, the change is wrong.
+
+Until 2026-09-22 this document instead specified an orientation that opened itself once, automatically, on a new user's first `/app` visit. That was a considered decision, not an oversight, but the build prompt sets the product's guidance model explicitly: *"the first run tour is off by default and available from help"* — nothing self-triggered, however well filtered. §2 below reflects that change; §3 and §4 (role filtering, step content) are unaffected by it.
 
 ---
 
@@ -23,14 +25,11 @@ If any change to this feature would make that sentence untrue, the change is wro
 
 | Question | Answer |
 |---|---|
-| When does it run? | On first arrival at `/app` for a signed-in user who has not seen or dismissed it. The route check is explicit, not implied by where the component is mounted: it lives in the shell, which wraps every `/app` route, so without it a user following a deep link into a claim would be shown "Start here" pointing at the Assistant while looking at something else. |
-| What records that? | `localStorage`, key `iip.orientation.seen.v1`, value the user's own id. |
-| Why per user id? | Two people sharing a workstation each get their own first run. A shared key would silently skip the second person. |
-| Why `v1` in the key? | A future revision with materially different content can re-run once without a migration. Bumping it is a deliberate act, not a side effect of editing copy. |
-| Does it ever run again? | Only if the user asks. A **Show me around** item in the profile menu clears the key and starts it. |
-| What if `localStorage` is unavailable? | The orientation does not run. A private window or blocked site data must not produce a tour on every page load — that is worse than never showing it. |
-
-**This is per browser, not per account.** The same person on a new machine sees it again. That is an honest limitation of client-side storage and is accepted deliberately: the alternative is a new server-side per-user preference table, which is not worth a schema change for a once-ever hint. It is recorded here so nobody later reports it as a bug.
+| When does it run? | Only at `/app`, and only immediately after **Show me around** (profile menu) was clicked. Nothing else opens it — there is no automatic first-visit trigger. The route check is explicit, not implied by where the component is mounted: it lives in the shell, which wraps every `/app` route, so without it a user following a deep link into a claim would be shown "Start here" pointing at the Assistant while looking at something else. |
+| What records that? | `localStorage`, key `iip.orientation.requested.v1`, value `"1"`. "Show me around" sets it, then hard-navigates to `/app`; the orientation reads it once on mount, opens if present, and removes it immediately either way, so a stale request cannot resurrect itself on a later visit. |
+| Why not track per user id any more? | The old key tracked "has this user already seen it" so it could skip them automatically. There is no more automatic path to skip, so the flag is a one-shot request rather than per-user state. |
+| Does it ever run again? | Every time someone clicks **Show me around** in the profile menu. There is no limit — it is a deliberate, repeatable request, not a once-ever hint. |
+| What if `localStorage` is unavailable? | The request cannot survive the reload "Show me around" triggers, so the orientation does not open. A private window or blocked site data get an inert button rather than a broken tour. |
 
 ---
 

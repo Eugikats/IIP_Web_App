@@ -6,9 +6,11 @@ import { cn } from "@/lib/utils";
 /**
  * First-run orientation, implements docs/03-design-architecture/iip_first_run_orientation_spec.md.
  *
- * The governing constraint from that spec: the orientation is a guest. It arrives once, it can be
- * refused in one action, it never blocks work, and after it leaves there is no trace of it in the
- * interface. Every decision here answers to that sentence.
+ * The governing constraint from that spec: the orientation is a guest. It is off by default, it
+ * only ever opens because someone asked for it (build prompt outcome J: "the first run tour is
+ * off by default and available from help"), it can be refused in one action, it never blocks
+ * work, and after it leaves there is no trace of it in the interface. Every decision here answers
+ * to that sentence.
  *
  * The load-bearing requirement is §3: a step only renders if the signed-in user can actually open
  * the destination it describes. Pointing someone at a screen their role cannot reach is a promise
@@ -18,14 +20,14 @@ import { cn } from "@/lib/utils";
  * would then have to be fought to remove shadows and accents DESIGN.md forbids (spec §7).
  */
 
-const STORAGE_KEY = "iip.orientation.seen.v1";
+const STORAGE_KEY = "iip.orientation.requested.v1";
 
-/** Cleared by the profile menu's "Show me around", which is the only way to re-run this. */
-export function resetFirstRunOrientation() {
+/** Set by the profile menu's "Show me around", the only way this orientation ever opens. */
+export function openFirstRunOrientation() {
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.setItem(STORAGE_KEY, "1");
   } catch {
-    // Blocked storage, nothing to clear, and the tour will not have run anyway.
+    // Blocked storage: the request cannot survive the reload that follows, so it will not open.
   }
 }
 
@@ -111,20 +113,26 @@ export default function FirstRunOrientation({
     // Spec §2 and §6 "Loading": waits for permissions to resolve, so a step can never be shown or
     // dropped based on access that was still unknown.
     if (!ready || !userId) return;
-    // Spec section 2: first arrival at /app, the landing screen. This component is mounted in the
-    // shell, which wraps every /app route -- without this check a user following a deep link into
-    // a claim would be shown "Start here" pointing at the Assistant while looking at something
-    // else entirely. An orientation that describes a screen you are not on is worse than none.
+    // Spec section 2: only ever opens at /app, the landing screen. This component is mounted in
+    // the shell, which wraps every /app route -- without this check a user following a deep link
+    // into a claim would be shown "Start here" pointing at the Assistant while looking at
+    // something else entirely. An orientation that describes a screen you are not on is worse
+    // than none.
     if (pathname !== "/app") return;
-    let seen: string | null = null;
+    // Outcome J: off by default. The only trigger is a fresh request left by "Show me around" in
+    // the profile menu; nothing here ever opens the orientation on its own.
+    let requested = false;
     try {
-      seen = window.localStorage.getItem(STORAGE_KEY);
+      requested = window.localStorage.getItem(STORAGE_KEY) === "1";
     } catch {
-      // Spec §2: storage unavailable means the tour does not run. A private window must not
-      // produce a tour on every single page load, which is worse than never showing it.
       return;
     }
-    if (seen === userId) return;
+    if (!requested) return;
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Best effort: worst case the next /app visit also consumes a stale request.
+    }
 
     // Spec §3: fewer than two reachable steps is a popup, not an orientation.
     const reachable = STEPS.filter((step) => step.anchor === null || readAnchor(step.anchor) !== null);
@@ -137,13 +145,8 @@ export default function FirstRunOrientation({
   const dismiss = useCallback(() => {
     setOpen(false);
     setIndex(0);
-    try {
-      if (userId) window.localStorage.setItem(STORAGE_KEY, userId);
-    } catch {
-      // Not persisted, it will offer itself again next time. Better than failing to close.
-    }
     returnFocusRef.current?.focus?.();
-  }, [userId]);
+  }, []);
 
   const step = steps[Math.min(index, steps.length - 1)];
   const isLast = index >= steps.length - 1;
