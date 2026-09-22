@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Domain.ClientPortal;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Documents;
@@ -457,6 +458,29 @@ public sealed record AuditEvent(
             ApprovalId: null,
             AuditReason: request.ResolutionNote,
             CorrelationId: correlationId);
+
+    /// <summary>Outcome M: "visible... in the audit trail." One factory covers both a grant and a
+    /// withdrawal, the two are the same shape (a ConsentRecord row), distinguished by
+    /// record.WithdrawnAt, exactly the way the record itself distinguishes them.</summary>
+    public static AuditEvent ConsentRecorded(ConsentRecord record) =>
+        new(
+            Guid.NewGuid(),
+            record.Scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: record.RecordedByUserId,
+            ActorType.User,
+            record.WithdrawnAt is null ? "consent.granted" : "consent.withdrawn",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: record.Basis.ToString(),
+            EvidenceIds: record.InteractionReference is null ? Array.Empty<string>() : [record.InteractionReference],
+            ModelProvider: record.Channel,
+            Confidence: null,
+            ValidationResult: record.Purpose,
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: record.CorrelationId);
 
     public static AuditEvent WhatsAppConfigurationSaved(
         TenantScope scope, string userId, string phoneNumberId, string auditReason, string correlationId) =>

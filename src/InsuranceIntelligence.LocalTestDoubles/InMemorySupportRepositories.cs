@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Integrations;
@@ -107,6 +108,35 @@ public sealed class InMemoryClaimReviewRequestRepository : IClaimReviewRequestRe
             .OrderByDescending(item => item.RequestedAt)
             .ToArray();
         return Task.FromResult<IReadOnlyCollection<ClaimReviewRequest>>(matches);
+    }
+}
+
+public sealed class InMemoryConsentRepository : IConsentRepository
+{
+    private readonly ConcurrentBag<ConsentRecord> records = [];
+
+    public Task SaveAsync(ConsentRecord record, CancellationToken cancellationToken = default)
+    {
+        records.Add(record);
+        return Task.CompletedTask;
+    }
+
+    public Task<ConsentRecord?> GetCurrentAsync(TenantScope scope, string customerIdentifier, string purpose, CancellationToken cancellationToken = default)
+    {
+        var current = records
+            .Where(record => record.Scope.Matches(scope) && record.CustomerIdentifier == customerIdentifier && record.Purpose == purpose)
+            .OrderByDescending(record => record.RecordedAt)
+            .FirstOrDefault();
+        return Task.FromResult(current);
+    }
+
+    public Task<IReadOnlyCollection<ConsentRecord>> ListForCustomerAsync(TenantScope scope, string customerIdentifier, CancellationToken cancellationToken = default)
+    {
+        var matches = records
+            .Where(record => record.Scope.Matches(scope) && record.CustomerIdentifier == customerIdentifier)
+            .OrderByDescending(record => record.RecordedAt)
+            .ToArray();
+        return Task.FromResult<IReadOnlyCollection<ConsentRecord>>(matches);
     }
 }
 

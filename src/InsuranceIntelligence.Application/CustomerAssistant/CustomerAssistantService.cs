@@ -143,6 +143,7 @@ public sealed class CustomerAssistantService(
             RecordedByUserId = SystemActorId,
             RecordedAt = DateTimeOffset.UtcNow,
             CorrelationId = correlationId,
+            InteractionReference = threadId,
         }, cancellationToken);
 
         var (rawReply, outcome, citations, caseId, leadId) = intent switch

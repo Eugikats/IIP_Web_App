@@ -62,6 +62,12 @@ public sealed record ConsentRecord
     public required string RecordedByUserId { get; init; }
     public required DateTimeOffset RecordedAt { get; init; }
     public required string CorrelationId { get; init; }
+
+    /// <summary>Build prompt outcome M: "through which interaction." A queryable reference to the
+    /// specific thing that produced this row, a WhatsApp thread id, a Communication id, a claimant
+    /// portal session id, distinct from CorrelationId (a trace id for this write, not a link back
+    /// to the interaction itself). Null for rows recorded before this field existed.</summary>
+    public string? InteractionReference { get; init; }
 }
 
 public interface IConsentRepository
@@ -85,4 +91,15 @@ public static class ConsentEnforcementGuard
 {
     public static bool IsPermitted(ConsentRecord? current) =>
         current is not null && current.WithdrawnAt is null && current.Basis != ConsentBasis.Withdrawn;
+}
+
+/// <summary>Shared purpose strings so a consent captured on one send path is recognized by every
+/// other path that checks it for the same channel. "whatsapp_messaging" predates this class (see
+/// CustomerAssistantService's own constant of the same value); the other two are new with outcome
+/// M, when SMS/email enforcement was first wired in.</summary>
+public static class ConsentPurposes
+{
+    public const string WhatsApp = "whatsapp_messaging";
+    public const string Sms = "sms_messaging";
+    public const string Email = "email_messaging";
 }

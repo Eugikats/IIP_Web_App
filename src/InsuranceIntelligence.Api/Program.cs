@@ -348,6 +348,7 @@ builder.Services.AddScoped<IConversationGroundingService, ConversationGroundingS
 // W2.5: Phase 2 core-workspace query services.
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Customers.ICustomerConsentService, InsuranceIntelligence.Application.Customers.CustomerConsentService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Brief.IBriefService, InsuranceIntelligence.Application.Brief.BriefService>();
@@ -825,6 +826,13 @@ app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustome
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapPost("/api/v1/customers/{customerId}/summary", InsuranceIntelligence.Api.Customer.CustomerSummaryEndpoints.Summarize)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+// Outcome M: consent as a first class, staff-visible, auditable record.
+app.MapGet("/api/v1/customers/{customerId}/consent", InsuranceIntelligence.Api.Customers.ConsentEndpoints.ListForCustomer)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+app.MapPost("/api/v1/customers/{customerId}/consent", InsuranceIntelligence.Api.Customers.ConsentEndpoints.RecordExplicitOptIn)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/customers/{customerId}/consent/withdraw", InsuranceIntelligence.Api.Customers.ConsentEndpoints.Withdraw)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 // Names for ids, for any staff member who can see claims or customers; also feeds the assignment picker.
 app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEndpoints.ListPeople)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers));

@@ -4,6 +4,7 @@ using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Infrastructure.WhatsApp;
@@ -81,6 +82,31 @@ public sealed class WhatsAppMessagingServiceTests
     }
 
     [Fact]
+    public async Task SendAsync_NoRecordedConsent_IsBlockedEvenWithAVerifiedRecentInbound()
+    {
+        var fixture = await Fixture.CreateAsync(new FakeConsentRepository(granted: false));
+        await fixture.Repository.SaveAsync(fixture.InboundMessage(DateTimeOffset.UtcNow.AddHours(-1)));
+
+        var error = await Assert.ThrowsAsync<WhatsAppPolicyException>(() =>
+            fixture.Service.SendAsync(fixture.SendRequest("send-consent-blocked")));
+
+        Assert.Equal("ConsentRequired", error.Code);
+        Assert.Equal(0, fixture.Provider.Attempts);
+    }
+
+    [Fact]
+    public async Task SendAsync_RecordedConsent_Proceeds()
+    {
+        var fixture = await Fixture.CreateAsync(new FakeConsentRepository(granted: true));
+        await fixture.Repository.SaveAsync(fixture.InboundMessage(DateTimeOffset.UtcNow.AddHours(-1)));
+
+        var sent = await fixture.Service.SendAsync(fixture.SendRequest("send-consent-ok"));
+
+        Assert.Equal(WhatsAppDeliveryState.ProviderAccepted, sent.DeliveryState);
+        Assert.Equal(1, fixture.Provider.Attempts);
+    }
+
+    [Fact]
     public void WebhookParser_ExtractsTextAndDeliveryStatus()
     {
         const string json = """
@@ -118,7 +144,7 @@ public sealed class WhatsAppMessagingServiceTests
         public StubOutboundProvider Provider { get; }
         public WhatsAppMessagingService Service { get; }
 
-        public static async Task<Fixture> CreateAsync()
+        public static async Task<Fixture> CreateAsync(IConsentRepository? consentRepository = null)
         {
             var scope = TenantScope.Create("tenant-wa", "workspace-wa");
             var caseId = Guid.NewGuid();
@@ -152,7 +178,8 @@ public sealed class WhatsAppMessagingServiceTests
                 provider,
                 context,
                 new StubPermissionService(Permission.ViewChannels, Permission.ManageCustomerCommunications, Permission.SendCustomerUpdate),
-                new NullAuditWriter());
+                new NullAuditWriter(),
+                consentRepository);
             return new Fixture(scope, caseId, repository, provider, service);
         }
 
@@ -211,5 +238,23 @@ public sealed class WhatsAppMessagingServiceTests
     private sealed class NullAuditWriter : IAuditWriter
     {
         public Task WriteAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class FakeConsentRepository(bool granted) : IConsentRepository
+    {
+        public Task SaveAsync(ConsentRecord record, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<ConsentRecord?> GetCurrentAsync(TenantScope scope, string customerIdentifier, string purpose, CancellationToken cancellationToken = default) =>
+            Task.FromResult(granted
+                ? new ConsentRecord
+                {
+                    RecordId = Guid.NewGuid(), Scope = scope, CustomerIdentifier = customerIdentifier,
+                    Basis = ConsentBasis.CustomerInitiatedConversation, Purpose = purpose, Channel = "WhatsApp",
+                    RecordedByUserId = "system:customer-assistant", RecordedAt = DateTimeOffset.UtcNow, CorrelationId = "corr-consent-seed",
+                }
+                : null);
+
+        public Task<IReadOnlyCollection<ConsentRecord>> ListForCustomerAsync(TenantScope scope, string customerIdentifier, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<ConsentRecord>>([]);
     }
 }

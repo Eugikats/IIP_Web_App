@@ -3,6 +3,7 @@ using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Integrations;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,7 +16,8 @@ public sealed class WhatsAppMessagingService(
     IWhatsAppOutboundProvider outboundProvider,
     ITenantContextAccessor tenantContextAccessor,
     IPermissionService permissionService,
-    IAuditWriter auditWriter) : IWhatsAppMessagingService
+    IAuditWriter auditWriter,
+    IConsentRepository? consentRepository = null) : IWhatsAppMessagingService
 {
     private static readonly string[] RestrictedTerms =
         ["raw prompt", "system message", "internal note", "fraud flag", "reserve", "hidden risk", "secret"];
@@ -64,6 +66,18 @@ public sealed class WhatsAppMessagingService(
             .FirstOrDefault();
         if (verifiedInbound is null)
             throw new WhatsAppPolicyException("RecipientNotVerified", "The recipient is not verified by this case-linked WhatsApp thread.");
+
+        // Outcome M / AGENTS.md non-negotiable 5: a staff-typed ConsentBasis string (below) is a
+        // claim, not a check. This is the real one, against the same ConsentRecord table every
+        // inbound WhatsApp message already writes to (CustomerAssistantService), so it is normally
+        // satisfied automatically by the verifiedInbound check just above -- it only actually blocks
+        // a send after a recorded withdrawal, which recency of an old inbound message cannot see.
+        if (consentRepository is not null)
+        {
+            var consent = await consentRepository.GetCurrentAsync(context.Scope, NormalizeWaId(command.RecipientWaId), ConsentPurposes.WhatsApp, cancellationToken);
+            if (!ConsentEnforcementGuard.IsPermitted(consent))
+                throw new WhatsAppPolicyException("ConsentRequired", "No recorded, unwithdrawn consent for WhatsApp messages to this recipient.");
+        }
 
         var outsideWindow = verifiedInbound.CreatedAt < DateTimeOffset.UtcNow.AddHours(-24);
         if (outsideWindow && string.IsNullOrWhiteSpace(command.TemplateName))

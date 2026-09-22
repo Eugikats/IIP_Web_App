@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Infrastructure.Communications;
@@ -130,8 +131,77 @@ public sealed class TenantAwareSmsProviderTests
         Assert.False(connectionResolved.WasCalled);
     }
 
-    private static CommunicationSendRequest Request() =>
-        new(Scope, Guid.NewGuid(), CommunicationChannel.SMS, "+256772118001", "Test message", "officer-1", Approved: true, LowRisk: false, "corr-1");
+    [Fact]
+    public async Task SendAsync_NonLowRiskWithoutConsent_ReturnsConsentRequiredWithoutReachingAnyProvider()
+    {
+        var fallback = new StubResultProvider("Sent");
+        var provider = new TenantAwareSmsProvider(
+            new StubConnectionRepository(connection: null),
+            new StubProtector(),
+            new StubFactory(fallback),
+            NullLogger<TenantAwareSmsProvider>.Instance,
+            new FakeConsentRepository(granted: false));
+
+        var result = await provider.SendAsync(Request());
+
+        Assert.Equal("ConsentRequired", result.DeliveryStatus);
+        Assert.False(fallback.WasCalled);
+    }
+
+    [Fact]
+    public async Task SendAsync_NonLowRiskWithRecordedConsent_Proceeds()
+    {
+        var fallback = new StubResultProvider("Sent");
+        var provider = new TenantAwareSmsProvider(
+            new StubConnectionRepository(connection: null),
+            new StubProtector(),
+            new StubFactory(fallback),
+            NullLogger<TenantAwareSmsProvider>.Instance,
+            new FakeConsentRepository(granted: true));
+
+        var result = await provider.SendAsync(Request());
+
+        Assert.Equal("Sent", result.DeliveryStatus);
+        Assert.True(fallback.WasCalled);
+    }
+
+    [Fact]
+    public async Task SendAsync_LowRiskWithoutConsent_ProceedsAnyway()
+    {
+        var fallback = new StubResultProvider("Sent");
+        var provider = new TenantAwareSmsProvider(
+            new StubConnectionRepository(connection: null),
+            new StubProtector(),
+            new StubFactory(fallback),
+            NullLogger<TenantAwareSmsProvider>.Instance,
+            new FakeConsentRepository(granted: false));
+
+        var result = await provider.SendAsync(Request(lowRisk: true));
+
+        Assert.Equal("Sent", result.DeliveryStatus);
+        Assert.True(fallback.WasCalled);
+    }
+
+    private static CommunicationSendRequest Request(bool lowRisk = false) =>
+        new(Scope, Guid.NewGuid(), CommunicationChannel.SMS, "+256772118001", "Test message", "officer-1", Approved: true, LowRisk: lowRisk, "corr-1");
+
+    private sealed class FakeConsentRepository(bool granted) : IConsentRepository
+    {
+        public Task SaveAsync(ConsentRecord record, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<ConsentRecord?> GetCurrentAsync(TenantScope scope, string customerIdentifier, string purpose, CancellationToken cancellationToken = default) =>
+            Task.FromResult(granted
+                ? new ConsentRecord
+                {
+                    RecordId = Guid.NewGuid(), Scope = scope, CustomerIdentifier = customerIdentifier,
+                    Basis = ConsentBasis.ExplicitOptIn, Purpose = purpose, Channel = "SMS",
+                    RecordedByUserId = "officer-1", RecordedAt = DateTimeOffset.UtcNow, CorrelationId = "corr-consent-seed",
+                }
+                : null);
+
+        public Task<IReadOnlyCollection<ConsentRecord>> ListForCustomerAsync(TenantScope scope, string customerIdentifier, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<ConsentRecord>>([]);
+    }
 
     private sealed class StubConnectionRepository(IntegrationConnection? connection) : IIntegrationConnectionRepository
     {

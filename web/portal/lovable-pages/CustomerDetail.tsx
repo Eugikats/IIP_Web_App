@@ -1,13 +1,19 @@
 "use client";
 import { useMemo } from "react";
 import { useParams, Link } from "@/components/iip/NextRouterCompat";
-import { ArrowLeft, ArrowRight, ClipboardList, FileText, MessageSquare, RefreshCw, Shield, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, ClipboardList, FileText, MessageSquare, RefreshCw, Shield, ShieldOff, Sparkles } from "lucide-react";
 import { GlassCard, SectionHeader, StatusBadge } from "@/components/iip/Primitives";
 import { MarkdownText } from "@/components/iip/MarkdownText";
+import { Button } from "@/components/ui/Button";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { useCustomerProfile } from "@/lib/lovable-parity/data/customers";
 import { useCustomerSummary, type CustomerSummarySource } from "@/lib/lovable-parity/data/customerSummary";
+import { CONSENT_PURPOSES, useCustomerConsent } from "@/lib/lovable-parity/data/consent";
+import { useUI } from "@/context/UIStateContext";
+import { useRuntimeContext } from "@/lib/runtimeContext";
+import { canPreviewPermission, hasPermission } from "@/lib/roles";
+import { canUseLocalTestDoubles } from "@/lib/config";
 import { channelLabel, claimReference, formatDate, formatDateTime, formatPercent, humanizeIdentifier, isGuid, policyStanding } from "@/lib/format";
 
 // Customer 360. Each record type gets its own purpose-built row, never a generic key/value dump:
@@ -227,6 +233,89 @@ function CustomerSummaryCard({ customerId }: { customerId: string }) {
   );
 }
 
+// Outcome M: consent as a first class record. What was consented to, which channel, when,
+// through which interaction, and how it was withdrawn, each a real ConsentRecord row, not a
+// generic profile dictionary. Grouped by purpose so "is WhatsApp currently permitted?" is a
+// one-glance answer, with the full row-by-row history underneath for the "how it was withdrawn" part.
+function ConsentCard({ customerId }: { customerId: string }) {
+  const { roleDef } = useUI();
+  const { runtimeContext, parityMode } = useRuntimeContext();
+  const canManage = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "ManageCustomerCommunications")
+    : hasPermission(runtimeContext?.permissions ?? [], "ManageCustomerCommunications");
+  const { records, loading, error, actionError, busyPurpose, recordOptIn, withdraw } = useCustomerConsent(customerId);
+
+  return (
+    <GlassCard>
+      <SectionTitle icon={Shield}>Consent and privacy</SectionTitle>
+      {loading ? (
+        <LoadingSkeleton rows={2} />
+      ) : error ? (
+        <p className="text-[12.5px] text-dls-danger-text">{error}</p>
+      ) : (
+        <>
+          <div className="space-y-2.5">
+            {CONSENT_PURPOSES.map(({ purpose, label }) => {
+              const history = records.filter((record) => record.purpose === purpose);
+              const current = history[0] ?? null;
+              const permitted = current?.isCurrentlyPermitted ?? false;
+              return (
+                <div key={purpose} className="rounded-dls-control border border-dls-border-subtle p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-dls-text-primary">
+                      {permitted ? <Shield className="h-3.5 w-3.5 text-dls-success-text" aria-hidden="true" /> : <ShieldOff className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" />}
+                      {label}
+                    </div>
+                    <span className={`text-[11px] font-semibold ${permitted ? "text-dls-success-text" : "text-dls-text-muted"}`}>
+                      {permitted ? "Permitted" : "Not permitted"}
+                    </span>
+                  </div>
+                  {current ? (
+                    <div className="mt-1 text-[11px] text-dls-text-muted">
+                      {current.withdrawnAt
+                        ? `Withdrawn ${formatDateTime(current.withdrawnAt)}`
+                        : `${humanizeIdentifier(current.basis)} · ${formatDateTime(current.recordedAt)}`}
+                      {current.interactionReference ? ` · ${current.interactionReference}` : ""}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-[11px] text-dls-text-muted">No consent recorded for this channel yet.</div>
+                  )}
+                  {canManage && (
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        variant="secondary"
+                        disabled={busyPurpose === purpose || permitted}
+                        onClick={() => void recordOptIn(purpose)}
+                        className="!min-h-8 !px-2.5 !py-1 !text-[11.5px]"
+                      >
+                        Record consent
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={busyPurpose === purpose || !permitted}
+                        onClick={() => void withdraw(purpose)}
+                        className="!min-h-8 !px-2.5 !py-1 !text-[11.5px]"
+                      >
+                        Withdraw
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {actionError && <p className="mt-2 text-[11.5px] text-dls-danger-text">{actionError}</p>}
+          {records.length === 0 && (
+            <p className="mt-2 text-[12.5px] text-dls-text-muted">
+              No consent has been recorded for this customer yet. It is captured when they first contact the insurer on a messaging channel, or recorded here after a confirmed opt-in.
+            </p>
+          )}
+        </>
+      )}
+    </GlassCard>
+  );
+}
+
 export default function CustomerDetail() {
   const { id } = useParams();
   const customerId = String(id ?? "");
@@ -314,21 +403,7 @@ export default function CustomerDetail() {
               )}
             </GlassCard>
 
-            <GlassCard>
-              <SectionTitle icon={Shield}>Consent and privacy</SectionTitle>
-              {Object.keys(profile.consent ?? {}).length === 0 ? (
-                <Empty>No consent has been recorded for this customer yet. It is captured when they first contact the insurer on a messaging channel.</Empty>
-              ) : (
-                <dl className="space-y-1.5 text-[12.5px]">
-                  {Object.entries(profile.consent).map(([key, value]) => (
-                    <div key={key} className="flex justify-between gap-3">
-                      <dt className="text-dls-text-muted">{humanizeIdentifier(key)}</dt>
-                      <dd className="text-right text-dls-text-primary">{/^\d{4}-\d{2}-\d{2}/.test(value) ? formatDateTime(value) : humanizeIdentifier(value)}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-            </GlassCard>
+            <ConsentCard customerId={profile.customerId} />
           </div>
         </div>
       )}
