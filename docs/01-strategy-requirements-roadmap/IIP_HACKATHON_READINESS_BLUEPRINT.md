@@ -7,6 +7,8 @@
 
 **Implementation status (2026-09-11):** Phase 1 is essentially complete — the Connection model, `EgoSmsProvider`, `TenantAwareSmsProvider`, SMTP email (`SmtpEmailProvider`, hand-rolled connection validator), `TenantAwareEmailSendingProvider`, the `/app/admin/connections` screen (SMS + Email), the WhatsApp deployment-gate fix, WhatsApp webhook auto-registration, and the claimant magic-link delivery-visibility fix are all source-complete and locally verified (909/909 automated tests passing, clean solution build, clean TypeScript compile, all portal validation scripts passing). **None of it has been deployed or exercised against a live SMS, SMTP, or WhatsApp account.** Do not tell a room it works until it has been — and the SMTP validator's STARTTLS path specifically has not even been tested against a fake server, only its plaintext AUTH LOGIN path has. See the status table in section 14's Phase 0/1 rows for exactly what is done and what remains: inbound email (IMAP ingestion), 0.2 App Insights, 0.3 Service Bus verification, and everything from Phase 2 onward.
 
+**Superseding status update (2026-09-23, build-prompt outcome Q — see `docs/01-strategy-requirements-roadmap/IIP_NEXT_BUILD_PROMPT.md`):** Substantial work has landed in sessions after this document was written, executing that build prompt's outcomes A through P end to end (message templates, the claim decision page, document classification learning, the client self-service portal, consent as a first-class record, a file-based policy importer with provenance, a retention watch screen, an explicit claim-resolution action with a post-close satisfaction question and, for a claim settled well, a referral invitation, and additions to the WhatsApp customer assistant covered below). **This document was not rewritten wholesale for that work** — rewriting sections 2-14 without re-verifying each claim against current code would itself violate this document's own §0.1 rule. Only §1 row 16/17 and §8 below were updated, because outcome P's work landed directly in that area and was re-verified against current code and, where noted, against the running system. Everything else in this document (§2-7, §9-14) reflects the 2026-09-09/11 snapshot and its own already-noted gaps; treat every unmarked claim there as unverified against current code and re-read the source before trusting it, exactly as §0.1 instructs. New capabilities this document does not cover at all: `docs/01-strategy-requirements-roadmap/IIP_NEXT_BUILD_PROMPT.md` §5 outcomes N (file-based policy/customer/claim import with provenance), O (retention watch, claim resolution, satisfaction capture, service-recovery tasks), and Q (this update) itself.
+
 ---
 
 ## 0. How to use this document
@@ -60,8 +62,8 @@ This is the A-to-Z list. Each row links to the section that specifies the fix.
 | 13 | Email ingestion | **REAL** (2026-09-14) | Graph mailbox path plus an admin surface, and since 2026-09-14 a real collection path: the `MailboxIngestion` timer function every 5 minutes and `POST /api/v1/integrations/email/ingest` on demand. Before that date nothing collected mail in a deployed environment — see the correction at §14 Phase 1. | §7 |
 | 14 | Outbound email provider choice | **PARTIAL** (2026-09-11) | SMTP adapter now exists and is connectable from `/app/admin/connections`; its STARTTLS path is unverified. Graph remains the only inbound-ingestion provider. | §7.2, §14 Phase 1 |
 | 15 | Runtime provider configuration | **PARTIAL** (2026-09-11) | SMS now resolves through the Connection model (§3.2's three-step order); every other provider (AI, retrieval, documents, email, notifications) is still startup-env-var-only. | §3, §14 Phase 1 |
-| 16 | Customer acquisition | **PARTIAL** | Leads inbox is real but manual-capture only; the page itself states channel ingestion is not connected. | §8 |
-| 17 | WhatsApp knowledge-base assistant | **MISSING** | No inbound-message-to-grounded-answer path exists. | §8.3 |
+| 16 | Customer acquisition | **REAL** (2026-09-23) | Leads inbox now also receives real WhatsApp-originated leads (row 17), each routed to a licensed person via a Teams broadcast on creation, not just manual capture. Re-verified against current code; live send still depends on a connected Teams webhook, not exercised against a real one. | §8 |
+| 17 | WhatsApp knowledge-base assistant | **REAL** (2026-09-23) | Full inbound-message-to-outcome pipeline exists and is wired into the live webhook: six-intent deterministic classifier, five-condition auto-reply gate, grounded/cited `GeneralQuestion` answers, policy-number identity check before any claim-specific disclosure, provisional-claim creation, lead capture, kill switch, full conversation persistence. Verified via the existing and new automated test suite (`CustomerAssistantServiceTests`, `KeywordCustomerIntentClassifierTests`, `CustomerAutoReplyGateTests`). **Not verified against a live Meta/WhatsApp Business account** — the webhook requires HMAC signature verification a local test cannot produce, and no such account is connected in this environment. | §8.3 |
 | 18 | FNOL intake | **REAL** | `/app/claims/new` renders a real FNOL form. | §9 |
 | 19 | FNOL discoverability | **BLOCKED** | Not in the navigation rail; reachable only if another page happens to link to it. | §10 |
 | 20 | Claimant self-service portal | **PARTIAL** (2026-09-11) | The fire-and-forget delivery bug is fixed (failures are now logged and recorded on the token, never silently discarded) and SMS delivery is now reachable via a connected provider — but no live send has actually been exercised yet. | §9.3, §14 Phase 1 |
@@ -554,7 +556,7 @@ Everything else stays displayed as **Enforced · not configurable**, which is th
 
 `web/portal/lovable-pages/CustomerAcquisition.tsx` at `/app/acquisition` is a working leads inbox backed by a real API (`useSalesLeads`, `createLead`): capture a lead with name, source, need, product fit, assigned officer, contact info; list leads with status and assignment.
 
-It is also **admirably honest about its own limits**, stating on the screen: *"Channel ingestion (WhatsApp/email/SMS) & fabric import are connected in a later gate — they write to this same list."* That later gate is this document.
+**Update 2026-09-23 (re-verified against current code):** the screen's own former disclaimer text quoted above is no longer present in `CustomerAcquisition.tsx` (confirmed by re-reading the file) — §8.3's WhatsApp assistant now writes real leads into this same list and is live in the webhook path, so the disclaimer was correctly removed at some point after this document's original snapshot.
 
 ### 8.2 The regulatory guardrail that shapes this feature
 
@@ -574,7 +576,9 @@ Enforced through `AgentBehaviourProfile.RefusalTopics` and the immutable platfor
 
 ### 8.3 The WhatsApp knowledge-base assistant
 
-This is the largest genuinely new capability in this document. Everything it needs already exists in parts.
+**Status 2026-09-23: REAL, built and wired into the live webhook** (`CustomerAssistantService`, `KeywordCustomerIntentClassifier`, `CustomerAutoReplyGate` — `src/InsuranceIntelligence.Application/CustomerAssistant/`, `src/InsuranceIntelligence.Domain/CustomerAssistant/`). Re-verified against current code as part of build-prompt outcome P. The design below matches the shipped implementation with one deliberate deviation, noted where it occurs. Not verified against a live Meta/WhatsApp Business account — no such account is connected in this environment, and the webhook's HMAC signature check cannot be satisfied by a local test. Verified instead through `CustomerAssistantServiceTests`, `KeywordCustomerIntentClassifierTests`, and `CustomerAutoReplyGateTests`, which exercise the real service and classifier directly, plus a live call against the running API for the two build-prompt-outcome-P additions (lead routing, and the related referral-invitation action described at the end of this section).
+
+Original planning text follows, preserved because it still accurately describes the design:
 
 **Pipeline:**
 
@@ -583,19 +587,24 @@ Inbound WhatsApp message
   -> WhatsAppIntegrationEndpoints.ReceiveWebhook          [EXISTS]
   -> signature verification                               [EXISTS]
   -> WhatsAppMessagingService.IngestInboundAsync          [EXISTS]
-  -> CustomerAssistantService                             [NEW]
-       - classify intent                                  [NEW]
+  -> CustomerAssistantService                             [BUILT 2026-09-23]
+       - classify intent                                  [BUILT — KeywordCustomerIntentClassifier]
        - retrieve from approved knowledge only            [EXISTS]
-       - compose grounded answer + citations              [NEW orchestration]
-       - apply AgentBehaviourProfile                      [NEW - section 6.3]
+       - compose grounded answer + citations              [BUILT orchestration]
+       - apply AgentBehaviourProfile                       [BUILT — section 6.3]
   -> route by intent:
        - Answerable from approved knowledge -> auto-reply (low-risk, cited)
-       - Interest in a product              -> create lead, hand to human
-       - Wants to make a claim              -> FNOL flow (section 9)
+       - Interest in a product              -> create lead, route to a licensed
+                                                 person (Teams broadcast, outcome P)
+       - Wants to make a claim              -> FNOL flow (section 9), unconfirmed
+                                                 case, human confirms before the
+                                                 SLA clock starts
        - Asking about an existing claim     -> identity verification first
        - Anything else                      -> escalate with EscalationMessage
   -> outbound send                                        [EXISTS]
 ```
+
+**Deviation from the original plan, made deliberately, not by drift:** "identity verification first" for `ExistingClaimStatus` does not use the claimant magic-link/session mechanism this section originally specified below. The shipped version verifies identity by requiring the inbound message's policy number to match a real policy on file before disclosing even a coarse status — a bare WhatsApp number never unlocks anything. This is a real identity check (the policy number is not public, the same standard `NewClaim` uses to attach a claim to a policy), just not the specific mechanism this section describes; issuing and tracking a magic link over WhatsApp for every status enquiry was judged disproportionate to a one-line status disclosure. If a future requirement needs the stronger magic-link flow here specifically, that is a real gap against this section's original design, not yet built.
 
 **Intent set, deliberately small.** `GeneralQuestion`, `ProductInterest`, `NewClaim`, `ExistingClaimStatus`, `HumanRequested`, `Unknown`. Every intent except `GeneralQuestion` results in a human or a structured flow. Resist adding more.
 
@@ -607,11 +616,15 @@ Inbound WhatsApp message
 4. It is within `MaxResponseCharacters`.
 5. The tenant has opted into assistant auto-reply.
 
-If any fail, draft the reply and queue it for human approval through the existing Communications approval path rather than sending it. This mirrors `OutboundSmsGuard` exactly: **auto-send is only ever for low-risk, non-consequential content.**
+If any fail, draft the reply and record it, never send it. This mirrors `OutboundSmsGuard` exactly: **auto-send is only ever for low-risk, non-consequential content.**
 
-**Identity verification before anything case-specific.** An inbound WhatsApp number is not proof of identity. Before disclosing any claim detail, verify through the existing claimant magic-link/session mechanism (`ClaimantAuthentication`). Never let a phone number alone unlock a case — that is a data-protection breach waiting to happen and an obvious due-diligence question.
+**Correction 2026-09-23 (re-verified against current code):** this originally said the drafted-but-not-sent reply is queued "for human approval through the existing Communications approval path." That is not what the shipped code does. `CustomerAssistantService` records a `QueuedForHumanApproval` outcome only on the `CustomerConversationTurn` it saves (and the underlying audit event); it does not create a `CustomerUpdateDraft` or anything else through `ICustomerUpdateRepository`/`CustomerUpdateEndpoints`, and no API endpoint anywhere reads `CustomerConversationTurn` rows filtered to that outcome. A drafted, gate-failed WhatsApp answer is therefore genuinely **not actionable from any screen today** — it exists only as a conversation-log and audit-trail row a staff member would have to go looking for, with no queue, no notification, and no send button. This is a real gap against the original design, not a drift in this document: the behaviour is honest (nothing is silently sent), but "queued for human approval" overstates what currently happens. Closing it would mean either routing a gate-failed turn through `CustomerUpdateDraft` (would need a `CaseId`, which a `GeneralQuestion` turn does not have) or building a small dedicated queue/screen for pending WhatsApp replies — neither exists yet.
 
-**Conversation persistence.** Store every inbound and outbound message, the retrieved citations, the intent, and whether the reply was auto-sent or human-approved. This is both the audit trail and the "why did the system say that?" answer in section 14.
+**Identity verification before anything case-specific.** An inbound WhatsApp number is not proof of identity. Never let a phone number alone unlock a case — that is a data-protection breach waiting to happen and an obvious due-diligence question. **See the deviation note above the pipeline diagram:** the shipped mechanism is a policy-number match, not the claimant magic-link/session flow (`ClaimantAuthentication`) originally specified in this paragraph.
+
+**Conversation persistence.** Store every inbound and outbound message, the retrieved citations, the intent, and whether the reply was auto-sent or human-approved. This is both the audit trail and the "why did the system say that?" answer in section 14. **Not yet built:** a staff-facing screen that reads `CustomerConversationTurn` as a transcript; today this data is real and persisted but only reachable by querying the store directly or via the generic Audit screen's `customer_assistant.*` events, not a purpose-built conversation viewer.
+
+**Referral invitation after a good claim close (REAL, 2026-09-23, build-prompt outcome P).** Not part of the WhatsApp pipeline itself, but the same regulatory-boundary reasoning applies, so it is recorded here: when a claim is resolved as Settled (paid, via the claim-resolution action added in outcome O), the platform drafts a referral invitation — an invitation for the customer to refer someone else, never a quote or a sale — the same fixed-template, always-requires-approval, consent-gated mechanism used for outcome O's post-close satisfaction question. A claim Closed without payment does not get one. See `ClaimResolutionEndpoints.cs`.
 
 ### 8.4 Company knowledge base for acquisition
 

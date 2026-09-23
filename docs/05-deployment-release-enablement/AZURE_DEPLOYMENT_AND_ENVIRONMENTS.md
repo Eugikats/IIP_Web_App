@@ -133,6 +133,8 @@ Verify: `curl https://app-api-dev-h5girbnzrayqe.azurewebsites.net/health` should
 
 ### Applying database migrations — a required, separate step after deploying the API
 
+**Pending as of 2026-09-23 (build-prompt outcome Q status update):** `20260923030617_AddRetentionRemindersAndSatisfactionResponses` (two new tables, `RetentionReminders` and `SatisfactionResponses`, for build-prompt outcome O) exists locally, generated with `dotnet ef migrations add` per the rule below, and has **not** been applied to `dev` or any deployed environment — nothing from outcomes N through Q in this build has been deployed at all, per this session's own standing instruction to hold every deploy until the whole build prompt is finished. Whoever deploys this work next must run the `db-migrate` step below and confirm the applied-migration count matches before assuming any of outcome O's screens will work against `dev`.
+
 **The API does not migrate on startup.** Nothing in `Program.cs` calls `Database.Migrate()`, by
 design. Deploying code that reads a new table therefore succeeds, starts healthy, and then returns
 `500 Invalid object name '<Table>'` on every request that touches it — `/health` will not catch

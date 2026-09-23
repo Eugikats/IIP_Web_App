@@ -419,7 +419,10 @@ Role:
 - For ExistingClaimStatus, discloses only a coarse status label, and only once the message's
   policy number matches a real policy on file — a bare WhatsApp number never unlocks case detail.
 - For ProductInterest and HumanRequested, creates a real sales lead via the same lead-write path a
-  staff-created lead uses, and replies that a human will follow up.
+  staff-created lead uses, routes it to a licensed person via a Teams broadcast notification
+  (`TeamsNotificationType.LeadCreated`, added build-prompt outcome P — a fresh lead has no
+  assigned officer yet, so this is a team broadcast, the same shape `ApprovalRequired` already
+  uses), and replies that a human will follow up.
 
 Primary outputs:
 - A drafted or auto-sent reply (governed by the five-condition auto-reply gate below).
@@ -664,7 +667,7 @@ not the target-state registry, for "is X built." Update this table whenever `Age
 | 8 | Knowledge Assistant | **Not implemented** | — | No code path in this repository invokes a model, provider, or service under this agent key. Staff policy/knowledge questions are currently answered by the Policy Intelligence agent instead. Cannot be enabled (`AgentRegistryService.SetKillSwitchAsync` rejects it). |
 | 9 | Report Insight Agent | **AI agent (model-backed)** | `claims.sla.read`, `audit.read`, `provider_health.read`, `metrics.read` | `CommandCenterQueryService.BuildManagementSummaryResponseAsync`, reached via the `GenerateManagementSummary` intent. |
 | 10 | Underwriting Intelligence Agent | Rule-based (no AI call) | `knowledge.search`, `document.read`, `policy.read` | `UnderwritingRuleEngine`. No chat/LLM call site exists; no submission intake or decision endpoint exists either (out of scope — see the build contract's §7 scope boundary). |
-| 11 | Customer Assistant (WhatsApp) — customer-facing, see §6.11 | Rule-based (no AI call) for classification; delegates to policy-intelligence's model call for GeneralQuestion | `customer.intent.classify`, `knowledge.search`, `case.create`, `lead.create` | `CustomerAssistantService` + `KeywordCustomerIntentClassifier`, invoked from `WhatsAppIntegrationEndpoints.ReceiveWebhook`. Added to the catalog and gated by `IAgentGate` after an audit found it had no kill-switch enforcement or catalog entry despite being live in code. `ProductInterest`/`HumanRequested` write a real `SalesLead` via `ISalesLeadWriteRepository`; `NewClaim` opens a real, unconfirmed `ClaimCase` via `CaseIntakeService`. |
+| 11 | Customer Assistant (WhatsApp) — customer-facing, see §6.11 | Rule-based (no AI call) for classification; delegates to policy-intelligence's model call for GeneralQuestion | `customer.intent.classify`, `knowledge.search`, `case.create`, `lead.create` | `CustomerAssistantService` + `KeywordCustomerIntentClassifier`, invoked from `WhatsAppIntegrationEndpoints.ReceiveWebhook`. Added to the catalog and gated by `IAgentGate` after an audit found it had no kill-switch enforcement or catalog entry despite being live in code. `ProductInterest`/`HumanRequested` write a real `SalesLead` via `ISalesLeadWriteRepository` and route it to a licensed person via a `TeamsNotificationType.LeadCreated` broadcast (build-prompt outcome P); `NewClaim` opens a real, unconfirmed `ClaimCase` via `CaseIntakeService`. |
 | 12 | Customer Summary Agent, see section 6.12 | Model-backed (Azure OpenAI) | `customer.profile.read` (repository read, not a registered tool) | `CustomerSummaryService`, called from `CustomerSummaryEndpoints` on the Customer 360 page. Added 2026-09-15; the Customer 360 summary panel was previously a hardcoded "Not configured" state wired to nothing. |
 
 **Summary: 5 of 10 staff-facing catalogued agents are real, model-backed AI agents. 1 is
