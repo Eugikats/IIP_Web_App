@@ -58,7 +58,15 @@ public sealed record ClaimDetailDto(
     DateTimeOffset UpdatedAt,
     IReadOnlyCollection<DocumentSummaryDto> Documents,
     decimal? ClaimedAmount = null,
-    IReadOnlyCollection<string>? AdvisoryRiskSignals = null);
+    IReadOnlyCollection<string>? AdvisoryRiskSignals = null,
+    // Outcome N: the real Policy record behind this claim's PolicyNumber, when one has been
+    // loaded (file import, or any future partner/lookup source). Null, not zeroed dates, when no
+    // Policy record exists yet for this number, honest about the gap rather than implying a cover
+    // period nobody has actually loaded.
+    DateOnly? PolicyEffectiveFrom = null,
+    DateOnly? PolicyEffectiveTo = null,
+    string? PolicyRecordSource = null,
+    DateTimeOffset? PolicyLastRefreshedAt = null);
 
 public sealed record DocumentSummaryDto(
     Guid DocumentId,

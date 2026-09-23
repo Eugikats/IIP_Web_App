@@ -309,6 +309,8 @@ export type ClientPortalPolicy = {
   sumInsured: number | null;
   premiumStatus: string;
   coverages: ClientPortalCoverage[];
+  recordSource: string;
+  lastRefreshedAt: string | null;
 };
 
 export type GetPolicyResult = { ok: true; policy: ClientPortalPolicy } | { ok: false; error: string };

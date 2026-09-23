@@ -623,7 +623,9 @@ public static class ClientPortalEndpoints
             coverages
                 .Select(coverage => new ClientPortalCoverageResponse(
                     coverage.Name, coverage.Limit, coverage.Deductible, coverage.InsuredObject, coverage.Description))
-                .ToArray());
+                .ToArray(),
+            policy.RecordSource.ToString(),
+            policy.LastRefreshedAt);
 
     private static bool IsCustomerSafeMessage(string value) =>
         !new[] { "raw prompt", "system message", "internal note", "fraud flag", "reserve", "hidden risk", "secret", "confidence" }
@@ -753,7 +755,11 @@ public sealed record ClientPortalPolicyResponse(
     string? PremiumCurrency,
     decimal? SumInsured,
     string PremiumStatus,
-    IReadOnlyCollection<ClientPortalCoverageResponse> Coverages);
+    IReadOnlyCollection<ClientPortalCoverageResponse> Coverages,
+    // Outcome N acceptance: provenance stays visible on the customer's own view of their policy,
+    // not just the staff one.
+    string RecordSource,
+    DateTimeOffset? LastRefreshedAt);
 
 public sealed record ClientPortalCoverageResponse(
     string Name,

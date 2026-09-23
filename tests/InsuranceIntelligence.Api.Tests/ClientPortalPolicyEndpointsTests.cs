@@ -38,6 +38,8 @@ public sealed class ClientPortalPolicyEndpointsTests
         Assert.Equal("POL-1", body.GetProperty("policyNumber").GetString());
         Assert.Equal("Active", body.GetProperty("coverStatus").GetString());
         Assert.Equal("NotConfigured", body.GetProperty("premiumStatus").GetString());
+        Assert.Equal("Manual", body.GetProperty("recordSource").GetString());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("lastRefreshedAt").ValueKind);
         Assert.Single(body.GetProperty("coverages").EnumerateArray());
         var auditEvents = await audit.ListAsync(scope, CancellationToken.None);
         Assert.Contains(auditEvents, auditEvent => auditEvent.ActionName == "client_portal.disclosure.viewed" && auditEvent.AfterStatus == "Policy");

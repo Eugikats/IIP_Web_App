@@ -482,6 +482,35 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: record.CorrelationId);
 
+    /// <summary>Outcome N: a file import is a bulk write with no per-row human review, so the
+    /// batch itself needs its own audit trail entry, who ran it, how many rows in, how many
+    /// actually landed as policies, distinct from any one imported record's own history.</summary>
+    public static AuditEvent PolicyImportCommitted(
+        TenantScope scope,
+        string userId,
+        int totalRows,
+        int importedCount,
+        int failedCount,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "policy.import.committed",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: $"imported:{importedCount};failed:{failedCount}",
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "PolicyImport",
+            Confidence: null,
+            ValidationResult: $"total:{totalRows}",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     public static AuditEvent WhatsAppConfigurationSaved(
         TenantScope scope, string userId, string phoneNumberId, string auditReason, string correlationId) =>
         new(

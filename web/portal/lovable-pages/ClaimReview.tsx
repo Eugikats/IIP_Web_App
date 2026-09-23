@@ -39,6 +39,13 @@ import { channelLabel, claimReference, formatDate } from "@/lib/format";
 import { usePeople } from "@/lib/people";
 import AssignClaimControl from "@/components/iip/AssignClaimControl";
 
+const POLICY_SOURCE_LABEL: Record<string, string> = {
+  Manual: "Entered manually",
+  FileImport: "Loaded from file",
+  PartnerApi: "Partner API",
+  ExternalLookup: "External lookup",
+};
+
 const FRAUD_SEVERITY_TONE: Record<FraudSeverity, "error" | "warning" | "violet"> = {
   Investigation: "error",
   Anomaly: "warning",
@@ -720,6 +727,23 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             <div className="mt-2 space-y-2 text-[13px]">
               <Row k="Customer" v={detail.customerName} />
               <Row k="Policy" v={`${detail.policyNumber} · ${detail.productLine}`} />
+              <Row
+                k="Cover period"
+                v={
+                  detail.policyEffectiveFrom && detail.policyEffectiveTo
+                    ? `${formatDate(detail.policyEffectiveFrom)} – ${formatDate(detail.policyEffectiveTo)}`
+                    : "Not loaded from a policy record"
+                }
+              />
+              {detail.policyRecordSource && (
+                <Row
+                  k="Policy source"
+                  v={
+                    (POLICY_SOURCE_LABEL[detail.policyRecordSource] ?? detail.policyRecordSource) +
+                    (detail.policyLastRefreshedAt ? ` · refreshed ${formatDate(detail.policyLastRefreshedAt)}` : "")
+                  }
+                />
+              )}
               <Row k="Claim type" v={detail.claimType} />
               <Row k="Channel" v={channelLabel(detail.channel)} />
               <Row k="Incident date" v={formatDate(detail.incidentDate)} />

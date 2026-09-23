@@ -136,6 +136,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   // Prefix-matched below covers /app/admin/agents/{key}/behaviour too, no separate entry needed.
   { path: "/app/admin/agents", requiredAny: ["ManageAgents"] },
   { path: "/app/admin/products", requiredAny: ["ManageProducts"] },
+  { path: "/app/admin/policy-import", requiredAny: ["ManageProducts"] },
   { path: "/app/admin/billing", requiredAny: ["ViewBilling"] },
   { path: "/app/admin/onboarding", requiredAny: ["ManageTenantOnboarding"] },
   { path: "/app/admin/tenant-policy", requiredAny: ["ManageTenantSettings"] },

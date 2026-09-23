@@ -111,6 +111,67 @@ public sealed class CorePortsAndClaimsQueryTests
     }
 
     [Fact]
+    public async Task ClaimsQueryService_GetAsync_IncludesPolicyProvenanceWhenARealPolicyRecordExists()
+    {
+        await using var db = Db();
+        var scope = TenantScope.Create("tenant-a", "claims");
+        var claim = Claim(Guid.NewGuid(), scope, "Alice Motor", 100m);
+        db.Cases.Add(Persisted(claim));
+        await db.SaveChangesAsync();
+
+        var refreshedAt = DateTimeOffset.UtcNow;
+        var policy = new InsuranceIntelligence.Domain.Policies.Policy(
+            Guid.NewGuid().ToString(),
+            scope.TenantId,
+            scope.WorkspaceId,
+            claim.PolicyNumber,
+            "Motor",
+            null, null, null,
+            new DateOnly(2026, 1, 1),
+            new DateOnly(2026, 12, 31),
+            RecordSource: InsuranceIntelligence.Domain.Policies.PolicyRecordSource.FileImport,
+            LastRefreshedAt: refreshedAt);
+        await new EfPolicyRepository(db).UpsertAsync(policy);
+
+        var context = new TenantContextAccessor();
+        context.SetCurrent(new TenantContext("tenant-a", "claims", "user-1", [PlatformRole.ClaimsOfficer.ToString()]));
+        var service = new ClaimsQueryService(
+            new EfClaimsReadRepository(db, context),
+            new PermissionService(context, new EfPermissionReadRepository(db)),
+            new EfPolicyRepository(db));
+
+        var detail = await service.GetAsync(claim.CaseId);
+
+        Assert.NotNull(detail);
+        Assert.Equal(new DateOnly(2026, 1, 1), detail!.PolicyEffectiveFrom);
+        Assert.Equal(new DateOnly(2026, 12, 31), detail.PolicyEffectiveTo);
+        Assert.Equal("FileImport", detail.PolicyRecordSource);
+        Assert.Equal(refreshedAt, detail.PolicyLastRefreshedAt);
+    }
+
+    [Fact]
+    public async Task ClaimsQueryService_GetAsync_NoPolicyRepository_LeavesProvenanceNull()
+    {
+        await using var db = Db();
+        var scope = TenantScope.Create("tenant-a", "claims");
+        var claim = Claim(Guid.NewGuid(), scope, "Alice Motor", 100m);
+        db.Cases.Add(Persisted(claim));
+        await db.SaveChangesAsync();
+
+        var context = new TenantContextAccessor();
+        context.SetCurrent(new TenantContext("tenant-a", "claims", "user-1", [PlatformRole.ClaimsOfficer.ToString()]));
+        var service = new ClaimsQueryService(
+            new EfClaimsReadRepository(db, context),
+            new PermissionService(context, new EfPermissionReadRepository(db)));
+
+        var detail = await service.GetAsync(claim.CaseId);
+
+        Assert.NotNull(detail);
+        Assert.Null(detail!.PolicyEffectiveFrom);
+        Assert.Null(detail.PolicyRecordSource);
+    }
+
+    [Fact]
     public async Task ProviderHealthCheck_ReportsMissingAzureBlobConfiguration()
     {
         var check = new AzureProviderHealthCheck(new InfrastructureOptions

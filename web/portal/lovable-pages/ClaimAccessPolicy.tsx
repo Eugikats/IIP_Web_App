@@ -34,6 +34,13 @@ const COVER_STATUS_LABEL: Record<string, { label: string; tone: string }> = {
   Unknown: { label: "Not recorded", tone: "text-dls-text-muted" },
 };
 
+const POLICY_SOURCE_LABEL: Record<string, string> = {
+  Manual: "Entered manually",
+  FileImport: "Loaded from file",
+  PartnerApi: "Partner API",
+  ExternalLookup: "External lookup",
+};
+
 // Outcome L: "the customer sees their policy," "asks a question about the wording," and "requests
 // a change to their contact details." Premium status is rendered honestly as "Not configured":
 // no billing/payment-status subsystem exists in this codebase to say paid, due, or lapsed, and
@@ -203,6 +210,10 @@ export default function ClaimAccessPolicy() {
                   <dd className="mt-0.5 font-semibold text-dls-text-muted">Not configured</dd>
                 </div>
               </dl>
+              <div className="mt-4 border-t border-dls-border-subtle pt-3 text-xs text-dls-text-muted">
+                {POLICY_SOURCE_LABEL[policy.recordSource] ?? policy.recordSource}
+                {policy.lastRefreshedAt ? ` · refreshed ${formatDate(policy.lastRefreshedAt)}` : ""}
+              </div>
             </div>
 
             <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6">

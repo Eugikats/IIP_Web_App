@@ -52,6 +52,12 @@ export type ClaimDetailView = {
   documents: ClaimDocumentView[];
   claimedAmount: number | null;
   advisoryRiskSignals: string[];
+  // Outcome N: the real Policy record behind this policy number, when one has actually been
+  // loaded (file import today). Null, not a fabricated date, when no such record exists yet.
+  policyEffectiveFrom: string | null;
+  policyEffectiveTo: string | null;
+  policyRecordSource: string | null;
+  policyLastRefreshedAt: string | null;
 };
 
 export type ConfirmClaimCorrections = {
@@ -112,6 +118,10 @@ function parityClaimDetail(claimId: string): ClaimDetailView | null {
     assignedUserId: claim.officer === "Unassigned" ? null : claim.officer,
     claimedAmount: null,
     advisoryRiskSignals: [],
+    policyEffectiveFrom: null,
+    policyEffectiveTo: null,
+    policyRecordSource: null,
+    policyLastRefreshedAt: null,
     documents: documentLibrary
       .filter((document) => document.claim === claim.id)
       .map((document) => ({
@@ -238,6 +248,10 @@ export function useClaimReview(claimId: string) {
         assignedUserId: d.assignedUserId,
         claimedAmount: d.claimedAmount ?? null,
         advisoryRiskSignals: d.advisoryRiskSignals ?? [],
+        policyEffectiveFrom: d.policyEffectiveFrom ?? null,
+        policyEffectiveTo: d.policyEffectiveTo ?? null,
+        policyRecordSource: d.policyRecordSource ?? null,
+        policyLastRefreshedAt: d.policyLastRefreshedAt ?? null,
         documents: (d.documents ?? []).map((x: ClaimDocumentView) => ({ ...x })),
       };
       setDetail(nextDetail);

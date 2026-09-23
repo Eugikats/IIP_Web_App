@@ -2,13 +2,18 @@ using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Application.Claims;
 
 public sealed class ClaimsQueryService(
     IClaimsReadRepository claimsReadRepository,
-    IPermissionService permissionService) : IClaimsQueryService
+    IPermissionService permissionService,
+    // Optional: most environments have no Policy records loaded yet (Outcome N's import is the
+    // first real source of them). When absent, claim detail simply carries no policy provenance,
+    // the same honest gap as today, rather than requiring every existing call site to supply one.
+    IPolicyRepository? policyRepository = null) : IClaimsQueryService
 {
     public async Task<IReadOnlyCollection<ClaimListItemDto>> ListAsync(
         ClaimsQuery query,
@@ -29,7 +34,10 @@ public sealed class ClaimsQueryService(
         }
 
         var documents = await claimsReadRepository.ListDocumentsAsync(claimId, cancellationToken);
-        return ToDetail(claim, documents);
+        var policy = policyRepository is null
+            ? null
+            : await policyRepository.GetByPolicyNumberAsync(claim.PolicyNumber, claim.Scope, cancellationToken);
+        return ToDetail(claim, documents, policy);
     }
 
     public async Task<IReadOnlyCollection<ClaimListItemDto>> GetAttentionAsync(CancellationToken cancellationToken = default)
@@ -100,7 +108,7 @@ public sealed class ClaimsQueryService(
             claim.AssignedTeam,
             claim.UpdatedAt);
 
-    private static ClaimDetailDto ToDetail(ClaimCase claim, IReadOnlyCollection<CaseDocument> documents) =>
+    private static ClaimDetailDto ToDetail(ClaimCase claim, IReadOnlyCollection<CaseDocument> documents, Policy? policy) =>
         new(
             claim.CaseId,
             claim.Scope.TenantId,
@@ -127,7 +135,11 @@ public sealed class ClaimsQueryService(
             claim.UpdatedAt,
             documents.Select(ToDocumentSummary).ToArray(),
             claim.ClaimedAmount,
-            claim.AdvisoryRiskSignals);
+            claim.AdvisoryRiskSignals,
+            policy?.EffectiveFrom,
+            policy?.EffectiveTo,
+            policy?.RecordSource.ToString(),
+            policy?.LastRefreshedAt);
 
     private static DocumentSummaryDto ToDocumentSummary(CaseDocument document) =>
         new(

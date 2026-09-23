@@ -348,6 +348,7 @@ builder.Services.AddScoped<IConversationGroundingService, ConversationGroundingS
 // W2.5: Phase 2 core-workspace query services.
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Policies.IPolicyImportService, InsuranceIntelligence.Application.Policies.PolicyImportService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Customers.ICustomerConsentService, InsuranceIntelligence.Application.Customers.CustomerConsentService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
@@ -869,6 +870,13 @@ app.MapPost("/api/v1/products/{productId:guid}/approve", InsuranceIntelligence.A
 app.MapPost("/api/v1/products/{productId:guid}/reject", InsuranceIntelligence.Api.Products.ProductEndpoints.RejectPublish)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 app.MapPost("/api/v1/products/{productId:guid}/retire", InsuranceIntelligence.Api.Products.ProductEndpoints.Retire)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+
+// Outcome N: file import for insurers whose core system has no API. Parse reads the uploaded file
+// only (nothing persisted yet); Commit takes the confirmed column mapping back and imports.
+app.MapPost("/api/v1/policy-import/parse", InsuranceIntelligence.Api.Policies.PolicyImportEndpoints.Parse)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/policy-import/commit", InsuranceIntelligence.Api.Policies.PolicyImportEndpoints.Commit)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 
 // Outcome K acceptance: "accuracy per document type is measured and visible," computed from the
