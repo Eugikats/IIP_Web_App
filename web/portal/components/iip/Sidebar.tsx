@@ -7,7 +7,7 @@ import {
   MessageSquare, ListChecks, FileSearch, Inbox, FileText, GitBranch, LineChart,
   Users, Building2, Mail, BookOpen, ShieldAlert, Gavel, ScrollText,
   Search, LogOut, ShieldCheck, Plug, LifeBuoy, Settings,
-  ChevronsLeft, ChevronsRight, Compass, Home,
+  ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
@@ -44,6 +44,7 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
       { to: "/app/customers", label: "Customers", icon: Users },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
       { to: "/app/communications", label: "Communications", icon: Mail },
+      { to: "/app/retention", label: "Retention", icon: RefreshCw },
     ],
   },
   {

@@ -147,6 +147,8 @@ export function useClaimReview(claimId: string) {
   const [requestingApproval, setRequestingApproval] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [recordingSatisfaction, setRecordingSatisfaction] = useState(false);
 
   const loadCustomerUpdates = useCallback(async () => {
     if (!claimId || LOVABLE_VISUAL_PARITY_MODE) { setCustomerUpdates([]); return; }
@@ -523,6 +525,54 @@ export function useClaimReview(claimId: string) {
     }
   }, [claimId, role]);
 
+  // Outcome O: "when a claim closes, ask one satisfaction question." No path in this codebase
+  // ever wrote CaseStatus.Settled/Closed before this action existed (see
+  // ClaimResolutionEndpoints.cs), which also drafts the satisfaction question behind the scenes.
+  const resolveClaim = useCallback(async (
+    resolution: "Settled" | "Closed",
+    auditReason: string
+  ): Promise<{ ok: boolean; message?: string }> => {
+    setResolving(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/resolve`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
+        body: JSON.stringify({ resolution }),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to record a claim resolution." };
+      if (res.status === 409) return { ok: false, message: await readSafeApiError(res, "This claim cannot be resolved from its current status.") };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, "This claim could not be resolved.") };
+      await load();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "This claim could not be resolved." };
+    } finally {
+      setResolving(false);
+    }
+  }, [claimId, load, role]);
+
+  const recordSatisfactionResponse = useCallback(async (
+    rating: "Good" | "Neutral" | "Poor",
+    notes: string
+  ): Promise<{ ok: boolean; message?: string; serviceRecoveryTaskId?: string | null }> => {
+    setRecordingSatisfaction(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/satisfaction-response`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({ rating, notes: notes || undefined }),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to record a satisfaction answer." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, "This satisfaction answer could not be recorded.") };
+      const body = await res.json();
+      return { ok: true, serviceRecoveryTaskId: body.serviceRecoveryTaskId ?? null };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "This satisfaction answer could not be recorded." };
+    } finally {
+      setRecordingSatisfaction(false);
+    }
+  }, [claimId, role]);
+
   return {
     detail,
     timeline,
@@ -535,6 +585,8 @@ export function useClaimReview(claimId: string) {
     requestingApproval,
     exporting,
     confirming,
+    resolving,
+    recordingSatisfaction,
     draftCustomerUpdate,
     draftDocumentFollowUp,
     draftDecisionOutcomeUpdate,
@@ -546,6 +598,8 @@ export function useClaimReview(claimId: string) {
     downloadExportedAuditPack,
     requestSupervisorReview,
     confirmClaim,
+    resolveClaim,
+    recordSatisfactionResponse,
     reload: load,
   };
 }

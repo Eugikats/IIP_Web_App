@@ -7,5 +7,9 @@ public enum WorkflowTaskType
     SupervisorApproval,
     CustomerUpdateApproval,
     ComplianceReview,
-    FollowUpCustomer
+    FollowUpCustomer,
+
+    /// <summary>Outcome O: opened automatically when a closed claim's satisfaction answer is
+    /// recorded as Poor, so a supervisor follows up rather than the poor experience going unseen.</summary>
+    ServiceRecoveryFollowUp
 }

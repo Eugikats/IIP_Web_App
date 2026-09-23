@@ -12,5 +12,6 @@ public static class CustomerUpdateApprovalPolicy
     public static bool RequiresApproval(bool sensitive, CustomerUpdateReasonCategory reasonCategory) =>
         sensitive || reasonCategory is CustomerUpdateReasonCategory.ReadyForReview
             or CustomerUpdateReasonCategory.EscalationReceived
-            or CustomerUpdateReasonCategory.DecisionOutcome;
+            or CustomerUpdateReasonCategory.DecisionOutcome
+            or CustomerUpdateReasonCategory.SatisfactionQuestion;
 }

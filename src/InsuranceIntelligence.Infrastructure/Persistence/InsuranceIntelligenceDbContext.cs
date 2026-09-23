@@ -56,6 +56,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedProductVersion> ProductVersions => Set<PersistedProductVersion>();
     public DbSet<PersistedCommunicationTemplate> CommunicationTemplates => Set<PersistedCommunicationTemplate>();
     public DbSet<PersistedDocumentLabelledExample> DocumentLabelledExamples => Set<PersistedDocumentLabelledExample>();
+    public DbSet<PersistedRetentionReminder> RetentionReminders => Set<PersistedRetentionReminder>();
+    public DbSet<PersistedSatisfactionResponse> SatisfactionResponses => Set<PersistedSatisfactionResponse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -162,6 +164,10 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomerConversationTurn>(), "CustomerConversationTurns", "TurnId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedConsentRecord>(), "ConsentRecords", "RecordId");
         modelBuilder.Entity<PersistedConsentRecord>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CustomerIdentifier });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedRetentionReminder>(), "RetentionReminders", "ReminderId");
+        modelBuilder.Entity<PersistedRetentionReminder>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PolicyId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedSatisfactionResponse>(), "SatisfactionResponses", "ResponseId");
+        modelBuilder.Entity<PersistedSatisfactionResponse>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedRetentionPolicy>(), "RetentionPolicies", "PolicyId");
         modelBuilder.Entity<PersistedCaseReview>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedProductVersion>(), "ProductVersions", "VersionId");
@@ -348,6 +354,8 @@ public sealed class PersistedIntegrationConnection : PersistedScopedJson;
 public sealed class PersistedAgentBehaviourProfile : PersistedScopedJson { public string AgentKey { get; set; } = string.Empty; }
 public sealed class PersistedCustomerConversationTurn : PersistedScopedJson { public string ThreadId { get; set; } = string.Empty; }
 public sealed class PersistedConsentRecord : PersistedScopedJson { public string CustomerIdentifier { get; set; } = string.Empty; }
+public sealed class PersistedRetentionReminder : PersistedScopedJson { public string PolicyId { get; set; } = string.Empty; }
+public sealed class PersistedSatisfactionResponse : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedRetentionPolicy : PersistedScopedJson;
 public sealed class PersistedCaseReview : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedProductVersion : PersistedScopedJson

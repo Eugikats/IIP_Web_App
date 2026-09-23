@@ -75,7 +75,9 @@ public interface IEmailSendingProviderFactory
 
 public sealed record CommunicationSendRequest(
     TenantScope Scope,
-    Guid CaseId,
+    // Outcome O: null for a message that is not about any claim (a retention reminder), since
+    // every existing caller already passes a real case id, this stays additive.
+    Guid? CaseId,
     CommunicationChannel Channel,
     string Recipient,
     string MessageBody,

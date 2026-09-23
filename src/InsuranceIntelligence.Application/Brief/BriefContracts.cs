@@ -17,7 +17,12 @@ public sealed record HandledForYouItemDto(
 
 public sealed record BriefResponse(
     IReadOnlyList<BriefItemDto> Items,
-    IReadOnlyList<HandledForYouItemDto> HandledForYou);
+    IReadOnlyList<HandledForYouItemDto> HandledForYou,
+    // Outcome O: "a line in the brief showing premium at risk." Null when the retention watch
+    // service is unavailable, distinct from a real zero.
+    BriefRetentionSummaryDto? Retention = null);
+
+public sealed record BriefRetentionSummaryDto(int PoliciesAtRisk, decimal PremiumAtRisk, string PremiumAtRiskCurrency);
 
 public interface IBriefService
 {

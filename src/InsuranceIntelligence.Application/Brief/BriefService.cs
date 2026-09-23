@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Retention;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Scheduling;
@@ -15,7 +16,10 @@ public sealed class BriefService(
     ICaseRepository caseRepository,
     IAuditRepository auditRepository,
     ITenantContextAccessor tenantContextAccessor,
-    IPermissionService permissionService) : IBriefService
+    IPermissionService permissionService,
+    // Optional: a viewer without ViewCustomers still sees their claim brief, just without the
+    // retention line (RetentionWatchService.GetWatchAsync enforces that permission itself).
+    IRetentionWatchService? retentionWatchService = null) : IBriefService
 {
     private static readonly string[] HandledActionSuffixes =
     [
@@ -53,7 +57,28 @@ public sealed class BriefService(
                 auditEvent.Timestamp))
             .ToArray();
 
-        return new BriefResponse(items, handled);
+        var retention = await TryGetRetentionSummaryAsync(cancellationToken);
+        return new BriefResponse(items, handled, retention);
+    }
+
+    /// <summary>Best-effort: a viewer without ViewCustomers, or any failure resolving the watch,
+    /// simply leaves the brief's retention line absent rather than failing the whole brief.</summary>
+    private async Task<BriefRetentionSummaryDto?> TryGetRetentionSummaryAsync(CancellationToken cancellationToken)
+    {
+        if (retentionWatchService is null || !await permissionService.HasPermissionAsync(Permission.ViewCustomers, cancellationToken))
+        {
+            return null;
+        }
+
+        try
+        {
+            var watch = await retentionWatchService.GetWatchAsync(cancellationToken);
+            return watch.PoliciesAtRisk == 0 ? null : new BriefRetentionSummaryDto(watch.PoliciesAtRisk, watch.PremiumAtRisk, watch.PremiumAtRiskCurrency);
+        }
+        catch (PermissionDeniedException)
+        {
+            return null;
+        }
     }
 
     private static bool IsMine(ClaimCase claimCase, string userId) =>

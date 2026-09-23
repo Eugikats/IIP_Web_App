@@ -131,5 +131,14 @@ public static class DefaultCommunicationTemplates
             "Hello {{customer_name}}, your claim is currently being reviewed by our team. We will share the next update through your selected communication channel.",
             "Claim {{claim_reference}} is still under review. We'll update you soon."
         ),
+        (
+            "satisfaction-question-portal",
+            "Satisfaction question",
+            CustomerUpdateReasonCategory.SatisfactionQuestion,
+            CommunicationChannel.Portal,
+            "How did we do?",
+            "Hello {{customer_name}}, your claim {{claim_reference}} is now closed. In a few words, how would you rate how we handled it? Reply to let {{officer_name}} know.",
+            "Claim {{claim_reference}} is closed. How would you rate how we handled it?"
+        ),
     ];
 }

@@ -21,9 +21,16 @@ export type HandledForYouItem = {
   handledAt: string;
 };
 
+export type BriefRetentionSummary = {
+  policiesAtRisk: number;
+  premiumAtRisk: number;
+  premiumAtRiskCurrency: string;
+};
+
 type BriefDto = {
   items: BriefItem[];
   handledForYou: HandledForYouItem[];
+  retention: BriefRetentionSummary | null;
 };
 
 export function useBrief() {
@@ -31,6 +38,7 @@ export function useBrief() {
   const role = roleDef.key;
   const [items, setItems] = useState<BriefItem[]>([]);
   const [handledForYou, setHandledForYou] = useState<HandledForYouItem[]>([]);
+  const [retention, setRetention] = useState<BriefRetentionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noPermission, setNoPermission] = useState(false);
@@ -45,16 +53,19 @@ export function useBrief() {
         setNoPermission(true);
         setItems([]);
         setHandledForYou([]);
+        setRetention(null);
         return;
       }
       if (!response.ok) throw new Error("Your brief could not be loaded.");
       const dto = (await response.json()) as BriefDto;
       setItems(dto.items);
       setHandledForYou(dto.handledForYou);
+      setRetention(dto.retention ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Your brief could not be loaded.");
       setItems([]);
       setHandledForYou([]);
+      setRetention(null);
     } finally {
       setLoading(false);
     }
@@ -62,5 +73,5 @@ export function useBrief() {
 
   useEffect(() => { void load(); }, [load]);
 
-  return { items, handledForYou, loading, error, noPermission, reload: load };
+  return { items, handledForYou, retention, loading, error, noPermission, reload: load };
 }

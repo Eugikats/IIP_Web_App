@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/components/iip/NextRouterCompat";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, RefreshCw } from "lucide-react";
 import { GlassCard, SectionHeader, StatusBadge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
 import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
@@ -17,7 +17,7 @@ function timeOfDayGreeting(): string {
 
 export default function Brief() {
   const { runtimeContext } = useRuntimeContext();
-  const { items, handledForYou, loading, error, noPermission, reload } = useBrief();
+  const { items, handledForYou, retention, loading, error, noPermission, reload } = useBrief();
   const givenName = runtimeContext?.displayName?.trim().split(/\s+/)[0];
 
   return (
@@ -38,6 +38,27 @@ export default function Brief() {
             <GlassCard>
               <EmptyStateSurface title="You have nothing awaiting review" message="Claims assigned to you will appear here, ranked by what needs you most." />
             </GlassCard>
+          )}
+
+          {retention && (
+            <Link to="/app/retention" className="dls-focus-outline block rounded-dls-card">
+              <GlassCard className="transition-colors duration-dls-fast ease-dls hover:border-dls-border-strong">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="h-3.5 w-3.5 shrink-0 text-dls-text-muted" aria-hidden="true" />
+                    <span className="text-[13px] text-dls-text-secondary">
+                      <span className="font-bold text-dls-text-primary">{retention.policiesAtRisk}</span>{" "}
+                      {retention.policiesAtRisk === 1 ? "policy renews" : "policies renew"} within 60 days,{" "}
+                      <span className="font-bold text-dls-text-primary">
+                        {retention.premiumAtRiskCurrency} {retention.premiumAtRisk.toLocaleString()}
+                      </span>{" "}
+                      in premium at risk.
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-[12px] font-semibold text-dls-primary">Open retention watch</span>
+                </div>
+              </GlassCard>
+            </Link>
           )}
 
           {items.map((item) => (

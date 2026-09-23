@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Application.Brief;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Retention;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -65,6 +66,54 @@ public sealed class BriefServiceTests
         Assert.Equal(caseId.ToString(), handled.CaseId);
     }
 
+    [Fact]
+    public async Task GetAsync_WithRetentionServiceAndViewCustomersPermission_IncludesTheRetentionLine()
+    {
+        var service = BuildService(
+            "officer-1",
+            [Permission.ViewAssignedClaims, Permission.ViewCustomers],
+            retentionWatchService: new FixedRetentionWatchService(new RetentionWatchSummaryDto(3, 4_500_000m, "UGX", [])));
+
+        var brief = await service.GetAsync();
+
+        Assert.NotNull(brief.Retention);
+        Assert.Equal(3, brief.Retention!.PoliciesAtRisk);
+        Assert.Equal(4_500_000m, brief.Retention.PremiumAtRisk);
+    }
+
+    [Fact]
+    public async Task GetAsync_WithRetentionServiceButNoViewCustomersPermission_OmitsTheRetentionLine()
+    {
+        var service = BuildService(
+            "officer-1",
+            [Permission.ViewAssignedClaims],
+            retentionWatchService: new FixedRetentionWatchService(new RetentionWatchSummaryDto(3, 4_500_000m, "UGX", [])));
+
+        var brief = await service.GetAsync();
+
+        Assert.Null(brief.Retention);
+    }
+
+    [Fact]
+    public async Task GetAsync_NoPoliciesAtRisk_OmitsTheRetentionLineRatherThanShowingAZero()
+    {
+        var service = BuildService(
+            "officer-1",
+            [Permission.ViewAssignedClaims, Permission.ViewCustomers],
+            retentionWatchService: new FixedRetentionWatchService(new RetentionWatchSummaryDto(0, 0m, "UGX", [])));
+
+        var brief = await service.GetAsync();
+
+        Assert.Null(brief.Retention);
+    }
+
+    private sealed class FixedRetentionWatchService(RetentionWatchSummaryDto summary) : IRetentionWatchService
+    {
+        public Task<RetentionWatchSummaryDto> GetWatchAsync(CancellationToken cancellationToken = default) => Task.FromResult(summary);
+        public Task<RetentionReminderDto> DraftReminderAsync(string policyId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<RetentionReminderDto> ApproveAndSendAsync(Guid reminderId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
     private static ClaimCase Claim(string suffix, string assignedUserId) =>
         new()
         {
@@ -90,7 +139,8 @@ public sealed class BriefServiceTests
         string userId,
         Permission[] permissions,
         InMemoryCaseRepository? caseRepository = null,
-        InMemoryAuditRepository? auditRepository = null)
+        InMemoryAuditRepository? auditRepository = null,
+        IRetentionWatchService? retentionWatchService = null)
     {
         var accessor = new TenantContextAccessor();
         accessor.SetCurrent(new TenantContext(Scope.TenantId, Scope.WorkspaceId, userId, []));
@@ -98,7 +148,8 @@ public sealed class BriefServiceTests
             caseRepository ?? new InMemoryCaseRepository(),
             auditRepository ?? new InMemoryAuditRepository(),
             accessor,
-            new FixedPermissionService(permissions));
+            new FixedPermissionService(permissions),
+            retentionWatchService);
     }
 
     private sealed class FixedPermissionService(params Permission[] permissions) : IPermissionService

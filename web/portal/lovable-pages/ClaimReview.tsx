@@ -82,6 +82,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     requestingApproval,
     exporting,
     confirming,
+    resolving,
+    recordingSatisfaction,
     draftCustomerUpdate,
     draftDocumentFollowUp,
     draftDecisionOutcomeUpdate,
@@ -93,6 +95,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     downloadExportedAuditPack,
     requestSupervisorReview,
     confirmClaim,
+    resolveClaim,
+    recordSatisfactionResponse,
     reload,
   } = useClaimReview(claimId);
   const loading = loadState.status === "loading";
@@ -160,11 +164,22 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const canSendCustomerUpdate = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "SendCustomerUpdate")
     : hasPermission(runtimeContext?.permissions ?? [], "SendCustomerUpdate");
+  // "Resolve claim" calls POST /cases/{id}/resolve, which requires ApproveSettlementWorkflowStep,
+  // the same authority as executing an approved workflow step (outcome O).
+  const canResolveClaim = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "ApproveSettlementWorkflowStep")
+    : hasPermission(runtimeContext?.permissions ?? [], "ApproveSettlementWorkflowStep");
   const [pendingCustomerUpdateAction, setPendingCustomerUpdateAction] = useState<PendingCustomerUpdateAction | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmCorrections, setConfirmCorrections] = useState<ConfirmClaimCorrections>({});
+  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [resolution, setResolution] = useState<"Settled" | "Closed">("Settled");
+  const [satisfactionOpen, setSatisfactionOpen] = useState(false);
+  const [satisfactionRating, setSatisfactionRating] = useState<"Good" | "Neutral" | "Poor">("Good");
+  const [satisfactionNotes, setSatisfactionNotes] = useState("");
+  const [satisfactionResult, setSatisfactionResult] = useState<string | null>(null);
 
   async function handleDraftCustomerUpdate() {
     const res = await draftCustomerUpdate();
@@ -213,6 +228,32 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       });
     } else {
       toast.error(res.message ?? "Could not request supervisor review");
+    }
+  }
+
+  async function handleResolveClaim(auditReason: string) {
+    const res = await resolveClaim(resolution, auditReason);
+    if (res.ok) {
+      setResolveDialogOpen(false);
+      toast.success(resolution === "Settled" ? "Claim recorded as settled" : "Claim closed", {
+        description: "A satisfaction question has been drafted for approval.",
+      });
+    } else {
+      toast.error(res.message ?? "Could not record the claim resolution");
+    }
+  }
+
+  async function handleRecordSatisfaction() {
+    const res = await recordSatisfactionResponse(satisfactionRating, satisfactionNotes);
+    if (res.ok) {
+      setSatisfactionOpen(false);
+      setSatisfactionNotes("");
+      setSatisfactionResult(satisfactionRating);
+      toast.success("Satisfaction answer recorded", {
+        description: res.serviceRecoveryTaskId ? "A service recovery task was opened for follow-up." : undefined,
+      });
+    } else {
+      toast.error(res.message ?? "Could not record the satisfaction answer");
     }
   }
 
@@ -415,9 +456,19 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     onClick: () => unavailable("Mark evidence reviewed"),
     visible: true,
   };
+  // Outcome O: the terminal step after ExecuteApprovedNextStep's ReadyForExport hand-off, or from
+  // Escalated for an exception-handled claim. Recording it here is what makes "ask one
+  // satisfaction question on close" real rather than a hook with nothing that ever calls it.
+  const resolveClaimAction: DecisionAction = {
+    key: "resolve-claim",
+    label: "Record claim resolution",
+    onClick: () => setResolveDialogOpen(true),
+    disabled: resolving,
+    visible: canResolveClaim && (detail.status === "ReadyForExport" || detail.status === "Escalated"),
+  };
   const decisionActions: DecisionAction[] = detail.status === "MissingDocuments"
-    ? [documentFollowUpAction, supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction]
-    : [supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction, documentFollowUpAction];
+    ? [documentFollowUpAction, supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction, resolveClaimAction]
+    : [resolveClaimAction, supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction, documentFollowUpAction];
 
   return (
     <>
@@ -754,6 +805,59 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             </div>
           </GlassCard>
 
+          {(detail.status === "Settled" || detail.status === "Closed") && (
+            <GlassCard>
+              <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Satisfaction</div>
+              {satisfactionResult ? (
+                <p className="mt-2 text-[13px] text-dls-text-secondary">
+                  Recorded as <span className="font-bold text-dls-text-primary">{satisfactionResult}</span>.
+                </p>
+              ) : satisfactionOpen ? (
+                <div className="mt-2 space-y-2">
+                  <div className="flex gap-2">
+                    {(["Good", "Neutral", "Poor"] as const).map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => setSatisfactionRating(rating)}
+                        className={`dls-focus-outline rounded-dls-control border px-3 py-1.5 text-[12.5px] font-semibold ${
+                          satisfactionRating === rating
+                            ? "border-dls-primary bg-dls-primary-soft text-dls-primary"
+                            : "border-dls-border-input text-dls-text-secondary hover:bg-dls-bg-page"
+                        }`}
+                      >
+                        {rating}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    aria-label="Satisfaction notes"
+                    placeholder="What did the customer say? (optional)"
+                    className="min-h-16 w-full resize-y rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
+                    value={satisfactionNotes}
+                    onChange={(event) => setSatisfactionNotes(event.target.value)}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => setSatisfactionOpen(false)} disabled={recordingSatisfaction}>Cancel</Button>
+                    <Button variant="primary" onClick={handleRecordSatisfaction} disabled={recordingSatisfaction}>
+                      {recordingSatisfaction ? "Recording…" : "Record answer"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <p className="text-[12.5px] text-dls-text-muted">
+                    A satisfaction question was drafted for approval when this claim was resolved. Record the
+                    customer&apos;s answer here once you hear back.
+                  </p>
+                  <Button variant="secondary" className="mt-2" onClick={() => setSatisfactionOpen(true)}>
+                    Record satisfaction answer
+                  </Button>
+                </div>
+              )}
+            </GlassCard>
+          )}
+
           <CompletenessCard
             score={completeness}
             items={documentItems.length > 0 ? documentItems : [{ label: "Claim documents", present: false }]}
@@ -875,6 +979,30 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         }
         onClose={() => setConfirmDialogOpen(false)}
         onConfirm={handleConfirmClaim}
+      />
+      <GovernedActionDialog
+        open={resolveDialogOpen}
+        title="Record claim resolution"
+        target={`Claim ${claimReference(detail.claimId)}`}
+        impact="Records what happened after this claim's evidence pack was prepared for the insurer's own settlement or payment system. This does not itself release any payment. A satisfaction question is then drafted for approval, never auto sent."
+        auditNotice="Recording a claim resolution is a consequential action, kept in the audit trail with both the status before and after."
+        confirmLabel={resolution === "Settled" ? "Record as settled" : "Record as closed"}
+        tone="primary"
+        evidence={
+          <div className="space-y-2 rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-4">
+            <div className="text-sm font-semibold text-dls-text-primary">What happened to this claim?</div>
+            <label className="flex items-center gap-2 text-sm text-dls-text-secondary">
+              <input type="radio" name="resolution" checked={resolution === "Settled"} onChange={() => setResolution("Settled")} />
+              Settled - the customer was paid
+            </label>
+            <label className="flex items-center gap-2 text-sm text-dls-text-secondary">
+              <input type="radio" name="resolution" checked={resolution === "Closed"} onChange={() => setResolution("Closed")} />
+              Closed - resolved without a payment
+            </label>
+          </div>
+        }
+        onClose={() => setResolveDialogOpen(false)}
+        onConfirm={handleResolveClaim}
       />
     </>
   );

@@ -511,6 +511,90 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    public static AuditEvent RetentionReminderDrafted(
+        TenantScope scope, string userId, Guid reminderId, string policyNumber, int expiryBucketDays, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "retention.reminder.drafted",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: "PendingApproval",
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: $"reminderId:{reminderId};policyNumber:{policyNumber};expiryBucketDays:{expiryBucketDays}",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent RetentionReminderSent(
+        TenantScope scope, string userId, Guid reminderId, string policyNumber, string deliveryStatus, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "retention.reminder.sent",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: "PendingApproval",
+            AfterStatus: deliveryStatus,
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: $"reminderId:{reminderId};policyNumber:{policyNumber}",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent SatisfactionResponseRecorded(
+        TenantScope scope, Guid caseId, string userId, string rating, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: caseId,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "claim.satisfaction.recorded",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: rating,
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "recorded",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ServiceRecoveryTaskOpened(
+        TenantScope scope, Guid caseId, string userId, Guid taskId, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: caseId,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.System,
+            "claim.service_recovery.opened",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: "Open",
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: $"taskId:{taskId}",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     public static AuditEvent WhatsAppConfigurationSaved(
         TenantScope scope, string userId, string phoneNumberId, string auditReason, string correlationId) =>
         new(
