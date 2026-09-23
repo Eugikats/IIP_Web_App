@@ -140,5 +140,14 @@ public static class DefaultCommunicationTemplates
             "Hello {{customer_name}}, your claim {{claim_reference}} is now closed. In a few words, how would you rate how we handled it? Reply to let {{officer_name}} know.",
             "Claim {{claim_reference}} is closed. How would you rate how we handled it?"
         ),
+        (
+            "referral-invitation-portal",
+            "Referral invitation",
+            CustomerUpdateReasonCategory.ReferralInvitation,
+            CommunicationChannel.Portal,
+            "Know someone who needs cover?",
+            "Hello {{customer_name}}, thank you for trusting us with claim {{claim_reference}}. If you know someone who could use cover like yours, we would welcome the introduction. Reply with their name and we will reach out.",
+            "Thanks for trusting us with claim {{claim_reference}}. Know someone who needs cover? Reply with their name."
+        ),
     ];
 }

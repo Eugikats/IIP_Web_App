@@ -20,5 +20,11 @@ public enum CustomerUpdateReasonCategory
     /// <summary>Outcome O: the one satisfaction question asked after a claim closes. Always
     /// requires approval (see CustomerUpdateApprovalPolicy) and, like any other customer message,
     /// is blocked without recorded consent unless the tenant has opted into low-risk auto-send.</summary>
-    SatisfactionQuestion
+    SatisfactionQuestion,
+
+    /// <summary>Outcome P: "after a claim closes well, prepare a referral invitation that a
+    /// person approves and that consent gates." Only ever an invitation to refer someone else,
+    /// never a quote or a sale itself, the same regulatory boundary the WhatsApp assistant's
+    /// ProductInterest handling already respects (blueprint §8.2). Always requires approval.</summary>
+    ReferralInvitation
 }

@@ -72,7 +72,10 @@ public sealed class CustomerAssistantService(
     IAgentGate agentGate,
     IAuditRepository auditRepository,
     IProductRepository productRepository,
-    INotificationEmitter notificationEmitter) : ICustomerAssistantService
+    INotificationEmitter notificationEmitter,
+    // Optional: a deployment with Teams routing not configured for leads simply skips the
+    // broadcast, the lead itself is still created and visible in the existing acquisition list.
+    ITeamsNotificationQueue? teamsNotificationQueue = null) : ICustomerAssistantService
 {
     private const string SystemActorId = "system:customer-assistant";
     private const string AgentKey = "customer-assistant";
@@ -151,8 +154,8 @@ public sealed class CustomerAssistantService(
             CustomerIntent.GeneralQuestion => await HandleGeneralQuestionAsync(scope, text, waId, correlationId, autoReplyEnabled, cancellationToken),
             CustomerIntent.NewClaim => await HandleNewClaimAsync(scope, text, waId, inbound.BusinessPhoneNumberId, correlationId, cancellationToken),
             CustomerIntent.ExistingClaimStatus => await HandleExistingClaimStatusAsync(scope, text, waId, cancellationToken),
-            CustomerIntent.ProductInterest => await HandleProductInterestAsync(scope, text, waId, cancellationToken),
-            CustomerIntent.HumanRequested => await HandleHumanRequestedAsync(scope, text, waId, cancellationToken),
+            CustomerIntent.ProductInterest => await HandleProductInterestAsync(scope, text, waId, correlationId, cancellationToken),
+            CustomerIntent.HumanRequested => await HandleHumanRequestedAsync(scope, text, waId, correlationId, cancellationToken),
             _ => (DefaultEscalationMessage(), CustomerAssistantOutcome.Escalated, Array.Empty<string>(), (Guid?)null, (string?)null),
         };
 
@@ -363,22 +366,22 @@ public sealed class CustomerAssistantService(
     }
 
     private async Task<(string? Reply, CustomerAssistantOutcome Outcome, IReadOnlyCollection<string> Citations, Guid? CaseId, string? LeadId)> HandleProductInterestAsync(
-        TenantScope scope, string text, string waId, CancellationToken cancellationToken)
+        TenantScope scope, string text, string waId, string correlationId, CancellationToken cancellationToken)
     {
-        var leadId = await CreateLeadAsync(scope, text, waId, "WhatsApp", cancellationToken);
+        var leadId = await CreateLeadAsync(scope, text, waId, "WhatsApp", correlationId, cancellationToken);
         return ("Thanks for your interest! I've passed your details to our sales team, someone will reach out with options that fit your needs.",
             CustomerAssistantOutcome.LeadCreated, [], null, leadId);
     }
 
     private async Task<(string? Reply, CustomerAssistantOutcome Outcome, IReadOnlyCollection<string> Citations, Guid? CaseId, string? LeadId)> HandleHumanRequestedAsync(
-        TenantScope scope, string text, string waId, CancellationToken cancellationToken)
+        TenantScope scope, string text, string waId, string correlationId, CancellationToken cancellationToken)
     {
-        var leadId = await CreateLeadAsync(scope, text, waId, "WhatsApp - human requested", cancellationToken);
+        var leadId = await CreateLeadAsync(scope, text, waId, "WhatsApp - human requested", correlationId, cancellationToken);
         return ("Of course, I've flagged this for a member of our team to follow up with you directly.",
             CustomerAssistantOutcome.Escalated, [], null, leadId);
     }
 
-    private async Task<string> CreateLeadAsync(TenantScope scope, string text, string waId, string leadSource, CancellationToken cancellationToken)
+    private async Task<string> CreateLeadAsync(TenantScope scope, string text, string waId, string leadSource, string correlationId, CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
         var leadId = $"LEAD-{now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
@@ -399,6 +402,26 @@ public sealed class CustomerAssistantService(
             CreatedBy: SystemActorId);
 
         await salesLeadWriteRepository.CreateAsync(scope.TenantId, scope.WorkspaceId, lead, cancellationToken);
+
+        if (teamsNotificationQueue is not null)
+        {
+            try
+            {
+                await teamsNotificationQueue.EnqueueAsync(new TeamsNotification
+                {
+                    Scope = scope,
+                    CaseId = null,
+                    NotificationType = TeamsNotificationType.LeadCreated,
+                    PayloadJson = System.Text.Json.JsonSerializer.Serialize(new { leadId, leadSource, customerNeed = text, correlationId }),
+                }, cancellationToken);
+            }
+            catch
+            {
+                // Best effort: the lead itself is already saved and visible in the acquisition
+                // list, a routing-notification failure must never be reported back to the customer.
+            }
+        }
+
         return leadId;
     }
 

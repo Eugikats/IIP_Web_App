@@ -16,6 +16,8 @@ namespace InsuranceIntelligence.Api.Cases;
 public static class ClaimResolutionEndpoints
 {
     private static readonly HashSet<CaseStatus> ResolvableFrom = [CaseStatus.ReadyForExport, CaseStatus.Escalated];
+    private const string SatisfactionQuestionTemplateKey = "satisfaction-question-portal";
+    private const string ReferralInvitationTemplateKey = "referral-invitation-portal";
 
     public static async Task<IResult> Resolve(
         Guid caseId,
@@ -86,18 +88,35 @@ public static class ClaimResolutionEndpoints
             AuditEvent.CaseStatusUpdated(beforeCase, updatedCase.ToAuditSnapshot(), actor, correlationId, auditReason),
             cancellationToken);
 
-        // Best-effort: a failure to draft the satisfaction question must never undo, or even be
-        // reported as failing, a resolution that has already been recorded (same shape as the
+        // Best-effort: a failure to draft either message must never undo, or even be reported as
+        // failing, a resolution that has already been recorded (same shape as the
         // missing-document-request side effect in WorkflowEndpoints.cs).
         try
         {
-            await DraftSatisfactionQuestionAsync(updatedCase, actor, correlationId, templateRepository, updateRepository, auditRepository, cancellationToken);
+            await DraftFromTemplateAsync(
+                updatedCase, SatisfactionQuestionTemplateKey, CustomerUpdateReasonCategory.SatisfactionQuestion,
+                actor, correlationId, templateRepository, updateRepository, auditRepository, cancellationToken);
         }
         catch (Exception)
         {
-            // The claim resolution itself already succeeded and is not rolled back; an officer can
-            // still draft the satisfaction question manually from a template if this silently
-            // failed to auto-draft.
+            // An officer can still draft the satisfaction question manually from a template if
+            // this silently failed to auto-draft.
+        }
+
+        // Outcome P: "after a claim closes well, prepare a referral invitation." Only for a claim
+        // that was actually settled with payment, not one merely closed without one.
+        if (resolution == CaseStatus.Settled)
+        {
+            try
+            {
+                await DraftFromTemplateAsync(
+                    updatedCase, ReferralInvitationTemplateKey, CustomerUpdateReasonCategory.ReferralInvitation,
+                    actor, correlationId, templateRepository, updateRepository, auditRepository, cancellationToken);
+            }
+            catch (Exception)
+            {
+                // Same best-effort guarantee: the resolution stands regardless.
+            }
         }
 
         var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
@@ -106,9 +125,14 @@ public static class ClaimResolutionEndpoints
 
     /// <summary>Idempotent, same guarantee as CommunicationTemplateEndpoints.SeedDefaults: a
     /// tenant that has customized this template keeps their edit, one that has never seen it gets
-    /// the default created on first use rather than requiring a separate manual seeding step.</summary>
-    private static async Task DraftSatisfactionQuestionAsync(
+    /// the default created on first use rather than requiring a separate manual seeding step.
+    /// Shared by the satisfaction question (outcome O) and the referral invitation (outcome P),
+    /// both fixed, always-requires-approval messages drafted the same way from the claim that
+    /// just closed.</summary>
+    private static async Task DraftFromTemplateAsync(
         ClaimCase claimCase,
+        string templateKey,
+        CustomerUpdateReasonCategory reasonCategory,
         string actor,
         string correlationId,
         ICommunicationTemplateRepository templateRepository,
@@ -116,7 +140,6 @@ public static class ClaimResolutionEndpoints
         IAuditRepository auditRepository,
         CancellationToken cancellationToken)
     {
-        const string templateKey = "satisfaction-question-portal";
         var template = await templateRepository.GetCurrentAsync(claimCase.Scope, templateKey, cancellationToken);
         if (template is null)
         {
@@ -138,7 +161,7 @@ public static class ClaimResolutionEndpoints
                 Active = true,
                 UpdatedByUserId = "system",
                 UpdatedAt = now,
-                ChangeReason = "Auto-created default satisfaction question template on first claim resolution."
+                ChangeReason = $"Auto-created default {defaultTemplate.Name.ToLowerInvariant()} template on first claim resolution."
             };
             await templateRepository.SaveAsync(template, cancellationToken);
         }
@@ -153,7 +176,7 @@ public static class ClaimResolutionEndpoints
             UpdateId = Guid.NewGuid(),
             Scope = claimCase.Scope,
             CaseId = claimCase.CaseId,
-            ReasonCategory = CustomerUpdateReasonCategory.SatisfactionQuestion,
+            ReasonCategory = reasonCategory,
             Channel = template.Channel,
             Language = template.Language,
             Status = CustomerUpdateStatus.PendingApproval,

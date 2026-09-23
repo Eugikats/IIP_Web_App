@@ -13,5 +13,6 @@ public static class CustomerUpdateApprovalPolicy
         sensitive || reasonCategory is CustomerUpdateReasonCategory.ReadyForReview
             or CustomerUpdateReasonCategory.EscalationReceived
             or CustomerUpdateReasonCategory.DecisionOutcome
-            or CustomerUpdateReasonCategory.SatisfactionQuestion;
+            or CustomerUpdateReasonCategory.SatisfactionQuestion
+            or CustomerUpdateReasonCategory.ReferralInvitation;
 }

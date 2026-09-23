@@ -19,8 +19,11 @@ public sealed class ClaimResolutionAndSatisfactionEndpointsTests
     private static readonly TenantScope Scope = TenantScope.Create("tenant-demo", "workspace-claims");
 
     [Fact]
-    public async Task Resolve_FromReadyForExport_SetsStatusAndDraftsASatisfactionQuestion()
+    public async Task Resolve_ToSettled_DraftsBothASatisfactionQuestionAndAReferralInvitation()
     {
+        // Outcome P: "after a claim closes well, prepare a referral invitation." Settled is the
+        // "closed well" outcome (the customer was actually paid), so both fixed, always-approval
+        // messages are drafted from this one action.
         var (caseRepository, templateRepository, updateRepository, auditRepository, taskRepository, _) = Build();
         var claimCase = await Seed(caseRepository, CaseStatus.ReadyForExport);
         var context = ScopedContext();
@@ -44,14 +47,41 @@ public sealed class ClaimResolutionAndSatisfactionEndpointsTests
         Assert.Equal(CaseStatus.Settled, saved!.Status);
 
         var drafts = await updateRepository.ListForCaseAsync(claimCase.CaseId, Scope, CancellationToken.None);
-        var satisfactionDraft = Assert.Single(drafts);
-        Assert.Equal(CustomerUpdateReasonCategory.SatisfactionQuestion, satisfactionDraft.ReasonCategory);
+        Assert.Equal(2, drafts.Count);
+        var satisfactionDraft = Assert.Single(drafts, draft => draft.ReasonCategory == CustomerUpdateReasonCategory.SatisfactionQuestion);
         Assert.True(satisfactionDraft.RequiresApproval);
         Assert.Equal(CustomerUpdateStatus.PendingApproval, satisfactionDraft.Status);
+        var referralDraft = Assert.Single(drafts, draft => draft.ReasonCategory == CustomerUpdateReasonCategory.ReferralInvitation);
+        Assert.True(referralDraft.RequiresApproval);
+        Assert.Equal(CustomerUpdateStatus.PendingApproval, referralDraft.Status);
 
-        // The default template was auto-created on first use.
-        var seededTemplate = await templateRepository.GetCurrentAsync(Scope, "satisfaction-question-portal", CancellationToken.None);
-        Assert.NotNull(seededTemplate);
+        // Both default templates were auto-created on first use.
+        Assert.NotNull(await templateRepository.GetCurrentAsync(Scope, "satisfaction-question-portal", CancellationToken.None));
+        Assert.NotNull(await templateRepository.GetCurrentAsync(Scope, "referral-invitation-portal", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Resolve_ToClosed_DraftsOnlyTheSatisfactionQuestion_NotAReferralInvitation()
+    {
+        // Closed without a payment is not "closed well"; a referral invitation would be tone-deaf.
+        var (caseRepository, templateRepository, updateRepository, auditRepository, _, _) = Build();
+        var claimCase = await Seed(caseRepository, CaseStatus.ReadyForExport);
+        var context = ScopedContext();
+        context.Request.Headers["X-Audit-Reason"] = "Claim withdrawn by customer, closed without payment.";
+
+        await ClaimResolutionEndpoints.Resolve(
+            claimCase.CaseId,
+            new ResolveClaimRequest("Closed"),
+            caseRepository,
+            templateRepository,
+            updateRepository,
+            auditRepository,
+            context,
+            CancellationToken.None);
+
+        var drafts = await updateRepository.ListForCaseAsync(claimCase.CaseId, Scope, CancellationToken.None);
+        var draft = Assert.Single(drafts);
+        Assert.Equal(CustomerUpdateReasonCategory.SatisfactionQuestion, draft.ReasonCategory);
     }
 
     [Fact]

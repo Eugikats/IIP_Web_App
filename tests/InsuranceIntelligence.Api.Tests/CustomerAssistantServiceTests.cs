@@ -173,6 +173,11 @@ public sealed class CustomerAssistantServiceTests
         Assert.NotNull(turn.LeadId);
         var lead = Assert.Single(fixture.SalesLeads.Created);
         Assert.Equal("WhatsApp", lead.LeadSource);
+
+        // Outcome P: "route it to a licensed person." A lead has no assigned officer at
+        // creation, so routing is the same team-broadcast ApprovalRequired already uses.
+        var notification = Assert.Single(fixture.TeamsQueue.Enqueued);
+        Assert.Equal(TeamsNotificationType.LeadCreated, notification.NotificationType);
     }
 
     [Fact]
@@ -186,6 +191,7 @@ public sealed class CustomerAssistantServiceTests
         Assert.Equal(CustomerIntent.HumanRequested, turn.ClassifiedIntent);
         Assert.Equal(CustomerAssistantOutcome.Escalated, turn.Outcome);
         Assert.Single(fixture.SalesLeads.Created);
+        Assert.Single(fixture.TeamsQueue.Enqueued);
     }
 
     [Fact]
@@ -253,6 +259,7 @@ public sealed class CustomerAssistantServiceTests
             FakeAuditRepository audit,
             FakeRetrievalProvider retrieval,
             FakeAiAssistantProvider assistant,
+            FakeTeamsNotificationQueue teamsQueue,
             CustomerAssistantService service)
         {
             Scope = scope;
@@ -268,6 +275,7 @@ public sealed class CustomerAssistantServiceTests
             Audit = audit;
             Retrieval = retrieval;
             Assistant = assistant;
+            TeamsQueue = teamsQueue;
             Service = service;
         }
 
@@ -284,6 +292,7 @@ public sealed class CustomerAssistantServiceTests
         public FakeAuditRepository Audit { get; }
         public FakeRetrievalProvider Retrieval { get; }
         public FakeAiAssistantProvider Assistant { get; }
+        public FakeTeamsNotificationQueue TeamsQueue { get; }
         public CustomerAssistantService Service { get; }
 
         public static Fixture Create(bool autoReplyEnabled = false, bool agentEnabled = true)
@@ -301,6 +310,7 @@ public sealed class CustomerAssistantServiceTests
             var audit = new FakeAuditRepository();
             var retrieval = new FakeRetrievalProvider();
             var assistant = new FakeAiAssistantProvider();
+            var teamsQueue = new FakeTeamsNotificationQueue();
             var agentGate = agentEnabled ? new LocalTestAgentGate() : new LocalTestAgentGate("customer-assistant");
 
             var service = new CustomerAssistantService(
@@ -319,9 +329,10 @@ public sealed class CustomerAssistantServiceTests
                 agentGate,
                 audit,
                 new FakeProductRepository(),
-                new NoOpNotificationEmitter());
+                new NoOpNotificationEmitter(),
+                teamsQueue);
 
-            return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, service);
+            return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service);
         }
 
         public Task HandleAsync(string text) =>
@@ -521,6 +532,17 @@ public sealed class CustomerAssistantServiceTests
         public Task<IReadOnlyCollection<Product>> ListCurrentForAllProductsAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyCollection<Product>>([]);
         public Task SaveAsync(Product version, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class FakeTeamsNotificationQueue : ITeamsNotificationQueue
+    {
+        public List<TeamsNotification> Enqueued { get; } = [];
+
+        public Task EnqueueAsync(TeamsNotification notification, CancellationToken cancellationToken = default)
+        {
+            Enqueued.Add(notification);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeAuditRepository : IAuditRepository
