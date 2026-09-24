@@ -18,6 +18,7 @@ The direction: a calm, border-led, light-first insurance operations console. One
 Rules that are never waived when writing UI:
 
 - No emoji anywhere — UI, code, model output rendered to users, commit messages, docs.
+- No em dashes anywhere: UI copy, code, comments, model output shown to users, commit messages and docs. Use a comma, colon, full stop or parentheses instead, and do not substitute a double hyphen. Readers treat the em dash as the plainest sign that text was machine-written. Model completions are cleaned at the provider boundary (`DisplayText.WithoutEmDashes`); everything a person or an agent writes into the repository must follow the rule by hand.
 - No gradients outside the two named uses; no glassmorphism, glow, hover-lift, or decorative motion.
 - One violet primary action per screen region. Status is a neutral pill plus a coloured dot plus a word, never colour alone.
 - Six states or it is not finished: loading, empty, empty-after-filter, error, not configured, no permission.
@@ -47,3 +48,16 @@ Clear the 27-point checklist in `docs/03-design-architecture/iip_ui_craft_guardr
 ## Deploying to Azure
 
 When explicitly asked to push/deploy to Azure, read [`docs/05-deployment-release-enablement/AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md`](docs/05-deployment-release-enablement/AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md) first — it is the authoritative index of which subscriptions/resource groups actually hold IIP resources, who has access, and the verified deploy procedure. Do not guess resource names or assume `deploy-staging.yml` targets a live environment — confirm live via `az` before deploying, the same way that document was produced, since Azure resources here have been deleted/renamed out-of-band before.
+
+## Readiness, gaps and channel/agent configuration work
+
+Before working on customer channels (WhatsApp, SMS, email), agent/system-prompt configuration, knowledge-base surfacing, customer acquisition, FNOL, navigation, or anything framed as "closing gaps for the submission/demo", read [`docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md`](docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md) first.
+
+It is the current gap index: what is REAL, PARTIAL, STATIC, MISSING or BLOCKED in each area, verified against source rather than against older documentation, with the file paths that prove each claim and a phased implementation plan. It also carries the IRA/Data Protection and Privacy Act research and an honesty register of what must not be claimed about the platform.
+
+Two rules it establishes that apply beyond its own scope:
+
+- Provider *credentials* belong in the per-tenant, encrypted, validated-before-save Connection model, not in startup environment variables. `WhatsAppConfigurationEndpoints` is the reference implementation; secrets stay write-only from the browser.
+- A tenant may configure an agent's voice and scope, never its authority. The immutable platform preamble carrying the human-decision boundary is not tenant-editable.
+
+If the blueprint and the code disagree, the code wins — re-verify and correct the document rather than implementing from a stale claim.

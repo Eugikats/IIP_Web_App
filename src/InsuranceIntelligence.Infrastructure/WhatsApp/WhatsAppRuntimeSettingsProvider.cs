@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace InsuranceIntelligence.Infrastructure.WhatsApp;
 
 /// <summary>Fully resolved, decrypted WhatsApp credentials the inbound/outbound providers actually
-/// use — whichever source they came from.</summary>
+/// use, whichever source they came from.</summary>
 public sealed record WhatsAppEffectiveSettings(
     string PhoneNumberId,
     string AccessToken,
@@ -27,7 +27,7 @@ public sealed record WhatsAppEffectiveSettings(
 /// TryVerifySubscription members are synchronous by contract (a webhook signature check has no
 /// business awaiting a database round trip on every inbound Meta request), so the cache is loaded
 /// once lazily and explicitly refreshed by WhatsAppConfigurationEndpoints immediately after a save
-/// — a viewer who just connected WhatsApp does not need to wait for a restart or a cache TTL.
+///, a viewer who just connected WhatsApp does not need to wait for a restart or a cache TTL.
 /// </summary>
 public interface IWhatsAppRuntimeSettingsProvider
 {
@@ -56,7 +56,7 @@ public sealed class WhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsPr
         {
             if (!loaded)
             {
-                // First access blocks briefly on a real DB read — acceptable here (happens once,
+                // First access blocks briefly on a real DB read, acceptable here (happens once,
                 // not per webhook call) and avoids making every interface member async for a value
                 // that changes only when someone saves new settings.
                 RefreshAsync().GetAwaiter().GetResult();

@@ -22,7 +22,7 @@ export default function Customers() {
       <SectionHeader
         eyebrow="Customer 360"
         title="Customers"
-        sub="Internal staff workspace. Customers do not see this view — sensitive fields are hidden from customer-facing surfaces."
+        sub="Internal staff workspace. Customers do not see this view, sensitive fields are hidden from customer-facing surfaces."
       />
       <div className="mb-4 max-w-md">
         <Input
@@ -39,7 +39,7 @@ export default function Customers() {
       ) : error ? (
         <GlassCard><ErrorStateSurface title="Customers could not be loaded" message={error} /></GlassCard>
       ) : customers.length === 0 ? (
-        <GlassCard><EmptyStateSurface message="Customers created from channel conversations or FNOL intake appear here." /></GlassCard>
+        <GlassCard><EmptyStateSurface message="Customers appear here once they are created from a new claim or from a conversation on one of your channels." /></GlassCard>
       ) : rows.length === 0 ? (
         <GlassCard><EmptyFilteredStateSurface onClear={() => setQ("")} /></GlassCard>
       ) : (
@@ -57,7 +57,6 @@ export default function Customers() {
               <TableRow key={c.id}>
                 <TableCell>
                   <div className="font-semibold text-dls-text-primary">{c.name}</div>
-                  <div className="text-[11px] text-dls-text-muted">{c.id}</div>
                 </TableCell>
                 <TableCell className="text-dls-text-secondary">{c.contact}</TableCell>
                 <TableCell numeric>{c.activeClaims > 0 ? <Badge tone="info">{c.activeClaims}</Badge> : <span className="text-dls-text-muted">0</span>}</TableCell>

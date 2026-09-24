@@ -7,7 +7,7 @@ namespace InsuranceIntelligence.Api.Tests.Extraction;
 /// Golden-fixture regression suite. Each fixture file contains a captured
 /// DocumentExtractionResult. Tests fail with a descriptive message when a field
 /// disappears, a confidence drops below threshold, or the recorded ModelVersion
-/// changes — signalling that the upstream model or prompt has changed in a way
+/// changes, signalling that the upstream model or prompt has changed in a way
 /// that needs human review before merging.
 /// </summary>
 public sealed class ExtractionRegressionTests

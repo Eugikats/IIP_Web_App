@@ -966,6 +966,11 @@ public sealed class Phase5InfrastructureTests
             StoredPayloads[objectKey] = bytes;
             return new EvidencePackStorageResult(objectKey, request.ContentType, bytes.Length);
         }
+
+        public Task<Stream> ReadAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default) =>
+            StoredPayloads.TryGetValue(objectKey, out var bytes)
+                ? Task.FromResult<Stream>(new MemoryStream(bytes))
+                : throw new InvalidOperationException($"No stored evidence pack for object key '{objectKey}'.");
     }
 
     private sealed class RecordingTenantOnboardingRepository(

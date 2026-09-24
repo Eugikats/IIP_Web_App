@@ -20,7 +20,7 @@ public interface ICommandCenterQueryService
 }
 
 // WO-09: knowledgeRepository, approvalRepository, taskRepository, updateRepository,
-// slaCalculator, and providerHealthCheck are no longer injected here — their data access moved
+// slaCalculator, and providerHealthCheck are no longer injected here, their data access moved
 // into the WO-08 tool registry (claims.attention.read, approvals.queue.read, metrics.read,
 // provider_health.read). caseRepository/caseDocumentRepository/retrievalProvider/
 // actionLogRepository remain: they're still used directly for single-case lookups
@@ -42,12 +42,46 @@ public sealed class CommandCenterQueryService(
     INotificationDraftService notificationDraftService,
     IAgentGate agentGate,
     IAgentRunRecorder agentRunRecorder,
-    Agents.Tools.IAgentToolRegistry agentToolRegistry) : ICommandCenterQueryService
+    Agents.Tools.IAgentToolRegistry agentToolRegistry,
+    ICommandCenterActionService? actionService = null) : ICommandCenterQueryService
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
     private const string PolicyAnswerPromptVersion = "command-center-policy-answer-v1";
     private const string Visibility = "Internal";
+    private const string ConversationalPromptVersion = "command-center-conversational-v1";
+    private const string NoModelProvider = "None";
+
+    // Deliberately plain. Every item is something the intent classifier can genuinely route, and
+    // is phrased the way a claims officer would say it rather than the way the system stores it.
+    private const string GreetingReply =
+        "Hello. I can help you with the claims work in this workspace.\n\n"
+        + "Try asking me:\n"
+        + "- What needs my attention today?\n"
+        + "- Which claims are still waiting on documents?\n"
+        + "- What is waiting for my approval?\n"
+        + "- Which claims are running late?\n"
+        + "- What does the policy say about flood damage?\n\n"
+        + "For anything about cover, I answer only from your approved documents and show you where "
+        + "each answer came from. Decisions stay with you.";
+
+    private const string CapabilitiesReply =
+        "I help you keep on top of claims in this workspace. Here is what I can do.\n\n"
+        + "**Find work that needs you**\n"
+        + "- What needs my attention today?\n"
+        + "- Which claims are running late?\n"
+        + "- Which claims are still waiting on documents?\n"
+        + "- What is waiting for my approval?\n\n"
+        + "**Answer questions about cover**\n"
+        + "- What does the policy say about flood damage?\n"
+        + "- Is there a waiting period on this benefit?\n\n"
+        + "Answers about cover come only from your approved documents, with a link to the source "
+        + "for each one. If the documents do not say, I tell you that rather than guessing.\n\n"
+        + "**Prepare things for you to check**\n"
+        + "- Draft an update for a customer\n"
+        + "- Put together a summary for management\n\n"
+        + "I prepare the work and you decide. I never approve, reject or settle a claim, and "
+        + "nothing goes to a customer until a person has approved it.";
 
     public async Task<CommandCenterQueryResponse> QueryAsync(
         CommandCenterQueryRequest request,
@@ -82,7 +116,7 @@ public sealed class CommandCenterQueryService(
         // so the AgentRun recorded below carries a real tool trace instead of an empty one.
         var toolTrace = new List<AgentRunToolTraceEntry>();
 
-        // WO-07: every AI execution — completed or refused — is reconstructable as a single
+        // WO-07: every AI execution, completed or refused, is reconstructable as a single
         // AgentRun (docs §11). Shares scope/correlation/user across all branches below; only
         // the agent key, outcome, and trigger differ per branch.
         Task RecordRun(string agentKey, AgentRunStatus status, string triggerType, string? errorCategory = null) =>
@@ -110,6 +144,23 @@ public sealed class CommandCenterQueryService(
                 correlationId,
                 now,
                 cancellationToken);
+        }
+
+        if (intent.Intent == IntentType.Conversational)
+        {
+            return await BuildConversationalResponseAsync(
+                question,
+                context,
+                intent.Parameters.GetStringOrDefault(ConversationalKind.Key),
+                correlationId,
+                now,
+                cancellationToken);
+        }
+
+        if (actionService is not null
+            && intent.Intent is IntentType.DraftCustomerMessage or IntentType.AssignClaim or IntentType.SummarizeClaim)
+        {
+            return await actionService.HandleAsync(question, intent, context, correlationId, now, cancellationToken);
         }
 
         if (intent.Intent == IntentType.PrepareCustomerUpdateDraft)
@@ -226,7 +277,7 @@ public sealed class CommandCenterQueryService(
     /// WO-09: data access now goes through the WO-08 tool registry (claims.attention.read,
     /// approvals.queue.read, metrics.read) instead of calling repositories directly. Every
     /// downstream shape (CommandCenterCaseView, CommandCenterApprovalView, CommandCenterQueryData)
-    /// is unchanged — only how the data is fetched changed, not the response.
+    /// is unchanged, only how the data is fetched changed, not the response.
     /// </summary>
     private async Task<CommandCenterQueryData> LoadQueryDataAsync(
         Domain.Common.TenantScope scope,
@@ -278,7 +329,7 @@ public sealed class CommandCenterQueryService(
     }
 
     /// <summary>Calls a read-tier tool as the command-center agent and appends its outcome to the
-    /// run's tool trace. Returns null (never throws) if the tool was denied — callers already
+    /// run's tool trace. Returns null (never throws) if the tool was denied, callers already
     /// treat "no data" as the honest empty case, matching AGENTS.md I9.</summary>
     private async Task<T?> CallToolAsync<T>(
         string toolName,
@@ -316,7 +367,7 @@ public sealed class CommandCenterQueryService(
         }
 
         // Honest fallback if metrics.read is denied for this caller (should not happen in
-        // practice — the command-center agent always holds ViewCommandCenter, the same
+        // practice, the command-center agent always holds ViewCommandCenter, the same
         // permission the outer QueryAsync call already required): zeroed, not fabricated.
         return new CommandCenterMetricsResponse(0, 0, 0m, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
@@ -325,7 +376,7 @@ public sealed class CommandCenterQueryService(
     /// Answers a policy-knowledge question from approved, indexed knowledge only. Retrieval
     /// runs first and the model is given exactly those excerpts; if retrieval returns nothing
     /// the model is never called and the user is told the knowledge base has no approved
-    /// source — the product forbids answering policy questions without grounding, so an
+    /// source, the product forbids answering policy questions without grounding, so an
     /// honest "not covered by approved sources" is the required behaviour, not a guess.
     /// </summary>
     private async Task<CommandCenterQueryResponse> BuildPolicyAnswerResponseAsync(
@@ -339,8 +390,8 @@ public sealed class CommandCenterQueryService(
         var scope = context.Scope;
 
         // WO-09: routed through knowledge.search (WO-08) instead of calling IRetrievalProvider
-        // directly. Audience is not a retrieval input — no provider implementation branches on
-        // it — so passing it through the tool's fixed "InternalUser" default does not change
+        // directly. Audience is not a retrieval input, no provider implementation branches on
+        // it, so passing it through the tool's fixed "InternalUser" default does not change
         // retrieval behaviour; only .Chunks/.Citations are consumed below, both preserved exactly.
         var retrieval = await CallToolAsync<RetrievalResult>(
             "knowledge.search",
@@ -374,7 +425,7 @@ public sealed class CommandCenterQueryService(
         ]);
 
         var chatResult = await chatCompletionProvider.CompleteAsync(
-            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId),
+            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId, "policy-intelligence"),
             cancellationToken);
 
         var blocks = new List<CommandCenterResponseBlock>
@@ -479,6 +530,75 @@ public sealed class CommandCenterQueryService(
             now);
     }
 
+    /// <summary>
+    /// Answers a greeting, a thank-you, a goodbye or "what can you do?" in kind.
+    ///
+    /// This exists because the alternative was worse than unfriendly: "hey" classified as
+    /// Unsupported and fell through to the standing operational briefing, so the first thing a
+    /// new user saw in reply to a greeting was a count of claims they had not asked about. An
+    /// assistant that cannot recognise hello does not read as rigorous, it reads as broken, and
+    /// the people being demonstrated to are not the people who built it.
+    ///
+    /// Fixed text, no model call, no retrieval, no claim data -- so there is nothing here to
+    /// ground and nothing to get wrong. The capability list is written in the language of the
+    /// job ("waiting for my approval"), not the system ("pending approval queue"), and promises
+    /// only what the classifier above can actually route.
+    /// </summary>
+    private async Task<CommandCenterQueryResponse> BuildConversationalResponseAsync(
+        string question,
+        TenantContext context,
+        string? kind,
+        string correlationId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var reply = kind switch
+        {
+            ConversationalKind.Thanks => "You are welcome. Ask me anything else when you need it.",
+            ConversationalKind.Farewell => "Right you are. I will be here when you need me.",
+            ConversationalKind.Capabilities => CapabilitiesReply,
+            _ => GreetingReply,
+        };
+
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = context.Scope,
+            CaseId = null,
+            UserId = context.UserId,
+            AgentName = "CommandCenterConversational",
+            AssistantMode = AssistantMode.OperationalSummary,
+            InputSummary = SummarizeInput(question),
+            RetrievedSources = Array.Empty<SourceCitation>(),
+            ModelOutput = reply,
+            ConfidenceScore = AiConfidenceScore.Create(1.0m),
+            RiskFlag = "none",
+            HumanOverride = false,
+            CreatedAt = now,
+            CorrelationId = correlationId,
+            // No model ran. Recording a provider here would misrepresent a fixed string as
+            // generated output in the one place an auditor goes to check exactly that.
+            ModelProvider = NoModelProvider,
+            ModelDeployment = null,
+            PromptVersion = ConversationalPromptVersion,
+            Visibility = Visibility,
+            CanTriggerDecision = false,
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+
+        return new CommandCenterQueryResponse(
+            [new TextBlock(reply)],
+            actionLog.AgentActionLogId,
+            correlationId,
+            NoModelProvider,
+            ConversationalPromptVersion,
+            Visibility,
+            CanTriggerDecision: false,
+            now);
+    }
+
     private async Task RequireIntentPermissionAsync(IntentClassificationResult intent, CancellationToken cancellationToken)
     {
         switch (intent.Intent)
@@ -493,6 +613,10 @@ public sealed class CommandCenterQueryService(
             case IntentType.PrepareCustomerUpdateDraft:
             case IntentType.Unsupported:
                 await RequireClaimsReadPermissionAsync(cancellationToken);
+                break;
+            // Saying hello reads no claim data, so it requires no claims permission. ViewCommandCenter,
+            // already required before this runs, is the whole gate.
+            case IntentType.Conversational:
                 break;
             case IntentType.AnswerPolicyQuestion:
                 await permissionService.RequirePermissionAsync(Permission.ViewAiOutputs, cancellationToken);
@@ -592,7 +716,7 @@ public sealed class CommandCenterQueryService(
 
     /// <summary>
     /// The kill-switch refusal path (WO-06). Reuses the existing safe-error block/audit
-    /// machinery — same as BuildErrorResponseAsync — rather than adding a new response shape,
+    /// machinery, same as BuildErrorResponseAsync, rather than adding a new response shape,
     /// since the frontend's ErrorBlock already renders a distinguishable, honest refusal with a
     /// correlation reference and no risk of falling through to the "unsupported block" default.
     /// </summary>
@@ -668,7 +792,7 @@ public sealed class CommandCenterQueryService(
         ]);
 
         var chatResult = await chatCompletionProvider.CompleteAsync(
-            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId),
+            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId, "customer-update-drafting"),
             cancellationToken);
         var validated = await aiOutputValidator.ValidateCustomerSafeDraftAsync(
             chatResult.Content,
@@ -797,7 +921,7 @@ public sealed class CommandCenterQueryService(
         ]);
 
         var chatResult = await chatCompletionProvider.CompleteAsync(
-            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId),
+            new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId, "report-insight"),
             cancellationToken);
         var validated = await aiOutputValidator.ValidateManagementSummaryAsync(
             chatResult.Content,

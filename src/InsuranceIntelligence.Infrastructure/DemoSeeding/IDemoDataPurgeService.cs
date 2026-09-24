@@ -3,7 +3,7 @@ namespace InsuranceIntelligence.Infrastructure.DemoSeeding;
 /// <summary>
 /// Narrow, explicitly-scoped hard-delete capability used only to remove named legacy
 /// test/UAT artifacts before a demo reseed. This is deliberately NOT a general delete
-/// path on the core repositories — IIP's case/document/approval/audit repositories have
+/// path on the core repositories, IIP's case/document/approval/audit repositories have
 /// no Delete method by design, because the audit trail must be preservable. This service
 /// exists purely so a small, explicit, admin-triggered list of known-bad records can be
 /// purged (rows + their dependents) without adding a delete capability anywhere a normal

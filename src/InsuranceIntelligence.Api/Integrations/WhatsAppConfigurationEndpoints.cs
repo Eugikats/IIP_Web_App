@@ -4,6 +4,7 @@ using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.ClientPortal;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.WhatsApp;
@@ -14,9 +15,11 @@ namespace InsuranceIntelligence.Api.Integrations;
 /// Self-service WhatsApp Business API connection settings. AccessToken/AppSecret/VerifyToken are
 /// write-only from the browser's perspective: GetStatus never returns them, only whether each is
 /// present, so a saved secret can never be read back out through this API even by an admin.
-/// SaveConfiguration always validates against the real Meta Graph API before persisting anything —
+/// SaveConfiguration always validates against the real Meta Graph API before persisting anything,
 /// a wrong phone number id or expired token fails immediately with Meta's own (sanitized) reason,
-/// never a silent "saved" that only breaks on the next webhook.
+/// never a silent "saved" that only breaks on the next webhook. It then registers the webhook
+/// itself via Meta's subscribed_apps override (blueprint §4.3), the operator supplies the WABA
+/// id; IIP generates the verify token and never asks for it.
 /// </summary>
 public static class WhatsAppConfigurationEndpoints
 {
@@ -37,34 +40,12 @@ public static class WhatsAppConfigurationEndpoints
         }
 
         var configuration = await repository.GetAsync(scope, cancellationToken);
-        var channelProviderSelected = options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase);
-
         if (configuration is null)
         {
-            return Results.Ok(new WhatsAppConfigurationStatusResponse(
-                Connected: false,
-                PhoneNumberId: null,
-                BusinessDisplayName: null,
-                ConfiguredByUserId: null,
-                ConfiguredAt: null,
-                LastValidatedAt: null,
-                LastValidationStatus: null,
-                LastValidationError: null,
-                ChannelProviderActive: channelProviderSelected,
-                RequiresChannelProviderDeploymentChange: !channelProviderSelected));
+            return Results.Ok(WhatsAppConfigurationStatusResponse.NotConnected(BuildCallbackUrl(options)));
         }
 
-        return Results.Ok(new WhatsAppConfigurationStatusResponse(
-            Connected: configuration.IsActive,
-            PhoneNumberId: configuration.PhoneNumberId,
-            BusinessDisplayName: configuration.BusinessDisplayName,
-            ConfiguredByUserId: configuration.ConfiguredByUserId,
-            ConfiguredAt: configuration.ConfiguredAt,
-            LastValidatedAt: configuration.LastValidatedAt,
-            LastValidationStatus: configuration.LastValidationStatus,
-            LastValidationError: configuration.LastValidationError,
-            ChannelProviderActive: channelProviderSelected,
-            RequiresChannelProviderDeploymentChange: !channelProviderSelected));
+        return Results.Ok(ToResponse(configuration));
     }
 
     public static async Task<IResult> SaveConfiguration(
@@ -92,7 +73,7 @@ public static class WhatsAppConfigurationEndpoints
         if (string.IsNullOrWhiteSpace(request.PhoneNumberId)) missing["phoneNumberId"] = ["A WhatsApp phone number id is required."];
         if (string.IsNullOrWhiteSpace(request.AccessToken)) missing["accessToken"] = ["A permanent access token is required."];
         if (string.IsNullOrWhiteSpace(request.AppSecret)) missing["appSecret"] = ["The Meta app secret is required to verify inbound webhooks."];
-        if (string.IsNullOrWhiteSpace(request.VerifyToken)) missing["verifyToken"] = ["A webhook verify token is required."];
+        if (string.IsNullOrWhiteSpace(request.WabaId)) missing["wabaId"] = ["The WhatsApp Business Account id is required to register the webhook, find it in Meta Business Settings next to the phone number."];
         if (missing.Count > 0)
         {
             return Results.ValidationProblem(missing);
@@ -117,7 +98,7 @@ public static class WhatsAppConfigurationEndpoints
         }
 
         // Guide-through validation: confirm the credentials actually work against the real Meta
-        // API before anything is persisted — never store a connection that is silently broken.
+        // API before anything is persisted, never store a connection that is silently broken.
         var validation = await validationClient.ValidateAsync(
             options.WhatsApp.GraphBaseUrl,
             request.PhoneNumberId.Trim(),
@@ -129,21 +110,52 @@ public static class WhatsAppConfigurationEndpoints
             return Results.BadRequest(new { deliveryStatus = "ValidationFailed", message = validation.SafeError });
         }
 
+        // The verify token is generated here, not typed by the operator, it is a shared secret
+        // between IIP and Meta, never something a human needs to invent or remember (blueprint §4.3
+        // point 2). Reuses the same cryptographically random generator as claimant portal tokens.
+        var verifyToken = ClaimantTokenGenerator.GenerateRawToken();
+        var callbackUrl = BuildCallbackUrl(options);
+
+        string? webhookRegistrationStatus;
+        string? webhookRegistrationError;
+        if (callbackUrl is null)
+        {
+            webhookRegistrationStatus = "ManualRequired";
+            webhookRegistrationError = "This deployment has no configured public API base URL (INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL), the webhook cannot be auto-registered. Ask whoever manages your deployment to set it, or register manually in Meta Business Settings.";
+        }
+        else
+        {
+            var registration = await validationClient.RegisterWebhookAsync(
+                options.WhatsApp.GraphBaseUrl,
+                request.WabaId!.Trim(),
+                request.AccessToken.Trim(),
+                callbackUrl,
+                verifyToken,
+                options.WhatsApp.RequestTimeoutSeconds,
+                cancellationToken);
+            webhookRegistrationStatus = registration.Success ? "Registered" : "RegistrationFailed";
+            webhookRegistrationError = registration.Success ? null : registration.SafeError;
+        }
+
         var now = DateTimeOffset.UtcNow;
         var configuration = new WhatsAppChannelConfiguration
         {
             Scope = scope,
             PhoneNumberId = request.PhoneNumberId.Trim(),
+            WabaId = request.WabaId!.Trim(),
             BusinessDisplayName = string.IsNullOrWhiteSpace(request.BusinessDisplayName) ? validation.VerifiedName : request.BusinessDisplayName!.Trim(),
             EncryptedAccessToken = protector.Protect(request.AccessToken.Trim()),
             EncryptedAppSecret = protector.Protect(request.AppSecret.Trim()),
-            EncryptedVerifyToken = protector.Protect(request.VerifyToken.Trim()),
+            EncryptedVerifyToken = protector.Protect(verifyToken),
             IsActive = true,
             ConfiguredByUserId = userId,
             ConfiguredAt = now,
             LastValidatedAt = now,
             LastValidationStatus = "Success",
             LastValidationError = null,
+            WebhookCallbackUrl = callbackUrl,
+            WebhookRegistrationStatus = webhookRegistrationStatus,
+            WebhookRegistrationError = webhookRegistrationError,
         };
         await repository.SaveAsync(configuration, cancellationToken);
         await settingsProvider.RefreshAsync(cancellationToken);
@@ -152,17 +164,7 @@ public static class WhatsAppConfigurationEndpoints
             AuditEvent.WhatsAppConfigurationSaved(scope, userId, configuration.PhoneNumberId, auditReason, GetCorrelationId(httpContext)),
             cancellationToken);
 
-        return Results.Ok(new WhatsAppConfigurationStatusResponse(
-            Connected: true,
-            PhoneNumberId: configuration.PhoneNumberId,
-            BusinessDisplayName: configuration.BusinessDisplayName,
-            ConfiguredByUserId: configuration.ConfiguredByUserId,
-            ConfiguredAt: configuration.ConfiguredAt,
-            LastValidatedAt: configuration.LastValidatedAt,
-            LastValidationStatus: configuration.LastValidationStatus,
-            LastValidationError: configuration.LastValidationError,
-            ChannelProviderActive: options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase),
-            RequiresChannelProviderDeploymentChange: !options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase)));
+        return Results.Ok(ToResponse(configuration));
     }
 
     public static async Task<IResult> TestConfiguration(
@@ -247,6 +249,37 @@ public static class WhatsAppConfigurationEndpoints
         return Results.Ok(new { message = "WhatsApp connection removed." });
     }
 
+    // Built from a deployment-level setting, not derived from the inbound request's Host header,
+    // trusting a client-supplied host for a value registered with an external provider would let a
+    // spoofed Host header redirect Meta's webhook traffic elsewhere.
+    private static string? BuildCallbackUrl(InfrastructureOptions options) =>
+        string.IsNullOrWhiteSpace(options.ApiPublicBaseUrl)
+            ? null
+            : $"{options.ApiPublicBaseUrl!.TrimEnd('/')}/api/v1/integrations/whatsapp/webhook";
+
+    // Note: the ChannelProviderActive/RequiresChannelProviderDeploymentChange fields below are
+    // retired as of the Phase 1 DI fix (InfrastructureRegistration.cs registers the real WhatsApp
+    // inbound/outbound providers unconditionally now, see the blueprint's Phase 1 status table).
+    // A saved, validated connection here is live immediately; no deployment change is ever
+    // required. Kept as always-true/always-false rather than removed outright, so any client still
+    // reading them gets an honest (if now-constant) answer instead of a breaking API removal.
+    private static WhatsAppConfigurationStatusResponse ToResponse(WhatsAppChannelConfiguration configuration) =>
+        new(
+            Connected: configuration.IsActive,
+            PhoneNumberId: configuration.PhoneNumberId,
+            WabaId: configuration.WabaId,
+            BusinessDisplayName: configuration.BusinessDisplayName,
+            ConfiguredByUserId: configuration.ConfiguredByUserId,
+            ConfiguredAt: configuration.ConfiguredAt,
+            LastValidatedAt: configuration.LastValidatedAt,
+            LastValidationStatus: configuration.LastValidationStatus,
+            LastValidationError: configuration.LastValidationError,
+            WebhookCallbackUrl: configuration.WebhookCallbackUrl,
+            WebhookRegistrationStatus: configuration.WebhookRegistrationStatus,
+            WebhookRegistrationError: configuration.WebhookRegistrationError,
+            ChannelProviderActive: true,
+            RequiresChannelProviderDeploymentChange: false);
+
     private static string GetCorrelationId(HttpContext httpContext)
     {
         if (httpContext.Request.Headers.TryGetValue("X-Correlation-ID", out var header) && !string.IsNullOrWhiteSpace(header))
@@ -262,17 +295,25 @@ public sealed record WhatsAppSaveConfigurationRequest(
     string PhoneNumberId,
     string AccessToken,
     string AppSecret,
-    string VerifyToken,
+    string WabaId,
     string? BusinessDisplayName);
 
 public sealed record WhatsAppConfigurationStatusResponse(
     bool Connected,
     string? PhoneNumberId,
+    string? WabaId,
     string? BusinessDisplayName,
     string? ConfiguredByUserId,
     DateTimeOffset? ConfiguredAt,
     DateTimeOffset? LastValidatedAt,
     string? LastValidationStatus,
     string? LastValidationError,
+    string? WebhookCallbackUrl,
+    string? WebhookRegistrationStatus,
+    string? WebhookRegistrationError,
     bool ChannelProviderActive,
-    bool RequiresChannelProviderDeploymentChange);
+    bool RequiresChannelProviderDeploymentChange)
+{
+    public static WhatsAppConfigurationStatusResponse NotConnected(string? callbackUrl) =>
+        new(false, null, null, null, null, null, null, null, null, callbackUrl, null, null, true, false);
+}

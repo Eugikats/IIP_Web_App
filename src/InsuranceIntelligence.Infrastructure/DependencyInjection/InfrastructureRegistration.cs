@@ -80,7 +80,7 @@ public static class InfrastructureRegistration
         services.AddSingleton<IGraphMailProvider, GraphMailProvider>();
         if (options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
         {
-            // TestIngestion pulls live mail through IGraphMailProvider in Graph mode — this type is
+            // TestIngestion pulls live mail through IGraphMailProvider in Graph mode, this type is
             // registered to satisfy DI but is never actually invoked there.
             services.AddSingleton<IEmailIngestionProvider, DisabledEmailIngestionProvider>();
             services.AddScoped<IEmailAttachmentProcessor, GraphEmailAttachmentProcessor>();
@@ -91,46 +91,70 @@ public static class InfrastructureRegistration
             services.AddSingleton<IEmailAttachmentProcessor, InsuranceIntelligence.Infrastructure.Email.LocalEmailAttachmentProcessor>();
         }
         services.AddScoped<IEmailToCaseMatcher, RuleBasedEmailToCaseMatcher>();
+        // Connection model (docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md
+        // §3): tenant-configured provider credentials, validated against the real provider before
+        // persisting, encrypted at rest, write-only from the browser once saved, generalized from
+        // the WhatsApp settings screen to every connection type. Scoped: resolves through
+        // IIntegrationConnectionRepository, which is DbContext-backed.
+        services.AddScoped<InsuranceIntelligence.Domain.Integrations.IIntegrationConnectionRepository, InsuranceIntelligence.Infrastructure.Connections.EfIntegrationConnectionRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Agents.IAgentBehaviourProfileRepository, InsuranceIntelligence.Infrastructure.Agents.EfAgentBehaviourProfileRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Products.IProductRepository, InsuranceIntelligence.Infrastructure.Products.EfProductRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Workflow.ICommunicationTemplateRepository, InsuranceIntelligence.Infrastructure.Workflow.EfCommunicationTemplateRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Documents.IDocumentLabelledExampleRepository, InsuranceIntelligence.Infrastructure.Documents.EfDocumentLabelledExampleRepository>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionSecretProtector, InsuranceIntelligence.Infrastructure.Connections.DataProtectionConnectionSecretProtector>();
+        services.AddSingleton<ISmsProviderFactory, SmsProviderFactory>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, EgoSmsConnectionValidator>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, AfricasTalkingConnectionValidator>();
+        services.AddSingleton<IEmailSendingProviderFactory, EmailSendingProviderFactory>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, SmtpConnectionValidator>();
+
+        // ISmsProvider/IEmailSendingProvider are always the tenant-aware resolvers now, the
+        // three-step order (tenant Connection, then env var fallback, then Not configured).
+        // SmsProvider/AfricasTalking and CommunicationProvider/GraphMail options below still govern
+        // step 2, the fallback, exactly as before. Scoped because they depend on the scoped
+        // connection repository.
+        services.AddScoped<ISmsProvider, TenantAwareSmsProvider>();
+        services.AddScoped<IEmailSendingProvider, TenantAwareEmailSendingProvider>();
+
+        // Policy lookup port (blueprint §14 Phase 7, WO 7.1/7.2), same tenant-aware resolution
+        // shape as SMS/email above, except the fallback (this platform's own policy storage) is
+        // always a meaningful answer, so there is no third "not configured" state.
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, InsuranceIntelligence.Infrastructure.Policies.GenericRestPolicyConnectionValidator>();
+        services.AddScoped<InsuranceIntelligence.Infrastructure.Policies.InternalPolicyLookupProvider>();
+        services.AddScoped<InsuranceIntelligence.Domain.Policies.IPolicyLookupProvider, InsuranceIntelligence.Infrastructure.Policies.TenantAwarePolicyLookupProvider>();
+
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
         {
-            services.AddSingleton<ICommunicationSendingProvider, GraphCommunicationSendingProvider>();
+            services.AddScoped<ICommunicationSendingProvider, GraphCommunicationSendingProvider>();
         }
         else
         {
-            services.AddSingleton<ICommunicationSendingProvider, DisabledCommunicationSendingProvider>();
-        }
-        if (options.SmsProvider.Equals("AfricasTalking", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddHttpClient<ISmsProvider, AfricasTalkingSmsProvider>();
-        }
-        else
-        {
-            services.AddSingleton<ISmsProvider, DisabledSmsProvider>();
+            services.AddScoped<ICommunicationSendingProvider, DisabledCommunicationSendingProvider>();
         }
 
-        // Registered unconditionally — the settings screen (WhatsAppConfigurationEndpoints) must be
+        // Registered unconditionally, the settings screen (WhatsAppConfigurationEndpoints) must be
         // able to capture, validate, and store WhatsApp credentials even before an operator has
         // also switched INSURANCEINTELLIGENCE_CHANNEL_PROVIDER to WhatsAppCloudApi at the
-        // deployment level. Which concrete inbound/outbound provider class is active (real vs
-        // Disabled) still follows that env var below — this only controls where their credentials
-        // come from once active.
+        // deployment level.
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppChannelConfigurationRepository, EfWhatsAppChannelConfigurationRepository>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IWhatsAppCredentialProtector, DataProtectionWhatsAppCredentialProtector>();
         services.AddSingleton<IWhatsAppRuntimeSettingsProvider, WhatsAppRuntimeSettingsProvider>();
         services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppGraphValidationClient, MetaGraphWhatsAppValidationClient>();
 
-        if (options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
-            services.AddHttpClient<IWhatsAppOutboundProvider, WhatsAppCloudApiOutboundProvider>();
-            services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
-        }
-        else
-        {
-            services.AddSingleton<IWhatsAppInboundProvider, DisabledWhatsAppInboundProvider>();
-            services.AddSingleton<IWhatsAppOutboundProvider, DisabledWhatsAppOutboundProvider>();
-            services.AddSingleton<IWhatsAppAttachmentProcessor, DisabledWhatsAppAttachmentProcessor>();
-        }
+        // The real inbound/outbound providers are registered unconditionally now (blueprint §3.3,
+        // §4.4) rather than gated on INSURANCEINTELLIGENCE_CHANNEL_PROVIDER, this was previously
+        // the whole reason a validated WhatsApp connection still needed a redeploy to go live.
+        // It is safe to drop the gate because WhatsAppCloudApiInboundProvider/OutboundProvider
+        // already fail closed on their own: IsConfigured is exactly
+        // `settingsProvider.Current is not null`, and WhatsAppRuntimeSettingsProvider already
+        // implements the same three-step resolution as TenantAwareSmsProvider, a saved, active
+        // tenant connection first, then INSURANCEINTELLIGENCE_WHATSAPP_* environment configuration,
+        // then null (honestly "not configured", identical to what DisabledWhatsAppInboundProvider
+        // reported). ChannelProvider itself is untouched and still governs the separate
+        // AzureProviderStartupValidator fail-closed check for Staging/Production.
+        services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
+        services.AddHttpClient<IWhatsAppOutboundProvider, WhatsAppCloudApiOutboundProvider>();
+        services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
 
         services.AddScoped<IWhatsAppToCaseMatcher, RuleBasedWhatsAppToCaseMatcher>();
         services.AddScoped<WhatsAppInboundDocumentIngestionService>();
@@ -169,6 +193,7 @@ public static class InfrastructureRegistration
         services.AddScoped<IApprovalRepository, EfApprovalRepository>();
         services.AddScoped<ICustomerUpdateRepository, EfCustomerUpdateRepository>();
         services.AddScoped<IClaimReviewRequestRepository, EfClaimReviewRequestRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Customers.IContactDetailChangeRequestRepository, EfContactDetailChangeRequestRepository>();
         services.AddScoped<ICommunicationRepository, EfCommunicationRepository>();
         services.AddScoped<ITenantConfigurationRepository, EfTenantConfigurationRepository>();
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
@@ -208,6 +233,18 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
         services.AddScoped<ICommandCenterConversationRepository, EfCommandCenterConversationRepository>();
         services.AddScoped<IWhatsAppMessageRepository, EfWhatsAppMessageRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerConversationRepository, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfCustomerConversationRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Compliance.IConsentRepository, InsuranceIntelligence.Infrastructure.Compliance.EfConsentRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Retention.IRetentionReminderRepository, InsuranceIntelligence.Infrastructure.Retention.EfRetentionReminderRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Cases.ISatisfactionResponseRepository, InsuranceIntelligence.Infrastructure.Cases.EfSatisfactionResponseRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Compliance.IRetentionPolicyRepository, InsuranceIntelligence.Infrastructure.Compliance.EfRetentionPolicyRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.Compliance.IRetentionEnforcementService, InsuranceIntelligence.Application.Compliance.RetentionEnforcementService>();
+        // Shared by the MailboxIngestion timer and the admin test-ingestion endpoint, so the
+        // scheduled and manual collection paths are provably the same code rather than two that
+        // can drift -- the same rationale RetentionEnforcementService is registered under.
+        services.AddScoped<InsuranceIntelligence.Application.Integrations.IMailboxIngestionService, InsuranceIntelligence.Application.Integrations.MailboxIngestionService>();
+        services.AddScoped<InsuranceIntelligence.Application.Compliance.IDataSubjectRightsService, InsuranceIntelligence.Application.Compliance.DataSubjectRightsService>();
+        services.AddSingleton<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerIntentClassifier, InsuranceIntelligence.Domain.CustomerAssistant.KeywordCustomerIntentClassifier>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.DemoSeeding.IDemoDataPurgeService, InsuranceIntelligence.Infrastructure.DemoSeeding.EfDemoDataPurgeService>();
         services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.DemoSeedService>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
@@ -223,7 +260,7 @@ public static class InfrastructureRegistration
     /// <summary>
     /// True only for developer-machine execution (LocalTest / Development / Test), where
     /// non-durable in-memory storage is permitted. Deny-by-default: any profile that is not
-    /// explicitly one of these — including anything unrecognised — is treated as deployed and
+    /// explicitly one of these, including anything unrecognised, is treated as deployed and
     /// refused, so a typo or a new profile name can never silently unlock in-memory storage
     /// in an environment that may hold real data.
     /// </summary>
@@ -256,6 +293,8 @@ public static class InfrastructureRegistration
             EntraAudience = configuration["INSURANCEINTELLIGENCE_ENTRA_AUDIENCE"],
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
             ClientPortalBaseUrl = configuration["INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL"],
+            SmsWebhookSharedSecret = configuration["INSURANCEINTELLIGENCE_SMS_WEBHOOK_SHARED_SECRET"],
+            ApiPublicBaseUrl = configuration["INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL"],
             AzureRegion = configuration["INSURANCEINTELLIGENCE_AZURE_REGION"],
             DataResidencyCountry = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_COUNTRY"],
             DataResidencyGeography = configuration["INSURANCEINTELLIGENCE_DATA_RESIDENCY_GEOGRAPHY"],
@@ -357,6 +396,7 @@ public static class InfrastructureRegistration
                 IntegrationUserId = configuration["WhatsApp:IntegrationUserId"],
                 GraphBaseUrl = configuration["WhatsApp:GraphBaseUrl"] ?? "https://graph.facebook.com/v24.0",
                 RequestTimeoutSeconds = int.TryParse(configuration["WhatsApp:RequestTimeoutSeconds"], out var waTimeout) ? waTimeout : 20,
+                AssistantAutoReplyEnabled = bool.TryParse(configuration["WhatsApp:AssistantAutoReplyEnabled"], out var autoReply) && autoReply,
             },
             ProviderHealth = new ProviderHealthOptions
             {

@@ -45,7 +45,8 @@ export type Permission =
   | "ManageAgentWorkflows"
   | "ReviewAgentWorkItems"
   | "ViewBilling"
-  | "ManageTenantOnboarding";
+  | "ManageTenantOnboarding"
+  | "ManageProducts";
 
 export const STAFF_ROLES: Role[] = [
   "Admin", "ClaimsOfficer", "ClaimsSupervisor", "CustomerService", "Broker",
@@ -60,6 +61,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "ViewChannels", "ViewCustomers", "ViewSalesLeads", "ManageSalesLeads", "ViewFraudSignals",
   "ViewUnderwriting", "ManageAgents", "ViewAgentWorkflows", "RunAgentWorkflows",
   "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling", "ManageTenantOnboarding",
+  "ManageProducts",
 ];
 
 // Development presentation contract only. Protected runtimes use server-resolved permissions.
@@ -69,7 +71,7 @@ export const PREVIEW_PERMISSIONS: Record<Role, Permission[]> = {
   ITAdmin: [
     "ViewCommandCenter", "ViewAuditLog", "ExportEvidencePack", "ConfigureIntegrations",
     "ManageTenantSettings", "ManageAgents", "ViewAgentWorkflows", "RunAgentWorkflows",
-    "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling",
+    "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling", "ManageProducts",
   ],
   ClaimsOfficer: [
     "ViewCommandCenter", "CreateClaim", "UploadDocument", "ViewAssignedClaims", "ViewAiOutputs",
@@ -81,7 +83,7 @@ export const PREVIEW_PERMISSIONS: Record<Role, Permission[]> = {
     "ApproveSettlementWorkflowStep", "ViewAuditLog", "ExportEvidencePack", "ViewAiOutputs",
     "OverrideAiRecommendation", "ManageCustomerCommunications", "SendCustomerUpdate", "ViewChannels",
     "ViewCustomers", "ViewFraudSignals", "ViewUnderwriting", "ViewAgentWorkflows",
-    "RunAgentWorkflows", "ReviewAgentWorkItems",
+    "RunAgentWorkflows", "ReviewAgentWorkItems", "ManageProducts",
   ],
   CustomerService: [
     "ViewCommandCenter", "CreateClaim", "UploadDocument", "ViewAssignedClaims", "ViewAiOutputs",
@@ -119,6 +121,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/communications", requiredAny: ["ViewAssignedClaims", "ViewAllClaims"] },
   { path: "/app/acquisition", requiredAny: ["ViewSalesLeads"] },
   { path: "/app/policy", requiredAny: ["ViewAiOutputs", "ManageKnowledgeBase"] },
+  { path: "/app/retention", requiredAny: ["ViewCustomers"] },
   { path: "/app/fraud", requiredAny: ["ViewFraudSignals"] },
   { path: "/app/underwriting", requiredAny: ["ViewUnderwriting"] },
   { path: "/app/knowledge", requiredAny: ["ManageKnowledgeBase"] },
@@ -131,15 +134,20 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/support", requiredAny: ["ConfigureIntegrations", "ManageTenantSettings"] },
   { path: "/app/audit", requiredAny: ["ViewAuditLog"] },
   { path: "/app/admin/users", requiredAny: ["ManageTenantSettings"] },
+  // Prefix-matched below covers /app/admin/agents/{key}/behaviour too, no separate entry needed.
   { path: "/app/admin/agents", requiredAny: ["ManageAgents"] },
+  { path: "/app/admin/products", requiredAny: ["ManageProducts"] },
+  { path: "/app/admin/policy-import", requiredAny: ["ManageProducts"] },
   { path: "/app/admin/billing", requiredAny: ["ViewBilling"] },
   { path: "/app/admin/onboarding", requiredAny: ["ManageTenantOnboarding"] },
   { path: "/app/admin/tenant-policy", requiredAny: ["ManageTenantSettings"] },
   { path: "/app/admin/whatsapp", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin/email", requiredAny: ["ConfigureIntegrations"] },
+  { path: "/app/admin/connections", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin", requiredAny: ["ManageTenantSettings"], exact: true },
-  // Every authenticated user reaches their own profile/settings — it has no admin-only content.
+  // Every authenticated user reaches their own profile/settings, it has no admin-only content.
   { path: "/app/settings", requiredAny: [] },
+  { path: "/app/assistant", requiredAny: ["ViewCommandCenter"] },
   { path: "/app", requiredAny: ["ViewCommandCenter"], exact: true },
 ];
 
@@ -204,10 +212,10 @@ export function canPreviewPermission(role: Role, permission: Permission): boolea
 }
 
 // Gates a single action control (a button, not a whole route) on the signed-in user's REAL
-// server-resolved permissions. Never gate an action on the preview role switcher — it changes
+// server-resolved permissions. Never gate an action on the preview role switcher, it changes
 // what a user sees, never their actual authority (RoleSwitcher.tsx). Callers follow the same
 // usePreviewRole pattern as canAccess/canAccessWithPermissions for route gating: in local-test
-// or visual-parity mode, check canPreviewPermission(role, permission) instead — that mirrors
+// or visual-parity mode, check canPreviewPermission(role, permission) instead, that mirrors
 // what the backend's x-demo-role header would actually grant in that mode.
 export function hasPermission(permissions: readonly string[], permission: Permission): boolean {
   return permissions.includes(permission);

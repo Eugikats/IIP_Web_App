@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Security.Claims;
 using InsuranceIntelligence.Api.Cases;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.Cases;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Administration;
@@ -9,12 +10,15 @@ using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Communications;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace InsuranceIntelligence.Api.Tests;
 
@@ -34,6 +38,9 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             httpContext,
             CancellationToken.None);
 
@@ -49,8 +56,11 @@ public sealed class CaseEndpointsTests
         Assert.Equal("UAX 123B", response.MotorFnolDetails?.VehicleRegistration);
         Assert.Equal("17:40", response.MotorFnolDetails?.AccidentTime);
         Assert.Equal("Kampala Road", response.MotorFnolDetails?.AccidentLocation);
-        Assert.Equal(1, response.Audit.EventCount);
-        Assert.Equal("case.created", response.Audit.LastActionName);
+        // Two audit events now: case.created, then fnol.acknowledgement (WO 5.2), ValidRequest()
+        // supplies a CustomerPhone, so the FNOL acknowledgement actually sends via the fake
+        // always-succeeds communication provider and writes its own audit event.
+        Assert.Equal(2, response.Audit.EventCount);
+        Assert.Equal("fnol.acknowledgement", response.Audit.LastActionName);
         Assert.Contains(response.AllowedActions, action =>
             action.Action == "openCaseReview"
             && action.RequiredPermission == "ViewAssignedClaims");
@@ -64,6 +74,13 @@ public sealed class CaseEndpointsTests
             action.Action == "draftCustomerUpdate"
             && action.RequiredPermission == "ManageCustomerCommunications");
         Assert.Empty(response.BlockedActions);
+
+        // WO 5.3: the completeness check is visible immediately at submission, no documents
+        // exist yet, so every required document starts out Missing.
+        Assert.NotNull(response.RequiredDocuments);
+        Assert.Contains("Claim form", response.RequiredDocuments!.Required);
+        Assert.Contains("Police abstract", response.RequiredDocuments.Required);
+        Assert.Equal(response.RequiredDocuments.Required.Count, response.RequiredDocuments.Missing.Count);
     }
 
     [Fact]
@@ -91,6 +108,9 @@ public sealed class CaseEndpointsTests
                     "Dr. Kintu", "Malaria treatment", "Phone", null)),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             httpContext,
             CancellationToken.None);
 
@@ -116,6 +136,9 @@ public sealed class CaseEndpointsTests
             ValidRequest() with { CustomerName = "" },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             httpContext,
             CancellationToken.None);
 
@@ -133,6 +156,9 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             new DefaultHttpContext(),
             CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
@@ -165,6 +191,9 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             context,
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -200,6 +229,9 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             context,
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -220,6 +252,9 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             createContext,
             CancellationToken.None);
         var (_, created) = await ExecuteAsync<CaseResponse>(createResult);
@@ -248,6 +283,9 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             createContext,
             CancellationToken.None);
         var (_, created) = await ExecuteAsync<CaseResponse>(createResult);
@@ -280,6 +318,9 @@ public sealed class CaseEndpointsTests
             ValidRequest(),
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             createContext,
             CancellationToken.None);
         var (_, created) = await ExecuteAsync<CaseResponse>(createResult);
@@ -343,6 +384,9 @@ public sealed class CaseEndpointsTests
             ValidRequest() with { CustomerName = "Tenant A Customer", PolicyNumber = "POL-TENANT-A-001" },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             tenantAContext,
             CancellationToken.None);
         var (createAStatus, caseA) = await ExecuteAsync<CaseResponse>(createA);
@@ -351,6 +395,9 @@ public sealed class CaseEndpointsTests
             ValidRequest() with { CustomerName = "Tenant B Customer", PolicyNumber = "POL-TENANT-B-001" },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             tenantBContext,
             CancellationToken.None);
         var (createBStatus, caseB) = await ExecuteAsync<CaseResponse>(createB);
@@ -489,6 +536,110 @@ public sealed class CaseEndpointsTests
     }
 
     [Fact]
+    public async Task AssignCase_NotifiesTheNewlyAssignedOfficer()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+        var context = ScopedContext("ClaimsSupervisor", "supervisor-1");
+
+        await CaseEndpoints.AssignCase(
+            created.CaseId,
+            new AssignCaseRequest("handler-42", "Motor Review", "Supervisor allocation"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None,
+            dependencies.NotificationEmitter);
+
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var notifications = await dependencies.NotificationRepository.ListForUserAsync(scope, "handler-42", 10, CancellationToken.None);
+        var notification = Assert.Single(notifications);
+        Assert.Equal(NotificationType.ClaimAssigned, notification.Type);
+        Assert.Equal(created.CaseId, notification.CaseId);
+        Assert.Contains("reassigned", notification.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AssignCase_ReassigningToTheSamePerson_DoesNotNotifyAgain()
+    {
+        var dependencies = CreateDependencies();
+        var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
+        var context = ScopedContext("ClaimsSupervisor", "supervisor-1");
+        await CaseEndpoints.AssignCase(
+            created.CaseId,
+            new AssignCaseRequest("handler-42", "Motor Review", "First assignment"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None,
+            dependencies.NotificationEmitter);
+
+        // A supervisor updating the team label without changing the named person is not a
+        // reassignment, the officer already knows about their own claim.
+        await CaseEndpoints.AssignCase(
+            created.CaseId,
+            new AssignCaseRequest("handler-42", "Motor Review Renamed", "Relabel only"),
+            dependencies.CaseRepository,
+            dependencies.AuditRepository,
+            context,
+            CancellationToken.None,
+            dependencies.NotificationEmitter);
+
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var notifications = await dependencies.NotificationRepository.ListForUserAsync(scope, "handler-42", 10, CancellationToken.None);
+        Assert.Single(notifications);
+    }
+
+    [Fact]
+    public async Task CreateCase_WithAnAssignedOfficerFromWorkloadRouting_NotifiesThem()
+    {
+        var dependencies = CreateDependencies();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        // Seed prior team history so CaseAssignmentPolicy names a real owner rather than leaving
+        // the new claim team-only assigned (outcome E: "fixing the null assignment at intake").
+        await dependencies.CaseRepository.SaveAsync(new ClaimCase
+        {
+            CaseId = Guid.NewGuid(),
+            Scope = scope,
+            CustomerName = "Seed Customer",
+            PolicyNumber = "POL-SEED",
+            ProductLine = "Motor",
+            ClaimType = "Accident",
+            Channel = "WebPortal",
+            IncidentDate = new DateOnly(2026, 5, 1),
+            IncidentDescription = "Seeded for assignment.",
+            Status = CaseStatus.Closed,
+            CompletenessScore = 50,
+            AssignedUserId = "handler-quiet",
+            AssignedTeam = ClaimRoutingPolicy.ClaimsIntakeTeam,
+            CreatedByUserId = "seed",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = "seed-correlation",
+        });
+        var httpContext = ScopedContext();
+
+        var result = await CaseEndpoints.CreateCase(
+            ValidRequest(),
+            dependencies.Service,
+            dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
+            httpContext,
+            CancellationToken.None,
+            triageQueue: null,
+            notificationEmitter: dependencies.NotificationEmitter);
+        var (_, response) = await ExecuteAsync<CaseResponse>(result);
+
+        Assert.Equal("handler-quiet", response!.AssignedUserId);
+        var notifications = await dependencies.NotificationRepository.ListForUserAsync(scope, "handler-quiet", 10, CancellationToken.None);
+        var notification = Assert.Single(notifications);
+        Assert.Equal(NotificationType.ClaimAssigned, notification.Type);
+        Assert.Equal(response.CaseId, notification.CaseId);
+    }
+
+    [Fact]
     public async Task EscalateCase_SetsEscalatedUrgentAndWritesAudit()
     {
         var dependencies = CreateDependencies();
@@ -519,7 +670,7 @@ public sealed class CaseEndpointsTests
     public async Task EscalateCase_NotifiesTheAssignedOfficer_ButNotAnotherUser()
     {
         // WO-14: proves the real "claim escalated" event actually creates a real, recipient-scoped
-        // in-app notification — not just an audit row.
+        // in-app notification, not just an audit row.
         var dependencies = CreateDependencies();
         var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
         await CaseEndpoints.AssignCase(
@@ -553,7 +704,7 @@ public sealed class CaseEndpointsTests
     [Fact]
     public async Task ListCases_NotifiesTheAssignedOfficerOnceForABreachedSla_NotOnEveryList()
     {
-        // WO-14: SLA breach has no one-shot event — it's recomputed on every list read — so this
+        // WO-14: SLA breach has no one-shot event, it's recomputed on every list read, so this
         // proves NotifyOnceAsync's dedup actually works end to end through the real endpoint.
         var dependencies = CreateDependencies();
         var created = await dependencies.Service.CreateCaseAsync(ValidCommand(), CancellationToken.None);
@@ -604,6 +755,9 @@ public sealed class CaseEndpointsTests
             },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -621,6 +775,9 @@ public sealed class CaseEndpointsTests
             ValidRequest() with { ClaimType = "Third-party property damage" },
             dependencies.Service,
             dependencies.AuditRepository,
+            dependencies.AcknowledgementService,
+            dependencies.ChecklistProvider,
+            dependencies.Logger,
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, response) = await ExecuteAsync<CaseResponse>(result);
@@ -643,7 +800,7 @@ public sealed class CaseEndpointsTests
 
         var result = await CaseEndpoints.EscalateCase(
             created.CaseId,
-            new EscalateCaseRequest("Injury confirmed — route to designated human.", null),
+            new EscalateCaseRequest("Injury confirmed, route to designated human.", null),
             dependencies.CaseRepository,
             dependencies.AuditRepository,
             dependencies.NotificationEmitter,
@@ -713,7 +870,7 @@ public sealed class CaseEndpointsTests
             ValidCommand() with
             {
                 ClaimType = "WhatsApp Intake",
-                IncidentDescription = "Reported via WhatsApp — no description provided; documents attached for review.",
+                IncidentDescription = "Reported via WhatsApp, no description provided; documents attached for review.",
                 RequiresConfirmation = true
             },
             CancellationToken.None);
@@ -857,15 +1014,52 @@ public sealed class CaseEndpointsTests
         var auditRepository = new InMemoryAuditRepository();
         var scoringService = new CompletenessScoringService();
         var notificationRepository = new InMemoryNotificationRepository();
+        var checklistProvider = new StaticDocumentChecklistProvider(scoringService);
+        var acknowledgementService = new FnolAcknowledgementService(
+            checklistProvider,
+            new AlwaysSucceedsCommunicationSendingProvider(),
+            new InMemoryCommunicationRepository(),
+            auditRepository);
         return new Dependencies(
             new CaseIntakeService(caseRepository, auditRepository),
             caseRepository,
             new InMemoryCaseDocumentRepository(),
-            new StaticDocumentChecklistProvider(scoringService),
+            checklistProvider,
             auditRepository,
             new BasicSlaCalculator(),
             new NotificationService(new TenantContextAccessor(), notificationRepository),
-            notificationRepository);
+            notificationRepository,
+            acknowledgementService,
+            NullLogger<CaseFnolAcknowledgementLogMarker>.Instance);
+    }
+
+    private sealed class AlwaysSucceedsCommunicationSendingProvider : ICommunicationSendingProvider
+    {
+        public Task<CommunicationSendResult> SendEmailAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CommunicationSendResult("Sent", "fake-email-provider-id", null));
+
+        public Task<CommunicationSendResult> SendSmsAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CommunicationSendResult("Sent", "fake-sms-provider-id", null));
+    }
+
+    private sealed class InMemoryCommunicationRepository : ICommunicationRepository
+    {
+        private readonly List<Communication> communications = [];
+
+        public Task SaveAsync(Communication communication, CancellationToken cancellationToken = default)
+        {
+            communications.Add(communication);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyCollection<Communication>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Communication>>(communications.Where(c => c.Scope.Matches(scope)).ToArray());
+
+        public Task<IReadOnlyCollection<Communication>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Communication>>(communications.Where(c => c.CaseId == caseId && c.Scope.Matches(scope)).ToArray());
+
+        public Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(communications.SingleOrDefault(c => c.Scope.Matches(scope) && c.ProviderMessageId == providerMessageId));
     }
 
     private static CreateCaseRequest ValidRequest() =>
@@ -980,5 +1174,7 @@ public sealed class CaseEndpointsTests
         IAuditRepository AuditRepository,
         ISlaCalculator SlaCalculator,
         INotificationEmitter NotificationEmitter,
-        InMemoryNotificationRepository NotificationRepository);
+        InMemoryNotificationRepository NotificationRepository,
+        IFnolAcknowledgementService AcknowledgementService,
+        ILogger<CaseFnolAcknowledgementLogMarker> Logger);
 }

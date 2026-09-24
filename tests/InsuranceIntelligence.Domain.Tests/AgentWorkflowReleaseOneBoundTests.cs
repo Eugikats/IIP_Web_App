@@ -4,7 +4,7 @@ using InsuranceIntelligence.Domain.AgentWorkflows;
 namespace InsuranceIntelligence.Domain.Tests;
 
 /// <summary>
-/// Seam: Release 1 orchestration allow-list — agents, tools, and graph keys that
+/// Seam: Release 1 orchestration allow-list, agents, tools, and graph keys that
 /// may publish or execute on the current path (RF-04).
 /// </summary>
 public sealed class AgentWorkflowReleaseOneBoundTests

@@ -7,7 +7,13 @@ public enum TeamsNotificationType
     ApprovalRequired,
     SlaAtRisk,
     SlaBreached,
-    CustomerUpdatePending
+    CustomerUpdatePending,
+
+    /// <summary>Outcome P: "capture interest as a lead in the existing list and route it to a
+    /// licensed person." A lead has no assigned officer at creation (nothing decided that yet),
+    /// so routing is a broadcast to the sales channel, the same shape ApprovalRequired already
+    /// uses for a queue with no single named recipient.</summary>
+    LeadCreated
 }
 
 public sealed record TeamsNotificationRequest(

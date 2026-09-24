@@ -29,7 +29,7 @@ async function authorizedHeaders(role: string): Promise<Record<string, string>> 
   };
 }
 
-// WO-14: real client for GET/POST /api/v1/notifications — the bell previously advertised an
+// WO-14: real client for GET/POST /api/v1/notifications, the bell previously advertised an
 // unread state that had no backing domain at all. No hardcoded count or sample rows (A5); an
 // empty feed renders as zero, never a fabricated placeholder.
 export function useNotifications() {

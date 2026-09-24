@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace InsuranceIntelligence.Infrastructure.Persistence;
 
 /// <summary>
-/// Cross-case document library read repository — lists all case documents for a
+/// Cross-case document library read repository, lists all case documents for a
 /// tenant/workspace, newest first.
 /// </summary>
 public sealed class EfDocumentReadRepository(InsuranceIntelligenceDbContext dbContext)

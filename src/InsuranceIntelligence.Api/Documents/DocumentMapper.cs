@@ -41,7 +41,7 @@ public static class DocumentMapper
         "card"
     ];
 
-    public static DocumentResponse ToResponse(CaseDocument document) =>
+    public static DocumentResponse ToResponse(CaseDocument document, decimal confidenceThreshold = 0.8m) =>
         new(
             document.DocumentId,
             document.CaseId,
@@ -51,7 +51,7 @@ public static class DocumentMapper
             document.DocumentType.ToString(),
             document.ProcessingStatus.ToString(),
             document.Classification.ConfidenceScore,
-            ToFieldResponses(document),
+            ToFieldResponses(document, confidenceThreshold),
             document.ValidationWarnings
                 .Select(ToWarningResponse)
                 .ToArray(),
@@ -220,7 +220,7 @@ public static class DocumentMapper
         warning.Severity.Equals("error", StringComparison.OrdinalIgnoreCase)
         || warning.Severity.Equals("critical", StringComparison.OrdinalIgnoreCase);
 
-    private static IReadOnlyCollection<DocumentFieldVerificationResponse> ToFieldResponses(CaseDocument document)
+    private static IReadOnlyCollection<DocumentFieldVerificationResponse> ToFieldResponses(CaseDocument document, decimal confidenceThreshold)
     {
         var corrections = document.Extraction.FieldCorrections
             ?? new Dictionary<string, DocumentFieldCorrection>();
@@ -253,7 +253,7 @@ public static class DocumentMapper
                     correction?.CorrectedValue ?? field.Value,
                     correction?.CorrectedValue,
                     confidence,
-                    VerificationStatus(document, correction, confidence, warnings),
+                    VerificationStatus(document, correction, confidence, warnings, confidenceThreshold),
                     Sensitivity(field.Key),
                     warnings,
                     correction?.CorrectedAt,
@@ -267,7 +267,8 @@ public static class DocumentMapper
         CaseDocument document,
         DocumentFieldCorrection? correction,
         decimal? confidence,
-        IReadOnlyCollection<DocumentValidationWarningResponse> warnings)
+        IReadOnlyCollection<DocumentValidationWarningResponse> warnings,
+        decimal confidenceThreshold)
     {
         if (correction is not null)
         {
@@ -279,7 +280,7 @@ public static class DocumentMapper
             return "Approved";
         }
 
-        return confidence is < 0.8m || warnings.Count > 0
+        return confidence < confidenceThreshold || warnings.Count > 0
             ? "NeedsReview"
             : "Extracted";
     }
@@ -313,7 +314,7 @@ public static class DocumentMapper
 
 public static class DocumentActionState
 {
-    public static IReadOnlyCollection<string> AllowedActions(CaseDocument document)
+    public static IReadOnlyCollection<string> AllowedActions(CaseDocument document, decimal confidenceThreshold = 0.8m)
     {
         var actions = new List<string> { "RequestReplacement", "Escalate" };
         if (!document.Extraction.Approved)
@@ -321,7 +322,7 @@ public static class DocumentActionState
             actions.Add("VerifyFields");
         }
 
-        if (!document.Extraction.Approved && document.Classification.ConfidenceScore >= 0.8m && document.ValidationWarnings.Count == 0)
+        if (!document.Extraction.Approved && document.Classification.ConfidenceScore >= confidenceThreshold && document.ValidationWarnings.Count == 0)
         {
             actions.Add("ApproveExtraction");
         }
@@ -329,9 +330,9 @@ public static class DocumentActionState
         return actions;
     }
 
-    public static IReadOnlyCollection<BlockedActionResponse> BlockedActions(CaseDocument document)
+    public static IReadOnlyCollection<BlockedActionResponse> BlockedActions(CaseDocument document, decimal confidenceThreshold = 0.8m)
     {
-        if (document.Extraction.Approved || (document.Classification.ConfidenceScore >= 0.8m && document.ValidationWarnings.Count == 0))
+        if (document.Extraction.Approved || (document.Classification.ConfidenceScore >= confidenceThreshold && document.ValidationWarnings.Count == 0))
         {
             return [];
         }
@@ -341,7 +342,30 @@ public static class DocumentActionState
             new BlockedActionResponse(
                 "ApproveExtraction",
                 "HUMAN_VERIFICATION_REQUIRED",
-                "Low-confidence or warned extraction requires human verification before approval.")
+                LowConfidenceReason(document, confidenceThreshold))
         ];
+    }
+
+    /// <summary>Outcome K: "a low confidence document lands in a person's queue with the reason
+    /// shown" -- names the actual number and threshold rather than a generic sentence, so the
+    /// reason is genuinely useful, not just present.</summary>
+    public static string LowConfidenceReason(CaseDocument document, decimal confidenceThreshold = 0.8m)
+    {
+        var reasons = new List<string>();
+        if (document.Classification.ConfidenceScore < confidenceThreshold)
+        {
+            reasons.Add($"classified as {document.DocumentType} at {document.Classification.ConfidenceScore:P0} confidence, below the {confidenceThreshold:P0} review threshold");
+        }
+
+        if (document.ValidationWarnings.Count > 0)
+        {
+            reasons.Add(document.ValidationWarnings.Count == 1
+                ? $"1 validation warning ({document.ValidationWarnings.First().Message})"
+                : $"{document.ValidationWarnings.Count} validation warnings");
+        }
+
+        return reasons.Count == 0
+            ? "Human verification required before approval."
+            : $"Needs review: {string.Join(", ", reasons)}.";
     }
 }

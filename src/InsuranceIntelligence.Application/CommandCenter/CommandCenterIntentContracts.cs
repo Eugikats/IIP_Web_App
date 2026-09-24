@@ -9,7 +9,27 @@ public enum IntentType
     GenerateManagementSummary,
     PrepareCustomerUpdateDraft,
     AnswerPolicyQuestion,
+
+    /// <summary>Instructions rather than questions: see CommandCenterActionIntentParser.</summary>
+    DraftCustomerMessage,
+    AssignClaim,
+    SummarizeClaim,
+
+    /// <summary>A greeting, a thank-you, a goodbye, or "what can you do?". Not an operational
+    /// query and not a policy question -- it needs an answer in kind, not a claims briefing.</summary>
+    Conversational,
     Unsupported
+}
+
+/// <summary>Which of the four conversational openers was recognised, so the reply can answer the
+/// thing that was actually said rather than greeting someone who just said thank you.</summary>
+public static class ConversationalKind
+{
+    public const string Key = "conversationalKind";
+    public const string Greeting = "greeting";
+    public const string Thanks = "thanks";
+    public const string Farewell = "farewell";
+    public const string Capabilities = "capabilities";
 }
 
 public sealed record IntentClassificationResult(
@@ -56,6 +76,27 @@ public sealed class DeterministicThenAiIntentClassifier : IIntentClassifier
     {
         var normalized = (message ?? string.Empty).Trim().ToLowerInvariant();
 
+        // Checked first, and only ever against the whole message. Someone typing "hey" is not
+        // asking for a workload briefing, and answering one with a claims count reads as an
+        // assistant that cannot hear. Whole-message matching is what makes putting this first
+        // safe: "hey, which claims are overdue?" is an operational query that merely opens with
+        // a greeting, and still routes to the queue below.
+        var conversational = NormalizeForConversation(normalized);
+        if (conversational.Length > 0)
+        {
+            if (Greetings.Contains(conversational)) return Conversational(ConversationalKind.Greeting);
+            if (Thanks.Contains(conversational)) return Conversational(ConversationalKind.Thanks);
+            if (Farewells.Contains(conversational)) return Conversational(ConversationalKind.Farewell);
+            if (CapabilityQuestions.Contains(conversational)) return Conversational(ConversationalKind.Capabilities);
+        }
+
+        // Instructions ("send a message to Eugene", "assign CLM-726E3445 to me") before any of the
+        // question intents below, which would otherwise read "message" or "claim" as a query.
+        if (CommandCenterActionIntentParser.TryParse(message, out var actionIntent))
+        {
+            return actionIntent;
+        }
+
         // Vocabulary that only ever appears in a policy-knowledge question, never in an
         // operational queue query. Checked first so these route to grounded retrieval + AI
         // rather than falling through to an operational intent that happens to share a word.
@@ -100,7 +141,7 @@ public sealed class DeterministicThenAiIntentClassifier : IIntentClassifier
 
         // Nothing operational matched. If the user actually asked something (rather than
         // greeting or typing a fragment), send it to grounded retrieval + AI instead of
-        // silently returning the standing workspace briefing — answering "how does X work?"
+        // silently returning the standing workspace briefing, answering "how does X work?"
         // with an unrelated claims summary reads as a broken assistant.
         if (LooksLikeAQuestion(normalized))
         {
@@ -109,6 +150,79 @@ public sealed class DeterministicThenAiIntentClassifier : IIntentClassifier
 
         return Result(IntentType.Unsupported, 0m);
     }
+
+    // Whole-message sets, deliberately not substring patterns. Each entry is what a person
+    // actually types on its own line in a chat box; anything longer is a real request.
+    private static readonly HashSet<string> Greetings = new(StringComparer.Ordinal)
+    {
+        "hi", "hii", "hiii", "hey", "heyy", "heya", "hello", "helo", "hiya", "yo", "sup",
+        "hi there", "hey there", "hello there", "hi all", "hello all", "hi team", "hello team",
+        "good morning", "good afternoon", "good evening", "good day",
+        "morning", "afternoon", "evening", "greetings", "howdy", "hola",
+        "how are you", "how are you doing", "how are you today", "hows it going",
+        "how is it going", "how do you do", "whats up", "you there", "are you there",
+    };
+
+    private static readonly HashSet<string> Thanks = new(StringComparer.Ordinal)
+    {
+        "thanks", "thank you", "thanx", "thx", "ty", "cheers", "ta",
+        "thanks a lot", "thanks so much", "thank you very much", "thank you so much",
+        "much appreciated", "appreciated", "i appreciate it", "nice one",
+        "ok thanks", "okay thanks", "great thanks", "perfect thanks", "brilliant thanks",
+        "got it thanks", "that helps", "that helps thanks", "very helpful",
+    };
+
+    private static readonly HashSet<string> Farewells = new(StringComparer.Ordinal)
+    {
+        "bye", "byebye", "goodbye", "good bye", "see you", "see you later", "see ya", "later",
+        "good night", "goodnight", "night", "thats all", "that is all", "thats all thanks",
+        "nothing else", "no thanks", "im done", "i am done", "we are done", "were done",
+    };
+
+    private static readonly HashSet<string> CapabilityQuestions = new(StringComparer.Ordinal)
+    {
+        "help", "help me", "what can you do", "what can you help with", "what do you do",
+        "what can i ask", "what can i ask you", "what should i ask", "how do i use this",
+        "how does this work", "what is this", "who are you", "what are you", "options",
+    };
+
+    private const char StraightApostrophe = '\u0027';
+    private const char CurlyApostrophe = '\u2019';
+
+    /// <summary>Letters and digits only, single-spaced, with apostrophes removed rather than
+    /// turned into gaps -- so "how's it going?!" and "Hows it going" both reach the same key.</summary>
+    private static string NormalizeForConversation(string lowered)
+    {
+        var builder = new System.Text.StringBuilder(lowered.Length);
+        var pendingSpace = false;
+        foreach (var character in lowered)
+        {
+            if (character == StraightApostrophe || character == CurlyApostrophe)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(character))
+            {
+                if (pendingSpace && builder.Length > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                builder.Append(character);
+                pendingSpace = false;
+            }
+            else
+            {
+                pendingSpace = true;
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static IntentClassificationResult Conversational(string kind) =>
+        Result(IntentType.Conversational, 0.95m, new Dictionary<string, string?> { [ConversationalKind.Key] = kind });
 
     private static readonly string[] QuestionOpeners =
         ["what", "how", "why", "when", "which", "who", "where", "does", "do ", "can ", "is ", "are ", "should", "explain", "tell me"];

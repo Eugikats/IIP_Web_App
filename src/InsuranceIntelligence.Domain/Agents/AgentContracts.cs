@@ -4,7 +4,7 @@ namespace InsuranceIntelligence.Domain.Agents;
 
 /// <summary>
 /// Deterministic result of classifying a user message to a module + intent.
-/// No LLM is involved in this classification — it is keyword/pattern-based only.
+/// No LLM is involved in this classification, it is keyword/pattern-based only.
 /// </summary>
 public sealed record AgentRoutingDecision(
     string Module,
@@ -178,7 +178,7 @@ public interface IAgentIntentRouter
 
 /// <summary>
 /// Thin wrapper around a named, typed operation (e.g. GetCommandCenterMetrics).
-/// Tools are pure query objects — no writes, no LLM calls, tenant-scoped.
+/// Tools are pure query objects, no writes, no LLM calls, tenant-scoped.
 /// </summary>
 public interface IAgentTool
 {

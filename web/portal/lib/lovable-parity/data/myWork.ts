@@ -30,6 +30,8 @@ export type MyWorkItem = {
   approvalRequired: boolean;
   href: string;
   updatedAt: string;
+  caseReference?: string | null;
+  reason: string;
 };
 
 export type MyWorkResponse = {

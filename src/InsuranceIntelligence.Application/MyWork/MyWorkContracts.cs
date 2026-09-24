@@ -71,7 +71,11 @@ public sealed record MyWorkItemDto(
     MyWorkEvidenceReadiness EvidenceReadiness,
     bool ApprovalRequired,
     string Href,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    // Outcome I: the claim's own reference, never its raw CaseId, and a one-sentence reason built
+    // from this item's real fields (MyWorkRanking), mirroring the Brief's ranked-with-reasons rule.
+    string? CaseReference,
+    string Reason);
 
 public sealed record MyWorkSummary(
     int Total,

@@ -2,9 +2,9 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.0 |
+| Version | 1.1 (§5.2 amended 2026-09-11; §6 revised 2026-09-22, chat-first landing replaced by the brief-first landing) |
 | Date | 2026-09-08 |
-| Status | **Approved interaction direction.** Owns the shell navigation model, the chat-first landing, progressive disclosure, and the attention/interruption policy for `web/portal`. |
+| Status | **Approved interaction direction.** Owns the shell navigation model, the brief-first landing, progressive disclosure, and the attention/interruption policy for `web/portal`. |
 | Applies to | The authenticated staff portal `/app/*`. |
 | Relationship to existing IA | `iip_information_architecture_navigation_and_screen_inventory.md` continues to own the canonical object model, route IDs, route-to-label map, and permission-derived visibility. **This document supersedes its navigation-layer and shell-chrome content**: the grouped multi-section sidebar it describes is replaced by the model in §5 here. Where the two conflict on chrome, this document wins; where they conflict on a route's existence or authority, that document and current code win. |
 | Companion documents | `iip_design_language_v2.md` (how it looks), `iip_workflow_legibility_contract.md` (what state must be visible), `iip_ui_craft_guardrails.md` (craft floor) |
@@ -35,7 +35,7 @@ These are established interaction-design principles. Each is followed by the bin
 
 | Principle | Rule in IIP |
 |---|---|
-| **Hick's Law** — decision time grows with the number and complexity of choices. | The icon rail carries **at most seven** destinations. Any further destination lives inside one of those seven, not beside them. |
+| **Hick's Law** — decision time grows with the number and complexity of choices. | The rail groups destinations under named headings rather than presenting one long undifferentiated list (§5.2, amended 2026-09-11) — grouping, not a hard destination ceiling, is what keeps a longer list decidable. |
 | **Recognition over recall** (Nielsen heuristic 6) | The user never needs to remember an identifier, a filter, or a state between screens. Context travels with them: opening a claim from chat carries the claim reference, the question that led there, and the filter that produced it. |
 | **Visibility of system status** (heuristic 1) | Every surface answers "what is happening and what is the system doing" without the user asking. Every asynchronous action reports its outcome. No silent failures, no silent successes. |
 | **Match between system and the real world** (heuristic 2) | Labels use the insurer's vocabulary, not ours. "Claim", "policy", "assessor", "police abstract" — never "item", "entity", "record", "object", "resource". |
@@ -77,46 +77,54 @@ If a screen cannot answer one of these, the screen is wrong. Do not solve it wit
 └──────┴──────────────────┴──────────────────────────────────────────┘
 ```
 
-Geometry is specified in `iip_design_language_v2.md` §3. The rail is always present. The contextual panel appears only where a screen has genuine sub-navigation or history. The content column never centres itself in the viewport.
+Geometry is specified in `iip_design_language_v2.md` §3. The rail is always present; 64px is its collapsed width, and it expands to roughly 240px per §5.2's amendment below. The contextual panel appears only where a screen has genuine sub-navigation or history. The content column never centres itself in the viewport.
 
-### 5.2 The seven rail destinations
+### 5.2 The rail destinations (amended 2026-09-11)
 
-This list is exhaustive. Adding an eighth requires removing one and amending this document.
+**This section originally specified a flat, exhaustive list of seven rail destinations, with every other real screen nested as a tab inside one of the seven (§5.3, as it read before this amendment).** That nesting was never built: Customers, Communications, Knowledge, Acquisition, Policy, Fraud, Underwriting, and Audit all shipped as full, real, permission-gated top-level pages — not tabs — and stayed that way. The result was a rail that only ever pointed at seven of roughly fifteen real destinations, with no link anywhere in the product to the rest; verified before this amendment by grepping every `.tsx` file in `web/portal` for a link to each orphaned route and finding none. This is what "some icons cannot be reached" and "I found it hard to know where to find it" — a working platform's own author, about his own claims queue — actually meant in practice, per the readiness blueprint (`docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md` §10).
 
-| Order | Destination | Route | Icon (lucide) | What it holds |
-|---:|---|---|---|---|
-| 1 | **Assistant** | `/app` | `message-square` | The default landing surface. Conversation with the agents, scoped to this user's tenant and permissions. |
-| 2 | **My work** | `/app/work-items` | `list-checks` | Everything awaiting *this user*, across every workflow. The single queue. |
-| 3 | **Claims** | `/app/claims` | `file-search` | Every claim in the tenant, filterable. The system of record view. |
-| 4 | **Inbox** | `/app/channels` | `inbox` | Inbound customer contact — email, WhatsApp — before it becomes a claim. |
-| 5 | **Documents** | `/app/documents` | `file-text` | Document intelligence: extraction, classification, review. |
-| 6 | **Automation** | `/app/flows` | `git-branch` | Agents and flows: what runs, what it did, what it escalated. |
-| 7 | **Insights** | `/app/executive` | `line-chart` | Volume, resolution rate, handle time, exceptions, SLA. |
+Two ways to close that gap were on the table: build the original tabs-in-seven plan for real (the larger, arguably more disciplined fix — collapsing Customers/Communications/Knowledge/Acquisition/Policy/Fraud/Underwriting/Audit into tabs inside Claims, Inbox, Automation and Insights, with per-tab URL state per §5.5), or accept that these are load-bearing top-level screens today and give the rail room for them. This amendment takes the second path, because the first is a substantially larger, riskier change (new tab scaffolding across eight screens, migrating each one's state into query strings) that the platform's other gaps did not leave room for in this pass. **The first path remains open** — nothing here forecloses eventually building the tabs-in-seven design properly; this amendment records the interim decision and its reasoning so that choice is made deliberately later, not rediscovered.
 
-Pinned to the bottom of the rail, below the flexible gap: **Settings** (`/app/settings`), **Search** (`Ctrl/Cmd+K`, opens the command palette rather than navigating), and the **user avatar** (menu: profile, sign out, and — for permitted roles only — Admin console).
+The rail is now **expandable** rather than fixed-width: collapsed, it is the original 64px icon-only rail; expanded (the default for a new user, persisted per-browser thereafter), it is roughly 240px wide with a text label beside every icon, and destinations are organised into named groups so the list stays scannable rather than one long undifferentiated column. Hick's Law (§2) still governs — grouping is exactly the technique for keeping a longer list decidable — but the "seven, and no more" ceiling is retired.
+
+| Group | Destination | Route | Icon (lucide) | What it holds |
+|---|---|---|---|---|
+| Work | **Brief** | `/app` | `home` | The default landing surface (§6, revised 2026-09-22). At most five ranked items from real fields, each with one reason and one action, plus what was already handled. |
+| Work | **Assistant** | `/app/assistant` | `message-square` | Full conversation with the agents, scoped to this user's tenant and permissions. Reached from the rail or from the persistent ask bar on every other screen. |
+| Work | **My work** | `/app/work-items` | `list-checks` | Everything awaiting *this user*, across every workflow. The single queue. |
+| Work | **Claims** | `/app/claims` | `file-search` | Every claim in the tenant, filterable. The system of record view. |
+| Work | **Inbox** | `/app/channels` | `inbox` | Inbound customer contact — email, WhatsApp — before it becomes a claim. |
+| Customers | **Customers** | `/app/customers` | `users` | The customer record: policies, contact history, cases. |
+| Customers | **Acquisition** | `/app/acquisition` | `building-2` | Leads inbox — manual capture today; channel ingestion lands here once built (blueprint §8). |
+| Customers | **Communications** | `/app/communications` | `mail` | Every outbound customer message, across channels, with delivery status. |
+| Intelligence | **Documents** | `/app/documents` | `file-text` | Document intelligence: extraction, classification, review. |
+| Intelligence | **Knowledge** | `/app/knowledge` | `book-open` | Approved sources for grounded AI answers — upload, classify, approve. |
+| Intelligence | **Policy** | `/app/policy` | `scroll-text` | AI-prepared policy/coverage guidance, grounded and cited. |
+| Intelligence | **Fraud** | `/app/fraud` | `shield-alert` | Advisory fraud signals — never a determination. |
+| Intelligence | **Underwriting** | `/app/underwriting` | `gavel` | AI-prepared underwriting signals for human review. |
+| Operations | **Automation** | `/app/flows` | `git-branch` | Agents and flows: what runs, what it did, what it escalated. |
+| Operations | **Insights** | `/app/executive` | `line-chart` | Volume, resolution rate, handle time, exceptions, SLA. |
+| Operations | **Audit** | `/app/audit` | `shield-check` | The audit trail: every consequential action, its reason, its reviewer. |
+
+Pinned to the bottom of the rail: the **user avatar** only. Its menu carries **Search** (`Ctrl/Cmd+K` also opens it directly), **Settings**, **Integrations**, **Support**, **Sign out**, and — for permitted roles only — **Admin console**. Settings and Search were previously separate pinned icons alongside the avatar; collapsing them into one pinned control is itself part of this amendment; see §5.4a.
 
 ### 5.3 Where the other surfaces went
 
-Nothing is deleted; everything is nested where a user would look for it. This mapping is binding.
-
-| Current destination | New home |
-|---|---|
-| Command Center | Becomes **Assistant** (rail 1). |
-| Customers | Reached from a claim, from Inbox, or via search. Not a rail destination — nobody starts their day at "Customers". |
-| Communications | A tab within **Inbox**. |
-| Knowledge | A tab within **Automation**, plus retrieval inside the Assistant. |
-| Acquisition, Policy guidance, Risk signals, Underwriting | Tabs or filters within **Claims** and **My work**, surfaced on the claim they concern. A risk signal that lives on its own screen is a signal nobody sees. |
-| Audit & compliance | Within **Insights**, and inline on every object as its history. |
-| Integrations & health | Within **Settings**. |
-| Admin console and its children | Behind the avatar menu, permission-gated. Administration is not daily work and must not occupy daily-work space. |
+Nothing is deleted. Command Center became **Assistant** (unchanged by this amendment). Admin console and its children (Users, Agents, Billing, Onboarding, Tenant Policy, WhatsApp, Email, Connections) stay behind the avatar menu — administration is not daily work and must not occupy daily-work rail space, exactly as originally specified.
 
 ### 5.4 Rail behaviour
 
-- Active state: `background --color-primary-soft`, glyph `--color-primary`.
+- Active state: `background --color-primary-soft`, glyph (and label, when expanded) `--color-primary`.
 - Hover: `background --color-bg-page`, glyph `--color-text-secondary`.
-- Every rail button has a tooltip on hover and focus, and an `aria-label`. Icons alone are acceptable here because the set is small, stable, and learned within a session — this is the one place icon-only navigation is permitted.
+- Collapsed, every rail button has a tooltip on hover/focus and an `aria-label` — icon-only navigation remains acceptable there because the set per group is small and learned within a session. Expanded, the visible label is the primary label and the tooltip is redundant.
 - A destination with items awaiting this user shows a count badge: a `16px` pill at the top-right of the button, `--color-danger-dot` background, white `10px/700` numeral, capped at `9+`.
 - A destination the user's permissions exclude is **not rendered**. Never render a disabled destination the user can never use.
+
+### 5.4a Expand/collapse and the pinned-region fix
+
+A second, independent defect the same investigation surfaced: the rail split into a pinned top (logo, workspace badge), one scrollable middle (destinations), and a pinned bottom (role switcher, Settings, Search, avatar) — and on a short viewport the pinned regions could squeeze the scrollable middle below the height of its own content, with no visible scrollbar affordance on a 64px-wide column to signal that anything was clipped. Fixed by: reducing the pinned bottom to the avatar alone (Settings and Search moved into its menu, as above); adding a top/bottom clipping-fade that only renders when the destination list is actually taller than its container; and letting the destination list's scroll region take priority over the pinned chrome around it. Verify this at **768px height**, not only 768px width — the defect does not reproduce on a narrow-but-tall viewport.
+
+Expand/collapse state persists per browser (`localStorage`, key `iip.sidebar.expanded`) and defaults to expanded for a browser that has never set it — collapsed is an expert affordance a user opts into, not a default that hides the product's own navigation on day one.
 
 ### 5.5 Within-screen navigation
 
@@ -124,15 +132,25 @@ Tabs, not new destinations. Tabs use the filter-pill treatment from the design l
 
 ---
 
-## 6. The chat-first landing
+## 6. The brief-first landing (revised 2026-09-22)
 
-### 6.1 Why chat is the front door
+### 6.0 Why this revises the original chat-first decision
 
-The user's first screen is the Assistant at `/app`. The reasoning is the same as a coding agent's: enormous capability underneath, one text field on top. A claims officer should not have to know which of seven screens holds the answer to "what's stuck?" — they should be able to ask.
+This section originally made the Assistant, not a ranked queue, the user's first screen, reasoning that enormous capability underneath a single text field beats making a claims officer learn which of several screens holds the answer to "what's stuck?". That reasoning holds for *discovery* — a question whose shape is not known in advance. It does not hold for the single most common reason a person opens IIP: to find out what needs them right now, which is not a question that benefits from being typed. A ranked list answers it in under a second; a chat turn, however fast, does not. The build contract (`docs/01-strategy-requirements-roadmap/IIP_NEXT_BUILD_PROMPT.md`, outcome F) made this call explicitly: replace the empty-chat landing with the brief, and keep chat, not remove it, as a bar available everywhere. This section, its acceptance criteria, and the rail table in §5.2 are corrected to match; the reasoning is recorded here so the decision is deliberate, not silently overwritten.
 
-Chat is the **front door, not the whole house.** It answers, and then it hands off into the real surfaces where work is done. A chat that can only talk is a demo. See §7.
+### 6.1 The brief is the front door
 
-### 6.2 The empty state
+The user's first screen at `/app` is the **brief**: at most five items ranked by a deterministic Domain rule from real fields — document completeness, working days against the product's own service standard (§B of the build contract), value at stake, advisory risk signals, and how long the customer has waited — each with a one-sentence reason built from those same fields and exactly one primary action. Below it, a short **"Handled for you"** list drawn from the audit trail, so the person sees what already moved without having to ask. Honest empty state when nothing needs the person: say so plainly, do not show chips or prompts that lead nowhere.
+
+The brief never explains itself with a model. The reason sentence is assembled from the fields the ranking rule already used; a model may narrate a result this rule produced, never produce the result itself (AGENTS.md non-negotiable 2).
+
+### 6.2 Chat is a bar, not the whole house
+
+Chat is still everywhere, just not the first thing a person sees. A persistent, single-line ask affordance sits at the foot of every `/app/*` screen except the Assistant's own (which already has a full composer); submitting a question there hands off to the full conversation at `/app/assistant`, carrying the question with it. The Assistant screen itself is unchanged from what this section originally specified for `/app`: the same orb-greeting-chips empty state (§6.2a), the same reply and handoff contract (§7), the same governance (§6.3).
+
+A chat that can only talk is still a demo — the handoff contract in §7 is what stops it from being one, and it applies identically at its new address.
+
+### 6.2a The Assistant screen's empty state
 
 Exactly four elements, vertically centred, and nothing else: the orb, a greeting, a subhead, and up to three suggestion chips.
 
@@ -284,8 +302,8 @@ These are not a separate compliance workstream; they are the same problem.
 
 A navigation or interaction change is done when:
 
-1. The rail holds seven destinations or fewer and every one is reachable and permission-correct.
-2. `/app` renders the Assistant with dynamically generated chips derived from this user's real state.
+1. Every real, permission-gated screen has a rail destination or is one click from one, grouped sensibly (§5.2, amended 2026-09-11), and every destination is reachable and permission-correct.
+2. `/app` renders the brief: at most five items ranked from real fields, each with a one-sentence reason and one primary action, plus "Handled for you"; honestly empty when there is no work. `/app/assistant` renders the Assistant with dynamically generated chips derived from this user's real state (§6.2a), and a persistent ask bar reaches it from every other screen (§6.2).
 3. Every assistant reply concerning objects ends in action cards that carry context on click.
 4. Every toast raised satisfies all four conditions in §8.2, and the bell holds everything.
 5. Every filter and tab selection round-trips through the URL.

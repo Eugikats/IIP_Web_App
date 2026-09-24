@@ -1,12 +1,14 @@
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Api.Local;
 
 namespace InsuranceIntelligence.Api.Cases;
 
 public static class CaseMapper
 {
-    public static CaseResponse ToResponse(ClaimCase claimCase, IReadOnlyCollection<AuditEvent> auditEvents)
+    public static CaseResponse ToResponse(ClaimCase claimCase, IReadOnlyCollection<AuditEvent> auditEvents, DocumentCompletenessChecklist? checklist = null)
     {
         var lastEvent = auditEvents.OrderByDescending(x => x.Timestamp).FirstOrDefault();
 
@@ -43,6 +45,12 @@ public static class CaseMapper
                 lastEvent?.Timestamp,
                 lastEvent?.CorrelationId),
             CaseActions.Allowed(claimCase),
-            CaseActions.Blocked(claimCase));
+            CaseActions.Blocked(claimCase),
+            checklist is null ? null : new RequiredDocumentsResponse(
+                checklist.RequiredDocuments.Select(StaticDocumentChecklistProvider.LabelFor).ToArray(),
+                checklist.OptionalDocuments.Select(StaticDocumentChecklistProvider.LabelFor).ToArray(),
+                checklist.MissingRequiredDocuments.Select(missing => missing.Label).ToArray()),
+            claimCase.ClaimedAmount,
+            claimCase.AdvisoryRiskSignals);
     }
 }

@@ -14,7 +14,7 @@ namespace InsuranceIntelligence.Domain.Tests;
 //   - IAuditWriter            -> AuditWriter + EfAuditEventRepository (hexagonal split)
 //   - IProviderHealthCheck    -> ProviderHealthCheckEf (SQL-aware, wraps AzureProviderHealthCheck)
 // (Originally written by W1.4 against PermissionServiceEf/AuditWriterEf/TenantContextAccessorEf,
-//  which were redundant duplicates removed in W1.3 — see the Phase 1 correction note in the plan.)
+//  which were redundant duplicates removed in W1.3, see the Phase 1 correction note in the plan.)
 public sealed class CorePortsEfImplTests
 {
     [Fact]

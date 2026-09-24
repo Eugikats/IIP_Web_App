@@ -144,7 +144,7 @@ function NetworkBanner({ network }: { network: NetworkKey }) {
 function MediatedBoundary({ role, surface }: { role: string; surface: Surface }) {
   return (
     <div className="border-2 border-slate-900 bg-slate-100 p-4" role="status">
-      <h3 className="font-bold">Mediated handoff—no staff workspace access</h3>
+      <h3 className="font-bold">Mediated handoff-no staff workspace access</h3>
       <p className="mt-2">{role} does not enter {surface.title}. The authorized staff owner sends or receives only the minimum necessary information through the approved channel.</p>
       <p className="mt-2"><strong>Safe next step:</strong> acknowledge the external submission, issue a non-sensitive reference, and route it to the owned human queue.</p>
     </div>
@@ -239,7 +239,7 @@ function VariantA({ surface, role, state, viewport, actualCompact, network, onCo
       <div className={`grid gap-3 ${compact ? "grid-cols-1" : "grid-cols-[minmax(0,2fr)_minmax(230px,1fr)]"}`}>
         <main className="space-y-3">
           <StateRegion state={state} />
-          <Box label={`${surface.pattern} — primary work`}>
+          <Box label={`${surface.pattern}, primary work`}>
             <SurfaceContent surface={surface} role={role} state={state} compact={compact} />
           </Box>
         </main>
@@ -267,7 +267,7 @@ function VariantB({ surface, role, state, viewport, actualCompact, network, onCo
         </nav>
         <main className="space-y-2">
           <StateRegion state={state} />
-          <Box label={`${surface.pattern} — dense work canvas`}>
+          <Box label={`${surface.pattern}, dense work canvas`}>
             {!populated || compact
               ? <SurfaceContent surface={surface} role={role} state={state} compact />
               : <table className="w-full table-fixed border-collapse text-left text-xs">
@@ -343,7 +343,7 @@ function PrototypeSwitcher({ current, onChange }: { current: VariantKey; onChang
   return (
     <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border-2 border-white bg-slate-950 p-2 text-white shadow-xl" aria-label="Prototype variant switcher">
       <button type="button" className="pointer-events-auto flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white" onClick={() => cycle(-1)} aria-label="Previous layout variant">←</button>
-      <span className="min-w-44 text-center text-sm font-bold">{active.key} — {active.name}</span>
+      <span className="min-w-44 text-center text-sm font-bold">{active.key}, {active.name}</span>
       <button type="button" className="pointer-events-auto flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white" onClick={() => cycle(1)} aria-label="Next layout variant">→</button>
     </div>
   );
@@ -404,7 +404,7 @@ export default function Release1LowFidelityPrototype({ initialVariant }: { initi
       <form className="mx-auto mb-4 grid max-w-[1180px] gap-3 border-2 border-slate-800 bg-white p-4 md:grid-cols-2 xl:grid-cols-5" aria-label="Prototype controls" onSubmit={(event) => event.preventDefault()}>
         <label className="font-semibold">Critical surface
           <select value={surfaceId} onChange={(event) => setSurfaceId(event.target.value)} className="mt-1 min-h-11 w-full border-2 border-slate-600 px-2 font-normal">
-            {surfaces.map((item) => <option key={item.id} value={item.id}>{item.id} — {item.title}</option>)}
+            {surfaces.map((item) => <option key={item.id} value={item.id}>{item.id}, {item.title}</option>)}
           </select>
         </label>
         <label className="font-semibold">Release role

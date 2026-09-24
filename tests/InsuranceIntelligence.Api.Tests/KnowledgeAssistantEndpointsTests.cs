@@ -172,7 +172,7 @@ public sealed class KnowledgeAssistantEndpointsTests
     // WO-17 made classification atomic with approval for every document going forward, but it
     // also made ApproveKnowledgeDocument refuse to run a second time on a document that is
     // already Approved. Any document approved before that gate existed is therefore left
-    // permanently at Sensitivity=Unknown with no governed path back — retrieval-ineligible
+    // permanently at Sensitivity=Unknown with no governed path back, retrieval-ineligible
     // forever. This is exactly the state a production knowledge base was found in (5 approved
     // documents, 0 retrieval-eligible). ClassifyKnowledgeDocument is the fix.
     [Fact]
@@ -554,7 +554,7 @@ public sealed class KnowledgeAssistantEndpointsTests
     public async Task PolicyQuestion_DisabledPolicyIntelligenceAgent_RefusesInsteadOfAnswering()
     {
         // WO-06: this is the endpoint entry point AssistantEndpoints.AskPolicyQuestion uses,
-        // distinct from — but the same agent key as — the policy-answer path Command Center
+        // distinct from, but the same agent key as, the policy-answer path Command Center
         // reaches through BuildPolicyAnswerResponseAsync. Both must be gated.
         var dependencies = CreateDependencies();
         await UploadAndApproveAsync(dependencies);
@@ -759,7 +759,7 @@ public sealed class KnowledgeAssistantEndpointsTests
             RetrievalResult retrievalResult,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
-                "The assistant provider was invoked despite the agent being disabled — the kill switch was bypassed.");
+                "The assistant provider was invoked despite the agent being disabled, the kill switch was bypassed.");
     }
 
     private sealed class NeedsReviewAssistantProvider : IAiAssistantProvider

@@ -4,7 +4,7 @@ using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Application.Agents.Tools;
 
-/// <summary>claims.attention.read — full claim snapshot list (docs §9).</summary>
+/// <summary>claims.attention.read, full claim snapshot list (docs §9).</summary>
 public sealed class ClaimsAttentionReadTool(ClaimSnapshotLoader loader, IPermissionService permissionService)
     : AgentToolBase(permissionService)
 {
@@ -22,7 +22,7 @@ public sealed class ClaimsAttentionReadTool(ClaimSnapshotLoader loader, IPermiss
     }
 }
 
-/// <summary>claims.sla.read — SLA-focused projection; values are backend-calculated (docs §9).</summary>
+/// <summary>claims.sla.read, SLA-focused projection; values are backend-calculated (docs §9).</summary>
 public sealed class ClaimsSlaReadTool(ClaimSnapshotLoader loader, IPermissionService permissionService)
     : AgentToolBase(permissionService)
 {
@@ -41,7 +41,7 @@ public sealed class ClaimsSlaReadTool(ClaimSnapshotLoader loader, IPermissionSer
     }
 }
 
-/// <summary>documents.gaps.read — uses the configured claim-type/product checklist only (docs §9).</summary>
+/// <summary>documents.gaps.read, uses the configured claim-type/product checklist only (docs §9).</summary>
 public sealed class DocumentsGapsReadTool(ClaimSnapshotLoader loader, IPermissionService permissionService)
     : AgentToolBase(permissionService)
 {
@@ -60,7 +60,7 @@ public sealed class DocumentsGapsReadTool(ClaimSnapshotLoader loader, IPermissio
     }
 }
 
-/// <summary>approvals.queue.read — only approvals visible to the current user/role (docs §9).</summary>
+/// <summary>approvals.queue.read, only approvals visible to the current user/role (docs §9).</summary>
 public sealed class ApprovalsQueueReadTool(
     InsuranceIntelligence.Domain.Workflow.IApprovalRepository approvalRepository,
     IPermissionService permissionService) : AgentToolBase(permissionService)

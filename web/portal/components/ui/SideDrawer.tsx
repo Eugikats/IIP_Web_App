@@ -5,13 +5,13 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 /**
- * Side drawer — design language v2 §8.16.
+ * Side drawer, design language v2 §8.16.
  *
  * Right-anchored, 440px (92vw max), full height, surface background, modal
  * shadow, hairline left border. Used for evidence, document preview and audit
  * detail: anything the user must consult *without leaving the decision they are
  * making*. The underlying page stays visible and inert (§8.16), which is the
- * whole point — a full navigation would lose the decision context.
+ * whole point, a full navigation would lose the decision context.
  *
  * Focus rules match the modal (§8.14): focus moves in on open, is trapped while
  * open, Escape closes, and focus returns to the trigger on close.
@@ -60,7 +60,7 @@ export function SideDrawer({
 
     window.requestAnimationFrame(() => (focusable()[0] ?? panel)?.focus());
 
-    // §8.16 — the page behind stays visible but inert, so neither pointer nor
+    // §8.16, the page behind stays visible but inert, so neither pointer nor
     // assistive technology can reach it while a decision is being supported.
     const background = Array.from(document.body.children).filter(
       (child): child is HTMLElement => child instanceof HTMLElement && child !== host,
@@ -108,7 +108,7 @@ export function SideDrawer({
 
   return createPortal(
     <>
-      {/* Scrim — §8.14 backdrop value. No blur: glassmorphism is banned. */}
+      {/* Scrim, §8.14 backdrop value. No blur: glassmorphism is banned. */}
       <div
         className="fixed inset-0 z-30 bg-dls-scrim/45 transition-opacity duration-dls-base ease-dls motion-reduce:transition-none"
         onClick={close}

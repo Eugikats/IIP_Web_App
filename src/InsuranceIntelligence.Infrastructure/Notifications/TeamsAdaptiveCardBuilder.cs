@@ -54,7 +54,7 @@ public static class TeamsAdaptiveCardBuilder
         };
 
         // No caller currently supplies a deep link, and TeamsNotification.DeepLinkUrl defaults to
-        // string.Empty — so the previous `?? "https://localhost:3000/approvals"` fallback never
+        // string.Empty, so the previous `?? "https://localhost:3000/approvals"` fallback never
         // fired and every card shipped a "View in Portal" button with an empty url. Render the
         // action only when there is a real absolute link to open: a button that goes nowhere is a
         // dead control, and a localhost default would be worse than no button in a real tenant.

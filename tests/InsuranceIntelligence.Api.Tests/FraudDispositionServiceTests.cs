@@ -6,7 +6,7 @@ using InsuranceIntelligence.LocalTestDoubles;
 
 namespace InsuranceIntelligence.Api.Tests;
 
-// WO-19: proves the fraud signal disposition workflow — permission-gated, actor-recorded on every
+// WO-19: proves the fraud signal disposition workflow, permission-gated, actor-recorded on every
 // transition (I7), and only movable in the documented order.
 public sealed class FraudDispositionServiceTests
 {
@@ -132,7 +132,7 @@ public sealed class FraudDispositionServiceTests
     [Fact]
     public void ClientPortalClaimResponse_NeverExposesFraudSignals()
     {
-        // WO-19: fraud signals are restricted content — never exposed on policyholder-facing
+        // WO-19: fraud signals are restricted content, never exposed on policyholder-facing
         // surfaces. Reflective guardrail: fails the moment anyone adds a fraud-shaped field to the
         // client-portal response, forcing that choice to be reconsidered rather than slipping in
         // via a generic "include everything" mapper.

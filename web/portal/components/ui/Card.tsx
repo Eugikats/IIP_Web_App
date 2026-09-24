@@ -11,7 +11,7 @@ export interface CardProps {
   className?: string;
 }
 
-// A card means "a distinct object or a distinct action" — do not wrap every group in one.
+// A card means "a distinct object or a distinct action", do not wrap every group in one.
 export function Card({ title, eyebrow, headerAction, children, className }: CardProps) {
   const hasHeader = Boolean(title || headerAction);
   return (
@@ -46,13 +46,13 @@ export interface StatTileProps {
   label: string;
   value: string | number;
   tone?: StatTone;
-  /** §8.9 — every stat tile must be a link into the filtered list it counts. */
+  /** §8.9, every stat tile must be a link into the filtered list it counts. */
   href?: string;
   className?: string;
 }
 
 // A number the user cannot click through to is a decoration. A tile with a zero value renders
-// "0" — never hidden, never an em dash — so callers must not conditionally omit this component.
+// "0", never hidden, never an em dash, so callers must not conditionally omit this component.
 export function StatTile({ label, value, tone = "neutral", href, className }: StatTileProps) {
   const body = (
     <>

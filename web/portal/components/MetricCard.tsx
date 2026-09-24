@@ -1,5 +1,5 @@
 // Migrated onto the design language v2 §8.9 stat tile treatment: the card itself is always the
-// same neutral surface (never a filled/tinted red, amber, or green card — §4.2); only the figure
+// same neutral surface (never a filled/tinted red, amber, or green card, §4.2); only the figure
 // takes a semantic colour, and only when the number itself is the signal. External API unchanged.
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";

@@ -388,6 +388,8 @@ public sealed class HumanReviewEveryPathContractTests
             Status = CustomerUpdateStatus.Approved,
             ReasonCategory = CustomerUpdateReasonCategory.StatusUpdate,
             MessageBody = "Your claim is under review.",
+            ShortMessageBody = "Your claim is under review.",
+            CreationMethod = CustomerUpdateCreationMethod.ManuallyWritten,
             RequiresApproval = true,
             Sensitive = false,
             CreatedByUserId = "user-claims-1",

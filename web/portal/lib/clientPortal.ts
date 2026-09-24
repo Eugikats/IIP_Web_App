@@ -6,7 +6,7 @@ const SESSION_STORAGE_KEY = "iip.client-portal-session";
 
 export type ClientPortalSession = {
   sessionToken: string;
-  /** Null means: verified policyholder, no claim submitted yet — see createClaim. */
+  /** Null means: verified policyholder, no claim submitted yet, see createClaim. */
   caseId: string | null;
   policyNumber: string;
   productLine: string | null;
@@ -61,11 +61,11 @@ export type ClientPortalClaim = {
 };
 
 /**
- * X-Tenant-Id/X-Workspace-Id are always sent, in every runtime — unlike scopedHeaders (used by
+ * X-Tenant-Id/X-Workspace-Id are always sent, in every runtime, unlike scopedHeaders (used by
  * the staff app), which omits them outside Development because staff scope is resolved
  * server-side from the Entra token. A claimant has no Entra token: the portal itself is deployed
  * per-tenant (one insurer per Managed Application), so these two values just say which insurer's
- * portal this is — not who the caller is. That is safe to send unauthenticated; the actual access
+ * portal this is, not who the caller is. That is safe to send unauthenticated; the actual access
  * gate is the magic-link session token below (see ClaimantSessionEndpointFilter).
  */
 export function clientPortalHeaders(sessionToken?: string | null): Record<string, string> {
@@ -130,7 +130,9 @@ function safeNetworkFailure(reason: unknown, fallback: string): string {
   return fallback;
 }
 
-export type RequestMagicLinkResult = { ok: true; message: string } | { ok: false; error: string };
+// sandboxLink is only ever set by the API on the Demo profile, when no SMS or email provider is
+// connected to deliver the link; Staging and Production never return it.
+export type RequestMagicLinkResult = { ok: true; message: string; sandboxLink: string | null } | { ok: false; error: string };
 
 export async function requestMagicLink(policyNumber: string, contactValue: string): Promise<RequestMagicLinkResult> {
   try {
@@ -142,8 +144,8 @@ export async function requestMagicLink(policyNumber: string, contactValue: strin
     if (!response.ok) {
       return { ok: false, error: await safeError(response, "We could not process that request. Try again shortly.") };
     }
-    const payload = (await response.json()) as { message: string };
-    return { ok: true, message: payload.message };
+    const payload = (await response.json()) as { message: string; sandboxAccessLink?: string | null };
+    return { ok: true, message: payload.message, sandboxLink: payload.sandboxAccessLink ?? null };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "We could not process that request. Try again shortly.") };
   }
@@ -284,5 +286,100 @@ export async function createClaim(session: ClientPortalSession, request: CreateC
     return { ok: true, caseId: payload.caseId };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "We could not submit your claim.") };
+  }
+}
+
+export type ClientPortalCoverage = {
+  name: string;
+  limit: string;
+  deductible: string;
+  insuredObject: string;
+  description: string;
+};
+
+export type ClientPortalPolicy = {
+  policyNumber: string;
+  productLine: string;
+  coverType: string | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  coverStatus: string;
+  annualPremium: number | null;
+  premiumCurrency: string | null;
+  sumInsured: number | null;
+  premiumStatus: string;
+  coverages: ClientPortalCoverage[];
+  recordSource: string;
+  lastRefreshedAt: string | null;
+};
+
+export type GetPolicyResult = { ok: true; policy: ClientPortalPolicy } | { ok: false; error: string };
+
+export async function getPolicy(session: ClientPortalSession): Promise<GetPolicyResult> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/policy`, {
+      headers: clientPortalHeaders(session.sessionToken),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "Your policy could not be loaded.") };
+    }
+    return { ok: true, policy: (await response.json()) as ClientPortalPolicy };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "Your policy could not be loaded.") };
+  }
+}
+
+export type PolicyQuestionSource = {
+  knowledgeDocumentId: string;
+  chunkId: string;
+  documentName: string;
+  productLine: string;
+  version: string;
+  excerpt: string;
+  label: string;
+};
+
+export type AskPolicyQuestionResult =
+  | { ok: true; answerText: string; escalationRequired: boolean; sources: PolicyQuestionSource[] }
+  | { ok: false; error: string };
+
+export async function askPolicyQuestion(session: ClientPortalSession, question: string): Promise<AskPolicyQuestionResult> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/policy-questions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...clientPortalHeaders(session.sessionToken) },
+      body: JSON.stringify({ question }),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "We could not answer that question. Try again shortly.") };
+    }
+    const payload = (await response.json()) as { answerText: string; escalationRequired: boolean; sources: PolicyQuestionSource[] };
+    return { ok: true, answerText: payload.answerText, escalationRequired: payload.escalationRequired, sources: payload.sources };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "We could not answer that question.") };
+  }
+}
+
+export type RequestContactDetailChangeResult = { ok: true; message: string } | { ok: false; error: string };
+
+export async function requestContactDetailChange(
+  session: ClientPortalSession,
+  email: string | null,
+  phone: string | null,
+  note: string | null,
+): Promise<RequestContactDetailChangeResult> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/contact-detail-changes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...clientPortalHeaders(session.sessionToken) },
+      body: JSON.stringify({ email, phone, note }),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "We could not submit your request. Try again shortly.") };
+    }
+    const payload = (await response.json()) as { message: string };
+    return { ok: true, message: payload.message };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "We could not submit your request.") };
   }
 }

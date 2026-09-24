@@ -149,7 +149,10 @@ public sealed class LocalTestAgentGate(params string[] disabledAgentKeys) : IAge
 {
     private readonly HashSet<string> disabled = new(disabledAgentKeys, StringComparer.OrdinalIgnoreCase);
 
-    public Task<AgentGateResult> CheckAsync(string agentKey, CancellationToken cancellationToken = default)
+    public Task<AgentGateResult> CheckAsync(string agentKey, CancellationToken cancellationToken = default) =>
+        CheckAsync(TenantScope.Create("local-test-tenant", "local-test-workspace"), agentKey, cancellationToken);
+
+    public Task<AgentGateResult> CheckAsync(TenantScope scope, string agentKey, CancellationToken cancellationToken = default)
     {
         var descriptor = AgentCatalog.Find(agentKey)
             ?? throw new ArgumentException($"Unknown agent key: {agentKey}", nameof(agentKey));

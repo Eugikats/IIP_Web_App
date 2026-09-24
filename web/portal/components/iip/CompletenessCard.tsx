@@ -1,5 +1,4 @@
 import { CheckCircle2, Circle, TriangleAlert } from "lucide-react";
-import { Badge } from "./Primitives";
 
 interface Item { label: string; present: boolean; lowConfidence?: boolean }
 
@@ -11,12 +10,14 @@ export default function CompletenessCard({
   score: number;
 }) {
   const pct = Math.round(score * 100);
-  const tone = pct >= 85 ? "success" : pct >= 60 ? "warning" : "error";
+  const receivedCount = items.filter((item) => item.present).length;
   return (
     <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Completeness</div>
-        <Badge tone={tone}>{pct}% complete</Badge>
+        {/* Workflow legibility contract §7: the percentage never turns red at a low number,
+            urgency comes from SLA state, not completeness. Neutral text at any value. */}
+        <span className="text-[13px] font-bold text-dls-text-primary">{pct}% · {receivedCount} of {items.length}</span>
       </div>
       <ul className="space-y-1.5 text-[13px]">
         {items.map((it) => (

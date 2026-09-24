@@ -30,7 +30,7 @@ function typeIcon(type: WorkflowNodeType) {
   return { Trigger: CircleDot, Agent: Bot, Tool: Wrench, Decision: GitBranch, HumanReview: ShieldCheck, Complete: CheckCircle2 }[type];
 }
 
-// Delegates to components/ui/Input.tsx's Field/Input/Textarea/Select — same precedent as
+// Delegates to components/ui/Input.tsx's Field/Input/Textarea/Select, same precedent as
 // FNOL.tsx/Knowledge.tsx. Kept local: this screen's ~10 call sites don't warrant promoting it.
 function Field({ label, className, children }: { label: string; className?: string; children: (id: string) => React.ReactNode }) {
   const id = useId();

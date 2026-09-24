@@ -18,13 +18,13 @@ import {
 
 // WO-13: replaces the previous 4-line redirect-to-/app/admin stub with a real settings
 // screen. Profile identity (name, role, tenant) is authoritative from Microsoft Entra ID /
-// the membership store via GET /api/v1/me — IIP has no self-service identity editor for
+// the membership store via GET /api/v1/me, IIP has no self-service identity editor for
 // those fields, so they render read-only rather than as fields that can't actually save (A4).
 //
 // Workspace switching sends the chosen workspace as a request header
 // (RuntimeClaimTypes.RequestedWorkspaceHeaderName). The backend treats it only as a hint and
 // re-validates it against the user's real membership (GetEffectiveMembershipAsync) before
-// honoring it — a switch to a workspace the user doesn't belong to fails closed with 403. This
+// honoring it, a switch to a workspace the user doesn't belong to fails closed with 403. This
 // is server-side scope re-resolution, not client-side scope substitution (I5).
 export default function Settings() {
   const { runtimeContext, loading, error, parityMode, refresh } = useRuntimeContext();
@@ -81,7 +81,7 @@ export default function Settings() {
 
   return (
     <>
-      <SectionHeader eyebrow="Account" title="Settings" sub="Your profile, workspace, and session — resolved from your signed-in identity." />
+      <SectionHeader eyebrow="Account" title="Settings" sub="Your profile, workspace, and session, resolved from your signed-in identity." />
 
       {loading && !runtimeContext ? (
         <GlassCard><LoadingSkeleton rows={4} /></GlassCard>
@@ -96,7 +96,7 @@ export default function Settings() {
             </div>
             <dl className="space-y-3 text-[13px]">
               <Row label="Display name" value={runtimeContext.displayName} />
-              <Row label="User ID" value={runtimeContext.userId || "—"} />
+              <Row label="User ID" value={runtimeContext.userId || "-"} />
               <Row label="Role" value={<Badge tone="neutral">{runtimeContext.roleLabel}</Badge>} />
               <Row label="Identity source" value={runtimeContext.source} />
             </dl>
@@ -113,7 +113,7 @@ export default function Settings() {
               <div className="text-[14px] font-bold text-dls-text-primary">Workspace</div>
             </div>
             <dl className="mb-4 space-y-3 text-[13px]">
-              <Row label="Tenant ID" value={runtimeContext.tenantId || "—"} />
+              <Row label="Tenant ID" value={runtimeContext.tenantId || "-"} />
             </dl>
             {switchError && (
               <div className="mb-3 rounded-dls-control bg-dls-danger-tint px-3 py-2 text-[11.5px] text-dls-danger-text">

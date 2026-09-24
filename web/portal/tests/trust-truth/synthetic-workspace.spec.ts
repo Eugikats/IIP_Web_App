@@ -35,11 +35,11 @@ test("only an exact healthy provider response is labelled operational", () => {
   }
 });
 
-// A "configured" provider is genuinely fine, not degraded — the backend's own overall-status
+// A "configured" provider is genuinely fine, not degraded, the backend's own overall-status
 // aggregate (AdminEndpoints.BuildProviderHealth) only treats "missing"/"not_configured" as
 // degraded. isProviderHealthy previously accepted only "healthy"/"operational", so a fully
 // configured live workspace (database/blobStorage/documentIntelligence/aiSearch all report
-// "configured", never "healthy" — they have no active health ping) rendered "9 of 9 providers
+// "configured", never "healthy", they have no active health ping) rendered "9 of 9 providers
 // need attention" in the status bar next to a panel showing every one of them as Configured.
 test("a 'configured' provider is treated as healthy, not degraded", () => {
   expect(isProviderHealthy("configured")).toBe(true);

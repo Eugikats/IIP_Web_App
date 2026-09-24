@@ -198,6 +198,62 @@ public sealed class ComplianceTenantAuthorityTests
     }
 
     [Fact]
+    public async Task DownloadAuditPackExport_RoundTripsAPreviouslyExportedPack()
+    {
+        // WO 6.2: StoreAsync's ObjectKey was write-only until this, a real single-document
+        // export existed but nothing could ever retrieve it again after the initial upload.
+        var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var claimCase = Case(membershipScope) with { Status = CaseStatus.ReadyForExport };
+        var caseRepository = new InMemoryCaseRepository();
+        var auditRepository = new InMemoryAuditRepository();
+        var storageProvider = new CapturingEvidencePackStorage();
+        await caseRepository.SaveAsync(claimCase);
+
+        var context = MembershipContext(
+            membershipScope, "membership-compliance-user", "attacker-tenant", "attacker-workspace",
+            "Compliance officer exported the evidence pack for a dispute.");
+        var service = CreateService(context, caseRepository: caseRepository, auditRepository: auditRepository, storageProvider: storageProvider);
+
+        var exportResult = await ComplianceEndpoints.ExportAuditPack(claimCase.CaseId, service, Options(), context, CancellationToken.None);
+        var (exportStatus, exported) = await ExecuteAsync<EvidencePackExportResponse>(exportResult);
+        Assert.Equal(StatusCodes.Status200OK, exportStatus);
+
+        var downloadResult = await ComplianceEndpoints.DownloadAuditPackExport(
+            claimCase.CaseId, exported!.ObjectKey, service, Options(), context, CancellationToken.None);
+
+        var downloadHttpContext = new DefaultHttpContext();
+        downloadHttpContext.RequestServices = new ServiceCollection().AddLogging().AddProblemDetails().BuildServiceProvider();
+        downloadHttpContext.Response.Body = new MemoryStream();
+        await downloadResult.ExecuteAsync(downloadHttpContext);
+
+        Assert.Equal(StatusCodes.Status200OK, downloadHttpContext.Response.StatusCode);
+        Assert.Equal("application/json", downloadHttpContext.Response.ContentType);
+        downloadHttpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+        using var reader = new StreamReader(downloadHttpContext.Response.Body);
+        var downloadedJson = await reader.ReadToEndAsync();
+        Assert.Contains(claimCase.CaseId.ToString(), downloadedJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task DownloadAuditPackExport_RejectsAnObjectKeyNeverActuallyExportedForThisCase()
+    {
+        // The audit trail is the authorization check, a client cannot just guess/construct an
+        // object key path and pull an arbitrary blob.
+        var scope = TenantScope.Create("tenant-membership", "workspace-membership");
+        var claimCase = Case(scope) with { Status = CaseStatus.ReadyForExport };
+        var caseRepository = new InMemoryCaseRepository();
+        await caseRepository.SaveAsync(claimCase);
+        var context = MembershipContext(scope, "membership-compliance-user", "attacker-tenant", "attacker-workspace", "reason");
+        var service = CreateService(context, caseRepository: caseRepository);
+
+        var result = await ComplianceEndpoints.DownloadAuditPackExport(
+            claimCase.CaseId, "tenant-membership/workspace-membership/evidence-packs/guessed.json", service, Options(), context, CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, status);
+    }
+
+    [Fact]
     public async Task ExportAuditPack_DeniesPublisherSupportWithoutExportPermission()
     {
         var membershipScope = TenantScope.Create("tenant-membership", "workspace-membership");
@@ -424,5 +480,10 @@ public sealed class ComplianceTenantAuthorityTests
             StoredPayloads[objectKey] = buffer.ToArray();
             return new EvidencePackStorageResult(objectKey, request.ContentType, buffer.Length);
         }
+
+        public Task<Stream> ReadAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default) =>
+            StoredPayloads.TryGetValue(objectKey, out var bytes)
+                ? Task.FromResult<Stream>(new MemoryStream(bytes))
+                : throw new InvalidOperationException($"No stored evidence pack for object key '{objectKey}'.");
     }
 }

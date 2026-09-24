@@ -23,7 +23,7 @@ export default function Underwriting() {
 
   return (
     <>
-      <SectionHeader eyebrow="Underwriting Intelligence" title="Submission reviews" sub="Broker and direct submissions summarised for underwriters. AI drafts questions and highlights gaps — underwriters decide acceptance, rejection, and premium." />
+      <SectionHeader eyebrow="Underwriting Intelligence" title="Submission reviews" sub="Broker and direct submissions summarised for underwriters. AI drafts questions and highlights gaps, underwriters decide acceptance, rejection, and premium." />
       <div className="mb-4"><GuardrailBanner text="AI does not make final underwriting acceptance or rejection. It summarises, recommends, drafts questions, and escalates." /></div>
 
       {loading ? (
@@ -34,7 +34,7 @@ export default function Underwriting() {
         <GlassCard>
           <EmptyStateSurface
             title="No submissions in review"
-            message="Submission intake is not configured yet. When a broker/direct submission source is connected, advisory rule-engine reviews appear here — no sample submissions are shown."
+            message="Submission intake is not configured yet. When a broker/direct submission source is connected, advisory rule-engine reviews appear here, no sample submissions are shown."
           />
         </GlassCard>
       ) : (
@@ -61,7 +61,7 @@ export default function Underwriting() {
 
               {r.draftedQuestions.length > 0 ? (
                 <div className="mt-3 rounded-dls-card bg-dls-info-tint p-3">
-                  <div className="mb-1.5 flex items-center gap-2"><Sparkles className="h-3.5 w-3.5 text-dls-info-text" aria-hidden="true" /><div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-info-text">Drafted clarifying questions — send only after approval</div></div>
+                  <div className="mb-1.5 flex items-center gap-2"><Sparkles className="h-3.5 w-3.5 text-dls-info-text" aria-hidden="true" /><div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-info-text">Drafted clarifying questions, send only after approval</div></div>
                   <ul className="list-disc space-y-1 pl-4 text-[12.5px] text-dls-text-secondary">
                     {r.draftedQuestions.map((q, i) => <li key={i}>{q}</li>)}
                   </ul>

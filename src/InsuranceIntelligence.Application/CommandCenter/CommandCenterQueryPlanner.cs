@@ -35,7 +35,7 @@ public sealed record CommandCenterProviderStatusItem(string Name, string Status,
 /// <summary>
 /// Deterministic (NOT LLM) Command Center planner. Maps a natural-language question to a set of
 /// typed answer blocks assembled purely from real, tenant-scoped data. Draft-only: it never
-/// proposes an executable decision — every proposed action requires human approval.
+/// proposes an executable decision, every proposed action requires human approval.
 /// </summary>
 public static class CommandCenterQueryPlanner
 {

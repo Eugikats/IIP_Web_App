@@ -53,7 +53,7 @@ public class TeamsAdaptiveCardBuilderTests
     // No production caller sets DeepLinkUrl today and the property defaults to string.Empty, so the
     // builder's old `?? "https://localhost:3000/approvals"` fallback never fired and every real card
     // shipped a "View in Portal" button whose url was "". A button that opens nothing is a dead
-    // control (I2) — the card must simply omit the action until a real deep link exists.
+    // control (I2), the card must simply omit the action until a real deep link exists.
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -79,7 +79,7 @@ public class TeamsAdaptiveCardBuilderTests
         Assert.DoesNotContain("Action.OpenUrl", cardJson);
         Assert.DoesNotContain("View in Portal", cardJson);
         Assert.DoesNotContain("localhost", cardJson);
-        // The card itself still renders — only the dead button is withheld.
+        // The card itself still renders, only the dead button is withheld.
         Assert.Contains("Approval Required", cardJson);
     }
 

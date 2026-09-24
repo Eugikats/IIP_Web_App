@@ -21,7 +21,7 @@ public sealed class KnowledgeAssistantTests
     [Fact]
     public void UnknownSensitivityIsNotRetrievalEligible_EvenWhenApprovedAndIndexed()
     {
-        // WO-17: unknown sensitivity must stay blocked from retrieval by default — the approval
+        // WO-17: unknown sensitivity must stay blocked from retrieval by default, the approval
         // workflow now requires a classification, but this is the fail-closed backstop for any
         // legacy or otherwise-inconsistent record that is Approved/Indexed without one.
         var document = ValidDocument() with

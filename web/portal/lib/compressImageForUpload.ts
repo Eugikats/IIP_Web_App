@@ -1,6 +1,6 @@
 /**
  * Client-side image downscale for low-bandwidth claim photo upload.
- * PDFs and non-images pass through unchanged. Does not invent offline queues —
+ * PDFs and non-images pass through unchanged. Does not invent offline queues,
  * callers must surface honest connection failures.
  */
 export async function compressImageForUpload(

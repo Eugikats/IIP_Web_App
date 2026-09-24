@@ -12,13 +12,13 @@ test("Gate 1 shell uses the approved light-only MVP foundation", async ({ page }
   await page.waitForLoadState("networkidle");
 
   await expect(page.locator("html")).not.toHaveClass(/dark/);
-  // Navigation model §5.2 — the rail is icon-only; "Insurance Intelligence Platform", "Assistant"
+  // Navigation model §5.2, the rail is icon-only; "Insurance Intelligence Platform", "Assistant"
   // and "Claims" are accessible names (aria-label/title), not visible text.
   await expect(page.getByRole("link", { name: "Insurance Intelligence Platform" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Assistant" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Claims", exact: true })).toBeVisible();
 
-  // Design language v2 §3 — no fixed top bar; a page's own breadcrumb/h1 lives in its content
+  // Design language v2 §3, no fixed top bar; a page's own breadcrumb/h1 lives in its content
   // column, so there is no <header> element to measure.
   const sidebar = page.locator("aside").first();
   const sidebarWidth = await sidebar.evaluate((element) => element.getBoundingClientRect().width);
@@ -49,7 +49,7 @@ test("Gate 1 mobile shell keeps the icon rail present and the workspace navigabl
   await page.goto("/app/integrations");
   await page.waitForLoadState("networkidle");
 
-  // Navigation model §5.1 — "The rail is always present" at every viewport width; it never
+  // Navigation model §5.1, "The rail is always present" at every viewport width; it never
   // collapses into an off-canvas drawer, so there is no open/close affordance on mobile.
   const sidebar = page.getByRole("complementary", { name: "Primary navigation" });
   await expect(sidebar).toBeVisible();

@@ -8,6 +8,7 @@ using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace InsuranceIntelligence.Api.Tests;
 
@@ -36,6 +37,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             audit,
             Options(),
             Context(),
+            NullLogger<ClaimantMagicLinkLogMarker>.Instance,
             CancellationToken.None);
 
         var (status, _) = await ExecuteAsync<JsonElement>(result);
@@ -71,6 +73,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             audit,
             Options(),
             Context(),
+            NullLogger<ClaimantMagicLinkLogMarker>.Instance,
             CancellationToken.None);
         var mismatchResult = await ClaimantAuthenticationEndpoints.RequestMagicLink(
             new ClaimantMagicLinkRequest("POL-2025-10024", "attacker@example.com"),
@@ -82,6 +85,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             audit,
             Options(),
             Context(),
+            NullLogger<ClaimantMagicLinkLogMarker>.Instance,
             CancellationToken.None);
         var noSuchCaseResult = await ClaimantAuthenticationEndpoints.RequestMagicLink(
             new ClaimantMagicLinkRequest("POL-DOES-NOT-EXIST", "sarah@example.com"),
@@ -93,6 +97,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             audit,
             Options(),
             Context(),
+            NullLogger<ClaimantMagicLinkLogMarker>.Instance,
             CancellationToken.None);
 
         var (matchStatus, matchBody) = await ExecuteAsync<JsonElement>(matchResult);
@@ -124,6 +129,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
             new InMemoryAuditRepository(),
             new InfrastructureOptions { AuthMode = "Entra" },
             Context(),
+            NullLogger<ClaimantMagicLinkLogMarker>.Instance,
             CancellationToken.None);
 
         var (status, body) = await ExecuteAsync<JsonElement>(result);
@@ -146,7 +152,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
 
         await ClaimantAuthenticationEndpoints.RequestMagicLink(
             new ClaimantMagicLinkRequest("POL-2025-10024", "sarah@example.com"),
-            cases, new InMemoryPolicyRepository(), new InMemoryCustomerRepository(), tokens, communications, audit, Options(), Context(), CancellationToken.None);
+            cases, new InMemoryPolicyRepository(), new InMemoryCustomerRepository(), tokens, communications, audit, Options(), Context(), NullLogger<ClaimantMagicLinkLogMarker>.Instance, CancellationToken.None);
         var rawToken = ExtractToken(communications.EmailsSent.Single().MessageBody);
 
         var redeemResult = await ClaimantAuthenticationEndpoints.RedeemMagicLink(
@@ -241,7 +247,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
 
         var result = await ClaimantAuthenticationEndpoints.RequestMagicLink(
             new ClaimantMagicLinkRequest("POL-2026-00099", "grace@example.com"),
-            cases, policies, customers, tokens, communications, audit, Options(), Context(), CancellationToken.None);
+            cases, policies, customers, tokens, communications, audit, Options(), Context(), NullLogger<ClaimantMagicLinkLogMarker>.Instance, CancellationToken.None);
 
         var (status, _) = await ExecuteAsync<JsonElement>(result);
         Assert.Equal(StatusCodes.Status200OK, status);

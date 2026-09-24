@@ -17,7 +17,7 @@ type DocumentUploadWidgetProps = {
  * progress via XHR, honest offline/error states (no fake queued success).
  */
 // Human-readable labels for the stable capability identifiers the API's
-// ProviderNotConfiguredExceptionHandler returns (see AGENTS.md I9 — never let a raw provider
+// ProviderNotConfiguredExceptionHandler returns (see AGENTS.md I9, never let a raw provider
 // error reach a user; render an honest, actionable not-configured state instead).
 const CAPABILITY_LABELS: Record<string, string> = {
   DocumentStorage: "Document storage",
@@ -91,7 +91,7 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
               capability?: string;
             };
             // 503 + capability is the structured shape ProviderNotConfiguredExceptionHandler
-            // returns (see src/InsuranceIntelligence.Api/Local) — render it as an honest
+            // returns (see src/InsuranceIntelligence.Api/Local), render it as an honest
             // not-configured state, distinct from an ordinary upload failure.
             if (xhr.status === 503 && typeof body.capability === "string" && body.capability.trim()) {
               reject(new NotConfiguredError(body.capability));

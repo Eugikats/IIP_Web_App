@@ -53,10 +53,10 @@ export default function UniversalMyWork({ onOpenSpecialist }: { onOpenSpecialist
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Summary label="Visible work" value={error ? "—" : summary?.total ?? "—"} icon={<Inbox className="h-4 w-4" aria-hidden="true" />} />
-        <Summary label="Overdue" value={error ? "—" : summary?.overdue ?? "—"} icon={<Clock3 className="h-4 w-4" aria-hidden="true" />} tone="warning" />
-        <Summary label="Unassigned" value={error ? "—" : summary?.unassigned ?? "—"} icon={<Users className="h-4 w-4" aria-hidden="true" />} />
-        <Summary label="Needs approval" value={error ? "—" : summary?.approvalRequired ?? "—"} icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" />} tone="warning" />
+        <Summary label="Visible work" value={error ? "-" : summary?.total ?? "-"} icon={<Inbox className="h-4 w-4" aria-hidden="true" />} />
+        <Summary label="Overdue" value={error ? "-" : summary?.overdue ?? "-"} icon={<Clock3 className="h-4 w-4" aria-hidden="true" />} tone="warning" />
+        <Summary label="Unassigned" value={error ? "-" : summary?.unassigned ?? "-"} icon={<Users className="h-4 w-4" aria-hidden="true" />} />
+        <Summary label="Needs approval" value={error ? "-" : summary?.approvalRequired ?? "-"} icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" />} tone="warning" />
       </div>
 
       <GlassCard className="!p-4">
@@ -157,6 +157,7 @@ function WorkRow({ item, selected, onSelect }: { item: MyWorkItem; selected: boo
         {item.dueState === "Overdue" ? <Badge tone="warning">Overdue</Badge> : null}
         {item.evidenceReadiness === "Gaps" ? <Badge tone="warning">Evidence gaps</Badge> : null}
       </div>
+      <div className="mt-1.5 text-[11px] text-dls-text-secondary">{item.reason}</div>
       <div className="mt-2 text-[10.5px] text-dls-text-muted">{item.ownerUserId ?? "Unassigned"} · {new Date(item.updatedAt).toLocaleString()}</div>
     </button>
   );
@@ -170,13 +171,17 @@ function WorkDetail({ item, onOpenSpecialist }: { item: MyWorkItem; onOpenSpecia
         <div>
           <div className="flex flex-wrap gap-2"><Badge tone="neutral">{SOURCE_LABELS[item.sourceType]}</Badge><StatusBadge status={item.sourceStatus} /></div>
           <h2 className="mt-3 text-xl font-bold text-dls-text-primary">{item.title}</h2>
-          <div className="mt-1 text-[11px] text-dls-text-muted">Source {item.sourceId}{item.caseId ? ` · Case ${item.caseId}` : ""}</div>
+          {item.caseReference ? <div className="mt-1 text-[11px] text-dls-text-muted">{item.caseReference}</div> : null}
         </div>
         {item.approvalRequired ? <Badge tone="warning">Human approval required</Badge> : null}
       </div>
       <div className="mt-5 rounded-dls-card border border-dls-primary-border bg-dls-primary-soft-alt p-4">
         <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-primary">Required action</div>
         <p className="mt-2 text-[13px] text-dls-text-primary">{item.requiredAction}</p>
+      </div>
+      <div className="mt-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+        <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Why am I seeing this?</div>
+        <p className="mt-2 text-[13px] text-dls-text-secondary">{item.reason}</p>
       </div>
       <dl className="mt-4 grid gap-3 sm:grid-cols-2">
         <Fact label="Owner" value={item.ownerUserId ?? "Unassigned"} /><Fact label="Owner basis" value={item.ownerBasis} />

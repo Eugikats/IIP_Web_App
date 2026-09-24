@@ -11,14 +11,14 @@ import { useCommandCenterQuery } from "@/lib/lovable-parity/data/commandCenterQu
 
 // Policy Q&A is a thin, single-question presentation of the same governed path Command Center
 // uses: POST /api/v1/command-center/query. There is no separate "Policy Intelligence" model or
-// dataset — every answer is grounded, cited, and honestly refused when ungrounded, exactly like
+// dataset, every answer is grounded, cited, and honestly refused when ungrounded, exactly like
 // the Command Center chat. This page must never render clause text, excess figures, or citations
-// that did not come back from that endpoint (see AGENTS.md — no hardcoded insurer data).
+// that did not come back from that endpoint (see AGENTS.md, no hardcoded insurer data).
 //
 // Placeholder text below is unchanged from the pre-migration file: gate-8-policy-knowledge's
 // first test expects a differently-worded textbox name ("...covered under MTR-8821?...") that
-// this placeholder doesn't match — a pre-existing content mismatch, confirmed unrelated to this
-// migration (present before this screen was touched). Not corrected here — inventing wording to
+// this placeholder doesn't match, a pre-existing content mismatch, confirmed unrelated to this
+// migration (present before this screen was touched). Not corrected here, inventing wording to
 // pass a test without knowing the intended real copy risks shipping the wrong fix; flagged in the
 // ledger instead.
 export default function PolicyIntelligence() {
@@ -41,7 +41,7 @@ export default function PolicyIntelligence() {
         sub="Source-grounded answers from your approved policy library. Every response cites the underlying evidence, or says plainly when it cannot answer."
       />
 
-      <div className="mb-4"><GuardrailBanner text="Answers are grounded in approved, tenant-scoped sources only. Policy Intelligence provides guidance to prepare human review — it is not a binding legal or claims interpretation." /></div>
+      <div className="mb-4"><GuardrailBanner text="Answers are grounded in approved, tenant-scoped sources only. Policy Intelligence provides guidance to prepare human review, it is not a binding legal or claims interpretation." /></div>
 
       <GlassCard className="mb-6">
         <form

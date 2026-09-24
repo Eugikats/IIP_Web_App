@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.DataProtection;
 namespace InsuranceIntelligence.Infrastructure.WhatsApp;
 
 /// <summary>
-/// Real, reversible encryption for WhatsApp secrets at rest — not hashing, which cannot be
+/// Real, reversible encryption for WhatsApp secrets at rest, not hashing, which cannot be
 /// undone and would make the access token unusable for the outbound Graph API calls it exists to
 /// authorize. Data Protection's key ring is the actual secret; loss of it (or running on a
 /// different, unconfigured deployment) makes existing ciphertext unrecoverable by design, which is

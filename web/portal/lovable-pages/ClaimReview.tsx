@@ -5,14 +5,11 @@ import {
   TriangleAlert,
   ArrowLeft,
   CheckCircle2,
-  Download,
   FileText,
   MessageSquareText,
-  Send,
   ShieldAlert,
-  ShieldCheck,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useParams } from "@/components/iip/NextRouterCompat";
 import { CustomerUpdateGovernedDialog, type PendingCustomerUpdateAction } from "@/components/CustomerUpdateGovernedDialog";
 import { CustomerUpdatePanel, type CustomerUpdate } from "@/components/CustomerUpdatePanel";
@@ -24,7 +21,8 @@ import { Button } from "@/components/ui/Button";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import CompletenessCard from "@/components/iip/CompletenessCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
-import MotorLifecycle from "@/components/iip/MotorLifecycle";
+import ClaimProcessStages from "@/components/iip/ClaimProcessStages";
+import ClaimDecisionCard, { type DecisionAction } from "@/components/iip/ClaimDecisionCard";
 import { DocumentUploadWidget } from "@/components/iip/DocumentUploadWidget";
 import { MarkdownText } from "@/components/iip/MarkdownText";
 import { useClaimReview, type ConfirmClaimCorrections } from "@/lib/lovable-parity/data/claimReview";
@@ -37,6 +35,16 @@ import { extractionHref } from "@/lib/workItemLinks";
 import { canPreviewPermission, hasPermission } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useRuntimeContext } from "@/lib/runtimeContext";
+import { channelLabel, claimReference, formatDate } from "@/lib/format";
+import { usePeople } from "@/lib/people";
+import AssignClaimControl from "@/components/iip/AssignClaimControl";
+
+const POLICY_SOURCE_LABEL: Record<string, string> = {
+  Manual: "Entered manually",
+  FileImport: "Loaded from file",
+  PartnerApi: "Partner API",
+  ExternalLookup: "External lookup",
+};
 
 const FRAUD_SEVERITY_TONE: Record<FraudSeverity, "error" | "warning" | "violet"> = {
   Investigation: "error",
@@ -51,8 +59,8 @@ const FRAUD_SEVERITY_LABEL: Record<FraudSeverity, string> = {
 };
 
 const FRAUD_STATUS_LABEL: Record<string, string> = {
-  NotTriaged: "Not yet triaged",
-  Triaged: "Triaged",
+  NotTriaged: "Not yet reviewed",
+  Triaged: "Reviewed",
   UnderInvestigation: "Under investigation",
   OutcomeRecorded: "Outcome recorded",
   Closed: "Closed",
@@ -74,15 +82,21 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     requestingApproval,
     exporting,
     confirming,
+    resolving,
+    recordingSatisfaction,
     draftCustomerUpdate,
     draftDocumentFollowUp,
+    draftDecisionOutcomeUpdate,
     approveCustomerUpdate,
     sendCustomerUpdate,
     acknowledgeReviewRequest,
     resolveReviewRequest,
     exportEvidencePack,
+    downloadExportedAuditPack,
     requestSupervisorReview,
     confirmClaim,
+    resolveClaim,
+    recordSatisfactionResponse,
     reload,
   } = useClaimReview(claimId);
   const loading = loadState.status === "loading";
@@ -97,37 +111,75 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const displayedSummary = claimsSummary ?? persistedReview;
   const summaryIsLoading = summarizing || reviewLoading;
   const { runtimeContext, parityMode } = useRuntimeContext();
+  const { describe } = usePeople();
+
+  // Every new claim is reviewed by the claims agent in the background the moment it is submitted.
+  // If the page opens before that review lands, check back for a minute rather than looking empty.
+  const [awaitingAutomaticReview, setAwaitingAutomaticReview] = useState(false);
+  const pollAttempts = useRef(0);
+  const hasReview = Boolean(displayedSummary);
+  const claimStatus = detail?.status;
+  useEffect(() => { pollAttempts.current = 0; }, [claimId]);
+  useEffect(() => {
+    if (!claimId || hasReview || parityMode) {
+      setAwaitingAutomaticReview(false);
+      return;
+    }
+    if (claimStatus && !["New", "Assigned"].includes(claimStatus)) return;
+    setAwaitingAutomaticReview(true);
+    const timer = window.setInterval(() => {
+      pollAttempts.current += 1;
+      if (pollAttempts.current > 12) {
+        window.clearInterval(timer);
+        setAwaitingAutomaticReview(false);
+        return;
+      }
+      void loadReview();
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [claimId, hasReview, parityMode, claimStatus, loadReview]);
   // Gates the upload control on the signed-in user's real permission, never on the preview role
-  // switcher — a role without UploadDocument (e.g. ITAdmin, Compliance) must not see a button
+  // switcher, a role without UploadDocument (e.g. ITAdmin, Compliance) must not see a button
   // that the server will refuse with 403.
   const canUploadDocuments = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "UploadDocument")
     : hasPermission(runtimeContext?.permissions ?? [], "UploadDocument");
   // "Draft customer update" and "Draft document follow-up" both call
-  // POST /cases/{id}/customer-updates/draft, which requires ManageCustomerCommunications —
+  // POST /cases/{id}/customer-updates/draft, which requires ManageCustomerCommunications,
   // a role that can view the claim (e.g. Compliance) does not necessarily hold it.
   const canDraftCustomerUpdates = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "ManageCustomerCommunications")
     : hasPermission(runtimeContext?.permissions ?? [], "ManageCustomerCommunications");
   // "Export claim pack" calls POST /compliance/cases/{id}/audit-pack/export, which requires
-  // ExportEvidencePack — most claim-viewing roles (ClaimsOfficer, CustomerService, Broker) do
+  // ExportEvidencePack, most claim-viewing roles (ClaimsOfficer, CustomerService, Broker) do
   // not hold it; only ClaimsSupervisor and Compliance do.
   const canExportEvidencePack = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "ExportEvidencePack")
     : hasPermission(runtimeContext?.permissions ?? [], "ExportEvidencePack");
   // CustomerUpdatePanel's allowedActions/blockedActions reflect the update's workflow state
-  // only (see CaseActions.cs — it does not know the caller's permission); approve/send must be
+  // only (see CaseActions.cs, it does not know the caller's permission); approve/send must be
   // gated here too, on the same permissions POST /customer-updates/{id}/approve and /send
   // actually require server-side.
   const canApproveCustomerUpdate = canDraftCustomerUpdates; // both require ManageCustomerCommunications
   const canSendCustomerUpdate = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "SendCustomerUpdate")
     : hasPermission(runtimeContext?.permissions ?? [], "SendCustomerUpdate");
+  // "Resolve claim" calls POST /cases/{id}/resolve, which requires ApproveSettlementWorkflowStep,
+  // the same authority as executing an approved workflow step (outcome O).
+  const canResolveClaim = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "ApproveSettlementWorkflowStep")
+    : hasPermission(runtimeContext?.permissions ?? [], "ApproveSettlementWorkflowStep");
   const [pendingCustomerUpdateAction, setPendingCustomerUpdateAction] = useState<PendingCustomerUpdateAction | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmCorrections, setConfirmCorrections] = useState<ConfirmClaimCorrections>({});
+  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [resolution, setResolution] = useState<"Settled" | "Closed">("Settled");
+  const [satisfactionOpen, setSatisfactionOpen] = useState(false);
+  const [satisfactionRating, setSatisfactionRating] = useState<"Good" | "Neutral" | "Poor">("Good");
+  const [satisfactionNotes, setSatisfactionNotes] = useState("");
+  const [satisfactionResult, setSatisfactionResult] = useState<string | null>(null);
 
   async function handleDraftCustomerUpdate() {
     const res = await draftCustomerUpdate();
@@ -151,6 +203,17 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     }
   }
 
+  async function handleDraftDecisionOutcomeUpdate() {
+    const res = await draftDecisionOutcomeUpdate();
+    if (res.ok) {
+      toast.success("Decision-outcome update drafted", {
+        description: "The draft tells the customer to expect contact, it never states the decision itself. Review it below before approval or send.",
+      });
+    } else {
+      toast.error(res.message ?? "Could not draft decision-outcome update");
+    }
+  }
+
   function unavailable(label: string) {
     toast("Not configured", {
       description: `${label} is not wired to a backend workflow yet.`,
@@ -165,6 +228,32 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       });
     } else {
       toast.error(res.message ?? "Could not request supervisor review");
+    }
+  }
+
+  async function handleResolveClaim(auditReason: string) {
+    const res = await resolveClaim(resolution, auditReason);
+    if (res.ok) {
+      setResolveDialogOpen(false);
+      toast.success(resolution === "Settled" ? "Claim recorded as settled" : "Claim closed", {
+        description: "A satisfaction question has been drafted for approval.",
+      });
+    } else {
+      toast.error(res.message ?? "Could not record the claim resolution");
+    }
+  }
+
+  async function handleRecordSatisfaction() {
+    const res = await recordSatisfactionResponse(satisfactionRating, satisfactionNotes);
+    if (res.ok) {
+      setSatisfactionOpen(false);
+      setSatisfactionNotes("");
+      setSatisfactionResult(satisfactionRating);
+      toast.success("Satisfaction answer recorded", {
+        description: res.serviceRecoveryTaskId ? "A service recovery task was opened for follow-up." : undefined,
+      });
+    } else {
+      toast.error(res.message ?? "Could not record the satisfaction answer");
     }
   }
 
@@ -203,7 +292,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       const res = await acknowledgeReviewRequest(requestId);
       if (res.ok) {
         toast.success("Re-review request acknowledged", {
-          description: "Workflow state only — this does not settle, deny, or pay the claim.",
+          description: "Workflow state only, this does not settle, deny, or pay the claim.",
         });
       } else {
         toast.error(res.message ?? "Could not acknowledge re-review request");
@@ -235,14 +324,21 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
 
   async function handleExportEvidencePack(auditReason: string) {
     const res = await exportEvidencePack(auditReason);
-    if (res.ok) {
-      toast.success("Claim pack exported", {
-        description: res.objectKey ? `Stored as ${res.objectKey}` : "Evidence pack artifact stored.",
-      });
-      setExportDialogOpen(false);
-    } else {
+    if (!res.ok) {
       toast.error(res.message ?? "Evidence-pack export failed");
+      return;
     }
+    setExportDialogOpen(false);
+    if (!res.objectKey) {
+      toast.success("Claim pack exported", { description: "Evidence pack artifact stored." });
+      return;
+    }
+    const downloadResult = await downloadExportedAuditPack(res.objectKey);
+    toast.success("Claim pack exported", {
+      description: downloadResult.ok
+        ? "Download started."
+        : `Stored as ${res.objectKey}, but the download could not start: ${downloadResult.message ?? "unknown error"}.`,
+    });
   }
 
   function openConfirmDialog() {
@@ -277,7 +373,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Claims
       </Link>
       <span>/</span>
-      <span className="text-dls-text-primary">{claimId}</span>
+      <span className="text-dls-text-primary">{claimReference(claimId)}</span>
     </div>
   );
 
@@ -316,13 +412,71 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   }));
   const firstExtractionHref = extractionHref(claimId, detail.documents[0]?.documentId);
 
+  // Outcome H: one primary action, everything else behind a More menu, not a wall of equally-
+  // weighted buttons. The first visible entry in this list becomes the primary action, ordered by
+  // what the claim's own state actually needs next.
+  const documentFollowUpAction: DecisionAction = {
+    key: "document-follow-up",
+    label: "Request missing documents",
+    onClick: () => void handleDraftDocumentFollowUp(),
+    disabled: drafting,
+    visible: canDraftCustomerUpdates && detail.status === "MissingDocuments",
+  };
+  const supervisorReviewAction: DecisionAction = {
+    key: "supervisor-review",
+    label: "Request supervisor review",
+    onClick: () => void handleSupervisorReview(),
+    disabled: requestingApproval,
+    visible: true,
+  };
+  const draftCustomerUpdateAction: DecisionAction = {
+    key: "draft-customer-update",
+    label: "Draft customer update",
+    onClick: () => void handleDraftCustomerUpdate(),
+    disabled: drafting,
+    visible: canDraftCustomerUpdates,
+  };
+  const draftDecisionOutcomeAction: DecisionAction = {
+    key: "draft-decision-outcome",
+    label: "Draft decision outcome update",
+    onClick: () => void handleDraftDecisionOutcomeUpdate(),
+    disabled: drafting,
+    visible: canDraftCustomerUpdates,
+  };
+  const exportClaimPackAction: DecisionAction = {
+    key: "export-claim-pack",
+    label: "Export claim pack",
+    onClick: () => setExportDialogOpen(true),
+    disabled: exporting,
+    visible: canExportEvidencePack,
+  };
+  const markEvidenceReviewedAction: DecisionAction = {
+    key: "mark-evidence-reviewed",
+    label: "Mark evidence reviewed",
+    onClick: () => unavailable("Mark evidence reviewed"),
+    visible: true,
+  };
+  // Outcome O: the terminal step after ExecuteApprovedNextStep's ReadyForExport hand-off, or from
+  // Escalated for an exception-handled claim. Recording it here is what makes "ask one
+  // satisfaction question on close" real rather than a hook with nothing that ever calls it.
+  const resolveClaimAction: DecisionAction = {
+    key: "resolve-claim",
+    label: "Record claim resolution",
+    onClick: () => setResolveDialogOpen(true),
+    disabled: resolving,
+    visible: canResolveClaim && (detail.status === "ReadyForExport" || detail.status === "Escalated"),
+  };
+  const decisionActions: DecisionAction[] = detail.status === "MissingDocuments"
+    ? [documentFollowUpAction, supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction, resolveClaimAction]
+    : [resolveClaimAction, supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction, documentFollowUpAction];
+
   return (
     <>
       {crumb}
       <SectionHeader
         eyebrow={`Case Review · ${detail.policyNumber}`}
         eyebrowClassName="text-dls-text-secondary"
-        title={`${detail.claimId.slice(0, 8)} · ${detail.customerName}`}
+        title={`${claimReference(detail.claimId)} · ${detail.customerName}`}
         sub={detail.incidentDescription}
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -347,7 +501,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 <div className="text-[13px] font-bold text-dls-text-primary">This claim needs confirmation</div>
                 <p className="mt-1 max-w-2xl text-[12.5px] leading-snug text-dls-text-secondary">
                   IIP created this claim automatically from an identified {detail.channel} sender. The details below are
-                  a best-effort guess from the raw message — review and correct them, then confirm to start the SLA
+                  a best-effort guess from the raw message, review and correct them, then confirm to start the SLA
                   clock. Until confirmed, this claim is excluded from SLA and attention metrics.
                 </p>
               </div>
@@ -360,47 +514,18 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       ) : null}
 
       <div className="mb-4">
-        <MotorLifecycle status={detail.status} />
+        <ClaimProcessStages claimId={claimId} role={roleDef.key} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <GlassCard>
-            <div className="mb-3 flex items-center justify-between gap-4">
-              <div className="text-[14px] font-bold text-dls-text-primary">Human review actions</div>
-              <div className="text-[11.5px] text-dls-text-muted">Only wired actions execute. Unwired actions report Not configured.</div>
-            </div>
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              {canDraftCustomerUpdates ? (
-                <Button variant="secondary" icon={<MessageSquareText />} disabled={drafting} onClick={handleDraftCustomerUpdate}>
-                  Draft customer update
-                </Button>
-              ) : null}
-              <Button variant="secondary" icon={<ShieldCheck />} disabled={requestingApproval} onClick={handleSupervisorReview}>
-                Request supervisor review
-              </Button>
-              <UnavailableAction icon={CheckCircle2} label="Mark evidence reviewed" onClick={unavailable} />
-              {canDraftCustomerUpdates ? (
-                <Button variant="secondary" icon={<Send />} disabled={drafting} onClick={handleDraftDocumentFollowUp}>
-                  Draft document follow-up
-                </Button>
-              ) : null}
-              {canExportEvidencePack ? (
-                <Button variant="secondary" icon={<Download />} disabled={exporting} onClick={() => setExportDialogOpen(true)}>
-                  Export claim pack
-                </Button>
-              ) : null}
-            </div>
-            {!canDraftCustomerUpdates || !canExportEvidencePack ? (
-              <div className="mt-2.5 text-[11.5px] text-dls-text-muted">
-                {!canDraftCustomerUpdates && !canExportEvidencePack
-                  ? "Your role does not include drafting customer updates or exporting the claim pack."
-                  : !canDraftCustomerUpdates
-                    ? "Your role does not include drafting customer updates."
-                    : "Your role does not include exporting the claim pack."}
-              </div>
-            ) : null}
-          </GlassCard>
+          <ClaimDecisionCard
+            detail={detail}
+            openReviewRequestCount={reviewRequests.filter((request) => request.status === "Open" || request.status === "Acknowledged").length}
+            documentsReceivedCount={documentItems.filter((item) => item.present).length}
+            documentsRequiredCount={documentItems.length}
+            actions={decisionActions}
+          />
 
           <PolicyQuestionPanel
             caseId={detail.claimId}
@@ -439,7 +564,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               <div>
                 <div className="text-[14px] font-bold text-dls-text-primary">Claimant re-review requests</div>
                 <div className="mt-1 text-[11.5px] text-dls-text-muted">
-                  Acknowledge or resolve contestability requests. This updates workflow state only — it does not settle, deny, or pay the claim.
+                  Acknowledge or resolve contestability requests. This updates workflow state only, it does not settle, deny, or pay the claim.
                 </div>
               </div>
               {reviewRequests.some((request) => request.status === "Open" || request.status === "Acknowledged") ? (
@@ -501,7 +626,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               <div>
                 <div className="text-[14px] font-bold text-dls-text-primary">Claim summary</div>
                 <div className="mt-1 text-[11.5px] text-dls-text-muted">
-                  Prepared from this claim&apos;s facts, documents, policy, and approved knowledge. Required before decision use — not a decision itself.
+                  Prepared by the claims agent from this claim&apos;s facts, documents, policy and approved knowledge. It prepares the claim for a decision and is not a decision itself.
                 </div>
               </div>
               <Button variant="secondary" icon={<MessageSquareText />} disabled={summarizing} onClick={() => { void generateSummary(); }} className="shrink-0">
@@ -513,39 +638,72 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{summaryError}</span>
               </div>
-            ) : summaryIsLoading && !displayedSummary ? (
+            ) : summaryIsLoading && !displayedSummary && !awaitingAutomaticReview ? (
               <LoadingSkeleton rows={3} />
             ) : displayedSummary ? (
-              <div className="space-y-3">
-                <MarkdownText className="text-[13px] text-dls-text-secondary leading-relaxed" content={displayedSummary.summary} />
-                {displayedSummary.openQuestions.length > 0 ? (
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What happened</div>
+                  <MarkdownText className="text-[13px] text-dls-text-secondary leading-relaxed" content={displayedSummary.summary} />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Open questions</div>
-                    <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
-                      {displayedSummary.openQuestions.map((question) => (
-                        <li key={question}>- {question}</li>
-                      ))}
-                    </ul>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What we have</div>
+                    {documentItems.filter((item) => item.present).length === 0 ? (
+                      <p className="text-[12.5px] text-dls-text-muted">No documents received yet.</p>
+                    ) : (
+                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                        {documentItems.filter((item) => item.present).map((item) => (
+                          <li key={item.label} className="flex items-center gap-1.5">
+                            <CheckCircle2 className="h-3 w-3 shrink-0 text-dls-success-dot" aria-hidden="true" /> {item.label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                ) : null}
-                {displayedSummary.riskSignals?.length > 0 ? (
                   <div>
-                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Risk signals</div>
-                    <ul className="space-y-2">
-                      {displayedSummary.riskSignals.map((signal, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[12.5px] text-dls-text-secondary">
-                          <Badge tone={signal.category === "Fraud" ? "warning" : "neutral"} className="mt-0.5 shrink-0">
-                            {signal.category === "Fraud" ? "Fraud signal" : "Underwriting"}
-                          </Badge>
-                          <span>{signal.note}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What is missing</div>
+                    {documentItems.filter((item) => !item.present).length === 0 ? (
+                      <p className="text-[12.5px] text-dls-text-muted">Nothing outstanding.</p>
+                    ) : (
+                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                        {documentItems.filter((item) => !item.present).map((item) => (
+                          <li key={item.label}>{item.label}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                {(displayedSummary.openQuestions.length > 0 || displayedSummary.riskSignals?.length > 0) ? (
+                  <div>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What to watch</div>
+                    {displayedSummary.riskSignals?.length > 0 ? (
+                      <ul className="mb-2 space-y-2">
+                        {displayedSummary.riskSignals.map((signal, i) => (
+                          <li key={i} className="flex items-start gap-2 text-[12.5px] text-dls-text-secondary">
+                            <Badge tone={signal.category === "Fraud" ? "warning" : "neutral"} className="mt-0.5 shrink-0">
+                              {signal.category === "Fraud" ? "Fraud signal" : "Underwriting"}
+                            </Badge>
+                            <span>{signal.note}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {displayedSummary.openQuestions.length > 0 ? (
+                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                        {displayedSummary.openQuestions.map((question) => (
+                          <li key={question}>- {question}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                     <div className="mt-2 text-[11px] text-dls-text-muted">
-                      Advisory observations only — a human reviewer decides what, if anything, to do.
+                      Advisory observations only. A person decides what, if anything, to do.
                     </div>
                   </div>
                 ) : null}
+
                 {displayedSummary.knowledgeSources.length > 0 ? (
                   <div>
                     <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Sources</div>
@@ -562,7 +720,9 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               </div>
             ) : (
               <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
-                No summary generated yet.
+                {awaitingAutomaticReview
+                  ? "The claims agent reviews every new claim as soon as it arrives. Its review usually appears here within a minute."
+                  : "No review yet. Use Generate summary to ask the claims agent for one."}
               </div>
             )}
           </GlassCard>
@@ -618,14 +778,85 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             <div className="mt-2 space-y-2 text-[13px]">
               <Row k="Customer" v={detail.customerName} />
               <Row k="Policy" v={`${detail.policyNumber} · ${detail.productLine}`} />
+              <Row
+                k="Cover period"
+                v={
+                  detail.policyEffectiveFrom && detail.policyEffectiveTo
+                    ? `${formatDate(detail.policyEffectiveFrom)} – ${formatDate(detail.policyEffectiveTo)}`
+                    : "Not loaded from a policy record"
+                }
+              />
+              {detail.policyRecordSource && (
+                <Row
+                  k="Policy source"
+                  v={
+                    (POLICY_SOURCE_LABEL[detail.policyRecordSource] ?? detail.policyRecordSource) +
+                    (detail.policyLastRefreshedAt ? ` · refreshed ${formatDate(detail.policyLastRefreshedAt)}` : "")
+                  }
+                />
+              )}
               <Row k="Claim type" v={detail.claimType} />
-              <Row k="Channel" v={detail.channel} />
-              <Row k="Incident date" v={detail.incidentDate} />
-              {detail.assignedUserId ? <Row k="Assigned" v={detail.assignedUserId} /> : null}
+              <Row k="Channel" v={channelLabel(detail.channel)} />
+              <Row k="Incident date" v={formatDate(detail.incidentDate)} />
+              <Row k="Assigned to" v={describe(detail.assignedUserId, "Nobody yet")} />
+              <AssignClaimControl caseId={detail.claimId} currentAssigneeId={detail.assignedUserId} onAssigned={reload} />
               {detail.customerEmail ? <Row k="Email" v={detail.customerEmail} /> : null}
               {detail.customerPhone ? <Row k="Phone" v={detail.customerPhone} /> : null}
             </div>
           </GlassCard>
+
+          {(detail.status === "Settled" || detail.status === "Closed") && (
+            <GlassCard>
+              <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Satisfaction</div>
+              {satisfactionResult ? (
+                <p className="mt-2 text-[13px] text-dls-text-secondary">
+                  Recorded as <span className="font-bold text-dls-text-primary">{satisfactionResult}</span>.
+                </p>
+              ) : satisfactionOpen ? (
+                <div className="mt-2 space-y-2">
+                  <div className="flex gap-2">
+                    {(["Good", "Neutral", "Poor"] as const).map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => setSatisfactionRating(rating)}
+                        className={`dls-focus-outline rounded-dls-control border px-3 py-1.5 text-[12.5px] font-semibold ${
+                          satisfactionRating === rating
+                            ? "border-dls-primary bg-dls-primary-soft text-dls-primary"
+                            : "border-dls-border-input text-dls-text-secondary hover:bg-dls-bg-page"
+                        }`}
+                      >
+                        {rating}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    aria-label="Satisfaction notes"
+                    placeholder="What did the customer say? (optional)"
+                    className="min-h-16 w-full resize-y rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
+                    value={satisfactionNotes}
+                    onChange={(event) => setSatisfactionNotes(event.target.value)}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => setSatisfactionOpen(false)} disabled={recordingSatisfaction}>Cancel</Button>
+                    <Button variant="primary" onClick={handleRecordSatisfaction} disabled={recordingSatisfaction}>
+                      {recordingSatisfaction ? "Recording…" : "Record answer"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <p className="text-[12.5px] text-dls-text-muted">
+                    A satisfaction question was drafted for approval when this claim was resolved. Record the
+                    customer&apos;s answer here once you hear back.
+                  </p>
+                  <Button variant="secondary" className="mt-2" onClick={() => setSatisfactionOpen(true)}>
+                    Record satisfaction answer
+                  </Button>
+                </div>
+              )}
+            </GlassCard>
+          )}
 
           <CompletenessCard
             score={completeness}
@@ -687,7 +918,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       <GovernedActionDialog
         open={exportDialogOpen}
         title="Export claim evidence pack"
-        target={`Case ${detail.claimId}`}
+        target={`Claim ${claimReference(detail.claimId)}`}
         impact="Creates a durable JSON evidence-pack artifact from sanitized audit, document, assistant-action, approval, and customer-update records for this claim."
         auditNotice="Evidence-pack export is a compliance-sensitive action. The exported artifact is stored through the configured evidence storage provider and the export event is written to the audit trail."
         confirmLabel="Export claim pack"
@@ -707,9 +938,9 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       <GovernedActionDialog
         open={confirmDialogOpen}
         title="Confirm claim"
-        target={`Case ${detail.claimId}`}
+        target={`Claim ${claimReference(detail.claimId)}`}
         impact="Starts this claim's SLA clock and includes it in officer SLA and attention metrics. Correct any details IIP guessed from the raw channel message before confirming."
-        auditNotice="Confirming an auto-created claim is a governed action. The prior (unconfirmed) and confirmed states are both written to the audit trail."
+        auditNotice="Confirming this claim is recorded in the audit trail. Both the version before you confirmed it and the version after are kept."
         confirmLabel="Confirm claim"
         tone="primary"
         evidence={
@@ -749,23 +980,31 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         onClose={() => setConfirmDialogOpen(false)}
         onConfirm={handleConfirmClaim}
       />
+      <GovernedActionDialog
+        open={resolveDialogOpen}
+        title="Record claim resolution"
+        target={`Claim ${claimReference(detail.claimId)}`}
+        impact="Records what happened after this claim's evidence pack was prepared for the insurer's own settlement or payment system. This does not itself release any payment. A satisfaction question is then drafted for approval, never auto sent."
+        auditNotice="Recording a claim resolution is a consequential action, kept in the audit trail with both the status before and after."
+        confirmLabel={resolution === "Settled" ? "Record as settled" : "Record as closed"}
+        tone="primary"
+        evidence={
+          <div className="space-y-2 rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-4">
+            <div className="text-sm font-semibold text-dls-text-primary">What happened to this claim?</div>
+            <label className="flex items-center gap-2 text-sm text-dls-text-secondary">
+              <input type="radio" name="resolution" checked={resolution === "Settled"} onChange={() => setResolution("Settled")} />
+              Settled - the customer was paid
+            </label>
+            <label className="flex items-center gap-2 text-sm text-dls-text-secondary">
+              <input type="radio" name="resolution" checked={resolution === "Closed"} onChange={() => setResolution("Closed")} />
+              Closed - resolved without a payment
+            </label>
+          </div>
+        }
+        onClose={() => setResolveDialogOpen(false)}
+        onConfirm={handleResolveClaim}
+      />
     </>
-  );
-}
-
-function UnavailableAction({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: typeof ShieldCheck;
-  label: string;
-  onClick: (label: string) => void;
-}) {
-  return (
-    <Button variant="secondary" icon={<Icon />} onClick={() => onClick(label)}>
-      {label}
-    </Button>
   );
 }
 

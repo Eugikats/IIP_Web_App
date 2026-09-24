@@ -36,7 +36,7 @@ public sealed class WhatsAppConfigurationEndpointsTests
         var audit = new InMemoryAuditRepository();
 
         var result = await WhatsAppConfigurationEndpoints.SaveConfiguration(
-            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "verify-me", null),
+            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "waba-1", null),
             repository, protector, validationClient, settingsProvider, audit, Options(),
             Context(auditReason: "Connecting our WhatsApp Business number."), CancellationToken.None);
 
@@ -50,7 +50,7 @@ public sealed class WhatsAppConfigurationEndpointsTests
 
         var stored = await repository.GetAsync(Scope(), CancellationToken.None);
         Assert.NotNull(stored);
-        // The stored value must never be the plaintext secret — only what the protector produced.
+        // The stored value must never be the plaintext secret, only what the protector produced.
         Assert.NotEqual("secret-token", stored!.EncryptedAccessToken);
         Assert.Equal("secret-token", protector.Unprotect(stored.EncryptedAccessToken));
         Assert.True(settingsProvider.Refreshed);
@@ -62,6 +62,108 @@ public sealed class WhatsAppConfigurationEndpointsTests
     }
 
     [Fact]
+    public async Task SaveConfiguration_WithoutWabaId_IsRejectedBeforeCallingMeta()
+    {
+        var validationClient = new FakeWhatsAppGraphValidationClient(new WhatsAppGraphValidationResult(true, "+256700000000", "Acme Insurer", null));
+
+        var result = await WhatsAppConfigurationEndpoints.SaveConfiguration(
+            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "", null),
+            new InMemoryWhatsAppChannelConfigurationRepository(), new FakeWhatsAppCredentialProtector(), validationClient,
+            new RecordingRuntimeSettingsProvider(), new InMemoryAuditRepository(), Options(),
+            Context(auditReason: "Connecting our WhatsApp Business number."), CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, status);
+        Assert.Empty(validationClient.Calls); // never even reaches Meta without a WABA id
+    }
+
+    [Fact]
+    public async Task SaveConfiguration_NeverAsksTheOperatorForAVerifyToken_GeneratesOneServerSide()
+    {
+        // The request shape itself is the assertion: WhatsAppSaveConfigurationRequest has no
+        // VerifyToken parameter (blueprint §4.3 point 2), this only compiles if that is still true.
+        var repository = new InMemoryWhatsAppChannelConfigurationRepository();
+        var protector = new FakeWhatsAppCredentialProtector();
+        var validationClient = new FakeWhatsAppGraphValidationClient(new WhatsAppGraphValidationResult(true, "+256700000000", "Acme Insurer", null));
+
+        await WhatsAppConfigurationEndpoints.SaveConfiguration(
+            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "waba-1", null),
+            repository, protector, validationClient, new RecordingRuntimeSettingsProvider(), new InMemoryAuditRepository(), Options(),
+            Context(auditReason: "Connecting our WhatsApp Business number."), CancellationToken.None);
+
+        var stored = await repository.GetAsync(Scope(), CancellationToken.None);
+        var verifyToken = protector.Unprotect(stored!.EncryptedVerifyToken);
+        Assert.False(string.IsNullOrWhiteSpace(verifyToken));
+        Assert.True(verifyToken.Length >= 32); // ClaimantTokenGenerator.GenerateRawToken's real entropy, not a placeholder
+    }
+
+    [Fact]
+    public async Task SaveConfiguration_WithNoPublicBaseUrlConfigured_ReportsManualWebhookRegistrationRequired()
+    {
+        var validationClient = new FakeWhatsAppGraphValidationClient(new WhatsAppGraphValidationResult(true, "+256700000000", "Acme Insurer", null));
+
+        var result = await WhatsAppConfigurationEndpoints.SaveConfiguration(
+            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "waba-1", null),
+            new InMemoryWhatsAppChannelConfigurationRepository(), new FakeWhatsAppCredentialProtector(), validationClient,
+            new RecordingRuntimeSettingsProvider(), new InMemoryAuditRepository(), Options(), // Options() sets no ApiPublicBaseUrl
+            Context(auditReason: "Connecting our WhatsApp Business number."), CancellationToken.None);
+
+        var (_, body) = await ExecuteAsync<WhatsAppConfigurationStatusResponse>(result);
+
+        Assert.Equal("ManualRequired", body!.WebhookRegistrationStatus);
+        Assert.Null(body.WebhookCallbackUrl);
+        Assert.Empty(validationClient.WebhookRegistrationCalls); // never attempted without a callback URL to register
+    }
+
+    [Fact]
+    public async Task SaveConfiguration_WithPublicBaseUrlConfigured_RegistersTheWebhookWithMeta()
+    {
+        var validationClient = new FakeWhatsAppGraphValidationClient(new WhatsAppGraphValidationResult(true, "+256700000000", "Acme Insurer", null));
+        var options = new InfrastructureOptions { AuthMode = "Development", ChannelProvider = "WhatsAppCloudApi", ApiPublicBaseUrl = "https://app-api-dev.example.net" };
+
+        var result = await WhatsAppConfigurationEndpoints.SaveConfiguration(
+            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "waba-1", null),
+            new InMemoryWhatsAppChannelConfigurationRepository(), new FakeWhatsAppCredentialProtector(), validationClient,
+            new RecordingRuntimeSettingsProvider(), new InMemoryAuditRepository(), options,
+            Context(auditReason: "Connecting our WhatsApp Business number."), CancellationToken.None);
+
+        var (_, body) = await ExecuteAsync<WhatsAppConfigurationStatusResponse>(result);
+
+        Assert.Equal("Registered", body!.WebhookRegistrationStatus);
+        Assert.Equal("https://app-api-dev.example.net/api/v1/integrations/whatsapp/webhook", body.WebhookCallbackUrl);
+        var call = Assert.Single(validationClient.WebhookRegistrationCalls);
+        Assert.Equal("waba-1", call.WabaId);
+        Assert.Equal("https://app-api-dev.example.net/api/v1/integrations/whatsapp/webhook", call.CallbackUrl);
+    }
+
+    [Fact]
+    public async Task SaveConfiguration_WhenMetaRejectsWebhookRegistration_StillPersistsCredentialsWithFailureRecorded()
+    {
+        // Valid credentials plus a broken webhook registration must not be treated as a total
+        // failure, the connection is real and testable, the webhook just needs manual setup.
+        var validationClient = new FakeWhatsAppGraphValidationClient(
+            new WhatsAppGraphValidationResult(true, "+256700000000", "Acme Insurer", null),
+            new WhatsAppWebhookRegistrationResult(false, "Meta rejected the webhook registration request."));
+        var repository = new InMemoryWhatsAppChannelConfigurationRepository();
+        var options = new InfrastructureOptions { AuthMode = "Development", ChannelProvider = "WhatsAppCloudApi", ApiPublicBaseUrl = "https://app-api-dev.example.net" };
+
+        var result = await WhatsAppConfigurationEndpoints.SaveConfiguration(
+            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "waba-1", null),
+            repository, new FakeWhatsAppCredentialProtector(), validationClient,
+            new RecordingRuntimeSettingsProvider(), new InMemoryAuditRepository(), options,
+            Context(auditReason: "Connecting our WhatsApp Business number."), CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<WhatsAppConfigurationStatusResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.True(body!.Connected);
+        Assert.Equal("RegistrationFailed", body.WebhookRegistrationStatus);
+        Assert.Equal("Meta rejected the webhook registration request.", body.WebhookRegistrationError);
+        Assert.NotNull(await repository.GetAsync(Scope(), CancellationToken.None)); // credentials are still saved
+    }
+
+    [Fact]
     public async Task SaveConfiguration_WhenMetaRejectsCredentials_DoesNotPersistAnything()
     {
         var repository = new InMemoryWhatsAppChannelConfigurationRepository();
@@ -69,7 +171,7 @@ public sealed class WhatsAppConfigurationEndpointsTests
         var settingsProvider = new RecordingRuntimeSettingsProvider();
 
         var result = await WhatsAppConfigurationEndpoints.SaveConfiguration(
-            new WhatsAppSaveConfigurationRequest("phone-1", "bad-token", "app-secret-value", "verify-me", null),
+            new WhatsAppSaveConfigurationRequest("phone-1", "bad-token", "app-secret-value", "waba-1", null),
             repository, new FakeWhatsAppCredentialProtector(), validationClient, settingsProvider, new InMemoryAuditRepository(), Options(),
             Context(auditReason: "Connecting our WhatsApp Business number."), CancellationToken.None);
 
@@ -86,7 +188,7 @@ public sealed class WhatsAppConfigurationEndpointsTests
         var validationClient = new FakeWhatsAppGraphValidationClient(new WhatsAppGraphValidationResult(true, "+256700000000", "Acme Insurer", null));
 
         var result = await WhatsAppConfigurationEndpoints.SaveConfiguration(
-            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "verify-me", null),
+            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "waba-1", null),
             new InMemoryWhatsAppChannelConfigurationRepository(), new FakeWhatsAppCredentialProtector(), validationClient,
             new RecordingRuntimeSettingsProvider(), new InMemoryAuditRepository(), Options(),
             Context(), CancellationToken.None);

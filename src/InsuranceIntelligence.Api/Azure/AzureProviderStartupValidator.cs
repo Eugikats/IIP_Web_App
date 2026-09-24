@@ -228,7 +228,7 @@ public static class AzureProviderStartupValidator
     /// <summary>
     /// True when the environment renders synthetic, non-customer data. Production is
     /// structurally prevented from seeding, so this is effectively "seed enabled and
-    /// not Production" — the signal the portal banner uses to warn reviewers.
+    /// not Production", the signal the portal banner uses to warn reviewers.
     /// </summary>
     public static bool UsesSyntheticData(InfrastructureOptions options, string environmentName) =>
         options.SeedDemoData

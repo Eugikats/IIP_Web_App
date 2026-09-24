@@ -17,8 +17,18 @@ public sealed record InfrastructureOptions
     public string? EntraIssuer { get; init; }
     /// <summary>Public origin of the customer-facing client portal (e.g. https://portal.example.com),
     /// used to build magic-link URLs sent to claimants. Required outside Development for
-    /// magic-link issuance to work — see ClaimantAuthenticationEndpoints.</summary>
+    /// magic-link issuance to work, see ClaimantAuthenticationEndpoints.</summary>
     public string? ClientPortalBaseUrl { get; init; }
+    /// <summary>Public origin this API is reachable at (e.g. https://app-api-dev-xxxxx.azurewebsites.net),
+    /// used to build the WhatsApp webhook callback URL registered with Meta. See
+    /// docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md §4.3.</summary>
+    public string? ApiPublicBaseUrl { get; init; }
+    /// <summary>Path secret an SMS gateway's delivery-status webhook must present (as a route
+    /// segment) to be accepted. The payload EgoSMS/Africa's Talking POST back carries no signature
+    /// and no tenant identifier, this unguessable segment is what stops an outsider from posting
+    /// fabricated delivery statuses, and what lets the endpoint find the one deployment-configured
+    /// tenant scope to update. See docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md §5.4.</summary>
+    public string? SmsWebhookSharedSecret { get; init; }
     public string? AzureRegion { get; init; }
     public string? DataResidencyCountry { get; init; }
     public string? DataResidencyGeography { get; init; }
@@ -134,7 +144,7 @@ public sealed record AfricasTalkingOptions
 
     /// <summary>
     /// Tenant/platform opt-in for auto-sending low-risk, non-consequential transactional status SMS
-    /// (e.g. "we received your claim") without individual human approval. Conservative default: OFF —
+    /// (e.g. "we received your claim") without individual human approval. Conservative default: OFF,
     /// every outbound SMS requires human approval until a tenant deliberately enables this. Consequential
     /// messages (claim decisions, payouts, rejections) always require approval regardless of this flag.
     /// See docs/research/sms-auto-send-policy.md.
@@ -144,7 +154,7 @@ public sealed record AfricasTalkingOptions
 
 /// <summary>
 /// Meta WhatsApp Cloud API inbound configuration. Secrets (AccessToken, AppSecret, VerifyToken)
-/// must come from Key Vault / env — never commit real values. Channel mapping fields support the
+/// must come from Key Vault / env, never commit real values. Channel mapping fields support the
 /// default one-insurer-per-Managed-App deployment; multi-number EF mapping is a later slice.
 /// </summary>
 public sealed record WhatsAppOptions
@@ -161,4 +171,11 @@ public sealed record WhatsAppOptions
     public string? IntegrationUserId { get; init; }
     public string GraphBaseUrl { get; init; } = "https://graph.facebook.com/v24.0";
     public int RequestTimeoutSeconds { get; init; } = 20;
+
+    /// <summary>Tenant/platform opt-in for the customer assistant auto-replying to grounded,
+    /// cited GeneralQuestion answers without individual human approval (blueprint §8.3's
+    /// five-condition gate, this is condition 5). Conservative default: OFF, every drafted
+    /// answer is logged but not sent until a tenant deliberately enables this, exactly matching
+    /// AutoSendTransactionalSmsEnabled's precedent for outbound SMS.</summary>
+    public bool AssistantAutoReplyEnabled { get; init; }
 }

@@ -14,9 +14,9 @@ using InsuranceIntelligence.Domain.Policies;
 namespace InsuranceIntelligence.Application.ClaimsSummary;
 
 /// <summary>
-/// WO-10: closes the one real agent-catalog gap found during the build (docs §6.2 — Claims
+/// WO-10: closes the one real agent-catalog gap found during the build (docs §6.2, Claims
 /// Summary Agent had no implementation of any kind). Summarizes claim facts, timeline, documents,
-/// and policy context from tools only — every statement traces to a retrieved source, never model
+/// and policy context from tools only, every statement traces to a retrieved source, never model
 /// memory (AGENTS.md I6). Output is explicitly informational: "Required before decision use," not
 /// a recommendation, and never itself a claim decision (I4).
 ///
@@ -127,7 +127,7 @@ public sealed class ClaimsSummaryService(
 
         var prompt = BuildPrompt(claimCase, fairInputDocuments, policy, retrieval, knowledgeQuery);
         var chatResult = await chatCompletionProvider.CompleteAsync(
-            new ChatCompletionRequest(prompt, scope.TenantId, scope.WorkspaceId, correlationId),
+            new ChatCompletionRequest(prompt, scope.TenantId, scope.WorkspaceId, correlationId, AgentKey),
             cancellationToken);
 
         var (summary, riskSignals) = ParseModelOutput(chatResult.Content);
@@ -263,8 +263,10 @@ public sealed class ClaimsSummaryService(
             "Never state a fact that is not present in the material below. If something is unknown, say so plainly.",
             "Do not approve, deny, settle, repudiate, or recommend a decision. This summary prepares a human reviewer; it is not itself a decision.",
             "Cite knowledge excerpts you use by their bracketed number, e.g. [1]. Be concise and factual.",
+            "Refer to the claim only by the reference shown after CLAIM below. Never print internal identifiers.",
+            "Write plain sentences. Do not use em dashes.",
             string.Empty,
-            $"CLAIM: {claimCase.CaseId}",
+            $"CLAIM: {ClaimReference.For(claimCase.CaseId)}",
             $"Customer: {claimCase.CustomerName}",
             $"Product line: {claimCase.ProductLine} | Claim type: {claimCase.ClaimType} | Status: {claimCase.Status}",
             $"Incident date: {claimCase.IncidentDate} | Description: {claimCase.IncidentDescription}",

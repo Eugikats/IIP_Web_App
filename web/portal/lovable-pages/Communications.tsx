@@ -1,4 +1,5 @@
 "use client";
+import { claimReference, humanizeIdentifier, shortReference } from "@/lib/format";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { useMemo, useState } from "react";
 import { SectionHeader, GlassCard, Badge, StatusBadge } from "@/components/iip/Primitives";
@@ -59,7 +60,7 @@ export default function Communications() {
       <SectionHeader
         eyebrow="Customer Communications"
         title="Customer update queue"
-        sub="AI drafts customer-safe messages. Every send requires named human approval — no sensitive message is dispatched automatically."
+        sub="AI drafts customer-safe messages. Every send requires named human approval, no sensitive message is dispatched automatically."
       />
       <div className="mb-4"><GuardrailBanner text="Drafts must not promise settlement, coverage, or payment. Approved drafts are dispatched via the configured provider and logged in Audit." /></div>
 
@@ -97,10 +98,10 @@ export default function Communications() {
               return (
                 <TableRow key={item.updateId} className="align-top">
                   <TableCell>
-                    <div className="font-semibold text-dls-text-primary">{item.reasonCategory} · {item.customerName}</div>
+                    <div className="font-semibold text-dls-text-primary">{humanizeIdentifier(item.reasonCategory)} · {item.customerName}</div>
                     <div className="max-w-[420px] truncate text-[11.5px] text-dls-text-secondary">{item.messageBody}</div>
                     <Link to={`/app/claims/${item.caseId}`} className="dls-focus-outline mt-0.5 inline-flex items-center gap-1 rounded-dls-control text-[11px] font-semibold text-dls-primary hover:underline">
-                      <ExternalLink className="h-3 w-3" aria-hidden="true" /> {item.caseId.slice(0, 8)}
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" /> Claim {claimReference(item.caseId)}
                     </Link>
                   </TableCell>
                   <TableCell><Badge tone="info">{item.channel}</Badge></TableCell>
@@ -112,7 +113,7 @@ export default function Communications() {
                         <Button variant="secondary" onClick={() => setPending({ kind: "approve", item })}>Approve</Button>
                       )}
                       {allows(item, "approveCustomerUpdate") && (
-                        // Button's destructive variant is zero-padding by design (§8.4 — a text
+                        // Button's destructive variant is zero-padding by design (§8.4, a text
                         // link, not a row action); hand-sized here to match its bordered/filled
                         // siblings in this row, same treatment Workflows.tsx already established.
                         <button

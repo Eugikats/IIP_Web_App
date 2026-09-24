@@ -6,8 +6,8 @@ import { AlertTriangle, Loader2, ShieldCheck } from "lucide-react";
 import iipLogo from "@/assets/iip-logo";
 import { redeemMagicLink, storeSession } from "@/lib/clientPortal";
 
-// Claimant-facing (tier 6 — stricter rules). This screen renders only the redeem-result error
-// message (already sanitised at the source, see AGENTS.md) or a generic "verifying" state —
+// Claimant-facing (tier 6, stricter rules). This screen renders only the redeem-result error
+// message (already sanitised at the source, see AGENTS.md) or a generic "verifying" state,
 // nothing staff-only is ever in scope here.
 export default function ClaimAccessVerify() {
   const router = useRouter();

@@ -56,6 +56,8 @@ public sealed class ChannelQueryService(
             ChannelDetectedIntentValues.DocumentUpload => ChannelDetectedIntentValues.DocumentUpload,
             ChannelDetectedIntentValues.PaymentInquiry => ChannelDetectedIntentValues.PaymentInquiry,
             ChannelDetectedIntentValues.GeneralService => ChannelDetectedIntentValues.GeneralService,
+            ChannelDetectedIntentValues.ClaimStatus => ChannelDetectedIntentValues.ClaimStatus,
+            ChannelDetectedIntentValues.HumanRequested => ChannelDetectedIntentValues.HumanRequested,
             _ => ChannelDetectedIntentValues.GeneralService
         };
 }

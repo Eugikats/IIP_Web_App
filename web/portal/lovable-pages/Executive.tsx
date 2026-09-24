@@ -93,7 +93,7 @@ export default function Executive() {
           <GlassCard>
             <div className="mb-1 text-[15px] font-bold text-dls-text-primary">Claims by status</div>
             <div className="mb-4 text-[11.5px] text-dls-text-muted">{summary.source === "synthetic" ? "Illustrative distribution in the labelled development snapshot" : "Distribution at the snapshot time shown above"}</div>
-            {/* §8.25 — vertical bars only, the chart-bar gradient (one of the two permitted uses),
+            {/* §8.25, vertical bars only, the chart-bar gradient (one of the two permitted uses),
                 8px top radius, no gridlines/axis lines, muted short labels. */}
             <div className="h-[180px]">
               <ResponsiveContainer>
@@ -114,7 +114,7 @@ export default function Executive() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            {/* Table alternative to the chart, per §8.25 — "every chart is accompanied by an
+            {/* Table alternative to the chart, per §8.25, "every chart is accompanied by an
                 accessible table alternative and direct value labels". */}
             <table className="mt-4 w-full text-[12.5px]">
               <caption className="sr-only">Claims by status, exact counts</caption>

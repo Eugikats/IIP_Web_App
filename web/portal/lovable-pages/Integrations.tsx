@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, Building2, KeyRound, Mail, MessageCircle, Plug, Search, ShieldCheck } from "lucide-react";
+import { Activity, Building2, KeyRound, Mail, MessageCircle, Plug, Radio, Search, ShieldCheck } from "lucide-react";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import ProviderHealthGrid from "@/components/iip/ProviderHealthGrid";
 import { Badge, GlassCard, SectionHeader } from "@/components/iip/Primitives";
@@ -29,6 +29,7 @@ export default function Integrations() {
   const canOpenOnboarding = canOpen("/app/admin/onboarding");
   const canOpenWhatsApp = canOpen("/app/admin/whatsapp");
   const canOpenEmail = canOpen("/app/admin/email");
+  const canOpenConnections = canOpen("/app/admin/connections");
   const canOpenAgentGovernance = canOpen("/app/admin/agents");
   const canOpenAdmin = canOpen("/app/admin");
 
@@ -76,9 +77,10 @@ export default function Integrations() {
 
           <GlassCard>
             <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-dls-info-text" aria-hidden="true" /><div className="text-[14px] font-bold text-dls-text-primary">Identity and secrets</div></div>
-            <p className="mt-2 text-[12px] leading-5 text-dls-text-secondary">Customer Entra consent and managed identities are configured through controlled deployment and onboarding paths. WhatsApp Business credentials are the one exception — they're entered here, validated against Meta, and encrypted at rest.</p>
+            <p className="mt-2 text-[12px] leading-5 text-dls-text-secondary">Customer Entra consent and managed identities are configured through controlled deployment and onboarding paths. WhatsApp Business and SMS credentials are the exceptions, they&apos;re entered here, validated against the real provider, and encrypted at rest.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {canOpenWhatsApp ? <Link href="/app/admin/whatsapp" className={linkClass}><MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> WhatsApp Business</Link> : null}
+              {canOpenConnections ? <Link href="/app/admin/connections" className={linkClass}><Radio className="h-3.5 w-3.5" aria-hidden="true" /> Connections</Link> : null}
               {canOpenEmail ? <Link href="/app/admin/email" className={linkClass}><Mail className="h-3.5 w-3.5" aria-hidden="true" /> Email Mailboxes</Link> : null}
               {canOpenOnboarding ? <Link href="/app/admin/onboarding" className={linkClass}><Building2 className="h-3.5 w-3.5" aria-hidden="true" /> Tenant onboarding</Link> : null}
               {canOpenAgentGovernance ? <Link href="/app/admin/agents" className={linkClass}><ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" /> Agent governance</Link> : null}

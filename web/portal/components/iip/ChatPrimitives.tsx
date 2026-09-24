@@ -1,4 +1,4 @@
-// Design language v2 §8.17 — chat surface. Shared by the Assistant landing (AIConversations)
+// Design language v2 §8.17, chat surface. Shared by the Assistant landing (AIConversations)
 // and the shell's CopilotPanel; keep every exported signature stable across both callers.
 import { Sparkles, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,7 +36,7 @@ export function Composer({ value, onChange, onSend, disabled, placeholder, ariaL
   ariaLabel?: string;
   // Escape hatch for the disclaimer line's background: CopilotPanel sits it on bg-dls-surface
   // (white), but AIConversations' hero sits it directly on bg-dls-bg-page, where the default
-  // text-dls-text-muted measures 4.47:1 — below WCAG AA 4.5:1 (gate-17).
+  // text-dls-text-muted measures 4.47:1, below WCAG AA 4.5:1 (gate-17).
   disclaimerClassName?: string;
 }) {
   // Derive the send button's accessible name from the composer's own label so
@@ -60,7 +60,13 @@ export function Composer({ value, onChange, onSend, disabled, placeholder, ariaL
             }
           }}
           rows={1}
-          placeholder={placeholder ?? "Ask IIP anything — claims, documents, customers, policies, workflows…"}
+          // Must fit ONE line at the narrowest composer width (~400px: a 768px viewport, or a
+          // 1280px one with the evidence panel open). The textarea is rows=1 with a fixed
+          // min-height and does not grow, so a placeholder that wraps has its second line
+          // clipped outright -- there is no scrollbar for placeholder text. The previous copy
+          // ("... claims, documents, customers, policies, workflows") wrapped and lost its last
+          // word at 768px. Breadth belongs in the suggestion chips above, which are real.
+          placeholder={placeholder ?? "Ask about claims, documents or customers…"}
           className="max-h-40 min-h-11 flex-1 resize-none bg-transparent py-2 text-[14.5px] text-dls-text-primary outline-none placeholder:text-dls-text-muted"
         />
         <button

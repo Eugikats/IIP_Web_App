@@ -1,16 +1,17 @@
 "use client";
-import { FileText, Sparkles } from "lucide-react";
+import { ArrowRight, FileText, Sparkles } from "lucide-react";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { MarkdownText } from "@/components/iip/MarkdownText";
 import type { CommandCenterBlock } from "@/lib/lovable-parity/data/commandCenterQuery";
 import { safeInternalWorkHref } from "@/lib/workItemLinks";
+import { claimReference, humanizeIdentifier, isGuid } from "@/lib/format";
+import { usePeople } from "@/lib/people";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 import { ErrorStateSurface, NotConfiguredStateSurface } from "@/components/ui/StateSurfaces";
 
-// Status vocabulary mirrors iip_workflow_legibility_contract.md §10.1/§10.3 exactly — the backend
-// sends the raw Domain enum name (e.g. CaseStatus.ToString()), never a display label, so every
-// screen that shows one must translate it through the same table. Keep this in sync with the
-// contract; do not invent alternate labels.
+// Status vocabulary mirrors iip_workflow_legibility_contract.md section 10.1 and 10.3 exactly. The
+// backend sends the raw Domain enum name (CaseStatus.ToString()), never a display label, so every
+// screen that shows one must translate it through the same table.
 const CASE_STATUS_VOCAB: Record<string, { label: string; tone: PillTone }> = {
   New: { label: "Received", tone: "info" },
   Assigned: { label: "Assigned", tone: "info" },
@@ -32,9 +33,8 @@ const APPROVAL_STATUS_VOCAB: Record<string, { label: string; tone: PillTone }> =
   Escalated: { label: "Escalated", tone: "danger" },
 };
 
-// SlaToken is the four-value token CommandCenterQueryPlanner.ResolveSla emits (not the three-value
-// SlaStatus enum in the contract) — due_today sits between on_track and at_risk and reads as a
-// warning like at_risk does.
+// SlaToken is the four-value token CommandCenterQueryPlanner.ResolveSla emits. due_today sits
+// between on_track and at_risk and reads as a warning like at_risk does.
 const SLA_TONE: Record<string, PillTone> = {
   breached: "danger",
   at_risk: "warning",
@@ -42,25 +42,47 @@ const SLA_TONE: Record<string, PillTone> = {
   on_track: "success",
 };
 
+const GUID_IN_TEXT = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+
+// Answers saved before claim references existed can still carry a raw id in their prose. Every id
+// the assistant writes about is a claim, so it is shown the way the rest of the product names one.
+function withReadableReferences(text: string): string {
+  return text.replace(GUID_IN_TEXT, (id) => claimReference(id));
+}
+
 function caseStatusPill(status: string) {
   const entry = CASE_STATUS_VOCAB[status];
-  return <StatusPill tone={entry?.tone ?? "neutral"} label={entry?.label ?? status} />;
+  return <StatusPill tone={entry?.tone ?? "neutral"} label={entry?.label ?? humanizeIdentifier(status)} />;
 }
 
 function approvalStatusPill(status: string) {
   const entry = APPROVAL_STATUS_VOCAB[status];
-  return <StatusPill tone={entry?.tone ?? "neutral"} label={entry?.label ?? status} />;
+  return <StatusPill tone={entry?.tone ?? "neutral"} label={entry?.label ?? humanizeIdentifier(status)} />;
+}
+
+const ROW_LINK =
+  "dls-focus-outline group flex items-center gap-3 rounded-dls-tight px-1 py-2.5 transition-colors duration-dls-fast ease-dls hover:bg-dls-bg-page";
+
+function ClaimHref(caseId: string, fallback?: string) {
+  return safeInternalWorkHref(fallback ?? (isGuid(caseId) ? `/app/claims/${caseId}` : undefined), "/app/claims");
+}
+
+function RowChevron() {
+  return <ArrowRight className="h-3.5 w-3.5 shrink-0 text-dls-text-muted transition-colors group-hover:text-dls-primary" aria-hidden="true" />;
 }
 
 // Renders one governed answer from POST /api/v1/command-center/query. Every block type has an
-// explicit renderer; anything unknown falls through to a safe "unsupported" note (never raw JSON).
+// explicit renderer; anything unknown falls through to a safe note (never raw JSON). Every row that
+// names a claim is a link to that claim: an answer that lists work a person cannot open is a dead end.
 function Block({ block, historical = false }: { block: CommandCenterBlock; historical?: boolean }) {
+  const { describe } = usePeople();
+
   switch (block.type) {
     case "text":
       return (
         <MarkdownText
           className="text-[13.5px] leading-relaxed text-dls-text-secondary"
-          content={String((block as { markdown?: string }).markdown ?? "")}
+          content={withReadableReferences(String((block as { markdown?: string }).markdown ?? ""))}
         />
       );
     case "metric_pills":
@@ -79,38 +101,45 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
       return (
         <div className="divide-y divide-dls-border-subtle">
           {(block as Extract<CommandCenterBlock, { type: "claims_table" }>).rows.map((r) => (
-            <Link
-              key={r.caseId}
-              to={safeInternalWorkHref(r.href, "/app/claims")}
-              className="dls-focus-outline flex items-center gap-3 rounded-dls-tight px-1 py-2.5 hover:bg-dls-bg-page"
-            >
-              <div className="w-28 shrink-0 truncate text-[12px] font-semibold text-dls-text-primary">{r.caseId}</div>
-              <div className="min-w-0 flex-1 truncate text-[12.5px] text-dls-text-primary">{r.customer}</div>
-              <div className="hidden text-[11.5px] text-dls-text-muted md:block">{r.productLine}</div>
+            <Link key={r.caseId} to={ClaimHref(r.caseId, r.href)} className={ROW_LINK}>
+              <div className="w-28 shrink-0 text-[12px] font-semibold tabular-nums text-dls-text-primary">{claimReference(r.caseId)}</div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] text-dls-text-primary">{r.customer}</div>
+                <div className="truncate text-[11px] text-dls-text-muted">
+                  {r.productLine} · {r.assignedTo ? describe(r.assignedTo) : "Unassigned"}
+                </div>
+              </div>
               {caseStatusPill(r.status)}
+              <RowChevron />
             </Link>
           ))}
         </div>
       );
     case "sla_summary":
       return (
-        <div className="space-y-1.5">
+        <div className="divide-y divide-dls-border-subtle">
           {(block as Extract<CommandCenterBlock, { type: "sla_summary" }>).items.map((s) => (
-            <div key={s.caseId} className="flex items-center justify-between text-[12.5px]">
-              <span className="text-dls-text-primary">{s.caseId} · {s.customer}</span>
+            <Link key={s.caseId} to={ClaimHref(s.caseId)} className={ROW_LINK}>
+              <div className="w-28 shrink-0 text-[12px] font-semibold tabular-nums text-dls-text-primary">{claimReference(s.caseId)}</div>
+              <div className="min-w-0 flex-1 truncate text-[12.5px] text-dls-text-primary">{s.customer}</div>
               <StatusPill tone={SLA_TONE[s.slaStatus] ?? "neutral"} label={s.dueLabel} />
-            </div>
+              <RowChevron />
+            </Link>
           ))}
         </div>
       );
     case "document_gap_summary":
       return (
-        <div className="space-y-2">
+        <div className="divide-y divide-dls-border-subtle">
           {(block as Extract<CommandCenterBlock, { type: "document_gap_summary" }>).items.map((d) => (
-            <div key={d.caseId} className="text-[12.5px]">
-              <span className="font-semibold text-dls-text-primary">{d.caseId} · {d.customer}</span>
-              <span className="text-dls-text-muted"> — missing: {d.missing.join(", ")}</span>
-            </div>
+            <Link key={d.caseId} to={ClaimHref(d.caseId)} className={ROW_LINK}>
+              <div className="w-28 shrink-0 text-[12px] font-semibold tabular-nums text-dls-text-primary">{claimReference(d.caseId)}</div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] text-dls-text-primary">{d.customer}</div>
+                <div className="text-[11.5px] text-dls-text-muted">Still needed: {d.missing.join(", ")}</div>
+              </div>
+              <RowChevron />
+            </Link>
           ))}
         </div>
       );
@@ -118,13 +147,15 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
       return (
         <div className="divide-y divide-dls-border-subtle">
           {(block as Extract<CommandCenterBlock, { type: "approval_queue" }>).items.map((a) => (
-            <Link
-              key={a.approvalId}
-              to={safeInternalWorkHref(a.href, "/app/work-items")}
-              className="dls-focus-outline flex items-center justify-between rounded-dls-tight px-1 py-2.5 hover:bg-dls-bg-page"
-            >
-              <span className="text-[12.5px] text-dls-text-primary">{a.title}</span>
+            <Link key={a.approvalId} to={safeInternalWorkHref(a.href, "/app/workflows")} className={ROW_LINK}>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] text-dls-text-primary">
+                  {/\s/.test(a.title) ? withReadableReferences(a.title) : humanizeIdentifier(a.title)}
+                </div>
+                {a.caseId ? <div className="text-[11px] text-dls-text-muted">Claim {claimReference(a.caseId)}</div> : null}
+              </div>
               {approvalStatusPill(a.status)}
+              <RowChevron />
             </Link>
           ))}
         </div>
@@ -138,7 +169,9 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
           {(block as Extract<CommandCenterBlock, { type: "management_summary" }>).sections.map((s, i) => (
             <div key={i} className="mb-2">
               <div className="text-[12px] font-semibold text-dls-text-primary">{s.heading}</div>
-              <div className="text-[12.5px] text-dls-text-secondary">{s.body}</div>
+              {/* Section bodies are model prose from the Report Insight agent and carry the same
+                  markdown the "text" block above already renders, so both are rendered the same way. */}
+              <MarkdownText className="text-[12.5px] text-dls-text-secondary" content={withReadableReferences(s.body)} />
             </div>
           ))}
         </div>
@@ -147,39 +180,38 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
       const b = block as Extract<CommandCenterBlock, { type: "draft_communication" }>;
       return (
         <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
-          <div className="mb-1.5 flex items-center gap-2">
+          <div className="mb-1.5 flex flex-wrap items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 text-dls-primary" aria-hidden="true" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Draft communication</span>
-            {b.requiresApproval ? <StatusPill tone="warning" label="Human approval required" /> : null}
+            <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Draft message</span>
+            {b.requiresApproval ? <StatusPill tone="warning" label="Not sent: needs approval" /> : null}
           </div>
           <div className="whitespace-pre-wrap text-[12.5px] text-dls-text-secondary">{b.preview}</div>
         </div>
       );
     }
     case "action_proposal":
-      // Design language §8.21 — action card. targetHref/requiresHumanApproval are the only object
-      // facts this block type carries; there is no separate object-status field to show alongside
-      // the approval pill without a data-shape change (out of scope for a presentation migration).
+      // Design language section 8.21, action card. Proposals that need a person's approval say so;
+      // plain navigation (open a claim) does not wear an approval pill it has no reason to carry.
       return (
         <div className="space-y-2">
           {(block as Extract<CommandCenterBlock, { type: "action_proposal" }>).actions.map((a, i) => (
             <div key={i} className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3.5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-[12.5px] font-semibold text-dls-text-primary">{a.label}</div>
-                  <div className="mt-0.5 text-[11.5px] text-dls-text-muted">{a.description}</div>
+                  <div className="text-[12.5px] font-semibold text-dls-text-primary">{withReadableReferences(a.label)}</div>
+                  <div className="mt-0.5 text-[11.5px] text-dls-text-muted">{withReadableReferences(a.description)}</div>
                 </div>
                 {a.requiresHumanApproval && <StatusPill tone="warning" label="Requires approval" />}
               </div>
               <div className="mt-2.5">
                 {historical ? (
-                  <StatusPill tone="neutral" label="Historical proposal" />
+                  <StatusPill tone="neutral" label="Earlier suggestion" />
                 ) : (
                   <Link
                     to={safeInternalWorkHref(a.targetHref, "/app")}
                     className="dls-focus-outline inline-flex items-center justify-center gap-1.5 rounded-dls-control bg-dls-primary px-4 py-[9px] text-[13px] font-bold text-dls-text-inverse shadow-dls-primary transition-colors duration-dls-fast ease-dls hover:bg-dls-primary-hover active:bg-dls-primary-active"
                   >
-                    Review
+                    {a.requiresHumanApproval ? "Review" : "Open"}
                   </Link>
                 )}
               </div>
@@ -188,9 +220,8 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
         </div>
       );
     case "evidence_list":
-      // Design language §8.20 — citation chip. Visual contract only: `ref` is an internal evidence
-      // reference, not a URL, and there is no side-drawer primitive (§8.16) yet to open it into, so
-      // these render as labelled, non-interactive chips rather than a fabricated click target.
+      // Design language section 8.20, citation chip. `ref` is an internal evidence reference, not a
+      // URL, and there is no side drawer yet to open it into, so these render as labelled chips.
       return (
         <div className="flex flex-wrap gap-1.5">
           {(block as Extract<CommandCenterBlock, { type: "evidence_list" }>).sources.map((s, i) => (
@@ -206,18 +237,18 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
       );
     case "not_configured": {
       const b = block as Extract<CommandCenterBlock, { type: "not_configured" }>;
-      return <NotConfiguredStateSurface what={`${b.provider} — ${b.adminAction}`} />;
+      return <NotConfiguredStateSurface what={`${b.provider}. ${b.adminAction}`} />;
     }
     case "error": {
       const b = block as Extract<CommandCenterBlock, { type: "error" }>;
       return <ErrorStateSurface message={b.safeMessage} correlationId={b.correlationId} />;
     }
     default:
-      return <div className="text-[12px] italic text-dls-text-muted">Unsupported response block ({String(block.type)}) — nothing rendered.</div>;
+      return <div className="text-[12px] italic text-dls-text-muted">This part of the answer could not be shown.</div>;
   }
 }
 
-// Renders just the governed answer blocks (no outer card) — used inside chat bubbles.
+// Renders just the governed answer blocks (no outer card), used inside chat bubbles.
 export function CommandCenterBlocks({ blocks, historical = false }: { blocks: CommandCenterBlock[]; historical?: boolean }) {
   return <div className="space-y-4">{blocks.map((b, i) => <Block key={i} block={b} historical={historical} />)}</div>;
 }

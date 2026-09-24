@@ -1,4 +1,4 @@
-// Design language v2 §8.24 — every data surface implements six states, and none of them is a
+// Design language v2 §8.24, every data surface implements six states, and none of them is a
 // spinner alone.
 import { type ReactNode } from "react";
 import { AlertCircle, ShieldAlert } from "lucide-react";
@@ -18,7 +18,7 @@ export function LoadingSkeleton({ rows = 3, className }: { rows?: number; classN
 }
 
 // `title` is optional per §8.24 ("one sentence saying what will appear here" is the minimum
-// requirement, not a ceiling) — added while migrating screen 10's checkpoint
+// requirement, not a ceiling), added while migrating screen 10's checkpoint
 // (ui-migration-ledger.md) after consolidating RecentConversations.tsx onto this primitive
 // dropped a distinct headline ("No conversations yet" / "No archived conversations") three
 // release gates asserted on. Omit it for the plain single-sentence case most screens use.
@@ -36,7 +36,7 @@ export function EmptyStateSurface({ title, message, action }: { title?: string; 
   );
 }
 
-// Distinct from EmptyStateSurface — never show the same message for both.
+// Distinct from EmptyStateSurface, never show the same message for both.
 export function EmptyFilteredStateSurface({ title, onClear }: { title?: string; onClear: () => void }) {
   return (
     <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">

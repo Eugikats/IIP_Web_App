@@ -27,7 +27,7 @@ type DocumentDto = {
 };
 
 const PARITY: DocumentView[] = documentLibrary.map((d) => ({
-  id: d.id, name: d.name, type: d.type, claim: d.claim ?? "—",
+  id: d.id, name: d.name, type: d.type, claim: d.claim ?? "-",
   status: d.status, confidence: d.confidence ?? 0,
   uploaded: d.uploaded,
 }));
@@ -40,7 +40,7 @@ function mapDto(d: DocumentDto): DocumentView {
     claim: d.caseId,
     status: d.status,
     confidence: d.classificationConfidence,
-    uploaded: Number.isNaN(Date.parse(d.uploadedAt)) ? "—" : new Date(d.uploadedAt).toLocaleDateString(),
+    uploaded: Number.isNaN(Date.parse(d.uploadedAt)) ? "-" : new Date(d.uploadedAt).toLocaleDateString(),
   };
 }
 
@@ -57,7 +57,7 @@ export function useDocuments() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/documents`, { headers: scopedHeaders(role, "") });
-      // Design language v2 §8.24 / AGENTS.md — never surface a raw provider error, stack trace, or
+      // Design language v2 §8.24 / AGENTS.md, never surface a raw provider error, stack trace, or
       // status code to the user. A thrown HTTP-status message previously reached the screen as-is.
       if (!response.ok) throw new Error("Documents failed to load.");
       const rows = (await response.json()) as DocumentDto[];

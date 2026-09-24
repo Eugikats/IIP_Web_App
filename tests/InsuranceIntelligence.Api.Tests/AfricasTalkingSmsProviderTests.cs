@@ -79,7 +79,7 @@ public sealed class AfricasTalkingSmsProviderTests
     public async Task SendAsync_WhenNotConfigured_ReturnsConfigurationRequired()
     {
         var handler = new CapturingHandler(SuccessBody);
-        var provider = Provider(handler, new InfrastructureOptions()); // AfricasTalking username/apikey empty
+        var provider = Provider(handler, new AfricasTalkingOptions(), autoSendTransactional: false); // username/apikey empty
 
         var result = await provider.SendAsync(Request(approved: true));
 
@@ -147,22 +147,18 @@ public sealed class AfricasTalkingSmsProviderTests
     public void Normalize_InvalidNumbers_ReturnsNull(string? raw) =>
         Assert.Null(UgandaMsisdn.Normalize(raw));
 
-    private static InfrastructureOptions Configured(bool autoSendTransactional = false) =>
+    private static AfricasTalkingOptions Configured(bool autoSendTransactional = false) =>
         new()
         {
-            SmsProvider = "AfricasTalking",
-            AfricasTalking = new AfricasTalkingOptions
-            {
-                Username = "sandbox",
-                ApiKey = "test-key",
-                SenderId = "IIP",
-                BaseUrl = "https://api.sandbox.africastalking.com",
-                AutoSendTransactionalSmsEnabled = autoSendTransactional,
-            },
+            Username = "sandbox",
+            ApiKey = "test-key",
+            SenderId = "IIP",
+            BaseUrl = "https://api.sandbox.africastalking.com",
+            AutoSendTransactionalSmsEnabled = autoSendTransactional,
         };
 
-    private static AfricasTalkingSmsProvider Provider(CapturingHandler handler, InfrastructureOptions options) =>
-        new(options, NullLogger<AfricasTalkingSmsProvider>.Instance, new HttpClient(handler));
+    private static AfricasTalkingSmsProvider Provider(CapturingHandler handler, AfricasTalkingOptions settings, bool? autoSendTransactional = null) =>
+        new(settings, autoSendTransactional ?? settings.AutoSendTransactionalSmsEnabled, NullLogger<AfricasTalkingSmsProvider>.Instance, new HttpClient(handler));
 
     private static CommunicationSendRequest Request(
         bool approved,

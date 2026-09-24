@@ -7,10 +7,10 @@ using InsuranceIntelligence.Domain.Workflow;
 namespace InsuranceIntelligence.Application.Agents.Tools;
 
 /// <summary>
-/// One claim's state as loaded for tool consumption — the same aggregation
+/// One claim's state as loaded for tool consumption, the same aggregation
 /// CommandCenterQueryService.LoadQueryDataAsync performs today. Shared here so
 /// claims.attention.read, claims.sla.read, and documents.gaps.read (three separately permissioned,
-/// separately auditable tools per doc §9) don't each re-walk cases/documents/checklists — the
+/// separately auditable tools per doc §9) don't each re-walk cases/documents/checklists, the
 /// business rule (what a claim's SLA/completeness state is) lives in one place.
 /// </summary>
 public sealed record ClaimSnapshot(

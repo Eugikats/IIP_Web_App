@@ -131,6 +131,74 @@ az webapp deploy \
 Verify: `curl https://app-api-dev-h5girbnzrayqe.azurewebsites.net/health` should return
 `{"status":"healthy",...}`.
 
+### Applying database migrations — a required, separate step after deploying the API
+
+**Pending as of 2026-09-23 (build-prompt outcome Q status update):** `20260923030617_AddRetentionRemindersAndSatisfactionResponses` (two new tables, `RetentionReminders` and `SatisfactionResponses`, for build-prompt outcome O) exists locally, generated with `dotnet ef migrations add` per the rule below, and has **not** been applied to `dev` or any deployed environment — nothing from outcomes N through Q in this build has been deployed at all, per this session's own standing instruction to hold every deploy until the whole build prompt is finished. Whoever deploys this work next must run the `db-migrate` step below and confirm the applied-migration count matches before assuming any of outcome O's screens will work against `dev`.
+
+**The API does not migrate on startup.** Nothing in `Program.cs` calls `Database.Migrate()`, by
+design. Deploying code that reads a new table therefore succeeds, starts healthy, and then returns
+`500 Invalid object name '<Table>'` on every request that touches it — `/health` will not catch
+this, because it does not query those tables. This bit us on 2026-09-14: the API deployed and
+reported healthy while `/cases/{id}/case-review`, `/cases/{id}/summary` and
+`/integrations/whatsapp/configuration` all 500'd, because the live database was **nine migrations
+behind** (since 2026-09-04, long before that day's deploy).
+
+After deploying the API, apply migrations through the app's own admin endpoints — they use the API's
+managed-identity SQL connection, so nobody needs direct database access. They are additive and
+idempotent (EF skips already-applied migrations) and are blocked under protected runtime profiles
+(`Staging`/`Production`/`ManagedApplicationReviewer`); `dev` runs `Demo`, which is permitted.
+
+```bash
+# Bearer token for the API's own scope, as a signed-in Entra user with ManageTenantSettings:
+az account get-access-token --resource api://d55fe46b-1fba-4c5b-81e1-4ee1918ecf73 --query accessToken -o tsv
+
+GET  /api/v1/admin/db-migrate/diagnose   # table list + applied-migration history — always run first
+POST /api/v1/admin/db-migrate            # applies pending migrations; returns wasPending/appliedAfter
+```
+
+Compare `diagnose`'s `appliedMigrationHistory` count against
+`ls src/InsuranceIntelligence.Infrastructure/Migrations/*.cs | grep -v Designer | grep -v Snapshot | wc -l`.
+They should match. If they don't, migrations are pending regardless of what `/health` says.
+
+**A migration EF cannot see will not appear as pending, and `diagnose` will not flag it.** EF
+discovers migrations via the `[DbContext]`/`[Migration]` attributes in each migration's
+`.Designer.cs`. `20260906150000_AddCaseReviews` was hand-written on 2026-09-08 without one, so it
+was invisible to `dotnet ef migrations list`, to `GetPendingMigrations()`, and to the db-migrate
+endpoint — the `CaseReviews` table simply never got created in any environment. Fixed on
+2026-09-14 by adding the missing Designer. **Never hand-write a migration file; always use
+`dotnet ef migrations add`**, and if you must edit one, confirm afterwards that
+`dotnet ef migrations list` still shows it.
+
+### Function App
+
+**This section did not exist until 2026-09-14, and the consequence was real:** `RetentionEnforcement`
+had been in the codebase since Phase 6 but was never live, because nothing here told anyone the
+Functions app needed its own deploy. Deploying the API does not deploy the functions. If you add or
+change anything in `InsuranceIntelligence.Functions`, this step is required or it simply never runs.
+
+The app is `func-iip-dev-h5girbnzrayqe`, Linux, `DOTNET-ISOLATED|8.0`, with
+`WEBSITE_RUN_FROM_PACKAGE=1` — so it takes a zip through `config-zip`, not `az webapp deploy`.
+
+```bash
+dotnet publish src/InsuranceIntelligence.Functions/InsuranceIntelligence.Functions.csproj   -c Release -o /tmp/func-publish
+# zip it (PowerShell: [System.IO.Compression.ZipFile]::CreateFromDirectory) -- about 12 MB
+az functionapp deployment source config-zip   --name func-iip-dev-h5girbnzrayqe --resource-group rg-iip-dev   --subscription 5f5765ae-985f-42e4-a443-8e2447be33ca   --src /tmp/func-publish.zip
+```
+
+**Check the publish output before deploying, and the live app after.** `functions.metadata` in the
+publish folder lists exactly what the build found; `az functionapp function list` lists what the
+platform actually registered. If a function is in the first and not the second, the deploy did not
+take effect — registration lags the deploy by up to a minute, so poll rather than concluding on the
+first empty result.
+
+```bash
+az functionapp function list --name func-iip-dev-h5girbnzrayqe --resource-group rg-iip-dev   --subscription 5f5765ae-985f-42e4-a443-8e2447be33ca   --query "[].{name:name,disabled:isDisabled}" -o table
+```
+
+As of 2026-09-14 that returns four, all enabled: `AgentWorkflowNodeExecute` (Service Bus),
+`TeamsNotificationDispatch` (Service Bus), `RetentionEnforcement` (timer, 02:00 UTC daily),
+`MailboxIngestion` (timer, every 5 minutes).
+
 ### Portal
 
 The Next.js standalone bundle needs careful assembly — see the detailed comments in
@@ -170,6 +238,80 @@ az webapp deploy \
 
 The portal's startup command is already set to `node server.js` — don't need to touch
 `az webapp config set` unless it's drifted (`az webapp config show ... --query appCommandLine`).
+
+### Inbound email is deployed but switched off in `dev` (verified 2026-09-14)
+
+The collection path exists and is live — `MailboxIngestion` runs every five minutes and
+`POST /api/v1/integrations/email/ingest` is registered — but **both the API and the Function App
+carry `INSURANCEINTELLIGENCE_EMAIL_PROVIDER=Disabled`**, so neither collects anything. That is
+deliberate honest behaviour, not a bug: the endpoint returns
+
+```json
+{"message":"Inbound email collection requires a configured Microsoft Graph mailbox connection.","provider":"Disabled"}
+```
+
+with HTTP 400, and the timer returns without acting. Nothing pretends to work.
+
+**To actually receive email in `dev`, three things are needed, in this order:**
+
+1. A Microsoft Graph app registration with `Mail.Read` (and `Mail.ReadWrite` if processed messages
+   should be moved), admin-consented in tenant `dcb0b132-fb9e-475c-a68e-b0671222e8d8`, plus the
+   `GraphMail__*` settings it needs.
+2. `INSURANCEINTELLIGENCE_EMAIL_PROVIDER=Graph` on **both** `app-api-dev-h5girbnzrayqe` and
+   `func-iip-dev-h5girbnzrayqe`. Setting it on only one gives a half-working channel: the admin
+   "collect now" button works and the schedule does not, or the reverse.
+3. A mailbox configured in the app at `/app/admin/email` with collection switched on.
+
+Until step 2, the Channels inbox will show WhatsApp traffic and no email, which is the truthful
+state and not something to "fix" by changing code.
+
+### Claimant portal and WhatsApp under Entra auth (fixed 2026-09-15)
+
+Until 2026-09-15 neither the claimant portal nor the WhatsApp webhook could work in `dev`, and the
+code would have failed the same way in any deployed environment:
+
+- `RuntimeHeaderGuard` rejected `X-Tenant-Id` and `X-Workspace-Id` on every route outside
+  Development, while the claimant portal relies on exactly those headers to name its insurer
+  (403 on every link request).
+- The unauthenticated-API guard exempted only the Graph webhook, so claimant routes and Meta's
+  `GET`/`POST /api/v1/integrations/whatsapp/webhook` were answered with 401. Neither caller can
+  ever hold an Entra token.
+
+Both are fixed in code: client-portal routes and the WhatsApp webhook are exempt from the sign-in
+guard (they are protected by the magic-link session and by Meta's `X-Hub-Signature-256`
+respectively), and `ClientPortalScopeReader` pins claimant scope to the deployment's own
+`INSURANCEINTELLIGENCE_TENANT_ID`/`INSURANCEINTELLIGENCE_WORKSPACE_ID`, refusing any header that
+names another insurer.
+
+Two pieces of configuration the claimant portal needs in `dev`, both now in place:
+
+1. `INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL` on the API, set to the portal URL. Without it the
+   API refuses to issue links at all.
+2. A way for the claimant to receive the link. `dev` has no SMS or email provider, so on the Demo
+   runtime profile only, when a real match is found and delivery did not happen, the link is shown
+   on the claimant's screen with a label saying so. Staging, Production and
+   ManagedApplicationReviewer never return it.
+
+To demonstrate a claimant filing a first claim, the policyholder must have no existing claim on
+that policy; the main demo seed gives every customer one. `POST /api/v1/admin/demo-seed/policyholders?count=3`
+(Demo profile only, `ManageTenantSettings`) adds policyholders with an active policy and no claim,
+and returns their names, emails and policy numbers. It is safe to call again: existing ones are
+returned rather than duplicated.
+
+### Portal start-up time and Always On (set 2026-09-15)
+
+The portal container needs a long time to start on the B1 plan: the first start after the
+2026-09-15 deploy failed Azure's startup probe at the default 230 second limit, and the retry only
+passed after 210 seconds. Two settings now guard against that:
+
+- WEBSITES_CONTAINER_START_TIME_LIMIT is 600 on app-portal-dev-h5girbnzrayqe, so a slow start is
+  given time instead of being killed and retried.
+- Always On is enabled on both app-portal-dev-h5girbnzrayqe and app-api-dev-h5girbnzrayqe. With it
+  off, Azure unloads an idle app after about twenty minutes, and the next visitor waits for a full
+  cold start: several minutes for the portal. Always On is included in the Basic tier at no extra cost.
+
+After any portal deploy or setting change, expect the portal to be unavailable for up to about four
+minutes while it restarts, and check the container log before concluding a deploy has failed.
 
 ### Known gotchas hit while doing this live
 

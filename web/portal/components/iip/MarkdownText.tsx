@@ -4,7 +4,7 @@ import React from "react";
  * Minimal, dependency-free renderer for the markdown subset the assistant actually
  * emits: bold, italics, inline code, bullet/numbered lists, headings and paragraphs.
  *
- * Deliberately returns React elements rather than an HTML string — assistant output is
+ * Deliberately returns React elements rather than an HTML string, assistant output is
  * model-generated text, and building HTML for `dangerouslySetInnerHTML` would make it an
  * injection surface. React escapes text nodes, so nothing here can inject markup, and no
  * sanitiser dependency is required. Anything outside the supported subset degrades to

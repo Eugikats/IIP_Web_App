@@ -13,6 +13,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedApproval> Approvals => Set<PersistedApproval>();
     public DbSet<PersistedCustomerUpdate> CustomerUpdates => Set<PersistedCustomerUpdate>();
     public DbSet<PersistedClaimReviewRequest> ClaimReviewRequests => Set<PersistedClaimReviewRequest>();
+    public DbSet<PersistedContactDetailChangeRequest> ContactDetailChangeRequests => Set<PersistedContactDetailChangeRequest>();
     public DbSet<PersistedCommunication> Communications => Set<PersistedCommunication>();
     public DbSet<PersistedTenantConfiguration> TenantConfigurations => Set<PersistedTenantConfiguration>();
     public DbSet<PersistedUserAccount> UserAccounts => Set<PersistedUserAccount>();
@@ -47,6 +48,16 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedClaimantPortalSession> ClaimantPortalSessions => Set<PersistedClaimantPortalSession>();
     public DbSet<PersistedWhatsAppChannelConfiguration> WhatsAppChannelConfigurations => Set<PersistedWhatsAppChannelConfiguration>();
     public DbSet<PersistedCaseReview> CaseReviews => Set<PersistedCaseReview>();
+    public DbSet<PersistedIntegrationConnection> IntegrationConnections => Set<PersistedIntegrationConnection>();
+    public DbSet<PersistedAgentBehaviourProfile> AgentBehaviourProfiles => Set<PersistedAgentBehaviourProfile>();
+    public DbSet<PersistedCustomerConversationTurn> CustomerConversationTurns => Set<PersistedCustomerConversationTurn>();
+    public DbSet<PersistedConsentRecord> ConsentRecords => Set<PersistedConsentRecord>();
+    public DbSet<PersistedRetentionPolicy> RetentionPolicies => Set<PersistedRetentionPolicy>();
+    public DbSet<PersistedProductVersion> ProductVersions => Set<PersistedProductVersion>();
+    public DbSet<PersistedCommunicationTemplate> CommunicationTemplates => Set<PersistedCommunicationTemplate>();
+    public DbSet<PersistedDocumentLabelledExample> DocumentLabelledExamples => Set<PersistedDocumentLabelledExample>();
+    public DbSet<PersistedRetentionReminder> RetentionReminders => Set<PersistedRetentionReminder>();
+    public DbSet<PersistedSatisfactionResponse> SatisfactionResponses => Set<PersistedSatisfactionResponse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -66,6 +77,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedCustomerUpdate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimReviewRequest>(), "ClaimReviewRequests", "ReviewRequestId");
         modelBuilder.Entity<PersistedClaimReviewRequest>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedContactDetailChangeRequest>(), "ContactDetailChangeRequests", "RequestId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedCommunication>(), "Communications", "CommunicationId");
         modelBuilder.Entity<PersistedCommunication>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedTenantConfiguration>(), "TenantConfigurations", "ConfigurationId");
@@ -133,7 +145,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.CreatedAt });
         modelBuilder.Entity<PersistedNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RecipientUserId, entity.IsRead });
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimantMagicLinkToken>(), "ClaimantMagicLinkTokens", "TokenId");
-        // CaseId is intentionally nullable — a token verifying a policyholder with no claim yet
+        // CaseId is intentionally nullable, a token verifying a policyholder with no claim yet
         // (see ClaimantAuthenticationEndpoints.RequestMagicLink) has none. Do not add
         // .IsRequired() here: EF's fluent IsRequired overrides CLR nullability inference and would
         // force this column NOT NULL despite the Guid? type, which would throw at save time for
@@ -141,13 +153,32 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedClaimantMagicLinkToken>().Property(entity => entity.TokenHash).HasMaxLength(64).IsRequired();
         modelBuilder.Entity<PersistedClaimantMagicLinkToken>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.TokenHash }).IsUnique();
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimantPortalSession>(), "ClaimantPortalSessions", "SessionId");
-        // CaseId is nullable for the same reason as PersistedClaimantMagicLinkToken above — do not
+        // CaseId is nullable for the same reason as PersistedClaimantMagicLinkToken above, do not
         // add .IsRequired() to it.
         modelBuilder.Entity<PersistedClaimantPortalSession>().Property(entity => entity.SessionTokenHash).HasMaxLength(64).IsRequired();
         modelBuilder.Entity<PersistedClaimantPortalSession>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.SessionTokenHash }).IsUnique();
         ConfigureScopedJson(modelBuilder.Entity<PersistedWhatsAppChannelConfiguration>(), "WhatsAppChannelConfigurations", "ConfigurationId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedCaseReview>(), "CaseReviews", "CaseReviewId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedIntegrationConnection>(), "IntegrationConnections", "ConnectionId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedAgentBehaviourProfile>(), "AgentBehaviourProfiles", "VersionId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedCustomerConversationTurn>(), "CustomerConversationTurns", "TurnId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedConsentRecord>(), "ConsentRecords", "RecordId");
+        modelBuilder.Entity<PersistedConsentRecord>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CustomerIdentifier });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedRetentionReminder>(), "RetentionReminders", "ReminderId");
+        modelBuilder.Entity<PersistedRetentionReminder>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PolicyId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedSatisfactionResponse>(), "SatisfactionResponses", "ResponseId");
+        modelBuilder.Entity<PersistedSatisfactionResponse>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedRetentionPolicy>(), "RetentionPolicies", "PolicyId");
         modelBuilder.Entity<PersistedCaseReview>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedProductVersion>(), "ProductVersions", "VersionId");
+        modelBuilder.Entity<PersistedProductVersion>().Property(entity => entity.ProductId).IsRequired();
+        modelBuilder.Entity<PersistedProductVersion>().Property(entity => entity.Version).IsRequired();
+        modelBuilder.Entity<PersistedProductVersion>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ProductId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedCommunicationTemplate>(), "CommunicationTemplates", "VersionId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedDocumentLabelledExample>(), "DocumentLabelledExamples", "ExampleId");
+        modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.TemplateKey).HasMaxLength(200).IsRequired();
+        modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.Version).IsRequired();
+        modelBuilder.Entity<PersistedCommunicationTemplate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.TemplateKey });
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)
@@ -238,6 +269,7 @@ public sealed class PersistedWorkflowTask : PersistedScopedJson { public Guid Ca
 public sealed class PersistedApproval : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedCustomerUpdate : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedClaimReviewRequest : PersistedScopedJson { public Guid CaseId { get; set; } }
+public sealed class PersistedContactDetailChangeRequest : PersistedScopedJson { public Guid? CaseId { get; set; } }
 public sealed class PersistedCommunication : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedTenantConfiguration : PersistedScopedJson;
 public sealed class PersistedUserAccount : PersistedScopedJson { public string UserId { get; set; } = string.Empty; }
@@ -318,7 +350,25 @@ public sealed class PersistedClaimantPortalSession : PersistedScopedJson
     public string SessionTokenHash { get; set; } = string.Empty;
 }
 public sealed class PersistedWhatsAppChannelConfiguration : PersistedScopedJson;
+public sealed class PersistedIntegrationConnection : PersistedScopedJson;
+public sealed class PersistedAgentBehaviourProfile : PersistedScopedJson { public string AgentKey { get; set; } = string.Empty; }
+public sealed class PersistedCustomerConversationTurn : PersistedScopedJson { public string ThreadId { get; set; } = string.Empty; }
+public sealed class PersistedConsentRecord : PersistedScopedJson { public string CustomerIdentifier { get; set; } = string.Empty; }
+public sealed class PersistedRetentionReminder : PersistedScopedJson { public string PolicyId { get; set; } = string.Empty; }
+public sealed class PersistedSatisfactionResponse : PersistedScopedJson { public Guid CaseId { get; set; } }
+public sealed class PersistedRetentionPolicy : PersistedScopedJson;
 public sealed class PersistedCaseReview : PersistedScopedJson { public Guid CaseId { get; set; } }
+public sealed class PersistedProductVersion : PersistedScopedJson
+{
+    public Guid ProductId { get; set; }
+    public int Version { get; set; }
+}
+public sealed class PersistedCommunicationTemplate : PersistedScopedJson
+{
+    public string TemplateKey { get; set; } = string.Empty;
+    public int Version { get; set; }
+}
+public sealed class PersistedDocumentLabelledExample : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedPolicy : PersistedScopedJson;
 public sealed class PersistedCoverage : PersistedScopedJson;
 public sealed class PersistedBranch : PersistedScopedJson;

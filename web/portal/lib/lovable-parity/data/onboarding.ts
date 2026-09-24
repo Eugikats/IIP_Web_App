@@ -94,7 +94,7 @@ export function useOnboarding() {
 
   const getConsentUrl = useCallback(async (onboardingId: string): Promise<ConsentUrlView> => {
     if (LOVABLE_VISUAL_PARITY_MODE) {
-      return { configured: false, url: null, message: "Prototype — configure Microsoft Entra to enable admin consent." };
+      return { configured: false, url: null, message: "Prototype, configure Microsoft Entra to enable admin consent." };
     }
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/onboarding/${onboardingId}/consent-url`, { headers: scopedHeaders(role, "") });

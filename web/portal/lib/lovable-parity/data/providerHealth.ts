@@ -39,7 +39,7 @@ function mapItem(dto: ProviderHealthItemDto, checkedAt: string): ProviderHealthV
     name: dto.name,
     category: dto.mode || "Provider",
     status: formatProviderStatusLabel(dto.status),
-    latency: "—",
+    latency: "-",
     lastCheck: `Checked ${new Date(checkedAt).toLocaleString()}`,
     detail: dto.detail || "No provider detail reported.",
   };

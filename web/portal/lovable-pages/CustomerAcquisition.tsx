@@ -27,11 +27,11 @@ export default function CustomerAcquisition() {
 
   return (
     <>
-      <SectionHeader eyebrow="Customer Acquisition" title="Leads Inbox" sub="Manually captured leads today; channel and integration-fabric ingestion feed the same queue once connected. AI qualifies and drafts customer-safe product education for human review." />
+      <SectionHeader eyebrow="Customer Acquisition" title="Leads Inbox" sub="Enquiries entered by hand for now. Once WhatsApp, email and SMS are connected, enquiries arriving there land in this same list. AI sorts them and drafts a reply for someone to check before it goes out." />
 
       <div className="mb-4 flex items-center justify-between">
         <div className="inline-flex items-center gap-1.5 text-[12px] text-dls-text-secondary">
-          <Info className="h-3.5 w-3.5" aria-hidden="true" /> Channel ingestion (WhatsApp/email/SMS) &amp; fabric import are connected in a later gate — they write to this same list.
+          <Info className="h-3.5 w-3.5" aria-hidden="true" /> Enquiries arriving by WhatsApp, email or SMS will appear in this same list once those channels are connected.
         </div>
         <Button variant="primary" onClick={() => setOpen((v) => !v)} icon={<Plus aria-hidden="true" />}>
           New lead
@@ -77,7 +77,6 @@ export default function CustomerAcquisition() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <div className="text-[14px] font-bold text-dls-text-primary">{l.customerName}</div>
-                    <div className="text-[11.5px] text-dls-text-muted">· {l.leadId}</div>
                   </div>
                   <div className="mt-0.5 inline-flex items-center gap-1.5 text-[12.5px] text-dls-text-secondary">
                     <Building2 className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" /> {l.leadSource} · {l.productFit}

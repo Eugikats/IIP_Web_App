@@ -1,4 +1,5 @@
 "use client";
+import { usePeople } from "@/lib/people";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
@@ -25,8 +26,8 @@ const badgeLabel: Record<FraudSeverity, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  NotTriaged: "Not yet triaged",
-  Triaged: "Triaged",
+  NotTriaged: "Not yet reviewed",
+  Triaged: "Reviewed",
   UnderInvestigation: "Under investigation",
   OutcomeRecorded: "Outcome recorded",
   Closed: "Closed",
@@ -48,6 +49,7 @@ type PendingAction =
 
 export default function FraudIntelligence() {
   const { signals, loading, error, counts, triage, assign, recordOutcome, close } = useFraudSignals();
+  const { describe } = usePeople();
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [assigneeDraft, setAssigneeDraft] = useState<Record<string, string>>({});
   const [outcomeDraft, setOutcomeDraft] = useState<Record<string, { outcome: string; notes: string }>>({});
@@ -67,7 +69,7 @@ export default function FraudIntelligence() {
       : await close(pending.signal.signalId, auditReason);
     if (result.ok) {
       toast.success(
-        pending.kind === "triage" ? "Signal triaged." :
+        pending.kind === "triage" ? "Signal marked as reviewed." :
         pending.kind === "assign" ? "Signal assigned for investigation." :
         pending.kind === "outcome" ? "Outcome recorded." : "Signal closed.",
       );
@@ -83,9 +85,9 @@ export default function FraudIntelligence() {
       <div className="mb-4"><GuardrailBanner text="Use safer wording: Fraud signal detected · Requires investigation · Potential anomaly · Advisory signal. Never: fraud confirmed." /></div>
 
       {/* Not StatTile (§8.9): every tile here needs its own "Advisory" badge underneath the
-          figure — a safety-relevant reinforcement (AGENTS.md: never let an AI-flagged signal read
+          figure, a safety-relevant reinforcement (AGENTS.md: never let an AI-flagged signal read
           as a finding) StatTile's fixed label+value body has no slot for. No tile links anywhere
-          either — there is no per-severity filtered sub-view to link to, and inventing one is out
+          either, there is no per-severity filtered sub-view to link to, and inventing one is out
           of scope for a presentation-only migration (same accepted, documented §8.9 partial as
           screen 6/Documents.tsx). */}
       <div className="mb-6 grid gap-3 md:grid-cols-4">
@@ -111,7 +113,7 @@ export default function FraudIntelligence() {
         <GlassCard>
           <EmptyStateSurface
             title="No advisory signals"
-            message="The rule engine found no advisory patterns in the current tenant-scoped claims. No signal is shown without a matching rule result and evidence reference."
+            message="Nothing unusual has been picked up in this workspace’s claims. Nothing is flagged here unless a specific check matched and can show you what it matched on."
           />
         </GlassCard>
       ) : (
@@ -138,10 +140,10 @@ export default function FraudIntelligence() {
                     </div>
                   ) : null}
                   {s.disposition.assignedToUserId && (
-                    <div className="mt-1.5 text-[11px] text-dls-text-muted">Assigned to: {s.disposition.assignedToUserId}</div>
+                    <div className="mt-1.5 text-[11px] text-dls-text-muted">Assigned to {describe(s.disposition.assignedToUserId)}</div>
                   )}
                   {s.disposition.outcome && (
-                    <div className="mt-1 text-[11px] text-dls-text-muted">Outcome: {OUTCOME_LABEL[s.disposition.outcome] ?? s.disposition.outcome}{s.disposition.outcomeNotes ? ` — ${s.disposition.outcomeNotes}` : ""}</div>
+                    <div className="mt-1 text-[11px] text-dls-text-muted">Outcome: {OUTCOME_LABEL[s.disposition.outcome] ?? s.disposition.outcome}{s.disposition.outcomeNotes ? `, ${s.disposition.outcomeNotes}` : ""}</div>
                   )}
                 </div>
               </div>
@@ -149,7 +151,7 @@ export default function FraudIntelligence() {
                 <div className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-dls-warning-text"><AlertTriangle className="h-3 w-3" aria-hidden="true" /> Advisory only · human review required</div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {allows(s, "triageFraudSignal") && (
-                    <Button variant="secondary" onClick={() => setPending({ kind: "triage", signal: s })}>Triage</Button>
+                    <Button variant="secondary" onClick={() => setPending({ kind: "triage", signal: s })}>Mark reviewed</Button>
                   )}
                   {allows(s, "assignFraudSignal") && (
                     <div className="flex items-center gap-1.5">
@@ -206,20 +208,20 @@ export default function FraudIntelligence() {
       <GovernedActionDialog
         open={!!pending}
         title={
-          pending?.kind === "triage" ? "Triage fraud signal" :
+          pending?.kind === "triage" ? "Mark this fraud signal reviewed" :
           pending?.kind === "assign" ? "Assign for investigation" :
           pending?.kind === "outcome" ? "Record disposition outcome" : "Close fraud signal"
         }
         target={pending?.signal.title ?? ""}
         impact={
-          pending?.kind === "triage" ? "This acknowledges the signal has been reviewed and begins its disposition workflow." :
+          pending?.kind === "triage" ? "This records that someone has looked at the signal, and moves it into the investigation process." :
           pending?.kind === "assign" ? `This assigns the signal to ${pending.assignedToUserId} for investigation.` :
           pending?.kind === "outcome" ? `This records "${OUTCOME_LABEL[pending.outcome] ?? pending.outcome}" as the investigation outcome. This is a process outcome, never a fraud determination.` :
           "This closes the signal after its outcome has been recorded."
         }
         auditNotice="This action is written to the audit trail with your reason and cannot be undone silently."
         confirmLabel={
-          pending?.kind === "triage" ? "Triage" :
+          pending?.kind === "triage" ? "Mark reviewed" :
           pending?.kind === "assign" ? "Assign" :
           pending?.kind === "outcome" ? "Record outcome" : "Close"
         }

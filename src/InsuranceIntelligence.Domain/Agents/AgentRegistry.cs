@@ -5,10 +5,10 @@ namespace InsuranceIntelligence.Domain.Agents;
 /// architecture doc, which describes what the platform should eventually have). ModelBacked means
 /// a real, gated chatCompletionProvider/IAiAssistantProvider/ICustomerUpdateDraftingProvider call
 /// site exists for this agent key. AiServiceBacked means a real cloud AI service is called (e.g.
-/// Azure Document Intelligence) but no chat/LLM completion — a genuinely different capability from
+/// Azure Document Intelligence) but no chat/LLM completion, a genuinely different capability from
 /// a rule engine, since output quality depends on a live AI service, not fixed logic. RuleBased
 /// means deterministic business rules with no AI service call at all. NotImplemented means the
-/// catalog entry exists but nothing in the codebase executes it — it cannot be enabled.
+/// catalog entry exists but nothing in the codebase executes it, it cannot be enabled.
 /// </summary>
 public enum AgentImplementationKind
 {
@@ -62,8 +62,12 @@ public static class AgentCatalog
             AgentImplementationKind.ModelBacked, ["claims.attention.read", "claims.sla.read", "documents.gaps.read", "approvals.queue.read", "knowledge.search", "provider_health.read", "metrics.read"]),
         new("claims-summary", "Claims Summary Agent", "Summarises claim facts, timelines, issues, and cited evidence for human review.", "Low", HumanApprovalRequired: false,
             AgentImplementationKind.ModelBacked, ["claim.read", "document.read", "policy.read", "knowledge.search", "claims.attention.read", "audit.read"]),
+        // Briefs staff on one customer from that customer's own records only (policies, claims,
+        // messages, documents, consent), citing the record behind every point. No knowledge base.
+        new("customer-summary", "Customer Summary Agent", "Summarises one customer's policies, claims, messages and documents for staff, citing the record behind each point.", "Low", HumanApprovalRequired: false,
+            AgentImplementationKind.ModelBacked, ["customer.profile.read"]),
         // Document Checker calls a real Azure AI service (Document Intelligence: OCR + field
-        // extraction) but never a chat/LLM completion — a genuinely different capability from a
+        // extraction) but never a chat/LLM completion, a genuinely different capability from a
         // rule engine, since its output quality depends on a live AI service, not fixed logic.
         new("document-checker", "Document Checker Agent", "Classifies documents, reviews extraction, and identifies missing or low-confidence fields.", "Medium", HumanApprovalRequired: false,
             AgentImplementationKind.AiServiceBacked, ["document.read", "documents.gaps.read", "provider_health.read"]),
@@ -80,7 +84,7 @@ public static class AgentCatalog
             AgentImplementationKind.RuleBased, ["claims.attention.read", "claims.sla.read", "claim.read"]),
         // Not implemented: no code path in this repository invokes a model, a provider, or any
         // service under this agent key. Staff policy/knowledge questions are answered by the
-        // policy-intelligence agent instead (via the same Command Center query path) — this
+        // policy-intelligence agent instead (via the same Command Center query path), this
         // catalog entry currently has no distinct implementation of its own.
         new("knowledge-assistant", "Knowledge Assistant", "Answers staff questions from approved, scoped knowledge with source citations.", "Low", HumanApprovalRequired: false,
             AgentImplementationKind.NotImplemented, []),
@@ -89,6 +93,18 @@ public static class AgentCatalog
         // Rule-based: UnderwritingRuleEngine. No chat/LLM call site exists.
         new("underwriting-intelligence", "Underwriting Intelligence Agent", "Supports proposal and risk review with referral notes; never accepts, rejects, or prices risk.", "High", HumanApprovalRequired: true,
             AgentImplementationKind.RuleBased, ["knowledge.search", "document.read", "policy.read"]),
+        // Customer-facing, not staff-facing, a different category from the ten above (see
+        // docs/03-design-architecture/iip_ai_agent_architecture_tool_registry_updated.md's
+        // Customer-Facing Agents section). Intent classification is deterministic/rule-based
+        // (KeywordCustomerIntentClassifier); grounded GeneralQuestion answers are produced by
+        // delegating to policy-intelligence's own model-backed path, not a separate model call
+        // this agent owns. RiskLevel is High and HumanApprovalRequired is true because this is the
+        // one agent in the catalog that can act on an unauthenticated inbound message with no
+        // staff user in the loop at all, disabling it (Admin > Agents) is the fail-closed switch:
+        // CustomerAssistantService checks it before processing any inbound message and escalates
+        // to human instead when disabled.
+        new("customer-assistant", "Customer Assistant (WhatsApp)", "Classifies inbound WhatsApp messages into six intents; answers general questions from approved knowledge, opens provisional claims, and captures sales leads, never discloses case-specific detail without a matched policy number.", "High", HumanApprovalRequired: true,
+            AgentImplementationKind.RuleBased, ["customer.intent.classify", "knowledge.search", "case.create", "lead.create"]),
     ];
 
     public static AgentDescriptor? Find(string key) =>

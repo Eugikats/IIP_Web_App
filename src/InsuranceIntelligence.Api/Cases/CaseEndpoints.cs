@@ -8,6 +8,7 @@ using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
+using Microsoft.Extensions.Logging;
 
 namespace InsuranceIntelligence.Api.Cases;
 
@@ -17,8 +18,13 @@ public static class CaseEndpoints
         CreateCaseRequest request,
         CaseIntakeService service,
         IAuditRepository auditRepository,
+        InsuranceIntelligence.Application.Cases.IFnolAcknowledgementService acknowledgementService,
+        IDocumentChecklistProvider checklistProvider,
+        ILogger<CaseFnolAcknowledgementLogMarker> logger,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null,
+        INotificationEmitter? notificationEmitter = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
         {
@@ -53,11 +59,55 @@ public static class CaseEndpoints
                 userId,
                 correlationId,
                 request.MotorFnolDetails,
-                request.MedicalFnolDetails);
+                request.MedicalFnolDetails,
+                request.ClaimedAmount);
 
             var claimCase = await service.CreateCaseAsync(command, cancellationToken);
+
+            // A failed or blocked acknowledgement must never fail claim creation, which already
+            // happened above, see IFnolAcknowledgementService's own doc comment.
+            try
+            {
+                await acknowledgementService.SendAsync(claimCase, correlationId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "FNOL acknowledgement failed for case {CaseId}", claimCase.CaseId);
+            }
+
+            // Outcome E: the officer a claim lands on at intake needs to hear about it, not
+            // discover it by refreshing their queue. A failed notification must never fail claim
+            // creation, which has already happened above.
+            if (notificationEmitter is not null && !string.IsNullOrWhiteSpace(claimCase.AssignedUserId))
+            {
+                try
+                {
+                    await notificationEmitter.NotifyAsync(
+                        claimCase.Scope,
+                        claimCase.AssignedUserId,
+                        NotificationType.ClaimAssigned,
+                        $"New {claimCase.ClaimType} claim assigned to you on the {claimCase.AssignedTeam} team.",
+                        claimCase.CaseId,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Assignment notification failed for case {CaseId}", claimCase.CaseId);
+                }
+            }
+
+            // The claims agent reviews every new claim straight away, in the background, so the
+            // review is waiting when the handler opens the claim. Never blocks the response.
+            triageQueue?.Enqueue(claimCase.Scope, claimCase.CaseId, correlationId, "staff_intake");
+
             var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);
-            var response = CaseMapper.ToResponse(claimCase, auditEvents);
+
+            // WO 5.3: the completeness check runs right here, at submission, no documents exist
+            // yet, so every RequiredDocuments entry starts out Missing by definition. That is the
+            // point: the submitter sees the full checklist immediately, not only after extraction
+            // runs on whatever gets uploaded later.
+            var checklist = await checklistProvider.BuildChecklistAsync(claimCase, [], cancellationToken);
+            var response = CaseMapper.ToResponse(claimCase, auditEvents, checklist);
 
             return Results.Created($"/api/v1/cases/{claimCase.CaseId}", response);
         }
@@ -100,13 +150,60 @@ public static class CaseEndpoints
         return Results.Ok(CaseMapper.ToResponse(claimCase, auditEvents));
     }
 
+    /// <summary>The claim's progress (outcome H): the pinned product's own configured claim
+    /// process (outcome A), never a fabricated or claim-type-hardcoded stage list. Honestly
+    /// "not configured" when the claim has no pinned product, exactly like any other absent
+    /// capability. A separate, lightly-permissioned endpoint (claim-view, not ManageProducts)
+    /// rather than folding this into CaseResponse, so every claim list read does not pay for a
+    /// product lookup it does not need.</summary>
+    public static async Task<IResult> GetProductStages(
+        Guid caseId,
+        ICaseRepository caseRepository,
+        InsuranceIntelligence.Domain.Products.IProductRepository productRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["tenantScope"] = [validationError]
+            });
+        }
+
+        var claimCase = await GetScopedCaseAsync(caseId, caseRepository, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
+        if (claimCase.ProductId is not { } productId || claimCase.ProductVersion is not { } version)
+        {
+            return Results.Ok(new ClaimProcessResponse(false, null, null, []));
+        }
+
+        var product = await productRepository.GetVersionAsync(scope, productId, version, cancellationToken);
+        if (product is null)
+        {
+            return Results.Ok(new ClaimProcessResponse(false, null, null, []));
+        }
+
+        var stages = product.Stages
+            .OrderBy(stage => stage.SortOrder)
+            .Select(stage => new ClaimProcessStageResponse(stage.StageKey, stage.Name, stage.OwnerRole, stage.IsAutomatic, stage.SortOrder, stage.ServiceStandardWorkingDays))
+            .ToArray();
+
+        return Results.Ok(new ClaimProcessResponse(true, product.Name, product.Version, stages));
+    }
+
     public static async Task<IResult> AssignCase(
         Guid caseId,
         AssignCaseRequest request,
         ICaseRepository caseRepository,
         IAuditRepository auditRepository,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        INotificationEmitter? notificationEmitter = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
         {
@@ -152,6 +249,19 @@ public static class CaseEndpoints
         await auditRepository.WriteAsync(
             AuditEvent.CaseAssigned(before, updated.ToAuditSnapshot(), userId, correlationId, NormalizeOptional(request.AuditReason)),
             cancellationToken);
+
+        if (notificationEmitter is not null
+            && !string.IsNullOrWhiteSpace(updated.AssignedUserId)
+            && !string.Equals(updated.AssignedUserId, claimCase.AssignedUserId, StringComparison.Ordinal))
+        {
+            await notificationEmitter.NotifyAsync(
+                updated.Scope,
+                updated.AssignedUserId,
+                NotificationType.ClaimAssigned,
+                $"{claimCase.ClaimType} claim reassigned to you by {userId}.",
+                updated.CaseId,
+                cancellationToken);
+        }
 
         var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
         return Results.Ok(CaseMapper.ToResponse(updated, auditEvents));
@@ -224,7 +334,7 @@ public static class CaseEndpoints
             AuditEvent.CaseEscalated(before, updated.ToAuditSnapshot(), userId, correlationId, request.AuditReason.Trim()),
             cancellationToken);
 
-        // Notify the officer already assigned to this claim — escalation doesn't reassign it,
+        // Notify the officer already assigned to this claim, escalation doesn't reassign it,
         // it changes its priority/queue, so they need to know their claim's status changed.
         await notificationEmitter.NotifyAsync(
             updated.Scope,
@@ -241,7 +351,7 @@ public static class CaseEndpoints
     /// <summary>
     /// A human confirming a claim IIP auto-created from an identified WhatsApp/email sender (see
     /// RuleBasedWhatsAppToCaseMatcher / RuleBasedEmailToCaseMatcher). This is what starts the real
-    /// SLA clock and removes it from the "needs confirmation" state — a claim IIP created on its
+    /// SLA clock and removes it from the "needs confirmation" state, a claim IIP created on its
     /// own never counts toward SLA or attention metrics until a human has looked at it.
     /// </summary>
     public static async Task<IResult> ConfirmCase(
@@ -348,7 +458,7 @@ public static class CaseEndpoints
                     : "Ready For Review";
             var slaStatus = slaCalculator.Calculate(claimCase, DateTimeOffset.UtcNow);
 
-            // WO-14: SLA breach has no one-shot write-time event in this codebase — it's a pure,
+            // WO-14: SLA breach has no one-shot write-time event in this codebase, it's a pure,
             // recomputed-on-every-read calculation (BasicSlaCalculator). NotifyOnceAsync makes the
             // first observation of a breach for this case/officer durable without spamming a new
             // notification on every subsequent list load.
@@ -451,3 +561,8 @@ public static class CaseEndpoints
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
 }
+
+/// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
+/// static-class endpoint (ILogger&lt;CaseEndpoints&gt; is not usable, the class is static),
+/// matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
+public sealed class CaseFnolAcknowledgementLogMarker;

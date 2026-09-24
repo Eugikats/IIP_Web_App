@@ -1,7 +1,7 @@
 namespace InsuranceIntelligence.Domain.Underwriting;
 
 /// <summary>
-/// Outcome of a single underwriting check. Advisory only — the engine never
+/// Outcome of a single underwriting check. Advisory only, the engine never
 /// accepts, rejects, binds, or prices. An underwriter decides (DEC-014,
 /// AGENTS.md human-supervised decision boundary).
 /// </summary>
@@ -111,7 +111,7 @@ public static class UnderwritingRuleEngine
                 "UW-PRODUCT",
                 "Product-line risk",
                 UnderwritingCheckState.Attention,
-                $"{submission.ProductLine} is a higher-risk line — confirm survey/inspection requirements before quoting."));
+                $"{submission.ProductLine} is a higher-risk line, confirm survey/inspection requirements before quoting."));
         }
 
         return new UnderwritingReview(submission.SubmissionId, submission.Applicant, checks, questions);

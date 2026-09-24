@@ -5,7 +5,7 @@ using InsuranceIntelligence.Domain.Integrations;
 namespace InsuranceIntelligence.Infrastructure.Email;
 
 /// <summary>
-/// Synthetic email-attachment processing for local/offline runs (EmailProvider != "Graph") — the
+/// Synthetic email-attachment processing for local/offline runs (EmailProvider != "Graph"), the
 /// sanctioned Synthetic provider path. Classifies attachments by filename convention only (no real
 /// document-intelligence call), so a message from <see cref="LocalEmailIngestionProvider"/> can be
 /// processed into a claim with real (if synthetic) documents rather than failing closed.

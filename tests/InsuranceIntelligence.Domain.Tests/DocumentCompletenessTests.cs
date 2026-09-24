@@ -87,7 +87,7 @@ public sealed class DocumentCompletenessTests
     public void MedicalCase_UsesMedicalChecklist_EvenThoughClaimTypeTextContainsMedical()
     {
         // WO-15: ClaimTypeClassifier's motor taxonomy previously ran unconditionally regardless of
-        // product line — a Medical claim's own claim-type text (e.g. "Medical reimbursement")
+        // product line, a Medical claim's own claim-type text (e.g. "Medical reimbursement")
         // matched the InjuryFatality keyword "medical" and pulled in PoliceAbstract/PhotoEvidence,
         // documents that make no sense for a medical claim. Product line now gates that taxonomy.
         var claimCase = new ClaimCase

@@ -3,6 +3,7 @@ using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Application.AgentWorkflows;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
+using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -28,7 +29,8 @@ public static class DocumentEndpoints
         IAuditRepository auditRepository,
         INotificationEmitter notificationEmitter,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ITenantConfigurationRepository? tenantConfigurationRepository = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
@@ -40,6 +42,8 @@ public static class DocumentEndpoints
         {
             return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
         }
+
+        var confidenceThreshold = await ResolveConfidenceThresholdAsync(tenantConfigurationRepository, scope, cancellationToken);
 
         if (!IsMultipartFormData(httpContext.Request.ContentType))
         {
@@ -122,15 +126,17 @@ public static class DocumentEndpoints
             await auditRepository.WriteAsync(AuditEvent.DocumentProcessed(processedDocument, correlationId), cancellationToken);
 
             // Reuses the exact same low-confidence/warned/not-yet-approved condition that blocks
-            // ApproveExtraction (DocumentActionState.BlockedActions) — a document only notifies here
-            // when it genuinely needs a human to verify it, not on every upload.
-            if (DocumentActionState.BlockedActions(processedDocument).Count > 0)
+            // ApproveExtraction (DocumentActionState.BlockedActions), a document only notifies here
+            // when it genuinely needs a human to verify it, not on every upload. Outcome K: the
+            // notification names the actual reason (confidence score, threshold, warning count)
+            // rather than a generic sentence.
+            if (DocumentActionState.BlockedActions(processedDocument, confidenceThreshold).Count > 0)
             {
                 await notificationEmitter.NotifyAsync(
                     scope,
                     claimCase.AssignedUserId ?? string.Empty,
                     NotificationType.DocumentReviewNeeded,
-                    "A document needs review before it can be used as evidence.",
+                    DocumentActionState.LowConfidenceReason(processedDocument, confidenceThreshold),
                     caseId,
                     cancellationToken);
             }
@@ -153,7 +159,7 @@ public static class DocumentEndpoints
         var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
 
         return Results.Ok(new DocumentUploadResponse(
-            documents.Select(DocumentMapper.ToResponse).ToArray(),
+            documents.Select(document => DocumentMapper.ToResponse(document, confidenceThreshold)).ToArray(),
             DocumentMapper.ToResponse(checklist),
             DocumentMapper.ToAuditSummary(auditEvents)));
     }
@@ -163,7 +169,8 @@ public static class DocumentEndpoints
         ICaseRepository caseRepository,
         ICaseDocumentRepository documentRepository,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ITenantConfigurationRepository? tenantConfigurationRepository = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
@@ -176,8 +183,9 @@ public static class DocumentEndpoints
             return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
         }
 
+        var confidenceThreshold = await ResolveConfidenceThresholdAsync(tenantConfigurationRepository, scope, cancellationToken);
         var documents = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
-        return Results.Ok(documents.Select(DocumentMapper.ToResponse).ToArray());
+        return Results.Ok(documents.Select(document => DocumentMapper.ToResponse(document, confidenceThreshold)).ToArray());
     }
 
     public static async Task<IResult> GetChecklist(
@@ -257,7 +265,8 @@ public static class DocumentEndpoints
         IDocumentChecklistProvider checklistProvider,
         IAuditRepository auditRepository,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IDocumentLabelledExampleRepository? labelledExampleRepository = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
@@ -314,6 +323,25 @@ public static class DocumentEndpoints
                 AuditReasonReader.Read(httpContext)),
             cancellationToken);
 
+        // Outcome K, layer 3: every reclassification is reusable labelled data, not just a mutation
+        // of this one document, so it accumulates toward this tenant's next classifier version.
+        await RecordLabelledExampleAsync(
+            labelledExampleRepository,
+            new DocumentLabelledExample(
+                Guid.NewGuid(),
+                scope,
+                documentId,
+                caseId,
+                document.Classification.DocumentType,
+                document.Classification.ConfidenceScore,
+                documentType,
+                document.Extraction.Fields,
+                DocumentLabelSource.Reclassification,
+                updatedBy,
+                DateTimeOffset.UtcNow,
+                correlationId),
+            cancellationToken);
+
         var updatedCase = await UpdateCompletenessAsync(
             claimCase,
             caseRepository,
@@ -342,7 +370,8 @@ public static class DocumentEndpoints
         ICaseDocumentRepository documentRepository,
         IAuditRepository auditRepository,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IDocumentLabelledExampleRepository? labelledExampleRepository = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
@@ -388,6 +417,32 @@ public static class DocumentEndpoints
                 AuditReasonReader.Read(httpContext)),
             cancellationToken);
 
+        // Outcome K, layer 3: approving without ever reclassifying is itself a labelled example,
+        // the classifier's original guess confirmed correct. A confidence of exactly 1.0 means this
+        // document was reclassified earlier in its life (ReclassifyDocument always sets it to 1m),
+        // whose own labelled example already recorded the correction, so this branch skips it
+        // rather than double-counting the same document as both a miss and a confirmed hit.
+        if ((document.Extraction.FieldCorrections is null || document.Extraction.FieldCorrections.Count == 0)
+            && document.Classification.ConfidenceScore < 1m)
+        {
+            await RecordLabelledExampleAsync(
+                labelledExampleRepository,
+                new DocumentLabelledExample(
+                    Guid.NewGuid(),
+                    scope,
+                    documentId,
+                    caseId,
+                    document.Classification.DocumentType,
+                    document.Classification.ConfidenceScore,
+                    document.Classification.DocumentType,
+                    document.Extraction.Fields,
+                    DocumentLabelSource.ConfirmedWithoutCorrection,
+                    approvedBy,
+                    DateTimeOffset.UtcNow,
+                    GetCorrelationId(httpContext)),
+                cancellationToken);
+        }
+
         return Results.Ok(DocumentMapper.ToResponse(approvedDocument));
     }
 
@@ -400,7 +455,8 @@ public static class DocumentEndpoints
         IAuditRepository auditRepository,
         IAgentWorkflowService agentWorkflowService,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IDocumentLabelledExampleRepository? labelledExampleRepository = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
@@ -491,8 +547,47 @@ public static class DocumentEndpoints
                 auditReason),
             cancellationToken);
 
+        // Outcome K, layer 3: the retyped value is reusable labelled data too, even though it does
+        // not change the document's type (OriginalPredictedType == ConfirmedType here by design).
+        await RecordLabelledExampleAsync(
+            labelledExampleRepository,
+            new DocumentLabelledExample(
+                Guid.NewGuid(),
+                scope,
+                documentId,
+                caseId,
+                document.DocumentType,
+                document.Classification.ConfidenceScore,
+                document.DocumentType,
+                new Dictionary<string, string> { [canonicalFieldName] = correctedValue },
+                DocumentLabelSource.FieldCorrection,
+                correctedBy,
+                DateTimeOffset.UtcNow,
+                correlationId),
+            cancellationToken);
+
         return Results.Ok(DocumentMapper.ToResponse(correctedDocument));
     }
+
+    private static async Task<decimal> ResolveConfidenceThresholdAsync(
+        ITenantConfigurationRepository? tenantConfigurationRepository,
+        TenantScope scope,
+        CancellationToken cancellationToken)
+    {
+        if (tenantConfigurationRepository is null)
+        {
+            return 0.8m;
+        }
+
+        var configuration = await tenantConfigurationRepository.GetAsync(scope, cancellationToken);
+        return configuration.DocumentClassificationConfidenceThreshold;
+    }
+
+    private static Task RecordLabelledExampleAsync(
+        IDocumentLabelledExampleRepository? labelledExampleRepository,
+        DocumentLabelledExample example,
+        CancellationToken cancellationToken) =>
+        labelledExampleRepository is null ? Task.CompletedTask : labelledExampleRepository.SaveAsync(example, cancellationToken);
 
     private static async Task<ClaimCase> UpdateCompletenessAsync(
         ClaimCase claimCase,
@@ -581,7 +676,7 @@ public static class DocumentEndpoints
     }
 
     // WO-15: lets FNOL intake show the real required-documents checklist for the selected product
-    // line before a case exists, instead of a hardcoded client list (A1) — reuses the exact same
+    // line before a case exists, instead of a hardcoded client list (A1), reuses the exact same
     // DocumentChecklistRules the platform uses everywhere else once a case is created.
     public static IResult PreviewChecklist(
         string? productLine,

@@ -8,16 +8,17 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { requestMagicLink } from "@/lib/clientPortal";
 
-// Claimant-facing (design language v2, tier 6 — stricter rules: AGENTS.md forbids exposing
+// Claimant-facing (design language v2, tier 6, stricter rules: AGENTS.md forbids exposing
 // internal notes, reserves, fraud/risk signals, prompts, secrets, raw provider errors, restricted
 // audit detail, or other-tenant data here). This screen only ever asks for and echoes back the
-// policy number and contact value the claimant themselves typed — nothing staff-only is rendered.
+// policy number and contact value the claimant themselves typed, nothing staff-only is rendered.
 export default function ClaimAccessRequest() {
   const [policyNumber, setPolicyNumber] = useState("");
   const [contactValue, setContactValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
+  const [sandboxLink, setSandboxLink] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -35,13 +36,14 @@ export default function ClaimAccessRequest() {
       return;
     }
     setSent(result.message);
+    setSandboxLink(result.sandboxLink);
   }
 
   return (
     <main className="grid min-h-screen bg-dls-surface text-dls-text-primary lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
-      {/* Brand panel — design language §4.5 notes brand expression is strongest at sign-in.
+      {/* Brand panel, design language §4.5 notes brand expression is strongest at sign-in.
           Background reuses --color-text-primary's exact value (a deliberate one-off dark brand
-          moment, not dark mode — the portal otherwise ships light-only, §9); the checkmark accent
+          moment, not dark mode, the portal otherwise ships light-only, §9); the checkmark accent
           reuses --color-primary-soft, which reads clearly against near-black and stays on-brand
           rather than introducing a new literal colour. */}
       <section className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-dls-text-primary px-12 py-10 text-dls-text-inverse lg:flex xl:px-16 xl:py-12">
@@ -62,7 +64,7 @@ export default function ClaimAccessRequest() {
             Check what&apos;s outstanding on your claim, any time.
           </h1>
           <p className="mt-6 max-w-lg text-base leading-7 text-dls-text-inverse/70">
-            We&apos;ll send a one-time secure link to the email or phone number on your claim — no password to
+            We&apos;ll send a one-time secure link to the email or phone number on your claim, no password to
             remember, and no account to create.
           </p>
           <div className="mt-10 grid max-w-xl gap-4 border-t border-dls-text-inverse/15 pt-7 sm:grid-cols-1">
@@ -103,12 +105,27 @@ export default function ClaimAccessRequest() {
                   <div className="mt-1 text-xs leading-5 text-dls-text-muted">{sent}</div>
                 </div>
               </div>
+              {sandboxLink ? (
+                <div className="mb-6 rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-4">
+                  <div className="text-sm font-semibold text-dls-text-primary">Demo sandbox: your link is shown here</div>
+                  <p className="mt-1 text-xs leading-5 text-dls-text-muted">
+                    This environment is not connected to SMS or email, so the secure link that would normally be sent to you
+                    is shown here instead. A live environment never shows it on screen.
+                  </p>
+                  <a
+                    href={sandboxLink}
+                    className="dls-focus-outline mt-3 inline-flex items-center gap-1.5 rounded-dls-control bg-dls-primary px-4 py-2 text-sm font-bold text-dls-text-inverse hover:bg-dls-primary-hover"
+                  >
+                    Open my secure link <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                </div>
+              ) : null}
               <p className="text-sm leading-6 text-dls-text-secondary">
                 Didn&apos;t get anything after a few minutes? Check the spam folder, confirm the contact details
                 match what is on your claim, or try again below.
               </p>
               <div className="mt-6">
-                <Button variant="secondary" onClick={() => setSent(null)}>
+                <Button variant="secondary" onClick={() => { setSent(null); setSandboxLink(null); }}>
                   Try a different claim
                 </Button>
               </div>
@@ -121,7 +138,7 @@ export default function ClaimAccessRequest() {
               <h2 className="text-3xl font-bold leading-tight text-dls-text-primary">Access your claim</h2>
               <p className="mt-3 text-sm leading-6 text-dls-text-secondary">
                 Enter your policy number and the email or phone number on your claim. We&apos;ll send you a secure
-                link — no password needed.
+                link, no password needed.
               </p>
 
               <label className="mt-8 block text-sm font-semibold text-dls-text-primary" htmlFor="claim-access-policy">
@@ -150,7 +167,7 @@ export default function ClaimAccessRequest() {
                 </div>
               </label>
 
-              {/* Full-width, taller, trailing-icon submit — hand-styled to Button's primary
+              {/* Full-width, taller, trailing-icon submit, hand-styled to Button's primary
                   variant. Same reason as FNOL.tsx's "Next": Button's icon prop only renders
                   leading, and this needs both a leading and a trailing icon plus a non-default
                   size, so extending the shared primitive's API isn't warranted for one screen. */}

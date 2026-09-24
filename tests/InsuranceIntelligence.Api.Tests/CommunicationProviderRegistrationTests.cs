@@ -18,7 +18,10 @@ public sealed class CommunicationProviderRegistrationTests
         using var provider = BuildProvider("GraphEmail");
 
         Assert.IsType<GraphCommunicationSendingProvider>(provider.GetRequiredService<ICommunicationSendingProvider>());
-        Assert.IsType<DisabledSmsProvider>(provider.GetRequiredService<ISmsProvider>());
+        // ISmsProvider is always TenantAwareSmsProvider now (the three-step resolver), it is no
+        // longer coupled to CommunicationProvider ("GraphEmail" only ever governed email mode).
+        // See TenantAwareSmsProviderTests for behavioral coverage of the resolution order itself.
+        Assert.IsType<InsuranceIntelligence.Infrastructure.Communications.TenantAwareSmsProvider>(provider.GetRequiredService<ISmsProvider>());
     }
 
     [Fact]
@@ -27,12 +30,19 @@ public sealed class CommunicationProviderRegistrationTests
         using var provider = BuildProvider("Disabled");
 
         Assert.IsType<DisabledCommunicationSendingProvider>(provider.GetRequiredService<ICommunicationSendingProvider>());
-        Assert.IsType<DisabledSmsProvider>(provider.GetRequiredService<ISmsProvider>());
-        Assert.IsType<DisabledWhatsAppInboundProvider>(provider.GetRequiredService<IWhatsAppInboundProvider>());
+        Assert.IsType<InsuranceIntelligence.Infrastructure.Communications.TenantAwareSmsProvider>(provider.GetRequiredService<ISmsProvider>());
+
+        // WhatsApp inbound/outbound providers are registered unconditionally now (blueprint §3.3,
+        // §4.4): a validated tenant connection can go live with no redeploy. Without
+        // INSURANCEINTELLIGENCE_CHANNEL_PROVIDER=WhatsAppCloudApi or a saved connection in this
+        // test's isolated database, the real provider still honestly reports IsConfigured == false
+        //, the same guarantee DisabledWhatsAppInboundProvider used to provide by being a different
+        // type, now provided by the real type's own state instead.
+        Assert.False(provider.GetRequiredService<IWhatsAppInboundProvider>().IsConfigured);
     }
 
     [Fact]
-    public void InfrastructureRegistration_UsesWhatsAppCloudApiWhenChannelConfigured()
+    public void InfrastructureRegistration_WhatsAppProvidersAreAlwaysTheRealType()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -47,6 +57,7 @@ public sealed class CommunicationProviderRegistrationTests
             .Build();
         var services = new ServiceCollection();
         services.AddInsuranceIntelligenceInfrastructure(configuration, new TestEnvironment("Development"));
+        services.AddDataProtection();
 
         Assert.Contains(
             services,
@@ -55,6 +66,7 @@ public sealed class CommunicationProviderRegistrationTests
 
         using var provider = services.BuildServiceProvider();
         Assert.IsType<WhatsAppCloudApiInboundProvider>(provider.GetRequiredService<IWhatsAppInboundProvider>());
+        Assert.IsType<WhatsAppCloudApiOutboundProvider>(provider.GetRequiredService<IWhatsAppOutboundProvider>());
     }
 
     private static ServiceProvider BuildProvider(string communicationProvider)
@@ -72,6 +84,7 @@ public sealed class CommunicationProviderRegistrationTests
         var services = new ServiceCollection();
 
         services.AddInsuranceIntelligenceInfrastructure(configuration, new TestEnvironment("Development"));
+        services.AddDataProtection();
         return services.BuildServiceProvider();
     }
 

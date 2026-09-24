@@ -52,7 +52,7 @@ public static class DemoSeedEndpoints
         var userId = DemoAuthorization.GetUserId(httpContext);
 
         var purged = await purgeService.PurgeCasesAsync(LegacyCaseIdsToPurge, scope, cancellationToken);
-        // The caller asked for this demo dataset, so assign its work to them — otherwise their own
+        // The caller asked for this demo dataset, so assign its work to them, otherwise their own
         // "My Work" stays empty over the very data they just seeded.
         var result = await seedService.SeedAsync(scope, userId, userId, cancellationToken);
 
@@ -68,5 +68,41 @@ public static class DemoSeedEndpoints
             result.AuditEvents,
             heroCaseIds = result.HeroCaseIds
         });
+    }
+
+    /// <summary>
+    /// Adds a few policyholders with an active policy and no claim, for demonstrating the claimant
+    /// portal's first-claim journey. Same gates as <see cref="Run"/>: never on a protected runtime
+    /// profile, and only for someone who can manage tenant settings. Scope comes from the signed-in
+    /// member rather than the X-Tenant-Id header <see cref="Run"/> reads, which Entra auth rejects.
+    /// </summary>
+    public static async Task<IResult> SeedPolicyholders(
+        DemoSeedService seedService,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        IWebHostEnvironment environment,
+        CancellationToken cancellationToken,
+        int? count = null)
+    {
+        var runtimeProfile = AzureProviderStartupValidator.ResolveRuntimeProfile(options, environment.EnvironmentName);
+        if (AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile))
+        {
+            return Results.Problem(
+                $"Demo data seeding is not available under the '{runtimeProfile}' runtime profile.",
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!InsuranceIntelligence.Api.Workflow.WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var policyholders = await seedService.SeedPolicyholdersWithoutClaimsAsync(scope, count ?? 3, cancellationToken);
+        return Results.Ok(new { policyholders });
     }
 }

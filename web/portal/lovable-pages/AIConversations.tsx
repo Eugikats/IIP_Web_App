@@ -1,6 +1,6 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Sparkles, ListChecks, AlertTriangle, CheckCircle2, CircleHelp } from "lucide-react";
 import { AIMessageBubble, UserMessageBubble, Composer } from "@/components/iip/ChatPrimitives";
 import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
@@ -20,7 +20,7 @@ type Msg =
 
 type SuggestionChip = { icon: typeof ListChecks; text: string; question: string };
 
-// Navigation model §6.2 — resolved in the browser's local timezone, which is the user's.
+// Navigation model §6.2, resolved in the browser's local timezone, which is the user's.
 function timeOfDayGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning";
@@ -29,11 +29,12 @@ function timeOfDayGreeting(): string {
 }
 
 export default function AIConversations({ conversationId: requestedConversationId }: { conversationId?: string }) {
-  const router = useRouter();
   const { runtimeContext } = useRuntimeContext();
   const { roleDef } = useUI();
   const { ask, loading } = useCommandCenterQuery();
   const { summary } = useOperationsSummary();
+  const searchParams = useSearchParams();
+  const autoSendRef = useRef(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState(requestedConversationId);
@@ -103,7 +104,7 @@ export default function AIConversations({ conversationId: requestedConversationI
   // Navigation model §6.2 resolves suggestion chips in a five-step priority order. Priorities 1
   // (this user's own RequiresReview items), 2 (this user's own at-risk claims) and 4 (automation
   // escalations in the last 24h) need user-scoped or time-windowed data this screen does not
-  // fetch today — useOperationsSummary is a tenant-wide aggregate, and adding a new query is out
+  // fetch today, useOperationsSummary is a tenant-wide aggregate, and adding a new query is out
   // of scope for a presentation-only migration. Priority 3 (tenant claims missing documents) is
   // answered by the same `incompleteClaims` count this screen already loads. See the migration
   // ledger note for this screen for the follow-up this leaves open.
@@ -141,19 +142,35 @@ export default function AIConversations({ conversationId: requestedConversationI
     const answer = result.answer;
     if (answer?.conversationId && !conversationId) {
       setConversationId(answer.conversationId);
-      router.replace(`/app/conversations/${answer.conversationId}`);
+      // Update the address without remounting. router.replace swapped to the conversation route,
+      // which reloaded this conversation from history: the answer just given was relabelled as a
+      // historical response with its actions disabled, and a follow-up typed during the swap was
+      // sent from the page being torn down and never shown. A reload still restores it properly.
+      window.history.replaceState(window.history.state, "", `/app/conversations/${answer.conversationId}`);
     }
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: "ai", answer }]);
     setInput("");
     setPendingRequest(null);
   }
 
+  // Opened from the persistent "Ask" bar available on every screen (navigation model, chat as a
+  // bar, not the whole screen): a question typed there arrives here as ?q=... and is sent once,
+  // then the query string is cleared so a refresh does not resend it.
+  useEffect(() => {
+    const question = searchParams.get("q");
+    if (!question || autoSendRef.current || requestedConversationId) return;
+    autoSendRef.current = true;
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+    void send(question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, requestedConversationId]);
+
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
-      {/* Navigation model §6.2 — exactly four elements, vertically centred, nothing else. */}
+      {/* Navigation model §6.2, exactly four elements, vertically centred, nothing else. */}
       {!hasContent && (
         <div className="mx-auto flex w-full max-w-[520px] flex-1 flex-col items-center justify-center gap-5 py-10 text-center">
-          <div className="h-16 w-16 rounded-full bg-dls-orb" aria-hidden="true" />
+          <div className="dls-orb-float h-16 w-16 rounded-full bg-dls-orb" aria-hidden="true" />
           <div>
             <h1 className="text-[26px] font-extrabold leading-tight text-dls-text-primary">
               {givenName ? `${timeOfDayGreeting()}, ${givenName},` : `${timeOfDayGreeting()},`}
@@ -203,12 +220,11 @@ export default function AIConversations({ conversationId: requestedConversationI
                 ) : (
                   <CircleHelp className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 )}
-                {grounding.status === "current" ? "Evidence checked — no recorded changes" : grounding.status === "changed" ? "Evidence changed since this answer" : "Current evidence could not be checked"}
+                {grounding.status === "current" ? "Evidence checked, no recorded changes" : grounding.status === "changed" ? "Evidence changed since this answer" : "Current evidence could not be checked"}
               </div>
               <div className="mt-1">{grounding.safeChangeSummary}</div>
               <div className="mt-1 text-[10.5px] text-dls-text-muted">
-                Saved {new Date(grounding.historicalTimestamp).toLocaleString()} &middot; version {grounding.historicalVersion}
-                {grounding.currentVersion ? ` · current ${grounding.currentVersion}` : ""}
+                Saved {new Date(grounding.historicalTimestamp).toLocaleString()}
               </div>
             </div>
           ) : null}

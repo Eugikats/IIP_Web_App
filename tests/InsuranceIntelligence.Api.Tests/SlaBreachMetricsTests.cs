@@ -38,7 +38,7 @@ public sealed class SlaBreachMetricsTests
         var (statusCode, metrics) = await ExecuteAsync<CommandCenterMetricsResponse>(result);
 
         Assert.Equal(StatusCodes.Status200OK, statusCode);
-        // Exactly one open claim is breached — the closed one must not be counted here, or this
+        // Exactly one open claim is breached, the closed one must not be counted here, or this
         // regresses to reporting more breaches than open claims, which is what shipped live.
         Assert.Equal(1, metrics!.SlaBreached);
         Assert.Equal(1, metrics.ClosedClaimsWithSlaBreach);

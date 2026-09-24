@@ -14,7 +14,7 @@ test("Gate 8 Policy Intelligence renders grounded answer citations and blocked d
   await expect(page.getByRole("textbox", { name: "Is rear-end collision covered under MTR-8821? What is the excess?" })).toBeVisible();
   await expect(page.getByText("Coverage explanation")).toBeVisible();
   await expect(page.getByText("Cited clauses")).toBeVisible();
-  await expect(page.getByText("Own damage — vehicle collision")).toBeVisible();
+  await expect(page.getByText("Own damage, vehicle collision")).toBeVisible();
   await expect(page.getByText("Not a legal interpretation")).toBeVisible();
   await expect(page.getByText("It is not a binding legal or claims interpretation.")).toBeVisible();
 

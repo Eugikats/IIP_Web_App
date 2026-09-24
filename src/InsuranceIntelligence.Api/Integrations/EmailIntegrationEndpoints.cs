@@ -2,6 +2,7 @@ using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Admin;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Application.Integrations;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -10,6 +11,7 @@ using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Net.Mail;
 
 namespace InsuranceIntelligence.Api.Integrations;
@@ -169,6 +171,55 @@ public static class EmailIntegrationEndpoints
         return Results.Created($"/api/v1/integrations/email/mailboxes/{mailbox.MailboxConnectionId}", mailbox);
     }
 
+    /// <summary>
+    /// Collect waiting mail now, in any runtime. The scheduled MailboxIngestion timer is what makes
+    /// a connected mailbox work unattended; this is how an administrator proves it works without
+    /// waiting for the next tick, and it is deliberately not the dev-only TestIngestion below --
+    /// that one is gated behind development diagnostics and does not exist in Staging or
+    /// Production, which is precisely why connected mailboxes silently delivered nothing there.
+    /// Same service the timer calls, so what an admin sees here is what the schedule does.
+    /// </summary>
+    public static async Task<IResult> Ingest(
+        IMailboxIngestionService ingestionService,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
+        {
+            return Validation("tenantScope", validationError);
+        }
+
+        if (!TryReadMutationAuditContext(httpContext, out var actor, out _, out var auditError))
+        {
+            return auditError!;
+        }
+
+        if (!options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new
+            {
+                message = "Inbound email collection requires a configured Microsoft Graph mailbox connection.",
+                provider = options.EmailProvider
+            });
+        }
+
+        var result = await ingestionService.IngestAsync(scope, httpContext.TraceIdentifier, actor, cancellationToken);
+
+        return Results.Ok(new
+        {
+            mailboxesPolled = result.MailboxesPolled,
+            messagesIngested = result.MessagesIngested,
+            alreadyPresent = result.AlreadyPresent,
+            mailboxesUnavailable = result.MailboxesUnavailable
+        });
+    }
+
     public static async Task<IResult> TestIngestion(
         IMailboxConnectionRepository mailboxRepository,
         IInboundEmailRepository emailRepository,
@@ -290,9 +341,12 @@ public static class EmailIntegrationEndpoints
         ICaseDocumentRepository documentRepository,
         IEmailAttachmentProcessor attachmentProcessor,
         IAuditRepository auditRepository,
+        InsuranceIntelligence.Application.Cases.IFnolAcknowledgementService acknowledgementService,
+        ILogger<EmailFnolAcknowledgementLogMarker> logger,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null)
     {
         if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
         {
@@ -378,6 +432,19 @@ public static class EmailIntegrationEndpoints
         if (auditAction == "email.case_created")
         {
             await caseRepository.SaveAsync(claimCase, cancellationToken);
+
+            // A failed or blocked acknowledgement must never fail email processing, which already
+            // succeeded above, see IFnolAcknowledgementService's own doc comment.
+            try
+            {
+                await acknowledgementService.SendAsync(claimCase, httpContext.TraceIdentifier, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "FNOL acknowledgement failed for email-derived case {CaseId}", claimCase.CaseId);
+            }
+
+            triageQueue?.Enqueue(scope, claimCase.CaseId, httpContext.TraceIdentifier, "email_intake");
         }
 
         foreach (var document in processedAttachments)
@@ -491,7 +558,7 @@ public static class EmailIntegrationEndpoints
     /// unverified: an unidentified sender's claimed policy number lives only in free-text email
     /// content it fully controls, and even an identified sender's incident details are a guess
     /// from the raw email. Both paths always set <c>RequiresConfirmation = true</c> so the case
-    /// carries no SLA clock until a claims officer reviews and confirms it — see
+    /// carries no SLA clock until a claims officer reviews and confirms it, see
     /// <see cref="ClaimCase.RequiresConfirmation"/>.
     /// </summary>
     private static ClaimCase NewEmailCase(
@@ -637,3 +704,8 @@ public static class EmailIntegrationEndpoints
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });
 }
+
+/// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
+/// static-class endpoint (ILogger&lt;EmailIntegrationEndpoints&gt; is not usable, the class is
+/// static), matching SmsIntegrationEndpoints' SmsDeliveryStatusLogMarker precedent.</summary>
+public sealed class EmailFnolAcknowledgementLogMarker;

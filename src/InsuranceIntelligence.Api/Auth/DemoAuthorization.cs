@@ -9,7 +9,7 @@ public static class DemoAuthorization
     /// <summary>
     /// HttpContext.Items key under which the per-request middleware stashes the authenticated
     /// user's effective permissions, resolved from IIP's membership store (ADR-0005). Deployed-mode
-    /// authorization reads these — never the token role claim.
+    /// authorization reads these, never the token role claim.
     /// </summary>
     public const string EffectivePermissionsItemKey = "iip.effective-permissions";
 
@@ -38,7 +38,7 @@ public static class DemoAuthorization
             }
 
             // ADR-0005: fine-grained permissions come ONLY from IIP's membership store (resolved and
-            // stashed by the per-request middleware, keyed by the authenticated oid) — never from the
+            // stashed by the per-request middleware, keyed by the authenticated oid), never from the
             // token's role claim. No resolved membership => fail closed.
             var effectivePermissions = httpContext.Items.TryGetValue(EffectivePermissionsItemKey, out var stashed)
                 && stashed is IReadOnlyCollection<Permission> resolved
@@ -84,7 +84,7 @@ public static class DemoAuthorization
     /// <summary>
     /// The identity a local/offline operator is treated as when no explicit user is supplied.
     /// Shared with the offline demo seeder so seeded work is assigned to the same user who will
-    /// actually be signed in — see Program.cs's offline seeding block.
+    /// actually be signed in, see Program.cs's offline seeding block.
     /// </summary>
     public const string DefaultLocalUserId = "local-admin";
 

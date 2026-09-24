@@ -1,4 +1,4 @@
-// Migrated onto design language v2 §8.8 (card): border, radius-card, box-shadow none — no more
+// Migrated onto design language v2 §8.8 (card): border, radius-card, box-shadow none, no more
 // .glass glassmorphism. External API unchanged.
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";

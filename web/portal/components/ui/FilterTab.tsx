@@ -1,11 +1,11 @@
-// Design language v2 §8.11 — filter tabs / segmented pills.
+// Design language v2 §8.11, filter tabs / segmented pills.
 //
 // Found while migrating /app/channels (ui-migration-ledger.md screen-7 entry): five existing
 // hand-rolled tab implementations across four already-Done screens (AgentWorkItems, ClaimsQueue,
 // DocumentExtraction, ReviewWorkspace, Workflows) render their *active* tab as a solid violet fill
-// with white text — §8.11 specifies a light tint background with violet text and border, never a
+// with white text, §8.11 specifies a light tint background with violet text and border, never a
 // solid fill (solid violet is §8.1's primary-button treatment, not a tab's). This primitive is the
-// spec-correct version, for this screen and to migrate those five call sites onto later — see the
+// spec-correct version, for this screen and to migrate those five call sites onto later, see the
 // ledger for why that migration is a separate, dedicated pass rather than bundled into this screen.
 "use client";
 

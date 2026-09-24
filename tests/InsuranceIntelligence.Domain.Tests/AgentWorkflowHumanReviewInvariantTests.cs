@@ -4,7 +4,7 @@ using InsuranceIntelligence.Domain.AgentWorkflows;
 namespace InsuranceIntelligence.Domain.Tests;
 
 /// <summary>
-/// Seam: agent-workflow publish/save validation — every consequential path must
+/// Seam: agent-workflow publish/save validation, every consequential path must
 /// reach HumanReview before Complete (all-paths, not exists-path).
 /// </summary>
 public sealed class AgentWorkflowHumanReviewInvariantTests
@@ -48,7 +48,7 @@ public sealed class AgentWorkflowHumanReviewInvariantTests
     public void Branch_that_bypasses_human_review_is_rejected_even_when_another_branch_is_safe()
     {
         // prepare -> review -> complete  (safe)
-        // prepare -> complete            (bypass) — exists-path check would incorrectly pass
+        // prepare -> complete            (bypass), exists-path check would incorrectly pass
         var nodes = new[]
         {
             Node("trigger", AgentWorkflowNodeType.Trigger, AgentWorkflowSideEffect.ReadOnly),

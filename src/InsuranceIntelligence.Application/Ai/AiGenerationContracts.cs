@@ -2,11 +2,16 @@ using InsuranceIntelligence.Application.Core;
 
 namespace InsuranceIntelligence.Application.Ai;
 
+// AgentKey: which AgentCatalog entry this completion is for, resolves the tenant's
+// AgentBehaviourProfile (blueprint §6.3). Null means "no tenant customization applies", which is
+// still safe: the platform preamble and the caller-supplied default system prompt still compose
+// normally, just with no tenant-configured section layered on top.
 public sealed record ChatCompletionRequest(
     string Prompt,
     string TenantId,
     string? WorkspaceId = null,
-    string? CorrelationId = null);
+    string? CorrelationId = null,
+    string? AgentKey = null);
 
 public sealed record ChatCompletionResult(
     string Content,

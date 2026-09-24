@@ -5,7 +5,7 @@ namespace InsuranceIntelligence.Application.AgentWorkflows;
 /// <summary>
 /// Publish/save invariant: every executable path from a consequential or external
 /// side-effect node to Complete must pass through HumanReview. Existence of one
-/// safe path is not enough — bypass branches, unsafe cycles, and unreachable
+/// safe path is not enough, bypass branches, unsafe cycles, and unreachable
 /// consequential nodes fail publication.
 /// </summary>
 public static class AgentWorkflowHumanReviewInvariant

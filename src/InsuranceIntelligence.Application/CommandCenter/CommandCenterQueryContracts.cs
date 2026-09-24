@@ -15,7 +15,7 @@ public sealed record CommandCenterQueryRequest(
 /// Governed response envelope for the chat-first Command Center query endpoint.
 /// <para>
 /// Invariant: <see cref="CanTriggerDecision"/> is ALWAYS <c>false</c>. No block conveys a final
-/// insurance decision — the Command Center prepares work for a human to decide.
+/// insurance decision, the Command Center prepares work for a human to decide.
 /// </para>
 /// </summary>
 public sealed record CommandCenterQueryResponse(

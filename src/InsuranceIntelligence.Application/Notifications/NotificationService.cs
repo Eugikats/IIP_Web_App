@@ -20,7 +20,7 @@ public interface INotificationEmitter
         CancellationToken cancellationToken = default);
 
     /// <summary>Same as <see cref="NotifyAsync"/> but skips creating a duplicate when a
-    /// notification of this type already exists for this recipient/case — for events re-derived
+    /// notification of this type already exists for this recipient/case, for events re-derived
     /// from a live condition on every read (SLA breach) rather than a one-shot action.</summary>
     Task NotifyOnceAsync(
         TenantScope scope,
@@ -69,7 +69,7 @@ public sealed class NotificationService(
     {
         if (string.IsNullOrWhiteSpace(recipientUserId))
         {
-            // No known recipient (e.g. an unassigned approval) — nothing to notify. Not an error;
+            // No known recipient (e.g. an unassigned approval), nothing to notify. Not an error;
             // the caller's own action still completes.
             return Task.CompletedTask;
         }

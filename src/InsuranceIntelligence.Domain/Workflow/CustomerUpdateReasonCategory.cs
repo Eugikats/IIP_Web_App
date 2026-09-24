@@ -6,5 +6,25 @@ public enum CustomerUpdateReasonCategory
     MissingDocuments,
     ReadyForReview,
     StatusUpdate,
-    EscalationReceived
+    EscalationReceived,
+
+    /// <summary>A human has decided the claim's outcome (blueprint §14 Phase 5, WO 5.5). Always
+    /// requires approval before sending (see both ICustomerUpdateDraftingProvider implementations)
+    ///, and the draft itself must never state the actual decision. AGENTS.md bars AI from
+    /// communicating final claim decisions; the Azure provider's own prompt already instructs
+    /// "do not include ... final claim decisions," so a drafted message for this category tells
+    /// the customer a decision exists and to expect contact, never what the decision was. The
+    /// decision itself is delivered by the approving human, not drafted by the model.</summary>
+    DecisionOutcome,
+
+    /// <summary>Outcome O: the one satisfaction question asked after a claim closes. Always
+    /// requires approval (see CustomerUpdateApprovalPolicy) and, like any other customer message,
+    /// is blocked without recorded consent unless the tenant has opted into low-risk auto-send.</summary>
+    SatisfactionQuestion,
+
+    /// <summary>Outcome P: "after a claim closes well, prepare a referral invitation that a
+    /// person approves and that consent gates." Only ever an invitation to refer someone else,
+    /// never a quote or a sale itself, the same regulatory boundary the WhatsApp assistant's
+    /// ProductInterest handling already respects (blueprint §8.2). Always requires approval.</summary>
+    ReferralInvitation
 }

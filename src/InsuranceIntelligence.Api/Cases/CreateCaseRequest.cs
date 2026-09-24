@@ -13,4 +13,5 @@ public sealed record CreateCaseRequest(
     DateOnly? IncidentDate,
     string? IncidentDescription,
     MotorFnolDetails? MotorFnolDetails = null,
-    MedicalFnolDetails? MedicalFnolDetails = null);
+    MedicalFnolDetails? MedicalFnolDetails = null,
+    decimal? ClaimedAmount = null);

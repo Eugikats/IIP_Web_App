@@ -135,4 +135,25 @@ public sealed class AzureBlobEvidencePackStorageProvider(InfrastructureOptions o
         await blob.UploadAsync(bufferedContent, new BlobHttpHeaders { ContentType = contentType }, cancellationToken: cancellationToken);
         return new EvidencePackStorageResult(objectKey, contentType, contentLength);
     }
+
+    public async Task<Stream> ReadAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default)
+    {
+        EnsureScopedReference(scope, objectKey);
+        var container = AzureProviderSupport.BlobContainer(options.AzureBlob, options.AzureBlob.EvidenceContainer);
+        var blob = container.GetBlobClient(objectKey);
+
+        logger.LogInformation("Reading evidence pack from Azure Blob. Tenant={TenantId} Workspace={WorkspaceId}",
+            scope.TenantId, scope.WorkspaceId);
+        var response = await blob.DownloadStreamingAsync(cancellationToken: cancellationToken);
+        return response.Value.Content;
+    }
+
+    private static void EnsureScopedReference(TenantScope scope, string objectKey)
+    {
+        var expectedPrefix = $"{scope.TenantId}/{scope.WorkspaceId}/";
+        if (!objectKey.StartsWith(expectedPrefix, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Evidence pack storage reference is outside the requested tenant workspace.");
+        }
+    }
 }

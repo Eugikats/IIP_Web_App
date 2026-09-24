@@ -50,6 +50,14 @@ export type ClaimDetailView = {
   requiresConfirmation: boolean;
   assignedUserId: string | null;
   documents: ClaimDocumentView[];
+  claimedAmount: number | null;
+  advisoryRiskSignals: string[];
+  // Outcome N: the real Policy record behind this policy number, when one has actually been
+  // loaded (file import today). Null, not a fabricated date, when no such record exists yet.
+  policyEffectiveFrom: string | null;
+  policyEffectiveTo: string | null;
+  policyRecordSource: string | null;
+  policyLastRefreshedAt: string | null;
 };
 
 export type ConfirmClaimCorrections = {
@@ -108,6 +116,12 @@ function parityClaimDetail(claimId: string): ClaimDetailView | null {
     slaDueAt: null,
     requiresConfirmation: false,
     assignedUserId: claim.officer === "Unassigned" ? null : claim.officer,
+    claimedAmount: null,
+    advisoryRiskSignals: [],
+    policyEffectiveFrom: null,
+    policyEffectiveTo: null,
+    policyRecordSource: null,
+    policyLastRefreshedAt: null,
     documents: documentLibrary
       .filter((document) => document.claim === claim.id)
       .map((document) => ({
@@ -133,6 +147,8 @@ export function useClaimReview(claimId: string) {
   const [requestingApproval, setRequestingApproval] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [recordingSatisfaction, setRecordingSatisfaction] = useState(false);
 
   const loadCustomerUpdates = useCallback(async () => {
     if (!claimId || LOVABLE_VISUAL_PARITY_MODE) { setCustomerUpdates([]); return; }
@@ -232,12 +248,18 @@ export function useClaimReview(claimId: string) {
         completenessScore: d.completenessScore, riskLevel: d.riskLevel, priority: d.priority, slaDueAt: d.slaDueAt,
         requiresConfirmation: Boolean(d.requiresConfirmation),
         assignedUserId: d.assignedUserId,
+        claimedAmount: d.claimedAmount ?? null,
+        advisoryRiskSignals: d.advisoryRiskSignals ?? [],
+        policyEffectiveFrom: d.policyEffectiveFrom ?? null,
+        policyEffectiveTo: d.policyEffectiveTo ?? null,
+        policyRecordSource: d.policyRecordSource ?? null,
+        policyLastRefreshedAt: d.policyLastRefreshedAt ?? null,
         documents: (d.documents ?? []).map((x: ClaimDocumentView) => ({ ...x })),
       };
       setDetail(nextDetail);
       setLoadState(settledState(nextDetail, false));
 
-      // Timeline is best-effort — a claim can be valid without timeline events.
+      // Timeline is best-effort, a claim can be valid without timeline events.
       try {
         const tlRes = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/timeline`, { headers });
         if (tlRes.ok) {
@@ -295,6 +317,25 @@ export function useClaimReview(claimId: string) {
       return { ok: true };
     } catch (err) {
       return { ok: false, message: err instanceof Error ? err.message : "Document follow-up draft failed." };
+    } finally {
+      setDrafting(false);
+    }
+  }, [claimId, loadCustomerUpdates, role]);
+
+  const draftDecisionOutcomeUpdate = useCallback(async (): Promise<{ ok: boolean; message?: string }> => {
+    setDrafting(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/customer-updates/draft`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({ reasonCategory: "DecisionOutcome", channel: "Email" }),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to draft decision-outcome updates." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, `Decision-outcome draft failed.`) };
+      await loadCustomerUpdates();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Decision-outcome draft failed." };
     } finally {
       setDrafting(false);
     }
@@ -459,6 +500,79 @@ export function useClaimReview(claimId: string) {
     }
   }, [claimId, load, role]);
 
+  // WO 6.2: the export endpoint only ever returned an object key, a real single-document export
+  // existed but the officer had no way to actually get the file. Fetches it as a blob (the
+  // permission-gated GET needs the same scoped headers a plain <a href> can't carry) and triggers
+  // a normal browser download.
+  const downloadExportedAuditPack = useCallback(async (objectKey: string): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/compliance/cases/${claimId}/audit-pack/export/download?objectKey=${encodeURIComponent(objectKey)}`, {
+        headers: scopedHeaders(role, ""),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to download evidence packs." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, "Evidence-pack download failed.") };
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = objectKey.split("/").pop() ?? "evidence-pack.json";
+      anchor.click();
+      URL.revokeObjectURL(url);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Evidence-pack download failed." };
+    }
+  }, [claimId, role]);
+
+  // Outcome O: "when a claim closes, ask one satisfaction question." No path in this codebase
+  // ever wrote CaseStatus.Settled/Closed before this action existed (see
+  // ClaimResolutionEndpoints.cs), which also drafts the satisfaction question behind the scenes.
+  const resolveClaim = useCallback(async (
+    resolution: "Settled" | "Closed",
+    auditReason: string
+  ): Promise<{ ok: boolean; message?: string }> => {
+    setResolving(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/resolve`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json", "X-Audit-Reason": auditReason },
+        body: JSON.stringify({ resolution }),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to record a claim resolution." };
+      if (res.status === 409) return { ok: false, message: await readSafeApiError(res, "This claim cannot be resolved from its current status.") };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, "This claim could not be resolved.") };
+      await load();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "This claim could not be resolved." };
+    } finally {
+      setResolving(false);
+    }
+  }, [claimId, load, role]);
+
+  const recordSatisfactionResponse = useCallback(async (
+    rating: "Good" | "Neutral" | "Poor",
+    notes: string
+  ): Promise<{ ok: boolean; message?: string; serviceRecoveryTaskId?: string | null }> => {
+    setRecordingSatisfaction(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/cases/${claimId}/satisfaction-response`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({ rating, notes: notes || undefined }),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to record a satisfaction answer." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, "This satisfaction answer could not be recorded.") };
+      const body = await res.json();
+      return { ok: true, serviceRecoveryTaskId: body.serviceRecoveryTaskId ?? null };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "This satisfaction answer could not be recorded." };
+    } finally {
+      setRecordingSatisfaction(false);
+    }
+  }, [claimId, role]);
+
   return {
     detail,
     timeline,
@@ -471,15 +585,21 @@ export function useClaimReview(claimId: string) {
     requestingApproval,
     exporting,
     confirming,
+    resolving,
+    recordingSatisfaction,
     draftCustomerUpdate,
     draftDocumentFollowUp,
+    draftDecisionOutcomeUpdate,
     approveCustomerUpdate,
     sendCustomerUpdate,
     acknowledgeReviewRequest,
     resolveReviewRequest,
     exportEvidencePack,
+    downloadExportedAuditPack,
     requestSupervisorReview,
     confirmClaim,
+    resolveClaim,
+    recordSatisfactionResponse,
     reload: load,
   };
 }

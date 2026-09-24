@@ -12,7 +12,7 @@ import { conversations as fixtureConversations, type Channel, type ChannelConver
  * In LovableVisualParity mode we serve the static prototype fixtures so the
  * screen can be QA'd against the Lovable reference. Otherwise we fetch the real
  * tenant-scoped `/api/v1/channels/overview` and map it onto the same shape the
- * prototype UI already renders — so the layout is identical but the data is real,
+ * prototype UI already renders, so the layout is identical but the data is real,
  * and an unpopulated workspace shows an honest empty state rather than samples.
  */
 
@@ -73,18 +73,26 @@ const CHANNEL_MAP: Record<string, Channel> = {
 
 const INTENT_MAP: Record<string, ChannelConversation["intent"]> = {
   claim_fnol: "New claim",
+  claim_status: "Claim status",
   quote_request: "Quote request",
   renewal: "Quote request",
   complaint: "Complaint",
   policy_inquiry: "General",
   document_upload: "Claim update",
   payment_inquiry: "General",
+  human_requested: "Wants a person",
   general_service: "General",
 };
 
+// Work states the backend emits for a conversation the assistant actually handled (see
+// EfChannelReadRepository.StatusFor). Matching these exactly beats sniffing the string for
+// "approval"/"review": WhatsApp delivery states are also carried in this field for threads the
+// assistant never touched, and one of those must never be mistaken for a pending approval.
+const STATUSES_NEEDING_A_PERSON = new Set(["awaitingapproval", "needsreview"]);
+
 function relativeTime(iso: string): string {
   const t = Date.parse(iso);
-  if (Number.isNaN(t)) return iso || "—";
+  if (Number.isNaN(t)) return iso || "-";
   const diffMs = Date.now() - t;
   const mins = Math.round(diffMs / 60000);
   if (mins < 1) return "just now";
@@ -109,7 +117,7 @@ function mapRow(row: OverviewRow): ChannelConversation {
     snippet: row.lastMessage || "",
     updated: relativeTime(row.lastActivityAt),
     unread: 0,
-    needsApproval: status.includes("approval") || status.includes("review"),
+    needsApproval: STATUSES_NEEDING_A_PERSON.has(status.replace(/[\s_-]/g, "")),
     intent,
     customerContact: row.customerContact ?? null,
   };
@@ -128,7 +136,7 @@ export function useChannelConversations() {
     setError(null);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/channels/overview`, { headers: scopedHeaders(role, "") });
-      // Design language v2 §8.24 / AGENTS.md — never surface a raw provider error, stack trace, or
+      // Design language v2 §8.24 / AGENTS.md, never surface a raw provider error, stack trace, or
       // status code to the user. A thrown HTTP-status message previously reached the screen as-is.
       if (!response.ok) throw new Error("Channels failed to load.");
       const rows = (await response.json()) as OverviewRow[];
@@ -168,7 +176,7 @@ export function useWhatsAppThread(threadId?: string | null) {
         headers: scopedHeaders(role, ""),
         cache: "no-store",
       });
-      // §8.24 / AGENTS.md — never surface a raw provider error, stack trace, or status code.
+      // §8.24 / AGENTS.md, never surface a raw provider error, stack trace, or status code.
       if (!response.ok) throw new Error("WhatsApp thread failed to load.");
       setMessages((await response.json()) as WhatsAppMessage[]);
     } catch {
@@ -196,7 +204,7 @@ export function useWhatsAppThread(threadId?: string | null) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok && response.status !== 202) {
-      // §8.24 / AGENTS.md — a backend-supplied safe message (payload.message / payload.safeError)
+      // §8.24 / AGENTS.md, a backend-supplied safe message (payload.message / payload.safeError)
       // is legitimate and kept; only the raw-status-code fallback is replaced with a generic one.
       throw new Error(payload.message || payload.safeError || "WhatsApp send failed.");
     }

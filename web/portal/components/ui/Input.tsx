@@ -52,7 +52,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 });
 
 // design language v2's radius token table lists selects under --radius-control alongside
-// buttons and inputs — same 8px radius, border, and focus ring as Input; no separate spec.
+// buttons and inputs, same 8px radius, border, and focus ring as Input; no separate spec.
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select(
   { className, ...props },
   ref,
@@ -70,7 +70,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
   );
 });
 
-// Found missing while migrating FNOL.tsx (ui-migration-ledger.md screen-9 entry) — design
+// Found missing while migrating FNOL.tsx (ui-migration-ledger.md screen-9 entry), design
 // language v2's radius/border/focus contract in §8.5 doesn't name textareas separately from
 // inputs, and every multi-line control in the app so far has been hand-styled per screen. Same
 // contract as Input, just a taller, resizable-off element; same extension precedent as Select.
@@ -101,7 +101,7 @@ export interface FieldProps {
   children: ReactNode;
 }
 
-// §8.6 — label -> optional hint -> control -> optional error/helper. 16px stack gap is the
+// §8.6, label -> optional hint -> control -> optional error/helper. 16px stack gap is the
 // caller's responsibility (a parent flex/grid with gap-4); Field itself only orders its own parts.
 export function Field({ label, hint, error, htmlFor, children }: FieldProps) {
   return (

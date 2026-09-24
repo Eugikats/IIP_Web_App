@@ -64,7 +64,7 @@ public sealed class DocumentEndpointsTests
     [Fact]
     public void PreviewChecklist_ReturnsMedicalRules_NotInjuryRules_ForMedicalProductLine()
     {
-        // WO-15: the exact regression this work order fixes — before, this returned the
+        // WO-15: the exact regression this work order fixes, before, this returned the
         // motor InjuryFatality checklist (PoliceAbstract/PhotoEvidence) because the claim type
         // text contained "medical".
         var result = DocumentEndpoints.PreviewChecklist(
@@ -807,6 +807,129 @@ public sealed class DocumentEndpointsTests
             && auditEvent.AuditReason == auditReason);
     }
 
+    [Fact]
+    public async Task ReclassifyDocument_RecordsALabelledExampleOfWhatTheClassifierGotWrong()
+    {
+        var dependencies = CreateDependencies();
+        var labelledExamples = new InMemoryDocumentLabelledExampleRepository();
+        var claimCase = await CreateCaseAsync(dependencies);
+        var uploadResult = await DocumentEndpoints.UploadDocuments(
+            claimCase.CaseId,
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.StorageProvider,
+            dependencies.ProcessingProvider,
+            dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
+            dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
+            UploadContext("claim-form.pdf"),
+            CancellationToken.None);
+        var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
+        var documentId = Assert.Single(uploadResponse!.Documents).DocumentId;
+
+        var reclassifyResult = await DocumentEndpoints.ReclassifyDocument(
+            claimCase.CaseId,
+            documentId,
+            new ReclassifyDocumentRequest("Invoice", "user-claims-1"),
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.ChecklistProvider,
+            dependencies.AuditRepository,
+            ScopedContext(),
+            CancellationToken.None,
+            labelledExamples);
+        var (statusCode, _) = await ExecuteAsync<JsonElement>(reclassifyResult);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var example = Assert.Single(labelledExamples.Saved);
+        Assert.Equal(DocumentType.ClaimForm, example.OriginalPredictedType);
+        Assert.Equal(DocumentType.Invoice, example.ConfirmedType);
+        Assert.Equal(DocumentLabelSource.Reclassification, example.Source);
+    }
+
+    [Fact]
+    public async Task ApproveExtraction_WithoutAnyCorrection_RecordsAConfirmedLabelledExample()
+    {
+        var dependencies = CreateDependencies();
+        var labelledExamples = new InMemoryDocumentLabelledExampleRepository();
+        var claimCase = await CreateCaseAsync(dependencies);
+        var uploadResult = await DocumentEndpoints.UploadDocuments(
+            claimCase.CaseId,
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.StorageProvider,
+            dependencies.ProcessingProvider,
+            dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
+            dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
+            UploadContext("claim-form.pdf"),
+            CancellationToken.None);
+        var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
+        var documentId = Assert.Single(uploadResponse!.Documents).DocumentId;
+
+        var approveResult = await DocumentEndpoints.ApproveExtraction(
+            claimCase.CaseId,
+            documentId,
+            new ApproveExtractionRequest("user-claims-1"),
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.AuditRepository,
+            ScopedContext(),
+            CancellationToken.None,
+            labelledExamples);
+        var (statusCode, _) = await ExecuteAsync<DocumentResponse>(approveResult);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var example = Assert.Single(labelledExamples.Saved);
+        Assert.Equal(DocumentType.ClaimForm, example.OriginalPredictedType);
+        Assert.Equal(DocumentType.ClaimForm, example.ConfirmedType);
+        Assert.Equal(DocumentLabelSource.ConfirmedWithoutCorrection, example.Source);
+    }
+
+    [Fact]
+    public async Task CorrectExtractionField_RecordsAFieldCorrectionLabelledExample()
+    {
+        var dependencies = CreateDependencies();
+        var labelledExamples = new InMemoryDocumentLabelledExampleRepository();
+        var claimCase = await CreateCaseAsync(dependencies);
+        var uploadResult = await DocumentEndpoints.UploadDocuments(
+            claimCase.CaseId,
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.StorageProvider,
+            dependencies.ProcessingProvider,
+            dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
+            dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
+            UploadContext("claim-form.pdf"),
+            CancellationToken.None);
+        var (_, uploadResponse) = await ExecuteAsync<DocumentUploadResponse>(uploadResult);
+        var documentId = Assert.Single(uploadResponse!.Documents).DocumentId;
+
+        var correctResult = await DocumentEndpoints.CorrectExtractionField(
+            claimCase.CaseId,
+            documentId,
+            new CorrectExtractionFieldRequest("sourceFileName", "corrected-claim-form.pdf"),
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.AuditRepository,
+            dependencies.AgentWorkflowService,
+            ScopedContext(auditReason: "Officer confirmed the correct file name against the source document."),
+            CancellationToken.None,
+            labelledExamples);
+        var (statusCode, _) = await ExecuteAsync<DocumentResponse>(correctResult);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var example = Assert.Single(labelledExamples.Saved);
+        Assert.Equal(DocumentType.ClaimForm, example.OriginalPredictedType);
+        Assert.Equal(DocumentType.ClaimForm, example.ConfirmedType);
+        Assert.Equal(DocumentLabelSource.FieldCorrection, example.Source);
+        Assert.Equal("corrected-claim-form.pdf", example.ConfirmedFields["sourceFileName"]);
+    }
+
     private static async Task UploadClaimFormAsync(Dependencies dependencies, Guid caseId)
     {
         var result = await DocumentEndpoints.UploadDocuments(
@@ -999,6 +1122,20 @@ public sealed class DocumentEndpointsTests
         IDocumentFieldValidationRuleRepository FieldValidationRuleRepository,
         IAgentWorkflowService AgentWorkflowService,
         INotificationEmitter NotificationEmitter);
+
+    private sealed class InMemoryDocumentLabelledExampleRepository : IDocumentLabelledExampleRepository
+    {
+        public List<DocumentLabelledExample> Saved { get; } = [];
+
+        public Task SaveAsync(DocumentLabelledExample example, CancellationToken cancellationToken = default)
+        {
+            Saved.Add(example);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyCollection<DocumentLabelledExample>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<DocumentLabelledExample>>(Saved.Where(example => example.Scope.Matches(scope)).ToArray());
+    }
 
     private sealed class NoOpAgentWorkflowService : IAgentWorkflowService
     {

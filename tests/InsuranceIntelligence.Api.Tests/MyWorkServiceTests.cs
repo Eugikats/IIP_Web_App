@@ -101,6 +101,46 @@ public sealed class MyWorkServiceTests
     }
 
     [Fact]
+    public async Task ListAsync_SurfacesARealisticallyProcessedLowConfidenceDocumentWithItsReason()
+    {
+        // Regression for a real bug: the previous filter checked ProcessingStatus ==
+        // DocumentProcessingStatus.ReviewRequired, a status nothing in the real upload pipeline
+        // ever sets (UploadDocuments always leaves processed documents at .Processed), so this
+        // queue was silently empty in production no matter how low a document's confidence was.
+        // This document is shaped exactly like a real upload: .Processed, not .ReviewRequired.
+        var scope = TenantScope.Create("tenant-work", "workspace-claims");
+        var userId = "claims-user-1";
+        var context = Context(scope, userId);
+        var cases = new InMemoryCaseRepository();
+        var documents = new InMemoryCaseDocumentRepository();
+        var claimCase = Case(scope, userId, DateTimeOffset.UtcNow.AddHours(2));
+        await cases.SaveAsync(claimCase);
+        await documents.SaveAsync(new CaseDocument
+        {
+            DocumentId = Guid.NewGuid(), CaseId = claimCase.CaseId, Scope = scope, OriginalFileName = "estimate.pdf",
+            ContentType = "application/pdf", FileSizeBytes = 100, ObjectKey = "test/estimate.pdf",
+            DocumentType = DocumentType.GarageEstimate, ProcessingStatus = DocumentProcessingStatus.Processed,
+            Classification = new DocumentClassificationResult(DocumentType.GarageEstimate, 0.62m, "test", DateTimeOffset.UtcNow),
+            Extraction = new DocumentExtractionResult(new Dictionary<string, string>(), new Dictionary<string, decimal>(), "test", DateTimeOffset.UtcNow, false, null, null),
+            ValidationWarnings = [],
+            UploadedByUserId = "uploader", UploadedAt = DateTimeOffset.UtcNow.AddHours(-2),
+            ProcessedAt = DateTimeOffset.UtcNow.AddHours(-1), CorrelationId = Guid.NewGuid().ToString("N")
+        });
+
+        var service = Service(
+            cases, documents, new InMemoryWorkflowTaskRepository(), new InMemoryApprovalRepository(),
+            new InMemoryCustomerUpdateRepository(), new StubAgentWorkItemRepository(), context,
+            new StubPermissionService(Permission.ViewAssignedClaims), new StubAuditWriter());
+
+        var response = await service.ListAsync(new MyWorkQuery(MyWorkOwnership.Mine, null, null, 50), CancellationToken.None);
+
+        var item = Assert.Single(response.Items);
+        Assert.Equal(MyWorkSourceType.DocumentReview, item.SourceType);
+        Assert.Contains("62%", item.Reason);
+        Assert.Contains("80%", item.Reason);
+    }
+
+    [Fact]
     public async Task ListAsync_AllOwnershipRequiresViewAllClaims()
     {
         var scope = TenantScope.Create("tenant-work", "workspace-claims");
@@ -189,7 +229,8 @@ public sealed class MyWorkServiceTests
         {
             UpdateId = Guid.NewGuid(), Scope = scope, CaseId = caseId, ReasonCategory = CustomerUpdateReasonCategory.StatusUpdate,
             Channel = CommunicationChannel.WhatsApp, Status = CustomerUpdateStatus.PendingApproval,
-            MessageBody = "Sensitive customer message", RequiresApproval = true, Sensitive = true,
+            MessageBody = "Sensitive customer message", ShortMessageBody = "Sensitive customer message",
+            CreationMethod = CustomerUpdateCreationMethod.ManuallyWritten, RequiresApproval = true, Sensitive = true,
             CreatedByUserId = creator, CreatedAt = DateTimeOffset.UtcNow.AddHours(-2), UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-20),
             CorrelationId = Guid.NewGuid().ToString("N")
         };

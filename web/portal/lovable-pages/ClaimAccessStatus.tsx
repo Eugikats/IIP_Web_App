@@ -26,10 +26,10 @@ function formatDate(value: string | null) {
   }
 }
 
-// Claimant-facing (tier 6 — stricter rules). Confirmed while migrating: no internal notes,
-// reserves, fraud/risk signals, or other-tenant data render here — claim.status, however, is the
+// Claimant-facing (tier 6, stricter rules). Confirmed while migrating: no internal notes,
+// reserves, fraud/risk signals, or other-tenant data render here, claim.status, however, is the
 // raw CaseStatus enum name run through a camelCase-to-spaces regex (e.g. "Escalated",
-// "ReadyForExport"), not a claimant-appropriate translation. Left unchanged here — inventing
+// "ReadyForExport"), not a claimant-appropriate translation. Left unchanged here, inventing
 // customer-facing wording for a regulated insurer communication isn't a restyling call to make
 // unilaterally; flagged in the ledger for whoever owns claimant-communication copy.
 export default function ClaimAccessStatus() {
@@ -127,9 +127,17 @@ export default function ClaimAccessStatus() {
               <div className="text-xs text-dls-text-muted">Insurance Intelligence Platform</div>
             </div>
           </div>
-          <Button variant="secondary" onClick={signOut} icon={<LogOut aria-hidden="true" />}>
-            Done
-          </Button>
+          <div className="flex items-center gap-2">
+            <a
+              href="/access/policy"
+              className="dls-focus-outline inline-flex min-h-9 items-center rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-1.5 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page"
+            >
+              My policy
+            </a>
+            <Button variant="secondary" onClick={signOut} icon={<LogOut aria-hidden="true" />}>
+              Done
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -171,7 +179,7 @@ export default function ClaimAccessStatus() {
                   <span>Completeness</span>
                   <span>{Math.round(claim.completenessScore)}%</span>
                 </div>
-                {/* Flat fill, not a gradient — §4.5 restricts gradients to the orb and chart bars. */}
+                {/* Flat fill, not a gradient, §4.5 restricts gradients to the orb and chart bars. */}
                 <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-dls-bg-page">
                   <div className="h-full rounded-full bg-dls-primary" style={{ width: `${Math.min(100, Math.max(0, claim.completenessScore))}%` }} />
                 </div>
@@ -256,7 +264,7 @@ export default function ClaimAccessStatus() {
                   {claim.reviewRequests.map((request) => (
                     <li key={request.requestId} className="flex items-center gap-2 text-xs text-dls-text-muted">
                       <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      {request.status} — {request.reason}
+                      {request.status}, {request.reason}
                     </li>
                   ))}
                 </ul>

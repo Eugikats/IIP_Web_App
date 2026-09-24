@@ -35,7 +35,7 @@ const PARITY_FIXTURES: UnderwritingReviewView[] = [
     checks: [
       { checkId: "UW-COMPLETENESS", label: "Submission completeness", state: "MissingInformation", detail: "2 required items missing: fleet schedule, loss history." },
       { checkId: "UW-LIMIT", label: "Sum-insured limit", state: "Attention", detail: "Sum insured UGX 420,000,000 exceeds the senior-referral threshold. Refer to a senior underwriter." },
-      { checkId: "UW-PRODUCT", label: "Product-line risk", state: "Attention", detail: "Fleet Comprehensive is a higher-risk line — confirm survey/inspection requirements before quoting." },
+      { checkId: "UW-PRODUCT", label: "Product-line risk", state: "Attention", detail: "Fleet Comprehensive is a higher-risk line, confirm survey/inspection requirements before quoting." },
     ],
     draftedQuestions: ["Could you please provide the fleet schedule for submission SUB-7701?", "Could you please provide the loss history for submission SUB-7701?"],
   },

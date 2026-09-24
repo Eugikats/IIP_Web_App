@@ -60,4 +60,11 @@ public static class ChannelDetectedIntentValues
     public const string DocumentUpload = "document_upload";
     public const string PaymentInquiry = "payment_inquiry";
     public const string GeneralService = "general_service";
+
+    // Added so the customer assistant's own classification survives the trip to the Channels
+    // inbox. CustomerIntent has six values; squeezing ExistingClaimStatus into policy_inquiry or
+    // HumanRequested into general_service would have shown an officer the wrong reason for the
+    // conversation, which is worse than a longer vocabulary.
+    public const string ClaimStatus = "claim_status";
+    public const string HumanRequested = "human_requested";
 }

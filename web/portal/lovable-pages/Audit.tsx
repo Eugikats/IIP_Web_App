@@ -39,7 +39,7 @@ export default function Audit() {
       <SectionHeader
         eyebrow="Reports & Audit"
         title="Audit trail"
-        sub="Every AI action, human decision, integration event, and communication — evidence-linked and regulator-ready."
+        sub="Every AI action, human decision, integration event, and communication, evidence-linked and regulator-ready."
         action={
           <Button variant="primary" onClick={exportCsv} icon={<Download aria-hidden="true" />}>
             Export CSV

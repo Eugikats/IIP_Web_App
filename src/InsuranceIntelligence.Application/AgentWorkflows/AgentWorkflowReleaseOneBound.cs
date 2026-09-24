@@ -3,7 +3,7 @@ using InsuranceIntelligence.Domain.AgentWorkflows;
 namespace InsuranceIntelligence.Application.AgentWorkflows;
 
 /// <summary>
-/// RF-04 — Release 1 orchestration allow-list.
+/// RF-04, Release 1 orchestration allow-list.
 ///
 /// Decision: retain the orchestration control plane only as a governed Release 1
 /// capability. Releases 2–5 remain catalog-visible (held) and cannot publish into
@@ -136,5 +136,5 @@ public static class AgentWorkflowReleaseOneBound
     }
 
     public static string HeldCatalogPreface(int release) =>
-        $"[Held — Release {release} is not executable on the Release 1 orchestration path until its providers and earlier application services are proven.] ";
+        $"[Held, Release {release} is not executable on the Release 1 orchestration path until its providers and earlier application services are proven.] ";
 }

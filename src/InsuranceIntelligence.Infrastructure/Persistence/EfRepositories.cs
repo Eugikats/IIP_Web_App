@@ -281,6 +281,25 @@ public sealed class EfClaimReviewRequestRepository(InsuranceIntelligenceDbContex
             .ToArrayAsync(cancellationToken);
 }
 
+public sealed class EfContactDetailChangeRequestRepository(InsuranceIntelligenceDbContext dbContext)
+    : JsonRepositoryBase(dbContext), InsuranceIntelligence.Domain.Customers.IContactDetailChangeRequestRepository
+{
+    public Task SaveAsync(InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest request, CancellationToken cancellationToken = default) =>
+        UpsertAsync(DbContext.ContactDetailChangeRequests, request.RequestId, request.Scope, Serialize(request), record => record.CaseId = request.CaseId, cancellationToken);
+
+    public async Task<InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest?> GetAsync(Guid requestId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var record = await Scoped(DbContext.ContactDetailChangeRequests.AsNoTracking(), scope)
+            .FirstOrDefaultAsync(item => item.Id == requestId, cancellationToken);
+        return record is null ? null : Deserialize<InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest>(record.PayloadJson);
+    }
+
+    public async Task<IReadOnlyCollection<InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+        await Scoped(DbContext.ContactDetailChangeRequests.AsNoTracking(), scope)
+            .Select(record => Deserialize<InsuranceIntelligence.Domain.Customers.ContactDetailChangeRequest>(record.PayloadJson))
+            .ToArrayAsync(cancellationToken);
+}
+
 public sealed class EfCommunicationRepository(InsuranceIntelligenceDbContext dbContext)
     : JsonRepositoryBase(dbContext), ICommunicationRepository
 {
@@ -303,6 +322,17 @@ public sealed class EfCommunicationRepository(InsuranceIntelligenceDbContext dbC
             .Where(record => record.CaseId == caseId)
             .Select(record => Deserialize<Communication>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
+
+    // ProviderMessageId lives inside the JSON payload, not a dedicated column, so this filters
+    // in memory after a scoped load rather than in SQL, acceptable at today's per-tenant
+    // communication volume; revisit with a real column/index if that changes.
+    public async Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default)
+    {
+        var records = await Scoped(DbContext.Communications.AsNoTracking(), scope).ToArrayAsync(cancellationToken);
+        return records
+            .Select(record => Deserialize<Communication>(record.PayloadJson))
+            .FirstOrDefault(communication => string.Equals(communication.ProviderMessageId, providerMessageId, StringComparison.Ordinal));
+    }
 }
 
 public sealed class EfTenantConfigurationRepository(InsuranceIntelligenceDbContext dbContext)

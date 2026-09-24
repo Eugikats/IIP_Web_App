@@ -175,7 +175,7 @@ const config: Config = {
         "glow-danger": "0 8px 24px rgba(220, 38, 38, 0.12)",
         "glow-success": "0 8px 24px rgba(5, 150, 105, 0.12)",
         "glow-warning": "0 8px 24px rgba(217, 119, 6, 0.12)",
-        // Design language §6.3 — the only three shadows a new component may use.
+        // Design language §6.3, the only three shadows a new component may use.
         "dls-popover": "var(--shadow-popover)",
         "dls-modal": "var(--shadow-drawer)",
         "dls-primary": "0 1px 2px rgb(91 42 232 / 0.25)",
@@ -187,7 +187,7 @@ const config: Config = {
         "gradient-tertiary": "var(--gradient-tertiary)",
         "gradient-ambient": "var(--gradient-ambient)",
         "brand-gradient": "var(--gradient-primary)",
-        // Design language §4.5 — the only two permitted gradients, nowhere else.
+        // Design language §4.5, the only two permitted gradients, nowhere else.
         "dls-orb": "var(--gradient-orb)",
         "dls-chart-bar": "var(--gradient-chart-bar)",
       },
@@ -199,7 +199,7 @@ const config: Config = {
         xl: "var(--radius-xl)",
         "2xl": "var(--radius-2xl)",
         pill: "var(--radius-pill)",
-        // Design language §6.2 — nothing above 16px on any operational surface.
+        // Design language §6.2, nothing above 16px on any operational surface.
         "dls-tight": "var(--radius-tight)",
         "dls-control": "var(--radius-control)",
         "dls-chip": "var(--radius-chip)",
@@ -211,6 +211,10 @@ const config: Config = {
         "dls-fast": "120ms",
         "dls-base": "160ms",
         "dls-exit": "100ms",
+        // A panel changing width travels ~176px, far further than a colour change. At the
+        // 120ms "fast" token that reads as a snap rather than a movement, so the rail gets
+        // its own slightly longer step.
+        "dls-panel": "220ms",
       },
       transitionTimingFunction: {
         dls: "cubic-bezier(0.2, 0, 0, 1)",
@@ -232,11 +236,21 @@ const config: Config = {
           "0%,100%": { opacity: "1" },
           "50%": { opacity: ".6" },
         },
+        // Labels appearing as the rail widens. Horizontal, because the panel edge is moving
+        // horizontally -- the vertical "fade-in" above would have the text arrive across the
+        // motion rather than with it.
+        "label-in": {
+          from: { opacity: "0", transform: "translateX(-4px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
       },
       animation: {
         "fade-in": "fade-in .3s ease-out",
         shimmer: "shimmer 2.4s linear infinite",
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+        // Slightly shorter than the rail's own 220ms and eased out, so the text settles just
+        // after the edge stops rather than racing it.
+        "label-in": "label-in 180ms cubic-bezier(0.2, 0, 0, 1) both",
       },
     },
   },

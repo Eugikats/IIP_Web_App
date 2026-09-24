@@ -73,7 +73,7 @@ public sealed class TenantOnboardingService(
                 "Microsoft Entra admin consent is not configured. Set the app registration client id and the onboarding redirect URI (see the Gate 1 provisioning runbook).");
         }
 
-        // Per identity spec §4.2: never use 'common' for admin consent — use the insurer's tenant.
+        // Per identity spec §4.2: never use 'common' for admin consent, use the insurer's tenant.
         var directory = string.IsNullOrWhiteSpace(record.ExpectedEntraTenantOrDomain)
             ? "organizations"
             : record.ExpectedEntraTenantOrDomain;

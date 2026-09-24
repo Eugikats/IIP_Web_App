@@ -52,10 +52,49 @@ public sealed class EfTenantOnboardingRepository(InsuranceIntelligenceDbContext 
 /// <summary>
 /// Bootstraps the consenting admin's membership into IIP's own runtime-authority store
 /// (ADR-0005): an active membership + an Admin role assignment for the new tenant/workspace.
-/// Idempotent — repeated consent callbacks do not duplicate membership.
+/// Idempotent, repeated consent callbacks do not duplicate membership.
 /// </summary>
 public sealed class EfTenantMembershipWriter(InsuranceIntelligenceDbContext dbContext) : ITenantMembershipWriter
 {
+    public async Task GrantMembershipAsync(string tenantId, string workspaceId, string userId, string roleCode, CancellationToken cancellationToken = default)
+    {
+        var membership = await dbContext.UserTenantMemberships
+            .FirstOrDefaultAsync(m => m.TenantId == tenantId && m.WorkspaceId == workspaceId && m.UserId == userId, cancellationToken);
+        if (membership is null)
+        {
+            dbContext.UserTenantMemberships.Add(new UserTenantMembershipEntity
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                WorkspaceId = workspaceId,
+                UserId = userId,
+                IsActive = true,
+            });
+        }
+        else if (!membership.IsActive)
+        {
+            membership.IsActive = true;
+        }
+
+        var existingRoles = await dbContext.RoleAssignments
+            .Where(r => r.TenantId == tenantId && r.WorkspaceId == workspaceId && r.UserId == userId)
+            .ToListAsync(cancellationToken);
+        dbContext.RoleAssignments.RemoveRange(existingRoles.Where(r => r.RoleCode != roleCode));
+        if (!existingRoles.Any(r => r.RoleCode == roleCode))
+        {
+            dbContext.RoleAssignments.Add(new RoleAssignmentEntity
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                WorkspaceId = workspaceId,
+                UserId = userId,
+                RoleCode = roleCode,
+            });
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task CreateAdminMembershipAsync(string tenantId, string workspaceId, string userId, CancellationToken cancellationToken = default)
     {
         var hasMembership = await dbContext.UserTenantMemberships

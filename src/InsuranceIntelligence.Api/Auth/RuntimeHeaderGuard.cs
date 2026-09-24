@@ -5,13 +5,19 @@ namespace InsuranceIntelligence.Api.Auth;
 public static class RuntimeHeaderGuard
 {
     private const string GraphWebhookPath = "/api/v1/integrations/email/graph/webhook";
+    private const string WhatsAppWebhookPath = "/api/v1/integrations/whatsapp/webhook";
+    private const string ClientPortalPath = "/api/v1/client-portal";
 
-    private static readonly string[] DevelopmentOnlyHeaders =
+    private static readonly string[] IdentityHeaders =
     [
         "x-demo-role",
         "X-Demo-Role",
         "x-demo-user-id",
-        "X-User-Id",
+        "X-User-Id"
+    ];
+
+    private static readonly string[] ScopeHeaders =
+    [
         "X-Tenant-Id",
         "X-Workspace-Id"
     ];
@@ -29,7 +35,17 @@ public static class RuntimeHeaderGuard
             return null;
         }
 
-        if (DevelopmentOnlyHeaders.Any(header => httpContext.Request.Headers.ContainsKey(header))
+        // The claimant portal names its insurer with X-Tenant-Id and X-Workspace-Id, because a
+        // claimant is never a signed-in tenant member and has no token to carry scope. On those
+        // routes the two headers carry no authority: ClientPortalScopeReader pins scope to this
+        // deployment's own tenant and workspace outside Development and refuses any other value.
+        // Rejecting them here as well left the claimant portal unable to issue a single link under
+        // Entra auth. Identity and role headers stay rejected on every route.
+        var rejected = IsClientPortal(httpContext)
+            ? IdentityHeaders
+            : IdentityHeaders.Concat(ScopeHeaders);
+
+        if (rejected.Any(header => httpContext.Request.Headers.ContainsKey(header))
             || DevelopmentOnlyQueryParameters.Any(parameter => httpContext.Request.Query.ContainsKey(parameter)))
         {
             return Results.Problem(
@@ -47,8 +63,19 @@ public static class RuntimeHeaderGuard
             return null;
         }
 
-        if (!httpContext.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
-            || httpContext.Request.Path.StartsWithSegments(GraphWebhookPath, StringComparison.OrdinalIgnoreCase))
+        if (!httpContext.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        // Routes whose callers can never hold an Entra token, each protected by its own mechanism
+        // instead: Microsoft Graph and Meta call their webhooks directly, and claimants authenticate
+        // with a single-use magic link and the session it grants (ClaimantSessionEndpointFilter).
+        // Without these exemptions every WhatsApp message and every claimant request was answered
+        // with 401 in any deployed environment.
+        if (httpContext.Request.Path.StartsWithSegments(GraphWebhookPath, StringComparison.OrdinalIgnoreCase)
+            || httpContext.Request.Path.StartsWithSegments(WhatsAppWebhookPath, StringComparison.OrdinalIgnoreCase)
+            || IsClientPortal(httpContext))
         {
             return null;
         }
@@ -57,4 +84,7 @@ public static class RuntimeHeaderGuard
             ? null
             : Results.Unauthorized();
     }
+
+    private static bool IsClientPortal(HttpContext httpContext) =>
+        httpContext.Request.Path.StartsWithSegments(ClientPortalPath, StringComparison.OrdinalIgnoreCase);
 }

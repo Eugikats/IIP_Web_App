@@ -83,7 +83,7 @@ public static class OnboardingEndpoints
 
     /// <summary>
     /// Microsoft admin-consent redirect target. Authorized by the opaque state value, not a
-    /// permission — the insurer admin returns here from Microsoft with admin_consent/tenant/state.
+    /// permission, the insurer admin returns here from Microsoft with admin_consent/tenant/state.
     /// </summary>
     public static async Task<IResult> ConsentCallback(
         HttpContext httpContext,

@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Api.ClientPortal;
 using System.Security.Claims;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -510,15 +511,15 @@ public sealed class SecurityAuthorizationTests
     public async Task RuntimeContext_UsesMembershipStoreScopeOutsideDevelopment()
     {
         // ADR-0005: /me reflects the store-resolved membership (set by the per-request middleware),
-        // NOT the token's tid/roles claims — even a token carrying different claims is ignored.
+        // NOT the token's tid/roles claims, even a token carrying different claims is ignored.
         var context = new DefaultHttpContext();
         context.RequestServices = ServicesWithOptions(ProductionDeploymentOptions);
         context.User = new ClaimsPrincipal(new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, "entra-user"),
             new Claim(ClaimTypes.Name, "Maya Morgan"),
-            new Claim(ClaimTypes.Role, "Admin"),          // token claim — must be IGNORED
-            new Claim("tenant_id", "attacker-tenant")      // token tid — must be IGNORED
+            new Claim(ClaimTypes.Role, "Admin"),          // token claim, must be IGNORED
+            new Claim("tenant_id", "attacker-tenant")      // token tid, must be IGNORED
         ], "Entra"));
         var resolved = TenantContextWith("tenant-a", "workspace-a", "entra-user", "ITAdmin");
 
@@ -687,6 +688,62 @@ public sealed class SecurityAuthorizationTests
     }
 
     [Fact]
+    public void RuntimeHeaderGuard_AllowsClientPortalScopeHeadersOutsideDevelopment()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/v1/client-portal/magic-links";
+        context.Request.Headers["X-Tenant-Id"] = "configured-tenant";
+        context.Request.Headers["X-Workspace-Id"] = "configured-workspace";
+
+        Assert.Null(RuntimeHeaderGuard.RejectBrowserAuthorityOutsideDevelopment(context, ProductionOptions));
+    }
+
+    [Fact]
+    public async Task RuntimeHeaderGuard_StillRejectsDemoIdentityHeadersOnClientPortalOutsideDevelopment()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/v1/client-portal/magic-links";
+        context.Request.Headers["x-demo-role"] = "Admin";
+
+        var result = RuntimeHeaderGuard.RejectBrowserAuthorityOutsideDevelopment(context, ProductionOptions);
+
+        Assert.NotNull(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, await ExecuteStatusAsync(result!));
+    }
+
+    [Theory]
+    [InlineData("/api/v1/client-portal/magic-links")]
+    [InlineData("/api/v1/client-portal/claims")]
+    [InlineData("/api/v1/integrations/whatsapp/webhook")]
+    public void RuntimeHeaderGuard_AllowsCallersWithoutEntraTokensOnTheirOwnRoutesOutsideDevelopment(string path)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = path;
+
+        Assert.Null(RuntimeHeaderGuard.RejectUnauthenticatedApiOutsideDevelopment(context, ProductionOptions));
+    }
+
+    [Fact]
+    public void ClientPortalScopeReader_PinsScopeToTheDeploymentOutsideDevelopment()
+    {
+        var context = new DefaultHttpContext { RequestServices = ServicesWithOptions(ProductionDeploymentOptions) };
+
+        Assert.True(ClientPortalScopeReader.TryGetFromHeaders(context, out var scope, out _));
+        Assert.Equal("configured-tenant", scope.TenantId);
+        Assert.Equal("configured-workspace", scope.WorkspaceId);
+    }
+
+    [Fact]
+    public void ClientPortalScopeReader_RefusesAHeaderNamingAnotherTenantOutsideDevelopment()
+    {
+        var context = new DefaultHttpContext { RequestServices = ServicesWithOptions(ProductionDeploymentOptions) };
+        context.Request.Headers["X-Tenant-Id"] = "some-other-tenant";
+
+        Assert.False(ClientPortalScopeReader.TryGetFromHeaders(context, out _, out var error));
+        Assert.Contains("different insurer", error);
+    }
+
+    [Fact]
     public void SendCustomerUpdatePermission_IsGrantedOnlyToCustomerCommunicationRoles()
     {
         Assert.True(RolePermissionMap.HasPermission(PlatformRole.CustomerService, Permission.SendCustomerUpdate));
@@ -780,6 +837,8 @@ public sealed class SecurityAuthorizationTests
             Channel = CommunicationChannel.Email,
             Status = status,
             MessageBody = "Customer update draft.",
+            ShortMessageBody = "Customer update draft.",
+            CreationMethod = CustomerUpdateCreationMethod.ManuallyWritten,
             RequiresApproval = requiresApproval,
             Sensitive = false,
             CreatedByUserId = "claims-user",
@@ -801,7 +860,7 @@ public sealed class SecurityAuthorizationTests
     // Program.cs registers GET /api/v1/customers (CustomerProfileEndpoints.ListCustomers), and
     // Domain/CustomerEndpoints.cs maps a group on the same base path. A `group.MapGet("/")` there
     // produces a second endpoint matching the same request, so ASP.NET throws
-    // AmbiguousMatchException at request time and the Customers page returns 500 — invisible to a
+    // AmbiguousMatchException at request time and the Customers page returns 500, invisible to a
     // build and to every handler-level test, because both registrations are individually valid.
     [Fact]
     public void CustomerGroup_DoesNotRestOnTheSamePathAsTheCustomerList()

@@ -78,7 +78,7 @@ export default function ProfileMenu({
             <div className="text-[11px] text-muted truncate">{roleLabel}</div>
             <div className="text-[10.5px] text-muted mt-0.5 truncate">Workspace · {workspaceName}</div>
             {canUseLocalTestDoubles && (
-              <div className="text-[10px] text-muted mt-0.5">Local development identity — no session to sign out of.</div>
+              <div className="text-[10px] text-muted mt-0.5">Local development identity, no session to sign out of.</div>
             )}
           </div>
           <div className="py-1">

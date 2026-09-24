@@ -12,7 +12,7 @@ public sealed record EntitlementPackage(
 
 /// <summary>
 /// A usage meter. <see cref="Metered"/> is false when no real counter exists for
-/// the dimension yet — the UI shows "Not configured" rather than a fabricated
+/// the dimension yet, the UI shows "Not configured" rather than a fabricated
 /// number (ADR-0003: usage is computed from real counters, never invented).
 /// </summary>
 public sealed record UsageMeter(
@@ -30,7 +30,7 @@ public sealed record UsageMeter(
 public static class DefaultEntitlements
 {
     public static readonly EntitlementPackage Package = new(
-        Name: "IIP Operations — Standard",
+        Name: "IIP Operations, Standard",
         Modules:
         [
             "Command Center", "Channels", "Customer 360", "Claims Intelligence",

@@ -115,7 +115,7 @@ public sealed class StaticWorkflowRuleProvider : IWorkflowRuleProvider
             || context.AgentActions.Any(action =>
                 action.RiskFlag?.Contains("contested", StringComparison.OrdinalIgnoreCase) == true);
 
-        // Fraud signals are advisory operator findings surfaced for contest/override — never auto-verdicts.
+        // Fraud signals are advisory operator findings surfaced for contest/override, never auto-verdicts.
         var fraud = context.AgentActions.Any(action =>
                 action.RiskFlag?.Contains("fraud", StringComparison.OrdinalIgnoreCase) == true)
             || string.Equals(context.ClaimCase.RiskLevel, "Critical", StringComparison.OrdinalIgnoreCase)

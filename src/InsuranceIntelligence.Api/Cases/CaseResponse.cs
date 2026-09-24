@@ -32,7 +32,19 @@ public sealed record CaseResponse(
     string CorrelationId,
     SafeAuditSummary Audit,
     IReadOnlyCollection<ActionStateResponse> AllowedActions,
-    IReadOnlyCollection<ActionStateResponse> BlockedActions);
+    IReadOnlyCollection<ActionStateResponse> BlockedActions,
+    RequiredDocumentsResponse? RequiredDocuments = null,
+    decimal? ClaimedAmount = null,
+    IReadOnlyCollection<string>? AdvisoryRiskSignals = null);
+
+/// <summary>The document-completeness check at the moment this response was built, WO 5.3: tell
+/// the submitter what is missing at submission, not only after extraction runs later. Null when
+/// the caller did not resolve a checklist (e.g. actions unrelated to intake); a real checklist
+/// with an empty Missing collection is a genuine "nothing outstanding," not the same as null.</summary>
+public sealed record RequiredDocumentsResponse(
+    IReadOnlyCollection<string> Required,
+    IReadOnlyCollection<string> Optional,
+    IReadOnlyCollection<string> Missing);
 
 public sealed record SafeAuditSummary(
     int EventCount,
@@ -69,6 +81,22 @@ public sealed record AssignCaseRequest(
 public sealed record EscalateCaseRequest(
     string AuditReason,
     string? AssignedTeam);
+
+/// <summary>The pinned product's configured claim process (outcome A/H). Configured false means
+/// this claim has no pinned product, an honest "not configured", never a fabricated stage list.</summary>
+public sealed record ClaimProcessResponse(
+    bool Configured,
+    string? ProductName,
+    int? ProductVersion,
+    IReadOnlyCollection<ClaimProcessStageResponse> Stages);
+
+public sealed record ClaimProcessStageResponse(
+    string StageKey,
+    string Name,
+    string OwnerRole,
+    bool IsAutomatic,
+    int SortOrder,
+    int? ServiceStandardWorkingDays);
 
 public sealed record ConfirmCaseRequest(
     string AuditReason,

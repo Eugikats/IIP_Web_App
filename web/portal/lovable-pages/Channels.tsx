@@ -74,7 +74,7 @@ export default function Channels() {
       const copy = result.deliveryState === "ProviderAccepted"
         ? "Accepted by WhatsApp. Delivery is not confirmed yet."
         : result.deliveryState === "Unknown"
-          ? "Provider response unknown. Reconcile before retrying."
+          ? "We did not get a clear answer back from WhatsApp. Check whether it arrived before sending again."
           : `WhatsApp state: ${result.deliveryState}.`;
       toast(result.deliveryState === "Failed" ? "WhatsApp did not accept the message" : "WhatsApp attempt recorded", { description: copy });
       if (result.deliveryState !== "Unknown") setDraft("");
@@ -91,7 +91,7 @@ export default function Channels() {
       <SectionHeader
         eyebrow="Integrations & Channels"
         title="Channels inbox"
-        sub="Unified customer, broker, and internal channel traffic routed into the platform. AI drafts responses — humans approve sensitive replies."
+        sub="Messages from customers and brokers across every connected channel, in one place. AI drafts replies; a person approves anything sensitive before it is sent."
       />
 
       <div className="mb-4"><GuardrailBanner text="Sensitive outbound messages route through approval before send. Nothing dispatches automatically." /></div>
@@ -102,9 +102,9 @@ export default function Channels() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search customers, threads…"
+              placeholder="Search conversations…"
               leadingIcon={<Search aria-hidden="true" />}
-              aria-label="Search customers, threads"
+              aria-label="Search conversations"
             />
             <div className="mt-2 flex flex-wrap gap-1.5">
               {CHANNEL_FILTERS.map((f) => (
@@ -120,7 +120,7 @@ export default function Channels() {
             ) : error ? (
               <ErrorStateSurface title="Conversations could not be loaded" message={error} />
             ) : conversations.length === 0 ? (
-              <EmptyStateSurface message="Conversation intake activates when a WhatsApp / web-chat provider is configured and ingesting. Until then this inbox stays empty rather than showing sample conversations." />
+              <EmptyStateSurface message="Customer conversations appear here once WhatsApp, email or web chat is connected. Until then this stays empty rather than showing made-up examples." />
             ) : list.length === 0 ? (
               <EmptyFilteredStateSurface onClear={clearFilters} />
             ) : (
@@ -139,9 +139,9 @@ export default function Channels() {
                         <I className="h-4 w-4" aria-hidden="true" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <div className="truncate text-[13px] font-semibold text-dls-text-primary">{c.customer}</div>
-                          <div className="text-[11px] text-dls-text-muted">{c.updated}</div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 truncate text-[13px] font-semibold text-dls-text-primary">{c.customer}</div>
+                          <div className="shrink-0 whitespace-nowrap text-[11px] text-dls-text-muted">{c.updated}</div>
                         </div>
                         <div className="truncate text-[12px] text-dls-text-secondary">{c.snippet}</div>
                       </div>
@@ -150,7 +150,7 @@ export default function Channels() {
                       <Badge tone="info">{c.channel}</Badge>
                       <Badge tone="neutral">{c.intent}</Badge>
                       {!c.matched && <Badge tone="warning">Unmatched customer</Badge>}
-                      {c.needsApproval && <Badge tone="info">Approval gated</Badge>}
+                      {c.needsApproval && <Badge tone="warning">Needs your approval</Badge>}
                       {c.unread > 0 && <Badge tone="error">{c.unread} new</Badge>}
                     </div>
                   </button>
@@ -175,11 +175,11 @@ export default function Channels() {
             <>
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">{active.channel} · {active.id}</div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">{active.channel}</div>
                   <div className="text-[16px] font-bold text-dls-text-primary">{active.customer}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!active.matched && <Badge tone="warning">Unmatched — link to customer</Badge>}
+                  {!active.matched && <Badge tone="warning">Unmatched, link to customer</Badge>}
                   <StatusBadge status={active.needsApproval ? "Human Review Required" : "Active"} />
                 </div>
               </div>
@@ -281,7 +281,7 @@ export default function Channels() {
               </div>
 
               {source === "live" ? (
-                <p className="mt-2 text-[11px] text-dls-text-muted">Live data · tenant-scoped. Actions are governed — nothing dispatches automatically.</p>
+                <p className="mt-2 text-[11px] text-dls-text-muted">Live data · tenant-scoped. Actions are governed, nothing dispatches automatically.</p>
               ) : null}
             </>
           )}
@@ -309,11 +309,11 @@ function fnolHandoffUrl(conversation: ChannelConversation | null): string {
 function deliveryCopy(state: string) {
   switch (state) {
     case "Queued": return "Queued internally";
-    case "ProviderAccepted": return "Accepted by WhatsApp — delivery not confirmed";
+    case "ProviderAccepted": return "Accepted by WhatsApp, delivery not confirmed";
     case "Delivered": return "Delivered";
     case "Read": return "Read";
     case "Failed": return "Delivery failed";
-    case "Unknown": return "Provider response unknown — reconcile before retrying";
+    case "Unknown": return "No clear answer back from WhatsApp, check before sending again";
     default: return state;
   }
 }

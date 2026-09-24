@@ -3,7 +3,7 @@ const FIXTURE_REFERENCE = /^(CLM|DOC)-[A-Z0-9-]+$/i;
 
 export function isValidWorkReference(value: string | null | undefined, prefix: "CLM" | "DOC") {
   const normalized = value?.trim() ?? "";
-  if (!normalized || normalized === "—" || normalized.toLowerCase() === "unknown") return false;
+  if (!normalized || normalized === "-" || normalized.toLowerCase() === "unknown") return false;
   return UUID.test(normalized) || (FIXTURE_REFERENCE.test(normalized) && normalized.toUpperCase().startsWith(`${prefix}-`));
 }
 

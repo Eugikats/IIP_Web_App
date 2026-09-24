@@ -14,7 +14,7 @@ public enum DocumentFieldRuleKind
 }
 
 /// <summary>
-/// A field-level validation rule for extracted document data — distinct from
+/// A field-level validation rule for extracted document data, distinct from
 /// <see cref="DocumentChecklistRules"/>, which decides which documents are required.
 /// This decides whether a value inside a document that was submitted is shaped correctly
 /// (a Ugandan national ID must be 14 characters, for example).
@@ -26,7 +26,7 @@ public enum DocumentFieldRuleKind
 ///
 /// Field matching is alias-based rather than exact-key, because Azure Document Intelligence's
 /// generic key-value extraction (AzureDocumentIntelligenceProvider.BuildExtraction) derives its
-/// field keys from whatever label text appears on the page — "National ID:", "NIN No.", "ID
+/// field keys from whatever label text appears on the page, "National ID:", "NIN No.", "ID
 /// Number" all normalize to different keys. A rule matches any extracted field whose key contains
 /// one of its aliases (case-insensitive), not one fixed name.
 /// </summary>
@@ -50,7 +50,7 @@ public sealed record DocumentFieldValidationRule
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
 
-    /// <summary>Stable, tenant-unique storage key derived from the human-readable RuleId — same
+    /// <summary>Stable, tenant-unique storage key derived from the human-readable RuleId, same
     /// pattern as FraudSignalDisposition.DeterministicId, so a tenant editing its own copy of a
     /// default rule (same RuleId) always lands on the same row instead of creating a duplicate.</summary>
     public static Guid StorageKey(string ruleId, TenantScope scope)
@@ -64,7 +64,7 @@ public sealed record DocumentFieldValidationRule
 public interface IDocumentFieldValidationRuleRepository
 {
     /// <summary>
-    /// Tenant-configured rules only — never the built-in defaults. Callers combine this with
+    /// Tenant-configured rules only, never the built-in defaults. Callers combine this with
     /// <see cref="DocumentFieldValidationRuleDefaults.All"/> via
     /// <see cref="DocumentFieldValidator.ResolveRules"/> so a tenant always has at least the
     /// defaults active without needing to seed them.

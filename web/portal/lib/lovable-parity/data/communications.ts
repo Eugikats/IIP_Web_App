@@ -7,11 +7,11 @@ import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { communications as fixtureComms } from "@/lib/lovable-parity/mock";
 
 // WO-16: real client for the tenant-wide customer-update queue (GET /api/v1/customer-updates) and
-// its governed approve/reject/send actions — the drafting -> approve -> reject -> send chain
+// its governed approve/reject/send actions, the drafting -> approve -> reject -> send chain
 // already existed server-side (CustomerUpdateEndpoints) and was already wired per-case inside
 // ClaimReview.tsx; this screen previously showed an unrelated, always-terminal Communication
 // ledger mislabeled with a Draft/Approval status vocabulary that never actually applied to it.
-// Only an approved draft is ever sendable — enforced server-side, never bypassed from here (I4).
+// Only an approved draft is ever sendable, enforced server-side, never bypassed from here (I4).
 
 export type ActionState = { action: string; label: string; requiredPermission: string; reason: string | null };
 
@@ -99,11 +99,11 @@ const PARITY: CustomerUpdateQueueItem[] = fixtureComms.map((c, index) => ({
   customerName: c.customer,
   customerEmail: null,
   customerPhone: null,
-  policyNumber: "—",
+  policyNumber: "-",
   reasonCategory: "StatusUpdate",
   channel: String(c.channel),
   status: c.status,
-  messageBody: `${c.subject} — ${c.preview}`,
+  messageBody: `${c.subject}, ${c.preview}`,
   requiresApproval: c.status !== "Sent",
   updatedAt: c.drafted,
   allowedActions: [],

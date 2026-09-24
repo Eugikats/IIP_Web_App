@@ -799,6 +799,7 @@ public sealed class Phase7ProviderTests
                     }
                 },
                 NullLogger<AzureOpenAiAssistantProvider>.Instance,
+                null,
                 new HttpClient(handler),
                 new StaticTokenCredential());
             var question = new AssistantQuestion(
@@ -871,6 +872,7 @@ public sealed class Phase7ProviderTests
                 }
             },
             NullLogger<AzureOpenAiAssistantProvider>.Instance,
+            null,
             new HttpClient(new CapturingOpenAiHandler("{}", System.Net.HttpStatusCode.TooManyRequests)),
             new StaticTokenCredential());
         var question = new AssistantQuestion(
@@ -938,6 +940,7 @@ public sealed class Phase7ProviderTests
             OpenAiOptions(),
             new StaticWorkflowRuleProvider(),
             NullLogger<AzureOpenAiCustomerUpdateDraftingProvider>.Instance,
+            null,
             new HttpClient(handler),
             new StaticTokenCredential());
         var claimCase = Case(TenantScope.Create("tenant-demo", "workspace-claims"));
@@ -981,11 +984,16 @@ public sealed class Phase7ProviderTests
         var services = new ServiceCollection();
 
         services.AddInsuranceIntelligenceInfrastructure(configuration, new TestEnvironment("Development"));
+        services.AddDataProtection();
         using var provider = services.BuildServiceProvider();
 
         Assert.IsType<DisabledEmailIngestionProvider>(provider.GetRequiredService<IEmailIngestionProvider>());
         Assert.IsType<DisabledWebhookSubscriptionProvider>(provider.GetRequiredService<IWebhookSubscriptionProvider>());
-        Assert.IsType<DisabledSmsProvider>(provider.GetRequiredService<ISmsProvider>());
+        // ISmsProvider is always TenantAwareSmsProvider now, SMS_PROVIDER unset here means its
+        // env-var fallback (SmsProviderFactory.CreateFallback) resolves to DisabledSmsProvider,
+        // which is exactly what this test cares about; see TenantAwareSmsProviderTests for
+        // resolution-order coverage.
+        Assert.IsType<InsuranceIntelligence.Infrastructure.Communications.TenantAwareSmsProvider>(provider.GetRequiredService<ISmsProvider>());
         Assert.IsType<DisabledTeamsNotificationProvider>(provider.GetRequiredService<ITeamsNotificationProvider>());
     }
 
@@ -1007,6 +1015,7 @@ public sealed class Phase7ProviderTests
         services.AddInsuranceIntelligenceInfrastructure(
             configuration,
             new TestEnvironment("LocalTest"));
+        services.AddDataProtection();
         using var provider = services.BuildServiceProvider();
 
         Assert.IsType<DisabledTeamsNotificationProvider>(
@@ -1019,7 +1028,7 @@ public sealed class Phase7ProviderTests
             provider.GetRequiredService<IEmailAttachmentProcessor>());
         Assert.IsType<DisabledCommunicationSendingProvider>(
             provider.GetRequiredService<ICommunicationSendingProvider>());
-        Assert.IsType<DisabledSmsProvider>(
+        Assert.IsType<InsuranceIntelligence.Infrastructure.Communications.TenantAwareSmsProvider>(
             provider.GetRequiredService<ISmsProvider>());
         Assert.IsType<DisabledWebhookSubscriptionProvider>(
             provider.GetRequiredService<IWebhookSubscriptionProvider>());

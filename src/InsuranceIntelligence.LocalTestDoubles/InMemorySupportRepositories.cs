@@ -1,9 +1,13 @@
 using System.Collections.Concurrent;
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Contestability;
+using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Integrations;
+using InsuranceIntelligence.Domain.Retention;
 
 namespace InsuranceIntelligence.LocalTestDoubles;
 
@@ -74,6 +78,13 @@ public sealed class InMemoryCommunicationRepository : ICommunicationRepository
         var matches = communications.Values.Where(item => item.CaseId == caseId && item.Scope.Matches(scope)).OrderByDescending(item => item.CreatedAt).ToArray();
         return Task.FromResult<IReadOnlyCollection<Communication>>(matches);
     }
+
+    public Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default)
+    {
+        var match = communications.Values.FirstOrDefault(item =>
+            item.Scope.Matches(scope) && string.Equals(item.ProviderMessageId, providerMessageId, StringComparison.Ordinal));
+        return Task.FromResult(match);
+    }
 }
 
 public sealed class InMemoryClaimReviewRequestRepository : IClaimReviewRequestRepository
@@ -99,6 +110,113 @@ public sealed class InMemoryClaimReviewRequestRepository : IClaimReviewRequestRe
             .OrderByDescending(item => item.RequestedAt)
             .ToArray();
         return Task.FromResult<IReadOnlyCollection<ClaimReviewRequest>>(matches);
+    }
+}
+
+public sealed class InMemoryConsentRepository : IConsentRepository
+{
+    private readonly ConcurrentBag<ConsentRecord> records = [];
+
+    public Task SaveAsync(ConsentRecord record, CancellationToken cancellationToken = default)
+    {
+        records.Add(record);
+        return Task.CompletedTask;
+    }
+
+    public Task<ConsentRecord?> GetCurrentAsync(TenantScope scope, string customerIdentifier, string purpose, CancellationToken cancellationToken = default)
+    {
+        var current = records
+            .Where(record => record.Scope.Matches(scope) && record.CustomerIdentifier == customerIdentifier && record.Purpose == purpose)
+            .OrderByDescending(record => record.RecordedAt)
+            .FirstOrDefault();
+        return Task.FromResult(current);
+    }
+
+    public Task<IReadOnlyCollection<ConsentRecord>> ListForCustomerAsync(TenantScope scope, string customerIdentifier, CancellationToken cancellationToken = default)
+    {
+        var matches = records
+            .Where(record => record.Scope.Matches(scope) && record.CustomerIdentifier == customerIdentifier)
+            .OrderByDescending(record => record.RecordedAt)
+            .ToArray();
+        return Task.FromResult<IReadOnlyCollection<ConsentRecord>>(matches);
+    }
+}
+
+public sealed class InMemoryRetentionReminderRepository : IRetentionReminderRepository
+{
+    private readonly ConcurrentDictionary<Guid, RetentionReminderDraft> reminders = new();
+
+    public Task SaveAsync(RetentionReminderDraft reminder, CancellationToken cancellationToken = default)
+    {
+        reminders[reminder.ReminderId] = reminder;
+        return Task.CompletedTask;
+    }
+
+    public Task<RetentionReminderDraft?> GetAsync(Guid reminderId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var found = reminders.TryGetValue(reminderId, out var reminder) && reminder.Scope.Matches(scope) ? reminder : null;
+        return Task.FromResult(found);
+    }
+
+    public Task<IReadOnlyCollection<RetentionReminderDraft>> ListForPolicyAsync(string policyId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var matches = reminders.Values
+            .Where(reminder => reminder.Scope.Matches(scope) && reminder.PolicyId == policyId)
+            .OrderByDescending(reminder => reminder.CreatedAt)
+            .ToArray();
+        return Task.FromResult<IReadOnlyCollection<RetentionReminderDraft>>(matches);
+    }
+
+    public Task<IReadOnlyCollection<RetentionReminderDraft>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var matches = reminders.Values.Where(reminder => reminder.Scope.Matches(scope)).ToArray();
+        return Task.FromResult<IReadOnlyCollection<RetentionReminderDraft>>(matches);
+    }
+}
+
+public sealed class InMemorySatisfactionResponseRepository : ISatisfactionResponseRepository
+{
+    private readonly ConcurrentBag<SatisfactionResponse> responses = [];
+
+    public Task SaveAsync(SatisfactionResponse response, CancellationToken cancellationToken = default)
+    {
+        responses.Add(response);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyCollection<SatisfactionResponse>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var matches = responses
+            .Where(response => response.Scope.Matches(scope) && response.CaseId == caseId)
+            .OrderByDescending(response => response.RecordedAt)
+            .ToArray();
+        return Task.FromResult<IReadOnlyCollection<SatisfactionResponse>>(matches);
+    }
+}
+
+public sealed class InMemoryContactDetailChangeRequestRepository : IContactDetailChangeRequestRepository
+{
+    private readonly ConcurrentDictionary<Guid, ContactDetailChangeRequest> requests = new();
+
+    public Task SaveAsync(ContactDetailChangeRequest request, CancellationToken cancellationToken = default)
+    {
+        requests[request.RequestId] = request;
+        return Task.CompletedTask;
+    }
+
+    public Task<ContactDetailChangeRequest?> GetAsync(Guid requestId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        requests.TryGetValue(requestId, out var request);
+        return Task.FromResult(request is not null && request.Scope.Matches(scope) ? request : null);
+    }
+
+    public Task<IReadOnlyCollection<ContactDetailChangeRequest>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var matches = requests.Values
+            .Where(item => item.Scope.Matches(scope))
+            .OrderByDescending(item => item.RequestedAt)
+            .ToArray();
+        return Task.FromResult<IReadOnlyCollection<ContactDetailChangeRequest>>(matches);
     }
 }
 

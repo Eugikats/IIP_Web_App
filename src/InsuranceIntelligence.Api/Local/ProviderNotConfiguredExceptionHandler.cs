@@ -8,7 +8,7 @@ namespace InsuranceIntelligence.Api.Local;
 /// fall through to the generic 500 the default exception handler returns for everything else.
 /// Registered before AddProblemDetails' fallback (see Program.cs) so it only intercepts this one
 /// exception type. Never includes the provider class name, a stack trace, or any other internal
-/// detail — only the stable capability identifier a caller can act on (AGENTS.md I9).
+/// detail, only the stable capability identifier a caller can act on (AGENTS.md I9).
 /// </summary>
 public sealed class ProviderNotConfiguredExceptionHandler(ILogger<ProviderNotConfiguredExceptionHandler> logger) : IExceptionHandler
 {

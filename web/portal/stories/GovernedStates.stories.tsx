@@ -14,7 +14,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Design language v2 §8.24 — all six states a data surface must implement: loading, empty, empty-after-filter, error, not configured, no permission."
+          "Design language v2 §8.24, all six states a data surface must implement: loading, empty, empty-after-filter, error, not configured, no permission."
       }
     }
   }

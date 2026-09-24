@@ -65,6 +65,8 @@ Items 22–27 are not only craft failures. They violate the honest-state invaria
 
 **No emoji anywhere. No exceptions.**
 
+**No em dashes anywhere either.** Not in button labels, empty states, toasts, code comments, commit messages or documentation, and not in model output shown to a person. Write a comma, a colon, a full stop or parentheses instead, and do not swap in a double hyphen. The em dash has become the most recognisable tell of machine-written text, and an insurer's staff should never read the product that way. Model completions are normalised once at the provider boundary by `DisplayText.WithoutEmDashes`; hand-written text has no such net, so check before merging.
+
 This covers:
 
 - Every rendered surface of the product — navigation, buttons, headings, body copy, empty states, error messages, toasts, notifications, chat responses, tooltips, badges, tables.

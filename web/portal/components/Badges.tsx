@@ -1,5 +1,5 @@
 // Migrated onto components/ui/StatusPill (design language v2 §8.7): a neutral pill, a 6px
-// coloured dot, and a word — never a tinted pill, never coloured pill text. External API
+// coloured dot, and a word, never a tinted pill, never coloured pill text. External API
 // unchanged so every existing caller keeps working.
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 

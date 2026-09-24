@@ -85,7 +85,38 @@ public sealed class GraphMailProvider(InfrastructureOptions options, IGraphMailC
     }
 }
 
-public sealed class GraphCommunicationSendingProvider(InfrastructureOptions options, IGraphMailClient client) : ICommunicationSendingProvider
+// Both ICommunicationSendingProvider implementations now purely delegate SendEmailAsync and
+// SendSmsAsync to injected, tenant-aware providers (TenantAwareEmailSendingProvider /
+// TenantAwareSmsProvider), the real email/SMS mode selection lives entirely in those resolvers
+// and their factories now. Kept as two distinct classes (rather than collapsed into one) only to
+// avoid an unrelated, wider test-file rewrite in this change; they are behaviorally identical.
+// See docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md §14 Phase 1.
+public sealed class GraphCommunicationSendingProvider(
+    IEmailSendingProvider emailProvider,
+    ISmsProvider smsProvider) : ICommunicationSendingProvider
+{
+    // Previously inline Graph-only logic, hardcoded to this class, extracted to
+    // GraphEmailSendingProvider so email, like SMS, resolves through the Connection model (a
+    // tenant-configured SMTP connection first, then this Graph fallback, then Not configured).
+    public Task<CommunicationSendResult> SendEmailAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
+        emailProvider.SendEmailAsync(request, cancellationToken);
+
+    // Previously hardcoded to ConfigurationRequired regardless of SmsProvider/IntegrationConnection
+    // state, a real bug: CommunicationProvider ("GraphEmail"/"Disabled") only ever governed email
+    // mode, but SMS has its own independent SmsProvider/Connection resolution (TenantAwareSmsProvider)
+    // that this method never reached. Delegating fixes it without touching that resolution at all.
+    public Task<CommunicationSendResult> SendSmsAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
+        smsProvider.SendAsync(request, cancellationToken);
+}
+
+/// <summary>
+/// The real Microsoft Graph mail sender, extracted unchanged from GraphCommunicationSendingProvider
+/// so it can be TenantAwareEmailSendingProvider's env-var fallback (blueprint §7.2) exactly the way
+/// AfricasTalkingSmsProvider is TenantAwareSmsProvider's. Requires Entra app registration and a
+/// configured default mailbox, that requirement, and the CommunicationProvider="GraphEmail" gate,
+/// are unchanged from before this extraction.
+/// </summary>
+public sealed class GraphEmailSendingProvider(InfrastructureOptions options, IGraphMailClient client) : IEmailSendingProvider
 {
     public async Task<CommunicationSendResult> SendEmailAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default)
     {
@@ -126,11 +157,15 @@ public sealed class GraphCommunicationSendingProvider(InfrastructureOptions opti
         }
     }
 
-    public Task<CommunicationSendResult> SendSmsAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
-        Task.FromResult(new CommunicationSendResult("ConfigurationRequired", string.Empty, "SMS provider is not configured for GraphEmail mode."));
-
     private static string SafeError() =>
         "Microsoft Graph mail provider configuration is incomplete. Check mailbox access, identity, and Graph app permissions.";
+}
+
+/// <summary>Honest not-configured fallback for email, mirrors DisabledSmsProvider.</summary>
+public sealed class DisabledEmailSendingProvider : IEmailSendingProvider
+{
+    public Task<CommunicationSendResult> SendEmailAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new CommunicationSendResult("ConfigurationRequired", string.Empty, "Email sending provider is not configured."));
 }
 
 public sealed class DisabledEmailIngestionProvider : IEmailIngestionProvider
@@ -151,13 +186,16 @@ public sealed class DisabledSmsProvider : ISmsProvider
         Task.FromResult(new CommunicationSendResult("ConfigurationRequired", string.Empty, "SMS provider is not configured."));
 }
 
-public sealed class DisabledCommunicationSendingProvider : ICommunicationSendingProvider
+public sealed class DisabledCommunicationSendingProvider(IEmailSendingProvider emailProvider, ISmsProvider smsProvider) : ICommunicationSendingProvider
 {
+    // "Disabled" describes the deployment's CommunicationProvider env var only, email and SMS now
+    // each follow their own independent Connection-model resolution regardless of it. See
+    // GraphCommunicationSendingProvider for the same delegation and its rationale.
     public Task<CommunicationSendResult> SendEmailAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
-        Task.FromResult(new CommunicationSendResult("ConfigurationRequired", string.Empty, "Email sending provider is not configured."));
+        emailProvider.SendEmailAsync(request, cancellationToken);
 
     public Task<CommunicationSendResult> SendSmsAsync(CommunicationSendRequest request, CancellationToken cancellationToken = default) =>
-        Task.FromResult(new CommunicationSendResult("ConfigurationRequired", string.Empty, "SMS sending provider is not configured."));
+        smsProvider.SendAsync(request, cancellationToken);
 }
 
 public sealed class DisabledTeamsNotificationProvider : ITeamsNotificationProvider

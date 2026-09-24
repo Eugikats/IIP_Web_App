@@ -21,7 +21,7 @@ function Meter({ m }: { m: UsageMeterView }) {
         <Badge tone={tone as any}>{m.percentUsed}%</Badge>
       </div>
       <div className="text-[20px] font-bold text-dls-text-primary">{m.used.toLocaleString()} <span className="text-[12px] font-normal text-dls-text-muted">/ {m.limit.toLocaleString()} {m.unit}</span></div>
-      {/* Flat fill, not a gradient — §4.5 restricts gradients to the orb and chart bars. */}
+      {/* Flat fill, not a gradient, §4.5 restricts gradients to the orb and chart bars. */}
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-dls-bg-page"><div className="h-full bg-dls-primary" style={{ width: `${m.percentUsed}%` }} /></div>
     </div>
   );
@@ -35,7 +35,7 @@ export default function Billing() {
       <SectionHeader
         eyebrow="Admin · Billing & Usage"
         title="Package & entitlements"
-        sub="AI is metered — human-in-loop and auditability are the core platform value. Usage controls protect provider costs."
+        sub="AI is metered, human-in-loop and auditability are the core platform value. Usage controls protect provider costs."
       />
 
       {loading ? (

@@ -6,7 +6,7 @@ public static class RuntimeClaimTypes
 {
     /// <summary>
     /// A client-supplied workspace-switch hint, honored in every auth mode. It is NEVER trusted as
-    /// authority — IPermissionReadRepository.GetEffectiveMembershipAsync always re-validates it
+    /// authority, IPermissionReadRepository.GetEffectiveMembershipAsync always re-validates it
     /// against the user's real active membership and fails closed (no access) if the user does not
     /// belong to the requested workspace. This is what lets the portal's workspace switcher
     /// re-resolve server-side scope instead of substituting it client-side (I5).

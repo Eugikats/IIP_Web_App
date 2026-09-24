@@ -1,6 +1,8 @@
 using InsuranceIntelligence.Domain.ClientPortal;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Contestability;
+using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Workflow;
@@ -330,7 +332,7 @@ public sealed record AuditEvent(
             DateTimeOffset.UtcNow,
             BeforeStatus: null,
             // Never let AfterStatus/logs distinguish "matched" from "not matched" in anything a
-            // caller could observe over the API — this field exists only for staff investigating
+            // caller could observe over the API, this field exists only for staff investigating
             // abuse in the audit log, not as an enumeration side-channel.
             AfterStatus: matched ? "Issued" : "NoMatch",
             EvidenceIds: Array.Empty<string>(),
@@ -357,6 +359,238 @@ public sealed record AuditEvent(
             ModelProvider: null,
             Confidence: null,
             ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    /// <summary>Outcome L: "every disclosure is logged against the verified session." Written on
+    /// every claimant-facing read (claim status, policy details) that would show a person
+    /// something specific to their own policy or claim, not just on authentication events.
+    /// <paramref name="disclosureType"/> names what was shown ("ClaimStatus", "Policy", ...).</summary>
+    public static AuditEvent ClaimantDisclosureViewed(
+        TenantScope scope,
+        Guid? caseId,
+        Guid sessionId,
+        string contactValue,
+        string disclosureType,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            DocumentId: null,
+            UserId: contactValue,
+            ActorType.User,
+            "client_portal.disclosure.viewed",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: disclosureType,
+            EvidenceIds: [sessionId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "disclosed",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ContactDetailChangeRequested(ContactDetailChangeRequest request) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: request.RequestedByUserId,
+            ActorType.User,
+            "customer.contact_change_requested",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "ClientPortal",
+            Confidence: null,
+            ValidationResult: request.PolicyNumber,
+            ApprovalId: null,
+            AuditReason: request.Note,
+            CorrelationId: request.CorrelationId);
+
+    public static AuditEvent ContactDetailChangeAcknowledged(
+        ContactDetailChangeRequest request,
+        string actorUserId,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: actorUserId,
+            ActorType.User,
+            "customer.contact_change_acknowledged",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: ContactDetailChangeStatus.Open.ToString(),
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "ClientPortal",
+            Confidence: null,
+            ValidationResult: "acknowledged",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ContactDetailChangeResolved(
+        ContactDetailChangeRequest request,
+        string actorUserId,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            request.Scope,
+            request.CaseId,
+            DocumentId: null,
+            UserId: actorUserId,
+            ActorType.User,
+            "customer.contact_change_resolved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: request.Status.ToString(),
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "ClientPortal",
+            Confidence: null,
+            ValidationResult: "resolved",
+            ApprovalId: null,
+            AuditReason: request.ResolutionNote,
+            CorrelationId: correlationId);
+
+    /// <summary>Outcome M: "visible... in the audit trail." One factory covers both a grant and a
+    /// withdrawal, the two are the same shape (a ConsentRecord row), distinguished by
+    /// record.WithdrawnAt, exactly the way the record itself distinguishes them.</summary>
+    public static AuditEvent ConsentRecorded(ConsentRecord record) =>
+        new(
+            Guid.NewGuid(),
+            record.Scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: record.RecordedByUserId,
+            ActorType.User,
+            record.WithdrawnAt is null ? "consent.granted" : "consent.withdrawn",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: record.Basis.ToString(),
+            EvidenceIds: record.InteractionReference is null ? Array.Empty<string>() : [record.InteractionReference],
+            ModelProvider: record.Channel,
+            Confidence: null,
+            ValidationResult: record.Purpose,
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: record.CorrelationId);
+
+    /// <summary>Outcome N: a file import is a bulk write with no per-row human review, so the
+    /// batch itself needs its own audit trail entry, who ran it, how many rows in, how many
+    /// actually landed as policies, distinct from any one imported record's own history.</summary>
+    public static AuditEvent PolicyImportCommitted(
+        TenantScope scope,
+        string userId,
+        int totalRows,
+        int importedCount,
+        int failedCount,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "policy.import.committed",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: $"imported:{importedCount};failed:{failedCount}",
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: "PolicyImport",
+            Confidence: null,
+            ValidationResult: $"total:{totalRows}",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent RetentionReminderDrafted(
+        TenantScope scope, string userId, Guid reminderId, string policyNumber, int expiryBucketDays, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "retention.reminder.drafted",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: "PendingApproval",
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: $"reminderId:{reminderId};policyNumber:{policyNumber};expiryBucketDays:{expiryBucketDays}",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent RetentionReminderSent(
+        TenantScope scope, string userId, Guid reminderId, string policyNumber, string deliveryStatus, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "retention.reminder.sent",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: "PendingApproval",
+            AfterStatus: deliveryStatus,
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: $"reminderId:{reminderId};policyNumber:{policyNumber}",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent SatisfactionResponseRecorded(
+        TenantScope scope, Guid caseId, string userId, string rating, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: caseId,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "claim.satisfaction.recorded",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: rating,
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "recorded",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ServiceRecoveryTaskOpened(
+        TenantScope scope, Guid caseId, string userId, Guid taskId, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: caseId,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.System,
+            "claim.service_recovery.opened",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: "Open",
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: $"taskId:{taskId}",
             ApprovalId: null,
             AuditReason: null,
             CorrelationId: correlationId);
@@ -396,6 +630,50 @@ public sealed record AuditEvent(
             BeforeStatus: "Connected",
             AfterStatus: "Disconnected",
             EvidenceIds: phoneNumberId is null ? Array.Empty<string>() : [phoneNumberId],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    /// <summary>Generalizes WhatsAppConfigurationSaved to every IntegrationConnection type,
+    /// connecting a tenant-configured provider (SMS, email, ...) is a governed action.</summary>
+    public static AuditEvent ConnectionSaved(
+        TenantScope scope, string userId, string connectionType, string providerKey, string auditReason, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            $"integration.connection.{connectionType.ToLowerInvariant()}.saved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: "Connected",
+            EvidenceIds: [providerKey],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "validated",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ConnectionRemoved(
+        TenantScope scope, string userId, string connectionType, string? providerKey, string auditReason, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            $"integration.connection.{connectionType.ToLowerInvariant()}.removed",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: "Connected",
+            AfterStatus: "Disconnected",
+            EvidenceIds: providerKey is null ? Array.Empty<string>() : [providerKey],
             ModelProvider: null,
             Confidence: null,
             ValidationResult: "accepted",
@@ -502,6 +780,23 @@ public sealed record AuditEvent(
     public static AuditEvent CustomerUpdateRejected(CustomerUpdateDraft update, string rejectedByUserId, string? auditReason = null) =>
         ForCustomerUpdate(update, rejectedByUserId, ActorType.User, "customer_update.rejected", null, update.Status.ToString(), "rejected", auditReason: auditReason);
 
+    public static AuditEvent CustomerUpdateEdited(CustomerUpdateDraft update, string editedByUserId, bool approvedInSameStep, string? auditReason = null) =>
+        ForCustomerUpdate(
+            update,
+            editedByUserId,
+            ActorType.User,
+            approvedInSameStep ? "customer_update.edited_and_approved" : "customer_update.edited",
+            null,
+            update.Status.ToString(),
+            "edited",
+            auditReason: auditReason);
+
+    public static AuditEvent CustomerUpdateWritten(CustomerUpdateDraft update) =>
+        ForCustomerUpdate(update, update.CreatedByUserId, ActorType.User, "customer_update.written", null, update.Status.ToString(), "written");
+
+    public static AuditEvent CustomerUpdateCreatedFromTemplate(CustomerUpdateDraft update) =>
+        ForCustomerUpdate(update, update.CreatedByUserId, ActorType.User, "customer_update.from_template", null, update.Status.ToString(), "created", modelProvider: update.SourceTemplateKey ?? "Template");
+
     public static AuditEvent CustomerUpdateSent(CustomerUpdateDraft update, string sentByUserId, string? auditReason = null) =>
         ForCustomerUpdate(
             update,
@@ -537,6 +832,64 @@ public sealed record AuditEvent(
             ModelProvider: "EvidencePackStorage",
             Confidence: fileSizeBytes,
             ValidationResult: "exported",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    /// <summary>Every product version save, whether a content edit or a status transition
+    /// (submitted/approved/rejected/retired), is an append-only audited event, never a silent
+    /// overwrite (outcomes A and C).</summary>
+    public static AuditEvent ProductVersionSaved(
+        TenantScope scope,
+        string userId,
+        Guid productId,
+        int version,
+        string status,
+        string actionName,
+        string auditReason,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: productId.ToString(),
+            userId,
+            ActorType.User,
+            actionName,
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: status,
+            EvidenceIds: [productId.ToString(), $"v{version}"],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: status,
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
+    public static AuditEvent CommunicationTemplateSaved(
+        TenantScope scope,
+        string userId,
+        string templateKey,
+        int version,
+        bool active,
+        string auditReason,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: templateKey,
+            userId,
+            ActorType.User,
+            "communication_template.saved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: active ? "Active" : "Inactive",
+            EvidenceIds: [templateKey, $"v{version}"],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
             ApprovalId: null,
             AuditReason: auditReason,
             CorrelationId: correlationId);

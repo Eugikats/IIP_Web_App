@@ -5,12 +5,16 @@ import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 export type WhatsAppConfigurationStatus = {
   connected: boolean;
   phoneNumberId: string | null;
+  wabaId: string | null;
   businessDisplayName: string | null;
   configuredByUserId: string | null;
   configuredAt: string | null;
   lastValidatedAt: string | null;
   lastValidationStatus: string | null;
   lastValidationError: string | null;
+  webhookCallbackUrl: string | null;
+  webhookRegistrationStatus: string | null;
+  webhookRegistrationError: string | null;
   channelProviderActive: boolean;
   requiresChannelProviderDeploymentChange: boolean;
 };
@@ -19,7 +23,7 @@ export type SaveWhatsAppConfigurationInput = {
   phoneNumberId: string;
   accessToken: string;
   appSecret: string;
-  verifyToken: string;
+  wabaId: string;
   businessDisplayName?: string;
 };
 

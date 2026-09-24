@@ -344,6 +344,34 @@ public sealed class AiBoundaryContractTests
         Assert.Equal(StatusCodes.Status200OK, status);
     }
 
+    [Fact]
+    public async Task DraftCustomerUpdate_DecisionOutcome_NeverStatesTheDecision_AndAlwaysRequiresApproval()
+    {
+        // WO 5.5: a human decided the claim's outcome, but AGENTS.md bars AI from communicating a
+        // final claim decision, the draft must tell the customer only that a decision exists and
+        // to expect contact, never approved/declined/settled/an amount, and must always require
+        // approval regardless of content (unlike StatusUpdate, which can auto-clear as non-sensitive).
+        var deps = CreateWorkflowDeps();
+        var claimCase = await CreateCaseAsync(deps);
+        var checklist = new DocumentCompletenessChecklist(
+            claimCase.CaseId, claimCase.ProductLine, [], [], [], [], CompletenessScore.Calculate([], []));
+        var provider = new MockCustomerUpdateDraftingProvider(new StaticWorkflowRuleProvider());
+
+        var draft = await provider.DraftAsync(
+            claimCase, checklist, CustomerUpdateReasonCategory.DecisionOutcome, CommunicationChannel.Email,
+            "user-claims-1", "corr-decision-outcome-001");
+
+        Assert.True(draft.RequiresApproval);
+        Assert.Equal(CustomerUpdateStatus.PendingApproval, draft.Status);
+        var lowered = draft.MessageBody.ToLowerInvariant();
+        foreach (var forbidden in new[] { "approved", "declin", "denied", "repudiat", "settle", "reject", "$", "ugx" })
+        {
+            Assert.DoesNotContain(forbidden, lowered, StringComparison.Ordinal);
+        }
+        Assert.Contains("decision", lowered, StringComparison.Ordinal);
+        Assert.Contains("contact", lowered, StringComparison.Ordinal);
+    }
+
     private static async Task<ClaimCase> CreateCaseAsync(WorkflowDeps deps) =>
         await CreateCaseAsync(deps.CaseRepository, deps.AuditRepository);
 
@@ -421,7 +449,7 @@ public sealed class AiBoundaryContractTests
             new InMemoryAuditRepository());
     }
 
-    // WO-16: Approved/LowRisk are no longer client-trusted request fields — the send endpoint
+    // WO-16: Approved/LowRisk are no longer client-trusted request fields, the send endpoint
     // derives them from a real persisted, approved CustomerUpdateDraft. These red-team tests must
     // reference a genuine approved draft so a 403 for the agent actor proves the human-actor gate
     // itself blocks the send, not merely that the referenced update couldn't be found.
@@ -437,6 +465,8 @@ public sealed class AiBoundaryContractTests
             Channel = CommunicationChannel.Email,
             Status = CustomerUpdateStatus.Approved,
             MessageBody = "Your claim is progressing. We will contact you with next steps.",
+            ShortMessageBody = "Your claim is progressing. We will contact you.",
+            CreationMethod = CustomerUpdateCreationMethod.ManuallyWritten,
             RequiresApproval = true,
             Sensitive = false,
             CreatedByUserId = "user-claims-1",
@@ -558,6 +588,8 @@ public sealed class AiBoundaryContractTests
     {
         public Task<EvidencePackStorageResult> StoreAsync(EvidencePackStorageRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(new EvidencePackStorageResult("stored/key.json", request.ContentType, 128));
+        public Task<Stream> ReadAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException("This test double only exercises the store path.");
     }
 
     private sealed class FixedOnboardingRepository(IReadOnlyList<TenantOnboardingRecord> records) : ITenantOnboardingRepository

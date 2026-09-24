@@ -10,7 +10,7 @@ using InsuranceIntelligence.Domain.Workflow;
 namespace InsuranceIntelligence.Application.Agents.Tools;
 
 /// <summary>
-/// metrics.read — real backend aggregate, tenant/workspace scoped with source labels and a
+/// metrics.read, real backend aggregate, tenant/workspace scoped with source labels and a
 /// generated timestamp (docs §9). Same aggregation CommandCenterQueryService.LoadMetricsAsync
 /// performs today, reused here (not copied) via the same CommandCenterMetricsResponse type so
 /// WO-09 can retire the private duplicate once Command Center calls this tool instead.

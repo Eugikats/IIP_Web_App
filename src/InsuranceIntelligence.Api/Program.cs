@@ -57,7 +57,7 @@ builder.Logging.AddFilter<ApplicationInsightsLoggerProvider>("InsuranceIntellige
 
 // Gate 1 (G1.6): load deployment secrets from Azure Key Vault when configured. The vault URI is a
 // non-secret pointer (Azure:KeyVaultUri / Azure__KeyVaultUri); secrets are read via managed identity
-// (DefaultAzureCredential) — no secrets in config files or env. Only activates when a URI is set, so
+// (DefaultAzureCredential), no secrets in config files or env. Only activates when a URI is set, so
 // local/dev is unaffected. Key Vault secret names map to config keys ("--" for nested sections).
 var keyVaultUri = builder.Configuration["Azure:KeyVaultUri"] ?? builder.Configuration["Azure__KeyVaultUri"];
 if (!string.IsNullOrWhiteSpace(keyVaultUri))
@@ -107,9 +107,9 @@ builder.Services.AddProblemDetails();
 // (see docs/api/IIP_API_Contracts_Master.md, ADR-0004). The interactive Swagger UI and
 // the JSON document are exposed ONLY in Development/LocalTest (see developmentDiagnosticsEnabled
 // below) so no schema/endpoint enumeration surface is published in deployed environments.
-// Backs IWhatsAppCredentialProtector (and any future at-rest secret encryption) — real, reversible
+// Backs IWhatsAppCredentialProtector (and any future at-rest secret encryption), real, reversible
 // encryption keyed by a key ring, not a hand-rolled cipher. Default persistence is the local
-// filesystem, which on a single-instance Azure App Service is %HOME%\ASP.NET\DataProtection-Keys —
+// filesystem, which on a single-instance Azure App Service is %HOME%\ASP.NET\DataProtection-Keys,
 // durable across app restarts on this deployment's current single-instance B1 plan. Scaling to
 // multiple instances would need PersistKeysToAzureBlobStorage + ProtectKeysWithAzureKeyVault so
 // every instance shares one key ring; noted here rather than built speculatively.
@@ -122,7 +122,7 @@ builder.Services.AddSwaggerGen(swagger =>
     {
         Title = "IIP Operations API",
         Version = "v1",
-        Description = "Insurance Intelligence Platform (IIP) — canonical /api/v1 contract. "
+        Description = "Insurance Intelligence Platform (IIP), canonical /api/v1 contract. "
             + "Human-reviewed insurance intelligence; AI prepares, humans decide.",
     });
     // Minimal-API route params without a type constraint (e.g. {customerId}) can collide
@@ -203,7 +203,7 @@ else
 
 // In-memory storage is permitted only for developer-machine execution, so the team can run
 // the platform with no Azure account. Deny-by-default on the runtime profile: anything that
-// is not explicitly a local profile — including an unrecognised value — is refused. This is
+// is not explicitly a local profile, including an unrecognised value, is refused. This is
 // one of three independent blocks; AddInsuranceIntelligenceInfrastructure applies the same
 // profile test, and AzureProviderStartupValidator.ValidateProduction separately refuses to
 // boot Staging/Production/ManagedApplicationReviewer/Demo on non-SqlServer storage.
@@ -253,7 +253,10 @@ else
 }
 
 builder.Services.AddSingleton<ICompletenessScoringService, CompletenessScoringService>();
-builder.Services.AddSingleton<IDocumentChecklistProvider, StaticDocumentChecklistProvider>();
+// Scoped, not Singleton: StaticDocumentChecklistProvider now optionally depends on
+// IProductRepository (outcome E's product-document-matrix integration), which is itself Scoped
+// (it resolves through the per-request DbContext); a Singleton cannot consume a Scoped service.
+builder.Services.AddScoped<IDocumentChecklistProvider, StaticDocumentChecklistProvider>();
 builder.Services.AddSingleton<ISourceCitationFormatter, SourceCitationFormatter>();
 if (infrastructureOptions.RetrievalProvider.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase))
 {
@@ -268,9 +271,12 @@ else
 
 if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<IAiAssistantProvider, AzureOpenAiAssistantProvider>();
+    // Scoped, not Singleton: both now depend on the scoped IAgentBehaviourProfileRepository
+    // (blueprint §6.3) to compose the tenant's configured system prompt on every call. Embeddings
+    // carry no per-call prompt, so that one stays Singleton.
+    builder.Services.AddScoped<IAiAssistantProvider, AzureOpenAiAssistantProvider>();
     builder.Services.AddSingleton<IEmbeddingProvider, AzureOpenAiEmbeddingProvider>();
-    builder.Services.AddSingleton<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
+    builder.Services.AddScoped<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
 }
 else
 {
@@ -294,7 +300,8 @@ else
 builder.Services.AddSingleton<IWorkflowRuleProvider, StaticWorkflowRuleProvider>();
 if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<ICustomerUpdateDraftingProvider, AzureOpenAiCustomerUpdateDraftingProvider>();
+    // Scoped, not Singleton, see the AzureOpenAiAssistantProvider registration above; same reason.
+    builder.Services.AddScoped<ICustomerUpdateDraftingProvider, AzureOpenAiCustomerUpdateDraftingProvider>();
 }
 else
 {
@@ -341,8 +348,14 @@ builder.Services.AddScoped<IConversationGroundingService, ConversationGroundingS
 // W2.5: Phase 2 core-workspace query services.
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Policies.IPolicyImportService, InsuranceIntelligence.Application.Policies.PolicyImportService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Customers.ICustomerConsentService, InsuranceIntelligence.Application.Customers.CustomerConsentService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Retention.IRetentionWatchService, InsuranceIntelligence.Application.Retention.RetentionWatchService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Brief.IBriefService, InsuranceIntelligence.Application.Brief.BriefService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQueryService, InsuranceIntelligence.Application.Products.ProductQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCommandService, InsuranceIntelligence.Application.Products.ProductCommandService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingService, InsuranceIntelligence.Application.Onboarding.TenantOnboardingService>();
@@ -383,8 +396,15 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgent
 builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgentTool, InsuranceIntelligence.Application.Agents.Tools.PolicyReadTool>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgentToolRegistry, InsuranceIntelligence.Application.Agents.Tools.AgentToolRegistry>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.ClaimsSummary.IClaimsSummaryService, InsuranceIntelligence.Application.ClaimsSummary.ClaimsSummaryService>();
+// Customer 360 briefing, chat instructions, and the automatic review every new claim receives.
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerSummary.ICustomerSummaryService, InsuranceIntelligence.Application.CustomerSummary.CustomerSummaryService>();
+builder.Services.AddScoped<ICommandCenterActionService, CommandCenterActionService>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.IClaimTriageQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>());
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ClaimTriageWorker>();
 // WO-14: one instance backs both the emitter (called from the 5 real event sites) and the
-// recipient's own feed (list/read-state) — same underlying repository either way.
+// recipient's own feed (list/read-state), same underlying repository either way.
 builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.NotificationService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.INotificationEmitter>(
     sp => sp.GetRequiredService<InsuranceIntelligence.Application.Notifications.NotificationService>());
@@ -393,9 +413,14 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.INoti
 builder.Services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAgentWorkflowService, InsuranceIntelligence.Application.AgentWorkflows.AgentWorkflowService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.MyWork.IMyWorkService, InsuranceIntelligence.Application.MyWork.MyWorkService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.IWhatsAppMessagingService, InsuranceIntelligence.Application.WhatsApp.WhatsAppMessagingService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.ICustomerAssistantService, InsuranceIntelligence.Application.CustomerAssistant.CustomerAssistantService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IFnolAcknowledgementService, InsuranceIntelligence.Application.Cases.FnolAcknowledgementService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IMissingDocumentRequestService, InsuranceIntelligence.Application.Cases.MissingDocumentRequestService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.ICaseFollowThroughService, InsuranceIntelligence.Application.Cases.CaseFollowThroughService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingQueryService, InsuranceIntelligence.Application.Billing.BillingQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingUsageSource, InsuranceIntelligence.Api.Admin.Billing.RecordBackedBillingUsageSource>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentQueryService, InsuranceIntelligence.Application.Documents.DocumentQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentQualityService, InsuranceIntelligence.Application.Documents.DocumentQualityService>();
 builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.CommandCenter.ISystemCapabilityStatusService, InsuranceIntelligence.Api.CommandCenter.SystemCapabilityStatusService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Workflow.ICaseTimelineProvider, InsuranceIntelligence.Api.Local.CaseTimelineProvider>();
@@ -411,7 +436,7 @@ await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Enviro
 
 // Offline developer mode: with in-memory storage the database starts empty on every run, so
 // seed the demo dataset at boot to give the app something to show without any Azure account.
-// Guarded to in-memory storage only — this can never run against SqlServer, and the storage
+// Guarded to in-memory storage only, this can never run against SqlServer, and the storage
 // provider itself is already restricted to local runtimes.
 if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
     && infrastructureOptions.SeedDemoData)
@@ -424,7 +449,7 @@ if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.Or
         string.IsNullOrWhiteSpace(infrastructureOptions.WorkspaceId) ? "workspace-operations" : infrastructureOptions.WorkspaceId);
     // Provenance stays with the system seeder; assignment goes to the identity an offline operator
     // actually signs in as (the same default DemoAuthorization.GetUserId falls back to), so "My Work"
-    // and the notification feed — both filtered by the current user — are populated on a fresh run
+    // and the notification feed, both filtered by the current user, are populated on a fresh run
     // instead of showing empty states over a workspace that visibly has 46 claims in it.
     var seedResult = await seedService.SeedAsync(seedScopeIds, "system:local-seed", DemoAuthorization.DefaultLocalUserId);
     app.Logger.LogInformation(
@@ -437,7 +462,7 @@ app.UseExceptionHandler();
 
 app.UseCors();
 
-// Swagger UI + JSON contract document — Development/LocalTest only (secure baseline).
+// Swagger UI + JSON contract document, Development/LocalTest only (secure baseline).
 if (developmentDiagnosticsEnabled)
 {
     app.UseSwagger();
@@ -500,7 +525,7 @@ app.Use(async (context, next) =>
         }
         else if (context.User.Identity?.IsAuthenticated == true)
         {
-            // Deployed (Entra) — ADR-0005: runtime authority is IIP's membership store, keyed by the
+            // Deployed (Entra), ADR-0005: runtime authority is IIP's membership store, keyed by the
             // authenticated user's stable id (oid). The token tid/workspace claims are ONLY
             // disambiguation hints, never authority. Fine-grained permissions come from the store and
             // are stashed for the synchronous permission checks. No membership => fail closed.
@@ -511,7 +536,7 @@ app.Use(async (context, next) =>
                     .Select(t => context.User.FindFirst(t)?.Value)
                     .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
                 // The portal's workspace switcher (WO-13) sends the user's chosen workspace as a
-                // request header, not a claim — a new token isn't minted per switch. It is only ever
+                // request header, not a claim, a new token isn't minted per switch. It is only ever
                 // a hint: GetEffectiveMembershipAsync below re-validates it against the user's real
                 // active membership and fails closed if they don't belong to it, so this can never
                 // grant access to a workspace the user isn't actually a member of (I5).
@@ -555,7 +580,7 @@ app.MapGet("/health/ready", HealthEndpoints.Ready);
 
 app.MapGet("/api/v1/me", RuntimeContextEndpoints.GetMe);
 
-// WO-14: the recipient's own feed — self-scoped like /api/v1/me, no extra permission (any
+// WO-14: the recipient's own feed, self-scoped like /api/v1/me, no extra permission (any
 // authenticated tenant member can see their own notifications).
 app.MapGet("/api/v1/notifications", InsuranceIntelligence.Api.Notifications.NotificationEndpoints.GetFeed);
 app.MapPost("/api/v1/notifications/{notificationId:guid}/read", InsuranceIntelligence.Api.Notifications.NotificationEndpoints.MarkRead);
@@ -565,7 +590,7 @@ app.MapGet("/api/v1/search", SearchEndpoints.Search)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 
 // A claimant is never a tenant member, so these cannot be gated by PermissionEndpointFilter (which
-// requires resolved membership permissions outside Development — no claimant will ever have one).
+// requires resolved membership permissions outside Development, no claimant will ever have one).
 // ClaimantSessionEndpointFilter is the real gate: a verified magic-link session outside
 // Development, or the existing demo-header trust inside it.
 app.MapGet("/api/v1/client-portal/claims/{caseId:guid}", ClientPortalEndpoints.GetClaim)
@@ -573,6 +598,16 @@ app.MapGet("/api/v1/client-portal/claims/{caseId:guid}", ClientPortalEndpoints.G
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents", ClientPortalEndpoints.UploadDocuments)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/request-review", ClientPortalEndpoints.RequestReview)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+// Outcome L: "the customer sees their policy," "asks a question about the wording," and "requests
+// a change to their contact details." None of these three has a {caseId} route segment (a
+// verified policyholder with no claim yet must still reach them), so ClaimantSessionEndpointFilter's
+// route-match check never fires for them; each handler requires the stashed session itself.
+app.MapGet("/api/v1/client-portal/policy", ClientPortalEndpoints.GetPolicy)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/policy-questions", ClientPortalEndpoints.AskPolicyQuestion)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/contact-detail-changes", ClientPortalEndpoints.RequestContactDetailChange)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/magic-links", InsuranceIntelligence.Api.ClientPortal.ClaimantAuthenticationEndpoints.RequestMagicLink);
 app.MapPost("/api/v1/client-portal/magic-links/redeem", InsuranceIntelligence.Api.ClientPortal.ClaimantAuthenticationEndpoints.RedeemMagicLink);
@@ -589,11 +624,19 @@ app.MapGet("/api/v1/cases", CaseEndpoints.ListCases)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}", CaseEndpoints.GetCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/cases/{caseId:guid}/product-stages", CaseEndpoints.GetProductStages)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/assign", CaseEndpoints.AssignCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/escalate", CaseEndpoints.EscalateCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/confirm", CaseEndpoints.ConfirmCase)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/resolve", InsuranceIntelligence.Api.Cases.ClaimResolutionEndpoints.Resolve)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ApproveSettlementWorkflowStep));
+app.MapPost("/api/v1/cases/{caseId:guid}/satisfaction-response", InsuranceIntelligence.Api.Cases.SatisfactionEndpoints.RecordResponse)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/cases/{caseId:guid}/satisfaction-responses", InsuranceIntelligence.Api.Cases.SatisfactionEndpoints.ListResponses)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/claims", ClaimsController.ListClaims)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
@@ -628,6 +671,13 @@ app.MapGet("/api/v1/cases/{caseId:guid}/review-requests", ContestabilityEndpoint
 app.MapPost("/api/v1/cases/{caseId:guid}/review-requests/{requestId:guid}/acknowledge", ContestabilityEndpoints.AcknowledgeReviewRequest)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/review-requests/{requestId:guid}/resolve", ContestabilityEndpoints.ResolveReviewRequest)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+// Outcome L: staff side of a policyholder's contact-detail change request.
+app.MapGet("/api/v1/contact-detail-changes", InsuranceIntelligence.Api.Customers.ContactDetailChangeEndpoints.ListChangeRequests)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/contact-detail-changes/{requestId:guid}/acknowledge", InsuranceIntelligence.Api.Customers.ContactDetailChangeEndpoints.AcknowledgeChangeRequest)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/contact-detail-changes/{requestId:guid}/resolve", InsuranceIntelligence.Api.Customers.ContactDetailChangeEndpoints.ResolveChangeRequest)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/knowledge-documents", KnowledgeEndpoints.UploadKnowledgeDocument)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
@@ -722,6 +772,24 @@ app.MapPost("/api/v1/customer-updates/{updateId:guid}/reject", CustomerUpdateEnd
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 app.MapPost("/api/v1/customer-updates/{updateId:guid}/send", CustomerUpdateEndpoints.SendCustomerUpdate)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.SendCustomerUpdate));
+app.MapPut("/api/v1/customer-updates/{updateId:guid}", CustomerUpdateEndpoints.EditCustomerUpdate)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/cases/{caseId:guid}/customer-updates/write", CustomerUpdateEndpoints.WriteCustomerUpdate)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/cases/{caseId:guid}/customer-updates/from-template", CustomerUpdateEndpoints.CreateCustomerUpdateFromTemplate)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+
+// Message template library (outcome D), versioned exactly like agent behaviour and products.
+app.MapGet("/api/v1/communication-templates", InsuranceIntelligence.Api.Workflow.CommunicationTemplateEndpoints.ListTemplates)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapGet("/api/v1/communication-templates/{templateKey}", InsuranceIntelligence.Api.Workflow.CommunicationTemplateEndpoints.GetCurrent)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapGet("/api/v1/communication-templates/{templateKey}/versions", InsuranceIntelligence.Api.Workflow.CommunicationTemplateEndpoints.ListVersions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/communication-templates/{templateKey}", InsuranceIntelligence.Api.Workflow.CommunicationTemplateEndpoints.SaveVersion)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/communication-templates/seed-defaults", InsuranceIntelligence.Api.Workflow.CommunicationTemplateEndpoints.SeedDefaults)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 app.MapGet("/api/v1/reports/operations-summary", ReportsEndpoints.GetOperationsSummary)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
 app.MapGet("/api/v1/admin/tenant-configuration", AdminEndpoints.GetTenantConfiguration)
@@ -742,9 +810,10 @@ app.MapPut("/api/v1/admin/users/{userId}", AdminEndpoints.UpdateUserRole)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPut("/api/v1/admin/users/{userId}/role", AdminEndpoints.UpdateUserRole)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
-// Demo dataset seeding — hard-gated inside the handler to non-protected runtime profiles
+// Demo dataset seeding, hard-gated inside the handler to non-protected runtime profiles
 // (see DemoSeedEndpoints), never reachable in Staging/Production/ManagedApplicationReviewer.
 app.MapPost("/api/v1/admin/demo-seed", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.Run);
+app.MapPost("/api/v1/admin/demo-seed/policyholders", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedPolicyholders);
 app.MapPost("/api/v1/admin/db-migrate", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ApplyPending);
 app.MapPost("/api/v1/admin/db-migrate/reconcile-history", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ReconcileHistory);
 app.MapPost("/api/v1/admin/db-migrate/force-reconcile-schema", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ForceReconcileSchema);
@@ -763,12 +832,72 @@ app.MapGet("/api/v1/customers", CustomerProfileEndpoints.ListCustomers)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustomerProfile)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+app.MapPost("/api/v1/customers/{customerId}/summary", InsuranceIntelligence.Api.Customer.CustomerSummaryEndpoints.Summarize)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+// Outcome M: consent as a first class, staff-visible, auditable record.
+app.MapGet("/api/v1/customers/{customerId}/consent", InsuranceIntelligence.Api.Customers.ConsentEndpoints.ListForCustomer)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+app.MapPost("/api/v1/customers/{customerId}/consent", InsuranceIntelligence.Api.Customers.ConsentEndpoints.RecordExplicitOptIn)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/customers/{customerId}/consent/withdraw", InsuranceIntelligence.Api.Customers.ConsentEndpoints.Withdraw)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+// Names for ids, for any staff member who can see claims or customers; also feeds the assignment picker.
+app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEndpoints.ListPeople)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers));
+app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBrief)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapPost("/api/v1/sales-leads", SalesLeadEndpoints.CreateLead)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+
+// Product configuration, the spine everything else in claim handling reads from (blueprint
+// outcome A/C). Every save is a new version; publishing needs an IRA approval reference and a
+// second person, distinct from whoever submitted it.
+app.MapGet("/api/v1/products", InsuranceIntelligence.Api.Products.ProductEndpoints.ListProducts)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/default-stage-library", InsuranceIntelligence.Api.Products.ProductEndpoints.GetDefaultStageLibrary)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/{productId:guid}", InsuranceIntelligence.Api.Products.ProductEndpoints.GetCurrent)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/{productId:guid}/versions", InsuranceIntelligence.Api.Products.ProductEndpoints.ListVersions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/{productId:guid}/versions/{version:int}", InsuranceIntelligence.Api.Products.ProductEndpoints.GetVersion)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products", InsuranceIntelligence.Api.Products.ProductEndpoints.CreateDraft)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPut("/api/v1/products/{productId:guid}", InsuranceIntelligence.Api.Products.ProductEndpoints.UpdateDraft)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/submit", InsuranceIntelligence.Api.Products.ProductEndpoints.SubmitForPublishApproval)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/approve", InsuranceIntelligence.Api.Products.ProductEndpoints.ApprovePublish)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/reject", InsuranceIntelligence.Api.Products.ProductEndpoints.RejectPublish)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/retire", InsuranceIntelligence.Api.Products.ProductEndpoints.Retire)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+
+// Outcome N: file import for insurers whose core system has no API. Parse reads the uploaded file
+// only (nothing persisted yet); Commit takes the confirmed column mapping back and imports.
+app.MapPost("/api/v1/policy-import/parse", InsuranceIntelligence.Api.Policies.PolicyImportEndpoints.Parse)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/policy-import/commit", InsuranceIntelligence.Api.Policies.PolicyImportEndpoints.Commit)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+
+// Outcome O: retention watch, a screen of its own for policies nearing cover end.
+app.MapGet("/api/v1/retention/watch", InsuranceIntelligence.Api.Retention.RetentionEndpoints.GetWatch)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
+app.MapPost("/api/v1/retention/policies/{policyId}/reminders", InsuranceIntelligence.Api.Retention.RetentionEndpoints.DraftReminder)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/retention/reminders/{reminderId:guid}/approve-and-send", InsuranceIntelligence.Api.Retention.RetentionEndpoints.ApproveAndSend)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+
+// Outcome K acceptance: "accuracy per document type is measured and visible," computed from the
+// labelled examples every reclassification/correction/confirmation accumulates.
+app.MapGet("/api/v1/documents/quality/accuracy", InsuranceIntelligence.Api.Documents.DocumentQualityEndpoints.GetAccuracyByType)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 
 // Gate 1 (G1.7): platform-operator tenant onboarding + Entra admin-consent flow (ADR-0005).
 app.MapPost("/api/v1/onboarding", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.Create)
@@ -779,7 +908,7 @@ app.MapGet("/api/v1/onboarding/{onboardingId}", InsuranceIntelligence.Api.Onboar
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
 app.MapGet("/api/v1/onboarding/{onboardingId}/consent-url", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.GetConsentUrl)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
-// Admin-consent redirect target — authorized by the opaque state value, not a permission.
+// Admin-consent redirect target, authorized by the opaque state value, not a permission.
 // Deliberately OFF /api/v1: the insurer admin returns here from Microsoft UNAUTHENTICATED to IIP,
 // so it must bypass the /api/v1 authenticated-request guard (like /health).
 app.MapGet("/onboarding/consent-callback", InsuranceIntelligence.Api.Onboarding.OnboardingEndpoints.ConsentCallback);
@@ -788,7 +917,7 @@ app.MapGet("/api/v1/audit/events", AuditEndpoints.ListEvents)
 // Initiative LP: rule-based fraud advisory signals (deterministic, tenant-scoped, advisory-only).
 app.MapGet("/api/v1/fraud/signals", InsuranceIntelligence.Api.Fraud.FraudEndpoints.GetSignals)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
-// WO-19: fraud signal disposition — triage, assign for investigation, record outcome, close.
+// WO-19: fraud signal disposition, triage, assign for investigation, record outcome, close.
 app.MapPost("/api/v1/fraud/signals/triage", InsuranceIntelligence.Api.Fraud.FraudDispositionEndpoints.Triage)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
 app.MapPost("/api/v1/fraud/signals/{signalId:guid}/assign", InsuranceIntelligence.Api.Fraud.FraudDispositionEndpoints.Assign)
@@ -800,7 +929,7 @@ app.MapPost("/api/v1/fraud/signals/{signalId:guid}/close", InsuranceIntelligence
 // Initiative LP: rule-based underwriting advisory reviews (deterministic, advisory-only).
 app.MapGet("/api/v1/underwriting/reviews", InsuranceIntelligence.Api.Underwriting.UnderwritingEndpoints.GetReviews)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewUnderwriting));
-// Initiative LP: AI Agent Registry — catalog + tenant-scoped persisted kill switch (ADR-0002).
+// Initiative LP: AI Agent Registry, catalog + tenant-scoped persisted kill switch (ADR-0002).
 app.MapGet("/api/v1/admin/agents", InsuranceIntelligence.Api.Admin.Agents.AgentRegistryEndpoints.ListAgents)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 app.MapPost("/api/v1/admin/agents/{agentKey}/kill-switch", InsuranceIntelligence.Api.Admin.Agents.AgentRegistryEndpoints.SetKillSwitch)
@@ -834,7 +963,7 @@ app.MapGet("/api/v1/agent-work-items/{workItemId:guid}", InsuranceIntelligence.A
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ReviewAgentWorkItems));
 app.MapPost("/api/v1/agent-work-items/{workItemId:guid}/decision", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.DecideWorkItem)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ReviewAgentWorkItems));
-// Initiative LP: Billing & entitlements — default package + real usage meters (ADR-0003).
+// Initiative LP: Billing & entitlements, default package + real usage meters (ADR-0003).
 app.MapGet("/api/v1/admin/billing", InsuranceIntelligence.Api.Admin.Billing.BillingEndpoints.GetSummary)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
 // Initiative LP: cross-case document library.
@@ -849,11 +978,34 @@ app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack", ComplianceEndpoi
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export", ComplianceEndpoints.ExportAuditPack)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/download", ComplianceEndpoints.DownloadAuditPackExport)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapGet("/api/v1/compliance/retention/policies", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.ListPolicies)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/compliance/retention/policies", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.SavePolicy)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/compliance/retention/enforce", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.EnforceRetention)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+// Follow-through (outcome G): missing-document reminders and pre-breach SLA warnings, the same
+// service the scheduled CaseFollowThroughTimerFunction calls.
+app.MapPost("/api/v1/cases/follow-through/run", InsuranceIntelligence.Api.Cases.CaseFollowThroughEndpoints.Run)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/compliance/data-subjects/{customerId}/export", InsuranceIntelligence.Api.Compliance.DataSubjectRightsEndpoints.Export)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPatch("/api/v1/compliance/data-subjects/{customerId}", InsuranceIntelligence.Api.Compliance.DataSubjectRightsEndpoints.Rectify)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/compliance/data-subjects/{customerId}/erasure", InsuranceIntelligence.Api.Compliance.DataSubjectRightsEndpoints.RequestErasure)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/integrations/email/health", EmailIntegrationEndpoints.GetHealth)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.ListMailboxes)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/email/mailboxes", EmailIntegrationEndpoints.CreateMailbox)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+// Available in every runtime, unlike test-ingestion below: an insurer who connects a mailbox in
+// Staging or Production needs a way to collect mail on demand and see that the connection works.
+// The MailboxIngestion timer function does this on a schedule; this is the same service, on demand.
+app.MapPost("/api/v1/integrations/email/ingest", EmailIntegrationEndpoints.Ingest)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 if (developmentDiagnosticsEnabled)
 {
@@ -879,6 +1031,40 @@ app.MapDelete("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurati
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
 app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);
+
+// Generic connection settings surface (blueprint §3.4), the /app/admin/connections screen's
+// backend. {connectionType} is "sms" or "email" today; adding a type is a new ConnectionType enum
+// value plus IConnectionValidator implementations, no new routes.
+app.MapGet("/api/v1/integrations/connections/{connectionType}/providers", ConnectionEndpoints.ListProviders)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/connections/{connectionType}", ConnectionEndpoints.GetStatus)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/integrations/connections/{connectionType}", ConnectionEndpoints.SaveConfiguration)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/integrations/connections/{connectionType}/test", ConnectionEndpoints.TestConfiguration)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapDelete("/api/v1/integrations/connections/{connectionType}", ConnectionEndpoints.DeleteConfiguration)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+
+// Agent behaviour configuration (blueprint §6.3), a tenant's voice/scope customization per
+// agent, never its authority. Every save is a new version; nothing is overwritten in place.
+app.MapGet("/api/v1/agents/{agentKey}/behaviour", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.GetCurrent)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapGet("/api/v1/agents/{agentKey}/behaviour/versions", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.ListVersions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapPost("/api/v1/agents/{agentKey}/behaviour", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.SaveVersion)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapPost("/api/v1/agents/{agentKey}/behaviour/test", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.TestBehaviour)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+
+// Tenant agent policy (blueprint §6.4, WO 3.4), real enforcement-source data, not a hardcoded array.
+app.MapGet("/api/v1/admin/tenant-policy", InsuranceIntelligence.Api.Administration.TenantPolicyEndpoints.GetPolicy)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+
+// SMS delivery-status webhook (blueprint §5.4), unauthenticated by header (the gateway's payload
+// carries no signature), gated by the unguessable path secret instead. No PermissionEndpointFilter:
+// the caller is an external SMS gateway, not an authenticated platform user.
+app.MapPost("/api/v1/integrations/sms/status/{pathSecret}", SmsIntegrationEndpoints.ReceiveDeliveryStatus);
 app.MapGet("/api/v1/channels/whatsapp/threads/{threadId}", WhatsAppIntegrationEndpoints.GetThread)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
 app.MapPost("/api/v1/channels/whatsapp/threads/{threadId}/messages", WhatsAppIntegrationEndpoints.SendMessage)

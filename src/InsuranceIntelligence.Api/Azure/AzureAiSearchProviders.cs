@@ -11,7 +11,7 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
 {
     /// <summary>
     /// Chunks are section-sized (roughly 500-800 characters), so a top-5 keyword retrieval
-    /// routinely missed the specific section a question was about — e.g. returning a policy's
+    /// routinely missed the specific section a question was about, e.g. returning a policy's
     /// cover tiers but not its exclusions list, leaving the model to correctly but unhelpfully
     /// report that the sources did not contain the answer. Retrieving a wider set keeps recall
     /// high while staying comfortably inside the model's context budget at this chunk size.
@@ -21,7 +21,7 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
     public async Task IndexAsync(KnowledgeDocument document, CancellationToken cancellationToken = default)
     {
         // WO-17: unclassified (or never-eligible) sensitivity must never reach the search index,
-        // not just be filtered at query time — fail closed at the point of publication.
+        // not just be filtered at query time, fail closed at the point of publication.
         if (document.ApprovalStatus != KnowledgeDocumentStatus.Approved
             || document.Sensitivity == KnowledgeSensitivity.Unknown)
         {

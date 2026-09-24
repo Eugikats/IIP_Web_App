@@ -20,11 +20,11 @@ public static class ClaimTypeClassifier
     /// <summary>
     /// This taxonomy (own damage / third-party property / theft-total-loss / injury-fatality) is
     /// motor-claim-specific. Applying its keyword matching to another product line's claim type
-    /// text — e.g. a "Medical" claim's type routinely mentions "medical" — would misclassify it
+    /// text, e.g. a "Medical" claim's type routinely mentions "medical", would misclassify it
     /// as InjuryFatality and force-escalate every medical claim regardless of actual severity.
     /// When <paramref name="productLine"/> is supplied and is not Motor, this returns Unknown
     /// immediately: the honest, safe result until that product line has its own governed routing
-    /// (WO-15 deliberately keeps this scope narrow — see DocumentChecklistRules.ForProductLine
+    /// (WO-15 deliberately keeps this scope narrow, see DocumentChecklistRules.ForProductLine
     /// and ClaimRoutingPolicy's Unknown-kind default for what "safe" means downstream).
     /// </summary>
     public static ClaimTypeKind Classify(string? claimType, MotorFnolDetails? motorFnolDetails = null, string? productLine = null)

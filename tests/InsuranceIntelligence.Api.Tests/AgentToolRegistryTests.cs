@@ -16,7 +16,7 @@ namespace InsuranceIntelligence.Api.Tests;
 /// WO-08: every read-tier tool is permission-checked and tenant-isolated. Covers the registry's
 /// own enforcement (allowed-agent-key, unknown tool) plus a representative tool per repository
 /// shape in full (happy path, permission denial, tenant isolation), and the remaining tools at
-/// happy-path + permission-denial — their tenant isolation comes from the same ClaimSnapshotLoader/
+/// happy-path + permission-denial, their tenant isolation comes from the same ClaimSnapshotLoader/
 /// TenantScope-filtered repository calls already proven isolated by the tools tested in full.
 /// </summary>
 public sealed class AgentToolRegistryTests

@@ -15,6 +15,10 @@ public sealed record TenantConfiguration
     public required IReadOnlyCollection<ChecklistConfiguration> Checklists { get; init; }
     public required ProviderModeConfiguration ProviderModes { get; init; }
     public required int AuditRetentionDays { get; init; }
+    // Outcome K, layer 2: below this, a document's classification or extraction needs a person
+    // to decide rather than being treated as reliable. A tenant setting, not a fixed literal
+    // (AGENTS.md non-negotiable 11), defaulting to the platform's long-standing 0.8.
+    public decimal DocumentClassificationConfidenceThreshold { get; init; } = 0.8m;
     public required DateTimeOffset UpdatedAt { get; init; }
 
     public IReadOnlyCollection<string> Validate()
@@ -23,6 +27,11 @@ public sealed record TenantConfiguration
         if (string.IsNullOrWhiteSpace(InsurerName))
         {
             errors.Add("Insurer name is required.");
+        }
+
+        if (DocumentClassificationConfidenceThreshold is < 0m or > 1m)
+        {
+            errors.Add("Document classification confidence threshold must be between 0 and 1.");
         }
 
         if (string.IsNullOrWhiteSpace(Country))

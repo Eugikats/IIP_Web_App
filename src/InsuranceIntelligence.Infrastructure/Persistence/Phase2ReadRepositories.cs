@@ -5,6 +5,7 @@ using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Policies;
@@ -17,7 +18,7 @@ namespace InsuranceIntelligence.Infrastructure.Persistence;
 
 // Read-side adapters that back the Phase 2 query services. Follows the same
 // "materialize tenant-scoped rows, then deserialize the JSON payload in memory"
-// approach used by EfClaimsReadRepository — the persisted aggregates are stored as
+// approach used by EfClaimsReadRepository, the persisted aggregates are stored as
 // scoped JSON, so filtering happens after deserialization.
 
 /// <summary>
@@ -365,7 +366,7 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
 }
 
 /// <summary>
-/// Tenant-scoped channel overview projected from durable WhatsApp messages and inbound email —
+/// Tenant-scoped channel overview projected from durable WhatsApp messages and inbound email,
 /// every channel that can land a claim, so an officer working the inbox sees all of them in one
 /// place rather than needing a separate admin screen per channel.
 /// </summary>
@@ -390,6 +391,21 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
             .ToArray();
         if (whatsAppMessages.Length == 0 && emailMessages.Length == 0) return [];
 
+        // The customer assistant already classified every inbound WhatsApp message and recorded
+        // what it did about it (CustomerConversationTurn). Without reading that back, this screen
+        // fell through to "general_service" for every thread and showed WhatsApp's delivery state
+        // as though it were a work state, so an officer could not see which conversations were
+        // new claims, and a reply held for human approval looked identical to one already sent.
+        var latestTurnByThread = (await Scoped(DbContext.CustomerConversationTurns.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<CustomerConversationTurn>)
+            .GroupBy(turn => turn.ThreadId, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderByDescending(turn => turn.OccurredAt).First(),
+                StringComparer.Ordinal);
+
         var cases = (await Scoped(DbContext.Cases.AsNoTracking(), scope)
                 .Select(record => record.PayloadJson)
                 .ToArrayAsync(cancellationToken))
@@ -402,14 +418,15 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
             .Select(message =>
             {
                 var claimCase = message.CaseId is { } caseId && cases.TryGetValue(caseId, out var found) ? found : null;
+                var turn = latestTurnByThread.GetValueOrDefault(message.ThreadId);
                 return new ChannelConversationReadModel(
                     message.ThreadId,
                     claimCase?.CustomerName ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
                     ChannelValues.WhatsApp,
-                    ChannelDetectedIntentValues.GeneralService,
-                    claimCase is null ? "Manual case-link review" : "Open linked claim",
+                    DetectedIntentFor(turn),
+                    RoutingFor(turn, claimCase is not null),
                     0m,
-                    message.DeliveryState.ToString(),
+                    StatusFor(turn, message.DeliveryState),
                     claimCase?.AssignedUserId,
                     message.CustomerSafeBody.Length <= 160 ? message.CustomerSafeBody : message.CustomerSafeBody[..160],
                     message.CreatedAt,
@@ -424,7 +441,7 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                 message.MessageId.ToString(),
                 claimCase?.CustomerName ?? message.Sender,
                 ChannelValues.Email,
-                claimCase is not null ? ChannelDetectedIntentValues.ClaimFnol : ChannelDetectedIntentValues.GeneralService,
+                EmailIntentFor(message.ProcessingStatus),
                 message.LinkedCaseId is not null ? "Open linked claim" : "Process into a claim",
                 0m,
                 message.ProcessingStatus.ToString(),
@@ -439,7 +456,59 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
             .OrderByDescending(row => row.LastActivityAt)
             .ToArray();
     }
+
+    /// <summary>There is no intent classifier on the email channel, so the only honest signal is
+    /// what processing actually did with the message. Previously any case-linked email was labelled
+    /// "new claim", which mislabelled every document reply on an existing claim as a fresh FNOL.
+    /// An unprocessed email claims no intent at all.</summary>
+    private static string EmailIntentFor(EmailProcessingStatus status) => status switch
+    {
+        EmailProcessingStatus.CaseCreated => ChannelDetectedIntentValues.ClaimFnol,
+        EmailProcessingStatus.LinkedToCase => ChannelDetectedIntentValues.DocumentUpload,
+        _ => ChannelDetectedIntentValues.GeneralService,
+    };
+
+    /// <summary>The assistant's own six-intent classification, in the channel vocabulary. A thread
+    /// with no turn yet (outbound-only, or one that arrived while the agent was gated off) stays
+    /// "general_service" rather than claiming a classification that never happened.</summary>
+    private static string DetectedIntentFor(CustomerConversationTurn? turn) => turn?.ClassifiedIntent switch
+    {
+        CustomerIntent.NewClaim => ChannelDetectedIntentValues.ClaimFnol,
+        CustomerIntent.ProductInterest => ChannelDetectedIntentValues.QuoteRequest,
+        CustomerIntent.ExistingClaimStatus => ChannelDetectedIntentValues.ClaimStatus,
+        CustomerIntent.HumanRequested => ChannelDetectedIntentValues.HumanRequested,
+        _ => ChannelDetectedIntentValues.GeneralService,
+    };
+
+    /// <summary>What the officer should do next, driven by what the assistant actually did rather
+    /// than by case-linkage alone.</summary>
+    private static string RoutingFor(CustomerConversationTurn? turn, bool hasLinkedCase) => turn?.Outcome switch
+    {
+        CustomerAssistantOutcome.QueuedForHumanApproval => "Approve or edit the drafted reply",
+        CustomerAssistantOutcome.Escalated => "Escalated, needs a person",
+        CustomerAssistantOutcome.CaseOpened => "Open linked claim",
+        CustomerAssistantOutcome.LeadCreated => "Follow up on the new enquiry",
+        CustomerAssistantOutcome.AwaitingMoreInformation => "Waiting on the customer",
+        _ => hasLinkedCase ? "Open linked claim" : "Manual case-link review",
+    };
+
+    /// <summary>Work state, not transport state. WhatsApp's DeliveryState says whether the network
+    /// carried the message; it says nothing about whether a human still owes this conversation
+    /// something, which is the only thing the inbox is for. Delivery state remains the fallback for
+    /// threads the assistant never handled.</summary>
+    private static string StatusFor(CustomerConversationTurn? turn, WhatsAppDeliveryState deliveryState) =>
+        turn?.Outcome switch
+        {
+            CustomerAssistantOutcome.QueuedForHumanApproval => "AwaitingApproval",
+            CustomerAssistantOutcome.Escalated => "NeedsReview",
+            CustomerAssistantOutcome.AwaitingMoreInformation => "AwaitingCustomer",
+            CustomerAssistantOutcome.CaseOpened => "ClaimOpened",
+            CustomerAssistantOutcome.LeadCreated => "LeadCaptured",
+            CustomerAssistantOutcome.AutoReplied => "Answered",
+            CustomerAssistantOutcome.Declined => "NeedsReview",
+            _ => deliveryState.ToString(),
+        };
 }
 
-// Sales-lead persistence moved to EfSalesLeadRepository (real scoped-JSON store) — the manual
+// Sales-lead persistence moved to EfSalesLeadRepository (real scoped-JSON store), the manual
 // create path (Gate 0) writes real leads; channel ingestion / fabric import feed the same store later.

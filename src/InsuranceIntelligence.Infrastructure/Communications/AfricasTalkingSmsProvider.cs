@@ -11,11 +11,15 @@ namespace InsuranceIntelligence.Infrastructure.Communications;
 /// Real outbound SMS adapter for Africa's Talking (the standard USSD/SMS gateway across Uganda
 /// and East Africa). Follows the platform provider pattern: real when configured, honest
 /// <c>Not configured</c> otherwise, and safe provider errors instead of fabricated success.
-/// Live sending requires an Africa's Talking username + API key in configuration; the adapter
-/// builds and unit-tests without any credentials or network access.
+/// Live sending requires an Africa's Talking username + API key; the adapter builds and
+/// unit-tests without any credentials or network access. Takes AfricasTalkingOptions directly
+/// (not the full InfrastructureOptions) so it is trivially constructible either from deployment
+/// env-var configuration or from a tenant's decrypted IntegrationConnection settings, see
+/// SmsProviderFactory, the seam both paths go through.
 /// </summary>
 public sealed class AfricasTalkingSmsProvider(
-    InfrastructureOptions options,
+    AfricasTalkingOptions settings,
+    bool autoSendTransactionalSmsEnabled,
     ILogger<AfricasTalkingSmsProvider> logger,
     HttpClient? httpClient = null) : ISmsProvider
 {
@@ -26,9 +30,9 @@ public sealed class AfricasTalkingSmsProvider(
         CancellationToken cancellationToken = default)
     {
         // Human-supervised boundary: a customer-facing SMS must not leave the platform unless a
-        // human has approved it — or it is a low-risk, non-consequential transactional message and
+        // human has approved it, or it is a low-risk, non-consequential transactional message and
         // the tenant has opted into transactional auto-send. See OutboundSmsGuard.
-        if (!OutboundSmsGuard.IsDispatchPermitted(request, options.AfricasTalking.AutoSendTransactionalSmsEnabled))
+        if (!OutboundSmsGuard.IsDispatchPermitted(request, autoSendTransactionalSmsEnabled))
         {
             logger.LogInformation(
                 "Outbound SMS blocked pending human approval. CaseId={CaseId} CorrelationId={CorrelationId}",
@@ -40,7 +44,6 @@ public sealed class AfricasTalkingSmsProvider(
                 "This SMS requires human approval before it can be sent.");
         }
 
-        var settings = options.AfricasTalking;
         if (string.IsNullOrWhiteSpace(settings.Username) || string.IsNullOrWhiteSpace(settings.ApiKey))
         {
             return new CommunicationSendResult(
@@ -149,14 +152,14 @@ public sealed class AfricasTalkingSmsProvider(
 }
 
 /// <summary>
-/// Human-supervised send policy for outbound customer SMS (tiered — see
+/// Human-supervised send policy for outbound customer SMS (tiered, see
 /// docs/research/sms-auto-send-policy.md, grounded in Uganda's Data Protection and Privacy Act 2019,
 /// the UCC Text &amp; Multimedia Messaging Regulations 2019, and AGENTS.md §4/§16).
 ///
 /// A message may leave the platform when EITHER:
 ///  - a human has explicitly approved it (<c>request.Approved</c>); or
 ///  - it is low-risk / non-consequential (<c>request.LowRisk</c>, set upstream to
-///    <c>!RequiresApproval</c> — i.e. a transactional status notice, not a claim decision) AND the
+///    <c>!RequiresApproval</c>, i.e. a transactional status notice, not a claim decision) AND the
 ///    tenant has opted into transactional auto-send.
 ///
 /// Consequential messages (claim decisions, payouts, rejections, sensitive content) are never

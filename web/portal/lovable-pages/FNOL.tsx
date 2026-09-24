@@ -1,4 +1,5 @@
 "use client";
+import { claimReference, humanizeIdentifier, shortReference } from "@/lib/format";
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -15,13 +16,13 @@ import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 // Six-step FNOL intake (docs/03-design-architecture/iip_fnol_six_step_intake_design.md):
 // 1 Identify the claimant, 2 Find the policy, 3 Describe the incident, 4 Product-line specifics,
 // 5 Upload documents, 6 Review and submit. Four of the six positions are forced by real
-// dependencies, not a style choice — see the design doc §3. Product line is derived from the
+// dependencies, not a style choice, see the design doc §3. Product line is derived from the
 // policy lookup in step 2, with a manual fallback only if lookup fails, so an officer is never
 // asked a question the system could answer itself.
 //
-// WO-15 heritage: FNOL was hardcoded to Motor — a fixed productLine/claimType, motor-only fields,
+// WO-15 heritage: FNOL was hardcoded to Motor, a fixed productLine/claimType, motor-only fields,
 // and a hardcoded seven-item document list. The document checklist is never a client constant
-// (A1) — it's always fetched from GET /api/v1/document-checklist/preview, the same
+// (A1), it's always fetched from GET /api/v1/document-checklist/preview, the same
 // DocumentChecklistRules the rest of the platform uses once a case exists.
 
 type ProductLine = "Motor" | "Medical";
@@ -286,7 +287,7 @@ export default function FNOL() {
   const allMissing = [...step1Missing, ...step2Missing, ...step3Missing, ...step4Missing];
   const canSubmit = allMissing.length === 0 && !submitting;
   const canAdvance = stepMissing[step].length === 0;
-  // Live completeness against the same required-field counts that gate step advancement — not a
+  // Live completeness against the same required-field counts that gate step advancement, not a
   // separate invented metric. Steps 5-6 have no required fields of their own.
   const totalRequiredFields = 2 + 1 + 3 + (productLine === "Motor" ? 6 : 4);
   const completenessPercent = Math.round(((totalRequiredFields - allMissing.length) / totalRequiredFields) * 100);
@@ -349,7 +350,7 @@ export default function FNOL() {
 
       {handoffChannel && (form.customerName || form.customerContact || form.customerEmail) ? (
         <div className="mb-3 rounded-dls-control bg-dls-info-tint px-3 py-2 text-[12px] text-dls-info-text">
-          Pre-filled from the {handoffChannel} conversation — confirm the details below before continuing.
+          Pre-filled from the {handoffChannel} conversation, confirm the details below before continuing.
         </div>
       ) : null}
 
@@ -359,7 +360,7 @@ export default function FNOL() {
         <span>Claim completeness</span>
         <span className="font-semibold text-dls-text-primary">{completenessPercent}%</span>
       </div>
-      {/* Flat fill, not a gradient — design language §4.5 restricts gradients to the Assistant
+      {/* Flat fill, not a gradient, design language §4.5 restricts gradients to the Assistant
           orb and chart bars; a form-completion progress bar is neither. */}
       <div className="h-2 w-full overflow-hidden rounded-full bg-dls-bg-page">
         <div className="h-full rounded-full bg-dls-primary transition-[width] duration-300" style={{ width: `${completenessPercent}%` }} />
@@ -385,7 +386,7 @@ export default function FNOL() {
           )}
 
           {step === 2 && (
-            <StepSection icon={Search} title="Find the policy" sub="Product line and required fields below are derived from the policy — this is the only lookup step.">
+            <StepSection icon={Search} title="Find the policy" sub="Product line and required fields below are derived from the policy, this is the only lookup step.">
               <div className="flex flex-col items-end gap-2 sm:flex-row">
                 <div className="flex-1">
                   <Field
@@ -410,8 +411,8 @@ export default function FNOL() {
                   <div className="flex items-center gap-2 text-[13px] font-bold text-dls-text-primary"><Check className="h-4 w-4 text-dls-success-text" aria-hidden="true" /> Policy found</div>
                   <div className="mt-3 grid gap-x-4 gap-y-1.5 text-[12.5px] sm:grid-cols-2">
                     <SummaryRow label="Product line" value={lookup.result.productLine} />
-                    <SummaryRow label="Cover type" value={lookup.result.coverType ?? "—"} />
-                    <SummaryRow label="Policy holder on file" value={lookup.result.customerName ?? "—"} />
+                    <SummaryRow label="Cover type" value={lookup.result.coverType ?? "-"} />
+                    <SummaryRow label="Policy holder on file" value={lookup.result.customerName ?? "-"} />
                     <SummaryRow label="Cover status" value={lookup.result.isActive ? "Active" : "Not active for today's date"} warn={!lookup.result.isActive} />
                   </div>
                   {lookup.result.customerName && lookup.result.customerName.trim().toLowerCase() !== form.customerName.trim().toLowerCase() && (
@@ -428,12 +429,12 @@ export default function FNOL() {
                   <ul className="mt-2 space-y-1 text-[12px] text-dls-text-secondary">
                     {lookup.result.possibleDuplicateClaims.map((duplicate) => (
                       <li key={duplicate.caseId}>
-                        Claim <span className="font-mono">{duplicate.caseId.slice(0, 8)}</span> — {duplicate.status}
+                        <a href={`/app/claims/${duplicate.caseId}`} className="dls-focus-outline rounded-dls-tight font-semibold text-dls-primary hover:underline">Claim {claimReference(duplicate.caseId)}</a>, {humanizeIdentifier(duplicate.status).toLowerCase()}
                         {duplicate.incidentDate ? `, incident ${duplicate.incidentDate}` : ""}
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-1.5 text-[11.5px] text-dls-text-secondary">This does not block intake — confirm it&apos;s not the same incident before continuing.</div>
+                  <div className="mt-1.5 text-[11.5px] text-dls-text-secondary">This does not stop you continuing. Check it is not the same incident first.</div>
                 </div>
               )}
 
@@ -474,7 +475,7 @@ export default function FNOL() {
           )}
 
           {step === 3 && (
-            <StepSection icon={FileText} title="What happened?" sub="Claim type and a real description of the incident — this is what routing and, for motor, injury detection read.">
+            <StepSection icon={FileText} title="What happened?" sub="Claim type and a real description of the incident, this is what routing and, for motor, injury detection read.">
               <div className="grid gap-4 md:grid-cols-2">
                 <SelectField
                   label="Claim type"
@@ -502,7 +503,7 @@ export default function FNOL() {
           )}
 
           {step === 4 && (
-            <StepSection icon={FileText} title={`${productLine} details`} sub={`${productLine}-specific FNOL fields are persisted as structured case data.`}>
+            <StepSection icon={FileText} title={`${productLine} details`} sub={`Details specific to ${productLine.toLowerCase()} claims. These are saved with the claim.`}>
               <div className="grid gap-4 md:grid-cols-2">
                 {productLine === "Motor" ? (
                   <>
@@ -513,7 +514,7 @@ export default function FNOL() {
                     <Field label="Accident location" value={form.motor.accidentLocation} onChange={(value) => updateMotor("accidentLocation", value)} required />
                     <SelectField label="Third party involved" value={form.motor.thirdPartyInvolved} onChange={(value) => updateMotor("thirdPartyInvolved", value)} options={["Unknown", "No", "Yes"]} />
                     <div className="rounded-dls-card bg-dls-info-tint p-3 md:col-span-2">
-                      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-dls-info-text">Routing indicators — these change what happens next, not just what&apos;s on file</div>
+                      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-dls-info-text">Routing indicators, these change what happens next, not just what&apos;s on file</div>
                       <div className="grid gap-3 md:grid-cols-2">
                         <SelectField label="Injury indicator" value={form.motor.injuryIndicator} onChange={(value) => updateMotor("injuryIndicator", value)} options={["Unknown", "No injuries reported", "Injury reported"]} />
                         <SelectField label="Police report status" value={form.motor.policeReportStatus} onChange={(value) => updateMotor("policeReportStatus", value)} options={["Unknown", "Not available", "Requested", "Received"]} />
@@ -578,7 +579,7 @@ export default function FNOL() {
               )}
               <div className="mt-3 flex items-center gap-2 rounded-dls-control border border-dls-border-subtle bg-dls-bg-page px-3 py-2 text-[12.5px] text-dls-text-secondary">
                 <Upload className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                Document upload happens from the claim&apos;s document flow after the claim is created. A missing document does not block intake — it opens with a documented gap.
+                Document upload happens from the claim&apos;s document flow after the claim is created. A missing document does not block intake, it opens with a documented gap.
               </div>
             </StepSection>
           )}
@@ -617,7 +618,7 @@ export default function FNOL() {
                 </ReviewGroup>
                 {checklist && checklist.requiredDocuments.length > 0 && (
                   <div className="text-[12px] text-dls-text-secondary">
-                    {checklist.requiredDocuments.length} required document{checklist.requiredDocuments.length === 1 ? "" : "s"} — collected from the claim after creation.
+                    {checklist.requiredDocuments.length} required document{checklist.requiredDocuments.length === 1 ? "" : "s"}, collected from the claim after creation.
                   </div>
                 )}
               </div>
@@ -629,7 +630,7 @@ export default function FNOL() {
               Back
             </Button>
             {step < 6 ? (
-              // Trailing-icon "Next" — hand-styled to Button's primary variant (Button's `icon`
+              // Trailing-icon "Next", hand-styled to Button's primary variant (Button's `icon`
               // prop only renders leading; extending its API for this one call site isn't
               // warranted). Same Link-as-button precedent as ClaimsQueue, but a real <button>.
               <button
@@ -698,7 +699,7 @@ function StepRail({ step, onSelect, completed }: { step: number; onSelect: (n: n
                     : "border-transparent text-dls-text-muted hover:text-dls-text-secondary")
               }
             >
-              {/* A numbered step badge, not a tab — solid fill here is the conventional wizard-step
+              {/* A numbered step badge, not a tab, solid fill here is the conventional wizard-step
                   treatment, distinct from §8.11's tab-background rule this component otherwise
                   follows for its own pill background. */}
               <span
@@ -749,7 +750,7 @@ function SummaryRow({ label, value, warn = false }: { label: string; value: stri
   return (
     <div className="flex items-baseline justify-between gap-3 text-[12.5px]">
       <span className="shrink-0 text-dls-text-muted">{label}</span>
-      <span className={"text-right " + (warn ? "font-semibold text-dls-warning-text" : "text-dls-text-secondary")}>{value || "—"}</span>
+      <span className={"text-right " + (warn ? "font-semibold text-dls-warning-text" : "text-dls-text-secondary")}>{value || "-"}</span>
     </div>
   );
 }

@@ -11,13 +11,13 @@ namespace InsuranceIntelligence.Application.DemoSeeding;
 
 /// <summary>
 /// Builds a realistic, deeply varied demo dataset for a Ugandan composite insurer
-/// ("Nile Shield Assurance") spanning Motor, Medical, Life, General, and Agriculture —
+/// ("Nile Shield Assurance") spanning Motor, Medical, Life, General, and Agriculture,
 /// so a reviewer can see claims in every workflow state, with real Uganda-grounded
 /// premium bands, real per-line document checklists, and enough narrative detail for
 /// AI triage/summarisation to make credible, checkable inferences.
 ///
 /// Every record is written directly through the same repositories the real API uses
-/// (no shortcuts, no separate seed-only storage) — the only difference from normal API
+/// (no shortcuts, no separate seed-only storage), the only difference from normal API
 /// traffic is that CreatedAt/UpdatedAt/SlaDueAt are set explicitly here so the dataset
 /// can show genuine age and SLA variety, which CaseIntakeService's live "now" semantics
 /// cannot produce. This service must only ever run behind the Demo/local-profile gate
@@ -39,11 +39,11 @@ public sealed class DemoSeedService(
     /// <param name="assignedToUserId">
     /// Who the seeded work is currently assigned to. Defaults to <paramref name="seededByUserId"/>
     /// for callers that don't care, but offline/demo runs pass the identity the operator actually
-    /// signs in as — otherwise every seeded claim is owned by a synthetic id nobody signs in as, and
+    /// signs in as, otherwise every seeded claim is owned by a synthetic id nobody signs in as, and
     /// "My Work" (which filters on assignment) and the notification feed (which is per-recipient)
     /// both render empty on a freshly seeded workspace. Assignment is current state, so pointing it
     /// at the demo user is truthful; provenance fields (created-by, audit actor, who approved what)
-    /// deliberately stay on <paramref name="seededByUserId"/> — the system did seed them, and a demo
+    /// deliberately stay on <paramref name="seededByUserId"/>, the system did seed them, and a demo
     /// user must never appear in the audit trail as having taken an action they did not take.
     /// </param>
     public async Task<DemoSeedResult> SeedAsync(
@@ -312,7 +312,7 @@ public sealed class DemoSeedService(
     ];
 
     /// <summary>
-    /// Math.Round(decimal, int) only accepts 0-28 (decimal places after the point) — it has
+    /// Math.Round(decimal, int) only accepts 0-28 (decimal places after the point), it has
     /// no "round to the nearest power of 10" mode like some other rounding APIs. This is
     /// that mode, used throughout for tidy UGX figures (nearest 100/1,000/10,000).
     /// </summary>
@@ -349,7 +349,7 @@ public sealed class DemoSeedService(
     // ICustomerRepository all Guid.Parse() their string Id fields internally (the EF
     // implementations key the underlying table on a Guid column), even though the domain
     // contracts type them as plain string. Human-readable identifiers therefore cannot be
-    // used as the *Id* — Guid.NewGuid().ToString() is required there; readable codes still
+    // used as the *Id*, Guid.NewGuid().ToString() is required there; readable codes still
     // appear elsewhere (PolicyNumber, CustomerName) for anything actually shown in the UI.
     private static IReadOnlyList<Branch> BuildBranches(TenantScope scope) =>
         BranchDefinitions
@@ -384,6 +384,100 @@ public sealed class DemoSeedService(
         "Tumusiime", "Wanyama", "Kato", "Namuli", "Bwambale", "Kyomuhendo", "Atim", "Rukundo"
     ];
 
+    /// <summary>
+    /// Adds policyholders who hold an active policy and have never filed a claim, so the claimant
+    /// portal's first-claim journey can be demonstrated. The main seed gives every customer a claim,
+    /// which leaves nobody who could file a first one: the portal only offers "start a new claim" to
+    /// a verified policyholder with no claim on that policy.
+    ///
+    /// Safe to run more than once. Names and emails are derived from a fixed seed per slot, and a
+    /// policyholder whose email already exists is returned as it is rather than created again.
+    /// Must only run behind the same Demo gate as <see cref="SeedAsync"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<DemoPolicyholder>> SeedPolicyholdersWithoutClaimsAsync(
+        TenantScope scope,
+        int count,
+        CancellationToken cancellationToken)
+    {
+        count = Math.Clamp(count, 1, 5);
+        var existingCustomers = await customerRepository.ListAsync(scope, cancellationToken);
+        var existingPolicies = await policyRepository.ListAsync(scope, cancellationToken);
+
+        var branchId = existingPolicies
+            .Select(policy => policy.BranchId)
+            .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
+        if (branchId is null)
+        {
+            var branches = BuildBranches(scope);
+            foreach (var branch in branches)
+            {
+                await branchRepository.UpsertAsync(branch, cancellationToken);
+            }
+
+            branchId = branches[0].BranchId;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var results = new List<DemoPolicyholder>();
+
+        for (var slot = 0; slot < count; slot++)
+        {
+            var index = 900 + slot;
+            var rng = new Random(Seed + index);
+            var line = ProductLines[slot % ProductLines.Length];
+            var customer = BuildCustomer(scope, index, line, rng);
+
+            var existing = existingCustomers.FirstOrDefault(item =>
+                string.Equals(item.Email, customer.Email, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                var existingPolicy = existingPolicies.FirstOrDefault(policy => policy.CustomerId == existing.CustomerId);
+                if (existingPolicy is not null)
+                {
+                    results.Add(new DemoPolicyholder(existing.FullName, existing.Email ?? string.Empty, existing.Phone ?? string.Empty,
+                        existingPolicy.PolicyNumber, existingPolicy.ProductLine, Created: false));
+                    continue;
+                }
+
+                customer = existing;
+            }
+            else
+            {
+                await customerRepository.UpsertAsync(customer, cancellationToken);
+            }
+
+            // In force today, so the demonstration is of an ordinary claim, not an expired-cover edge case.
+            var effectiveFrom = today.AddDays(-45);
+            var policyId = Guid.NewGuid().ToString();
+            var policyNumber = $"NSA/{line.Name.ToUpperInvariant()[..2]}/{effectiveFrom.Year}/{index + 1:D5}";
+            var premium = line.PremiumFactory(rng);
+            var sumInsured = line.SumInsuredFactory(rng);
+            var coverType = line.CoverTypes[rng.Next(line.CoverTypes.Length)];
+
+            await policyRepository.UpsertAsync(
+                new Policy(
+                    policyId, scope.TenantId, scope.WorkspaceId, policyNumber, line.Name, coverType,
+                    customer.CustomerId, branchId, effectiveFrom, effectiveFrom.AddYears(1),
+                    premium, "UGX", sumInsured),
+                cancellationToken);
+
+            await coverageRepository.UpsertAsync(
+                new Coverage(
+                    Guid.NewGuid().ToString(), scope.TenantId, scope.WorkspaceId, policyId,
+                    $"{coverType}, {line.Name}",
+                    $"UGX {sumInsured:N0}",
+                    $"UGX {RoundToNearest(sumInsured * 0.02m, 1000m):N0}",
+                    line.Name == "Motor" ? "Insured vehicle" : line.Name == "Agriculture" ? "Insured crop/livestock" : "Insured risk",
+                    $"{coverType} cover under the {line.Name} product line, sum insured UGX {sumInsured:N0}, annual premium UGX {premium:N0}."),
+                cancellationToken);
+
+            results.Add(new DemoPolicyholder(customer.FullName, customer.Email ?? string.Empty, customer.Phone ?? string.Empty,
+                policyNumber, line.Name, Created: true));
+        }
+
+        return results;
+    }
+
     private static Customer BuildCustomer(TenantScope scope, int index, ProductLineTemplate line, Random rng)
     {
         var first = FirstNames[rng.Next(FirstNames.Length)];
@@ -411,7 +505,7 @@ public sealed class DemoSeedService(
 
         var coverage = new Coverage(
             Guid.NewGuid().ToString(), scope.TenantId, scope.WorkspaceId, policyId,
-            $"{coverType} — {line.Name}",
+            $"{coverType}, {line.Name}",
             $"UGX {sumInsured:N0}",
             $"UGX {RoundToNearest(sumInsured * 0.02m, 1000m):N0}",
             line.Name == "Motor" ? "Insured vehicle" : line.Name == "Agriculture" ? "Insured crop/livestock" : "Insured risk",
@@ -642,7 +736,7 @@ public sealed class DemoSeedService(
             RequestedByUserId = "system:agent-workflow-worker",
             // Decided approvals keep the seeder as the decider (never attribute a decision to a demo
             // operator who did not make it). Undecided ones are current state, not history: some are
-            // picked up by the assignee, the rest stay in the unassigned team queue — so both "Mine"
+            // picked up by the assignee, the rest stay in the unassigned team queue, so both "Mine"
             // and "Unassigned" in My Work have something real to show on a freshly seeded workspace.
             ReviewerUserId = isDecided ? userId : assignToReviewer ? assignee : null,
             Decision = isDecided ? ApprovalDecision.Approved : null,
@@ -657,6 +751,9 @@ public sealed class DemoSeedService(
         };
     }
 }
+
+/// <summary>A demonstration policyholder with an active policy and no claim, and whether this run created it.</summary>
+public sealed record DemoPolicyholder(string FullName, string Email, string Phone, string PolicyNumber, string ProductLine, bool Created);
 
 public sealed record DemoSeedResult(
     string InsurerName,

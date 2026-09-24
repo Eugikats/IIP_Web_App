@@ -162,7 +162,7 @@ public static class ClaimsController
             return true;
         }
 
-        // Deployed (Entra) mode: the per-request middleware is the sole authority — it resolves the
+        // Deployed (Entra) mode: the per-request middleware is the sole authority, it resolves the
         // TenantContext from IIP's membership store (ADR-0005). Defer to it; never re-derive scope
         // from the token tid/headers here. Fail closed if the middleware resolved no membership.
         if (!options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))

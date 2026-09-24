@@ -10,6 +10,11 @@ export type { KnowledgeSensitivity };
 
 export type ActionState = { action: string; label: string; requiredPermission: string; reason: string | null };
 
+// WO 7.4: per-document chunk preview, the backend has always built and returned this (
+// KnowledgeDocumentDetailResponse.Chunks, via KnowledgeMapper.ToDetailResponse); the gap was that
+// nothing in the portal fetched or rendered it.
+export type KnowledgeChunkView = { chunkId: string; chunkIndex: number; excerpt: string; sourceLabel: string };
+
 export type KnowledgeDocView = {
   id: string;
   title: string;
@@ -84,8 +89,8 @@ function mapDto(dto: KnowledgeDocDto): KnowledgeDocView {
     sensitivity,
     status: mapStatus(dto.approvalStatus),
     retrievalEligible: dto.approvalStatus === "Approved" && dto.indexedStatus === "Indexed" && sensitivity !== "unknown",
-    updated: Number.isNaN(Date.parse(dto.updatedAt)) ? "—" : new Date(dto.updatedAt).toLocaleDateString(),
-    owner: "—",
+    updated: Number.isNaN(Date.parse(dto.updatedAt)) ? "-" : new Date(dto.updatedAt).toLocaleDateString(),
+    owner: "-",
     governanceReason: dto.governanceReason,
     allowedActions: dto.allowedActions ?? [],
     blockedActions: dto.blockedActions ?? [],
@@ -168,7 +173,7 @@ export function useKnowledgeDocs() {
 
   // Sets or corrects sensitivity on a document that is already Approved, without touching
   // approval state. This is the only governed path back for a document approved before
-  // sensitivity classification existed — retrievalEligible is false for those (sensitivity
+  // sensitivity classification existed, retrievalEligible is false for those (sensitivity
   // "unknown") even though status reads Approved, and approve() refuses to run again on an
   // already-approved document.
   const classify = useCallback(async (
@@ -206,5 +211,21 @@ export function useKnowledgeDocs() {
     return { ok: true, indexedCount: body.indexedDocumentCount };
   }, [role, load]);
 
-  return { docs, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, upload, approve, classify, archive, reindex, reload: load };
+  // Fetched on demand (not with the list), the list endpoint intentionally stays light; a
+  // document's full chunk text is only pulled when someone actually opens the preview.
+  const loadChunks = useCallback(async (id: string): Promise<{ ok: boolean; chunks?: KnowledgeChunkView[]; message?: string }> => {
+    if (LOVABLE_VISUAL_PARITY_MODE) {
+      return { ok: true, chunks: [] };
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/knowledge-documents/${encodeURIComponent(id)}`, { headers: scopedHeaders(role, "") });
+      if (!response.ok) return { ok: false, message: await readSafeApiError(response, "Could not load the chunk preview.") };
+      const body = (await response.json()) as { chunks: KnowledgeChunkView[] };
+      return { ok: true, chunks: body.chunks ?? [] };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Could not load the chunk preview." };
+    }
+  }, [role]);
+
+  return { docs, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, upload, approve, classify, archive, reindex, loadChunks, reload: load };
 }

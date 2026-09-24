@@ -11,7 +11,7 @@ public enum CaseReviewSignalCategory
 
 /// <summary>
 /// One LLM-drafted observation surfaced during case review. Advisory only: never a fraud or
-/// underwriting determination (AGENTS.md invariant — AI must not make adverse underwriting or
+/// underwriting determination (AGENTS.md invariant, AI must not make adverse underwriting or
 /// fraud determinations). A human reviewer decides what, if anything, to do about it. This is
 /// deliberately not the same thing as <see cref="InsuranceIntelligence.Domain.Fraud.FraudRuleEngine"/>,
 /// which stays the deterministic, rule-based fraud-signal path; this is the narrower, LLM-only
@@ -22,7 +22,7 @@ public sealed record CaseReviewSignal(CaseReviewSignalCategory Category, string 
 /// <summary>
 /// A persisted case-review summary: the AI-generated claim overview plus any fraud/underwriting
 /// signals produced in the same pass, scanned by a human reviewer before the claim moves to
-/// approval. Never itself a decision and never gates claim progression — see
+/// approval. Never itself a decision and never gates claim progression, see
 /// docs on the governed claim path (FNOL -> evidence intake -> assignment -> review -> approval).
 /// </summary>
 public sealed record CaseReviewSummary

@@ -6,7 +6,7 @@ namespace InsuranceIntelligence.Domain.ClientPortal;
 /// <summary>
 /// A short-lived, single-use credential sent to a claimant's email or phone so they can access
 /// their own claim without a platform account. Only the SHA-256 hash of the token is ever
-/// persisted — the raw value exists only in the outbound message and the claimant's browser, the
+/// persisted, the raw value exists only in the outbound message and the claimant's browser, the
 /// same way a password reset token would be handled. Redeeming a valid token issues a
 /// <see cref="ClaimantPortalSession"/>; the magic link itself is never reused as a bearer
 /// credential (a mail-scanning bot or link-preview fetch would otherwise burn a claimant's only
@@ -18,16 +18,16 @@ public sealed record ClaimantMagicLinkToken
     public required TenantScope Scope { get; init; }
 
     /// <summary>Null means this token authenticates a verified policyholder who has no claim yet
-    /// — redeeming it issues a session that can only be used to submit a new claim on
+    ///, redeeming it issues a session that can only be used to submit a new claim on
     /// <see cref="PolicyNumber"/>, never to read or modify anyone's existing case.</summary>
     public Guid? CaseId { get; init; }
 
-    /// <summary>The policy this token was verified against. Always set — even for an
-    /// existing-case token — so redemption can re-verify identity independently of the case
+    /// <summary>The policy this token was verified against. Always set, even for an
+    /// existing-case token, so redemption can re-verify identity independently of the case
     /// record.</summary>
     public required string PolicyNumber { get; init; }
 
-    /// <summary>The normalized email or phone the token was issued to — checked again at
+    /// <summary>The normalized email or phone the token was issued to, checked again at
     /// redemption so a token can never authenticate a different contact channel than it was sent
     /// to.</summary>
     public required string ContactValue { get; init; }
@@ -38,12 +38,20 @@ public sealed record ClaimantMagicLinkToken
     public required DateTimeOffset CreatedAt { get; init; }
     public required string CorrelationId { get; init; }
 
+    /// <summary>What actually happened when this token's link was sent, "Sent", "Failed", or
+    /// "ConfigurationRequired". Never shown to the anonymous requester (the endpoint's response is
+    /// deliberately identical either way, to preserve anti-enumeration); it exists so a failure is
+    /// visible somewhere, logs, and here for future support tooling, instead of silently
+    /// discarded. See ClaimantAuthenticationEndpoints.IssueAndSendAsync.</summary>
+    public string? DeliveryStatus { get; init; }
+    public string? DeliverySafeError { get; init; }
+
     public bool IsRedeemableAt(DateTimeOffset now) => ConsumedAt is null && now < ExpiresAt;
 }
 
 /// <summary>
 /// The credential a claimant's browser holds after redeeming a magic link. Scoped to exactly one
-/// case — a session for one claim never grants access to another, even for the same contact
+/// case, a session for one claim never grants access to another, even for the same contact
 /// value, so a compromised session has the smallest possible blast radius. A session with no
 /// <see cref="CaseId"/> yet can only submit a new claim on <see cref="PolicyNumber"/>; once that
 /// claim exists the session is upgraded in place (see ClaimantAuthenticationEndpoints.CreateClaim)
@@ -104,7 +112,7 @@ public interface IClaimantPortalSessionRepository
 }
 
 /// <summary>
-/// Generates opaque bearer tokens and hashes them for storage. Never persist a raw token — only
+/// Generates opaque bearer tokens and hashes them for storage. Never persist a raw token, only
 /// its hash, so a database read (backup, replica, insider) can never be replayed as a live
 /// credential.
 /// </summary>

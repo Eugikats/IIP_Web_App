@@ -14,6 +14,11 @@ import { documentContractLabel, type DocumentItem } from "@/lib/documentContract
 import { useDocumentExtraction } from "@/lib/documentExtraction";
 import { isValidWorkReference } from "@/lib/workItemLinks";
 
+// Mirrors InsuranceIntelligence.Domain.Documents.DocumentType exactly. There is no tenant-custom
+// classification yet (build prompt outcome K defers it, an open-ended taxonomy needs its own
+// architectural slice), so this is the platform's fixed set, not fetched from an endpoint.
+const DOCUMENT_TYPES = ["ClaimForm", "PoliceAbstract", "Invoice", "MedicalReport", "PhotoEvidence", "CustomerId", "GarageEstimate", "Unknown"];
+
 export default function DocumentExtraction() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -21,11 +26,13 @@ export default function DocumentExtraction() {
   const requestedDocumentId = searchParams.get("documentId");
   const validCaseId = isValidWorkReference(caseId, "CLM");
   const validDocumentId = isValidWorkReference(requestedDocumentId, "DOC");
-  const { documents, loading, error, errorKind, load, correctField, approve, preview } = useDocumentExtraction(validCaseId ? caseId : "");
+  const { documents, loading, error, errorKind, load, correctField, approve, reclassify, preview } = useDocumentExtraction(validCaseId ? caseId : "");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [auditReason, setAuditReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reclassifyBusy, setReclassifyBusy] = useState(false);
+  const [pendingType, setPendingType] = useState("");
   const [compactPanel, setCompactPanel] = useState<"review" | "source">("review");
   const sourcePanelRef = useRef<HTMLDivElement>(null);
   const reviewPanelRef = useRef<HTMLDivElement>(null);
@@ -42,6 +49,7 @@ export default function DocumentExtraction() {
   useEffect(() => {
     setValues(Object.fromEntries((selected?.fields ?? []).map((field) => [field.name, field.effectiveValue])));
     setAuditReason("");
+    setPendingType(selected?.documentType ?? "");
   }, [selected]);
 
   useEffect(() => {
@@ -71,6 +79,14 @@ export default function DocumentExtraction() {
     }
     setBusy(false);
     toast.success(`${dirtyFields.length} field correction${dirtyFields.length === 1 ? "" : "s"} saved and audited.`);
+  }
+
+  async function reclassifyDocument() {
+    if (!selected || pendingType === selected.documentType) return;
+    setReclassifyBusy(true);
+    const result = await reclassify(selected.documentId, pendingType, auditReason.trim());
+    setReclassifyBusy(false);
+    result.ok ? toast.success(`Reclassified as ${documentContractLabel(pendingType)}.`) : toast.error(result.message);
   }
 
   async function approveExtraction() {
@@ -161,13 +177,31 @@ export default function DocumentExtraction() {
             <div className="min-h-[560px] overflow-hidden rounded-dls-card border border-dls-border-subtle bg-dls-bg-page">
               {previewState.url && previewState.contentType?.startsWith("image/") ? <img src={previewState.url} alt={`Authorized preview of ${selected.originalFileName}`} className="mx-auto max-h-[760px] w-full object-contain" /> : null}
               {previewState.url && previewState.contentType === "application/pdf" ? <iframe title={`Authorized preview of ${selected.originalFileName}`} src={previewState.url} className="h-[680px] w-full bg-dls-surface" /> : null}
-              {!previewState.url ? <div className="grid min-h-[560px] place-items-center p-8 text-center"><div><FileText className="mx-auto h-8 w-8 text-dls-text-muted" aria-hidden="true" /><div className="mt-3 text-[13px] font-bold text-dls-text-primary">{previewState.error ? "Source preview unavailable" : "Loading authorized source preview…"}</div><div className="mt-1 max-w-md text-[11.5px] leading-5 text-dls-text-muted">{previewState.error ?? "The preview is loaded through the tenant-scoped document-content endpoint."}</div></div></div> : null}
+              {!previewState.url ? <div className="grid min-h-[560px] place-items-center p-8 text-center"><div><FileText className="mx-auto h-8 w-8 text-dls-text-muted" aria-hidden="true" /><div className="mt-3 text-[13px] font-bold text-dls-text-primary">{previewState.error ? "Source preview unavailable" : "Loading authorized source preview…"}</div><div className="mt-1 max-w-md text-[11.5px] leading-5 text-dls-text-muted">{previewState.error ?? "This preview comes from your own workspace’s documents."}</div></div></div> : null}
             </div>
             <div className="mt-3 flex items-start gap-2 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3 text-[11.5px] leading-5 text-dls-text-muted"><ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dls-info-text" aria-hidden="true" /> Source-coordinate highlighting will appear when the configured extraction provider returns page geometry. IIP does not invent coordinates when they are absent.</div>
           </GlassCard>
           </div>
 
           <div id="evidence-review-panel" data-testid="evidence-review-panel" role="tabpanel" aria-labelledby="review-fields-tab" ref={reviewPanelRef} tabIndex={-1} className={`${compactPanel === "review" ? "block" : "hidden"} min-w-0 max-h-[calc(100dvh-12rem)] space-y-4 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] focus:outline-none xl:block xl:max-h-none xl:overflow-visible xl:pb-0`}>
+            <GlassCard>
+              <div className="mb-3 flex items-center justify-between"><div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Document type</div><ConfidenceBadge value={selected.confidenceScore} /></div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select aria-label="Document type" value={pendingType} onChange={(event) => setPendingType(event.target.value)} disabled={!allowed("reclassifyDocument")} className="max-w-[220px]">
+                  {DOCUMENT_TYPES.map((type) => <option key={type} value={type}>{documentContractLabel(type)}</option>)}
+                </Select>
+                <Button
+                  variant="secondary"
+                  icon={reclassifyBusy ? <Loader2 className="animate-spin" /> : undefined}
+                  disabled={reclassifyBusy || pendingType === selected.documentType || !allowed("reclassifyDocument")}
+                  onClick={() => void reclassifyDocument()}
+                >
+                  Reclassify
+                </Button>
+              </div>
+              {!allowed("reclassifyDocument") && blockedReason("reclassifyDocument") ? <div className="mt-2 text-[11px] text-dls-text-muted">Reclassification unavailable: {blockedReason("reclassifyDocument")}</div> : null}
+            </GlassCard>
+
             <GlassCard>
               <div className="mb-3 flex items-center justify-between"><div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Extracted fields · {selected.fields.length}</div>{dirtyFields.length > 0 ? <Badge tone="warning">{dirtyFields.length} unsaved</Badge> : <Badge tone="success">Values synchronized</Badge>}</div>
               <div className="max-h-[560px] space-y-2.5 overflow-y-auto pr-1">
@@ -180,7 +214,7 @@ export default function DocumentExtraction() {
               </div>
             </GlassCard>
 
-            {selected.validationWarnings.length > 0 ? <GlassCard><div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Document warnings</div><div className="mt-3 space-y-2">{selected.validationWarnings.map((warning) => <div key={warning.code} className="flex items-start gap-2 rounded-dls-card bg-dls-warning-tint p-3 text-[11.5px] text-dls-warning-text"><TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" /><div><div>{warning.fieldName ? <span className="font-bold">{warning.fieldName}: </span> : null}{warning.message}</div>{warning.expectedValue || warning.observedValue ? <div className="mt-0.5 text-[10.5px] text-dls-text-muted">{warning.expectedValue ? <>Expected {warning.expectedValue}</> : null}{warning.expectedValue && warning.observedValue ? " — " : null}{warning.observedValue ? <>Found &ldquo;{warning.observedValue}&rdquo;</> : null}</div> : null}</div></div>)}</div></GlassCard> : null}
+            {selected.validationWarnings.length > 0 ? <GlassCard><div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Document warnings</div><div className="mt-3 space-y-2">{selected.validationWarnings.map((warning) => <div key={warning.code} className="flex items-start gap-2 rounded-dls-card bg-dls-warning-tint p-3 text-[11.5px] text-dls-warning-text"><TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" /><div><div>{warning.fieldName ? <span className="font-bold">{warning.fieldName}: </span> : null}{warning.message}</div>{warning.expectedValue || warning.observedValue ? <div className="mt-0.5 text-[10.5px] text-dls-text-muted">{warning.expectedValue ? <>Expected {warning.expectedValue}</> : null}{warning.expectedValue && warning.observedValue ? ", " : null}{warning.observedValue ? <>Found &ldquo;{warning.observedValue}&rdquo;</> : null}</div> : null}</div></div>)}</div></GlassCard> : null}
 
             <GlassCard>
               <Field label="Review reason">

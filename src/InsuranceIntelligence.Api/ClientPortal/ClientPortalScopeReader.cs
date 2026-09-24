@@ -1,19 +1,25 @@
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Infrastructure.Configuration;
 
 namespace InsuranceIntelligence.Api.ClientPortal;
 
 /// <summary>
-/// Resolves tenant scope for claimant-facing endpoints from plain X-Tenant-Id/X-Workspace-Id
-/// headers, regardless of AuthMode. Unlike <see cref="InsuranceIntelligence.Api.Common.TenantScopeReader"/>
-/// (used for staff routes), this never requires an authenticated Entra principal — a claimant
-/// reaching the portal through a magic link is never an Entra tenant member and so can never carry
-/// the claims TenantScopeReader requires outside Development.
+/// Resolves tenant scope for claimant-facing endpoints. A claimant reaching the portal through a
+/// magic link is never an Entra tenant member, so this can never rely on the claims
+/// <see cref="InsuranceIntelligence.Api.Common.TenantScopeReader"/> requires for staff routes.
 ///
-/// This is safe: knowing a tenant/workspace id alone grants no access to any case. Every
-/// claimant-facing route beyond magic-link issuance is gated by a verified
-/// <see cref="InsuranceIntelligence.Domain.ClientPortal.ClaimantPortalSession"/>
-/// (see <see cref="ClaimantSessionEndpointFilter"/>), and issuance itself never discloses whether
-/// a case exists in the requested tenant/workspace.
+/// Outside Development the scope is pinned to this deployment's own configured tenant and
+/// workspace. The browser may still send X-Tenant-Id and X-Workspace-Id, but they are only
+/// accepted when they name this deployment; a request naming any other insurer is refused. That is
+/// what makes it safe for <see cref="InsuranceIntelligence.Api.Auth.RuntimeHeaderGuard"/> to let
+/// those two headers through on client-portal routes: they can confirm the scope, never choose it.
+/// Before this, the guard rejected the headers outright while this reader required them, so the
+/// claimant portal could not issue a single link under Entra auth.
+///
+/// In Development, where there is no pinned deployment scope, the headers are used as sent.
+/// Knowing a tenant id alone still grants no access to any case: every claimant route past link
+/// issuance needs a verified <see cref="InsuranceIntelligence.Domain.ClientPortal.ClaimantPortalSession"/>
+/// (see <see cref="ClaimantSessionEndpointFilter"/>), and issuance never discloses whether a case exists.
 /// </summary>
 public static class ClientPortalScopeReader
 {
@@ -21,6 +27,27 @@ public static class ClientPortalScopeReader
     {
         var tenantId = ReadHeader(httpContext, "X-Tenant-Id");
         var workspaceId = ReadHeader(httpContext, "X-Workspace-Id");
+
+        var options = httpContext.RequestServices?.GetService(typeof(InfrastructureOptions)) as InfrastructureOptions;
+        var pinned = options is not null
+            && !options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(options.TenantId)
+            && !string.IsNullOrWhiteSpace(options.WorkspaceId);
+
+        if (pinned)
+        {
+            var namesAnotherTenant = tenantId is not null && !string.Equals(tenantId, options!.TenantId, StringComparison.OrdinalIgnoreCase);
+            var namesAnotherWorkspace = workspaceId is not null && !string.Equals(workspaceId, options!.WorkspaceId, StringComparison.OrdinalIgnoreCase);
+            if (namesAnotherTenant || namesAnotherWorkspace)
+            {
+                scope = new TenantScope(string.Empty, string.Empty);
+                validationError = "This claim portal belongs to a different insurer.";
+                return false;
+            }
+
+            tenantId = options!.TenantId;
+            workspaceId = options.WorkspaceId;
+        }
 
         try
         {

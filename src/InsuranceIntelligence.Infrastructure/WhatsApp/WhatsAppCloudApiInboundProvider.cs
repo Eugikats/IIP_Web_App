@@ -156,7 +156,7 @@ public sealed class WhatsAppCloudApiInboundProvider(
         [property: System.Text.Json.Serialization.JsonPropertyName("id")] string? Id);
 }
 
-/// <summary>Honest not-configured fallback — never fabricates inbound WhatsApp traffic.</summary>
+/// <summary>Honest not-configured fallback, never fabricates inbound WhatsApp traffic.</summary>
 public sealed class DisabledWhatsAppInboundProvider : IWhatsAppInboundProvider
 {
     public bool IsConfigured => false;

@@ -110,7 +110,7 @@ public sealed class WhatsAppInboundDocumentIngestionService(
                         Channel: "WhatsApp",
                         IncidentDate: DateOnly.FromDateTime(message.ReceivedAt.UtcDateTime.Date),
                         IncidentDescription: string.IsNullOrWhiteSpace(message.Caption)
-                            ? "Reported via WhatsApp — no description provided; documents attached for review."
+                            ? "Reported via WhatsApp, no description provided; documents attached for review."
                             : message.Caption!,
                         CreatedByUserId: actor,
                         CorrelationId: $"whatsapp-{message.ProviderMessageId}",

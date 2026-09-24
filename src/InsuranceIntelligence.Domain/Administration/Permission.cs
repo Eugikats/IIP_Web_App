@@ -34,5 +34,6 @@ public enum Permission
     ManageAgentWorkflows,
     ReviewAgentWorkItems,
     ViewBilling,
-    ManageTenantOnboarding
+    ManageTenantOnboarding,
+    ManageProducts
 }

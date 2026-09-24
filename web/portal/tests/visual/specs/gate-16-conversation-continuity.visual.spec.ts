@@ -35,7 +35,7 @@ test("Gate 16 archive is reversible and is not deletion", async ({ page }) => {
 test("Gate 16 preserves a safe unsent draft through interruption", async ({ page }) => {
   const href = "/app/conversations/11111111-1111-4111-8111-111111111111";
   await page.goto(href);
-  const composer = page.getByPlaceholder("Ask IIP anything — claims, documents, customers, policies, workflows…");
+  const composer = page.getByPlaceholder("Ask IIP anything, claims, documents, customers, policies, workflows…");
   await composer.fill("Check the updated police report before continuing");
   await page.reload();
   await expect(composer).toHaveValue("Check the updated police report before continuing");

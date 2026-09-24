@@ -1,4 +1,4 @@
-// Design language v2 §8.7 — the single most important consistency rule in the product: status is
+// Design language v2 §8.7, the single most important consistency rule in the product: status is
 // a neutral pill + a 6px coloured dot + a word. The text is never coloured, the pill is never
 // tinted (the one exception is the "positive confirmation of a configured capability" variant).
 import { cn } from "@/lib/utils";
@@ -16,7 +16,7 @@ const dotClass: Record<PillTone, string> = {
 export interface StatusPillProps {
   tone: PillTone;
   label: string;
-  /** The one permitted tinted variant — a positive confirmation of a configured capability. */
+  /** The one permitted tinted variant, a positive confirmation of a configured capability. */
   confirmed?: boolean;
   className?: string;
 }
