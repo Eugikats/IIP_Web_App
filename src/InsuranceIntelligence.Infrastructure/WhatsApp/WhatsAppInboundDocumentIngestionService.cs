@@ -25,13 +25,17 @@ public sealed class WhatsAppInboundDocumentIngestionService(
     IAuditRepository auditRepository,
     ILogger<WhatsAppInboundDocumentIngestionService> logger)
 {
+    // Same system-actor string WhatsAppMessagingService.WriteIntegrationAuditAsync already uses
+    // for this exact unauthenticated integration path, reused rather than inventing a second one.
+    private const string SystemActorId = "system:whatsapp-webhook";
+
     public async Task<WhatsAppIngestionResult> IngestWebhookPayloadAsync(
         ReadOnlyMemory<byte> rawBody,
         string? signatureHeader,
         CancellationToken cancellationToken = default)
     {
-        if (!whatsAppProvider.IsConfigured
-            || !options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase))
+        var settings = settingsProvider.Current;
+        if (!whatsAppProvider.IsConfigured || !WhatsAppChannelProviderSupport.IsLive(options, settings))
         {
             return new WhatsAppIngestionResult(
                 "ConfigurationRequired",
@@ -47,15 +51,14 @@ public sealed class WhatsAppInboundDocumentIngestionService(
             return new WhatsAppIngestionResult("InvalidSignature", 0, 0, 0, "Webhook signature was invalid.");
         }
 
-        var settings = settingsProvider.Current;
-        if (settings is null || string.IsNullOrWhiteSpace(settings.IntegrationUserId))
+        if (settings is null)
         {
             return new WhatsAppIngestionResult(
                 "ConfigurationRequired",
                 0,
                 0,
                 0,
-                "WhatsApp channel mapping (tenant/workspace/integration user) is not configured.");
+                "WhatsApp channel mapping (tenant/workspace) is not configured.");
         }
 
         var json = System.Text.Encoding.UTF8.GetString(rawBody.Span);
@@ -67,7 +70,12 @@ public sealed class WhatsAppInboundDocumentIngestionService(
 
         var expectedPhoneNumberId = settings.PhoneNumberId;
         var scope = TenantScope.Create(settings.TenantId, settings.WorkspaceId);
-        var actor = settings.IntegrationUserId!;
+        // IntegrationUserId attributes a document upload to a real staff account for audit; it is
+        // an optional deployment-level refinement, not a precondition for the channel to work at
+        // all. A tenant that connects WhatsApp from the settings screen has set nothing like it
+        // (there is no field for it on that screen), and this used to reject every single message,
+        // text included, until an operator learned of an env var no UI ever mentioned.
+        var actor = string.IsNullOrWhiteSpace(settings.IntegrationUserId) ? SystemActorId : settings.IntegrationUserId!;
         var documentsStored = 0;
         var manualReview = 0;
 

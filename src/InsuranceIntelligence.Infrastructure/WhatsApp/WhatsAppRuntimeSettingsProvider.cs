@@ -129,3 +129,22 @@ public sealed class WhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsPr
             "EnvironmentConfigured");
     }
 }
+
+/// <summary>
+/// Whether the WhatsApp channel is actually live right now: either the deployment itself selected
+/// WhatsAppCloudApi, or a tenant validated and saved a connection from the settings screen. The
+/// two call sites this backs (webhook message/media ingestion, attachment download) previously
+/// checked only the deployment's env var, so a tenant-saved connection could show "Verified" and
+/// register its webhook successfully, while every real message Meta then delivered was still
+/// rejected "ConfigurationRequired" (found live 2026-09-25: the GET verification passed, every
+/// POST 503'd). That contradicted the documented design of this registration (see
+/// InfrastructureRegistration.cs's comment: the real providers are registered unconditionally so a
+/// validated connection is live without a deployment change) and the health endpoint's own,
+/// separately-fixed check.
+/// </summary>
+public static class WhatsAppChannelProviderSupport
+{
+    public static bool IsLive(InfrastructureOptions options, WhatsAppEffectiveSettings? settings) =>
+        options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(settings?.Source, "TenantConfigured", StringComparison.Ordinal);
+}
