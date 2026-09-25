@@ -34,3 +34,9 @@ Thumbs.db
 .local/
 **/.local/
 **/artifacts/
+
+# Local-language translation model and its Flutter reference code. The GGUF
+# weights (about 640 MB) exceed GitHub's 100 MB limit; the model is fetched
+# from blob storage at deploy time, never committed.
+languages/
+*.gguf
