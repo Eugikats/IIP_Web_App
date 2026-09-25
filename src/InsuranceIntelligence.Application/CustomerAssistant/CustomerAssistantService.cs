@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using InsuranceIntelligence.Application.Agents;
+using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.WhatsApp;
@@ -128,7 +129,14 @@ public sealed class CustomerAssistantService(
             return;
         }
 
-        var intent = intentClassifier.Classify(text);
+        // One step of conversational memory: if the assistant's last message in this thread asked
+        // for a policy number, a reply that is just that number continues the same request.
+        var previousTurn = (await conversationRepository.ListForThreadAsync(scope, threadId, cancellationToken))
+            .OrderByDescending(turn => turn.OccurredAt)
+            .FirstOrDefault();
+        var continuation = ConversationContinuation.Resolve(
+            intentClassifier.Classify(text), ExtractPolicyNumber(text) is not null, previousTurn, DateTimeOffset.UtcNow);
+        var intent = continuation.Intent;
 
         // WO 6.1 capture point: the customer messaging first is the real basis every hardcoded
         // "customer_initiated_conversation" string in this codebase was standing in for, record
@@ -152,10 +160,12 @@ public sealed class CustomerAssistantService(
         var (rawReply, outcome, citations, caseId, leadId) = intent switch
         {
             CustomerIntent.GeneralQuestion => await HandleGeneralQuestionAsync(scope, text, waId, correlationId, autoReplyEnabled, cancellationToken),
-            CustomerIntent.NewClaim => await HandleNewClaimAsync(scope, text, waId, inbound.BusinessPhoneNumberId, correlationId, cancellationToken),
+            CustomerIntent.NewClaim => await HandleNewClaimAsync(scope, text, continuation.EarlierMessageText, waId, correlationId, cancellationToken),
             CustomerIntent.ExistingClaimStatus => await HandleExistingClaimStatusAsync(scope, text, waId, cancellationToken),
             CustomerIntent.ProductInterest => await HandleProductInterestAsync(scope, text, waId, correlationId, cancellationToken),
             CustomerIntent.HumanRequested => await HandleHumanRequestedAsync(scope, text, waId, correlationId, cancellationToken),
+            _ when ConversationContinuation.IsGreeting(text) =>
+                (WelcomeMessage, CustomerAssistantOutcome.AwaitingMoreInformation, Array.Empty<string>(), (Guid?)null, (string?)null),
             _ => (DefaultEscalationMessage(), CustomerAssistantOutcome.Escalated, Array.Empty<string>(), (Guid?)null, (string?)null),
         };
 
@@ -168,12 +178,14 @@ public sealed class CustomerAssistantService(
 
         // QueuedForHumanApproval means the five-condition gate (CustomerAutoReplyGate) declined to
         // auto-send an AI-composed answer, it must be logged for a human to review, never sent to
-        // the customer on our behalf. Every other non-null reply here is a fixed, non-disclosing
-        // template acknowledgement (a claim reference, "please share your policy number", a lead
-        // confirmation), a structurally different, lower-risk category the gate does not govern.
-        if (reply is not null && outcome != CustomerAssistantOutcome.QueuedForHumanApproval)
+        // the customer on our behalf. The customer still gets a fixed holding acknowledgement, so
+        // the conversation never goes silent; that message discloses nothing and is the same
+        // lower-risk template category as every other non-AI reply here (a claim reference,
+        // "please share your policy number", a lead confirmation), which the gate does not govern.
+        if (reply is not null)
         {
-            await SendReplyAsync(scope, inbound, threadId, waId, reply, caseId, cancellationToken);
+            var textToSend = outcome == CustomerAssistantOutcome.QueuedForHumanApproval ? HoldingReplyMessage : reply;
+            await SendReplyAsync(scope, inbound, threadId, waId, textToSend, caseId, cancellationToken);
         }
 
         await conversationRepository.SaveAsync(new CustomerConversationTurn
@@ -274,9 +286,12 @@ public sealed class CustomerAssistantService(
     }
 
     private async Task<(string? Reply, CustomerAssistantOutcome Outcome, IReadOnlyCollection<string> Citations, Guid? CaseId, string? LeadId)> HandleNewClaimAsync(
-        TenantScope scope, string text, string waId, string businessPhoneNumberId, string correlationId, CancellationToken cancellationToken)
+        TenantScope scope, string text, string? earlierMessageText, string waId, string correlationId, CancellationToken cancellationToken)
     {
-        var policyNumber = ExtractPolicyNumber(text);
+        // The current message wins: after "I couldn't find that policy" the customer retypes it,
+        // and the earlier, wrong number must not be picked up again.
+        var policyNumber = ExtractPolicyNumber(text) ?? (earlierMessageText is null ? null : ExtractPolicyNumber(earlierMessageText));
+        var incidentDescription = string.IsNullOrWhiteSpace(earlierMessageText) ? text : $"{earlierMessageText}\n{text}";
         if (policyNumber is null)
         {
             return ("I'm sorry to hear that. To start your claim, please reply with your policy number.",
@@ -302,7 +317,7 @@ public sealed class CustomerAssistantService(
             ClaimType: "Unclassified, reported via WhatsApp",
             Channel: "WhatsApp",
             IncidentDate: DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date),
-            IncidentDescription: text,
+            IncidentDescription: incidentDescription,
             CreatedByUserId: SystemActorId,
             CorrelationId: correlationId,
             RequiresConfirmation: true), cancellationToken);
@@ -326,7 +341,7 @@ public sealed class CustomerAssistantService(
             }
         }
 
-        var reference = claimCase.CaseId.ToString()[..8].ToUpperInvariant();
+        var reference = ClaimReference.For(claimCase.CaseId);
         return ($"Thank you, we've logged your claim. Your reference is {reference}. A claims officer will confirm the details and follow up with you shortly.",
             CustomerAssistantOutcome.CaseOpened, [], claimCase.CaseId, null);
     }
@@ -361,7 +376,7 @@ public sealed class CustomerAssistantService(
                 CustomerAssistantOutcome.Declined, [], null, null);
         }
 
-        return ($"Your claim on policy {policyNumber} is currently: {matchingCase.Status}. For full details, a claims officer can follow up with you.",
+        return ($"Your claim on policy {policyNumber} is currently: {ClaimStatusLabels.For(matchingCase.Status)}. For full details, a claims officer can follow up with you.",
             CustomerAssistantOutcome.AutoReplied, [], matchingCase.CaseId, null);
     }
 
@@ -480,6 +495,12 @@ public sealed class CustomerAssistantService(
     }
 
     private static string NormalizeWaId(string value) => new(value.Where(char.IsDigit).ToArray());
+
+    private const string WelcomeMessage =
+        "Hello, I'm the virtual assistant. I can help you report a claim, check the status of a claim, answer questions about your cover, or connect you with our team. Tell me what you need, for example: \"I had an accident\" or \"What is the status of my claim?\"";
+
+    private const string HoldingReplyMessage =
+        "Thank you for your question. I've passed it to our team to confirm the answer, and someone will reply to you here shortly.";
 
     private static string DefaultEscalationMessage() =>
         "I'm not able to help with that directly, I've passed this to our team and someone will follow up with you.";

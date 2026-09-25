@@ -74,7 +74,7 @@ public static class ClaimAuthorityPolicy
         if (claimCase.Status != CaseStatus.ReadyForExport)
         {
             throw new DomainException(
-                "Evidence-pack export requires case status ReadyForExport after human approval on the governed path.");
+                "This claim can be exported once a person has approved it and it is marked Ready for export.");
         }
 
         // Exception-route clearance is enforced when advancing to ReadyForExport.

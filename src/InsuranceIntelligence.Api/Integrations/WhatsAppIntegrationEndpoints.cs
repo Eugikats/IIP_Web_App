@@ -25,7 +25,12 @@ public static class WhatsAppIntegrationEndpoints
         var mappingConfigured = settings is not null
             && !string.IsNullOrWhiteSpace(settings.TenantId)
             && !string.IsNullOrWhiteSpace(settings.WorkspaceId);
-        var providerSelected = options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase);
+        // A connection saved from the settings screen is live without a deployment change (the
+        // providers are registered unconditionally, see InfrastructureRegistration), so it counts
+        // as selected here too. Previously this reported "Not configured" for a working, tenant-
+        // connected channel whenever INSURANCEINTELLIGENCE_CHANNEL_PROVIDER was still Disabled.
+        var providerSelected = options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(settings?.Source, "TenantConfigured", StringComparison.Ordinal);
         var configured = providerSelected && inboundProvider.IsConfigured && outboundProvider.IsConfigured && mappingConfigured;
         return Results.Ok(new
         {

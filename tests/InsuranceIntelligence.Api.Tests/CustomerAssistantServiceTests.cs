@@ -88,7 +88,69 @@ public sealed class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.AutoReplied, turn.Outcome);
         Assert.Equal(existingCaseId, turn.CaseId);
-        Assert.Contains("InReview", turn.OutboundReplyText);
+        Assert.Contains("Under review", turn.OutboundReplyText);
+    }
+
+    [Fact]
+    public async Task NewClaim_PolicyNumberSentAsAFollowUp_OpensTheClaimWithTheOriginalDescription()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicy(ValidPolicyNumber);
+
+        await fixture.HandleAsync("I had an accident on Jinja Road this morning");
+        await fixture.HandleAsync(ValidPolicyNumber);
+
+        Assert.Equal(2, fixture.Conversations.Saved.Count);
+        var followUp = fixture.Conversations.Saved[1];
+        Assert.Equal(CustomerIntent.NewClaim, followUp.ClassifiedIntent);
+        Assert.Equal(CustomerAssistantOutcome.CaseOpened, followUp.Outcome);
+        var created = await fixture.Cases.GetAsync(followUp.CaseId!.Value);
+        Assert.Contains("Jinja Road", created!.IncidentDescription);
+        Assert.Contains(ClaimReference.For(created.CaseId), followUp.OutboundReplyText);
+    }
+
+    [Fact]
+    public async Task NewClaim_RetypedPolicyNumberAfterNotFound_UsesTheNewNumber()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicy(ValidPolicyNumber);
+
+        await fixture.HandleAsync("I was in an accident, my policy is NSA/MO/2026/99999");
+        await fixture.HandleAsync($"Sorry, it is {ValidPolicyNumber}");
+
+        var followUp = fixture.Conversations.Saved[1];
+        Assert.Equal(CustomerAssistantOutcome.CaseOpened, followUp.Outcome);
+        var created = await fixture.Cases.GetAsync(followUp.CaseId!.Value);
+        Assert.Equal(ValidPolicyNumber, created!.PolicyNumber);
+    }
+
+    [Fact]
+    public async Task ClaimStatus_PolicyNumberSentAsAFollowUp_DisclosesStatusOnlyAfterTheMatch()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicy(ValidPolicyNumber);
+        var existingCaseId = fixture.SeedCase(ValidPolicyNumber, CaseStatus.MissingDocuments);
+
+        await fixture.HandleAsync("What is the status of my claim?");
+        await fixture.HandleAsync(ValidPolicyNumber);
+
+        var followUp = fixture.Conversations.Saved[1];
+        Assert.Equal(CustomerIntent.ExistingClaimStatus, followUp.ClassifiedIntent);
+        Assert.Equal(existingCaseId, followUp.CaseId);
+        Assert.Contains("Waiting on documents", followUp.OutboundReplyText);
+    }
+
+    [Fact]
+    public async Task Greeting_GetsTheWelcomeMenuNotAnEscalation()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleAsync("Hi");
+
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, turn.Outcome);
+        Assert.Contains("report a claim", turn.OutboundReplyText);
+        Assert.Empty(fixture.SalesLeads.Created);
     }
 
     [Fact]
@@ -115,7 +177,8 @@ public sealed class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerIntent.GeneralQuestion, turn.ClassifiedIntent);
         Assert.Equal(CustomerAssistantOutcome.QueuedForHumanApproval, turn.Outcome);
-        Assert.Empty(fixture.Outbound.SentRequests);
+        var sent = Assert.Single(fixture.Outbound.SentRequests);
+        Assert.Contains("passed it to our team", sent.CustomerSafeBody);
     }
 
     [Fact]
@@ -157,7 +220,10 @@ public sealed class CustomerAssistantServiceTests
 
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.QueuedForHumanApproval, turn.Outcome);
-        Assert.Empty(fixture.Outbound.SentRequests);
+        // The held AI answer never reaches the customer; only the fixed holding message does.
+        var sent = Assert.Single(fixture.Outbound.SentRequests);
+        Assert.DoesNotContain("own damage", sent.CustomerSafeBody);
+        Assert.Contains("passed it to our team", sent.CustomerSafeBody);
     }
 
     [Fact]
