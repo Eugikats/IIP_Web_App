@@ -21,13 +21,28 @@ public sealed record CustomerUpdateDraft
     public required CustomerUpdateStatus Status { get; init; }
     public required string MessageBody { get; init; }
 
-    /// <summary>A short, plain-language form that fits an SMS, required on every message because
+    /// <summary>A short, plain-language form that fits an SMS, carried on every message because
     /// most phones in this market are not smartphones (outcome D). Falls back to MessageBody itself
-    /// only where a caller has not yet supplied a distinct short form.</summary>
-    public required string ShortMessageBody { get; init; }
+    /// where no distinct short form was supplied.
+    ///
+    /// Deliberately not `required`: drafts are stored as JSON, and every draft saved before
+    /// outcome D has no such field. A required member made each of those rows throw on read, which
+    /// took down every screen that lists drafts (My Work, the update queue, operations summary,
+    /// command center). Old rows read back with the full message as their short form.</summary>
+    public string ShortMessageBody
+    {
+        get => string.IsNullOrEmpty(shortMessageBody) ? MessageBody : shortMessageBody;
+        init => shortMessageBody = value;
+    }
+
+    private readonly string? shortMessageBody;
 
     public string Language { get; init; } = "en";
-    public required CustomerUpdateCreationMethod CreationMethod { get; init; }
+
+    /// <summary>Not `required` for the same stored-JSON reason as ShortMessageBody. A draft saved
+    /// before outcome D has no value and reads back as AiDrafted, which is what every draft of
+    /// that era was.</summary>
+    public CustomerUpdateCreationMethod CreationMethod { get; init; } = CustomerUpdateCreationMethod.AiDrafted;
 
     /// <summary>The model's original text, kept alongside MessageBody once a person edits it, so
     /// the audit trail shows both (outcome D). Null when CreationMethod is not AiDrafted, or when an

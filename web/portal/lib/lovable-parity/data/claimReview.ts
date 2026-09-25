@@ -488,7 +488,12 @@ export function useClaimReview(claimId: string) {
       if (res.status === 403) return { ok: false, message: "You do not have permission to export evidence packs." };
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        return { ok: false, message: body?.message ?? `Evidence-pack export failed.` };
+        // Validation failures arrive as problem details ({ errors: { field: [message] } }); show
+        // the reason (a missing audit note, a claim not yet approved) rather than a bare "failed".
+        const validationMessage = body?.errors
+          ? (Object.values(body.errors as Record<string, string[]>).flat()[0] as string | undefined)
+          : undefined;
+        return { ok: false, message: body?.message ?? validationMessage ?? `Evidence-pack export failed.` };
       }
       const body = await res.json();
       await load();
