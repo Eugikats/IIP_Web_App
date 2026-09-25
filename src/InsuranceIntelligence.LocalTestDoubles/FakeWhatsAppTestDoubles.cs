@@ -18,7 +18,12 @@ public sealed class FakeWhatsAppCredentialProtector : IWhatsAppCredentialProtect
 /// <summary>Scripted IWhatsAppGraphValidationClient, never calls the real Meta API.</summary>
 public sealed class FakeWhatsAppGraphValidationClient(
     WhatsAppGraphValidationResult result,
-    WhatsAppWebhookRegistrationResult? webhookResult = null) : IWhatsAppGraphValidationClient
+    WhatsAppWebhookRegistrationResult? webhookResult = null,
+    // Real Meta calls this same webhook right back, synchronously, as part of accepting the
+    // registration request, before RegisterWebhookAsync's own HTTP call even returns. This hook
+    // lets a test observe exactly what state the caller had already committed at that instant,
+    // the same thing that was missing when this endpoint asked Meta to register before saving.
+    Func<Task>? onRegisterWebhook = null) : IWhatsAppGraphValidationClient
 {
     public List<(string PhoneNumberId, string AccessToken)> Calls { get; } = [];
     public List<(string WabaId, string CallbackUrl, string VerifyToken)> WebhookRegistrationCalls { get; } = [];
@@ -30,10 +35,14 @@ public sealed class FakeWhatsAppGraphValidationClient(
         return Task.FromResult(result);
     }
 
-    public Task<WhatsAppWebhookRegistrationResult> RegisterWebhookAsync(
+    public async Task<WhatsAppWebhookRegistrationResult> RegisterWebhookAsync(
         string graphBaseUrl, string wabaId, string accessToken, string callbackUrl, string verifyToken, int timeoutSeconds, CancellationToken cancellationToken = default)
     {
         WebhookRegistrationCalls.Add((wabaId, callbackUrl, verifyToken));
-        return Task.FromResult(webhookResult ?? new WhatsAppWebhookRegistrationResult(true, null));
+        if (onRegisterWebhook is not null)
+        {
+            await onRegisterWebhook();
+        }
+        return webhookResult ?? new WhatsAppWebhookRegistrationResult(true, null);
     }
 }

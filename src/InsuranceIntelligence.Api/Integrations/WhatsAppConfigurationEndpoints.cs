@@ -116,27 +116,6 @@ public static class WhatsAppConfigurationEndpoints
         var verifyToken = ClaimantTokenGenerator.GenerateRawToken();
         var callbackUrl = BuildCallbackUrl(options);
 
-        string? webhookRegistrationStatus;
-        string? webhookRegistrationError;
-        if (callbackUrl is null)
-        {
-            webhookRegistrationStatus = "ManualRequired";
-            webhookRegistrationError = "This deployment has no configured public API base URL (INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL), the webhook cannot be auto-registered. Ask whoever manages your deployment to set it, or register manually in Meta Business Settings.";
-        }
-        else
-        {
-            var registration = await validationClient.RegisterWebhookAsync(
-                options.WhatsApp.GraphBaseUrl,
-                request.WabaId!.Trim(),
-                request.AccessToken.Trim(),
-                callbackUrl,
-                verifyToken,
-                options.WhatsApp.RequestTimeoutSeconds,
-                cancellationToken);
-            webhookRegistrationStatus = registration.Success ? "Registered" : "RegistrationFailed";
-            webhookRegistrationError = registration.Success ? null : registration.SafeError;
-        }
-
         var now = DateTimeOffset.UtcNow;
         var configuration = new WhatsAppChannelConfiguration
         {
@@ -154,11 +133,39 @@ public static class WhatsAppConfigurationEndpoints
             LastValidationStatus = "Success",
             LastValidationError = null,
             WebhookCallbackUrl = callbackUrl,
-            WebhookRegistrationStatus = webhookRegistrationStatus,
-            WebhookRegistrationError = webhookRegistrationError,
+            WebhookRegistrationStatus = callbackUrl is null ? "ManualRequired" : "Pending",
+            WebhookRegistrationError = callbackUrl is null
+                ? "This deployment has no configured public API base URL (INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL), the webhook cannot be auto-registered. Ask whoever manages your deployment to set it, or register manually in Meta Business Settings."
+                : null,
         };
+
+        // Save and refresh the cache BEFORE asking Meta to register the webhook: Meta calls this
+        // same endpoint right back (a GET with hub.challenge and this verify token) to confirm it
+        // before accepting the subscription. Registering first, when nothing here yet recognised
+        // that verify token, made Meta's own check fail every single time, our own webhook
+        // answered 503 "not configured" to Meta's own verification call, and the operator saw
+        // "webhook registration failed" on a perfectly correct connection. A retry never helped
+        // because every attempt hit the same gap.
         await repository.SaveAsync(configuration, cancellationToken);
         await settingsProvider.RefreshAsync(cancellationToken);
+
+        if (callbackUrl is not null)
+        {
+            var registration = await validationClient.RegisterWebhookAsync(
+                options.WhatsApp.GraphBaseUrl,
+                request.WabaId!.Trim(),
+                request.AccessToken.Trim(),
+                callbackUrl,
+                verifyToken,
+                options.WhatsApp.RequestTimeoutSeconds,
+                cancellationToken);
+            configuration = configuration with
+            {
+                WebhookRegistrationStatus = registration.Success ? "Registered" : "RegistrationFailed",
+                WebhookRegistrationError = registration.Success ? null : registration.SafeError,
+            };
+            await repository.SaveAsync(configuration, cancellationToken);
+        }
 
         await auditRepository.WriteAsync(
             AuditEvent.WhatsAppConfigurationSaved(scope, userId, configuration.PhoneNumberId, auditReason, GetCorrelationId(httpContext)),

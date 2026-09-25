@@ -138,6 +138,41 @@ public sealed class WhatsAppConfigurationEndpointsTests
     }
 
     [Fact]
+    public async Task SaveConfiguration_SavesAndRefreshesTheCacheBeforeAskingMetaToRegisterTheWebhook()
+    {
+        // Reproduces the live 2026-09-25 failure: Meta calls the new webhook right back as part of
+        // accepting a subscribed_apps registration, to confirm the verify token. Asking Meta to
+        // register before this endpoint had saved (or the runtime cache had picked up) that verify
+        // token meant Meta's own callback always found "not configured" and rejected the
+        // registration, every single time, with no way to retry into success.
+        var repository = new InMemoryWhatsAppChannelConfigurationRepository();
+        var settingsProvider = new RecordingRuntimeSettingsProvider();
+        var order = new List<string>();
+        settingsProvider.OnRefresh = () => order.Add("refreshed");
+        var options = new InfrastructureOptions { AuthMode = "Development", ChannelProvider = "WhatsAppCloudApi", ApiPublicBaseUrl = "https://app-api-dev.example.net" };
+        var protector = new FakeWhatsAppCredentialProtector();
+
+        var validationClient = new FakeWhatsAppGraphValidationClient(
+            new WhatsAppGraphValidationResult(true, "+256700000000", "Acme Insurer", null),
+            onRegisterWebhook: async () =>
+            {
+                order.Add("registered");
+                // The exact thing Meta's own callback would observe at this instant.
+                var saved = await repository.GetAsync(Scope(), CancellationToken.None);
+                Assert.NotNull(saved);
+                Assert.Equal("Pending", saved!.WebhookRegistrationStatus);
+                Assert.True(settingsProvider.Refreshed);
+            });
+
+        await WhatsAppConfigurationEndpoints.SaveConfiguration(
+            new WhatsAppSaveConfigurationRequest("phone-1", "secret-token", "app-secret-value", "waba-1", null),
+            repository, protector, validationClient, settingsProvider, new InMemoryAuditRepository(), options,
+            Context(auditReason: "Connecting our WhatsApp Business number."), CancellationToken.None);
+
+        Assert.Equal(["refreshed", "registered"], order);
+    }
+
+    [Fact]
     public async Task SaveConfiguration_WhenMetaRejectsWebhookRegistration_StillPersistsCredentialsWithFailureRecorded()
     {
         // Valid credentials plus a broken webhook registration must not be treated as a total
@@ -297,11 +332,13 @@ public sealed class WhatsAppConfigurationEndpointsTests
     private sealed class RecordingRuntimeSettingsProvider : IWhatsAppRuntimeSettingsProvider
     {
         public bool Refreshed { get; private set; }
+        public Action? OnRefresh { get; set; }
         public WhatsAppEffectiveSettings? Current => null;
 
         public Task RefreshAsync(CancellationToken cancellationToken = default)
         {
             Refreshed = true;
+            OnRefresh?.Invoke();
             return Task.CompletedTask;
         }
     }
