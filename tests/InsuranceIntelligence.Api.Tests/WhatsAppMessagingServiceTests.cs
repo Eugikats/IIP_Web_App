@@ -14,6 +14,33 @@ namespace InsuranceIntelligence.Api.Tests;
 public sealed class WhatsAppMessagingServiceTests
 {
     [Fact]
+    public async Task IngestInbound_OnTheWebhookPath_WithNoSignedInUser_SavesAuditsAndReturnsOnlyNewMessages()
+    {
+        // The webhook has no signed-in user. Before 2026-09-25 the integration audit went through
+        // AuditWriter, which requires one, and threw after the message was already saved.
+        var scope = TenantScope.Create("tenant-a", "workspace-a");
+        var audit = new InMemoryAuditRepository();
+        var service = new WhatsAppMessagingService(
+            new InMemoryCaseRepository(),
+            new StubWhatsAppRepository(),
+            new StubOutboundProvider(),
+            new TenantContextAccessor(), // nothing set, exactly like the webhook
+            new StubPermissionService(),
+            new ThrowingWithoutContextAuditWriter(),
+            consentRepository: null,
+            integrationAuditRepository: audit);
+        var message = new WhatsAppInboundMessage("wamid.in.1", "phone-1", "256772118001", WhatsAppContentType.Text, "Hi", null, DateTimeOffset.UtcNow);
+
+        var first = await service.IngestInboundAsync(scope, [message]);
+        var redelivered = await service.IngestInboundAsync(scope, [message]);
+
+        Assert.Single(first);
+        Assert.Empty(redelivered); // a redelivery must not reach the assistant a second time
+        var events = await audit.ListAsync(scope, CancellationToken.None);
+        Assert.Contains(events, e => e.ActionName == "whatsapp.inbound.received" && e.UserId == "system:whatsapp-webhook");
+    }
+
+    [Fact]
     public async Task SendAsync_UsesOneProviderAttemptForRepeatedIdempotencyKey()
     {
         var fixture = await Fixture.CreateAsync();
@@ -233,6 +260,12 @@ public sealed class WhatsAppMessagingServiceTests
         {
             if (!await HasPermissionAsync(permission, cancellationToken)) throw new PermissionDeniedException(permission);
         }
+    }
+
+    private sealed class ThrowingWithoutContextAuditWriter : IAuditWriter
+    {
+        public Task WriteAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Tenant context has not been initialized for this request.");
     }
 
     private sealed class NullAuditWriter : IAuditWriter

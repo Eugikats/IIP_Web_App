@@ -17,7 +17,12 @@ public sealed class WhatsAppMessagingService(
     ITenantContextAccessor tenantContextAccessor,
     IPermissionService permissionService,
     IAuditWriter auditWriter,
-    IConsentRepository? consentRepository = null) : IWhatsAppMessagingService
+    IConsentRepository? consentRepository = null,
+    // The webhook path has no signed-in user, so its audit events are written with the scope the
+    // verified channel configuration resolved, straight to the repository, the same way
+    // CustomerAssistantService writes its own. AuditWriter (above) rightly refuses to write
+    // without a current tenant context; it stays in use for every staff-initiated action here.
+    IAuditRepository? integrationAuditRepository = null) : IWhatsAppMessagingService
 {
     private static readonly string[] RestrictedTerms =
         ["raw prompt", "system message", "internal note", "fraud flag", "reserve", "hidden risk", "secret"];
@@ -238,11 +243,19 @@ public sealed class WhatsAppMessagingService(
             DateTimeOffset.UtcNow, null, null, [], "WhatsApp", null, outcome, null,
             "Customer communication metadata recorded; message body omitted.", Guid.NewGuid().ToString("N")), cancellationToken);
 
-    private Task WriteIntegrationAuditAsync(TenantScope scope, string action, string outcome, CancellationToken cancellationToken) =>
-        auditWriter.WriteAsync(new AuditEvent(
+    // Found live on 2026-09-25: routed through AuditWriter, this threw "Tenant context has not been
+    // initialized" on every inbound message, after the message itself had been saved, so the
+    // webhook answered 500 and the customer's message was only handled on Meta's retry, if at all.
+    private Task WriteIntegrationAuditAsync(TenantScope scope, string action, string outcome, CancellationToken cancellationToken)
+    {
+        var auditEvent = new AuditEvent(
             Guid.NewGuid(), scope, null, null, "system:whatsapp-webhook", ActorType.Integration, action,
             DateTimeOffset.UtcNow, null, null, [], "WhatsApp", null, outcome, null,
-            "Verified WhatsApp webhook metadata recorded; message body omitted.", Guid.NewGuid().ToString("N")), cancellationToken);
+            "Verified WhatsApp webhook metadata recorded; message body omitted.", Guid.NewGuid().ToString("N"));
+        return integrationAuditRepository is not null
+            ? integrationAuditRepository.WriteAsync(auditEvent, cancellationToken)
+            : auditWriter.WriteAsync(auditEvent, cancellationToken);
+    }
 
     public static string BuildThreadId(string businessPhoneNumberId, string contactWaId) =>
         $"wa:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{businessPhoneNumberId.Trim()}:{NormalizeWaId(contactWaId)}")))[..32].ToLowerInvariant()}";
