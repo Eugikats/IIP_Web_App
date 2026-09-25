@@ -16,4 +16,9 @@ public sealed record IdentifiedSender(
     string? CustomerEmail,
     string? CustomerPhone,
     string PolicyNumber,
-    string ProductLine);
+    string ProductLine)
+{
+    /// <summary>Every policy the sender holds, so a file they send can be matched to an open
+    /// claim on any of them, not only the first.</summary>
+    public IReadOnlyList<string> PolicyNumbers { get; init; } = [PolicyNumber];
+}

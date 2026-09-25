@@ -291,6 +291,31 @@ public sealed class WhatsAppInboundProviderTests
     }
 
     [Fact]
+    public async Task Matcher_PhotoFromRecognisedSender_JoinsTheirLatestOpenClaim_NotANewOne()
+    {
+        var scope = TenantScope.Create("tenant-a", "workspace-a");
+        var customers = new InMemoryCustomerRepository();
+        var policies = new InMemoryPolicyRepository();
+        await customers.UpsertAsync(new InsuranceIntelligence.Domain.Customers.Customer("cust-1", "tenant-a", "workspace-a", "Amina Okello", "amina@example.test", "+256772118001"), CancellationToken.None);
+        await policies.UpsertAsync(new Policy("pol-1", "tenant-a", "workspace-a", "POL-9001", "Motor", null, "cust-1", null, null, null), CancellationToken.None);
+        var cases = new InMemoryCaseRepository();
+        var settled = CreateCase(Guid.NewGuid()) with { PolicyNumber = "POL-9001", Status = CaseStatus.Settled, CreatedAt = DateTimeOffset.UtcNow.AddDays(-1) };
+        var open = CreateCase(Guid.NewGuid()) with { PolicyNumber = "POL-9001", Status = CaseStatus.MissingDocuments, CreatedAt = DateTimeOffset.UtcNow.AddDays(-3) };
+        await cases.SaveAsync(settled);
+        await cases.SaveAsync(open);
+        var matcher = new RuleBasedWhatsAppToCaseMatcher(cases, customers, policies);
+        var message = new WhatsAppInboundMediaMessage(
+            "wamid.3", "phone-1", "256772118001", "media-3", "image", "image/jpeg", null,
+            "Another photo", DateTimeOffset.UtcNow);
+
+        var match = await matcher.MatchAsync(message, scope);
+
+        Assert.Equal(open.CaseId, match.CaseId); // the open claim, not the more recent settled one
+        Assert.False(match.RequiresManualReview);
+        Assert.Equal("identified_sender_open_claim", match.MatchReason);
+    }
+
+    [Fact]
     public async Task Matcher_ReturnsNoMatch_WhenSenderIsNotAKnownCustomer()
     {
         var scope = TenantScope.Create("tenant-a", "workspace-a");

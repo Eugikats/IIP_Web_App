@@ -49,8 +49,23 @@ public sealed class RuleBasedWhatsAppToCaseMatcher(
         }
 
         var identifiedSender = await IdentifySenderAsync(message.SenderWaId, scope, cancellationToken);
-        return identifiedSender is null
-            ? new WhatsAppToCaseMatchResult(null, "no_match", RequiresManualReview: true)
+        if (identifiedSender is null)
+        {
+            return new WhatsAppToCaseMatchResult(null, "no_match", RequiresManualReview: true);
+        }
+
+        // A recognised customer sending photos after reporting a claim is adding to that claim.
+        // Previously every photo without a claim reference in its caption opened a brand-new
+        // claim, so three photos of one accident became three claims for an officer to merge.
+        var openClaim = cases
+            .Where(claimCase => claimCase.Status is not (CaseStatus.Settled or CaseStatus.Closed))
+            .Where(claimCase =>
+                identifiedSender.PolicyNumbers.Contains(claimCase.PolicyNumber, StringComparer.OrdinalIgnoreCase)
+                || PhoneNumbers.SameNumber(claimCase.CustomerPhone, message.SenderWaId))
+            .OrderByDescending(claimCase => claimCase.CreatedAt)
+            .FirstOrDefault();
+        return openClaim is not null
+            ? new WhatsAppToCaseMatchResult(openClaim.CaseId, "identified_sender_open_claim", RequiresManualReview: false, identifiedSender)
             : new WhatsAppToCaseMatchResult(null, "identified_sender_no_case", RequiresManualReview: false, identifiedSender);
     }
 
@@ -59,17 +74,37 @@ public sealed class RuleBasedWhatsAppToCaseMatcher(
         TenantScope scope,
         CancellationToken cancellationToken)
     {
-        var customers = await customerRepository.ListAsync(scope, cancellationToken);
-        var customer = customers.FirstOrDefault(c => ClaimantContactMatcher.Matches(senderWaId, c.Phone));
-        if (customer is null)
+        var customers = (await customerRepository.ListAsync(scope, cancellationToken))
+            .Where(c => PhoneNumbers.SameNumber(senderWaId, c.Phone))
+            .ToArray();
+        if (customers.Length == 0)
         {
             return null;
         }
 
-        var policies = await policyRepository.ListByCustomerAsync(customer.CustomerId, scope, cancellationToken);
+        // One number on file for two different people: never guess which of them is writing.
+        var people = customers
+            .Select(c => string.Join(' ', c.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+        if (people > 1)
+        {
+            return null;
+        }
+
+        var policies = new List<Policy>();
+        foreach (var customer in customers)
+        {
+            policies.AddRange(await policyRepository.ListByCustomerAsync(customer.CustomerId, scope, cancellationToken));
+        }
+
         var policy = policies.FirstOrDefault();
+        var first = customers[0];
         return policy is null
             ? null
-            : new IdentifiedSender(customer.CustomerId, customer.FullName, customer.Email, customer.Phone, policy.PolicyNumber, policy.ProductLine);
+            : new IdentifiedSender(first.CustomerId, first.FullName, first.Email, first.Phone, policy.PolicyNumber, policy.ProductLine)
+            {
+                PolicyNumbers = policies.Select(p => p.PolicyNumber).ToArray(),
+            };
     }
 }

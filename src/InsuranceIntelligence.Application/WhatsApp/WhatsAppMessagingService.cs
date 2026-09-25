@@ -130,12 +130,12 @@ public sealed class WhatsAppMessagingService(
         return ToDto(result);
     }
 
-    public async Task<int> IngestInboundAsync(
+    public async Task<IReadOnlyList<WhatsAppInboundMessage>> IngestInboundAsync(
         TenantScope scope,
         IReadOnlyList<WhatsAppInboundMessage> messages,
         CancellationToken cancellationToken = default)
     {
-        var saved = 0;
+        var newlySaved = new List<WhatsAppInboundMessage>();
         foreach (var inbound in messages)
         {
             if (await repository.FindByProviderMessageIdAsync(scope, inbound.ProviderMessageId, cancellationToken) is not null) continue;
@@ -153,11 +153,11 @@ public sealed class WhatsAppMessagingService(
                 UpdatedAt = inbound.ReceivedAt, CorrelationId = Guid.NewGuid().ToString("N")
             };
             await repository.SaveAsync(message, cancellationToken);
-            saved++;
+            newlySaved.Add(inbound);
         }
-        if (saved > 0)
-            await WriteIntegrationAuditAsync(scope, "whatsapp.inbound.received", $"messages:{saved}", cancellationToken);
-        return saved;
+        if (newlySaved.Count > 0)
+            await WriteIntegrationAuditAsync(scope, "whatsapp.inbound.received", $"messages:{newlySaved.Count}", cancellationToken);
+        return newlySaved;
     }
 
     public async Task<int> ApplyDeliveryEventsAsync(
