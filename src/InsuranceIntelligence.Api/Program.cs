@@ -252,6 +252,23 @@ else
     builder.Services.AddSingleton<IDocumentProcessingProvider, NotConfiguredDocumentProcessingProvider>();
 }
 
+// AfriSlm (the llama.cpp container, build plan §6.G) is not wired yet; Mock is Development/Demo
+// only (AzureProviderStartupValidator refuses INSURANCEINTELLIGENCE_TRANSLATION_PROVIDER=Mock
+// under every deployed profile), everything else fails closed to English rather than guessing.
+if (infrastructureOptions.TranslationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider, MockTranslationProvider>();
+}
+else
+{
+    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider, NotConfiguredTranslationProvider>();
+}
+
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationCache, InsuranceIntelligence.Infrastructure.Translation.InMemoryTranslationCache>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationService, InsuranceIntelligence.Application.Translation.TranslationService>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ILanguageDetector, InsuranceIntelligence.Application.Translation.WordListLanguageDetector>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ICustomerLanguageResolutionService, InsuranceIntelligence.Application.Translation.CustomerLanguageResolutionService>();
+
 builder.Services.AddSingleton<ICompletenessScoringService, CompletenessScoringService>();
 // Scoped, not Singleton: StaticDocumentChecklistProvider now optionally depends on
 // IProductRepository (outcome E's product-document-matrix integration), which is itself Scoped

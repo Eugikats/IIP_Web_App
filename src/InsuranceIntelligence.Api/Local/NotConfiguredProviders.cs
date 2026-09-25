@@ -1,7 +1,9 @@
+using InsuranceIntelligence.Application.Translation;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Knowledge;
+using InsuranceIntelligence.Domain.Translation;
 using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Api.Local;
@@ -102,4 +104,15 @@ public sealed class NotConfiguredKnowledgeStorageProvider : IKnowledgeStoragePro
 {
     public Task<KnowledgeStorageResult> StoreAsync(KnowledgeStorageRequest request, CancellationToken cancellationToken = default) =>
         throw new ProviderNotConfiguredException("KnowledgeStorage", "Knowledge storage provider is not configured.");
+}
+
+/// <summary>TranslationService checks IsConfigured before ever calling TranslateAsync and falls
+/// back to English on false, so this throwing is a defensive second layer, matching every other
+/// NotConfigured* provider here, not the expected path.</summary>
+public sealed class NotConfiguredTranslationProvider : ITranslationProvider
+{
+    public bool IsConfigured => false;
+
+    public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default) =>
+        throw new ProviderNotConfiguredException("Translation", "Translation provider is not configured.");
 }

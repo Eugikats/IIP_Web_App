@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using InsuranceIntelligence.Application.Translation;
 using InsuranceIntelligence.Domain.Translation;
+using InsuranceIntelligence.Infrastructure.Translation;
 using InsuranceIntelligence.LocalTestDoubles;
 
 namespace InsuranceIntelligence.Domain.Tests.Translation;

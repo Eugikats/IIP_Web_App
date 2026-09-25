@@ -16,7 +16,8 @@ public static class AzureProviderStartupValidator
         ("INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER", options => options.NotificationProvider),
         ("INSURANCEINTELLIGENCE_SMS_PROVIDER", options => options.SmsProvider),
         ("INSURANCEINTELLIGENCE_CHANNEL_PROVIDER", options => options.ChannelProvider),
-        ("INSURANCEINTELLIGENCE_PROVISIONER_PROVIDER", options => options.ProvisionerProvider)
+        ("INSURANCEINTELLIGENCE_PROVISIONER_PROVIDER", options => options.ProvisionerProvider),
+        ("INSURANCEINTELLIGENCE_TRANSLATION_PROVIDER", options => options.TranslationProvider)
     ];
 
     public static IReadOnlyCollection<string> Validate(InfrastructureOptions options)

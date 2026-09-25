@@ -45,6 +45,9 @@ public sealed record InfrastructureOptions
     public string NotificationProvider { get; init; } = "Mock";
     public string ChannelProvider { get; init; } = "Mock";
     public string ProvisionerProvider { get; init; } = "Mock";
+    /// <summary>"Mock" (a deterministic fake, Development/Demo only), "AfriSlm" (the llama.cpp
+    /// container, build plan §6.G), or the fail-closed default when neither is configured.</summary>
+    public string TranslationProvider { get; init; } = "Mock";
     public AzureBlobOptions AzureBlob { get; init; } = new();
     public DocumentIntelligenceOptions DocumentIntelligence { get; init; } = new();
     public AzureAiSearchOptions AzureAiSearch { get; init; } = new();

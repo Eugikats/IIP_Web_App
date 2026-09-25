@@ -725,7 +725,8 @@ public sealed class Phase7ProviderTests
                 NotificationProvider = "Disabled",
                 SmsProvider = "Disabled",
                 ChannelProvider = "Disabled",
-                ProvisionerProvider = "Disabled"
+                ProvisionerProvider = "Disabled",
+                TranslationProvider = "Disabled"
             },
             "Development");
 

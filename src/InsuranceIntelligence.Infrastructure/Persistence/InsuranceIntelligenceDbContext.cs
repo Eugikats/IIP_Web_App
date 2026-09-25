@@ -58,6 +58,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedDocumentLabelledExample> DocumentLabelledExamples => Set<PersistedDocumentLabelledExample>();
     public DbSet<PersistedRetentionReminder> RetentionReminders => Set<PersistedRetentionReminder>();
     public DbSet<PersistedSatisfactionResponse> SatisfactionResponses => Set<PersistedSatisfactionResponse>();
+    public DbSet<PersistedCustomerLanguagePreference> CustomerLanguagePreferences => Set<PersistedCustomerLanguagePreference>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -164,6 +165,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomerConversationTurn>(), "CustomerConversationTurns", "TurnId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedConsentRecord>(), "ConsentRecords", "RecordId");
         modelBuilder.Entity<PersistedConsentRecord>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CustomerIdentifier });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedCustomerLanguagePreference>(), "CustomerLanguagePreferences", "PreferenceId");
+        modelBuilder.Entity<PersistedCustomerLanguagePreference>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ContactWaId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedRetentionReminder>(), "RetentionReminders", "ReminderId");
         modelBuilder.Entity<PersistedRetentionReminder>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PolicyId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedSatisfactionResponse>(), "SatisfactionResponses", "ResponseId");
@@ -354,6 +357,7 @@ public sealed class PersistedIntegrationConnection : PersistedScopedJson;
 public sealed class PersistedAgentBehaviourProfile : PersistedScopedJson { public string AgentKey { get; set; } = string.Empty; }
 public sealed class PersistedCustomerConversationTurn : PersistedScopedJson { public string ThreadId { get; set; } = string.Empty; }
 public sealed class PersistedConsentRecord : PersistedScopedJson { public string CustomerIdentifier { get; set; } = string.Empty; }
+public sealed class PersistedCustomerLanguagePreference : PersistedScopedJson { public string ContactWaId { get; set; } = string.Empty; }
 public sealed class PersistedRetentionReminder : PersistedScopedJson { public string PolicyId { get; set; } = string.Empty; }
 public sealed class PersistedSatisfactionResponse : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedRetentionPolicy : PersistedScopedJson;
