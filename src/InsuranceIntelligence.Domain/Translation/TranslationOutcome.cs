@@ -13,6 +13,15 @@ public enum TranslationFailureReason
     StillEnglish,
     GarbledScript,
     ProviderNotConfigured,
+
+    /// <summary>The engine could not be reached or answered with an error. Appended last so stored
+    /// values keep their meaning.</summary>
+    ProviderUnavailable,
+
+    /// <summary>The engine dropped or altered a protected value (policy number, link, reference).
+    /// Refused rather than repaired, because a translation that lost the customer's policy number
+    /// is worse than an English one.</summary>
+    ProtectedTokenLost,
 }
 
 /// <summary>What a translation attempt actually produced. <see cref="Translated"/> is the only

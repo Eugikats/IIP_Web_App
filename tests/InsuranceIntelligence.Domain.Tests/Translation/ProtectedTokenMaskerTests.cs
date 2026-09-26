@@ -41,4 +41,56 @@ public sealed class ProtectedTokenMaskerTests
         Assert.Equal(text, masked);
         Assert.Empty(tokens);
     }
+
+    [Fact]
+    public void A_secure_link_and_a_claim_reference_survive_a_round_trip()
+    {
+        const string text = "Your reference is CLM-4E1A92C7. Upload documents at https://portal.example.com/access/verify?token=abc123-XYZ.";
+
+        var (masked, tokens) = ProtectedTokenMasker.Mask(text);
+
+        Assert.DoesNotContain("CLM-4E1A92C7", masked);
+        Assert.DoesNotContain("portal.example.com", masked);
+        Assert.Equal(text, ProtectedTokenMasker.Unmask(masked, tokens));
+        Assert.Equal(2, tokens.Count);
+    }
+
+    [Fact]
+    public void A_link_is_not_split_by_the_phone_number_pattern()
+    {
+        const string text = "Open https://portal.example.com/access/verify?token=0123456789012345 now";
+
+        var (masked, tokens) = ProtectedTokenMasker.Mask(text);
+
+        Assert.Single(tokens);
+        Assert.Equal(text, ProtectedTokenMasker.Unmask(masked, tokens));
+    }
+
+    [Fact]
+    public void Punctuation_after_a_link_is_not_swallowed_into_it()
+    {
+        var (masked, tokens) = ProtectedTokenMasker.Mask("See https://portal.example.com/access.");
+
+        Assert.EndsWith(".", masked);
+        Assert.Equal("https://portal.example.com/access", Assert.Single(tokens).Value);
+    }
+
+    [Fact]
+    public void A_protected_literal_such_as_a_first_name_is_masked_only_as_a_whole_word()
+    {
+        var (masked, tokens) = ProtectedTokenMasker.Mask("Thank you, Aisha. Aishatu is someone else.", ["Aisha"]);
+
+        Assert.Contains("Aishatu", masked);
+        Assert.DoesNotContain("Thank you, Aisha.", masked);
+        Assert.Equal("Aisha", Assert.Single(tokens).Value);
+    }
+
+    [Fact]
+    public void Placeholders_are_plain_ASCII_so_the_model_cannot_strip_them()
+    {
+        var (masked, tokens) = ProtectedTokenMasker.Mask("Policy NSA/MO/2026/00033");
+
+        Assert.All(masked, character => Assert.True(character < 128));
+        Assert.Equal("[TKN0]", Assert.Single(tokens).Key);
+    }
 }

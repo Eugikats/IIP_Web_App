@@ -10,9 +10,12 @@ namespace InsuranceIntelligence.Api.Local;
 /// reference that project, the same reason LocalMockDocumentStorageProvider and
 /// MockMessageQueueDispatcher live here too: it is a compile-time guarantee a test double can never
 /// reach a real deployment, not just a runtime check.</summary>
-public sealed class MockTranslationProvider : ITranslationProvider
+public sealed class MockTranslationProvider : ITranslationProvider, ITranslationEngineHealth
 {
     public bool IsConfigured => true;
+
+    public Task<TranslationEngineStatus> CheckAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(TranslationEngineStatus.Healthy);
 
     public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default) =>
         Task.FromResult($"[{SupportedLanguage.For(to).Iso}] {text}");

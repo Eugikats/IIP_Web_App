@@ -101,6 +101,68 @@ public sealed class TranslationServiceTests
         Assert.NotEqual(withADifferentTag, key);
     }
 
+    [Fact]
+    public async Task A_translation_that_drops_the_policy_number_is_refused_not_repaired()
+    {
+        var service = new TranslationService(new DroppingProvider(), new InMemoryTranslationCache());
+
+        var outcome = await service.TranslateAsync(
+            "Nimepata ajali, sera yangu ni NSA/MO/2026/00033", SupportedLanguageCode.Sw, SupportedLanguageCode.En);
+
+        Assert.False(outcome.Translated);
+        Assert.Equal(TranslationFailureReason.ProtectedTokenLost, outcome.Failure);
+        Assert.Contains("NSA/MO/2026/00033", outcome.Text); // the untouched original, number and all
+    }
+
+    [Fact]
+    public async Task A_provider_that_throws_falls_back_instead_of_failing_the_message()
+    {
+        var service = new TranslationService(new ThrowingProvider(), new InMemoryTranslationCache());
+
+        var outcome = await service.TranslateAsync("Nimepata ajali", SupportedLanguageCode.Sw, SupportedLanguageCode.En);
+
+        Assert.False(outcome.Translated);
+        Assert.Equal(TranslationFailureReason.ProviderUnavailable, outcome.Failure);
+        Assert.Equal("Nimepata ajali", outcome.Text);
+    }
+
+    [Fact]
+    public async Task Protected_values_come_back_unchanged_when_the_model_keeps_them()
+    {
+        var service = new TranslationService(new KeepingProvider(), new InMemoryTranslationCache());
+
+        var outcome = await service.TranslateAsync(
+            "Nimepata ajali, sera yangu ni NSA/MO/2026/00033", SupportedLanguageCode.Sw, SupportedLanguageCode.En);
+
+        Assert.True(outcome.Translated);
+        Assert.Contains("NSA/MO/2026/00033", outcome.Text);
+        Assert.DoesNotContain("TKN", outcome.Text);
+    }
+
+    private sealed class DroppingProvider : ITranslationProvider
+    {
+        public bool IsConfigured => true;
+
+        public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default) =>
+            Task.FromResult("I had an accident and here is my policy");
+    }
+
+    private sealed class KeepingProvider : ITranslationProvider
+    {
+        public bool IsConfigured => true;
+
+        public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default) =>
+            Task.FromResult(text.Contains("[TKN0]") ? "I had an accident, my policy is [TKN0]" : "I had an accident");
+    }
+
+    private sealed class ThrowingProvider : ITranslationProvider
+    {
+        public bool IsConfigured => true;
+
+        public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default) =>
+            throw new HttpRequestException("engine down");
+    }
+
     private sealed class CountingProvider : ITranslationProvider
     {
         public bool IsConfigured => true;

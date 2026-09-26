@@ -48,6 +48,7 @@ public sealed record InfrastructureOptions
     /// <summary>"Mock" (a deterministic fake, Development/Demo only), "AfriSlm" (the llama.cpp
     /// container, build plan §6.G), or the fail-closed default when neither is configured.</summary>
     public string TranslationProvider { get; init; } = "Mock";
+    public TranslationOptions Translation { get; init; } = new();
     public AzureBlobOptions AzureBlob { get; init; } = new();
     public DocumentIntelligenceOptions DocumentIntelligence { get; init; } = new();
     public AzureAiSearchOptions AzureAiSearch { get; init; } = new();
@@ -181,4 +182,29 @@ public sealed record WhatsAppOptions
     /// answer is logged but not sent until a tenant deliberately enables this, exactly matching
     /// AutoSendTransactionalSmsEnabled's precedent for outbound SMS.</summary>
     public bool AssistantAutoReplyEnabled { get; init; }
+}
+
+/// <summary>The local-language translation engine and how far the customer assistant may use it.</summary>
+public sealed class TranslationOptions
+{
+    /// <summary>Base address of the llama.cpp server that hosts the AfriSLM model, for example
+    /// https://afrislm.example.azurecontainerapps.io. Not a secret, but never shown to customers.</summary>
+    public string? Endpoint { get; init; }
+
+    /// <summary>Sent as a bearer token. The container is on a public address, so this is what keeps
+    /// it private to the API. Write-only from every screen.</summary>
+    public string? ApiKey { get; init; }
+
+    /// <summary>A translation is slow on a small CPU; long enough for the slowest sentence, short
+    /// enough that a hung engine cannot hold a customer's reply for minutes.</summary>
+    public int RequestTimeoutSeconds { get; init; } = 60;
+
+    /// <summary>Comma separated ISO codes the assistant may converse in besides English, e.g.
+    /// "lg,sw". Empty means English only, which is also what an unknown code means.</summary>
+    public string EnabledLanguages { get; init; } = string.Empty;
+
+    /// <summary>When on, a reply for which no human-reviewed translation exists may be machine
+    /// translated, validated and labelled as such. Off means the customer gets English instead.
+    /// On for the dev workspace so a native speaker can review real output; off by default.</summary>
+    public bool AllowUnreviewedTranslations { get; init; }
 }

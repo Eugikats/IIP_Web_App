@@ -252,17 +252,32 @@ else
     builder.Services.AddSingleton<IDocumentProcessingProvider, NotConfiguredDocumentProcessingProvider>();
 }
 
-// AfriSlm (the llama.cpp container, build plan §6.G) is not wired yet; Mock is Development/Demo
-// only (AzureProviderStartupValidator refuses INSURANCEINTELLIGENCE_TRANSLATION_PROVIDER=Mock
-// under every deployed profile), everything else fails closed to English rather than guessing.
+// Mock is Development only (AzureProviderStartupValidator refuses it under every deployed profile).
+// AfriSlm is the llama.cpp container that hosts the model file. Anything else, including an absent
+// setting, fails closed to English rather than guessing.
 if (infrastructureOptions.TranslationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider, MockTranslationProvider>();
+    builder.Services.AddSingleton<MockTranslationProvider>();
+    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider>(sp => sp.GetRequiredService<MockTranslationProvider>());
+    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationEngineHealth>(sp => sp.GetRequiredService<MockTranslationProvider>());
+}
+else if (infrastructureOptions.TranslationProvider.Equals("AfriSlm", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton(sp => new InsuranceIntelligence.Infrastructure.Translation.AfriSlmTranslationProvider(
+        infrastructureOptions.Translation,
+        new HttpClient { Timeout = TimeSpan.FromSeconds(infrastructureOptions.Translation.RequestTimeoutSeconds) }));
+    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.AfriSlmTranslationProvider>());
+    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationEngineHealth>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.AfriSlmTranslationProvider>());
 }
 else
 {
-    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider, NotConfiguredTranslationProvider>();
+    builder.Services.AddSingleton<NotConfiguredTranslationProvider>();
+    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider>(sp => sp.GetRequiredService<NotConfiguredTranslationProvider>());
+    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationEngineHealth>(sp => sp.GetRequiredService<NotConfiguredTranslationProvider>());
 }
+
+builder.Services.AddSingleton<InsuranceIntelligence.Application.CustomerAssistant.IAssistantLanguageSettings>(
+    new InsuranceIntelligence.Api.Local.ConfiguredAssistantLanguageSettings(infrastructureOptions.Translation));
 
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationCache, InsuranceIntelligence.Infrastructure.Translation.InMemoryTranslationCache>();
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationService, InsuranceIntelligence.Application.Translation.TranslationService>();

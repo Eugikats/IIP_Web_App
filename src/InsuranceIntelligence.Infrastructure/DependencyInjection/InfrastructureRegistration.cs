@@ -312,6 +312,17 @@ public static class InfrastructureRegistration
             NotificationProvider = configuration["INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER"] ?? "Mock",
             ChannelProvider = configuration["INSURANCEINTELLIGENCE_CHANNEL_PROVIDER"] ?? "Mock",
             ProvisionerProvider = configuration["INSURANCEINTELLIGENCE_PROVISIONER_PROVIDER"] ?? "Mock",
+            // Absent means Disabled, not Mock: translation is optional, and a deployed profile
+            // refuses Mock, so defaulting to it would stop an unconfigured deployment starting.
+            TranslationProvider = configuration["INSURANCEINTELLIGENCE_TRANSLATION_PROVIDER"] ?? "Disabled",
+            Translation = new TranslationOptions
+            {
+                Endpoint = configuration["Translation:Endpoint"],
+                ApiKey = configuration["Translation:ApiKey"],
+                RequestTimeoutSeconds = int.TryParse(configuration["Translation:RequestTimeoutSeconds"], out var trTimeout) && trTimeout > 0 ? trTimeout : 60,
+                EnabledLanguages = configuration["Translation:EnabledLanguages"] ?? string.Empty,
+                AllowUnreviewedTranslations = bool.TryParse(configuration["Translation:AllowUnreviewedTranslations"], out var trUnreviewed) && trUnreviewed,
+            },
             AzureBlob = new AzureBlobOptions
             {
                 AccountName = configuration["AzureBlob:AccountName"],

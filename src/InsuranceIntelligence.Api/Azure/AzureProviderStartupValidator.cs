@@ -38,6 +38,12 @@ public static class AzureProviderStartupValidator
             errors.Add("AzureDocumentIntelligence mode requires DocumentIntelligence:Endpoint.");
         }
 
+        if (options.TranslationProvider.Equals("AfriSlm", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(options.Translation.Endpoint))
+        {
+            errors.Add("AfriSlm translation mode requires Translation:Endpoint.");
+        }
+
         if (options.RetrievalProvider.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(options.AzureAiSearch.Endpoint))

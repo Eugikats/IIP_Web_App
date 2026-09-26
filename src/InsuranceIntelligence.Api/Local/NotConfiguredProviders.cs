@@ -109,9 +109,12 @@ public sealed class NotConfiguredKnowledgeStorageProvider : IKnowledgeStoragePro
 /// <summary>TranslationService checks IsConfigured before ever calling TranslateAsync and falls
 /// back to English on false, so this throwing is a defensive second layer, matching every other
 /// NotConfigured* provider here, not the expected path.</summary>
-public sealed class NotConfiguredTranslationProvider : ITranslationProvider
+public sealed class NotConfiguredTranslationProvider : ITranslationProvider, InsuranceIntelligence.Application.Translation.ITranslationEngineHealth
 {
     public bool IsConfigured => false;
+
+    public Task<InsuranceIntelligence.Application.Translation.TranslationEngineStatus> CheckAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(InsuranceIntelligence.Application.Translation.TranslationEngineStatus.NotConfigured);
 
     public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default) =>
         throw new ProviderNotConfiguredException("Translation", "Translation provider is not configured.");

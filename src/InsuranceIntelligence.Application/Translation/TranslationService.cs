@@ -62,6 +62,14 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
                 return TranslationOutcome.Fallback(text, failure.Value);
             }
 
+            // The model does not fail loudly: it can drop a placeholder and still return fluent text.
+            // Restoring only what survived would quietly lose the value, so a missing one refuses the
+            // whole translation.
+            if (tokens.Keys.Any(placeholder => !translatedText!.Contains(placeholder, StringComparison.Ordinal)))
+            {
+                return TranslationOutcome.Fallback(text, TranslationFailureReason.ProtectedTokenLost);
+            }
+
             translatedPieces.Add(ProtectedTokenMasker.Unmask(translatedText!, tokens));
         }
 
@@ -77,7 +85,19 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
 
         for (var attempt = 0; attempt < 2; attempt++)
         {
-            var raw = await provider.TranslateAsync(sentence, from, to, cancellationToken);
+            string raw;
+            try
+            {
+                raw = await provider.TranslateAsync(sentence, from, to, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                // The engine is down, slow or answered with an error. A customer's message must
+                // never depend on it, so this is a fallback like any other rejected output. Retrying
+                // an unreachable engine only doubles the wait.
+                return (null, TranslationFailureReason.ProviderUnavailable);
+            }
+
             var cleaned = TranslationQualityJudge.Clean(raw);
 
             // "Strict English check on the first attempt only" (build plan §5): a retry that still
