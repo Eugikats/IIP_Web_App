@@ -14,7 +14,8 @@ public interface ITranslationService
         string text,
         SupportedLanguageCode from,
         SupportedLanguageCode to,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        IReadOnlyCollection<string>? protectedLiterals = null);
 }
 
 /// <summary>Cleans, validates, retries once and falls back, per sentence past the split
@@ -28,7 +29,8 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
     public const string ModelTag = "afrislm-0.8b-q4_k_m.gguf#671088640";
 
     public async Task<TranslationOutcome> TranslateAsync(
-        string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default)
+        string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default,
+        IReadOnlyCollection<string>? protectedLiterals = null)
     {
         if (string.IsNullOrWhiteSpace(text) || from == to)
         {
@@ -52,7 +54,7 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
 
         foreach (var sentence in sentences)
         {
-            var (masked, tokens) = ProtectedTokenMasker.Mask(sentence);
+            var (masked, tokens) = ProtectedTokenMasker.Mask(sentence, protectedLiterals);
             var (translatedText, failure) = await TranslateSentenceAsync(masked, from, to, cancellationToken);
             if (failure is not null)
             {

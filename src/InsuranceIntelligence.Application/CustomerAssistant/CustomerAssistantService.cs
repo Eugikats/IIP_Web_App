@@ -1,3 +1,5 @@
+using InsuranceIntelligence.Application.Translation;
+using InsuranceIntelligence.Domain.Translation;
 using System.Text.RegularExpressions;
 using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Ai;
@@ -102,7 +104,13 @@ public sealed class CustomerAssistantService(
     IChatCompletionProvider? chatCompletionProvider = null,
     // Optional: without a configured client portal the claim is still opened, the reply simply
     // says documents can be sent in the chat instead of carrying a link.
-    IClaimantAccessLinkIssuer? accessLinkIssuer = null) : ICustomerAssistantService
+    IClaimantAccessLinkIssuer? accessLinkIssuer = null,
+    // The four below are all optional and all needed together: without them, or with no language
+    // enabled, the assistant is exactly what it was, English in and English out.
+    ITranslationService? translationService = null,
+    ICustomerLanguageResolutionService? languageResolution = null,
+    ILanguageDetector? languageDetector = null,
+    IAssistantLanguageSettings? languageSettings = null) : ICustomerAssistantService
 {
     private const string SystemActorId = "system:customer-assistant";
     private const string AgentKey = "customer-assistant";
@@ -260,6 +268,26 @@ public sealed class CustomerAssistantService(
             .ToArray();
         var previousTurn = thread.Length == 0 ? null : thread[^1];
 
+        // Which language is this customer conversing in? Everything from here on runs on English:
+        // the customer's message is translated at the door and the reply is translated on the way
+        // out, so no gate, classifier, consent or identity check ever sees anything but English.
+        var original = text;
+        var language = await ResolveConversationLanguageAsync(scope, waId, original, previousTurn, cancellationToken);
+        if (language.Step != LanguageStep.Proceed)
+        {
+            await HandleLanguageStepAsync(scope, inbound, threadId, waId, original, language, sender, correlationId, cancellationToken);
+            return null;
+        }
+
+        var understood = await UnderstandAsync(original, language.Inbound, cancellationToken);
+        if (understood.NeedsAPerson)
+        {
+            await EscalateUntranslatedAsync(scope, inbound, threadId, waId, original, language, sender, understood.Failure, correlationId, cancellationToken);
+            return null;
+        }
+
+        text = understood.English;
+
         var classified = intentClassifier.Classify(text);
         if (CustomerMessageSignals.IsBareHumanRequest(text))
         {
@@ -291,10 +319,12 @@ public sealed class CustomerAssistantService(
         // the conversation never goes silent; that message discloses nothing and is the same
         // lower-risk template category as every other non-AI reply here (a claim reference,
         // "which cover is this about?", a lead confirmation), which the gate does not govern.
+        LocalisedReply? localised = null;
         if (reply is not null)
         {
             var textToSend = outcome.Outcome == CustomerAssistantOutcome.QueuedForHumanApproval ? HoldingReply(sender) : reply;
-            await SendReplyAsync(scope, inbound, threadId, waId, textToSend, outcome.CaseId, cancellationToken);
+            localised = await LocaliseAsync(textToSend, language.Reply, sender?.FirstName, cancellationToken);
+            await SendReplyAsync(scope, inbound, threadId, waId, localised.Text, outcome.CaseId, cancellationToken, LanguageIsoFor(localised.Status, language.Reply));
         }
 
         await conversationRepository.SaveAsync(new CustomerConversationTurn
@@ -311,6 +341,11 @@ public sealed class CustomerAssistantService(
             CaseId = outcome.CaseId,
             LeadId = outcome.LeadId,
             PolicyNumber = outcome.PolicyNumber,
+            CustomerLanguage = language.Reply == SupportedLanguageCode.En ? null : SupportedLanguage.For(language.Reply).Iso,
+            OriginalInboundText = string.Equals(original, text, StringComparison.Ordinal) ? null : original,
+            OutboundLocalisedText = localised is { Status: TranslationStatus.Translated } ? localised.Text : null,
+            InboundTranslationStatus = understood.Status,
+            OutboundTranslationStatus = localised?.Status,
             OccurredAt = DateTimeOffset.UtcNow,
             CorrelationId = correlationId,
         }, cancellationToken);
@@ -321,7 +356,7 @@ public sealed class CustomerAssistantService(
                 $"customer_assistant.{outcome.Outcome.ToString().ToLowerInvariant()}", DateTimeOffset.UtcNow,
                 null, null, outcome.LeadId is null ? [] : [outcome.LeadId], "CustomerAssistant", null,
                 "recorded", null,
-                $"WhatsApp customer assistant classified this message as {outcome.Intent} and took action {outcome.Outcome}{(sender is null ? "" : ", sender recognised by phone number")}. Message body omitted from evidence.",
+                $"WhatsApp customer assistant classified this message as {outcome.Intent} and took action {outcome.Outcome}{(sender is null ? "" : ", sender recognised by phone number")}{LanguageEvidence(language, understood.Status, localised?.Status)}. Message body omitted from evidence.",
                 correlationId),
             cancellationToken);
 
@@ -653,7 +688,22 @@ public sealed class CustomerAssistantService(
             reply = claimCase is null
                 ? $"{thanks} I've received your file. To add it to the right claim, please reply with your policy number or claim reference."
                 : $"{thanks} I've added that to your claim {ClaimReference.For(claimCase.CaseId)}. Send anything else you have whenever you're ready.";
-            await SendReplyAsync(scope, inbound, threadId, waId, reply, claimCase?.CaseId, cancellationToken);
+
+            // A photo has no words to detect a language from, so use the one this customer already
+            // chose. Nothing remembered means English, as it always was.
+            var replyLanguage = SupportedLanguageCode.En;
+            if (LanguagesEnabled)
+            {
+                var remembered = await languageResolution!.ResolveAsync(scope, waId, string.Empty, false, cancellationToken);
+                if (remembered.Source == LanguageResolutionSource.RememberedPreference && languageSettings!.EnabledLanguages.Contains(remembered.Language))
+                {
+                    replyLanguage = remembered.Language;
+                }
+            }
+
+            var localisedAck = await LocaliseAsync(reply, replyLanguage, sender?.FirstName, cancellationToken);
+            await SendReplyAsync(scope, inbound, threadId, waId, localisedAck.Text, claimCase?.CaseId, cancellationToken,
+                LanguageIsoFor(localisedAck.Status, replyLanguage));
         }
 
         await conversationRepository.SaveAsync(new CustomerConversationTurn
@@ -1018,7 +1068,7 @@ public sealed class CustomerAssistantService(
             InteractionReference = threadId,
         }, cancellationToken);
 
-    private async Task SendReplyAsync(TenantScope scope, WhatsAppInboundMessage inbound, string threadId, string waId, string replyText, Guid? caseId, CancellationToken cancellationToken)
+    private async Task SendReplyAsync(TenantScope scope, WhatsAppInboundMessage inbound, string threadId, string waId, string replyText, Guid? caseId, CancellationToken cancellationToken, string languageIso = "en")
     {
         if (!outboundProvider.IsConfigured)
         {
@@ -1037,7 +1087,7 @@ public sealed class CustomerAssistantService(
 
         var idempotencyKey = Guid.NewGuid().ToString("N");
         var result = await outboundProvider.SendAsync(new WhatsAppProviderSendRequest(
-            inbound.BusinessPhoneNumberId, waId, replyText, TemplateName: null, Language: "en",
+            inbound.BusinessPhoneNumberId, waId, replyText, TemplateName: null, Language: languageIso,
             ReplyToProviderMessageId: inbound.ProviderMessageId, IdempotencyKey: idempotencyKey), cancellationToken);
 
         await whatsAppMessageRepository.SaveAsync(new WhatsAppMessage
@@ -1084,6 +1134,249 @@ public sealed class CustomerAssistantService(
 
     private static string DefaultEscalationMessage() =>
         "I'm not able to help with that directly, I've passed this to our team and someone will follow up with you.";
+
+
+    // ---- Language: understand the customer at the door, answer them in their own language ----
+
+    private enum LanguageStep
+    {
+        Proceed,
+        AskChoice,
+        ChoiceAnswered,
+    }
+
+    /// <summary>Reply is the language to answer in. Inbound is the language to translate this one
+    /// message from. They differ when someone who prefers Luganda types "yes" in English.</summary>
+    private sealed record ConversationLanguage(SupportedLanguageCode Reply, SupportedLanguageCode Inbound, LanguageStep Step);
+
+    private sealed record Understood(string English, TranslationStatus Status, bool NeedsAPerson, TranslationFailureReason? Failure);
+
+    private sealed record LocalisedReply(string Text, TranslationStatus Status);
+
+    private static readonly ConversationLanguage English = new(SupportedLanguageCode.En, SupportedLanguageCode.En, LanguageStep.Proceed);
+
+    private const string MachineTranslatedNote = "This message was translated by a computer.";
+
+    private bool LanguagesEnabled =>
+        translationService is not null
+        && languageResolution is not null
+        && languageDetector is not null
+        && languageSettings is { EnabledLanguages.Count: > 0 };
+
+    private async Task<ConversationLanguage> ResolveConversationLanguageAsync(
+        TenantScope scope, string waId, string original, CustomerConversationTurn? previousTurn, CancellationToken cancellationToken)
+    {
+        if (!LanguagesEnabled)
+        {
+            return English;
+        }
+
+        var previousWasChoice = previousTurn?.Outcome == CustomerAssistantOutcome.AwaitingLanguageChoice;
+        var resolution = await languageResolution!.ResolveAsync(scope, waId, original, previousWasChoice, cancellationToken);
+        var enabled = languageSettings!.EnabledLanguages;
+        var detected = languageDetector!.Detect(original);
+
+        if (previousWasChoice && LanguageChoicePrompt.ParseAnswer(original) is not null)
+        {
+            var chosen = enabled.Contains(resolution.Language) ? resolution.Language : SupportedLanguageCode.En;
+            return new ConversationLanguage(chosen, chosen, LanguageStep.ChoiceAnswered);
+        }
+
+        if (resolution.Source == LanguageResolutionSource.ExplicitRequest)
+        {
+            var requested = enabled.Contains(resolution.Language) ? resolution.Language : SupportedLanguageCode.En;
+            var onlyAskedForALanguage = original.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length <= 6
+                && intentClassifier.Classify(original) == CustomerIntent.Unknown;
+            return onlyAskedForALanguage
+                ? new ConversationLanguage(requested, requested, LanguageStep.ChoiceAnswered)
+                : new ConversationLanguage(requested, InboundLanguageFor(original, detected, requested, enabled), LanguageStep.Proceed);
+        }
+
+        if (resolution.Source == LanguageResolutionSource.PromptedChoice)
+        {
+            // Not sure. Ask only when the message shows a sign of one of the other languages; a
+            // short English message ("hi") must not be answered with a language menu.
+            var hasLocalSignal = detected.Language != SupportedLanguageCode.En
+                && detected.Confidence > 0
+                && enabled.Contains(detected.Language);
+            return hasLocalSignal
+                ? new ConversationLanguage(SupportedLanguageCode.En, SupportedLanguageCode.En, LanguageStep.AskChoice)
+                : English;
+        }
+
+        var reply = enabled.Contains(resolution.Language) ? resolution.Language : SupportedLanguageCode.En;
+        return new ConversationLanguage(reply, InboundLanguageFor(original, detected, reply, enabled), LanguageStep.Proceed);
+    }
+
+    /// <summary>The language to translate one message from. The message itself decides, not the
+    /// customer's preference: someone who prefers Luganda still types "yes", or a policy number, in
+    /// English. A message that shows no sign of either is assumed to be in the preferred language.</summary>
+    private static SupportedLanguageCode InboundLanguageFor(
+        string original, LanguageResolution detected, SupportedLanguageCode preferred, IReadOnlyCollection<SupportedLanguageCode> enabled)
+    {
+        if (detected.Language != SupportedLanguageCode.En && detected.Confidence > 0 && enabled.Contains(detected.Language))
+        {
+            return detected.Language;
+        }
+
+        return TranslationQualityJudge.LooksLikeEnglish(original) ? SupportedLanguageCode.En : preferred;
+    }
+
+    private async Task<Understood> UnderstandAsync(string original, SupportedLanguageCode inbound, CancellationToken cancellationToken)
+    {
+        if (inbound == SupportedLanguageCode.En || !HasWordsToTranslate(original))
+        {
+            return new Understood(original, TranslationStatus.NotNeeded, false, null);
+        }
+
+        var outcome = await translationService!.TranslateAsync(original, inbound, SupportedLanguageCode.En, cancellationToken);
+        if (outcome.Translated)
+        {
+            return new Understood(outcome.Text, TranslationStatus.Translated, false, null);
+        }
+
+        // The model handed the text back unchanged: it was already English, or there was nothing in
+        // it to translate. Carry on with it as it is. Any other failure means the message could not
+        // be understood, and guessing an intent from it is exactly what must never happen.
+        return outcome.Failure == TranslationFailureReason.Unchanged
+            ? new Understood(original, TranslationStatus.NotNeeded, false, null)
+            : new Understood(original, TranslationStatus.FellBackToEnglish, true, outcome.Failure);
+    }
+
+    /// <summary>A message that is only a policy number, a digit or punctuation has nothing to translate,
+    /// and sending it to the model returns it unchanged, which the checks would then reject.</summary>
+    private static bool HasWordsToTranslate(string text)
+    {
+        var (masked, _) = ProtectedTokenMasker.Mask(text);
+        return System.Text.RegularExpressions.Regex.Replace(masked, @"\[TKN\d+\]", string.Empty).Any(char.IsLetter);
+    }
+
+    /// <summary>Puts an English reply into the customer's language, or leaves it in English and says
+    /// why. Only ever a machine translation, so it is only ever done where the workspace allows
+    /// unreviewed translations, it carries a note saying a computer did it, and a failure of any kind
+    /// sends the English rather than something unchecked.</summary>
+    private async Task<LocalisedReply> LocaliseAsync(string english, SupportedLanguageCode reply, string? firstName, CancellationToken cancellationToken)
+    {
+        if (reply == SupportedLanguageCode.En)
+        {
+            return new LocalisedReply(english, TranslationStatus.NotNeeded);
+        }
+
+        if (!LanguagesEnabled || languageSettings is not { AllowUnreviewedTranslations: true })
+        {
+            return new LocalisedReply(english, TranslationStatus.FellBackToEnglish);
+        }
+
+        // The customer's name must come through untouched, and so must the insurance words that are
+        // better left in English for this language (see AssistantGlossary).
+        var literals = new List<string>();
+        if (!string.IsNullOrWhiteSpace(firstName))
+        {
+            literals.Add(firstName);
+        }
+
+        literals.AddRange(AssistantGlossary.KeptInEnglish(reply));
+        var outcome = await translationService!.TranslateAsync(english, SupportedLanguageCode.En, reply, cancellationToken, literals);
+        if (!outcome.Translated)
+        {
+            return new LocalisedReply(english, TranslationStatus.FellBackToEnglish);
+        }
+
+        var note = await translationService.TranslateAsync(MachineTranslatedNote, SupportedLanguageCode.En, reply, cancellationToken);
+        return new LocalisedReply($"{outcome.Text}\n\n({(note.Translated ? note.Text : MachineTranslatedNote)})", TranslationStatus.Translated);
+    }
+
+    /// <summary>The language code a reply is labelled with: the customer's language only when the
+    /// text really is in it. English that went out because a translation could not be shown is
+    /// labelled English.</summary>
+    private static string LanguageIsoFor(TranslationStatus status, SupportedLanguageCode language) =>
+        status == TranslationStatus.Translated ? SupportedLanguage.For(language).Iso : "en";
+
+    private static string LanguageEvidence(ConversationLanguage language, TranslationStatus inbound, TranslationStatus? outbound) =>
+        language.Reply == SupportedLanguageCode.En && inbound == TranslationStatus.NotNeeded
+            ? string.Empty
+            : $", language {SupportedLanguage.For(language.Reply).Iso}, inbound {inbound}, outbound {outbound?.ToString() ?? "none"}";
+
+    /// <summary>Asks which language to use, or greets the customer in the one they just chose.</summary>
+    private async Task HandleLanguageStepAsync(
+        TenantScope scope, WhatsAppInboundMessage inbound, string threadId, string waId, string original,
+        ConversationLanguage language, SenderProfile? sender, string correlationId, CancellationToken cancellationToken)
+    {
+        var asking = language.Step == LanguageStep.AskChoice;
+        var english = asking
+            ? $"I can reply in English, Luganda or Kiswahili. {LanguageChoicePrompt.Text}"
+            : Welcome(sender);
+        var localised = asking
+            ? new LocalisedReply(english, TranslationStatus.NotNeeded)
+            : await LocaliseAsync(english, language.Reply, sender?.FirstName, cancellationToken);
+
+        await SendReplyAsync(scope, inbound, threadId, waId, localised.Text, null, cancellationToken, asking ? "en" : LanguageIsoFor(localised.Status, language.Reply));
+        await conversationRepository.SaveAsync(new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(),
+            Scope = scope,
+            ThreadId = threadId,
+            ContactWaId = waId,
+            InboundMessageText = original,
+            ClassifiedIntent = CustomerIntent.Unknown,
+            OutboundReplyText = english,
+            Outcome = asking ? CustomerAssistantOutcome.AwaitingLanguageChoice : CustomerAssistantOutcome.AwaitingMoreInformation,
+            CustomerLanguage = language.Reply == SupportedLanguageCode.En ? null : SupportedLanguage.For(language.Reply).Iso,
+            OutboundLocalisedText = localised.Status == TranslationStatus.Translated ? localised.Text : null,
+            OutboundTranslationStatus = localised.Status,
+            OccurredAt = DateTimeOffset.UtcNow,
+            CorrelationId = correlationId,
+        }, cancellationToken);
+
+        await auditRepository.WriteAsync(
+            new AuditEvent(
+                Guid.NewGuid(), scope, null, null, SystemActorId, ActorType.Integration,
+                asking ? "customer_assistant.language_asked" : "customer_assistant.language_chosen", DateTimeOffset.UtcNow,
+                null, null, [], "CustomerAssistant", null,
+                "recorded", null,
+                $"WhatsApp customer assistant {(asking ? "asked which language to use" : $"switched to {SupportedLanguage.For(language.Reply).Iso}")}. Message body omitted from evidence.",
+                correlationId),
+            cancellationToken);
+    }
+
+    /// <summary>The customer wrote in a language we could not turn into English. A person gets the
+    /// original words; nothing is guessed from a failed translation.</summary>
+    private async Task EscalateUntranslatedAsync(
+        TenantScope scope, WhatsAppInboundMessage inbound, string threadId, string waId, string original,
+        ConversationLanguage language, SenderProfile? sender, TranslationFailureReason? failure, string correlationId, CancellationToken cancellationToken)
+    {
+        var english = DefaultEscalationMessage();
+        var localised = await LocaliseAsync(english, language.Reply, sender?.FirstName, cancellationToken);
+        await SendReplyAsync(scope, inbound, threadId, waId, localised.Text, null, cancellationToken, LanguageIsoFor(localised.Status, language.Reply));
+
+        await conversationRepository.SaveAsync(new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(),
+            Scope = scope,
+            ThreadId = threadId,
+            ContactWaId = waId,
+            InboundMessageText = original,
+            ClassifiedIntent = CustomerIntent.Unknown,
+            OutboundReplyText = english,
+            Outcome = CustomerAssistantOutcome.Escalated,
+            CustomerLanguage = language.Reply == SupportedLanguageCode.En ? null : SupportedLanguage.For(language.Reply).Iso,
+            OutboundLocalisedText = localised.Status == TranslationStatus.Translated ? localised.Text : null,
+            InboundTranslationStatus = TranslationStatus.FellBackToEnglish,
+            OutboundTranslationStatus = localised.Status,
+            OccurredAt = DateTimeOffset.UtcNow,
+            CorrelationId = correlationId,
+        }, cancellationToken);
+
+        await auditRepository.WriteAsync(
+            new AuditEvent(
+                Guid.NewGuid(), scope, null, null, SystemActorId, ActorType.Integration,
+                "customer_assistant.translation_failed", DateTimeOffset.UtcNow,
+                null, null, [], "CustomerAssistant", null,
+                "failed", null,
+                $"WhatsApp customer assistant could not translate a {SupportedLanguage.For(language.Inbound).Iso} message into English ({failure}) and escalated it to a person with the original words. Message body omitted from evidence.",
+                correlationId),
+            cancellationToken);
+    }
 
     /// <summary>Who is writing, when their WhatsApp number matches one person on file.</summary>
     private sealed record SenderProfile(string FullName, string FirstName, IReadOnlyList<Policy> Policies);

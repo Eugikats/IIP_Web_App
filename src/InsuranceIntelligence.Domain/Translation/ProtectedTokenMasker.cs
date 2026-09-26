@@ -47,9 +47,14 @@ public static class ProtectedTokenMasker
 
         var masked = UrlPattern.Replace(text, ReplaceWith);
         masked = ClaimReferencePattern.Replace(masked, ReplaceWith);
-        foreach (var literal in (protectedLiterals ?? []).Where(l => !string.IsNullOrWhiteSpace(l)).Distinct(StringComparer.Ordinal))
+        // Longest first, so a phrase is protected whole before a word inside it can split it. Matched
+        // without regard to case, and restored exactly as it was written.
+        foreach (var literal in (protectedLiterals ?? [])
+                     .Where(l => !string.IsNullOrWhiteSpace(l))
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .OrderByDescending(l => l.Length))
         {
-            masked = new Regex($@"\b{Regex.Escape(literal)}\b", RegexOptions.CultureInvariant).Replace(masked, ReplaceWith);
+            masked = new Regex($@"\b{Regex.Escape(literal)}\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase).Replace(masked, ReplaceWith);
         }
 
         masked = PolicyNumberPattern.Replace(masked, ReplaceWith);

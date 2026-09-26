@@ -13,6 +13,12 @@ public static class LanguageWordListScorer
         "kale", "nnyo", "abaana", "ensimbi", "omusango", "nnyabo", "ssebo", "mpulira", "bwoba",
         "tewali", "wano", "leero", "nsonga", "kakati", "nsaba", "nnyinza", "bino", "nze", "ggwe",
         "bakyala", "mukama", "olwaki", "mutya", "gyendi", "gyenva",
+        // Function words and everyday claim words. A real sentence is mostly these, and the list
+        // above alone scored a plain Luganda sentence below the detection threshold.
+        "yange", "gwange", "bwange", "zange", "lwange", "kwange", "naye", "nti", "mu", "ku",
+        "nga", "nnina", "jjo", "enkya", "makya", "ekiro", "motoka", "poliisi", "ssente", "yinsuwa",
+        "ddwaliro", "musawo", "nsonyiwa", "nkusaba", "mbeera", "empapula", "ebiwandiiko", "omuntu",
+        "abantu", "bwe", "oba", "leero", "mumbeeko", "nsaba", "kyange", "ebyange", "ekyange",
     };
 
     private static readonly HashSet<string> KiswahiliWords = new(StringComparer.OrdinalIgnoreCase)
@@ -21,6 +27,10 @@ public static class LanguageWordListScorer
         "pole", "naomba", "nataka", "gari", "polisi", "hospitali", "fedha", "malipo", "kesi",
         "leo", "sasa", "karibu", "samahani", "nzuri", "mzuri", "wewe", "mimi", "sisi", "hii",
         "hiyo", "kwa", "nini", "wapi", "lini", "gani", "namba",
+        "na", "ya", "wa", "ni", "la", "yangu", "langu", "wangu", "yako", "nimepata", "nina", "sera",
+        "barabara", "asubuhi", "jana", "jioni", "usiku", "kwenye", "nisaidie", "madai", "dai", "daktari",
+        "wizi", "moto", "kifo", "fidia", "kesho", "sijui", "naweza", "unaweza", "tuma", "picha",
+        "nimepoteza", "imeharibika", "gari", "nyumba", "mtu", "watu", "kitu", "kama", "lakini", "pia",
     };
 
     private const double NoSignalConfidence = 0.0;

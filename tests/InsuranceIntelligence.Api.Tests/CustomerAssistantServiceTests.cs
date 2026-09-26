@@ -1,6 +1,9 @@
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.Notifications;
+using InsuranceIntelligence.Application.Translation;
+using InsuranceIntelligence.Domain.Translation;
+using InsuranceIntelligence.Infrastructure.Translation;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
@@ -24,7 +27,7 @@ namespace InsuranceIntelligence.Api.Tests;
 /// real KeywordCustomerIntentClassifier (not a stub) so these tests exercise the same
 /// text-in/outcome-out path a real WhatsApp message takes.
 /// </summary>
-public sealed class CustomerAssistantServiceTests
+public sealed partial class CustomerAssistantServiceTests
 {
     private const string ValidPolicyNumber = "NSA/MO/2026/00009";
 
@@ -609,7 +612,10 @@ public sealed class CustomerAssistantServiceTests
             bool withAccessLinks = false,
             string? modelAnswer = null,
             bool modelThrows = false,
-            bool casesThrow = false)
+            bool casesThrow = false,
+            ITranslationProvider? translator = null,
+            IReadOnlyCollection<SupportedLanguageCode>? enabledLanguages = null,
+            bool allowUnreviewedTranslations = true)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -627,6 +633,7 @@ public sealed class CustomerAssistantServiceTests
             var teamsQueue = new FakeTeamsNotificationQueue();
             var agentGate = agentEnabled ? new LocalTestAgentGate() : new LocalTestAgentGate("customer-assistant");
             var linkIssuer = new FakeAccessLinkIssuer();
+            var languagePreferences = new InMemoryCustomerLanguagePreferenceRepository();
             IChatCompletionProvider? model = modelThrows
                 ? new FakeChatCompletionProvider(null)
                 : modelAnswer is null ? null : new FakeChatCompletionProvider(modelAnswer);
@@ -650,7 +657,11 @@ public sealed class CustomerAssistantServiceTests
                 new NoOpNotificationEmitter(),
                 teamsQueue,
                 model,
-                withAccessLinks ? linkIssuer : null);
+                withAccessLinks ? linkIssuer : null,
+                translator is null ? null : new TranslationService(translator, new InMemoryTranslationCache()),
+                translator is null ? null : new CustomerLanguageResolutionService(languagePreferences, new WordListLanguageDetector()),
+                translator is null ? null : new WordListLanguageDetector(),
+                translator is null ? null : new TestLanguageSettings(enabledLanguages ?? [SupportedLanguageCode.Lg, SupportedLanguageCode.Sw], allowUnreviewedTranslations));
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {
@@ -913,6 +924,13 @@ public sealed class CustomerAssistantServiceTests
             Enqueued.Add(notification);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class TestLanguageSettings(IReadOnlyCollection<SupportedLanguageCode> enabled, bool allowUnreviewed) : IAssistantLanguageSettings
+    {
+        public IReadOnlyCollection<SupportedLanguageCode> EnabledLanguages => enabled;
+
+        public bool AllowUnreviewedTranslations => allowUnreviewed;
     }
 
     /// <summary>A case store that is down, to prove a failing message is handed to a person.</summary>

@@ -93,4 +93,16 @@ public sealed class ProtectedTokenMaskerTests
         Assert.All(masked, character => Assert.True(character < 128));
         Assert.Equal("[TKN0]", Assert.Single(tokens).Key);
     }
+
+    [Fact]
+    public void A_longer_protected_phrase_is_kept_whole_and_matching_ignores_case()
+    {
+        var (masked, tokens) = ProtectedTokenMasker.Mask("A Claims Officer will review your claim.", ["claim", "claims officer"]);
+
+        Assert.Equal(2, tokens.Count);
+        Assert.Contains("Claims Officer", tokens.Values);
+        Assert.Contains("claim", tokens.Values);
+        Assert.DoesNotContain("Officer", masked);
+        Assert.Equal("A Claims Officer will review your claim.", ProtectedTokenMasker.Unmask(masked, tokens));
+    }
 }

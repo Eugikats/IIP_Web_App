@@ -49,6 +49,10 @@ public enum CustomerAssistantOutcome
 
     /// <summary>A photo or document arrived and the assistant acknowledged it.</summary>
     DocumentReceived,
+
+    /// <summary>The assistant could not tell which language the customer writes in and asked them
+    /// to choose. Their next message is the answer. Appended last so stored values keep their meaning.</summary>
+    AwaitingLanguageChoice,
 }
 
 public sealed record CustomerConversationTurn
@@ -69,6 +73,20 @@ public sealed record CustomerConversationTurn
     /// their phone number, or typed). Carries a policy choice forward to the next message of a
     /// claim conversation. Optional so turns saved before it existed still read back.</summary>
     public string? PolicyNumber { get; init; }
+
+    /// <summary>The language the customer is conversing in, as an ISO code, when it is not English.
+    /// InboundMessageText and OutboundReplyText are always the English record of the turn.</summary>
+    public string? CustomerLanguage { get; init; }
+
+    /// <summary>What the customer actually wrote, kept when the English above is a translation of it.</summary>
+    public string? OriginalInboundText { get; init; }
+
+    /// <summary>What the customer actually received, kept when it differs from the English reply.</summary>
+    public string? OutboundLocalisedText { get; init; }
+
+    public InsuranceIntelligence.Domain.Translation.TranslationStatus? InboundTranslationStatus { get; init; }
+
+    public InsuranceIntelligence.Domain.Translation.TranslationStatus? OutboundTranslationStatus { get; init; }
 
     public required DateTimeOffset OccurredAt { get; init; }
     public required string CorrelationId { get; init; }

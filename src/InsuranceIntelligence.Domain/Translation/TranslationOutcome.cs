@@ -41,3 +41,25 @@ public sealed record TranslationOutcome(string Text, bool Translated, bool FromC
     /// name="originalText"/> is returned unchanged, marked with why.</summary>
     public static TranslationOutcome Fallback(string originalText, TranslationFailureReason reason) => new(originalText, false, false, reason);
 }
+
+/// <summary>What happened to one side of a conversation turn, so a person reading it can tell a
+/// machine translation from a human-written reply from plain English. Stored, never inferred.
+/// The first three are what the assistant produces today; the last two are reserved for the
+/// human-reviewed template layer, and appended so stored values keep their meaning.</summary>
+public enum TranslationStatus
+{
+    /// <summary>The turn was in English, or the text had nothing to translate.</summary>
+    NotNeeded,
+
+    /// <summary>The model translated it and the result passed every check.</summary>
+    Translated,
+
+    /// <summary>A translation was wanted but could not be shown, so the English went out instead.</summary>
+    FellBackToEnglish,
+
+    /// <summary>A human-reviewed translation was used.</summary>
+    HumanTemplate,
+
+    /// <summary>A human-written translation that has not been reviewed by a native speaker was used.</summary>
+    DraftTemplate,
+}
