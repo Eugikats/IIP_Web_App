@@ -1094,6 +1094,10 @@ app.MapPost("/api/v1/agents/{agentKey}/behaviour", InsuranceIntelligence.Api.Age
 app.MapPost("/api/v1/agents/{agentKey}/behaviour/test", InsuranceIntelligence.Api.Agents.AgentBehaviourEndpoints.TestBehaviour)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 
+// Whether the customer assistant can really answer in Luganda and Kiswahili right now.
+app.MapGet("/api/v1/agents/customer-assistant/translation", InsuranceIntelligence.Api.Agents.TranslationStatusEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+
 // Tenant agent policy (blueprint §6.4, WO 3.4), real enforcement-source data, not a hardcoded array.
 app.MapGet("/api/v1/admin/tenant-policy", InsuranceIntelligence.Api.Administration.TenantPolicyEndpoints.GetPolicy)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));

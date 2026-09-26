@@ -261,8 +261,29 @@ next. Keep it short.
   API tests pass.
 - 2026-09-27 requirement change from the product owner: the model file itself must produce the
   reply. Engine decision and outcome 6 rewritten; the Azure OpenAI provider is out of scope.
-- 2026-09-27 outcome 1 in progress: assistant now escalates a failed message to a person instead of
-  losing it; webhook queue and worker next.
+- 2026-09-27 outcome 1 done: the webhook saves the message, enqueues it and answers Meta at once. A
+  failure or a timeout escalates to a person with the holding reply and an audit event. 8 tests.
+- 2026-09-27 model proven locally: the file loads on a current llama.cpp (b11201) and translates
+  claim messages both ways in 1 to 5 seconds on a 6-core laptop CPU. Customer to English is
+  accurate in both languages. English to Kiswahili is good. English to Luganda makes insurance
+  vocabulary mistakes ("claim on your policy" became "case on your plot").
+- 2026-09-27 two defects found by testing against the real model and fixed: the translation
+  provider setting was never read from configuration (always Mock, which a deployed profile
+  refuses, so this branch could not have started on dev), and the placeholder that protects policy
+  numbers used invisible characters the model strips (lost the value in 4 of 6 cases; plain ASCII
+  kept all). The service now refuses any translation that drops a protected value.
+- 2026-09-27 outcomes 2, 4, 5 done (turn record and audit; the claim-page display of the original
+  words is not yet): inbound translated at the door, reply translated on the way out, both
+  recorded in English next to what the customer wrote and received. Luganda keeps claim, policy and
+  claims officer in English (measured: removes the worst errors); Kiswahili does not. English
+  customers untouched. Suite: 584 domain and 948 API tests pass.
+- 2026-09-27 outcome 3 changed: fixed replies are not moved into templates in this pass. Where
+  unreviewed translations are allowed they are machine translated like any other reply, labelled,
+  and fall back to English; a reviewed-template layer is the follow-up, seeded from the review sheet.
+  The English sentences stay in the assistant so English output is unchanged.
+- 2026-09-27 outcome 6 in progress: Container Apps environment `cae-iip-dev`, file share
+  `afrislm-models` and the access key in Key Vault created; model upload verified by SHA-256 next,
+  then the container app, API settings, deploy and migration.
 
 ## 10. Reporting and stopping
 
