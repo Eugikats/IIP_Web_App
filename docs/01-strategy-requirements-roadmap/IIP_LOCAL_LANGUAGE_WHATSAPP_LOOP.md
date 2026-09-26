@@ -15,17 +15,32 @@ A customer writes to the insurer's WhatsApp in Luganda, Kiswahili or English. II
 message, runs the existing claim process unchanged, and replies in the customer's language. Staff
 see the English next to what the customer actually wrote.
 
+**The acceptance test, set by the product owner:** at the end, they send a WhatsApp message from their
+own phone in Luganda or Kiswahili and receive a reply in that language, with the model file at
+`languages/afrislm-0.8b-q4_k_m.gguf` doing the translation. Nothing is done until that works, or a
+blocker that needs a person is reported exactly.
+
 Translation goes around the claim process, never into it: translate the customer's message to
 English at the door, run the existing English flow, translate the reply on the way out. Every gate,
 consent check, identity check and classification runs on the English text.
 
 ## 2. Decisions made for this loop
 
-- **The engine that goes live is the existing Azure OpenAI deployment**, through a new
-  `AzureOpenAiTranslationProvider` behind the existing `ITranslationProvider`. Reasons: it needs no
-  new billable Azure resource, customer text already flows to that deployment for classification
-  and grounded answers, and the AfriSLM container is unproven and needs a person's yes to provision.
-  AfriSLM stays a later swap behind the same interface. Do not build the container here.
+- **The engine that goes live is the given model file, AfriSLM**, served by `llama.cpp` in its own
+  container on Azure Container Apps, as `IIP_LOCAL_LANGUAGE_BUILD_PLAN.md` outcome G describes. The
+  product owner asked for it directly ("a response in a local language from the file given"), and that
+  is the authorisation for the new billable resources it needs in the dev resource group: a Container
+  Apps environment, one container app (about 2 vCPU and 4 GB, one replica), and a file share in the
+  existing storage account. Create nothing else, and record the resources and their cost in the
+  deployment document. Never put the model on the API's App Service plan.
+- **The model file is uploaded once and verified.** Upload it to the file share from
+  `languages/`, record its SHA-256, and have the container mount it read-only. Never commit the file.
+- **`AfriSlmTranslationProvider` calls the container.** Provider selection stays behind
+  `ITranslationProvider`, so another engine (Azure Translator, Sunbird, Azure OpenAI) remains a
+  one-class swap. Do not build those here.
+- **Model output is untrusted.** The plan documents that this model invents rather than fails.
+  Everything it returns goes through `TranslationQualityJudge`, and failure falls back to English.
+
 - **Fixed replies are templates, and templates carry a review status.** A Luganda or Kiswahili
   template written by an agent is `Draft` until a native speaker marks it `Reviewed`. Customers
   receive a translated fixed reply only if it is `Reviewed`, or if the workspace setting
@@ -142,17 +157,27 @@ provider, and a failed outbound translation sends English with the right status.
 Accepted when: tests prove both texts persist, the audit event carries no body text, and the claim
 page shows the original words for a translated claim.
 
-### 6. A real engine, honestly reported
+### 6. The given model runs in Azure and IIP calls it
 
-- `AzureOpenAiTranslationProvider` in the API project, using the existing deployment, with the
-  model-card style prompt, temperature 0, a token budget scaled to the input, and a system
-  instruction to output only the translation.
-- Provider selection through `INSURANCEINTELLIGENCE_TRANSLATION_PROVIDER` (`Mock`, `AzureOpenAi`,
-  and a reserved `AfriSlm`), refused-Mock rule intact, unknown values fail closed to English.
-- A health signal: Not configured, healthy, or failing, shown on the staff surface.
+- **Prove the file first.** Load `languages/afrislm-0.8b-q4_k_m.gguf` in a current `llama.cpp` build,
+  locally if possible. The file's architecture is `qwen35`, which older builds cannot load, so record
+  the exact build that loads it. Translate 10 sentences each way and record the output and speed.
+  If the file will not load or produces unusable output, stop and report that: it decides the whole
+  approach.
+- **Host it.** Container on Azure Container Apps running the `llama.cpp` server, model on a mounted
+  file share, reachable only from the API. Add it to Bicep next to the existing dev resources.
+  Pin the image to the build proven above.
+- **Call it.** `AfriSlmTranslationProvider` in Infrastructure: the model-card prompt from the plan,
+  temperature 0, no streaming, a token budget of `words*3+32` clamped to 64..512, a request timeout,
+  and one retry handled by `TranslationService`. Port what the plan's table says to port.
+- **Select it.** `INSURANCEINTELLIGENCE_TRANSLATION_PROVIDER` accepts `Mock`, `AfriSlm` and unknown
+  values fail closed to English. Mock stays refused in deployed profiles. The endpoint is platform
+  configuration.
+- **Report it.** A health signal: Not configured, healthy or failing, shown on the staff surface.
 
-Accepted when: tests cover provider selection and the fail-closed path, and the dev deployment
-answers a real translation.
+Accepted when: the container answers on dev, the API's health check shows it healthy, tests cover
+provider selection, the request shape and the fail-closed path, and the measured median and 95th
+percentile latency for a typical assistant reply are recorded in the deployment document.
 
 ### 7. Staff can see and control it
 
@@ -212,9 +237,13 @@ Then verify by using the deployed system, not by inferring:
 4. Confirm the webhook returned before the assistant finished.
 5. Open the conversation and admin screens signed in and read them.
 
-If the dev WhatsApp connection is a real Meta number, also state exactly what the person must send
-from a handset and where to read the result, and report the outbound message's stored body and
-delivery state. Do not block on it. Report what you saw.
+Then the acceptance test. Check whether the dev WhatsApp connection is a real Meta number and which
+recipients it may message. If it is live, get the product owner to a working handset test: state the
+number to message, an example Luganda and an example Kiswahili message, what reply to expect and where
+to read the stored turn afterwards. Confirm from the stored outbound message that a reply in the
+customer's language was produced, that the model file's translation was used, and its delivery state.
+If the connection is not live or the recipient is not permitted, report exactly what the person must
+do in Meta's dashboard, and prove the rest through signed webhook payloads. Report what you saw.
 
 ## 8. When something is blocked
 
@@ -228,7 +257,12 @@ or weaken validation to make a check pass.
 The loop appends a dated line here after each outcome: what changed, what was verified, what is
 next. Keep it short.
 
-- (none yet)
+- 2026-09-27 outcome 0 done: `main` merged into the branch, clean. Build green, 567 domain and 907
+  API tests pass.
+- 2026-09-27 requirement change from the product owner: the model file itself must produce the
+  reply. Engine decision and outcome 6 rewritten; the Azure OpenAI provider is out of scope.
+- 2026-09-27 outcome 1 in progress: assistant now escalates a failed message to a person instead of
+  losing it; webhook queue and worker next.
 
 ## 10. Reporting and stopping
 

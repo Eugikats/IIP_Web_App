@@ -65,6 +65,16 @@ public interface ICustomerAssistantService
         string correlationId,
         bool autoReplyEnabled,
         CancellationToken cancellationToken = default);
+
+    /// <summary>For a caller that gave up on a batch (a timeout, a shutdown): tells each customer a
+    /// person will follow up and records the escalation, exactly as a failure inside the assistant
+    /// does. Text messages only; a photo is already stored on the claim and needs no reply.</summary>
+    Task EscalateUnhandledAsync(
+        TenantScope scope,
+        IReadOnlyList<WhatsAppInboundMessage> messages,
+        string correlationId,
+        Exception reason,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class CustomerAssistantService(
@@ -120,27 +130,102 @@ public sealed class CustomerAssistantService(
         var opened = new List<Guid>();
         foreach (var inbound in messages)
         {
-            if (inbound.ContentType is WhatsAppContentType.Image or WhatsAppContentType.Document)
+            try
             {
-                // The file itself is stored on the claim by WhatsAppInboundDocumentIngestionService
-                // before this runs; this only tells the customer it arrived.
-                await HandleMediaMessageAsync(scope, inbound, correlationId, cancellationToken);
-                continue;
-            }
+                if (inbound.ContentType is WhatsAppContentType.Image or WhatsAppContentType.Document)
+                {
+                    // The file itself is stored on the claim by WhatsAppInboundDocumentIngestionService
+                    // before this runs; this only tells the customer it arrived.
+                    await HandleMediaMessageAsync(scope, inbound, correlationId, cancellationToken);
+                    continue;
+                }
 
-            if (inbound.ContentType != WhatsAppContentType.Text || string.IsNullOrWhiteSpace(inbound.CustomerSafeBody))
-            {
-                continue;
-            }
+                if (inbound.ContentType != WhatsAppContentType.Text || string.IsNullOrWhiteSpace(inbound.CustomerSafeBody))
+                {
+                    continue;
+                }
 
-            var openedCaseId = await HandleTextMessageAsync(scope, inbound, correlationId, autoReplyEnabled, cancellationToken);
-            if (openedCaseId is { } caseId)
+                var openedCaseId = await HandleTextMessageAsync(scope, inbound, correlationId, autoReplyEnabled, cancellationToken);
+                if (openedCaseId is { } caseId)
+                {
+                    opened.Add(caseId);
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                opened.Add(caseId);
+                // The message is already saved, and this now runs after Meta has been answered, so
+                // nobody is waiting on it. Without this a failure would leave the customer with no
+                // reply and no route to a person, and would be visible only in a log. Hand it to a
+                // person instead, and keep going with the rest of the batch.
+                await EscalateAfterFailureAsync(scope, inbound, correlationId, exception, cancellationToken);
             }
         }
 
         return opened;
+    }
+
+    public async Task EscalateUnhandledAsync(
+        TenantScope scope, IReadOnlyList<WhatsAppInboundMessage> messages, string correlationId, Exception reason, CancellationToken cancellationToken = default)
+    {
+        foreach (var inbound in messages.Where(m => m.ContentType == WhatsAppContentType.Text && !string.IsNullOrWhiteSpace(m.CustomerSafeBody)))
+        {
+            await EscalateAfterFailureAsync(scope, inbound, correlationId, reason, cancellationToken);
+        }
+    }
+
+    /// <summary>The safety net for an assistant that failed on one message: tell the customer a
+    /// person will follow up, record an escalated turn so the conversation view and the Inbox show
+    /// it needs a human, and audit the failure. Every step is best effort and none may throw, because
+    /// the failure being handled may well be a broken send or a broken database.</summary>
+    private async Task EscalateAfterFailureAsync(
+        TenantScope scope, WhatsAppInboundMessage inbound, string correlationId, Exception exception, CancellationToken cancellationToken)
+    {
+        var waId = NormalizeWaId(inbound.SenderWaId);
+        var threadId = WhatsAppMessagingService.BuildThreadId(inbound.BusinessPhoneNumberId, waId);
+        string? reply = DefaultEscalationMessage();
+
+        // The customer wrote to us first, which is the basis for answering them. That is normally
+        // recorded at the start of handling, but a failure or a timeout can arrive before it was, and
+        // an escalation nobody is permitted to send would leave the customer in silence.
+        try { await RecordConsentAsync(scope, waId, threadId, correlationId, cancellationToken); }
+        catch { }
+
+        try { await SendReplyAsync(scope, inbound, threadId, waId, reply, caseId: null, cancellationToken); }
+        catch { reply = null; } // Nothing was sent, so the turn must not claim it was.
+
+        try
+        {
+            await conversationRepository.SaveAsync(new CustomerConversationTurn
+            {
+                TurnId = Guid.NewGuid(),
+                Scope = scope,
+                ThreadId = threadId,
+                ContactWaId = waId,
+                InboundMessageText = inbound.CustomerSafeBody,
+                ClassifiedIntent = CustomerIntent.Unknown,
+                OutboundReplyText = reply,
+                Outcome = CustomerAssistantOutcome.Escalated,
+                CaseId = null,
+                LeadId = null,
+                OccurredAt = DateTimeOffset.UtcNow,
+                CorrelationId = correlationId,
+            }, cancellationToken);
+        }
+        catch { } // Best effort: the failure being handled may be the store itself.
+
+        try
+        {
+            await auditRepository.WriteAsync(
+                new AuditEvent(
+                    Guid.NewGuid(), scope, null, null, SystemActorId, ActorType.Integration,
+                    "customer_assistant.processing_failed", DateTimeOffset.UtcNow,
+                    null, null, [], "CustomerAssistant", null,
+                    "failed", null,
+                    $"WhatsApp customer assistant failed on a message ({exception.GetType().Name}) and escalated it to a person. Message body omitted from evidence.",
+                    correlationId),
+                cancellationToken);
+        }
+        catch { } // Best effort: the failure being handled may be the store itself.
     }
 
     private async Task<Guid?> HandleTextMessageAsync(TenantScope scope, WhatsAppInboundMessage inbound, string correlationId, bool autoReplyEnabled, CancellationToken cancellationToken)

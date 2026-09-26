@@ -503,6 +503,53 @@ public sealed class CustomerAssistantServiceTests
         Assert.Contains("access/verify?token=", turn.OutboundReplyText);
     }
 
+    [Fact]
+    public async Task AMessageThatFails_IsEscalatedToAPersonInsteadOfLost()
+    {
+        var fixture = Fixture.Create(casesThrow: true);
+
+        var opened = await fixture.HandleAsync("What is the status of my claim NSA/MO/2026/00009?");
+
+        Assert.Empty(opened);
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.Escalated, turn.Outcome);
+        var sent = Assert.Single(fixture.Outbound.SentRequests);
+        Assert.Contains("passed this to our team", sent.CustomerSafeBody);
+        var audit = Assert.Single(fixture.Audit.Written);
+        Assert.Equal("customer_assistant.processing_failed", audit.ActionName);
+    }
+
+    [Fact]
+    public async Task AFailedMessage_NeverPutsTheCustomersWordsInTheAuditTrail()
+    {
+        var fixture = Fixture.Create(casesThrow: true);
+
+        await fixture.HandleAsync("What is the status of my claim NSA/MO/2026/00009? This is my private note.");
+
+        var audit = Assert.Single(fixture.Audit.Written);
+        Assert.DoesNotContain("private note", audit.AuditReason!, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("case store down", audit.AuditReason!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("InvalidOperationException", audit.AuditReason);
+    }
+
+    [Fact]
+    public async Task EscalateUnhandled_EscalatesEachTextMessageAndSkipsPhotos()
+    {
+        var fixture = Fixture.Create();
+        var messages = new[]
+        {
+            new WhatsAppInboundMessage("wamid.1", "phone-1", "256772118001", WhatsAppContentType.Text, "first", null, DateTimeOffset.UtcNow),
+            new WhatsAppInboundMessage("wamid.2", "phone-1", "256772118001", WhatsAppContentType.Image, "[Image received]", null, DateTimeOffset.UtcNow),
+            new WhatsAppInboundMessage("wamid.3", "phone-1", "256772118001", WhatsAppContentType.Text, "second", null, DateTimeOffset.UtcNow),
+        };
+
+        await fixture.Service.EscalateUnhandledAsync(fixture.Scope, messages, "corr-1", new TimeoutException("slow"));
+
+        Assert.Equal(2, fixture.Conversations.Saved.Count);
+        Assert.All(fixture.Conversations.Saved, turn => Assert.Equal(CustomerAssistantOutcome.Escalated, turn.Outcome));
+        Assert.Equal(2, fixture.Outbound.SentRequests.Count);
+    }
+
     private sealed class Fixture
     {
         private Fixture(
@@ -561,7 +608,8 @@ public sealed class CustomerAssistantServiceTests
             bool agentEnabled = true,
             bool withAccessLinks = false,
             string? modelAnswer = null,
-            bool modelThrows = false)
+            bool modelThrows = false,
+            bool casesThrow = false)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -587,7 +635,7 @@ public sealed class CustomerAssistantServiceTests
                 new KeywordCustomerIntentClassifier(),
                 retrieval,
                 assistant,
-                cases,
+                casesThrow ? new ThrowingCaseRepository() : cases,
                 policies,
                 customers,
                 salesLeads,
@@ -865,6 +913,14 @@ public sealed class CustomerAssistantServiceTests
             Enqueued.Add(notification);
             return Task.CompletedTask;
         }
+    }
+
+    /// <summary>A case store that is down, to prove a failing message is handed to a person.</summary>
+    private sealed class ThrowingCaseRepository : InsuranceIntelligence.Domain.Cases.ICaseRepository
+    {
+        public Task SaveAsync(ClaimCase claimCase, CancellationToken cancellationToken = default) => throw new InvalidOperationException("case store down");
+        public Task<ClaimCase?> GetAsync(Guid caseId, CancellationToken cancellationToken = default) => throw new InvalidOperationException("case store down");
+        public Task<IReadOnlyCollection<ClaimCase>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) => throw new InvalidOperationException("case store down");
     }
 
     private sealed class FakeAuditRepository : IAuditRepository

@@ -74,12 +74,12 @@ public static class WhatsAppIntegrationEndpoints
         HttpRequest request,
         WhatsAppInboundDocumentIngestionService ingestionService,
         IWhatsAppMessagingService messagingService,
-        InsuranceIntelligence.Application.CustomerAssistant.ICustomerAssistantService customerAssistantService,
+        IWhatsAppAssistantQueue assistantQueue,
+        IServiceScopeFactory scopeFactory,
         IWhatsAppRuntimeSettingsProvider settingsProvider,
         InfrastructureOptions options,
         ILogger<WhatsAppCustomerAssistantLogMarker> logger,
-        CancellationToken cancellationToken,
-        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null)
+        CancellationToken cancellationToken)
     {
         // Read raw body before any JSON model binding so HMAC covers exact bytes Meta signed.
         using var memory = new MemoryStream();
@@ -121,33 +121,20 @@ public static class WhatsAppIntegrationEndpoints
             var deliveryUpdates = await messagingService.ApplyDeliveryEventsAsync(scope, statuses, cancellationToken);
             if (newInbound.Count > 0)
             {
-                // Best-effort: the customer assistant classifies intent and (when the tenant has
-                // opted in) drafts/sends a grounded reply. It must never fail the webhook,
-                // Meta retries on non-2xx, and the inbound message is already durably saved above.
-                // Only messages seen for the first time reach it: a redelivered webhook must not
-                // open the same claim twice or answer the customer twice.
-                try
+                // The messages are already durably saved above, so Meta is answered now and the
+                // assistant runs in the background. Handling it inside this request meant a slow
+                // assistant outlasted Meta's patience, and a dropped connection cancelled the work
+                // after the message was saved, so the retry saw it as already handled and the
+                // customer was never answered. Only messages seen for the first time reach the
+                // queue, so a redelivered webhook neither answers twice nor loses the message.
+                var assistantRequest = new WhatsAppAssistantRequest(
+                    scope, newInbound, request.HttpContext.TraceIdentifier, options.WhatsApp.AssistantAutoReplyEnabled);
+                if (!assistantQueue.TryEnqueue(assistantRequest))
                 {
-                    var openedCaseIds = await customerAssistantService.HandleInboundMessagesAsync(
-                        scope,
-                        newInbound,
-                        request.HttpContext.TraceIdentifier,
-                        options.WhatsApp.AssistantAutoReplyEnabled,
-                        cancellationToken);
-
-                    // A claim reported on WhatsApp gets the same immediate agent review as one
-                    // entered by staff or filed on the claimant portal.
-                    foreach (var caseId in openedCaseIds)
-                    {
-                        triageQueue?.Enqueue(scope, caseId, request.HttpContext.TraceIdentifier, "whatsapp_assistant");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Do not rethrow: an assistant failure must not turn an already-ingested webhook
-                    // into a 5xx that Meta retries. Manual follow-up is still possible from the raw
-                    // thread. Log it so it's actually visible, unlike a bare swallow.
-                    logger.LogError(ex, "Customer assistant failed processing inbound WhatsApp message(s) for tenant {TenantId}", scope.TenantId);
+                    // The queue is full. Never drop a customer's message: handle it here instead,
+                    // on a token that survives the caller hanging up.
+                    logger.LogWarning("WhatsApp assistant queue is full; handling a batch inline for tenant {TenantId}", scope.TenantId);
+                    _ = WhatsAppAssistantWorker.RunAsync(assistantRequest, scopeFactory, logger, CancellationToken.None);
                 }
             }
             return Results.Ok(new
