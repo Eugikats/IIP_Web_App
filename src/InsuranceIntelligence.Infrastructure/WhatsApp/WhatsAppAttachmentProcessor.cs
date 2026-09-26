@@ -12,6 +12,7 @@ namespace InsuranceIntelligence.Infrastructure.WhatsApp;
 /// </summary>
 public sealed class WhatsAppAttachmentProcessor(
     InfrastructureOptions options,
+    IWhatsAppRuntimeSettingsProvider settingsProvider,
     IWhatsAppInboundProvider whatsAppProvider,
     IDocumentStorageProvider storageProvider,
     IDocumentProcessingProvider processingProvider) : IWhatsAppAttachmentProcessor
@@ -31,7 +32,7 @@ public sealed class WhatsAppAttachmentProcessor(
         string actorUserId,
         CancellationToken cancellationToken = default)
     {
-        if (!options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase))
+        if (!WhatsAppChannelProviderSupport.IsLive(options, settingsProvider.Current))
         {
             return Array.Empty<CaseDocument>();
         }

@@ -43,6 +43,9 @@ public interface IWhatsAppMessagingService
 {
     Task<IReadOnlyList<WhatsAppMessageDto>> GetThreadAsync(string threadId, CancellationToken cancellationToken = default);
     Task<WhatsAppMessageDto> SendAsync(SendWhatsAppMessageCommand command, CancellationToken cancellationToken = default);
-    Task<int> IngestInboundAsync(TenantScope scope, IReadOnlyList<WhatsAppInboundMessage> messages, CancellationToken cancellationToken = default);
+    /// <summary>Stores each inbound message once and returns only the ones seen for the first
+    /// time. Meta redelivers a webhook it thinks went unanswered; acting only on the new ones is
+    /// what stops a redelivery from opening a second claim or sending a second reply.</summary>
+    Task<IReadOnlyList<WhatsAppInboundMessage>> IngestInboundAsync(TenantScope scope, IReadOnlyList<WhatsAppInboundMessage> messages, CancellationToken cancellationToken = default);
     Task<int> ApplyDeliveryEventsAsync(TenantScope scope, IReadOnlyList<WhatsAppDeliveryEvent> events, CancellationToken cancellationToken = default);
 }

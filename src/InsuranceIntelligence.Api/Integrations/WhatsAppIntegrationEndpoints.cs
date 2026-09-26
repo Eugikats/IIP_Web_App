@@ -78,7 +78,8 @@ public static class WhatsAppIntegrationEndpoints
         IWhatsAppRuntimeSettingsProvider settingsProvider,
         InfrastructureOptions options,
         ILogger<WhatsAppCustomerAssistantLogMarker> logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null)
     {
         // Read raw body before any JSON model binding so HMAC covers exact bytes Meta signed.
         using var memory = new MemoryStream();
@@ -115,21 +116,31 @@ public static class WhatsAppIntegrationEndpoints
             var statuses = WhatsAppWebhookParser.ParseDeliveryEvents(json)
                 .Where(status => string.Equals(status.BusinessPhoneNumberId, settings.PhoneNumberId, StringComparison.Ordinal))
                 .ToArray();
-            var messagesSaved = await messagingService.IngestInboundAsync(scope, inbound, cancellationToken);
+            var newInbound = await messagingService.IngestInboundAsync(scope, inbound, cancellationToken);
+            var messagesSaved = newInbound.Count;
             var deliveryUpdates = await messagingService.ApplyDeliveryEventsAsync(scope, statuses, cancellationToken);
-            if (inbound.Length > 0)
+            if (newInbound.Count > 0)
             {
                 // Best-effort: the customer assistant classifies intent and (when the tenant has
                 // opted in) drafts/sends a grounded reply. It must never fail the webhook,
                 // Meta retries on non-2xx, and the inbound message is already durably saved above.
+                // Only messages seen for the first time reach it: a redelivered webhook must not
+                // open the same claim twice or answer the customer twice.
                 try
                 {
-                    await customerAssistantService.HandleInboundMessagesAsync(
+                    var openedCaseIds = await customerAssistantService.HandleInboundMessagesAsync(
                         scope,
-                        inbound,
+                        newInbound,
                         request.HttpContext.TraceIdentifier,
                         options.WhatsApp.AssistantAutoReplyEnabled,
                         cancellationToken);
+
+                    // A claim reported on WhatsApp gets the same immediate agent review as one
+                    // entered by staff or filed on the claimant portal.
+                    foreach (var caseId in openedCaseIds)
+                    {
+                        triageQueue?.Enqueue(scope, caseId, request.HttpContext.TraceIdentifier, "whatsapp_assistant");
+                    }
                 }
                 catch (Exception ex)
                 {

@@ -20,6 +20,50 @@ public sealed class DemoSeedServiceTests
     private static readonly TenantScope Scope = TenantScope.Create("tenant-test", "workspace-test");
 
     [Fact]
+    public async Task SeedTestPolicyholder_IsRerunnable_AndUsesGuidIdsTheSqlRepositoriesRequire()
+    {
+        var caseRepository = new InMemoryCaseRepository();
+        var customerRepository = new InMemoryCustomerRepository();
+        var policyRepository = new InMemoryPolicyRepository();
+        var documentRepository = new InMemoryCaseDocumentRepository();
+        var service = new DemoSeedService(
+            caseRepository,
+            documentRepository,
+            new InMemoryApprovalRepository(),
+            new InMemoryAuditRepository(),
+            customerRepository,
+            policyRepository,
+            new InMemoryCoverageRepository(),
+            new InMemoryBranchRepository(),
+            new InMemoryProducerRepository());
+
+        var first = await service.SeedTestPolicyholderAsync(Scope, "Test Person", "+256 700 123456", null, "system:test-seeder", "officer-1", CancellationToken.None);
+        var second = await service.SeedTestPolicyholderAsync(Scope, "Test Person", "+256700123456", null, "system:test-seeder", "officer-1", CancellationToken.None);
+
+        Assert.Equal(first.Policies.Select(p => p.PolicyNumber), second.Policies.Select(p => p.PolicyNumber));
+        Assert.Equal(["Motor", "Medical"], first.Policies.Select(p => p.ProductLine));
+        Assert.Equal(["Settled", "Closed"], first.PastClaims.Select(c => c.Status));
+
+        var customers = await customerRepository.ListAsync(Scope, CancellationToken.None);
+        var customer = Assert.Single(customers); // rerun updated, did not duplicate
+        Assert.True(Guid.TryParse(customer.CustomerId, out _));
+        Assert.True(PhoneNumbers.SameNumber("256700123456", customer.Phone));
+
+        var policies = await policyRepository.ListByCustomerAsync(customer.CustomerId, Scope, CancellationToken.None);
+        Assert.Equal(2, policies.Count);
+        Assert.All(policies, policy => Assert.True(Guid.TryParse(policy.PolicyId, out _)));
+        Assert.All(policies, policy => Assert.True(policy.EffectiveTo >= DateOnly.FromDateTime(DateTime.UtcNow)));
+
+        var cases = await caseRepository.ListAsync(Scope, CancellationToken.None);
+        Assert.Equal(2, cases.Count);
+        Assert.All(cases, claimCase => Assert.False(ClaimIsOpen(claimCase.Status)));
+        var documents = await documentRepository.ListForCaseAsync(first.PastClaims[0].CaseId, Scope, CancellationToken.None);
+        Assert.Equal(documents.Count, documents.Select(d => d.DocumentId).Distinct().Count());
+    }
+
+    private static bool ClaimIsOpen(CaseStatus status) => status is not (CaseStatus.Settled or CaseStatus.Closed);
+
+    [Fact]
     public async Task SeedAsync_ProducesFiftyCasesAcrossEveryProductLineAndStatus()
     {
         var caseRepository = new InMemoryCaseRepository();

@@ -34,6 +34,21 @@ public enum CustomerAssistantOutcome
     Escalated,
     AwaitingMoreInformation,
     Declined,
+
+    /// <summary>A recognised policyholder is reporting a claim; the assistant asked them what
+    /// happened, when and where. Their next message continues the same claim.</summary>
+    AwaitingIncidentDetails,
+
+    /// <summary>A recognised policyholder with more than one policy is reporting a claim; the
+    /// assistant asked which cover it concerns.</summary>
+    AwaitingPolicyChoice,
+
+    /// <summary>The message was unclear; the assistant asked what the customer needs instead of
+    /// handing them to a person straight away. A second unclear message in a row escalates.</summary>
+    Clarifying,
+
+    /// <summary>A photo or document arrived and the assistant acknowledged it.</summary>
+    DocumentReceived,
 }
 
 public sealed record CustomerConversationTurn
@@ -49,6 +64,12 @@ public sealed record CustomerConversationTurn
     public IReadOnlyCollection<string> CitationTitles { get; init; } = [];
     public Guid? CaseId { get; init; }
     public string? LeadId { get; init; }
+
+    /// <summary>The policy this turn concerned, once known (chosen by the customer, matched from
+    /// their phone number, or typed). Carries a policy choice forward to the next message of a
+    /// claim conversation. Optional so turns saved before it existed still read back.</summary>
+    public string? PolicyNumber { get; init; }
+
     public required DateTimeOffset OccurredAt { get; init; }
     public required string CorrelationId { get; init; }
 }

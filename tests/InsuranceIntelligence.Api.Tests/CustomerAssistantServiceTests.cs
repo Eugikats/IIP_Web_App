@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Application.SalesLeads;
@@ -295,18 +296,211 @@ public sealed class CustomerAssistantServiceTests
     }
 
     [Fact]
-    public async Task MediaOnlyMessage_IsSkippedEntirely()
+    public async Task Media_FromUnknownSender_IsAcknowledgedAndAsksWhichClaim()
     {
         var fixture = Fixture.Create();
 
-        await fixture.Service.HandleInboundMessagesAsync(
-            fixture.Scope,
-            [new WhatsAppInboundMessage("wamid.1", "phone-1", "256772118001", WhatsAppContentType.Image, string.Empty, null, DateTimeOffset.UtcNow)],
-            "correlation-1",
-            autoReplyEnabled: false);
+        await fixture.HandleMediaAsync();
 
-        Assert.Empty(fixture.Conversations.Saved);
-        Assert.Empty(fixture.Audit.Written);
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.DocumentReceived, turn.Outcome);
+        Assert.Null(turn.CaseId);
+        Assert.Contains("policy number or claim reference", Assert.Single(fixture.Outbound.SentRequests).CustomerSafeBody);
+    }
+
+    [Fact]
+    public async Task Media_FromRecognisedSender_IsAcknowledgedAgainstTheirOpenClaim_OncePerBurst()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+        var caseId = fixture.SeedCase(ValidPolicyNumber, CaseStatus.MissingDocuments);
+
+        await fixture.HandleMediaAsync();
+        await fixture.HandleMediaAsync();
+
+        Assert.Equal(2, fixture.Conversations.Saved.Count);
+        Assert.All(fixture.Conversations.Saved, turn => Assert.Equal(caseId, turn.CaseId));
+        var sent = Assert.Single(fixture.Outbound.SentRequests); // a burst of photos gets one reply
+        Assert.Contains(ClaimReference.For(caseId), sent.CustomerSafeBody);
+        Assert.Contains("Eugene", sent.CustomerSafeBody);
+    }
+
+    [Fact]
+    public async Task RecognisedSender_IsGreetedByName()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync("Hello");
+
+        Assert.Contains("Hi Eugene", Assert.Single(fixture.Conversations.Saved).OutboundReplyText);
+    }
+
+    [Fact]
+    public async Task RecognisedSender_WithOnePolicy_IsAskedWhatHappened_ThenTheClaimOpensWithoutAPolicyNumber()
+    {
+        var fixture = Fixture.Create(withAccessLinks: true);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync("I had an accident");
+        var first = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.AwaitingIncidentDetails, first.Outcome);
+        Assert.Contains("what happened", first.OutboundReplyText);
+        Assert.DoesNotContain("reply with your policy number", first.OutboundReplyText);
+
+        var opened = await fixture.HandleAsync("A taxi hit the back of my car at the Kira roundabout this morning");
+
+        var second = fixture.Conversations.Saved[1];
+        Assert.Equal(CustomerAssistantOutcome.CaseOpened, second.Outcome);
+        Assert.Equal(second.CaseId!.Value, Assert.Single(opened)); // returned so the webhook can start the claim review
+        var created = await fixture.Cases.GetAsync(second.CaseId!.Value);
+        Assert.Equal(ValidPolicyNumber, created!.PolicyNumber);
+        Assert.Equal("Eugene Katusiime", created.CustomerName);
+        Assert.Contains("I had an accident", created.IncidentDescription);
+        Assert.Contains("Kira roundabout", created.IncidentDescription);
+        Assert.True(created.RequiresConfirmation); // a claims officer still confirms every WhatsApp claim
+        Assert.Contains("https://portal.example/access/verify?token=", second.OutboundReplyText);
+        Assert.Contains("police abstract", second.OutboundReplyText);
+        Assert.Equal(created.CaseId, Assert.Single(fixture.LinkIssuer.Issued).CaseId);
+    }
+
+    [Fact]
+    public async Task RecognisedSender_WithTwoPolicies_IsAskedWhichCover_AndTheChoiceCarriesThrough()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber), ("Medical", "NSA/ME/2026/00010"));
+
+        await fixture.HandleAsync("I had an accident");
+        Assert.Equal(CustomerAssistantOutcome.AwaitingPolicyChoice, fixture.Conversations.Saved[0].Outcome);
+
+        // Listed alphabetically: 1. Medical, 2. Motor.
+        await fixture.HandleAsync("2");
+        Assert.Equal(CustomerAssistantOutcome.AwaitingIncidentDetails, fixture.Conversations.Saved[1].Outcome);
+        Assert.Equal(ValidPolicyNumber, fixture.Conversations.Saved[1].PolicyNumber);
+
+        await fixture.HandleAsync("Someone reversed into my parked car outside the office yesterday afternoon");
+
+        var created = await fixture.Cases.GetAsync(fixture.Conversations.Saved[2].CaseId!.Value);
+        Assert.Equal(ValidPolicyNumber, created!.PolicyNumber);
+        Assert.DoesNotContain("\n2", created.IncidentDescription); // the "2" answered a question, it is not part of the story
+        Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1), created.IncidentDate);
+    }
+
+    [Fact]
+    public async Task RecognisedSender_WhoNamesTheCover_IsNotAskedWhichOne()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber), ("Medical", "NSA/ME/2026/00010"));
+
+        await fixture.HandleAsync("My car was hit by a boda boda at the Jinja Road roundabout this morning");
+
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.CaseOpened, turn.Outcome);
+        Assert.Equal(ValidPolicyNumber, (await fixture.Cases.GetAsync(turn.CaseId!.Value))!.PolicyNumber);
+    }
+
+    [Fact]
+    public async Task RecognisedSender_ClaimStatus_ListsOnlyTheirOwnOpenClaims_WithoutAskingForAPolicyNumber()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+        var theirs = fixture.SeedCase(ValidPolicyNumber, CaseStatus.InReview);
+        fixture.SeedPolicy("NSA/MO/2026/00077");
+        var someoneElses = fixture.SeedCase("NSA/MO/2026/00077", CaseStatus.PendingApproval);
+
+        await fixture.HandleAsync("What is the status of my claim?");
+
+        var reply = Assert.Single(fixture.Conversations.Saved).OutboundReplyText!;
+        Assert.Contains(ClaimReference.For(theirs), reply);
+        Assert.Contains("Under review", reply);
+        Assert.DoesNotContain(ClaimReference.For(someoneElses), reply);
+    }
+
+    [Fact]
+    public async Task SharedNumber_OnFileForTwoDifferentPeople_RecognisesNobody()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+        fixture.SeedPolicyholder("Grace Nakato", "0772118001", ("Medical", "NSA/ME/2026/00010"));
+
+        await fixture.HandleAsync("What is the status of my claim?");
+
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, turn.Outcome);
+        Assert.Contains("policy number", turn.OutboundReplyText);
+    }
+
+    [Fact]
+    public async Task UnclearMessage_IsClarifiedOnce_ThenHandedToAPerson()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleAsync("the thing from last week");
+        await fixture.HandleAsync("the other one");
+
+        Assert.Equal(CustomerAssistantOutcome.Clarifying, fixture.Conversations.Saved[0].Outcome);
+        Assert.Equal(CustomerAssistantOutcome.Escalated, fixture.Conversations.Saved[1].Outcome);
+    }
+
+    [Fact]
+    public async Task AskingIfItIsABot_IsAnsweredHonestly()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleAsync("Am I talking to a bot?");
+
+        var reply = Assert.Single(fixture.Conversations.Saved).OutboundReplyText!;
+        Assert.Contains("automated assistant", reply);
+        Assert.Contains("person", reply);
+    }
+
+    [Fact]
+    public async Task Thanks_IsAnsweredWarmly_NotEscalated()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleAsync("Ok thank you so much");
+
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.AutoReplied, turn.Outcome);
+        Assert.Contains("You're welcome", turn.OutboundReplyText);
+        Assert.Empty(fixture.SalesLeads.Created);
+    }
+
+    [Fact]
+    public async Task MessageNoKeywordMatches_IsUnderstoodByTheModel_AndStartsAClaim()
+    {
+        var fixture = Fixture.Create(modelAnswer: "NEW_CLAIM");
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync("a matatu rammed into me at the roundabout");
+
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerIntent.NewClaim, turn.ClassifiedIntent);
+    }
+
+    [Fact]
+    public async Task ModelFailure_FallsBackToAskingTheCustomer()
+    {
+        var fixture = Fixture.Create(modelThrows: true);
+
+        await fixture.HandleAsync("the paperwork thing from before");
+
+        Assert.Equal(CustomerAssistantOutcome.Clarifying, Assert.Single(fixture.Conversations.Saved).Outcome);
+    }
+
+    [Fact]
+    public async Task LinkRequest_FromRecognisedSender_GetsASecureLinkForTheirOpenClaim()
+    {
+        var fixture = Fixture.Create(withAccessLinks: true);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+        var caseId = fixture.SeedCase(ValidPolicyNumber, CaseStatus.MissingDocuments);
+
+        await fixture.HandleAsync("Please send me the link to upload my documents");
+
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(caseId, turn.CaseId);
+        Assert.Contains("access/verify?token=", turn.OutboundReplyText);
     }
 
     private sealed class Fixture
@@ -360,8 +554,14 @@ public sealed class CustomerAssistantServiceTests
         public FakeAiAssistantProvider Assistant { get; }
         public FakeTeamsNotificationQueue TeamsQueue { get; }
         public CustomerAssistantService Service { get; }
+        public FakeAccessLinkIssuer LinkIssuer { get; private init; } = new();
 
-        public static Fixture Create(bool autoReplyEnabled = false, bool agentEnabled = true)
+        public static Fixture Create(
+            bool autoReplyEnabled = false,
+            bool agentEnabled = true,
+            bool withAccessLinks = false,
+            string? modelAnswer = null,
+            bool modelThrows = false)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -378,6 +578,10 @@ public sealed class CustomerAssistantServiceTests
             var assistant = new FakeAiAssistantProvider();
             var teamsQueue = new FakeTeamsNotificationQueue();
             var agentGate = agentEnabled ? new LocalTestAgentGate() : new LocalTestAgentGate("customer-assistant");
+            var linkIssuer = new FakeAccessLinkIssuer();
+            IChatCompletionProvider? model = modelThrows
+                ? new FakeChatCompletionProvider(null)
+                : modelAnswer is null ? null : new FakeChatCompletionProvider(modelAnswer);
 
             var service = new CustomerAssistantService(
                 new KeywordCustomerIntentClassifier(),
@@ -396,17 +600,44 @@ public sealed class CustomerAssistantServiceTests
                 audit,
                 new FakeProductRepository(),
                 new NoOpNotificationEmitter(),
-                teamsQueue);
+                teamsQueue,
+                model,
+                withAccessLinks ? linkIssuer : null);
 
-            return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service);
+            return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
+            {
+                LinkIssuer = linkIssuer,
+            };
         }
 
-        public Task HandleAsync(string text) =>
+        public Task<IReadOnlyList<Guid>> HandleAsync(string text) =>
             Service.HandleInboundMessagesAsync(
                 Scope,
                 [new WhatsAppInboundMessage($"wamid.{Guid.NewGuid():N}", "phone-1", "256772118001", WhatsAppContentType.Text, text, null, DateTimeOffset.UtcNow)],
                 $"correlation-{Guid.NewGuid():N}",
                 AutoReplyEnabled);
+
+        public Task<IReadOnlyList<Guid>> HandleMediaAsync() =>
+            Service.HandleInboundMessagesAsync(
+                Scope,
+                [new WhatsAppInboundMessage($"wamid.{Guid.NewGuid():N}", "phone-1", "256772118001", WhatsAppContentType.Image, "[Image received]", null, DateTimeOffset.UtcNow)],
+                $"correlation-{Guid.NewGuid():N}",
+                AutoReplyEnabled);
+
+        /// <summary>A customer on file with the given phone number and one policy per (line, number).</summary>
+        public void SeedPolicyholder(string fullName, string phone, params (string ProductLine, string PolicyNumber)[] policies)
+        {
+            var customerId = Guid.NewGuid().ToString();
+            Customers.Customers.Add(new InsuranceIntelligence.Domain.Customers.Customer(
+                customerId, Scope.TenantId, Scope.WorkspaceId, fullName, null, phone));
+            foreach (var (productLine, policyNumber) in policies)
+            {
+                Policies.Policies[policyNumber] = new Policy(
+                    PolicyId: Guid.NewGuid().ToString(), TenantId: Scope.TenantId, WorkspaceId: Scope.WorkspaceId,
+                    PolicyNumber: policyNumber, ProductLine: productLine, CoverType: "Comprehensive", CustomerId: customerId,
+                    BranchId: null, EffectiveFrom: null, EffectiveTo: null);
+            }
+        }
 
         public void SeedPolicy(string policyNumber) =>
             Policies.Policies[policyNumber] = new Policy(
@@ -480,11 +711,36 @@ public sealed class CustomerAssistantServiceTests
     // since this file's own namespace, InsuranceIntelligence.Api.Tests, nests under InsuranceIntelligence.Api.
     private sealed class FakeCustomerRepository : ICustomerRepository
     {
+        public List<InsuranceIntelligence.Domain.Customers.Customer> Customers { get; } = [];
         public Task<InsuranceIntelligence.Domain.Customers.Customer?> GetAsync(string customerId, TenantScope scope, CancellationToken cancellationToken) =>
-            Task.FromResult<InsuranceIntelligence.Domain.Customers.Customer?>(null);
+            Task.FromResult(Customers.FirstOrDefault(c => c.CustomerId == customerId));
         public Task<IReadOnlyCollection<InsuranceIntelligence.Domain.Customers.Customer>> ListAsync(TenantScope scope, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyCollection<InsuranceIntelligence.Domain.Customers.Customer>>([]);
-        public Task UpsertAsync(InsuranceIntelligence.Domain.Customers.Customer customer, CancellationToken cancellationToken) => Task.CompletedTask;
+            Task.FromResult<IReadOnlyCollection<InsuranceIntelligence.Domain.Customers.Customer>>(Customers.ToArray());
+        public Task UpsertAsync(InsuranceIntelligence.Domain.Customers.Customer customer, CancellationToken cancellationToken)
+        {
+            Customers.Add(customer);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeAccessLinkIssuer : IClaimantAccessLinkIssuer
+    {
+        public List<(Guid CaseId, string ContactPhone)> Issued { get; } = [];
+        public Task<string?> IssueForClaimAsync(TenantScope scope, Guid caseId, string policyNumber, string contactPhone, string correlationId, CancellationToken cancellationToken = default)
+        {
+            Issued.Add((caseId, contactPhone));
+            return Task.FromResult<string?>($"https://portal.example/access/verify?token=test-{Issued.Count}");
+        }
+    }
+
+    /// <summary>A model that answers with a fixed label, or throws when given no answer, the
+    /// way a timed-out or unconfigured provider does.</summary>
+    private sealed class FakeChatCompletionProvider(string? answer) : IChatCompletionProvider
+    {
+        public Task<ChatCompletionResult> CompleteAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default) =>
+            answer is null
+                ? throw new InvalidOperationException("Model unavailable.")
+                : Task.FromResult(new ChatCompletionResult(answer, "Fake", null, DateTimeOffset.UtcNow));
     }
 
     private sealed class FakeSalesLeadWriteRepository : ISalesLeadWriteRepository

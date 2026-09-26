@@ -133,6 +133,38 @@ public sealed class WhatsAppInboundProviderTests
     }
 
     [Fact]
+    public async Task Ingestion_TenantConfiguredOverDisabledDeploymentSetting_IsAcceptedNotConfigurationRequired()
+    {
+        // Reproduces the live 2026-09-25 failure exactly: dev's INSURANCEINTELLIGENCE_CHANNEL_PROVIDER
+        // is "Disabled" (a global deployment setting, never meant to gate a tenant's own validated
+        // connection), and a tenant connecting from the settings screen sets no IntegrationUserId
+        // (there is no field for it there). The webhook's own GET verification passed and Meta
+        // showed "Registered", but every POST used to 503 "ConfigurationRequired" regardless.
+        var options = new InfrastructureOptions { ChannelProvider = "Disabled" };
+        var settings = ConfiguredSettings() with { IntegrationUserId = null, Source = "TenantConfigured" };
+        var settingsProvider = new StaticWhatsAppRuntimeSettingsProvider(settings);
+        var provider = new WhatsAppCloudApiInboundProvider(settingsProvider, NullLogger<WhatsAppCloudApiInboundProvider>.Instance);
+        var caseId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var auditRepository = new StubAuditRepository();
+        var service = new WhatsAppInboundDocumentIngestionService(
+            options,
+            settingsProvider,
+            provider,
+            new StubMatcher(caseId),
+            new DisabledWhatsAppAttachmentProcessor(),
+            new StubCaseRepository(CreateCase(caseId)),
+            new StubDocumentRepository(),
+            new CaseIntakeService(new StubCaseRepository(CreateCase(caseId)), auditRepository),
+            auditRepository,
+            NullLogger<WhatsAppInboundDocumentIngestionService>.Instance);
+
+        var body = Encoding.UTF8.GetBytes(SampleWebhook);
+        var result = await service.IngestWebhookPayloadAsync(body, Sign("app-secret", body));
+
+        Assert.NotEqual("ConfigurationRequired", result.Status);
+    }
+
+    [Fact]
     public async Task Ingestion_WhenSignatureInvalid_Rejects()
     {
         var options = new InfrastructureOptions { ChannelProvider = "WhatsAppCloudApi" };
@@ -179,6 +211,7 @@ public sealed class WhatsAppInboundProviderTests
         var storage = new CapturingStorageProvider();
         var processor = new WhatsAppAttachmentProcessor(
             options,
+            settingsProvider,
             provider,
             storage,
             new StubProcessingProvider());
@@ -258,6 +291,31 @@ public sealed class WhatsAppInboundProviderTests
     }
 
     [Fact]
+    public async Task Matcher_PhotoFromRecognisedSender_JoinsTheirLatestOpenClaim_NotANewOne()
+    {
+        var scope = TenantScope.Create("tenant-a", "workspace-a");
+        var customers = new InMemoryCustomerRepository();
+        var policies = new InMemoryPolicyRepository();
+        await customers.UpsertAsync(new InsuranceIntelligence.Domain.Customers.Customer("cust-1", "tenant-a", "workspace-a", "Amina Okello", "amina@example.test", "+256772118001"), CancellationToken.None);
+        await policies.UpsertAsync(new Policy("pol-1", "tenant-a", "workspace-a", "POL-9001", "Motor", null, "cust-1", null, null, null), CancellationToken.None);
+        var cases = new InMemoryCaseRepository();
+        var settled = CreateCase(Guid.NewGuid()) with { PolicyNumber = "POL-9001", Status = CaseStatus.Settled, CreatedAt = DateTimeOffset.UtcNow.AddDays(-1) };
+        var open = CreateCase(Guid.NewGuid()) with { PolicyNumber = "POL-9001", Status = CaseStatus.MissingDocuments, CreatedAt = DateTimeOffset.UtcNow.AddDays(-3) };
+        await cases.SaveAsync(settled);
+        await cases.SaveAsync(open);
+        var matcher = new RuleBasedWhatsAppToCaseMatcher(cases, customers, policies);
+        var message = new WhatsAppInboundMediaMessage(
+            "wamid.3", "phone-1", "256772118001", "media-3", "image", "image/jpeg", null,
+            "Another photo", DateTimeOffset.UtcNow);
+
+        var match = await matcher.MatchAsync(message, scope);
+
+        Assert.Equal(open.CaseId, match.CaseId); // the open claim, not the more recent settled one
+        Assert.False(match.RequiresManualReview);
+        Assert.Equal("identified_sender_open_claim", match.MatchReason);
+    }
+
+    [Fact]
     public async Task Matcher_ReturnsNoMatch_WhenSenderIsNotAKnownCustomer()
     {
         var scope = TenantScope.Create("tenant-a", "workspace-a");
@@ -294,7 +352,7 @@ public sealed class WhatsAppInboundProviderTests
         var provider = new WhatsAppCloudApiInboundProvider(
             settingsProvider, NullLogger<WhatsAppCloudApiInboundProvider>.Instance, new HttpClient(handler));
         var storage = new CapturingStorageProvider();
-        var processor = new WhatsAppAttachmentProcessor(options, provider, storage, new StubProcessingProvider());
+        var processor = new WhatsAppAttachmentProcessor(options, settingsProvider, provider, storage, new StubProcessingProvider());
         var documents = new StubDocumentRepository();
         var caseRepository = new InMemoryCaseRepository();
         var customers = new InMemoryCustomerRepository();

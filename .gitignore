@@ -16,6 +16,7 @@ web/portal/next-dev-*.log
 web/portal/*-dev.log
 web/portal/.next*/
 web/portal/.next-dev.lock
+web/portal/deploy/
 /IIP_Docs_*.zip
 /artifacts/documentation-archives/
 

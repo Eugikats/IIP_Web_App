@@ -59,6 +59,34 @@ public sealed class ConversationContinuationTests
         Assert.Equal(CustomerIntent.Unknown, result.Intent);
     }
 
+    [Fact]
+    public void A_claim_conversation_keeps_every_earlier_message_and_the_chosen_policy()
+    {
+        IReadOnlyList<CustomerConversationTurn> thread =
+        [
+            Turn(CustomerIntent.NewClaim, CustomerAssistantOutcome.AwaitingPolicyChoice, "I had an accident", Now.AddMinutes(-4)),
+            Turn(CustomerIntent.NewClaim, CustomerAssistantOutcome.AwaitingIncidentDetails, "2", Now.AddMinutes(-2)) with { PolicyNumber = "NSA/MO/2026/00009" },
+        ];
+
+        // A description that happens to contain a claim keyword still continues the same claim.
+        var result = ConversationContinuation.Resolve(CustomerIntent.NewClaim, messageHasPolicyNumber: false, thread, Now);
+
+        Assert.Equal(CustomerIntent.NewClaim, result.Intent);
+        Assert.Equal("I had an accident\n2", result.EarlierMessageText);
+        Assert.Equal("NSA/MO/2026/00009", result.PolicyNumber);
+    }
+
+    [Fact]
+    public void Asking_for_a_person_mid_claim_is_never_overridden()
+    {
+        IReadOnlyList<CustomerConversationTurn> thread =
+            [Turn(CustomerIntent.NewClaim, CustomerAssistantOutcome.AwaitingIncidentDetails, "I had an accident")];
+
+        var result = ConversationContinuation.Resolve(CustomerIntent.HumanRequested, messageHasPolicyNumber: false, thread, Now);
+
+        Assert.Equal(CustomerIntent.HumanRequested, result.Intent);
+    }
+
     [Theory]
     [InlineData("Hi", true)]
     [InlineData("hello!", true)]

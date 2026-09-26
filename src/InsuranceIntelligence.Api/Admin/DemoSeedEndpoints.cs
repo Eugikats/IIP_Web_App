@@ -105,4 +105,60 @@ public static class DemoSeedEndpoints
         var policyholders = await seedService.SeedPolicyholdersWithoutClaimsAsync(scope, count ?? 3, cancellationToken);
         return Results.Ok(new { policyholders });
     }
+
+    /// <summary>
+    /// Creates, or refreshes, a policyholder profile for someone testing the WhatsApp assistant
+    /// from their own phone: their name and number, a Motor and a Medical policy, and two past
+    /// claims. The person's details arrive in the request, so no real phone number is ever written
+    /// into source code or the shared demo dataset. Same Demo-only gate as every other seed route.
+    /// </summary>
+    public static async Task<IResult> SeedTestPolicyholder(
+        TestPolicyholderRequest request,
+        DemoSeedService seedService,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        IWebHostEnvironment environment,
+        CancellationToken cancellationToken)
+    {
+        var runtimeProfile = AzureProviderStartupValidator.ResolveRuntimeProfile(options, environment.EnvironmentName);
+        if (AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile))
+        {
+            return Results.Problem(
+                $"Demo data seeding is not available under the '{runtimeProfile}' runtime profile.",
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!InsuranceIntelligence.Api.Workflow.WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var errors = new Dictionary<string, string[]>();
+        if (string.IsNullOrWhiteSpace(request.FullName))
+        {
+            errors["fullName"] = ["The policyholder's full name is required."];
+        }
+
+        if (InsuranceIntelligence.Domain.Customers.PhoneNumbers.Digits(request.Phone).Length < 9)
+        {
+            errors["phone"] = ["A phone number with the country code is required, for example +256 7XX XXXXXX."];
+        }
+
+        if (errors.Count > 0)
+        {
+            return Results.ValidationProblem(errors);
+        }
+
+        var userId = DemoAuthorization.GetUserId(httpContext, fallback: "system:demo-seed");
+        var result = await seedService.SeedTestPolicyholderAsync(
+            scope, request.FullName, request.Phone, request.Email, "system:demo-seed", userId, cancellationToken);
+        return Results.Ok(result);
+    }
 }
+
+public sealed record TestPolicyholderRequest(string FullName, string Phone, string? Email);

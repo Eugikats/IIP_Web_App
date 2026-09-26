@@ -478,6 +478,155 @@ public sealed class DemoSeedService(
         return results;
     }
 
+    /// <summary>
+    /// A named policyholder for someone testing the WhatsApp assistant from their own phone: a
+    /// Motor and a Medical policy in force today, and two past claims (a settled windscreen claim,
+    /// a closed outpatient claim) so "what's the status of my claim?" and the claims officer's
+    /// customer view both have history to show. No open claim, so the tester starts one fresh.
+    ///
+    /// The name and number come from the request, never from source code, and every identifier is
+    /// a GUID derived from the phone number (the SQL-backed repositories store customer, policy and
+    /// coverage ids as real GUIDs), so running it again updates the same records instead of adding
+    /// duplicates. Must only run behind the same Demo gate as <see cref="SeedAsync"/>.
+    /// </summary>
+    public async Task<TestPolicyholderResult> SeedTestPolicyholderAsync(
+        TenantScope scope,
+        string fullName,
+        string phone,
+        string? email,
+        string seededByUserId,
+        string? assignedToUserId,
+        CancellationToken cancellationToken)
+    {
+        var digits = PhoneNumbers.Digits(phone);
+        var key = digits.Length > 9 ? digits[^9..] : digits;
+        var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var rng = new Random(Seed + key.GetHashCode(StringComparison.Ordinal));
+        var assignee = string.IsNullOrWhiteSpace(assignedToUserId) ? seededByUserId : assignedToUserId.Trim();
+
+        var customer = new Customer(DeterministicGuid($"test-policyholder-{key}").ToString(), scope.TenantId, scope.WorkspaceId, fullName.Trim(),
+            string.IsNullOrWhiteSpace(email) ? null : email.Trim(), phone.Trim());
+        await customerRepository.UpsertAsync(customer, cancellationToken);
+
+        var existingPolicies = await policyRepository.ListAsync(scope, cancellationToken);
+        var branchId = existingPolicies.Select(policy => policy.BranchId).FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
+        if (branchId is null)
+        {
+            var branches = BuildBranches(scope);
+            foreach (var branch in branches)
+            {
+                await branchRepository.UpsertAsync(branch, cancellationToken);
+            }
+
+            branchId = branches[0].BranchId;
+        }
+
+        var effectiveFrom = today.AddDays(-200);
+        var sequence = key[^5..];
+        var motor = new Policy(
+            DeterministicGuid($"test-policyholder-{key}-motor").ToString(), scope.TenantId, scope.WorkspaceId, $"NSA/MO/{effectiveFrom.Year}/{sequence}", "Motor",
+            "Comprehensive", customer.CustomerId, branchId, effectiveFrom, effectiveFrom.AddYears(1), 2_450_000m, "UGX", 48_000_000m);
+        var medical = new Policy(
+            DeterministicGuid($"test-policyholder-{key}-medical").ToString(), scope.TenantId, scope.WorkspaceId, $"NSA/ME/{effectiveFrom.Year}/{sequence}", "Medical",
+            "Gold", customer.CustomerId, branchId, effectiveFrom, effectiveFrom.AddYears(1), 2_000_000m, "UGX", 70_000_000m);
+
+        foreach (var policy in new[] { motor, medical })
+        {
+            await policyRepository.UpsertAsync(policy, cancellationToken);
+            await coverageRepository.UpsertAsync(
+                new Coverage(
+                    DeterministicGuid($"{policy.PolicyId}-coverage").ToString(), scope.TenantId, scope.WorkspaceId, policy.PolicyId,
+                    $"{policy.CoverType}, {policy.ProductLine}",
+                    $"UGX {policy.SumInsured:N0}",
+                    $"UGX {RoundToNearest(policy.SumInsured!.Value * 0.02m, 1000m):N0}",
+                    policy.ProductLine == "Motor" ? "Insured vehicle" : "Insured member and family",
+                    $"{policy.CoverType} cover under the {policy.ProductLine} product line, sum insured UGX {policy.SumInsured:N0}, annual premium UGX {policy.AnnualPremium:N0}."),
+                cancellationToken);
+        }
+
+        var pastClaims = new[]
+        {
+            (Slot: "claim-1", Policy: motor, Line: ProductLines[0], ClaimType: "WindscreenDamage", Status: CaseStatus.Settled, AgeDays: 95, ClosedAfterDays: 21,
+                Description: "Windscreen cracked by a stone thrown up from a passing truck on the Northern Bypass on the way to work.", ClaimedAmount: 1_850_000m),
+            (Slot: "claim-2", Policy: medical, Line: ProductLines[1], ClaimType: "Outpatient", Status: CaseStatus.Closed, AgeDays: 40, ClosedAfterDays: 12,
+                Description: "Outpatient consultation and lab tests at International Hospital Kampala for persistent fever, treated for malaria.", ClaimedAmount: 420_000m),
+        };
+
+        var results = new List<TestPolicyholderClaim>();
+        foreach (var claim in pastClaims)
+        {
+            var caseId = DeterministicGuid($"test-policyholder-{key}-{claim.Slot}");
+            var createdAt = now.AddDays(-claim.AgeDays);
+            var correlationId = $"test-policyholder-{key}-{claim.Slot}";
+            var alreadySeeded = await caseRepository.GetAsync(caseId, cancellationToken) is not null;
+
+            var claimCase = new ClaimCase
+            {
+                CaseId = caseId,
+                Scope = scope,
+                CustomerName = customer.FullName,
+                CustomerEmail = customer.Email,
+                CustomerPhone = customer.Phone,
+                PolicyNumber = claim.Policy.PolicyNumber,
+                ProductLine = claim.Policy.ProductLine,
+                ClaimType = claim.ClaimType,
+                Channel = "WhatsApp",
+                IncidentDate = DateOnly.FromDateTime(createdAt.AddDays(-1).UtcDateTime),
+                IncidentDescription = claim.Description,
+                MotorFnolDetails = claim.Policy.ProductLine == "Motor"
+                    ? BuildMotorFnol(rng) with { DriverName = customer.FullName, AccidentLocation = "Northern Bypass", ThirdPartyInvolved = "No", InjuryIndicator = "No" }
+                    : null,
+                ClaimedAmount = claim.ClaimedAmount,
+                Status = claim.Status,
+                CompletenessScore = 100m,
+                RiskLevel = "Low",
+                Priority = CasePriority.Normal,
+                SlaDueAt = null,
+                AssignedUserId = assignee,
+                AssignedTeam = claim.Line.ReviewTeam,
+                CreatedByUserId = seededByUserId,
+                CreatedAt = createdAt,
+                UpdatedAt = createdAt.AddDays(claim.ClosedAfterDays),
+                CorrelationId = correlationId
+            };
+            await caseRepository.SaveAsync(claimCase, cancellationToken);
+
+            var documents = BuildDocuments(scope, caseId, claim.Line, claim.Status, seededByUserId, createdAt, correlationId, rng)
+                .Select((document, index) => document with { DocumentId = DeterministicGuid($"{correlationId}-document-{index}") })
+                .ToArray();
+            foreach (var document in documents)
+            {
+                await documentRepository.SaveAsync(document, cancellationToken);
+            }
+
+            if (!alreadySeeded)
+            {
+                await auditRepository.WriteAsync(
+                    AuditEvent.CaseCreated(claimCase.ToAuditSnapshot(), seededByUserId, correlationId) with { Timestamp = createdAt },
+                    cancellationToken);
+                await auditRepository.WriteAsync(
+                    new AuditEvent(
+                        Guid.NewGuid(), scope, caseId, null, seededByUserId, ActorType.User,
+                        claim.Status == CaseStatus.Settled ? "case.settled" : "case.closed",
+                        createdAt.AddDays(claim.ClosedAfterDays), "PendingApproval", claim.Status.ToString(),
+                        Array.Empty<string>(), "Mock", null, "accepted", null, null, correlationId),
+                    cancellationToken);
+            }
+
+            results.Add(new TestPolicyholderClaim(caseId, claim.Policy.PolicyNumber, claim.Policy.ProductLine, claim.Status.ToString()));
+        }
+
+        return new TestPolicyholderResult(
+            customer.FullName,
+            customer.Phone ?? phone,
+            [new TestPolicyholderPolicy(motor.PolicyNumber, motor.ProductLine), new TestPolicyholderPolicy(medical.PolicyNumber, medical.ProductLine)],
+            results);
+    }
+
+    private static Guid DeterministicGuid(string value) =>
+        new(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(value)));
+
     private static Customer BuildCustomer(TenantScope scope, int index, ProductLineTemplate line, Random rng)
     {
         var first = FirstNames[rng.Next(FirstNames.Length)];
@@ -751,6 +900,17 @@ public sealed class DemoSeedService(
         };
     }
 }
+
+/// <summary>A tester's own policyholder profile: their policies and the past claims seeded on them.</summary>
+public sealed record TestPolicyholderResult(
+    string FullName,
+    string Phone,
+    IReadOnlyList<TestPolicyholderPolicy> Policies,
+    IReadOnlyList<TestPolicyholderClaim> PastClaims);
+
+public sealed record TestPolicyholderPolicy(string PolicyNumber, string ProductLine);
+
+public sealed record TestPolicyholderClaim(Guid CaseId, string PolicyNumber, string ProductLine, string Status);
 
 /// <summary>A demonstration policyholder with an active policy and no claim, and whether this run created it.</summary>
 public sealed record DemoPolicyholder(string FullName, string Email, string Phone, string PolicyNumber, string ProductLine, bool Created);
