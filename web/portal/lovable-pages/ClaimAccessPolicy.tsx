@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, FileText, Loader2, LogOut, MessageCircleQuestion, ShieldCheck } from "lucide-react";
 import iipLogo from "@/assets/iip-logo";
+import { MarkdownText } from "@/components/iip/MarkdownText";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -259,7 +260,7 @@ export default function ClaimAccessPolicy() {
               {askError && <p className="mt-3 text-xs leading-5 text-dls-danger-text">{askError}</p>}
               {answer && (
                 <div className="mt-4 rounded-dls-control border border-dls-border-subtle bg-dls-bg-page p-4">
-                  <p className="text-sm leading-6 text-dls-text-primary">{answer.text}</p>
+                  <MarkdownText className="text-sm leading-6 text-dls-text-primary" content={answer.text} />
                   {answer.sources.length > 0 && (
                     <ul className="mt-3 space-y-1">
                       {answer.sources.map((source) => (
