@@ -24,6 +24,7 @@ import {
   type ProductStatus,
   type ProductVersionSummary,
 } from "@/lib/products";
+import { ensureDocumentTypeCatalog, type DocumentTypeDefinition } from "@/lib/documentTypes";
 
 const STATUS_TONE: Record<ProductStatus, PillTone> = {
   Draft: "neutral",
@@ -61,6 +62,7 @@ export default function ProductDetail() {
   const [iraApprovalEffectiveDate, setIraApprovalEffectiveDate] = useState("");
   const [stages, setStages] = useState<ClaimStage[]>([]);
   const [documentMatrix, setDocumentMatrix] = useState<DocumentMatrixEntry[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentTypeDefinition[]>([]);
 
   function applyProduct(loaded: Product) {
     setProduct(loaded);
@@ -75,9 +77,10 @@ export default function ProductDetail() {
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const [productResult, versionsResult] = await Promise.all([
+    const [productResult, versionsResult, documentTypesResult] = await Promise.all([
       getProduct(role, productId),
       listProductVersions(role, productId),
+      ensureDocumentTypeCatalog(role),
     ]);
     setLoading(false);
     if (!productResult.ok) {
@@ -86,11 +89,17 @@ export default function ProductDetail() {
     }
     applyProduct(productResult.value);
     if (versionsResult.ok) setVersions(versionsResult.value);
+    if (documentTypesResult.ok) setDocumentTypes(documentTypesResult.value);
   }, [role, productId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const stageKeys = useMemo(() => stages.map((stage) => stage.stageKey).filter(Boolean), [stages]);
+  const activeDocumentTypes = useMemo(() => documentTypes.filter((type) => type.active), [documentTypes]);
+  const recognizedDocumentKeys = useMemo(
+    () => new Set(activeDocumentTypes.map((type) => type.key.toLowerCase())),
+    [activeDocumentTypes],
+  );
   const canEdit = product?.status !== "Retired";
   const isDirty = product
     ? name !== product.name
@@ -271,10 +280,26 @@ export default function ProductDetail() {
             <p className="mb-3 text-[12px] text-dls-text-secondary">What the customer needs to provide, in the customer&apos;s own words, and at which stage.</p>
             <div className="space-y-3">
               {documentMatrix.length === 0 && <p className="text-[12.5px] text-dls-text-secondary">No documents configured yet.</p>}
-              {documentMatrix.map((entry, index) => (
+              {documentMatrix.map((entry, index) => {
+                const keyIsRecognized = entry.documentKey === "" || recognizedDocumentKeys.has(entry.documentKey.toLowerCase());
+                return (
                 <div key={index} className="rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-3">
                   <div className="grid gap-2 sm:grid-cols-6">
-                    <Input className="sm:col-span-1" value={entry.documentKey} onChange={(e) => updateDocument(index, { documentKey: e.target.value })} disabled={!canEdit} aria-label="Document key" placeholder="document_key" />
+                    <select
+                      className="rounded-dls-control border border-dls-border-input bg-dls-surface px-2 py-[9px] text-sm text-dls-text-primary sm:col-span-1"
+                      value={entry.documentKey}
+                      disabled={!canEdit}
+                      onChange={(e) => updateDocument(index, { documentKey: e.target.value })}
+                      aria-label="Document key"
+                    >
+                      <option value="">Choose a document type</option>
+                      {!keyIsRecognized && entry.documentKey !== "" && (
+                        <option value={entry.documentKey}>{entry.documentKey} (not in the catalog)</option>
+                      )}
+                      {activeDocumentTypes.map((type) => (
+                        <option key={type.key} value={type.key}>{type.customerLabel}</option>
+                      ))}
+                    </select>
                     <Input className="sm:col-span-2" value={entry.customerLabel} onChange={(e) => updateDocument(index, { customerLabel: e.target.value })} disabled={!canEdit} aria-label="What the customer sees" placeholder="e.g. Police abstract" />
                     <Input className="sm:col-span-2" value={entry.reason} onChange={(e) => updateDocument(index, { reason: e.target.value })} disabled={!canEdit} aria-label="Why it is needed" placeholder="Why it is needed" />
                     <select
@@ -302,8 +327,15 @@ export default function ProductDetail() {
                       <Button variant="ghost" icon={<Trash2 aria-hidden="true" />} onClick={() => removeDocument(index)} aria-label={`Remove document ${entry.customerLabel || index + 1}`}>Remove</Button>
                     )}
                   </div>
+                  {!keyIsRecognized && (
+                    <div className="mt-2 flex items-start gap-2 rounded-dls-control border border-dls-warning-dot bg-dls-warning-tint p-2 text-[11.5px] text-dls-text-primary">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dls-warning-text" aria-hidden="true" />
+                      &quot;{entry.documentKey}&quot; is not in the document type catalog. It will not be recognised as a required document until it is added there, or the key is corrected.
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </GlassCard>
 

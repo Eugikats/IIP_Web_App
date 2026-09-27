@@ -951,7 +951,7 @@ public sealed class Phase7ProviderTests
             [DocumentType.ClaimForm, DocumentType.PoliceAbstract],
             [],
             [DocumentType.ClaimForm],
-            [new MissingDocumentRequirement(DocumentType.PoliceAbstract, "Police abstract", true)],
+            [new MissingDocumentRequirement(DocumentType.PoliceAbstract.ToString(), "Police abstract", true)],
             CompletenessScore.Calculate([DocumentType.ClaimForm, DocumentType.PoliceAbstract], [DocumentType.ClaimForm]));
 
         var draft = await provider.DraftAsync(

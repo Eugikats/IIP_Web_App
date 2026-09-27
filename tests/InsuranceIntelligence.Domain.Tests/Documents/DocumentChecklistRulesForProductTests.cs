@@ -26,7 +26,7 @@ public sealed class DocumentChecklistRulesForProductTests
     }
 
     [Fact]
-    public void ForProduct_SkipsAKeyThatDoesNotMatchAKnownDocumentType()
+    public void ForProduct_RoutesAKeyThatDoesNotMatchAKnownDocumentTypeIntoCustomRequired()
     {
         var product = BaseProduct(
         [
@@ -39,6 +39,7 @@ public sealed class DocumentChecklistRulesForProductTests
         Assert.NotNull(rules);
         Assert.Single(rules!.RequiredDocuments);
         Assert.Contains(DocumentType.ClaimForm, rules.RequiredDocuments);
+        Assert.Contains(rules.CustomRequired, entry => entry.Key == "not-a-real-document-type");
     }
 
     [Fact]
@@ -52,7 +53,7 @@ public sealed class DocumentChecklistRulesForProductTests
     }
 
     [Fact]
-    public void ForProduct_ReturnsNullWhenNothingInTheMatrixMapsToAKnownDocumentType()
+    public void ForProduct_TreatsAnUnrecognizedKeyAsACustomRequiredDocumentInsteadOfDroppingIt()
     {
         var product = BaseProduct(
         [
@@ -61,7 +62,9 @@ public sealed class DocumentChecklistRulesForProductTests
 
         var rules = DocumentChecklistRules.ForProduct(product);
 
-        Assert.Null(rules);
+        Assert.NotNull(rules);
+        Assert.Empty(rules!.RequiredDocuments);
+        Assert.Contains(rules.CustomRequired, entry => entry.Key == "totally-unknown-key" && entry.Label == "Something");
     }
 
     private static Product BaseProduct(IReadOnlyList<ProductDocumentRequirement> documentMatrix) =>

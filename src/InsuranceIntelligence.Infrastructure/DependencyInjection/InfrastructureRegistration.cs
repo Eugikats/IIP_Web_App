@@ -100,6 +100,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Agents.IAgentBehaviourProfileRepository, InsuranceIntelligence.Infrastructure.Agents.EfAgentBehaviourProfileRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Products.IProductRepository, InsuranceIntelligence.Infrastructure.Products.EfProductRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Workflow.ICommunicationTemplateRepository, InsuranceIntelligence.Infrastructure.Workflow.EfCommunicationTemplateRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Documents.IDocumentTypeCatalogRepository, InsuranceIntelligence.Infrastructure.Documents.EfDocumentTypeCatalogRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Documents.IDocumentLabelledExampleRepository, InsuranceIntelligence.Infrastructure.Documents.EfDocumentLabelledExampleRepository>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionSecretProtector, InsuranceIntelligence.Infrastructure.Connections.DataProtectionConnectionSecretProtector>();
         services.AddSingleton<ISmsProviderFactory, SmsProviderFactory>();

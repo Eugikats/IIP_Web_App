@@ -3,6 +3,7 @@ using InsuranceIntelligence.Application.Products;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Products;
 
 namespace InsuranceIntelligence.Domain.Tests.Products;
@@ -110,10 +111,11 @@ public sealed class ProductCommandServiceTests
     {
         var repository = new InMemoryProductRepository();
         var audit = new RecordingAuditWriter();
+        var catalog = new InMemoryDocumentTypeCatalogRepository();
         var authorService = new ProductCommandService(
-            CurrentContext("author-1"), new FixedPermissionService(Permission.ManageProducts), repository, audit);
+            CurrentContext("author-1"), new FixedPermissionService(Permission.ManageProducts), repository, catalog, audit);
         var reviewerService = new ProductCommandService(
-            CurrentContext("reviewer-1"), new FixedPermissionService(Permission.ManageProducts), repository, audit);
+            CurrentContext("reviewer-1"), new FixedPermissionService(Permission.ManageProducts), repository, catalog, audit);
 
         var created = await authorService.CreateDraftAsync(new CreateProductRequest("Motor Comprehensive", "Motor", "Initial setup"));
         await authorService.UpdateDraftAsync(
@@ -146,16 +148,106 @@ public sealed class ProductCommandServiceTests
         Assert.Equal("Document matrix is incomplete.", rejected.PublishRejectionReason);
     }
 
+    [Fact]
+    public async Task UpdateDraftAsync_RefusesADocumentMatrixKeyThatIsNeitherABuiltInTypeNorInTheCatalog()
+    {
+        var service = BuildService("author-1", out _, out _);
+        var created = await service.CreateDraftAsync(new CreateProductRequest("Motor Comprehensive", "Motor", "Initial setup"));
+
+        var ex = await Assert.ThrowsAsync<ProductValidationException>(() =>
+            service.UpdateDraftAsync(
+                created.ProductId,
+                new UpdateProductRequest(
+                    null, null, null, null, null, null,
+                    [new DocumentMatrixEntryDto("totally-unknown-key", "Something", "Reason", true, "intimation_and_reference", false)],
+                    "Adding a document requirement.")));
+
+        Assert.Equal("documentMatrix", ex.Field);
+        Assert.Contains("is not a recognized document type", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UpdateDraftAsync_AcceptsADocumentMatrixKeyThatIsAnActiveCustomCatalogEntry()
+    {
+        var catalog = new InMemoryDocumentTypeCatalogRepository();
+        await catalog.SaveAsync(new DocumentTypeDefinition
+        {
+            DefinitionId = Guid.NewGuid(),
+            VersionId = Guid.NewGuid(),
+            Scope = Scope,
+            Version = 1,
+            Key = "SchoolAttendanceLetter",
+            CustomerLabel = "School attendance letter",
+            Description = "Confirms the student was enrolled.",
+            BuiltInType = null,
+            Active = true,
+            UpdatedByUserId = "admin-1",
+            UpdatedAt = DateTimeOffset.UtcNow,
+            ChangeReason = "Added for school fees cover.",
+        });
+        var service = BuildService("author-1", out _, out _, documentTypeCatalog: catalog);
+        var created = await service.CreateDraftAsync(new CreateProductRequest("Motor Comprehensive", "Motor", "Initial setup"));
+
+        var updated = await service.UpdateDraftAsync(
+            created.ProductId,
+            new UpdateProductRequest(
+                null, null, null, null, null, null,
+                [new DocumentMatrixEntryDto("SchoolAttendanceLetter", "School attendance letter", "Confirms enrollment", true, "intimation_and_reference", false)],
+                "Adding a document requirement."));
+
+        Assert.Single(updated.DocumentMatrix);
+        Assert.Equal("SchoolAttendanceLetter", updated.DocumentMatrix[0].DocumentKey);
+    }
+
+    [Fact]
+    public async Task UpdateDraftAsync_RefusesACatalogKeyThatHasBeenDeactivated()
+    {
+        var catalog = new InMemoryDocumentTypeCatalogRepository();
+        await catalog.SaveAsync(new DocumentTypeDefinition
+        {
+            DefinitionId = Guid.NewGuid(),
+            VersionId = Guid.NewGuid(),
+            Scope = Scope,
+            Version = 1,
+            Key = "RetiredDocumentKey",
+            CustomerLabel = "Retired document",
+            Description = "No longer collected.",
+            BuiltInType = null,
+            Active = false,
+            UpdatedByUserId = "admin-1",
+            UpdatedAt = DateTimeOffset.UtcNow,
+            ChangeReason = "Deactivated.",
+        });
+        var service = BuildService("author-1", out _, out _, documentTypeCatalog: catalog);
+        var created = await service.CreateDraftAsync(new CreateProductRequest("Motor Comprehensive", "Motor", "Initial setup"));
+
+        var ex = await Assert.ThrowsAsync<ProductValidationException>(() =>
+            service.UpdateDraftAsync(
+                created.ProductId,
+                new UpdateProductRequest(
+                    null, null, null, null, null, null,
+                    [new DocumentMatrixEntryDto("RetiredDocumentKey", "Retired document", "Reason", true, "intimation_and_reference", false)],
+                    "Adding a document requirement.")));
+
+        Assert.Equal("documentMatrix", ex.Field);
+    }
+
     private static ProductCommandService BuildService(
         string userId,
         out InMemoryProductRepository repository,
         out RecordingAuditWriter audit,
-        IReadOnlyList<Permission>? permissions = null)
+        IReadOnlyList<Permission>? permissions = null,
+        IDocumentTypeCatalogRepository? documentTypeCatalog = null)
     {
         repository = new InMemoryProductRepository();
         audit = new RecordingAuditWriter();
         var effectivePermissions = permissions ?? [Permission.ManageProducts];
-        return new ProductCommandService(CurrentContext(userId), new FixedPermissionService([.. effectivePermissions]), repository, audit);
+        return new ProductCommandService(
+            CurrentContext(userId),
+            new FixedPermissionService([.. effectivePermissions]),
+            repository,
+            documentTypeCatalog ?? new InMemoryDocumentTypeCatalogRepository(),
+            audit);
     }
 
     private static TenantContextAccessor CurrentContext(string userId)
@@ -224,6 +316,35 @@ public sealed class ProductCommandServiceTests
         public Task SaveAsync(Product version, CancellationToken cancellationToken = default)
         {
             SavedVersions.Add(version);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class InMemoryDocumentTypeCatalogRepository : IDocumentTypeCatalogRepository
+    {
+        private readonly List<DocumentTypeDefinition> versions = [];
+
+        public Task<DocumentTypeDefinition?> GetCurrentAsync(TenantScope scope, string key, CancellationToken cancellationToken = default) =>
+            Task.FromResult(versions
+                .Where(v => v.Scope.Matches(scope) && string.Equals(v.Key, key, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(v => v.Version)
+                .FirstOrDefault());
+
+        public Task<IReadOnlyCollection<DocumentTypeDefinition>> ListCurrentAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<DocumentTypeDefinition>>(versions
+                .Where(v => v.Scope.Matches(scope))
+                .GroupBy(v => v.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderByDescending(v => v.Version).First())
+                .ToArray());
+
+        public Task<IReadOnlyCollection<DocumentTypeDefinition>> ListVersionsAsync(TenantScope scope, string key, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<DocumentTypeDefinition>>(versions
+                .Where(v => v.Scope.Matches(scope) && string.Equals(v.Key, key, StringComparison.OrdinalIgnoreCase))
+                .ToArray());
+
+        public Task SaveAsync(DocumentTypeDefinition version, CancellationToken cancellationToken = default)
+        {
+            versions.Add(version);
             return Task.CompletedTask;
         }
     }

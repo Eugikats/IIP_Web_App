@@ -894,6 +894,33 @@ public sealed record AuditEvent(
             AuditReason: auditReason,
             CorrelationId: correlationId);
 
+    public static AuditEvent DocumentTypeDefinitionSaved(
+        TenantScope scope,
+        string userId,
+        string key,
+        int version,
+        bool active,
+        string auditReason,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: key,
+            userId,
+            ActorType.User,
+            "document_type_definition.saved",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: active ? "Active" : "Inactive",
+            EvidenceIds: [key, $"v{version}"],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
     private static AuditEvent ForCase(
         ClaimCaseSnapshot snapshot,
         string? userId,

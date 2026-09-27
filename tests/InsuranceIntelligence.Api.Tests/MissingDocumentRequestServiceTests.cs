@@ -206,7 +206,7 @@ public sealed class MissingDocumentRequestServiceTests
                 required,
                 [DocumentType.CustomerId],
                 ReceivedDocuments: received,
-                MissingRequiredDocuments: missing.Select(type => new MissingDocumentRequirement(type, LabelFor(type), true)).ToArray(),
+                MissingRequiredDocuments: missing.Select(type => new MissingDocumentRequirement(type.ToString(), LabelFor(type), true)).ToArray(),
                 CompletenessScore: CompletenessScore.Calculate(required, received));
         }
 

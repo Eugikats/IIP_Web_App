@@ -22,7 +22,7 @@ public sealed class StaticWorkflowRuleProvider : IWorkflowRuleProvider
     {
         var actions = new List<RecommendedNextAction>();
         var evidence = context.Checklist.MissingRequiredDocuments
-            .Select(document => document.DocumentType.ToString())
+            .Select(document => document.Key)
             .ToArray();
 
         var routingSignals = DetectRoutingSignals(context);

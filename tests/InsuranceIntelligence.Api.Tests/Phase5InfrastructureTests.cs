@@ -786,6 +786,86 @@ public sealed class Phase5InfrastructureTests
         Assert.False(configuration.ProviderModes.SeedDemoData);
     }
 
+    [Fact]
+    public async Task EfDocumentTypeCatalogRepository_SavesAndRetrievesTheCurrentVersionOfACustomType()
+    {
+        await using var fixture = await EfFixture.CreateAsync();
+        var repository = new InsuranceIntelligence.Infrastructure.Documents.EfDocumentTypeCatalogRepository(fixture.DbContext);
+        var scope = TenantScope.Create("tenant-a", "workspace-a");
+        var now = DateTimeOffset.UtcNow;
+        var definition = new DocumentTypeDefinition
+        {
+            DefinitionId = Guid.NewGuid(),
+            VersionId = Guid.NewGuid(),
+            Scope = scope,
+            Version = 1,
+            Key = "SchoolAttendanceLetter",
+            CustomerLabel = "School attendance letter",
+            Description = "Confirms the student was enrolled.",
+            BuiltInType = null,
+            Active = true,
+            UpdatedByUserId = "admin-1",
+            UpdatedAt = now,
+            ChangeReason = "New custom document type for school fees cover.",
+        };
+
+        await repository.SaveAsync(definition);
+        var current = await repository.GetCurrentAsync(scope, "SchoolAttendanceLetter");
+        var otherScope = await repository.GetCurrentAsync(TenantScope.Create("tenant-b", "workspace-a"), "SchoolAttendanceLetter");
+
+        Assert.NotNull(current);
+        Assert.Equal("School attendance letter", current!.CustomerLabel);
+        Assert.Null(otherScope);
+    }
+
+    [Fact]
+    public async Task EfDocumentTypeCatalogRepository_ListCurrentAsync_ReturnsOnlyTheHighestVersionPerKey()
+    {
+        await using var fixture = await EfFixture.CreateAsync();
+        var repository = new InsuranceIntelligence.Infrastructure.Documents.EfDocumentTypeCatalogRepository(fixture.DbContext);
+        var scope = TenantScope.Create("tenant-a", "workspace-a");
+        var now = DateTimeOffset.UtcNow;
+        var definitionId = Guid.NewGuid();
+        await repository.SaveAsync(new DocumentTypeDefinition
+        {
+            DefinitionId = definitionId,
+            VersionId = Guid.NewGuid(),
+            Scope = scope,
+            Version = 1,
+            Key = "SchoolAttendanceLetter",
+            CustomerLabel = "School letter",
+            Description = "Original wording.",
+            BuiltInType = null,
+            Active = true,
+            UpdatedByUserId = "admin-1",
+            UpdatedAt = now,
+            ChangeReason = "First version.",
+        });
+        await repository.SaveAsync(new DocumentTypeDefinition
+        {
+            DefinitionId = definitionId,
+            VersionId = Guid.NewGuid(),
+            Scope = scope,
+            Version = 2,
+            Key = "SchoolAttendanceLetter",
+            CustomerLabel = "School attendance letter",
+            Description = "Clarified wording.",
+            BuiltInType = null,
+            Active = true,
+            UpdatedByUserId = "admin-1",
+            UpdatedAt = now.AddMinutes(1),
+            ChangeReason = "Clarified the customer-facing label.",
+        });
+
+        var current = await repository.ListCurrentAsync(scope);
+        var history = await repository.ListVersionsAsync(scope, "SchoolAttendanceLetter");
+
+        var only = Assert.Single(current);
+        Assert.Equal(2, only.Version);
+        Assert.Equal("School attendance letter", only.CustomerLabel);
+        Assert.Equal(2, history.Count);
+    }
+
 
     private static InfrastructureOptions Options() =>
         new()

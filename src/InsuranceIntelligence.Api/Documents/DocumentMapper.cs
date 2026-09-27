@@ -73,7 +73,7 @@ public static class DocumentMapper
             checklist.RequiredDocuments.Select(documentType => ToChecklistItem(documentType, checklist.ReceivedDocuments.Contains(documentType))).ToArray(),
             checklist.OptionalDocuments.Select(documentType => ToChecklistItem(documentType, checklist.ReceivedDocuments.Contains(documentType))).ToArray(),
             checklist.ReceivedDocuments.Select(documentType => ToChecklistItem(documentType, Received: true)).ToArray(),
-            checklist.MissingRequiredDocuments.Select(missing => new ChecklistDocumentResponse(missing.DocumentType.ToString(), missing.Label, Received: false)).ToArray());
+            checklist.MissingRequiredDocuments.Select(missing => new ChecklistDocumentResponse(missing.Key, missing.Label, Received: false)).ToArray());
 
     public static SafeAuditSummary ToAuditSummary(IReadOnlyCollection<AuditEvent> auditEvents)
     {

@@ -55,6 +55,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedRetentionPolicy> RetentionPolicies => Set<PersistedRetentionPolicy>();
     public DbSet<PersistedProductVersion> ProductVersions => Set<PersistedProductVersion>();
     public DbSet<PersistedCommunicationTemplate> CommunicationTemplates => Set<PersistedCommunicationTemplate>();
+    public DbSet<PersistedDocumentTypeDefinition> DocumentTypeDefinitions => Set<PersistedDocumentTypeDefinition>();
     public DbSet<PersistedDocumentLabelledExample> DocumentLabelledExamples => Set<PersistedDocumentLabelledExample>();
     public DbSet<PersistedRetentionReminder> RetentionReminders => Set<PersistedRetentionReminder>();
     public DbSet<PersistedSatisfactionResponse> SatisfactionResponses => Set<PersistedSatisfactionResponse>();
@@ -178,6 +179,10 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedProductVersion>().Property(entity => entity.Version).IsRequired();
         modelBuilder.Entity<PersistedProductVersion>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ProductId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedCommunicationTemplate>(), "CommunicationTemplates", "VersionId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedDocumentTypeDefinition>(), "DocumentTypeDefinitions", "VersionId");
+        modelBuilder.Entity<PersistedDocumentTypeDefinition>().Property(entity => entity.Key).HasMaxLength(200).IsRequired();
+        modelBuilder.Entity<PersistedDocumentTypeDefinition>().Property(entity => entity.Version).IsRequired();
+        modelBuilder.Entity<PersistedDocumentTypeDefinition>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Key });
         ConfigureScopedJson(modelBuilder.Entity<PersistedDocumentLabelledExample>(), "DocumentLabelledExamples", "ExampleId");
         modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.TemplateKey).HasMaxLength(200).IsRequired();
         modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.Version).IsRequired();
@@ -370,6 +375,11 @@ public sealed class PersistedProductVersion : PersistedScopedJson
 public sealed class PersistedCommunicationTemplate : PersistedScopedJson
 {
     public string TemplateKey { get; set; } = string.Empty;
+    public int Version { get; set; }
+}
+public sealed class PersistedDocumentTypeDefinition : PersistedScopedJson
+{
+    public string Key { get; set; } = string.Empty;
     public int Version { get; set; }
 }
 public sealed class PersistedDocumentLabelledExample : PersistedScopedJson { public Guid CaseId { get; set; } }

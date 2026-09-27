@@ -1,6 +1,8 @@
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
+using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Products;
 
 namespace InsuranceIntelligence.Application.Products;
@@ -17,6 +19,7 @@ public sealed class ProductCommandService(
     ITenantContextAccessor tenantContextAccessor,
     IPermissionService permissionService,
     IProductRepository repository,
+    IDocumentTypeCatalogRepository documentTypeCatalogRepository,
     IAuditWriter auditWriter) : IProductCommandService
 {
     public async Task<ProductDto> CreateDraftAsync(CreateProductRequest request, CancellationToken cancellationToken = default)
@@ -88,7 +91,7 @@ public sealed class ProductCommandService(
         var stages = request.Stages is null ? current.Stages : ValidateStages(request.Stages);
         var documentMatrix = request.DocumentMatrix is null
             ? current.DocumentMatrix
-            : ValidateDocumentMatrix(request.DocumentMatrix, stages);
+            : await ValidateDocumentMatrix(current.Scope, request.DocumentMatrix, stages, cancellationToken);
 
         var context = tenantContextAccessor.Current;
         var updated = current with
@@ -351,13 +354,26 @@ public sealed class ProductCommandService(
         return result.OrderBy(stage => stage.SortOrder).ToArray();
     }
 
-    private static IReadOnlyList<ProductDocumentRequirement> ValidateDocumentMatrix(
+    private async Task<IReadOnlyList<ProductDocumentRequirement>> ValidateDocumentMatrix(
+        TenantScope scope,
         IReadOnlyList<DocumentMatrixEntryDto> entries,
-        IReadOnlyList<ClaimStageDefinition> stages)
+        IReadOnlyList<ClaimStageDefinition> stages,
+        CancellationToken cancellationToken)
     {
         var stageKeys = new HashSet<string>(stages.Select(stage => stage.StageKey), StringComparer.OrdinalIgnoreCase);
         var documentKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var result = new List<ProductDocumentRequirement>(entries.Count);
+
+        // Claim intake build prompt outcome A: a document key used to silently vanish from
+        // completeness tracking if it did not match one of the eight DocumentType names, with no
+        // error anywhere. It is refused here instead, before it can ever reach a claim.
+        var activeCatalogKeys = entries.Count == 0
+            ? []
+            : new HashSet<string>(
+                (await documentTypeCatalogRepository.ListCurrentAsync(scope, cancellationToken))
+                    .Where(definition => definition.Active)
+                    .Select(definition => definition.Key),
+                StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in entries)
         {
@@ -366,28 +382,38 @@ public sealed class ProductCommandService(
                 throw new ProductValidationException("documentMatrix", "Every document needs a stable key.");
             }
 
-            if (!documentKeys.Add(entry.DocumentKey.Trim()))
+            var documentKey = entry.DocumentKey.Trim();
+
+            if (!documentKeys.Add(documentKey))
             {
-                throw new ProductValidationException("documentMatrix", $"Document key '{entry.DocumentKey}' is used more than once.");
+                throw new ProductValidationException("documentMatrix", $"Document key '{documentKey}' is used more than once.");
             }
 
             if (string.IsNullOrWhiteSpace(entry.CustomerLabel))
             {
-                throw new ProductValidationException("documentMatrix", $"Document '{entry.DocumentKey}' needs the words the customer sees.");
+                throw new ProductValidationException("documentMatrix", $"Document '{documentKey}' needs the words the customer sees.");
             }
 
             if (string.IsNullOrWhiteSpace(entry.Reason))
             {
-                throw new ProductValidationException("documentMatrix", $"Document '{entry.DocumentKey}' needs a reason it is required.");
+                throw new ProductValidationException("documentMatrix", $"Document '{documentKey}' needs a reason it is required.");
             }
 
             if (!stageKeys.Contains(entry.RequiredAtStageKey))
             {
-                throw new ProductValidationException("documentMatrix", $"Document '{entry.DocumentKey}' refers to a stage that does not exist in this process.");
+                throw new ProductValidationException("documentMatrix", $"Document '{documentKey}' refers to a stage that does not exist in this process.");
+            }
+
+            var isBuiltInDocumentType = Enum.TryParse<DocumentType>(documentKey, ignoreCase: true, out _);
+            if (!isBuiltInDocumentType && !activeCatalogKeys.Contains(documentKey))
+            {
+                throw new ProductValidationException(
+                    "documentMatrix",
+                    $"'{documentKey}' is not a recognized document type. Add it to the document type catalog first, or fix the spelling.");
             }
 
             result.Add(new ProductDocumentRequirement(
-                entry.DocumentKey.Trim(),
+                documentKey,
                 entry.CustomerLabel.Trim(),
                 entry.Reason.Trim(),
                 entry.IsRequired,

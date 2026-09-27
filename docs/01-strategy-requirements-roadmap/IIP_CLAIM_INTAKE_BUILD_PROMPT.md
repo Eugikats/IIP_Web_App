@@ -281,7 +281,29 @@ guard, or weaken validation to make a check pass.
 The loop appends a dated line here after each outcome: what changed, what was verified, what is
 next.
 
-- (none yet)
+- **2026-09-27 - Outcome A code complete, verified locally.** Added `DocumentTypeDefinition`
+  (tenant-scoped, versioned like `CommunicationTemplate`) and `IDocumentTypeCatalogRepository`,
+  with `EfDocumentTypeCatalogRepository` and the `AddDocumentTypeDefinitions` migration (generated
+  via `dotnet ef migrations add`, confirmed visible to `dotnet ef migrations list`). `CaseDocument`
+  gained the optional `DocumentTypeKey`. `MissingDocumentRequirement` now carries a string `Key`
+  instead of a `DocumentType`, and `DocumentChecklistRules.ForProduct` routes a matrix key that
+  does not match a built-in enum name into `CustomRequired`/`CustomOptional` instead of silently
+  dropping it (the bug this outcome exists to close); `CompletenessScore` and
+  `DocumentCompletenessChecklist` gained matching custom-key overloads/fields.
+  `ProductCommandService.ValidateDocumentMatrix` now refuses to save a document matrix entry whose
+  key is neither a built-in `DocumentType` name nor an active row in the tenant's catalog.
+  Added `DocumentTypeCatalogEndpoints` (list, list versions, save, seed-defaults, and
+  `unresolved-product-keys`, the admin report of existing products whose matrix already holds a key
+  the catalog does not recognise) at `/api/v1/document-types/*`, permission-gated by
+  `ManageProducts`. Portal: `ProductDetail.tsx`'s document matrix key is now a dropdown over the
+  tenant's active catalog (auto-seeded on first visit via `ensureDocumentTypeCatalog`), with an
+  inline warning on any row whose key is not recognised; `Products.tsx` shows a list-level banner
+  linking to every product the unresolved-keys report flags. Verified: `dotnet build
+  InsuranceIntelligence.sln` (0 errors), `dotnet test InsuranceIntelligence.sln` (1570/1570
+  passing, including new repository round-trip, `ProductCommandService` refusal, and checklist
+  custom-key tests satisfying this outcome's four acceptance tests), `pnpm lint` (clean), `pnpm
+  build` (clean, all 48 routes). Not yet done: committed to git but not yet pushed or deployed to
+  Azure dev in this pass. Next: outcome B (document-by-document upload).
 
 ## 12. Reporting and stopping
 

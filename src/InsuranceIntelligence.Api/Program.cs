@@ -916,6 +916,20 @@ app.MapPost("/api/v1/products/{productId:guid}/reject", InsuranceIntelligence.Ap
 app.MapPost("/api/v1/products/{productId:guid}/retire", InsuranceIntelligence.Api.Products.ProductEndpoints.Retire)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 
+// Document type catalog (claim intake build prompt outcome A): the eight built-in types plus
+// whatever an insurer adds, versioned like communication templates. Backs the document matrix
+// dropdown and the report of products whose matrix already holds a key the catalog does not know.
+app.MapGet("/api/v1/document-types", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.ListCurrent)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/document-types/{key}/versions", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.ListVersions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/document-types/{key}", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.SaveVersion)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/document-types/seed-defaults", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.SeedDefaults)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/document-types/unresolved-product-keys", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.ListUnresolvedProductDocumentKeys)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+
 // Outcome N: file import for insurers whose core system has no API. Parse reads the uploaded file
 // only (nothing persisted yet); Commit takes the confirmed column mapping back and imports.
 app.MapPost("/api/v1/policy-import/parse", InsuranceIntelligence.Api.Policies.PolicyImportEndpoints.Parse)

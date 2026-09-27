@@ -5,7 +5,17 @@ namespace InsuranceIntelligence.Domain.Documents;
 
 public sealed record DocumentChecklistRuleSet(
     IReadOnlyCollection<DocumentType> RequiredDocuments,
-    IReadOnlyCollection<DocumentType> OptionalDocuments);
+    IReadOnlyCollection<DocumentType> OptionalDocuments,
+    IReadOnlyCollection<CustomDocumentRequirement>? CustomRequiredDocuments = null,
+    IReadOnlyCollection<CustomDocumentRequirement>? CustomOptionalDocuments = null)
+{
+    /// <summary>Never null, unlike the constructor parameter: existing call sites
+    /// (<see cref="DocumentChecklistRules.ForProductLine"/>, <see cref="DocumentChecklistRules.Resolve"/>)
+    /// never pass one, and a reader should not have to know that.</summary>
+    public IReadOnlyCollection<CustomDocumentRequirement> CustomRequired => CustomRequiredDocuments ?? [];
+
+    public IReadOnlyCollection<CustomDocumentRequirement> CustomOptional => CustomOptionalDocuments ?? [];
+}
 
 public static class DocumentChecklistRules
 {
@@ -43,13 +53,15 @@ public static class DocumentChecklistRules
     }
 
     /// <summary>
-    /// An administrator's configured document matrix (outcome A) for the claim's pinned product,
-    /// mapping each DocumentKey to the fixed DocumentType enum by name (case-insensitive), since
-    /// classification and extraction are still built on that enum. A DocumentKey that does not
-    /// match a known DocumentType is skipped, not fabricated into one, so a tenant's typo in a key
-    /// shows up as a smaller checklist rather than a crash; if nothing in the matrix maps at all,
-    /// the caller should fall back to the built-in claim-type rules rather than show an empty
-    /// checklist for a genuinely configured product (see StaticDocumentChecklistProvider).
+    /// An administrator's configured document matrix (outcome A) for the claim's pinned product.
+    /// Every entry's DocumentKey was already checked against the tenant's document type catalog
+    /// when the product was saved (ProductCommandService), so nothing here is refused; a key that
+    /// still does not match a built-in DocumentType enum name is a real custom document type,
+    /// tracked by key rather than silently dropped, which is the fix for the gap this method's
+    /// previous version had: a typo used to just vanish from the checklist with no warning.
+    /// If nothing in the matrix maps at all, the caller should fall back to the built-in
+    /// claim-type rules rather than show an empty checklist for a genuinely configured product
+    /// (see StaticDocumentChecklistProvider).
     /// </summary>
     public static DocumentChecklistRuleSet? ForProduct(Product product)
     {
@@ -61,22 +73,31 @@ public static class DocumentChecklistRules
 
         var required = new List<DocumentType>();
         var optional = new List<DocumentType>();
+        var customRequired = new List<CustomDocumentRequirement>();
+        var customOptional = new List<CustomDocumentRequirement>();
         foreach (var entry in product.DocumentMatrix)
         {
-            if (!Enum.TryParse<DocumentType>(entry.DocumentKey, ignoreCase: true, out var documentType))
+            if (Enum.TryParse<DocumentType>(entry.DocumentKey, ignoreCase: true, out var documentType))
             {
-                continue;
+                (entry.IsRequired ? required : optional).Add(documentType);
             }
-
-            (entry.IsRequired ? required : optional).Add(documentType);
+            else
+            {
+                var custom = new CustomDocumentRequirement(entry.DocumentKey.Trim(), entry.CustomerLabel);
+                (entry.IsRequired ? customRequired : customOptional).Add(custom);
+            }
         }
 
-        if (required.Count == 0 && optional.Count == 0)
+        if (required.Count == 0 && optional.Count == 0 && customRequired.Count == 0 && customOptional.Count == 0)
         {
             return null;
         }
 
-        return new DocumentChecklistRuleSet(required.Distinct().ToArray(), optional.Distinct().ToArray());
+        return new DocumentChecklistRuleSet(
+            required.Distinct().ToArray(),
+            optional.Distinct().ToArray(),
+            customRequired.DistinctBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase).ToArray(),
+            customOptional.DistinctBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase).ToArray());
     }
 
     /// <summary>

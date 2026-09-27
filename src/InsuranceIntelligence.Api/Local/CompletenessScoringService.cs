@@ -8,4 +8,11 @@ public sealed class CompletenessScoringService : ICompletenessScoringService
         IReadOnlyCollection<DocumentType> requiredDocuments,
         IReadOnlyCollection<DocumentType> receivedDocuments) =>
         CompletenessScore.Calculate(requiredDocuments, receivedDocuments);
+
+    public CompletenessScore Calculate(
+        IReadOnlyCollection<DocumentType> requiredDocuments,
+        IReadOnlyCollection<DocumentType> receivedDocuments,
+        int customRequiredTotal,
+        int customReceived) =>
+        CompletenessScore.Calculate(requiredDocuments, receivedDocuments, customRequiredTotal, customReceived);
 }

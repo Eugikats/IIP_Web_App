@@ -154,7 +154,7 @@ public sealed class CaseFollowThroughService(
         var score = CompletenessScore.Calculate(rules.RequiredDocuments, received);
         var missing = rules.RequiredDocuments
             .Where(required => !received.Contains(required))
-            .Select(required => new MissingDocumentRequirement(required, StaticDocumentTypeLabel.For(required), Required: true))
+            .Select(required => new MissingDocumentRequirement(required.ToString(), StaticDocumentTypeLabel.For(required), Required: true))
             .ToArray();
 
         return new DocumentCompletenessChecklist(

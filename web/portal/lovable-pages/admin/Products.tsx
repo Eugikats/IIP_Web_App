@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import { Link, useNavigate } from "@/components/iip/NextRouterCompat";
-import { Plus } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { GlassCard, SectionHeader } from "@/components/iip/Primitives";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface } from "@/compone
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
 import { useUI } from "@/context/UIStateContext";
 import { createProduct, listProducts, type ProductListItem, type ProductStatus } from "@/lib/products";
+import { listUnresolvedProductDocumentKeys, type UnresolvedProductDocumentKeys } from "@/lib/documentTypes";
 
 const STATUS_TONE: Record<ProductStatus, PillTone> = {
   Draft: "neutral",
@@ -35,17 +36,22 @@ export default function Products() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [unresolved, setUnresolved] = useState<UnresolvedProductDocumentKeys[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const result = await listProducts(role);
+    const [result, unresolvedResult] = await Promise.all([
+      listProducts(role),
+      listUnresolvedProductDocumentKeys(role),
+    ]);
     setLoading(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
     setProducts(result.value);
+    if (unresolvedResult.ok) setUnresolved(unresolvedResult.value);
   }, [role]);
 
   useEffect(() => { void load(); }, [load]);
@@ -58,6 +64,30 @@ export default function Products() {
         sub="A product's claim process, document matrix and IRA approval, configured here with no developer and no release. Every change is versioned and audited."
         action={<Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreateOpen(true)}>New product</Button>}
       />
+
+      {!loading && unresolved.length > 0 && (
+        <GlassCard>
+          <div className="flex items-start gap-2 text-[12.5px] text-dls-text-primary">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-dls-warning-text" aria-hidden="true" />
+            <div>
+              <p className="font-bold">
+                {unresolved.length} product{unresolved.length === 1 ? "" : "s"} {unresolved.length === 1 ? "has" : "have"} a document key not in the document type catalog.
+              </p>
+              <p className="mt-1 text-dls-text-secondary">That document will not be tracked for completeness until the key is added to the catalog or corrected on the product.</p>
+              <ul className="mt-2 space-y-1">
+                {unresolved.map((entry) => (
+                  <li key={entry.productId}>
+                    <Link to={`/app/admin/products/${entry.productId}`} className="dls-focus-outline font-bold text-dls-primary hover:underline">
+                      {entry.productName}
+                    </Link>
+                    <span className="text-dls-text-secondary"> — {entry.unresolvedDocumentKeys.join(", ")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </GlassCard>
+      )}
 
       {loading && <GlassCard><LoadingSkeleton rows={4} /></GlassCard>}
       {!loading && error && <GlassCard><ErrorStateSurface title="Products could not be loaded" message={error} onRetry={load} /></GlassCard>}

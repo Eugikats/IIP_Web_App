@@ -64,6 +64,101 @@ public sealed class StaticDocumentChecklistProviderProductTests
         Assert.Contains(DocumentType.ClaimForm, checklist.RequiredDocuments);
     }
 
+    [Fact]
+    public async Task BuildChecklistAsync_ADeliberatelyMisspeltMatrixKey_IsRequiredAsACustomDocumentInsteadOfDropped()
+    {
+        // Claim intake build prompt outcome A: a key that does not match one of the eight
+        // DocumentType names used to vanish from the checklist with no error. It must now surface
+        // as a named custom requirement instead of disappearing.
+        var repository = new FakeProductRepository();
+        var product = BaseProduct(
+        [
+            new ProductDocumentRequirement("SchoolAttendanceLetter", "School attendance letter", "Confirms the student was enrolled", IsRequired: true, "intimation_and_reference", false),
+        ]);
+        await repository.SaveAsync(product);
+        var provider = new StaticDocumentChecklistProvider(new CompletenessScoringService(), repository);
+
+        var checklist = await provider.BuildChecklistAsync(MotorClaim(product.ProductId, product.Version), []);
+
+        Assert.Contains(checklist.CustomRequired, entry => entry.Key == "SchoolAttendanceLetter");
+        Assert.Contains(checklist.MissingRequiredDocuments, missing => missing.Key == "SchoolAttendanceLetter" && missing.Label == "School attendance letter");
+        Assert.Equal(0m, checklist.CompletenessScore.Percentage);
+    }
+
+    [Fact]
+    public async Task BuildChecklistAsync_ACustomDocumentKey_IsSatisfiedWhenTheMatchingDocumentIsReceived()
+    {
+        var repository = new FakeProductRepository();
+        var product = BaseProduct(
+        [
+            new ProductDocumentRequirement("SchoolAttendanceLetter", "School attendance letter", "Confirms the student was enrolled", IsRequired: true, "intimation_and_reference", false),
+        ]);
+        await repository.SaveAsync(product);
+        var provider = new StaticDocumentChecklistProvider(new CompletenessScoringService(), repository);
+        var claimCase = MotorClaim(product.ProductId, product.Version);
+        var received = ReceivedDocument(claimCase.CaseId, documentTypeKey: "SchoolAttendanceLetter");
+
+        var checklist = await provider.BuildChecklistAsync(claimCase, [received]);
+
+        Assert.DoesNotContain(checklist.MissingRequiredDocuments, missing => missing.Key == "SchoolAttendanceLetter");
+        Assert.Contains("SchoolAttendanceLetter", checklist.CustomReceived);
+        Assert.Equal(100m, checklist.CompletenessScore.Percentage);
+    }
+
+    [Fact]
+    public async Task BuildChecklistAsync_AnOlderDocumentWithNoStoredKey_StillSatisfiesItsBuiltInEnumRequirement()
+    {
+        // Pre-existing documents were persisted before DocumentTypeKey existed, so it deserializes
+        // as null. Matching must still work off the DocumentType enum alone.
+        var repository = new FakeProductRepository();
+        var product = BaseProduct(
+        [
+            new ProductDocumentRequirement("MedicalReport", "Medical report", "Required for injury assessment", IsRequired: true, "intimation_and_reference", false),
+        ]);
+        await repository.SaveAsync(product);
+        var provider = new StaticDocumentChecklistProvider(new CompletenessScoringService(), repository);
+        var claimCase = MotorClaim(product.ProductId, product.Version);
+        var received = ReceivedDocument(claimCase.CaseId, documentType: DocumentType.MedicalReport, documentTypeKey: null);
+
+        var checklist = await provider.BuildChecklistAsync(claimCase, [received]);
+
+        Assert.Contains(DocumentType.MedicalReport, checklist.ReceivedDocuments);
+        Assert.Empty(checklist.MissingRequiredDocuments);
+        Assert.Equal(100m, checklist.CompletenessScore.Percentage);
+    }
+
+    private static CaseDocument ReceivedDocument(Guid caseId, DocumentType documentType = DocumentType.Unknown, string? documentTypeKey = null)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new CaseDocument
+        {
+            DocumentId = Guid.NewGuid(),
+            CaseId = caseId,
+            Scope = Scope,
+            OriginalFileName = "document.pdf",
+            ContentType = "application/pdf",
+            FileSizeBytes = 128,
+            ObjectKey = $"{Scope.TenantId}/{Scope.WorkspaceId}/case/document.pdf",
+            DocumentType = documentType,
+            DocumentTypeKey = documentTypeKey,
+            ProcessingStatus = DocumentProcessingStatus.Processed,
+            Classification = new DocumentClassificationResult(documentType, 0.9m, "Mock", now),
+            Extraction = new DocumentExtractionResult(
+                new Dictionary<string, string>(),
+                new Dictionary<string, decimal>(),
+                "Mock",
+                now,
+                Approved: false,
+                ApprovedByUserId: null,
+                ApprovedAt: null),
+            ValidationWarnings = Array.Empty<DocumentValidationWarning>(),
+            UploadedByUserId = "user-claims-1",
+            UploadedAt = now,
+            ProcessedAt = now,
+            CorrelationId = "corr-checklist-product-tests",
+        };
+    }
+
     private static ClaimCase MotorClaim(Guid? productId, int? version) =>
         new()
         {
