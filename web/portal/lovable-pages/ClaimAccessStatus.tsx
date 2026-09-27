@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Circle, Loader2, LogOut, MessageSquare, Paperclip, ShieldCheck, UploadCloud } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, Loader2, LogOut, MessageSquare, Paperclip, RefreshCw, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
 import iipLogo from "@/assets/iip-logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -13,9 +13,13 @@ import {
   clearStoredSession,
   getClaim,
   loadStoredSession,
+  removeClaimDocument,
   requestClaimReview,
   uploadClaimDocuments,
 } from "@/lib/clientPortal";
+import { downscalePhotoIfNeeded } from "@/lib/photoDownscale";
+
+const SOMETHING_ELSE_KEY = "__something_else__";
 
 function formatDate(value: string | null) {
   if (!value) return null;
@@ -38,7 +42,7 @@ export default function ClaimAccessStatus() {
   const [claim, setClaim] = useState<ClientPortalClaim | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [reviewReason, setReviewReason] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
@@ -73,21 +77,36 @@ export default function ClaimAccessStatus() {
     void load(stored);
   }, [load, router]);
 
-  async function onUpload(event: ChangeEvent<HTMLInputElement>) {
-    const files = event.target.files ? Array.from(event.target.files) : [];
+  async function onUpload(event: ChangeEvent<HTMLInputElement>, documentTypeKey: string, label: string) {
+    const rawFiles = event.target.files ? Array.from(event.target.files) : [];
     event.target.value = "";
-    if (!session || files.length === 0) return;
+    if (!session || rawFiles.length === 0) return;
 
-    setUploading(true);
+    setBusyKey(documentTypeKey);
     setUploadNotice(null);
-    const result = await uploadClaimDocuments(session, files);
-    setUploading(false);
+    const files = await Promise.all(rawFiles.map((file) => downscalePhotoIfNeeded(file)));
+    const result = await uploadClaimDocuments(session, files, documentTypeKey === SOMETHING_ELSE_KEY ? undefined : documentTypeKey);
+    setBusyKey(null);
     if (!result.ok) {
       setUploadNotice(result.error);
       return;
     }
     setClaim(result.claim);
-    setUploadNotice(`${files.length === 1 ? "Document" : `${files.length} documents`} uploaded.`);
+    setUploadNotice(`${label} sent.`);
+  }
+
+  async function onRemove(documentTypeKey: string, label: string) {
+    if (!session) return;
+    setBusyKey(documentTypeKey);
+    setUploadNotice(null);
+    const result = await removeClaimDocument(session, documentTypeKey);
+    setBusyKey(null);
+    if (!result.ok) {
+      setUploadNotice(result.error);
+      return;
+    }
+    setClaim(result.claim);
+    setUploadNotice(`${label} removed.`);
   }
 
   async function onRequestReview(event: FormEvent) {
@@ -216,23 +235,88 @@ export default function ClaimAccessStatus() {
             </div>
 
             <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">Documents</div>
-                <label className="dls-focus-outline inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-1.5 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
-                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />}
-                  Upload
-                  <input type="file" multiple className="hidden" onChange={onUpload} disabled={uploading} />
-                </label>
-              </div>
+              <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">Documents</div>
+              <p className="mt-1 text-xs leading-5 text-dls-text-muted">Send each document below. You can replace or remove anything you send.</p>
               <ul className="mt-3 divide-y divide-dls-border-subtle">
                 {claim.requiredDocuments.map((doc) => (
-                  <li key={doc.documentType} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                    <span className="flex items-center gap-2 text-dls-text-secondary">
-                      <Paperclip className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" /> {doc.label}
-                    </span>
-                    <span className={`text-xs font-semibold ${doc.uploaded ? "text-dls-success-text" : "text-dls-warning-text"}`}>{doc.status}</span>
+                  <li key={doc.documentTypeKey} className="py-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex items-start gap-2">
+                        <Paperclip className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dls-text-muted" aria-hidden="true" />
+                        <div>
+                          <div className="text-sm font-semibold text-dls-text-primary">
+                            {doc.label}
+                            {!doc.required && <span className="ml-1.5 text-xs font-normal text-dls-text-muted">(optional)</span>}
+                          </div>
+                          <div className="text-xs leading-5 text-dls-text-muted">{doc.description}</div>
+                        </div>
+                      </div>
+                      <span className={`shrink-0 text-xs font-semibold ${doc.uploaded ? "text-dls-success-text" : "text-dls-warning-text"}`}>{doc.status}</span>
+                    </div>
+
+                    {doc.uploaded && (
+                      // The classifier disagreeing with the customer's own choice
+                      // (doc.disagreesWithClassifier) is for staff to see, never shown to the
+                      // customer as an error (claim intake build prompt outcome B).
+                      <div className="mt-2 ml-5.5 text-xs text-dls-text-muted">
+                        <span className="truncate">{doc.fileName}{doc.uploadedAt ? ` · ${formatDate(doc.uploadedAt)}` : ""}</span>
+                      </div>
+                    )}
+
+                    <div className="mt-2 ml-5.5 flex items-center gap-2">
+                      <label className="dls-focus-outline inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
+                        {busyKey === doc.documentTypeKey ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                        ) : doc.uploaded ? (
+                          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                        ) : (
+                          <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                        {doc.uploaded ? "Replace" : "Upload"}
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          disabled={busyKey !== null}
+                          onChange={(event) => onUpload(event, doc.documentTypeKey, doc.label)}
+                        />
+                      </label>
+                      {doc.uploaded && (
+                        <Button
+                          variant="ghost"
+                          icon={<Trash2 aria-hidden="true" />}
+                          onClick={() => onRemove(doc.documentTypeKey, doc.label)}
+                          disabled={busyKey !== null}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
                   </li>
                 ))}
+                <li className="py-3">
+                  <div className="flex items-start gap-2">
+                    <Paperclip className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dls-text-muted" aria-hidden="true" />
+                    <div>
+                      <div className="text-sm font-semibold text-dls-text-primary">Something else</div>
+                      <div className="text-xs leading-5 text-dls-text-muted">Anything else that supports your claim.</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 ml-5.5">
+                    <label className="dls-focus-outline inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
+                      {busyKey === SOMETHING_ELSE_KEY ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />}
+                      Upload
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        disabled={busyKey !== null}
+                        onChange={(event) => onUpload(event, SOMETHING_ELSE_KEY, "Document")}
+                      />
+                    </label>
+                  </div>
+                </li>
               </ul>
               {uploadNotice && <p className="mt-3 text-xs leading-5 text-dls-text-muted">{uploadNotice}</p>}
             </div>

@@ -61,7 +61,9 @@ public static class DocumentMapper
             document.CorrelationId,
             $"/api/v1/cases/{document.CaseId}/documents/{document.DocumentId}/content",
             Allowed(document),
-            Blocked(document));
+            Blocked(document),
+            document.DocumentTypeKey,
+            document.IsSuperseded);
 
     public static DocumentChecklistResponse ToResponse(DocumentCompletenessChecklist checklist) =>
         new(

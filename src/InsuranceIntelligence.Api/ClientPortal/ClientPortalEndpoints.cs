@@ -284,8 +284,19 @@ public static class ClientPortalEndpoints
             }
         }
 
+        // The customer's own choice of which required document this is (outcome B). Absent for an
+        // older client and for the catch-all "something else" slot, in which case the classifier's
+        // guess decides, exactly as before.
+        var documentTypeKey = NormalizeDocumentTypeKey(form["documentTypeKey"]);
+
         var actor = ResolveActor(httpContext);
         var correlationId = httpContext.TraceIdentifier;
+
+        if (documentTypeKey is not null)
+        {
+            await SupersedeActiveDocumentsAsync(documentRepository, auditRepository, caseId, scope, documentTypeKey, actor, correlationId, cancellationToken);
+        }
+
         foreach (var file in files)
         {
             await using var stream = file.OpenReadStream();
@@ -301,7 +312,7 @@ public static class ClientPortalEndpoints
                     stream),
                 cancellationToken);
 
-            var uploadedDocument = CreateUploadedDocument(documentId, claimCase, file, storageResult, actor, correlationId);
+            var uploadedDocument = CreateUploadedDocument(documentId, claimCase, file, storageResult, actor, correlationId, documentTypeKey);
             await documentRepository.SaveAsync(uploadedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentUploaded(uploadedDocument, actor, correlationId), cancellationToken);
 
@@ -414,6 +425,102 @@ public static class ClientPortalEndpoints
             "Your request for a human re-review has been logged. A claims officer will review it. This decision is not final AI, a person will look at it."));
     }
 
+    /// <summary>"Remove", with no replacement file (outcome B). Never deletes anything
+    /// (non-negotiable 2): marks the active document(s) for this requirement superseded, so the
+    /// requirement goes back to not satisfied and staff still see what was originally sent.</summary>
+    public static async Task<IResult> RemoveDocument(
+        Guid caseId,
+        ClientPortalRemoveDocumentRequest body,
+        ICaseRepository caseRepository,
+        ICaseDocumentRepository documentRepository,
+        IDocumentChecklistProvider checklistProvider,
+        ICommunicationRepository communicationRepository,
+        IAuditRepository auditRepository,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!ResolveScope(httpContext, out var scope, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["tenantScope"] = [validationError]
+            });
+        }
+
+        var documentTypeKey = NormalizeDocumentTypeKey(body?.DocumentTypeKey);
+        if (documentTypeKey is null)
+        {
+            return Validation("documentTypeKey", "Which document to remove is required.");
+        }
+
+        var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
+        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext, options))
+        {
+            return Results.NotFound(new { message = "Claim was not found for the signed-in customer." });
+        }
+
+        var actor = ResolveActor(httpContext);
+        var correlationId = httpContext.TraceIdentifier;
+        var supersededAny = await SupersedeActiveDocumentsAsync(documentRepository, auditRepository, caseId, scope, documentTypeKey, actor, correlationId, cancellationToken);
+        if (!supersededAny)
+        {
+            return Results.NotFound(new { message = "Nothing has been sent for that document yet." });
+        }
+
+        var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        var checklist = await checklistProvider.BuildChecklistAsync(claimCase, allDocuments, cancellationToken);
+        var updatedCase = claimCase with
+        {
+            CompletenessScore = checklist.CompletenessScore.Percentage,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        await caseRepository.SaveAsync(updatedCase, cancellationToken);
+
+        var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        return Results.Ok(ToResponse(updatedCase, checklist, allDocuments, communications));
+    }
+
+    /// <summary>Marks every currently-active (not already superseded) document matching this
+    /// requirement key as superseded. Returns whether anything was actually superseded.</summary>
+    private static async Task<bool> SupersedeActiveDocumentsAsync(
+        ICaseDocumentRepository documentRepository,
+        IAuditRepository auditRepository,
+        Guid caseId,
+        InsuranceIntelligence.Domain.Common.TenantScope scope,
+        string documentTypeKey,
+        string actor,
+        string correlationId,
+        CancellationToken cancellationToken)
+    {
+        var existing = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var superseded = false;
+        foreach (var document in existing)
+        {
+            if (document.IsSuperseded)
+            {
+                continue;
+            }
+
+            var key = document.DocumentTypeKey ?? document.DocumentType.ToString();
+            if (!string.Equals(key, documentTypeKey, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var supersededDocument = document with { IsSuperseded = true, SupersededAt = now };
+            await documentRepository.SaveAsync(supersededDocument, cancellationToken);
+            await auditRepository.WriteAsync(AuditEvent.DocumentSuperseded(supersededDocument, actor, correlationId), cancellationToken);
+            superseded = true;
+        }
+
+        return superseded;
+    }
+
+    private static string? NormalizeDocumentTypeKey(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     private static ClientPortalClaimResponse ToResponse(
         ClaimCase claimCase,
         DocumentCompletenessChecklist checklist,
@@ -421,16 +528,39 @@ public static class ClientPortalEndpoints
         IReadOnlyCollection<Communication> communications,
         IReadOnlyCollection<ClaimReviewRequest>? reviewRequests = null)
     {
-        var receivedDocumentTypes = documents
-            .Select(document => document.DocumentType)
-            .ToHashSet();
+        var activeDocuments = documents.Where(document => !document.IsSuperseded).ToArray();
+
+        ClientPortalDocumentRequirement RowFor(string key, string label, string description, bool required)
+        {
+            var active = activeDocuments
+                .Where(document => string.Equals(document.DocumentTypeKey ?? document.DocumentType.ToString(), key, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(document => document.UploadedAt)
+                .FirstOrDefault();
+            var isProcessed = active is not null && active.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved;
+            var status = active is null ? "Not uploaded" : isProcessed ? "Received" : "Being checked";
+            // A disagreement between the customer's choice and the classifier's independent guess
+            // is flagged for staff, never shown to the customer as an error (outcome B).
+            var disagreesWithClassifier = active?.DocumentTypeKey is not null
+                && active.Classification.DocumentType != DocumentType.Unknown
+                && !string.Equals(active.DocumentTypeKey, active.Classification.DocumentType.ToString(), StringComparison.OrdinalIgnoreCase);
+
+            return new ClientPortalDocumentRequirement(
+                key,
+                label,
+                description,
+                required,
+                active is not null,
+                status,
+                active?.OriginalFileName,
+                active?.UploadedAt,
+                disagreesWithClassifier);
+        }
 
         var requiredDocuments = checklist.RequiredDocuments
-            .Select(documentType => new ClientPortalDocumentRequirement(
-                documentType.ToString(),
-                Label(documentType),
-                receivedDocumentTypes.Contains(documentType),
-                receivedDocumentTypes.Contains(documentType) ? "Uploaded" : "Not uploaded"))
+            .Select(documentType => RowFor(documentType.ToString(), Label(documentType), Description(documentType), required: true))
+            .Concat(checklist.CustomRequired.Select(custom => RowFor(custom.Key, custom.Label, custom.Description, required: true)))
+            .Concat(checklist.OptionalDocuments.Select(documentType => RowFor(documentType.ToString(), Label(documentType), Description(documentType), required: false)))
+            .Concat(checklist.CustomOptional.Select(custom => RowFor(custom.Key, custom.Label, custom.Description, required: false)))
             .ToArray();
 
         var messages = communications
@@ -637,7 +767,8 @@ public static class ClientPortalEndpoints
         IFormFile file,
         DocumentStorageResult storageResult,
         string uploadedBy,
-        string correlationId)
+        string correlationId,
+        string? documentTypeKey = null)
     {
         var now = DateTimeOffset.UtcNow;
 
@@ -651,6 +782,7 @@ public static class ClientPortalEndpoints
             FileSizeBytes = storageResult.FileSizeBytes,
             ObjectKey = storageResult.ObjectKey,
             DocumentType = DocumentType.Unknown,
+            DocumentTypeKey = documentTypeKey,
             ProcessingStatus = DocumentProcessingStatus.Uploaded,
             Classification = new DocumentClassificationResult(DocumentType.Unknown, 0m, "ClientPortal", now),
             Extraction = new DocumentExtractionResult(
@@ -692,6 +824,19 @@ public static class ClientPortalEndpoints
             DocumentType.GarageEstimate => "Garage estimate",
             _ => "Supporting document"
         };
+
+    private static string Description(DocumentType documentType) =>
+        documentType switch
+        {
+            DocumentType.ClaimForm => "The completed claim form for this loss.",
+            DocumentType.PoliceAbstract => "Confirms the incident was reported to the police.",
+            DocumentType.PhotoEvidence => "Photos showing what happened.",
+            DocumentType.Invoice => "Shows the cost of repair, replacement or treatment.",
+            DocumentType.MedicalReport => "A doctor's account of the injury or treatment.",
+            DocumentType.CustomerId => "Confirms the claim is yours.",
+            DocumentType.GarageEstimate => "A garage's estimate to repair the vehicle.",
+            _ => "A document that supports your claim."
+        };
 }
 
 public sealed record ClientPortalClaimResponse(
@@ -704,6 +849,9 @@ public sealed record ClientPortalClaimResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     decimal CompletenessScore,
+    // Every row from the claim's pinned product version, required and optional alike, each
+    // carrying its own Required flag (outcome B); not only the required ones despite the name
+    // this field has always had.
     IReadOnlyCollection<ClientPortalDocumentRequirement> RequiredDocuments,
     IReadOnlyCollection<ClientPortalTimelineStep> Timeline,
     IReadOnlyCollection<ClientPortalMessage> Messages,
@@ -726,10 +874,17 @@ public sealed record ClientPortalReviewRequestSummary(
     DateTimeOffset? ResolvedAt);
 
 public sealed record ClientPortalDocumentRequirement(
-    string DocumentType,
+    string DocumentTypeKey,
     string Label,
+    string Description,
+    bool Required,
     bool Uploaded,
-    string Status);
+    string Status,
+    string? FileName,
+    DateTimeOffset? UploadedAt,
+    bool DisagreesWithClassifier);
+
+public sealed record ClientPortalRemoveDocumentRequest(string? DocumentTypeKey);
 
 public sealed record ClientPortalTimelineStep(
     string Label,

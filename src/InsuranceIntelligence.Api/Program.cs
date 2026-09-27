@@ -633,6 +633,8 @@ app.MapGet("/api/v1/client-portal/claims/{caseId:guid}", ClientPortalEndpoints.G
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents", ClientPortalEndpoints.UploadDocuments)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents/remove", ClientPortalEndpoints.RemoveDocument)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/request-review", ClientPortalEndpoints.RequestReview)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 // Outcome L: "the customer sees their policy," "asks a question about the wording," and "requests

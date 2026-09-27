@@ -20,7 +20,8 @@ public sealed class StaticDocumentChecklistProvider(
     {
         var rules = await ResolveRulesAsync(claimCase, cancellationToken);
         var processed = documents
-            .Where(document => document.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved)
+            .Where(document => !document.IsSuperseded
+                && document.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved)
             .ToArray();
         var received = processed
             .Select(document => document.DocumentType)

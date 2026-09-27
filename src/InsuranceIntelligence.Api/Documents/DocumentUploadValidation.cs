@@ -18,6 +18,11 @@ public static class DocumentUploadValidation
         ".tif",
         ".tiff",
         ".txt",
+        // A backstop for an iPhone camera photo Safari did not convert to JPEG (claim intake
+        // build prompt outcome B). Stored as received like any other file; extraction is not
+        // promised on these until verified to actually work against a real HEIC/HEIF sample.
+        ".heic",
+        ".heif",
     };
 
     public static string? Validate(long lengthBytes, string fileName)
@@ -35,7 +40,7 @@ public static class DocumentUploadValidation
         var extension = Path.GetExtension(fileName);
         if (!SupportedExtensions.Contains(extension))
         {
-            return "Unsupported file type. Supported file types are PDF, PNG, JPG, JPEG, TIF, TIFF, and TXT.";
+            return "Unsupported file type. Supported file types are PDF, PNG, JPG, JPEG, TIF, TIFF, HEIC, HEIF, and TXT.";
         }
 
         return null;

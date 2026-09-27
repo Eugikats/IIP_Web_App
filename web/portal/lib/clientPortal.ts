@@ -14,10 +14,15 @@ export type ClientPortalSession = {
 };
 
 export type ClientPortalDocumentRequirement = {
-  documentType: string;
+  documentTypeKey: string;
   label: string;
+  description: string;
+  required: boolean;
   uploaded: boolean;
   status: string;
+  fileName: string | null;
+  uploadedAt: string | null;
+  disagreesWithClassifier: boolean;
 };
 
 export type ClientPortalTimelineStep = {
@@ -209,13 +214,18 @@ export async function getClaim(session: ClientPortalSession): Promise<GetClaimRe
 
 export type UploadDocumentsResult = { ok: true; claim: ClientPortalClaim } | { ok: false; error: string };
 
-export async function uploadClaimDocuments(session: ClientPortalSession, files: File[]): Promise<UploadDocumentsResult> {
+export async function uploadClaimDocuments(
+  session: ClientPortalSession,
+  files: File[],
+  documentTypeKey?: string,
+): Promise<UploadDocumentsResult> {
   if (!session.caseId) {
     return { ok: false, error: "No claim has been submitted on this access link yet." };
   }
   try {
     const form = new FormData();
     files.forEach((file) => form.append("files", file));
+    if (documentTypeKey) form.append("documentTypeKey", documentTypeKey);
     const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claims/${session.caseId}/documents`, {
       method: "POST",
       headers: clientPortalHeaders(session.sessionToken),
@@ -227,6 +237,27 @@ export async function uploadClaimDocuments(session: ClientPortalSession, files: 
     return { ok: true, claim: (await response.json()) as ClientPortalClaim };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "We could not upload your document.") };
+  }
+}
+
+export type RemoveDocumentResult = { ok: true; claim: ClientPortalClaim } | { ok: false; error: string };
+
+export async function removeClaimDocument(session: ClientPortalSession, documentTypeKey: string): Promise<RemoveDocumentResult> {
+  if (!session.caseId) {
+    return { ok: false, error: "No claim has been submitted on this access link yet." };
+  }
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claims/${session.caseId}/documents/remove`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...clientPortalHeaders(session.sessionToken) },
+      body: JSON.stringify({ documentTypeKey }),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "We could not remove that document. Try again shortly.") };
+    }
+    return { ok: true, claim: (await response.json()) as ClientPortalClaim };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "We could not remove that document.") };
   }
 }
 

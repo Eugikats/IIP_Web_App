@@ -30,4 +30,13 @@ public sealed record CaseDocument
     public required DateTimeOffset UploadedAt { get; init; }
     public DateTimeOffset? ProcessedAt { get; init; }
     public required string CorrelationId { get; init; }
+
+    /// <summary>A customer "removing" or "replacing" a document never deletes it (non-negotiable
+    /// 2, claim intake build prompt outcome B): it marks the earlier file superseded here, and the
+    /// file and its history stay visible to staff. Completeness and every checklist ignore a
+    /// superseded document as if it had not been sent. Never required, so a document stored before
+    /// this field existed deserializes as not superseded.</summary>
+    public bool IsSuperseded { get; init; }
+
+    public DateTimeOffset? SupersededAt { get; init; }
 }

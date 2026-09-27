@@ -83,7 +83,7 @@ public static class DocumentChecklistRules
             }
             else
             {
-                var custom = new CustomDocumentRequirement(entry.DocumentKey.Trim(), entry.CustomerLabel);
+                var custom = new CustomDocumentRequirement(entry.DocumentKey.Trim(), entry.CustomerLabel, entry.Reason);
                 (entry.IsRequired ? customRequired : customOptional).Add(custom);
             }
         }

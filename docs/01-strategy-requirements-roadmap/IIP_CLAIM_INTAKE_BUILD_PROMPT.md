@@ -305,6 +305,45 @@ next.
   build` (clean, all 48 routes). Not yet done: committed to git but not yet pushed or deployed to
   Azure dev in this pass. Next: outcome B (document-by-document upload).
 
+- **2026-09-27 - Outcome B partially complete: customer-portal document-by-document upload is
+  code complete and verified locally; WhatsApp, the staff-facing disagreement view, and the
+  learning-gate check are still open.** `CaseDocument` gained `IsSuperseded`/`SupersededAt`; a
+  customer "removing" or "replacing" a document now marks the earlier row superseded rather than
+  deleting anything (non-negotiable 2), and `StaticDocumentChecklistProvider` ignores a superseded
+  document as if it had never been sent. `DocumentUploadValidation` now accepts `.heic`/`.heif` as
+  a backstop (extraction is not promised on them). `ClientPortalEndpoints.UploadDocuments` reads an
+  optional `documentTypeKey` form field, the customer's own choice; the server still runs
+  classification independently and stores its guess alongside. A new
+  `POST /api/v1/client-portal/claims/{caseId}/documents/remove` endpoint supersedes the active
+  document for a key with no replacement upload. `ClientPortalEndpoints.ToResponse` now returns one
+  row per required and optional document (built-in and, via `checklist.CustomRequired`/
+  `CustomOptional`, any custom type the tenant's catalog carries a `Reason` for), each with its
+  label, description, uploaded state, status ("Received"/"Being checked"/"Not uploaded"), the
+  active file's name and upload time, and a `disagreesWithClassifier` flag computed server side
+  (never shown to the customer as an error, only carried in the API for a future staff surface).
+  `CustomDocumentRequirement` gained a `Description` field (from the product matrix entry's
+  `Reason`) to support this. `DocumentResponse` (the staff-facing document contract) now also
+  carries `CustomerDocumentTypeKey`/`IsSuperseded`, though no staff screen reads them yet. Portal:
+  `ClaimAccessStatus.tsx`'s single generic upload button is replaced with one row per document
+  (required and optional), each with its own Upload/Replace/Remove, a "Something else" catch-all
+  row for anything that does not fit, `accept="image/*,application/pdf"` on every file input, and
+  browser-side JPEG downscaling (`lib/photoDownscale.ts`) for a photo wider than 1600px before
+  upload. `lib/clientPortal.ts` gained `removeClaimDocument` and an optional `documentTypeKey` on
+  `uploadClaimDocuments`. Verified: `dotnet build`/`dotnet test` (1574/1574 passing, including four
+  new tests: choosing a type on upload with a deliberate classifier disagreement, replace keeping
+  the old file as history, remove marking superseded without deleting, remove on nothing sent
+  returning 404), `pnpm lint` (clean), `pnpm build` (clean, all 48 routes). Not yet run: opening the
+  stepped upload flow in a real browser at 400px/768px (this outcome's own acceptance list does not
+  require it the way outcome C explicitly does, but it is still owed before calling this outcome
+  done). Not started: the WhatsApp numbered-list/caption-matching/acknowledgement changes to
+  `CustomerAssistantService`, the staff claim-page and extraction-review display of the customer's
+  choice versus the classifier's guess, and confirming the `DocumentLabelledExample` promotion path
+  still only fires on staff approval (a read-through of `DocumentEndpoints.cs` during this pass
+  found all three creation sites are already staff-gated and none reads `DocumentTypeKey`, so this
+  is believed already satisfied, but it is not yet asserted by a test naming it explicitly). Next:
+  finish outcome B with the WhatsApp and staff-view pieces, then its own accepted-when tests, before
+  moving to outcome C.
+
 ## 12. Reporting and stopping
 
 Each report says which outcomes are complete and verified live, which are code complete but blocked

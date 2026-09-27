@@ -209,6 +209,12 @@ public sealed record AuditEvent(
             correlationId: correlationId,
             confidence: document.Classification.ConfidenceScore);
 
+    /// <summary>A customer's "remove" or "replace" (claim intake build prompt outcome B): the
+    /// document itself is never deleted, only marked superseded, and this is its audit trail
+    /// entry.</summary>
+    public static AuditEvent DocumentSuperseded(CaseDocument document, string userId, string correlationId) =>
+        ForDocument(document, userId, ActorType.User, "document.superseded", document.ProcessingStatus.ToString(), "Superseded", "accepted", correlationId);
+
     public static AuditEvent DocumentReclassified(CaseDocument document, string userId, string beforeStatus, string correlationId, string? auditReason = null) =>
         ForDocument(document, userId, ActorType.User, "document.reclassified", beforeStatus, document.DocumentType.ToString(), "accepted", correlationId, auditReason: auditReason);
 

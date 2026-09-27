@@ -104,4 +104,4 @@ public static class DefaultDocumentTypeCatalog
 /// <summary>A document a product requires or accepts that is not one of the eight built-in types.
 /// Tracked by key rather than by <see cref="Documents.DocumentType"/>: satisfied when a case
 /// document's key matches, whether or not the classifier recognised it.</summary>
-public sealed record CustomDocumentRequirement(string Key, string Label);
+public sealed record CustomDocumentRequirement(string Key, string Label, string Description);

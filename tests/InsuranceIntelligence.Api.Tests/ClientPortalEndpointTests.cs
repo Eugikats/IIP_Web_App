@@ -212,7 +212,7 @@ public sealed class ClientPortalEndpointTests
         Assert.Equal(caseId, body.GetProperty("caseId").GetGuid());
         Assert.Equal(33.33m, body.GetProperty("completenessScore").GetDecimal());
         Assert.Contains(body.GetProperty("requiredDocuments").EnumerateArray(), item =>
-            item.GetProperty("documentType").GetString() == "ClaimForm"
+            item.GetProperty("documentTypeKey").GetString() == "ClaimForm"
             && item.GetProperty("uploaded").GetBoolean());
         Assert.DoesNotContain("objectKey", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("extractedFields", json, StringComparison.OrdinalIgnoreCase);
@@ -263,6 +263,147 @@ public sealed class ClientPortalEndpointTests
             auditEvents,
             auditEvent => auditEvent.ActionName == "document.uploaded"
                 && auditEvent.Scope == membershipScope);
+    }
+
+    [Fact]
+    public async Task UploadDocuments_WithADocumentTypeKey_SatisfiesThatRowEvenWhenTheClassifierDisagrees()
+    {
+        // Claim intake build prompt outcome B: the customer's choice decides which requirement is
+        // satisfied; a disagreement with the classifier's own guess is flagged, never shown to the
+        // customer as an error. ClaimFormProcessingProvider always classifies as ClaimForm, so
+        // choosing PoliceAbstract here deliberately disagrees with it.
+        var caseId = Guid.NewGuid();
+        var scope = Scope();
+        var cases = new InMemoryCaseRepository();
+        var documents = new InMemoryCaseDocumentRepository();
+        await cases.SaveAsync(Case(caseId, scope, "sarah@example.com"));
+
+        var result = await ClientPortalEndpoints.UploadDocuments(
+            caseId,
+            cases,
+            documents,
+            new StubDocumentStorageProvider(),
+            new ClaimFormProcessingProvider(),
+            new StaticDocumentChecklistProvider(new CompletenessScoringService()),
+            new InMemoryDocumentFieldValidationRuleRepository(),
+            new InMemoryCommunicationRepository(),
+            new InMemoryAuditRepository(),
+            DevelopmentOptions(),
+            UploadContext("sarah@example.com", documentTypeKey: "PoliceAbstract"),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        var row = Assert.Single(body.GetProperty("requiredDocuments").EnumerateArray(),
+            item => item.GetProperty("documentTypeKey").GetString() == "PoliceAbstract");
+        Assert.True(row.GetProperty("uploaded").GetBoolean());
+        Assert.Equal("Received", row.GetProperty("status").GetString());
+        Assert.Equal("claim-form.pdf", row.GetProperty("fileName").GetString());
+        Assert.True(row.GetProperty("disagreesWithClassifier").GetBoolean());
+
+        var stored = Assert.Single(await documents.ListForCaseAsync(caseId, scope));
+        Assert.Equal("PoliceAbstract", stored.DocumentTypeKey);
+        Assert.Equal(DocumentType.ClaimForm, stored.Classification.DocumentType);
+    }
+
+    [Fact]
+    public async Task UploadDocuments_ReplacingADocument_SupersedesTheOldOneButNeverDeletesIt()
+    {
+        var caseId = Guid.NewGuid();
+        var scope = Scope();
+        var cases = new InMemoryCaseRepository();
+        var documents = new InMemoryCaseDocumentRepository();
+        await cases.SaveAsync(Case(caseId, scope, "sarah@example.com"));
+
+        await ClientPortalEndpoints.UploadDocuments(
+            caseId, cases, documents, new StubDocumentStorageProvider(), new ClaimFormProcessingProvider(),
+            new StaticDocumentChecklistProvider(new CompletenessScoringService()), new InMemoryDocumentFieldValidationRuleRepository(),
+            new InMemoryCommunicationRepository(), new InMemoryAuditRepository(), DevelopmentOptions(),
+            UploadContext("sarah@example.com", documentTypeKey: "ClaimForm", fileName: "first-attempt.pdf"),
+            CancellationToken.None);
+
+        var second = await ClientPortalEndpoints.UploadDocuments(
+            caseId, cases, documents, new StubDocumentStorageProvider(), new ClaimFormProcessingProvider(),
+            new StaticDocumentChecklistProvider(new CompletenessScoringService()), new InMemoryDocumentFieldValidationRuleRepository(),
+            new InMemoryCommunicationRepository(), new InMemoryAuditRepository(), DevelopmentOptions(),
+            UploadContext("sarah@example.com", documentTypeKey: "ClaimForm", fileName: "corrected-copy.pdf"),
+            CancellationToken.None);
+
+        var (_, body) = await ExecuteAsync<JsonElement>(second);
+        var row = Assert.Single(body.GetProperty("requiredDocuments").EnumerateArray(),
+            item => item.GetProperty("documentTypeKey").GetString() == "ClaimForm");
+        Assert.Equal("corrected-copy.pdf", row.GetProperty("fileName").GetString());
+
+        var stored = await documents.ListForCaseAsync(caseId, scope);
+        Assert.Equal(2, stored.Count);
+        Assert.Single(stored, document => document.IsSuperseded && document.OriginalFileName == "first-attempt.pdf");
+        Assert.Single(stored, document => !document.IsSuperseded && document.OriginalFileName == "corrected-copy.pdf");
+    }
+
+    [Fact]
+    public async Task RemoveDocument_MarksTheActiveDocumentSupersededWithoutDeletingIt()
+    {
+        var caseId = Guid.NewGuid();
+        var scope = Scope();
+        var cases = new InMemoryCaseRepository();
+        var documents = new InMemoryCaseDocumentRepository();
+        await cases.SaveAsync(Case(caseId, scope, "sarah@example.com"));
+        await ClientPortalEndpoints.UploadDocuments(
+            caseId, cases, documents, new StubDocumentStorageProvider(), new ClaimFormProcessingProvider(),
+            new StaticDocumentChecklistProvider(new CompletenessScoringService()), new InMemoryDocumentFieldValidationRuleRepository(),
+            new InMemoryCommunicationRepository(), new InMemoryAuditRepository(), DevelopmentOptions(),
+            UploadContext("sarah@example.com", documentTypeKey: "ClaimForm"),
+            CancellationToken.None);
+        var audit = new InMemoryAuditRepository();
+
+        var result = await ClientPortalEndpoints.RemoveDocument(
+            caseId,
+            new ClientPortalRemoveDocumentRequest("ClaimForm"),
+            cases,
+            documents,
+            new StaticDocumentChecklistProvider(new CompletenessScoringService()),
+            new InMemoryCommunicationRepository(),
+            audit,
+            DevelopmentOptions(),
+            Context("sarah@example.com"),
+            CancellationToken.None);
+
+        var (status, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        var row = Assert.Single(body.GetProperty("requiredDocuments").EnumerateArray(),
+            item => item.GetProperty("documentTypeKey").GetString() == "ClaimForm");
+        Assert.False(row.GetProperty("uploaded").GetBoolean());
+        Assert.Equal("Not uploaded", row.GetProperty("status").GetString());
+
+        var stored = Assert.Single(await documents.ListForCaseAsync(caseId, scope));
+        Assert.True(stored.IsSuperseded);
+        Assert.Contains(await audit.ListForCaseAsync(caseId), auditEvent => auditEvent.ActionName == "document.superseded");
+    }
+
+    [Fact]
+    public async Task RemoveDocument_WhenNothingWasEverSentForThatKey_ReturnsNotFound()
+    {
+        var caseId = Guid.NewGuid();
+        var scope = Scope();
+        var cases = new InMemoryCaseRepository();
+        await cases.SaveAsync(Case(caseId, scope, "sarah@example.com"));
+
+        var result = await ClientPortalEndpoints.RemoveDocument(
+            caseId,
+            new ClientPortalRemoveDocumentRequest("ClaimForm"),
+            cases,
+            new InMemoryCaseDocumentRepository(),
+            new StaticDocumentChecklistProvider(new CompletenessScoringService()),
+            new InMemoryCommunicationRepository(),
+            new InMemoryAuditRepository(),
+            DevelopmentOptions(),
+            Context("sarah@example.com"),
+            CancellationToken.None);
+
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, status);
     }
 
     [Fact]
@@ -409,17 +550,22 @@ public sealed class ClientPortalEndpointTests
 
     private static DefaultHttpContext UploadContext(
         string userId,
-        Action<DefaultHttpContext>? configure = null)
+        Action<DefaultHttpContext>? configure = null,
+        string? documentTypeKey = null,
+        string fileName = "claim-form.pdf")
     {
         var context = Context(userId);
         var bytes = Encoding.UTF8.GetBytes("customer claim form");
-        var file = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "files", "claim-form.pdf")
+        var file = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "files", fileName)
         {
             Headers = new HeaderDictionary(),
             ContentType = "application/pdf"
         };
+        var fields = documentTypeKey is null
+            ? new Dictionary<string, StringValues>()
+            : new Dictionary<string, StringValues> { ["documentTypeKey"] = documentTypeKey };
         context.Request.ContentType = "multipart/form-data; boundary=test";
-        context.Request.Form = new FormCollection(new Dictionary<string, StringValues>(), new FormFileCollection { file });
+        context.Request.Form = new FormCollection(fields, new FormFileCollection { file });
         configure?.Invoke(context);
         return context;
     }

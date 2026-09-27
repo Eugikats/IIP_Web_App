@@ -25,7 +25,13 @@ public sealed record DocumentResponse(
     string CorrelationId,
     string PreviewUrl,
     IReadOnlyCollection<ActionStateResponse> AllowedActions,
-    IReadOnlyCollection<ActionStateResponse> BlockedActions);
+    IReadOnlyCollection<ActionStateResponse> BlockedActions,
+    // The customer's own choice of what this document is, when they had one to make (a portal
+    // upload against a named slot, or a numbered WhatsApp reply); null for a document nobody was
+    // asked to name. DocumentType is always the classifier's independent guess, so a reader
+    // compares the two itself for the disagreement marker (claim intake build prompt outcome B).
+    string? CustomerDocumentTypeKey,
+    bool IsSuperseded);
 
 public sealed record BoundingBoxResponse(
     int PageNumber,
