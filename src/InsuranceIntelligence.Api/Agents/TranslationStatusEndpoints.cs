@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Application.CustomerAssistant;
+using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Application.Translation;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Translation;
@@ -15,6 +16,10 @@ public sealed record TranslationStatusResponse(
     string Summary);
 
 public sealed record TranslationLanguageResponse(string Code, string Name);
+
+public sealed record TranslationTestRequest(string? Text, string? From, string? To);
+
+public sealed record TranslationTestResponse(bool Translated, string Text, string? Failure, bool FromCache);
 
 /// <summary>
 /// Whether the customer assistant can really answer in Luganda and Kiswahili right now, in words a
@@ -49,6 +54,48 @@ public static class TranslationStatusEndpoints
             AllowUnreviewedTranslations: settings.AllowUnreviewedTranslations,
             Summary: Summarise(status, languages.Length, settings.AllowUnreviewedTranslations)));
     }
+
+    /// <summary>Shows what a customer would get for a piece of text, so a person can check the
+    /// engine before customers depend on it, and a native speaker can review real output. It runs the
+    /// same service the assistant uses, with the same checks and the same fallback, and stores nothing.</summary>
+    public static async Task<IResult> Test(
+        TranslationTestRequest request,
+        ITranslationService translation,
+        IAssistantLanguageSettings settings,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ManageAgents) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        var text = request.Text?.Trim();
+        var from = SupportedLanguage.FromIso(request.From);
+        var to = SupportedLanguage.FromIso(request.To);
+        if (string.IsNullOrWhiteSpace(text) || text.Length > MaxTestTextLength)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["text"] = [$"Enter between 1 and {MaxTestTextLength} characters."] });
+        }
+
+        if (from is null || to is null || from.Code == to.Code)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["language"] = ["Choose two different languages from English, Luganda and Kiswahili."] });
+        }
+
+        var enabled = settings.EnabledLanguages;
+        if ((from.Code != SupportedLanguageCode.En && !enabled.Contains(from.Code)) || (to.Code != SupportedLanguageCode.En && !enabled.Contains(to.Code)))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["language"] = ["That language is not switched on for this workspace."] });
+        }
+
+        var protectedTerms = AssistantGlossary.KeptInEnglish(to.Code);
+        var outcome = await translation.TranslateAsync(text, from.Code, to.Code, cancellationToken, protectedTerms);
+        return Results.Ok(new TranslationTestResponse(outcome.Translated, outcome.Text, outcome.Failure?.ToString(), outcome.FromCache));
+    }
+
+    private const int MaxTestTextLength = 600;
 
     public static string EngineName(string provider) => provider.ToLowerInvariant() switch
     {

@@ -419,6 +419,7 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
             {
                 var claimCase = message.CaseId is { } caseId && cases.TryGetValue(caseId, out var found) ? found : null;
                 var turn = latestTurnByThread.GetValueOrDefault(message.ThreadId);
+                var language = ConversationLanguageNote.For(turn);
                 return new ChannelConversationReadModel(
                     message.ThreadId,
                     claimCase?.CustomerName ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
@@ -430,7 +431,9 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                     claimCase?.AssignedUserId,
                     message.CustomerSafeBody.Length <= 160 ? message.CustomerSafeBody : message.CustomerSafeBody[..160],
                     message.CreatedAt,
-                    claimCase?.CustomerPhone ?? message.ContactWaId);
+                    claimCase?.CustomerPhone ?? message.ContactWaId,
+                    language.Language,
+                    language.Note);
             });
 
         var emailRows = emailMessages.Select(message =>

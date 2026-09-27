@@ -28,7 +28,9 @@ public sealed class ChannelQueryService(
                 row.AssignedTo,
                 row.LastMessageSnippet,
                 row.LastActivityAt.ToString("O"),
-                row.CustomerContact))
+                row.CustomerContact,
+                row.CustomerLanguage,
+                row.LanguageNote))
             .ToArray();
     }
 

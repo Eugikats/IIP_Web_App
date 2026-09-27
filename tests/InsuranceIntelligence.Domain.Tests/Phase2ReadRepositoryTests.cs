@@ -239,6 +239,46 @@ public sealed class Phase2ReadRepositoryTests
     }
 
     [Fact]
+    public async Task Channels_Overview_TellsStaffTheCustomersLanguageAndWhatWasUnderstood()
+    {
+        await using var dbContext = CreateDbContext();
+        SeedWhatsAppThread(dbContext, "wa:thread-luganda", out _);
+        var scope = TenantScope.Create("tenant-a", "workspace-a");
+        var turn = new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(), Scope = scope, ThreadId = "wa:thread-luganda",
+            ContactWaId = "256772118001", InboundMessageText = "I was in an accident today.",
+            ClassifiedIntent = CustomerIntent.NewClaim, Outcome = CustomerAssistantOutcome.CaseOpened,
+            CustomerLanguage = "lg", OriginalInboundText = "Nfunye akabenje leero",
+            InboundTranslationStatus = InsuranceIntelligence.Domain.Translation.TranslationStatus.Translated,
+            OutboundTranslationStatus = InsuranceIntelligence.Domain.Translation.TranslationStatus.Translated,
+            OccurredAt = DateTimeOffset.UtcNow, CorrelationId = "corr-lg"
+        };
+        SeedJson(dbContext.CustomerConversationTurns, scope, turn.TurnId, turn, entity => entity.ThreadId = turn.ThreadId);
+        await dbContext.SaveChangesAsync();
+
+        var row = Assert.Single(await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a"));
+
+        Assert.Equal("Luganda", row.CustomerLanguage);
+        Assert.Contains("Understood as: \"I was in an accident today.\"", row.LanguageNote);
+        Assert.Contains("translated by a computer", row.LanguageNote);
+    }
+
+    [Fact]
+    public async Task Channels_Overview_SaysNothingAboutLanguageForAnEnglishConversation()
+    {
+        await using var dbContext = CreateDbContext();
+        SeedWhatsAppThread(dbContext, "wa:thread-english", out _);
+        SeedConversationTurn(dbContext, "wa:thread-english", CustomerIntent.NewClaim, CustomerAssistantOutcome.CaseOpened);
+        await dbContext.SaveChangesAsync();
+
+        var row = Assert.Single(await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a"));
+
+        Assert.Null(row.CustomerLanguage);
+        Assert.Null(row.LanguageNote);
+    }
+
+    [Fact]
     public async Task Channels_Overview_IgnoresAnotherTenantsConversationTurns()
     {
         await using var dbContext = CreateDbContext();
