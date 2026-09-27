@@ -56,6 +56,10 @@ export interface ChannelConversation {
   needsApproval: boolean;
   intent: "New claim" | "Claim update" | "Claim status" | "Quote request" | "Complaint" | "Wants a person" | "General";
   customerContact?: string | null;
+  /** The customer's language when it is not English, for example "Luganda". */
+  language?: string | null;
+  /** What was understood and how the reply was produced, in plain words. */
+  languageNote?: string | null;
 }
 export const conversations: ChannelConversation[] = [
   { id: "CN-9001", channel: "WhatsApp", customer: "Aisha Nakato", matched: true, snippet: "Uploading the police report photos now, one moment.", updated: "2 min ago", unread: 2, needsApproval: false, intent: "Claim update" },

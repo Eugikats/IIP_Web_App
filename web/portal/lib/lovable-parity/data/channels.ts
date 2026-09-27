@@ -59,6 +59,8 @@ type OverviewRow = {
   lastMessage: string;
   lastActivityAt: string;
   customerContact?: string | null;
+  customerLanguage?: string | null;
+  languageNote?: string | null;
 };
 
 const CHANNEL_MAP: Record<string, Channel> = {
@@ -120,6 +122,8 @@ function mapRow(row: OverviewRow): ChannelConversation {
     needsApproval: STATUSES_NEEDING_A_PERSON.has(status.replace(/[\s_-]/g, "")),
     intent,
     customerContact: row.customerContact ?? null,
+    language: row.customerLanguage ?? null,
+    languageNote: row.languageNote ?? null,
   };
 }
 

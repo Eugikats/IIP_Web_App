@@ -149,6 +149,7 @@ export default function Channels() {
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       <Badge tone="info">{c.channel}</Badge>
                       <Badge tone="neutral">{c.intent}</Badge>
+                      {c.language && <Badge tone="info">{c.language}</Badge>}
                       {!c.matched && <Badge tone="warning">Unmatched customer</Badge>}
                       {c.needsApproval && <Badge tone="warning">Needs your approval</Badge>}
                       {c.unread > 0 && <Badge tone="error">{c.unread} new</Badge>}
@@ -179,6 +180,7 @@ export default function Channels() {
                   <div className="text-[16px] font-bold text-dls-text-primary">{active.customer}</div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {active.language && <Badge tone="info">{active.language}</Badge>}
                   {!active.matched && <Badge tone="warning">Unmatched, link to customer</Badge>}
                   <StatusBadge status={active.needsApproval ? "Human Review Required" : "Active"} />
                 </div>
@@ -225,6 +227,13 @@ export default function Channels() {
                   </>
                 )}
               </div>
+
+              {active.languageNote ? (
+                <div className="mt-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
+                  <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Language</div>
+                  <p className="mt-1 text-[12.5px] leading-5 text-dls-text-secondary">{active.languageNote}</p>
+                </div>
+              ) : null}
 
               {!parityMode && active.channel === "WhatsApp" ? (
                 <div className="mt-3 space-y-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">

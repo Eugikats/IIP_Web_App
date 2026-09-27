@@ -70,6 +70,9 @@ Azure OpenAI wasn't available in West US 2 for this resource type at provisionin
 | Key Vault | `kv-iip-dev-zcxolwov` (RBAC-mode, not access policies) | Secrets, referenced by app settings |
 | Log Analytics | `log-dev-h5girbnzrayqe` | Log sink |
 | Application Insights | `appi-dev-h5girbnzrayqe` | Telemetry |
+| Container Apps environment | `cae-iip-dev` | Hosts the translation engine (added 2026-09-27) |
+| Container app | `ca-afrislm-dev` | The AfriSLM model served by llama.cpp, for local-language WhatsApp replies |
+| File share | `afrislm-models` in `stiiph5girbnzrayqe` | Holds the model file; mounted read-only into the container |
 
 - Portal URL: `https://app-portal-dev-h5girbnzrayqe.azurewebsites.net`
 - API URL: `https://app-api-dev-h5girbnzrayqe.azurewebsites.net` (health check: `/health`)
@@ -133,7 +136,10 @@ Verify: `curl https://app-api-dev-h5girbnzrayqe.azurewebsites.net/health` should
 
 ### Applying database migrations — a required, separate step after deploying the API
 
-**Pending as of 2026-09-23 (build-prompt outcome Q status update):** `20260923030617_AddRetentionRemindersAndSatisfactionResponses` (two new tables, `RetentionReminders` and `SatisfactionResponses`, for build-prompt outcome O) exists locally, generated with `dotnet ef migrations add` per the rule below, and has **not** been applied to `dev` or any deployed environment — nothing from outcomes N through Q in this build has been deployed at all, per this session's own standing instruction to hold every deploy until the whole build prompt is finished. Whoever deploys this work next must run the `db-migrate` step below and confirm the applied-migration count matches before assuming any of outcome O's screens will work against `dev`.
+**State as of 2026-09-27:** `dev` has all 27 migrations applied, the latest being
+`20260925151034_AddCustomerLanguagePreferences`. The earlier note here that outcomes N through Q were
+undeployed and their migration pending is out of date: that work is live, and its migration was
+already applied. Always run `diagnose` and compare the count before trusting any written status.
 
 **The API does not migrate on startup.** Nothing in `Program.cs` calls `Database.Migrate()`, by
 design. Deploying code that reads a new table therefore succeeds, starts healthy, and then returns
@@ -239,6 +245,53 @@ az webapp deploy \
 The portal's startup command is already set to `node server.js` — don't need to touch
 `az webapp config set` unless it's drifted (`az webapp config show ... --query appCommandLine`).
 
+### Local-language translation engine (added 2026-09-27)
+
+WhatsApp customers can write in Luganda or Kiswahili and be answered in the same language. The
+translation is done by the AfriSLM model (`afrislm-0.8b-q4_k_m.gguf`, a 0.8B model in 4-bit, 672 MB),
+served by `llama.cpp` in its own container so it can never starve the API. The definition is
+`infra/bicep/afrislm-translation.bicep`; what exists in `dev` was created by CLI on 2026-09-27.
+
+| Item | Value |
+|---|---|
+| Container app | `ca-afrislm-dev` in `cae-iip-dev` (West US 2), 2 vCPU and 4 GiB, exactly one replica, always on |
+| Public address | `https://ca-afrislm-dev.happywave-c069e02e.westus2.azurecontainerapps.io` (unauthenticated `/health` only; everything else needs the key) |
+| Image | `ghcr.io/ggml-org/llama.cpp` pinned by digest `sha256:6257697a7f5d034b8fb499ddb07af3e250506352f94102054252a23f3b85e0af`. The moving `server` tag would change the engine under a running deployment. |
+| Model file | SHA-256 `4af8ee1df3ec9008f763ebe95e6f21df3acd8d42c541feeb13314ca22e560afc`, 672,329,792 bytes. Verified by hashing the copy in Azure after upload. Never committed to git (`languages/` is ignored). |
+| Access key | Key Vault secret `Translation--ApiKey`, read by the API as `Translation:ApiKey`. Also held as a container secret. Never in an app setting or in git. |
+| Model architecture | `qwen35`. Older llama.cpp builds cannot load it, so the image must not be downgraded. |
+| Cost | A new always-on container (about 2 vCPU and 4 GiB) is billed continuously. It is the only new billable resource: the file share is in the existing storage account and the environment reuses the existing Log Analytics workspace. Check the Azure cost view before leaving it running long term. |
+
+API app settings added (none existed before; an unset provider means Disabled, English only):
+
+```
+INSURANCEINTELLIGENCE_TRANSLATION_PROVIDER=AfriSlm
+Translation__Endpoint=https://ca-afrislm-dev.happywave-c069e02e.westus2.azurecontainerapps.io
+Translation__EnabledLanguages=lg,sw
+Translation__AllowUnreviewedTranslations=true
+Translation__RequestTimeoutSeconds=90
+```
+
+`AllowUnreviewedTranslations=true` is set for `dev` only, so real output can be reviewed by native
+speakers. Leave it off in any other environment until translations have been reviewed. With it off,
+customers are still understood in their own language but replies go out in English.
+
+Check it: `GET /api/v1/agents/customer-assistant/translation` (needs `ManageAgents`) returns
+`Healthy`, `Failing` or `NotConfigured`, measured from the API to the container, not from settings.
+`POST .../translation/test` with `{"text","from","to"}` shows what a customer would get.
+
+Failure behaviour, by design: if the container is down, customers who write in another language are
+handed to a person with their own words, and replies go out in English. Nothing is guessed.
+
+**Measured quality (2026-09-27, native-speaker review still pending):** customer-to-English is
+accurate in both languages. English-to-Kiswahili is good. English-to-Luganda makes mistakes with
+insurance vocabulary, so Luganda replies keep "claim", "policy" and "claims officer" in English. Every
+translated reply is labelled as machine translated.
+
+To replace the model: upload the new file to the `afrislm-models` share, verify its SHA-256, update the
+file name in the container arguments and `TranslationService.ModelTag` (so cached translations from
+the old model are never reused), and record the new hash here.
+
 ### Inbound email is deployed but switched off in `dev` (verified 2026-09-14)
 
 The collection path exists and is live — `MailboxIngestion` runs every five minutes and
@@ -336,6 +389,16 @@ minutes while it restarts, and check the container log before concluding a deplo
   (a `node_modules` tree) and can effectively stall for 10+ minutes. Prefer
   `[System.IO.Compression.ZipFile]::CreateFromDirectory(...)` (`Add-Type -AssemblyName
   System.IO.Compression.FileSystem` first) — noticeably faster.
+- **`az webapp deploy` can report `RuntimeSuccessful` while the old code keeps running (seen
+  2026-09-27).** The new endpoint kept returning 404 for eight minutes after a "successful" deploy, and
+  the site's last-modified time had not moved. Confirm with a request only the new code can answer, and
+  run `az webapp restart` if it does not.
+- **The API can take 4 to 8 minutes to serve new code after a deploy or restart**, during which
+  `/api/v1/me` may take 14 seconds or fail. The portal shows "Sign-in could not be completed" for
+  that window. It is not a permissions problem: wait and retry in a new tab.
+- **The `C:` drive on this VM was at 0 bytes free on 2026-09-27**, which stopped a zip mid-write.
+  Clearing the npm download cache (`npm cache clean --force`, 2.4 GB) and one stale
+  `%LOCALAPPDATA%\Temp\portal-deploy` folder restored working room. Check free space before a deploy.
 - **`az webapp deploy --type zip` can report `HTTP_504 GatewayTimeout` for a large package
   (the portal's zip was ~156 MB) while the deployment actually succeeds on the server side.**
   The CLI's HTTP client gives up waiting for Kudu's response before extraction finishes; Kudu keeps

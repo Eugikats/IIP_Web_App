@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, History, Loader2, PlayCircle, ShieldCheck 
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
 import { MarkdownText } from "@/components/iip/MarkdownText";
+import TranslationStatusCard from "@/components/iip/TranslationStatusCard";
 import { Button } from "@/components/ui/Button";
 import { Input, Field as UIField } from "@/components/ui/Input";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
@@ -28,6 +29,7 @@ const AGENT_LABELS: Record<string, string> = {
   "customer-update-drafting": "Customer Update Drafting Agent",
   routing: "Routing Agent",
   "knowledge-assistant": "Knowledge Assistant",
+  "customer-assistant": "Customer Assistant (WhatsApp)",
   "report-insight": "Report Insight Agent",
   "underwriting-intelligence": "Underwriting Intelligence Agent",
 };
@@ -144,6 +146,8 @@ export default function AgentBehaviourSettings() {
 
       {loading && <GlassCard><LoadingSkeleton rows={5} /></GlassCard>}
       {!loading && loadError && <GlassCard><ErrorStateSurface title="This agent's behaviour could not be loaded" message={loadError} /></GlassCard>}
+
+      {agentKey === "customer-assistant" ? <div className="mb-4"><TranslationStatusCard role={role} /></div> : null}
 
       {!loading && !loadError && status && form && (
         <div className="space-y-4">

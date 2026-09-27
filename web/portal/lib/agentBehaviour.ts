@@ -133,3 +133,26 @@ export async function testAgentBehaviour(role: string, agentKey: string, questio
     return { ok: false, error: safeNetworkFailure(reason, "The test could not be run.") };
   }
 }
+
+export type TranslationStatus = {
+  engine: string;
+  status: "Healthy" | "Failing" | "NotConfigured" | string;
+  languages: { code: string; name: string }[];
+  allowUnreviewedTranslations: boolean;
+  summary: string;
+};
+
+/** Whether the customer assistant can really answer in other languages right now. */
+export async function getTranslationStatus(role: string): Promise<BehaviourResult<TranslationStatus>> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/agents/customer-assistant/translation`, {
+      headers: scopedHeaders(role, ""),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "Language status could not be loaded.") };
+    }
+    return { ok: true, value: (await response.json()) as TranslationStatus };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "Language status could not be loaded.") };
+  }
+}
