@@ -235,7 +235,9 @@ public sealed class AzureOpenAiAssistantProvider(
 
     private string BuildGroundedDraft(AssistantQuestion question, RetrievalResult retrievalResult)
     {
-        var sourceText = NormalizeAndTruncate(string.Join(" ", retrievalResult.Chunks.Select(chunk => chunk.Content).Take(3)), 900);
+        var sourceText = NormalizeAndTruncate(
+            string.Join(" ", retrievalResult.Chunks.Select(chunk => KnowledgeChunkText.StripTrailingSourceLine(chunk.Content)).Take(3)),
+            900);
         var userQuestion = NormalizeAndTruncate(question.Question, 320);
         var productLine = string.IsNullOrWhiteSpace(question.ProductLine) ? "not specified" : NormalizeAndTruncate(question.ProductLine, 80);
         var prefix = string.Equals(question.Audience, "Customer", StringComparison.OrdinalIgnoreCase)

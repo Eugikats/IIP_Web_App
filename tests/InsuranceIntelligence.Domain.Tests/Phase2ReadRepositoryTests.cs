@@ -178,6 +178,63 @@ public sealed class Phase2ReadRepositoryTests
         Assert.Equal("256772118001", row.CustomerContact);
     }
 
+    [Fact]
+    public async Task Channels_Overview_ResolvesTheCustomerNameByPhoneWhenNoClaimIsLinkedYet()
+    {
+        // Demo-readiness gap: a fresh conversation with no claim yet (a lead, or a policyholder
+        // asking a question before ever filing one) used to always show a masked WhatsApp contact
+        // id, even when the number already belongs to a known customer.
+        await using var dbContext = CreateDbContext();
+        SeedJson(dbContext.Customers, ScopeA, Guid.NewGuid(),
+            new Customer("cust-amina", "tenant-a", "workspace-a", "Amina Okello", "amina@example.test", "+256 772 118 002"));
+        var message = new WhatsAppMessage
+        {
+            MessageId = Guid.NewGuid(), Scope = ScopeA, CaseId = null,
+            ThreadId = "wa:unmatched-thread", BusinessPhoneNumberId = "phone-1",
+            ContactWaId = "256772118002", Direction = WhatsAppMessageDirection.Inbound,
+            ContentType = WhatsAppContentType.Text, CustomerSafeBody = "Do you cover windscreen damage?",
+            ProviderMessageId = "wamid.unmatched", DeliveryState = WhatsAppDeliveryState.Received,
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, CorrelationId = "corr-wa-unmatched"
+        };
+        SeedJson(dbContext.WhatsAppMessages, ScopeA, message.MessageId, message, entity =>
+        {
+            entity.ThreadId = message.ThreadId;
+            entity.ProviderMessageId = message.ProviderMessageId;
+            entity.CreatedAt = message.CreatedAt;
+        });
+        await dbContext.SaveChangesAsync();
+
+        var rows = await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a");
+
+        Assert.Equal("Amina Okello", Assert.Single(rows).CustomerName);
+    }
+
+    [Fact]
+    public async Task Channels_Overview_FallsBackToAMaskedContactWhenNoCustomerOrClaimMatches()
+    {
+        await using var dbContext = CreateDbContext();
+        var message = new WhatsAppMessage
+        {
+            MessageId = Guid.NewGuid(), Scope = ScopeA, CaseId = null,
+            ThreadId = "wa:no-match-thread", BusinessPhoneNumberId = "phone-1",
+            ContactWaId = "256772119999", Direction = WhatsAppMessageDirection.Inbound,
+            ContentType = WhatsAppContentType.Text, CustomerSafeBody = "Hello.",
+            ProviderMessageId = "wamid.nomatch", DeliveryState = WhatsAppDeliveryState.Received,
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, CorrelationId = "corr-wa-nomatch"
+        };
+        SeedJson(dbContext.WhatsAppMessages, ScopeA, message.MessageId, message, entity =>
+        {
+            entity.ThreadId = message.ThreadId;
+            entity.ProviderMessageId = message.ProviderMessageId;
+            entity.CreatedAt = message.CreatedAt;
+        });
+        await dbContext.SaveChangesAsync();
+
+        var rows = await new EfChannelReadRepository(dbContext).GetOverviewAsync("tenant-a", "workspace-a");
+
+        Assert.Equal("WhatsApp contact …9999", Assert.Single(rows).CustomerName);
+    }
+
     [Theory]
     // The assistant's own classification has to survive the trip to the inbox: an officer opening
     // this screen is deciding what to pick up next, and every thread reading "General" makes that

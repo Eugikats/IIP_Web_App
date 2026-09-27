@@ -424,12 +424,17 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     disabled: drafting,
     visible: canDraftCustomerUpdates && detail.status === "MissingDocuments",
   };
+  // A settled or closed claim cannot start a new approval request (CaseActions.CanCreateApproval
+  // on the backend refuses it); this used to stay visible and clickable anyway, so the only
+  // feedback was a generic failure toast on click. Hidden here instead, on the same terminal-
+  // status check the resolve action below uses (demo-readiness pass).
+  const claimIsTerminal = detail.status === "Settled" || detail.status === "Closed";
   const supervisorReviewAction: DecisionAction = {
     key: "supervisor-review",
     label: "Request supervisor review",
     onClick: () => void handleSupervisorReview(),
     disabled: requestingApproval,
-    visible: true,
+    visible: !claimIsTerminal,
   };
   const draftCustomerUpdateAction: DecisionAction = {
     key: "draft-customer-update",
@@ -461,12 +466,16 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   // Outcome O: the terminal step after ExecuteApprovedNextStep's ReadyForExport hand-off, or from
   // Escalated for an exception-handled claim. Recording it here is what makes "ask one
   // satisfaction question on close" real rather than a hook with nothing that ever calls it.
+  // Previously only visible from ReadyForExport/Escalated, so a claim anywhere earlier in the
+  // pipeline had no visible way to be completed at all. Widened to any non-terminal status: a
+  // claims officer or admin can resolve a claim directly, still behind the same permission and
+  // the same reasoned Settled/Closed dialog (demo-readiness pass).
   const resolveClaimAction: DecisionAction = {
     key: "resolve-claim",
     label: "Record claim resolution",
     onClick: () => setResolveDialogOpen(true),
     disabled: resolving,
-    visible: canResolveClaim && (detail.status === "ReadyForExport" || detail.status === "Escalated"),
+    visible: canResolveClaim && !claimIsTerminal,
   };
   const decisionActions: DecisionAction[] = detail.status === "MissingDocuments"
     ? [documentFollowUpAction, supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction, resolveClaimAction]

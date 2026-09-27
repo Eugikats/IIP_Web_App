@@ -4,6 +4,7 @@ using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Distribution;
 using InsuranceIntelligence.Domain.Policies;
+using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.LocalTestDoubles;
 using Xunit;
 
@@ -35,7 +36,8 @@ public sealed class DemoSeedServiceTests
             policyRepository,
             new InMemoryCoverageRepository(),
             new InMemoryBranchRepository(),
-            new InMemoryProducerRepository());
+            new InMemoryProducerRepository(),
+            new InMemoryProductRepository());
 
         var first = await service.SeedTestPolicyholderAsync(Scope, "Test Person", "+256 700 123456", null, "system:test-seeder", "officer-1", CancellationToken.None);
         var second = await service.SeedTestPolicyholderAsync(Scope, "Test Person", "+256700123456", null, "system:test-seeder", "officer-1", CancellationToken.None);
@@ -72,6 +74,7 @@ public sealed class DemoSeedServiceTests
         var coverageRepository = new InMemoryCoverageRepository();
         var branchRepository = new InMemoryBranchRepository();
         var producerRepository = new InMemoryProducerRepository();
+        var productRepository = new InMemoryProductRepository();
 
         var service = new DemoSeedService(
             caseRepository,
@@ -82,7 +85,8 @@ public sealed class DemoSeedServiceTests
             policyRepository,
             coverageRepository,
             branchRepository,
-            producerRepository);
+            producerRepository,
+            productRepository);
 
         var result = await service.SeedAsync(Scope, "system:test-seeder");
 
@@ -93,6 +97,9 @@ public sealed class DemoSeedServiceTests
         Assert.True(result.Approvals > 0);
         Assert.True(result.AuditEvents >= result.Cases);
         Assert.Equal(3, result.HeroCaseIds.Count);
+        // One published product per line (claim intake build prompt gap: seeded claims used to
+        // have no pinned product at all, so every claim showed "no configured claim process").
+        Assert.Equal(5, result.Products);
 
         var cases = await caseRepository.ListAsync(Scope);
         Assert.Equal(50, cases.Count);
@@ -101,6 +108,26 @@ public sealed class DemoSeedServiceTests
         Assert.Equal(
             new[] { "Motor", "Medical", "Life", "General", "Agriculture" }.OrderBy(x => x),
             productLines.OrderBy(x => x));
+
+        // Every seeded claim is pinned to a real, published product with a real claim process and
+        // document matrix, not left to fall back on the built-in claim-type rules invisibly.
+        Assert.All(cases, claimCase => Assert.NotNull(claimCase.ProductId));
+        Assert.All(cases, claimCase => Assert.NotNull(claimCase.ProductVersion));
+        var products = await productRepository.ListCurrentForAllProductsAsync(Scope, default);
+        Assert.Equal(5, products.Count);
+        Assert.All(products, product =>
+        {
+            Assert.Equal(ProductStatus.Published, product.Status);
+            Assert.NotEmpty(product.Stages);
+            Assert.NotEmpty(product.DocumentMatrix);
+            Assert.NotEqual(product.PublishSubmittedByUserId, product.PublishApprovedByUserId);
+        });
+        foreach (var claimCase in cases)
+        {
+            var pinnedProduct = await productRepository.GetVersionAsync(Scope, claimCase.ProductId!.Value, claimCase.ProductVersion!.Value, default);
+            Assert.NotNull(pinnedProduct);
+            Assert.Equal(claimCase.ProductLine, pinnedProduct!.ProductClass);
+        }
 
         var statuses = cases.Select(c => c.Status).Distinct().ToArray();
         foreach (var status in Enum.GetValues<CaseStatus>())
@@ -161,10 +188,36 @@ public sealed class DemoSeedServiceTests
                 new InMemoryPolicyRepository(),
                 new InMemoryCoverageRepository(),
                 new InMemoryBranchRepository(),
-                new InMemoryProducerRepository());
+                new InMemoryProducerRepository(),
+                new InMemoryProductRepository());
 
             return service.SeedAsync(Scope, "system:test-seeder");
         }
+    }
+
+    [Fact]
+    public async Task SeedAsync_RunTwice_NeverDuplicatesTheProducts()
+    {
+        var productRepository = new InMemoryProductRepository();
+        var service = new DemoSeedService(
+            new InMemoryCaseRepository(),
+            new InMemoryCaseDocumentRepository(),
+            new InMemoryApprovalRepository(),
+            new InMemoryAuditRepository(),
+            new InMemoryCustomerRepository(),
+            new InMemoryPolicyRepository(),
+            new InMemoryCoverageRepository(),
+            new InMemoryBranchRepository(),
+            new InMemoryProducerRepository(),
+            productRepository);
+
+        var first = await service.SeedAsync(Scope, "system:test-seeder");
+        var second = await service.SeedAsync(Scope, "system:test-seeder");
+
+        Assert.Equal(5, first.Products); // all five newly created on the first run
+        Assert.Equal(0, second.Products); // reused, not duplicated, on the second run
+        var products = await productRepository.ListCurrentForAllProductsAsync(Scope, default);
+        Assert.Equal(5, products.Count);
     }
 }
 
@@ -269,6 +322,36 @@ file sealed class InMemoryProducerRepository : IProducerRepository
     public Task UpsertAsync(Producer producer, CancellationToken cancellationToken)
     {
         producers[producer.ProducerId] = producer;
+        return Task.CompletedTask;
+    }
+}
+
+file sealed class InMemoryProductRepository : IProductRepository
+{
+    private readonly List<Product> versions = [];
+
+    public Task<Product?> GetCurrentAsync(TenantScope scope, Guid productId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(versions
+            .Where(v => v.Scope.Matches(scope) && v.ProductId == productId)
+            .OrderByDescending(v => v.Version)
+            .FirstOrDefault());
+
+    public Task<Product?> GetVersionAsync(TenantScope scope, Guid productId, int version, CancellationToken cancellationToken = default) =>
+        Task.FromResult(versions.FirstOrDefault(v => v.Scope.Matches(scope) && v.ProductId == productId && v.Version == version));
+
+    public Task<IReadOnlyCollection<Product>> ListVersionsAsync(TenantScope scope, Guid productId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyCollection<Product>>(versions.Where(v => v.Scope.Matches(scope) && v.ProductId == productId).ToArray());
+
+    public Task<IReadOnlyCollection<Product>> ListCurrentForAllProductsAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyCollection<Product>>(versions
+            .Where(v => v.Scope.Matches(scope))
+            .GroupBy(v => v.ProductId)
+            .Select(group => group.OrderByDescending(v => v.Version).First())
+            .ToArray());
+
+    public Task SaveAsync(Product version, CancellationToken cancellationToken = default)
+    {
+        versions.Add(version);
         return Task.CompletedTask;
     }
 }

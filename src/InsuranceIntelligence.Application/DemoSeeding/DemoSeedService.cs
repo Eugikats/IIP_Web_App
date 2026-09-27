@@ -5,6 +5,7 @@ using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Distribution;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Policies;
+using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Application.DemoSeeding;
@@ -32,7 +33,8 @@ public sealed class DemoSeedService(
     IPolicyRepository policyRepository,
     ICoverageRepository coverageRepository,
     IBranchRepository branchRepository,
-    IProducerRepository producerRepository)
+    IProducerRepository producerRepository,
+    IProductRepository productRepository)
 {
     private const int Seed = 42;
 
@@ -68,6 +70,12 @@ public sealed class DemoSeedService(
             await producerRepository.UpsertAsync(producer, cancellationToken);
         }
 
+        // A seeded claim needs a real, published Product to pin against, otherwise every claim
+        // shows "no configured claim process" no matter how thorough the rest of the dataset is.
+        // Idempotent: a product already published for a line is reused, never duplicated.
+        var products = await EnsureDemoProductsAsync(scope, seededByUserId, now, cancellationToken);
+        var newProductCount = products.Values.Count(p => p.IsNew);
+
         var plan = BuildSeedPlan(rng);
         var customerCount = 0;
         var policyCount = 0;
@@ -102,6 +110,7 @@ public sealed class DemoSeedService(
             var correlationId = $"demo-seed-{i:D3}-{Guid.NewGuid():N}";
             var caseId = Guid.NewGuid();
 
+            var product = products[line.Name];
             var claimCase = new ClaimCase
             {
                 CaseId = caseId,
@@ -111,6 +120,8 @@ public sealed class DemoSeedService(
                 CustomerPhone = customer.Phone,
                 PolicyNumber = policy.PolicyNumber,
                 ProductLine = line.Name,
+                ProductId = product.ProductId,
+                ProductVersion = product.Version,
                 ClaimType = line.ClaimTypes[rng.Next(line.ClaimTypes.Length)],
                 Channel = Channels[rng.Next(Channels.Length)],
                 IncidentDate = incidentDate,
@@ -194,6 +205,7 @@ public sealed class DemoSeedService(
 
         return new DemoSeedResult(
             InsurerName: "Nile Shield Assurance (Uganda) Ltd",
+            Products: newProductCount,
             Customers: customerCount,
             Policies: policyCount,
             Cases: caseCount,
@@ -201,6 +213,84 @@ public sealed class DemoSeedService(
             Approvals: approvalCount,
             AuditEvents: auditCount,
             HeroCaseIds: heroCaseIds);
+    }
+
+    /// <summary>Ensures a Published product, with a real claim process and document matrix, exists
+    /// for every seeded product line. A product already published for that line (ProductClass) is
+    /// reused rather than duplicated, so reseeding an already-configured tenant is a no-op here.
+    /// PublishSubmittedByUserId/PublishApprovedByUserId are two distinct synthetic system actors
+    /// rather than the operator who triggered seeding, the same provenance rule as the rest of this
+    /// file: a demo user must never appear to have taken an action they did not take, and a real
+    /// product publish always needs a second person distinct from whoever submitted it.</summary>
+    private async Task<IReadOnlyDictionary<string, (Guid ProductId, int Version, bool IsNew)>> EnsureDemoProductsAsync(
+        TenantScope scope, string seededByUserId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var existing = await productRepository.ListCurrentForAllProductsAsync(scope, cancellationToken);
+        var publishedByLine = existing
+            .Where(p => p.Status == ProductStatus.Published)
+            .GroupBy(p => p.ProductClass, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Version).First(), StringComparer.OrdinalIgnoreCase);
+
+        var catalogDefaults = DefaultDocumentTypeCatalog.Defaults()
+            .ToDictionary(entry => entry.BuiltInType, entry => entry);
+
+        var result = new Dictionary<string, (Guid ProductId, int Version, bool IsNew)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in ProductLines)
+        {
+            if (publishedByLine.TryGetValue(line.Name, out var current))
+            {
+                result[line.Name] = (current.ProductId, current.Version, false);
+                continue;
+            }
+
+            var matrix = line.RequiredDocs
+                .Select(type => ToDocumentRequirement(type, isRequired: true, catalogDefaults))
+                .Concat(line.OptionalDocs.Select(type => ToDocumentRequirement(type, isRequired: false, catalogDefaults)))
+                .ToArray();
+
+            var product = new Product
+            {
+                ProductId = Guid.NewGuid(),
+                VersionId = Guid.NewGuid(),
+                Scope = scope,
+                Version = 1,
+                Name = $"{line.Name} Cover",
+                ProductClass = line.Name,
+                IraApprovalReference = $"IRA/DEMO/{line.Name.ToUpperInvariant()}/2026",
+                IraApprovalEffectiveDate = DateOnly.FromDateTime(now.AddYears(-1).UtcDateTime),
+                ApprovedWordingKnowledgeDocumentId = null,
+                Status = ProductStatus.Published,
+                Stages = DefaultClaimStageLibrary.Default(),
+                DocumentMatrix = matrix,
+                UpdatedByUserId = seededByUserId,
+                UpdatedAt = now,
+                ChangeReason = "Seeded demo product, so a seeded claim has a real configured claim process and document matrix to pin against.",
+                PublishSubmittedByUserId = "system:demo-seed",
+                PublishSubmittedAt = now.AddDays(-30),
+                PublishApprovedByUserId = "system:demo-seed-reviewer",
+                PublishApprovedAt = now.AddDays(-29),
+            };
+
+            await productRepository.SaveAsync(product, cancellationToken);
+            result[line.Name] = (product.ProductId, product.Version, true);
+        }
+
+        return result;
+    }
+
+    private static ProductDocumentRequirement ToDocumentRequirement(
+        DocumentType documentType,
+        bool isRequired,
+        IReadOnlyDictionary<DocumentType, (string Key, string CustomerLabel, string Description, DocumentType BuiltInType)> catalogDefaults)
+    {
+        var entry = catalogDefaults[documentType];
+        return new ProductDocumentRequirement(
+            entry.Key,
+            entry.CustomerLabel,
+            entry.Description,
+            isRequired,
+            DefaultClaimStageLibrary.AcknowledgementAndDocumentRequest,
+            IsRegulatoryOrWordingMandated: false);
     }
 
     // ---------- Reference data ----------
@@ -917,6 +1007,7 @@ public sealed record DemoPolicyholder(string FullName, string Email, string Phon
 
 public sealed record DemoSeedResult(
     string InsurerName,
+    int Products,
     int Customers,
     int Policies,
     int Cases,

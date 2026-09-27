@@ -18,6 +18,12 @@ type GovernedActionDialogProps = {
   confirmLabel: string;
   tone?: "primary" | "danger";
   evidence?: ReactNode;
+  /** False for a routine action (e.g. approving or sending a routine draft): the reason
+   * textarea is dropped and the primary button confirms in one click. The audit trail still
+   * gets a system-generated reason from the backend. True (default) keeps today's behaviour:
+   * a typed reason of at least 8 characters is required, for actions that warrant one
+   * (publishing, rejecting, retiring, settling a claim). */
+  requireReason?: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => Promise<void> | void;
 };
@@ -31,6 +37,7 @@ export function GovernedActionDialog({
   confirmLabel,
   tone = "primary",
   evidence,
+  requireReason = true,
   onClose,
   onConfirm
 }: GovernedActionDialogProps) {
@@ -89,7 +96,7 @@ export function GovernedActionDialog({
   if (!mounted || !open) return null;
 
   const trimmedReason = reason.trim();
-  const canConfirm = trimmedReason.length >= 8 && !isSubmitting;
+  const canConfirm = (!requireReason || trimmedReason.length >= 8) && !isSubmitting;
 
   return createPortal(
     <div>
@@ -124,19 +131,34 @@ export function GovernedActionDialog({
           <div className="rounded-dls-card border border-dls-warning-dot bg-dls-warning-tint p-4 text-sm leading-6 text-dls-warning-text">
             {auditNotice}
           </div>
-          <label className="block text-sm font-semibold text-dls-text-primary">
-            Reason for audit trail
-            <textarea
-              aria-label="Reason for audit trail"
-              className="mt-2 min-h-28 w-full resize-y rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary outline-none placeholder:text-dls-text-muted focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="Enter the business reason for this action…"
-            />
-          </label>
-          <p className="text-xs leading-5 text-dls-text-muted">
-            A reason of at least 8 characters is required before this action can be submitted.
-          </p>
+          {requireReason ? (
+            <>
+              <label className="block text-sm font-semibold text-dls-text-primary">
+                Reason for audit trail
+                <textarea
+                  aria-label="Reason for audit trail"
+                  className="mt-2 min-h-28 w-full resize-y rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary outline-none placeholder:text-dls-text-muted focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  placeholder="Enter the business reason for this action…"
+                />
+              </label>
+              <p className="text-xs leading-5 text-dls-text-muted">
+                A reason of at least 8 characters is required before this action can be submitted.
+              </p>
+            </>
+          ) : (
+            <label className="block text-sm font-semibold text-dls-text-primary">
+              Note (optional)
+              <textarea
+                aria-label="Optional note for audit trail"
+                className="mt-2 min-h-16 w-full resize-y rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-sm text-dls-text-primary outline-none placeholder:text-dls-text-muted focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Add a note if useful. Not required."
+              />
+            </label>
+          )}
         </div>
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-dls-border-subtle px-[22px] py-4">

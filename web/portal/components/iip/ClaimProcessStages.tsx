@@ -30,10 +30,18 @@ export default function ClaimProcessStages({ claimId, role }: { claimId: string;
     );
   }
 
-  if (!process.configured || process.stages.length === 0) {
+  if (!process.configured) {
     return (
       <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
-        This claim&apos;s product has no configured claim process. Not configured.
+        This claim has no product configured, so there is no claim process to show. Not configured.
+      </div>
+    );
+  }
+
+  if (process.stages.length === 0) {
+    return (
+      <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
+        {process.productName} has no claim process stages configured yet. Not configured.
       </div>
     );
   }

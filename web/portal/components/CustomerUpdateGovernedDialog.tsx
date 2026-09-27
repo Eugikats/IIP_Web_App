@@ -33,6 +33,7 @@ export function CustomerUpdateGovernedDialog({
       auditNotice="This is a human-governed customer communication action. It must remain customer-safe, provider-backed when sent, and auditable."
       confirmLabel={pendingAction.action === "approve" ? "Approve update" : "Send update"}
       evidence={<CustomerUpdateActionEvidence pendingAction={pendingAction} />}
+      requireReason={false}
       onClose={onClose}
       onConfirm={onConfirm}
     />

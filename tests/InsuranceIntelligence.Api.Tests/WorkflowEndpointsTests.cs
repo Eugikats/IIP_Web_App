@@ -636,13 +636,15 @@ public sealed class WorkflowEndpointsTests
     }
 
     [Fact]
-    public async Task ApprovalRequiredCustomerUpdate_RequiresReasonAndBlocksRepeatDecision()
+    public async Task ApproveCustomerUpdate_WithNoTypedReason_SucceedsWithADefaultAuditReason()
     {
+        // Demo-readiness pass: approving a routine customer-update draft is a one-click action,
+        // a typed reason is welcome but never required. The audit trail still gets an honest line.
         var dependencies = CreateDependencies();
         var claimCase = await CreateCaseAsync(dependencies);
         var draft = await DraftUpdateAsync(dependencies, claimCase.CaseId, reasonCategory: "ReadyForReview");
 
-        var missingReasonResult = await CustomerUpdateEndpoints.ApproveCustomerUpdate(
+        var approveResult = await CustomerUpdateEndpoints.ApproveCustomerUpdate(
             draft.UpdateId,
             new CustomerUpdateDecisionRequest(),
             dependencies.CaseRepository,
@@ -650,7 +652,24 @@ public sealed class WorkflowEndpointsTests
             dependencies.AuditRepository,
             ScopedContext(),
             CancellationToken.None);
-        var (missingReasonStatus, missingReasonBody) = await ExecuteAsync<JsonElement>(missingReasonResult);
+        var (approveStatus, approved) = await ExecuteAsync<CustomerUpdateResponse>(approveResult);
+        var auditEvents = await dependencies.AuditRepository.ListForCaseAsync(claimCase.CaseId);
+
+        Assert.Equal(StatusCodes.Status200OK, approveStatus);
+        Assert.Equal("Approved", approved!.Status);
+        Assert.Equal("user-claims-1", approved.ApprovedByUserId);
+        Assert.Contains(auditEvents, auditEvent =>
+            auditEvent.ActionName == "customer_update.approved"
+            && auditEvent.UserId == "user-claims-1"
+            && !string.IsNullOrWhiteSpace(auditEvent.AuditReason));
+    }
+
+    [Fact]
+    public async Task ApproveCustomerUpdate_WithATypedReason_KeepsItAndBlocksARepeatDecision()
+    {
+        var dependencies = CreateDependencies();
+        var claimCase = await CreateCaseAsync(dependencies);
+        var draft = await DraftUpdateAsync(dependencies, claimCase.CaseId, reasonCategory: "ReadyForReview");
 
         const string auditReason = "Customer service supervisor approved the customer-safe update.";
         var approveResult = await CustomerUpdateEndpoints.ApproveCustomerUpdate(
@@ -674,8 +693,6 @@ public sealed class WorkflowEndpointsTests
             CancellationToken.None);
         var (repeatStatus, repeatBody) = await ExecuteAsync<JsonElement>(repeatResult);
 
-        Assert.Equal(StatusCodes.Status400BadRequest, missingReasonStatus);
-        Assert.True(missingReasonBody.GetProperty("errors").TryGetProperty("auditReason", out _));
         Assert.Equal(StatusCodes.Status200OK, approveStatus);
         Assert.Equal("Approved", approved!.Status);
         Assert.Equal("user-claims-1", approved.ApprovedByUserId);
@@ -688,11 +705,21 @@ public sealed class WorkflowEndpointsTests
     }
 
     [Fact]
-    public async Task CustomerUpdateSend_RequiresAuditReasonBeforeProviderCall()
+    public async Task CustomerUpdateSend_WithNoTypedReason_StillDispatchesWithADefaultAuditReason()
     {
+        // Demo-readiness pass: sending an already-approved customer update is a one-click action,
+        // a typed reason is welcome but never required.
         var dependencies = CreateDependencies();
         var claimCase = await CreateCaseAsync(dependencies);
         var draft = await DraftUpdateAsync(dependencies, claimCase.CaseId);
+        await CustomerUpdateEndpoints.ApproveCustomerUpdate(
+            draft.UpdateId,
+            new CustomerUpdateDecisionRequest(),
+            dependencies.CaseRepository,
+            dependencies.CustomerUpdateRepository,
+            dependencies.AuditRepository,
+            ScopedContext(auditReason: "Approved for the send test."),
+            CancellationToken.None);
 
         var result = await CustomerUpdateEndpoints.SendCustomerUpdate(
             draft.UpdateId,
@@ -704,14 +731,12 @@ public sealed class WorkflowEndpointsTests
             ScopedContext(),
             CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
-        var stored = await dependencies.CustomerUpdateRepository.GetAsync(
-            draft.UpdateId,
-            TenantScope.Create("tenant-demo", "workspace-claims"));
+        var auditEvents = await dependencies.AuditRepository.ListForCaseAsync(claimCase.CaseId);
 
-        Assert.Equal(StatusCodes.Status400BadRequest, statusCode);
-        Assert.True(body.GetProperty("errors").TryGetProperty("auditReason", out _));
-        Assert.Equal(CustomerUpdateStatus.Draft, stored!.Status);
-        Assert.Null(stored.DeliveryStatus);
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Contains(auditEvents, auditEvent =>
+            auditEvent.ActionName == "customer_update.sent"
+            && !string.IsNullOrWhiteSpace(auditEvent.AuditReason));
     }
 
     [Fact]

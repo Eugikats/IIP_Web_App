@@ -5,14 +5,35 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface } from "@/components/ui/StateSurfaces";
-import { Building2, Inbox, Plus, Loader2, Info } from "lucide-react";
+import { Building2, ChevronDown, Plus, Loader2, Info, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useSalesLeads } from "@/lib/lovable-parity/data/salesLeads";
+import { useSalesLeads, type SalesLeadDetail } from "@/lib/lovable-parity/data/salesLeads";
 
 export default function CustomerAcquisition() {
-  const { leads, loading, error, creating, createLead } = useSalesLeads();
+  const { leads, loading, error, creating, createLead, getLeadDetail } = useSalesLeads();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ customerName: "", leadSource: "Manual capture", customerNeed: "", productFit: "", assignedSalesOfficer: "", contactInfo: "" });
+  const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
+  const [detailByLeadId, setDetailByLeadId] = useState<Record<string, SalesLeadDetail>>({});
+  const [detailLoading, setDetailLoading] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<Record<string, string>>({});
+
+  async function toggleLead(leadId: string) {
+    if (expandedLeadId === leadId) {
+      setExpandedLeadId(null);
+      return;
+    }
+    setExpandedLeadId(leadId);
+    if (detailByLeadId[leadId]) return;
+    setDetailLoading(leadId);
+    const result = await getLeadDetail(leadId);
+    setDetailLoading(null);
+    if (result.ok) {
+      setDetailByLeadId((prev) => ({ ...prev, [leadId]: result.detail }));
+    } else {
+      setDetailError((prev) => ({ ...prev, [leadId]: result.message }));
+    }
+  }
 
   const submit = async () => {
     const res = await createLead(form);
@@ -27,11 +48,11 @@ export default function CustomerAcquisition() {
 
   return (
     <>
-      <SectionHeader eyebrow="Customer Acquisition" title="Leads Inbox" sub="Enquiries entered by hand for now. Once WhatsApp, email and SMS are connected, enquiries arriving there land in this same list. AI sorts them and drafts a reply for someone to check before it goes out." />
+      <SectionHeader eyebrow="Customer Acquisition" title="Leads Inbox" sub="A lead entered by hand here, or created automatically when the WhatsApp assistant detects buying interest in a conversation. Open a lead to see the conversation it came from." />
 
       <div className="mb-4 flex items-center justify-between">
         <div className="inline-flex items-center gap-1.5 text-[12px] text-dls-text-secondary">
-          <Info className="h-3.5 w-3.5" aria-hidden="true" /> Enquiries arriving by WhatsApp, email or SMS will appear in this same list once those channels are connected.
+          <Info className="h-3.5 w-3.5" aria-hidden="true" /> A lead created from WhatsApp shows its source below; open it to see the conversation and what it still needs.
         </div>
         <Button variant="primary" onClick={() => setOpen((v) => !v)} icon={<Plus aria-hidden="true" />}>
           New lead
@@ -70,26 +91,75 @@ export default function CustomerAcquisition() {
         <GlassCard><EmptyStateSurface message="Capture a lead with “New lead”. Connected channel and import sources appear only after configuration." /></GlassCard>
       ) : (
         <div className="space-y-3">
-          {leads.map((l) => (
-            <GlassCard key={l.leadId}>
-              <div className="flex items-start gap-4">
-                <Avatar id={l.leadId} initials={l.customerName.split(" ").map((x) => x[0]).slice(0, 2).join("")} size={40} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <div className="text-[14px] font-bold text-dls-text-primary">{l.customerName}</div>
+          {leads.map((l) => {
+            const isWhatsApp = l.leadSource.toLowerCase().startsWith("whatsapp");
+            const isExpanded = expandedLeadId === l.leadId;
+            const detail = detailByLeadId[l.leadId];
+            return (
+              <GlassCard key={l.leadId}>
+                <button
+                  type="button"
+                  onClick={() => void toggleLead(l.leadId)}
+                  className="dls-focus-outline flex w-full items-start gap-4 text-left"
+                  aria-expanded={isExpanded}
+                >
+                  <Avatar id={l.leadId} initials={l.customerName.split(" ").map((x) => x[0]).slice(0, 2).join("")} size={40} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="text-[14px] font-bold text-dls-text-primary">{l.customerName}</div>
+                    </div>
+                    <div className="mt-0.5 inline-flex items-center gap-1.5 text-[12.5px] text-dls-text-secondary">
+                      {isWhatsApp ? <MessageCircle className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" /> : <Building2 className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" />}
+                      {l.leadSource} · {l.productFit}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <StatusBadge status={l.quoteStatus} />
+                      {l.assignedSalesOfficer ? <span className="text-[11.5px] text-dls-text-muted">Assigned · {l.assignedSalesOfficer}</span> : <span className="text-[11.5px] text-dls-text-muted">Unassigned</span>}
+                      {l.createdAt ? <span className="text-[11px] text-dls-text-muted">{new Date(l.createdAt).toLocaleDateString()}</span> : null}
+                    </div>
                   </div>
-                  <div className="mt-0.5 inline-flex items-center gap-1.5 text-[12.5px] text-dls-text-secondary">
-                    <Building2 className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" /> {l.leadSource} · {l.productFit}
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-dls-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                </button>
+
+                {isExpanded && (
+                  <div className="mt-4 border-t border-dls-border-subtle pt-4">
+                    {detailLoading === l.leadId ? (
+                      <LoadingSkeleton rows={2} />
+                    ) : detailError[l.leadId] ? (
+                      <p className="text-[12.5px] text-dls-danger-text">{detailError[l.leadId]}</p>
+                    ) : detail ? (
+                      <div className="space-y-3 text-[12.5px]">
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">What the customer needs</div>
+                          <p className="mt-1 text-dls-text-primary">{detail.customerNeed || "Not recorded."}</p>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">
+                            {isWhatsApp ? "Conversation summary" : "Notes"}
+                          </div>
+                          <p className="mt-1 whitespace-pre-wrap text-dls-text-secondary">{detail.conversationSummary || "Not recorded."}</p>
+                        </div>
+                        {detail.requiredInformation.length > 0 && (
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Still needed</div>
+                            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-dls-text-secondary">
+                              {detail.requiredInformation.map((item) => <li key={item}>{item}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {detail.contactInfo && (
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Contact</div>
+                            <p className="mt-1 text-dls-text-primary">{detail.contactInfo}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <StatusBadge status={l.quoteStatus} />
-                    {l.assignedSalesOfficer ? <span className="text-[11.5px] text-dls-text-muted">Assigned · {l.assignedSalesOfficer}</span> : <span className="text-[11.5px] text-dls-text-muted">Unassigned</span>}
-                    {l.createdAt ? <span className="text-[11px] text-dls-text-muted">{new Date(l.createdAt).toLocaleDateString()}</span> : null}
-                  </div>
-                </div>
-              </div>
-            </GlassCard>
-          ))}
+                )}
+              </GlassCard>
+            );
+          })}
         </div>
       )}
     </>

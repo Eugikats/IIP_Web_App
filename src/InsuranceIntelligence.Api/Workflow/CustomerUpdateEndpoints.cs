@@ -555,10 +555,12 @@ public static class CustomerUpdateEndpoints
             return WorkflowEndpoints.HumanDecisionRequired(exception.Message);
         }
 
+        // Sending an already-approved customer update is a one-click action, same as approving
+        // one (see DecideAsync); a typed reason is optional, never required.
         var auditReason = AuditReasonReader.Read(httpContext);
         if (string.IsNullOrWhiteSpace(auditReason))
         {
-            return WorkflowEndpoints.Validation("auditReason", "An audit reason is required to send a customer update.");
+            auditReason = "Sent via one-click action, no reason given.";
         }
 
         var sent = await communicationProvider.SendAsync(update, actor, request.Recipient, cancellationToken);
@@ -640,10 +642,16 @@ public static class CustomerUpdateEndpoints
             return WorkflowEndpoints.HumanDecisionRequired(exception.Message);
         }
 
+        // Approving or rejecting a routine customer-update draft is a one-click action (claim
+        // intake build prompt demo-readiness pass): a typed reason is welcome but never required,
+        // unlike a consequential action such as settling a claim. The audit trail still gets a
+        // clear, honest line either way.
         var auditReason = AuditReasonReader.Read(httpContext);
         if (string.IsNullOrWhiteSpace(auditReason))
         {
-            return WorkflowEndpoints.Validation("auditReason", "An audit reason is required to approve or reject a customer update.");
+            auditReason = status == CustomerUpdateStatus.Approved
+                ? "Approved via one-click action, no reason given."
+                : "Rejected via one-click action, no reason given.";
         }
 
         var updated = update with

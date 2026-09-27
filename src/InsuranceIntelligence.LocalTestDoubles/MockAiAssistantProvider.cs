@@ -34,7 +34,7 @@ public sealed class MockAiAssistantProvider : IAiAssistantProvider
                 Visibility(question.Audience)));
         }
 
-        var sourceSummary = string.Join(" ", retrievalResult.Chunks.Select(chunk => chunk.Content).Take(2));
+        var sourceSummary = string.Join(" ", retrievalResult.Chunks.Select(chunk => KnowledgeChunkText.StripTrailingSourceLine(chunk.Content)).Take(2));
         var customerSafePrefix = string.Equals(question.Audience, "Customer", StringComparison.OrdinalIgnoreCase)
             ? "Based on approved policy information available to the insurer, "
             : "Based on approved policy knowledge, ";

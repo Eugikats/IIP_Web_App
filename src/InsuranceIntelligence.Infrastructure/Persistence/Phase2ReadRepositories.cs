@@ -412,17 +412,33 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
             .Select(Deserialize<ClaimCase>)
             .ToDictionary(claimCase => claimCase.CaseId);
 
+        // A conversation with no linked claim yet (a fresh lead, or a policyholder asking a
+        // question before ever filing one) previously always showed a masked WhatsApp contact id
+        // instead of a name, even when the number already belongs to a known customer. Matching
+        // by phone here (same normalization PhoneNumbers.SameNumber uses) resolves the name
+        // whenever we already know who this is.
+        var customersByPhoneDigits = (await Scoped(DbContext.Customers.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<Customer>)
+            .Where(customer => !string.IsNullOrWhiteSpace(customer.Phone))
+            .GroupBy(customer => PhoneNumbers.Digits(customer.Phone))
+            .ToDictionary(group => group.Key, group => group.First());
+
         var whatsAppRows = whatsAppMessages
             .GroupBy(message => message.ThreadId, StringComparer.Ordinal)
             .Select(group => group.OrderByDescending(message => message.CreatedAt).First())
             .Select(message =>
             {
                 var claimCase = message.CaseId is { } caseId && cases.TryGetValue(caseId, out var found) ? found : null;
+                var matchedCustomer = claimCase is null
+                    ? customersByPhoneDigits.GetValueOrDefault(PhoneNumbers.Digits(message.ContactWaId))
+                    : null;
                 var turn = latestTurnByThread.GetValueOrDefault(message.ThreadId);
                 var language = ConversationLanguageNote.For(turn);
                 return new ChannelConversationReadModel(
                     message.ThreadId,
-                    claimCase?.CustomerName ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
+                    claimCase?.CustomerName ?? matchedCustomer?.FullName ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
                     ChannelValues.WhatsApp,
                     DetectedIntentFor(turn),
                     RoutingFor(turn, claimCase is not null),

@@ -60,6 +60,7 @@ public static class DemoSeedEndpoints
         {
             legacyCasesPurged = purged,
             result.InsurerName,
+            result.Products,
             result.Customers,
             result.Policies,
             result.Cases,

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Search, MessageCircle, Mail, Globe, Phone, Users2, MonitorPlay, Send, ShieldAlert, Inbox } from "lucide-react";
@@ -26,11 +26,12 @@ export default function Channels() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [purpose, setPurpose] = useState("claim_status_update");
-  const [consentBasis, setConsentBasis] = useState("");
+  const [consentBasis, setConsentBasis] = useState("Existing conversation, customer messaged first");
   const [language, setLanguage] = useState("en");
   const [templateName, setTemplateName] = useState("");
   const [approved, setApproved] = useState(false);
   const [sending, setSending] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -56,6 +57,13 @@ export default function Channels() {
   const active = useMemo(() => list.find((c) => c.id === activeId) ?? list[0] ?? null, [list, activeId]);
   const whatsapp = useWhatsAppThread(!parityMode && active?.channel === "WhatsApp" ? active.id : null);
   const linkedCaseId = whatsapp.messages.find((message) => message.caseId)?.caseId ?? null;
+
+  // The thread already carries a detected language and a sensible default purpose; an agent
+  // replying to an ongoing conversation should not have to type these every time (demo-readiness
+  // pass). "Advanced" stays collapsed unless a template send outside the 24h window is needed.
+  useEffect(() => {
+    if (active?.language) setLanguage(active.language);
+  }, [active?.id, active?.language]);
 
   async function sendWhatsApp() {
     if (!active || !linkedCaseId) return;
@@ -253,12 +261,21 @@ export default function Channels() {
                     placeholder="Write only customer-safe content…"
                     className="w-full rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[13px] text-dls-text-primary focus:outline-none focus:border-dls-primary focus:ring-[3px] focus:ring-dls-primary/[0.12]"
                   />
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Input aria-label="Communication purpose" value={purpose} onChange={(event) => setPurpose(event.target.value)} placeholder="Purpose" />
-                    <Input aria-label="Consent or legal basis" value={consentBasis} onChange={(event) => setConsentBasis(event.target.value)} placeholder="Consent or legal basis reference" />
-                    <Input aria-label="Message language" value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="Language code" />
-                    <Input aria-label="Approved template name" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Approved template (required outside 24h)" />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced((v) => !v)}
+                    className="dls-focus-outline text-[11.5px] font-semibold text-dls-primary hover:underline"
+                  >
+                    {showAdvanced ? "Hide details" : "Purpose, consent, language, template…"}
+                  </button>
+                  {showAdvanced && (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input aria-label="Communication purpose" value={purpose} onChange={(event) => setPurpose(event.target.value)} placeholder="Purpose" />
+                      <Input aria-label="Consent or legal basis" value={consentBasis} onChange={(event) => setConsentBasis(event.target.value)} placeholder="Consent or legal basis reference" />
+                      <Input aria-label="Message language" value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="Language code" />
+                      <Input aria-label="Approved template name" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Approved template (required outside 24h)" />
+                    </div>
+                  )}
                   <label className="flex items-start gap-2 text-[12px] text-dls-text-secondary">
                     <input type="checkbox" checked={approved} onChange={(event) => setApproved(event.target.checked)} className="mt-0.5" />
                     I reviewed the exact recipient and customer-safe message and authorize this provider attempt.

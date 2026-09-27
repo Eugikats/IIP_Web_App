@@ -150,9 +150,18 @@ export default function Communications() {
               ? "This marks the draft as approved and makes it eligible to send."
               : "This marks the draft as rejected. It will not be sendable."
         }
-        auditNotice="This action is written to the audit trail with your reason and cannot be undone silently."
+        evidence={
+          pending ? (
+            <div className="rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-dls-text-muted">Message</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-dls-text-primary">{pending.item.messageBody}</p>
+            </div>
+          ) : undefined
+        }
+        auditNotice="This action is written to the audit trail and cannot be undone silently."
         confirmLabel={pending?.kind === "approve" ? "Approve" : pending?.kind === "reject" ? "Reject" : "Send"}
         tone={pending?.kind === "reject" ? "danger" : "primary"}
+        requireReason={false}
         onClose={() => setPending(null)}
         onConfirm={handleConfirm}
       />

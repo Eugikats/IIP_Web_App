@@ -25,6 +25,23 @@ export type CreateLeadInput = {
   contactInfo?: string;
 };
 
+export type SalesLeadDetail = {
+  leadId: string;
+  customerName: string;
+  leadSource: string;
+  customerNeed: string;
+  conversationSummary: string;
+  productFit: string;
+  quoteStatus: string;
+  requiredInformation: string[];
+  followUpActions: string[];
+  assignedSalesOfficer: string | null;
+  conversionProbability: number | null;
+  contactInfo: string | null;
+  createdAt: string | null;
+  createdBy: string | null;
+};
+
 type SalesLeadDto = {
   leadId: string;
   customerName: string;
@@ -100,5 +117,36 @@ export function useSalesLeads() {
     }
   }, [role, load]);
 
-  return { leads, loading, error, creating, createLead, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  const getLeadDetail = useCallback(async (leadId: string): Promise<{ ok: true; detail: SalesLeadDetail } | { ok: false; message: string }> => {
+    if (LOVABLE_VISUAL_PARITY_MODE) {
+      const found = PARITY.find((l) => l.leadId === leadId);
+      if (!found) return { ok: false, message: "Lead not found." };
+      return {
+        ok: true,
+        detail: {
+          ...found,
+          customerNeed: "Sample customer need for the visual-parity fixture.",
+          conversationSummary: "Sample conversation summary for the visual-parity fixture.",
+          requiredInformation: [], followUpActions: [], conversionProbability: null,
+          contactInfo: null, createdBy: null,
+        },
+      };
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads/${encodeURIComponent(leadId)}`, { headers: scopedHeaders(role, "") });
+      if (response.status === 404) return { ok: false, message: "Lead not found." };
+      if (!response.ok) return { ok: false, message: "Lead details could not be loaded." };
+      const dto = await response.json() as {
+        leadId: string; customerName: string; leadSource: string; customerNeed: string; conversationSummary: string;
+        productFit: string; quoteStatus: string; requiredInformation: string[]; followUpActions: string[];
+        assignedSalesOfficer: string | null; conversionProbability: number | null; contactInfo: string | null;
+        createdAt: string | null; createdBy: string | null;
+      };
+      return { ok: true, detail: dto };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Lead details could not be loaded." };
+    }
+  }, [role]);
+
+  return { leads, loading, error, creating, createLead, getLeadDetail, parityMode: LOVABLE_VISUAL_PARITY_MODE };
 }
