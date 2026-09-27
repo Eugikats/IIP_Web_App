@@ -55,6 +55,8 @@ public sealed class CaseIntakeService(
             Channel = command.Channel.Trim(),
             IncidentDate = command.IncidentDate,
             IncidentDescription = command.IncidentDescription.Trim(),
+            OriginalIncidentText = string.IsNullOrWhiteSpace(command.OriginalIncidentText) ? null : command.OriginalIncidentText.Trim(),
+            OriginalIncidentLanguage = string.IsNullOrWhiteSpace(command.OriginalIncidentText) ? null : command.OriginalIncidentLanguage,
             MotorFnolDetails = motorFnol,
             MedicalFnolDetails = medicalFnol,
             Status = status,

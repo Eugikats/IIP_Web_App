@@ -41,6 +41,9 @@ export type ClaimDetailView = {
   channel: string;
   incidentDate: string;
   incidentDescription: string;
+  /** What the customer actually wrote, when the description above is a translation of it. */
+  originalIncidentText: string | null;
+  originalIncidentLanguage: string | null;
   motorFnolDetails: MotorFnolDetailsView | null;
   status: string;
   completenessScore: number;
@@ -108,6 +111,8 @@ function parityClaimDetail(claimId: string): ClaimDetailView | null {
     channel: claim.channel,
     incidentDate: "Not captured in synthetic fixture",
     incidentDescription: claim.incident,
+    originalIncidentText: null,
+    originalIncidentLanguage: null,
     motorFnolDetails: null,
     status: claim.status,
     completenessScore: Math.round(claim.confidence * 100),
@@ -244,6 +249,7 @@ export function useClaimReview(claimId: string) {
         claimId: d.claimId, customerName: d.customerName, customerEmail: d.customerEmail, customerPhone: d.customerPhone,
         policyNumber: d.policyNumber, productLine: d.productLine, claimType: d.claimType, channel: d.channel,
         incidentDate: d.incidentDate, incidentDescription: d.incidentDescription, status: d.status,
+        originalIncidentText: d.originalIncidentText ?? null, originalIncidentLanguage: d.originalIncidentLanguage ?? null,
         motorFnolDetails: d.motorFnolDetails ?? null,
         completenessScore: d.completenessScore, riskLevel: d.riskLevel, priority: d.priority, slaDueAt: d.slaDueAt,
         requiresConfirmation: Boolean(d.requiresConfirmation),

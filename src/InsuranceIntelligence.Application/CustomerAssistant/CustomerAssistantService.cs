@@ -303,8 +303,18 @@ public sealed class CustomerAssistantService(
             intent = await ClassifyWithModelAsync(scope, text, correlationId, cancellationToken);
         }
 
+        // When the customer wrote in another language, the claim keeps their own words beside the
+        // English description, including the earlier message this one continues.
+        CustomerOwnWords? ownWords = null;
+        if (understood.Status == TranslationStatus.Translated)
+        {
+            var earlierOriginal = continuation.EarlierMessageText is not null ? previousTurn?.OriginalInboundText : null;
+            var wording = string.IsNullOrWhiteSpace(earlierOriginal) ? original : $"{earlierOriginal}\n{original}";
+            ownWords = new CustomerOwnWords(wording, SupportedLanguage.For(language.Inbound).Iso);
+        }
+
         var outcome = await DecideAsync(
-            scope, inbound, text, waId, intent, continuation, answeringOurQuestion, previousTurn, sender, correlationId, autoReplyEnabled, now, cancellationToken);
+            scope, inbound, text, waId, intent, continuation, answeringOurQuestion, previousTurn, sender, correlationId, autoReplyEnabled, now, cancellationToken, ownWords);
 
         // GeneralQuestion replies are model prose and arrive with markdown in them, the staff
         // portal renders that, WhatsApp does not (its bold is *single* asterisks, so a model's
@@ -376,7 +386,8 @@ public sealed class CustomerAssistantService(
         string correlationId,
         bool autoReplyEnabled,
         DateTimeOffset now,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        CustomerOwnWords? ownWords = null)
     {
         // Honest about what it is: the conversation should feel natural, but a customer who asks
         // is told they are talking to the automated assistant, and how to reach a person.
@@ -406,7 +417,7 @@ public sealed class CustomerAssistantService(
 
         return intent switch
         {
-            CustomerIntent.NewClaim => await HandleNewClaimAsync(scope, text, waId, continuation, previousTurn, sender, correlationId, now, cancellationToken),
+            CustomerIntent.NewClaim => await HandleNewClaimAsync(scope, text, waId, continuation, previousTurn, sender, correlationId, now, cancellationToken, ownWords),
             CustomerIntent.ExistingClaimStatus => await HandleExistingClaimStatusAsync(scope, text, waId, sender, cancellationToken),
             CustomerIntent.GeneralQuestion => await HandleGeneralQuestionAsync(scope, text, correlationId, autoReplyEnabled, cancellationToken),
             CustomerIntent.ProductInterest => await HandleProductInterestAsync(scope, text, waId, sender, correlationId, cancellationToken),
@@ -445,7 +456,8 @@ public sealed class CustomerAssistantService(
         SenderProfile? sender,
         string correlationId,
         DateTimeOffset now,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        CustomerOwnWords? ownWords = null)
     {
         var earlier = continuation.EarlierMessageText;
         var everything = string.IsNullOrWhiteSpace(earlier) ? text : $"{earlier}\n{text}";
@@ -511,7 +523,9 @@ public sealed class CustomerAssistantService(
             IncidentDescription: description,
             CreatedByUserId: SystemActorId,
             CorrelationId: correlationId,
-            RequiresConfirmation: true), cancellationToken);
+            RequiresConfirmation: true,
+            OriginalIncidentText: ownWords?.Text,
+            OriginalIncidentLanguage: ownWords?.LanguageIso), cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(claimCase.AssignedUserId))
         {
@@ -1152,6 +1166,9 @@ public sealed class CustomerAssistantService(
     private sealed record Understood(string English, TranslationStatus Status, bool NeedsAPerson, TranslationFailureReason? Failure);
 
     private sealed record LocalisedReply(string Text, TranslationStatus Status);
+
+    /// <summary>The customer's own words and their language, kept on a claim opened from a translation.</summary>
+    private sealed record CustomerOwnWords(string Text, string LanguageIso);
 
     private static readonly ConversationLanguage English = new(SupportedLanguageCode.En, SupportedLanguageCode.En, LanguageStep.Proceed);
 

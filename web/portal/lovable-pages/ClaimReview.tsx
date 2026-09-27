@@ -66,6 +66,8 @@ const FRAUD_STATUS_LABEL: Record<string, string> = {
   Closed: "Closed",
 };
 
+const LANGUAGE_NAMES: Record<string, string> = { lg: "Luganda", sw: "Kiswahili" };
+
 export default function ClaimReview() {
   const { id } = useParams();
   return <ClaimReviewLive claimId={String(id ?? "")} />;
@@ -487,6 +489,19 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           </div>
         }
       />
+
+      {detail.originalIncidentText ? (
+        <div className="mb-4 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+          <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">
+            Customer&apos;s own words{detail.originalIncidentLanguage ? ` (${LANGUAGE_NAMES[detail.originalIncidentLanguage] ?? detail.originalIncidentLanguage})` : ""}
+          </div>
+          <p className="mt-1.5 whitespace-pre-line text-[13px] leading-relaxed text-dls-text-primary">{detail.originalIncidentText}</p>
+          <p className="mt-2 text-[11.5px] leading-5 text-dls-text-muted">
+            The description in the heading is a computer translation of this. If it matters, read the customer&apos;s own words or ask a
+            speaker of the language.
+          </p>
+        </div>
+      ) : null}
 
       <div className="mb-4">
         <GuardrailBanner text="AI prepares this claim's work: extractions, summaries, drafts, and advisory signals. Settlement, denial, repudiation, payment, and fraud determination remain with the reviewing officer." />

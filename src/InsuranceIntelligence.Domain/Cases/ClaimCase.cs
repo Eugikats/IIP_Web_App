@@ -41,6 +41,14 @@ public sealed record ClaimCase
     public required string Channel { get; init; }
     public required DateOnly IncidentDate { get; init; }
     public required string IncidentDescription { get; init; }
+
+    /// <summary>What the customer actually wrote, when IncidentDescription is a translation of it.
+    /// A machine translation must never be the only record of a claim, so the customer's own words
+    /// are kept beside it and shown to the person handling the claim.</summary>
+    public string? OriginalIncidentText { get; init; }
+
+    /// <summary>ISO code of the language OriginalIncidentText is in, for example "lg".</summary>
+    public string? OriginalIncidentLanguage { get; init; }
     public MotorFnolDetails? MotorFnolDetails { get; init; }
     public MedicalFnolDetails? MedicalFnolDetails { get; init; }
     public required CaseStatus Status { get; init; }

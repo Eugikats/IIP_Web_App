@@ -51,6 +51,8 @@ public static class CaseMapper
                 checklist.OptionalDocuments.Select(StaticDocumentChecklistProvider.LabelFor).ToArray(),
                 checklist.MissingRequiredDocuments.Select(missing => missing.Label).ToArray()),
             claimCase.ClaimedAmount,
-            claimCase.AdvisoryRiskSignals);
+            claimCase.AdvisoryRiskSignals,
+            claimCase.OriginalIncidentText,
+            claimCase.OriginalIncidentLanguage);
     }
 }

@@ -85,6 +85,56 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
+    public async Task AClaimOpenedFromATranslation_KeepsTheCustomersOwnWordsAndLanguage()
+    {
+        var fixture = Fixture.Create(translator: LugandaClaimTranslator());
+        fixture.SeedPolicy(ValidPolicyNumber);
+
+        await fixture.HandleAsync(LugandaClaim);
+
+        var claim = Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+        Assert.Contains("accident", claim.IncidentDescription); // the English description
+        Assert.Equal(LugandaClaim, claim.OriginalIncidentText); // what they actually wrote
+        Assert.Equal("lg", claim.OriginalIncidentLanguage);
+    }
+
+    [Fact]
+    public async Task AnEnglishClaim_HasNoSeparateOriginalText()
+    {
+        var fixture = Fixture.Create(translator: new ScriptedTranslator());
+        fixture.SeedPolicy(ValidPolicyNumber);
+
+        await fixture.HandleAsync($"I was in an accident, my policy is {ValidPolicyNumber}");
+
+        var claim = Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+        Assert.Null(claim.OriginalIncidentText);
+        Assert.Null(claim.OriginalIncidentLanguage);
+    }
+
+    [Fact]
+    public async Task AClaimBuiltFromTwoLugandaMessages_KeepsBothOfTheCustomersOwnMessages()
+    {
+        var translator = new ScriptedTranslator
+        {
+            Script = (text, from, to) => to == SupportedLanguageCode.En
+                ? text.Contains("akabenje") ? "Accident, my policy [TKN0]" : text.Contains("ekyaliwo", StringComparison.OrdinalIgnoreCase) ? "it happened yesterday on the Jinja road near the roundabout with a taxi" : null
+                : null,
+        };
+        var fixture = Fixture.Create(translator: translator);
+        fixture.SeedPolicy(ValidPolicyNumber);
+        const string first = "Nfunye akabenje leero nsaba mumbeeko yange NSA/MO/2026/00009";
+        const string second = "Ekyaliwo jjo ku luguudo lwa Jinja okumpi ne kalannamba wa nnyo nnyo leero";
+
+        await fixture.HandleAsync(first);
+        await fixture.HandleAsync(second);
+
+        var claim = Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+        Assert.Contains(first, claim.OriginalIncidentText);
+        Assert.Contains(second, claim.OriginalIncidentText);
+        Assert.Equal("lg", claim.OriginalIncidentLanguage);
+    }
+
+    [Fact]
     public async Task ThePolicyNumberAndReferenceInTheReplyReachTheCustomerUntouched()
     {
         var fixture = Fixture.Create(translator: LugandaClaimTranslator());
