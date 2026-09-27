@@ -281,9 +281,18 @@ next. Keep it short.
   unreviewed translations are allowed they are machine translated like any other reply, labelled,
   and fall back to English; a reviewed-template layer is the follow-up, seeded from the review sheet.
   The English sentences stay in the assistant so English output is unchanged.
-- 2026-09-27 outcome 6 in progress: Container Apps environment `cae-iip-dev`, file share
-  `afrislm-models` and the access key in Key Vault created; model upload verified by SHA-256 next,
-  then the container app, API settings, deploy and migration.
+- 2026-09-27 outcome 6 done and live: the model file is in Azure (SHA-256 verified after a first
+  upload failed silently at 78%), served by `ca-afrislm-dev` (image pinned by digest, key from Key
+  Vault, 401 without the key). The deployed API reports the engine Healthy and translates through it.
+  Migration `AddCustomerLanguagePreferences` applied; dev is at 27 of 27.
+- 2026-09-27 outcomes 5 (claim keeps the customer's own words), 7 (Channels shows language and what
+  was understood; Admin shows whether the engine is reachable) and 8 (120 row review sheet from the
+  live engine, unscored) done. Portal and API deployed. Suite: 593 domain and 960 API tests pass.
+- 2026-09-27 lessons for the next deploy: `az webapp deploy` reported success while the old code kept
+  running until an explicit restart; a cold API takes 4 to 8 minutes and `/me` can take 14 to 39
+  seconds, which the portal shows as "sign-in could not be completed"; the C: drive was at 0 bytes.
+- 2026-09-27 not yet verified: a real WhatsApp message from a handset. Instructions given to the
+  product owner; nothing has arrived on the webhook as of this entry.
 
 ## 10. Reporting and stopping
 
