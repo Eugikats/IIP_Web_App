@@ -55,7 +55,7 @@ public static class InfrastructureRegistration
             }
 
             services.AddDbContext<InsuranceIntelligenceDbContext>(db =>
-                db.UseSqlServer(options.SqlServerConnectionString));
+                db.UseSqlServer(options.SqlServerConnectionString, SqlServerResilience.Configure));
             AddEfRepositories(services);
         }
         else if (options.StorageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
