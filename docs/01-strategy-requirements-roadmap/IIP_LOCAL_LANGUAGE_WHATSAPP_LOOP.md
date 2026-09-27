@@ -291,8 +291,16 @@ next. Keep it short.
 - 2026-09-27 lessons for the next deploy: `az webapp deploy` reported success while the old code kept
   running until an explicit restart; a cold API takes 4 to 8 minutes and `/me` can take 14 to 39
   seconds, which the portal shows as "sign-in could not be completed"; the C: drive was at 0 bytes.
-- 2026-09-27 not yet verified: a real WhatsApp message from a handset. Instructions given to the
-  product owner; nothing has arrived on the webhook as of this entry.
+- 2026-09-27 database retry added and deployed (the first API connections after a restart failed
+  during login and returned a 500 on `/api/v1/me`, which the portal shows as "sign-in could not be
+  completed"; the database itself was idle). After that restart, sign-in was stable in 281 seconds.
+- 2026-09-27 loop stopped on a blocker that needs a person: a real WhatsApp message from a handset.
+  Three checks over about an hour and a half found no webhook traffic (Application Insights shows no
+  WhatsApp requests in that window) and no new conversation. Everything else is built, deployed and
+  verified: the hosted model, the API reaching it, the migration, the portal. To finish: send the
+  Kiswahili and Luganda test messages from a phone on the connected Meta number's allowed list, then
+  read the thread through `GET /api/v1/channels/overview`, which now returns `customerLanguage` and
+  `languageNote`.
 
 ## 10. Reporting and stopping
 
