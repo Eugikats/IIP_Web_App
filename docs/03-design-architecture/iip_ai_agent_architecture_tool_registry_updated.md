@@ -451,6 +451,31 @@ Governance (added by the September 2026 update, matching the other ten agents):
 - Every turn writes an AuditEvent (`customer_assistant.<outcome>`) with the classified intent and
   outcome, actor `system:customer-assistant` / ActorType.Integration — the unauthenticated-webhook
   equivalent of the AgentRun/AIInteraction pattern §11 requires for staff agents.
+
+Languages (added 2026-09-27; see `IIP_LOCAL_LANGUAGE_WHATSAPP_LOOP.md`):
+- The assistant can understand and answer customers in Luganda and Kiswahili, where the workspace
+  switches those languages on. The customer's message is translated to English at the door, the
+  existing English flow runs unchanged, and the reply is translated on the way out. Every gate,
+  consent check, identity check and classification runs on English only.
+- The engine is the AfriSLM model behind `ITranslationProvider`. Its output is untrusted: every
+  translation passes `TranslationQualityJudge`, protected values (policy numbers, links, claim
+  references, names) are masked and must survive, and any failure falls back to English.
+- A message that cannot be translated is escalated to a person with the customer's own words. No
+  intent is guessed from a failed translation. A message that is only a policy number or a digit is
+  never sent to the engine.
+- A translated reply is sent only where `Translation:AllowUnreviewedTranslations` is on (dev only),
+  carries a note that a computer translated it, and is recorded in English beside what the customer
+  actually received. Luganda replies keep "claim", "policy" and "claims officer" in English.
+- Each turn stores `CustomerLanguage`, `OriginalInboundText`, `OutboundLocalisedText` and the
+  inbound and outbound translation status. A claim opened from a translated message stores the
+  customer's own words and language beside the English description. The audit event records the
+  language and status, never the words.
+- Not covered: Lugisu, Ateso, Runyankole, Acholi; staff-drafted messages; WhatsApp template messages
+  outside the 24-hour window; SMS, email, the claimant portal and the staff screens. No
+  translation has been reviewed by a native speaker. The fixed replies are machine translated like any
+  other reply; human-reviewed template overrides are the follow-up.
+- Inbound WhatsApp messages are handled in the background, not inside the webhook request. A failure
+  or a timeout escalates the message to a person (`customer_assistant.processing_failed`).
 ```
 
 ---

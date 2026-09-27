@@ -255,3 +255,43 @@ blocked and why, what is left, and what you are doing next. Keep it short.
 
 Stop when every acceptance criterion is met and verified live, or when a blocker genuinely needs a
 person. Say which it is.
+
+---
+
+## 11. Status, 2026-09-27
+
+Built on `feature/local-language-replies` and deployed to `dev`. See `IIP_LOCAL_LANGUAGE_WHATSAPP_LOOP.md`
+for the narrower loop that did the work and its dated progress log.
+
+| Outcome | State | Notes |
+|---|---|---|
+| A. Translation core | Built | Judge, masker, splitter, service, cache. Two defects found by testing against the real model and fixed: the provider setting was never read from configuration, and invisible placeholder characters were stripped by the model (a policy number could vanish). The service now refuses any translation that drops a protected value. |
+| B. Language resolution | Built | Word lists extended so a realistic sentence scores above the threshold, and kept clear of words English also uses. |
+| C. Inbound handled in any language | Built | Translated at the door. A failure escalates to a person with the original words. |
+| D. Reply in the customer's language | **Different from the plan** | Fixed replies are **not** human-written templates in this pass. Where `Translation:AllowUnreviewedTranslations` is on (dev only) every reply is machine translated, labelled as such, and falls back to English on any failure. Human-reviewed overrides are the follow-up, seeded from the review sheet. English output is byte-identical to before. |
+| E. Turns record both languages | Built | Stored in the turn's JSON payload, so no schema change was needed. The claim keeps the customer's own words. |
+| F. Webhook stays fast | Built | The message is saved, queued in-process, and Meta gets its 200 at once. A queued message is lost if the API restarts in that window and stays visible in the Inbox. |
+| G. Model in its own container | Built | Azure Container Apps, file share, key in Key Vault, image pinned by digest. Recorded in `AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md` and `infra/bicep/afrislm-translation.bicep`. |
+| H. Review sheet | Built, unscored | `docs/04-testing-security-quality/local-language-review-sheet.md`, 120 rows of real engine output. |
+| I. Staff visibility | Partly built | Channels inbox shows the language and what was understood. Admin shows whether the engine is reachable. Not built: marking a template reviewed (there are no templates yet). |
+
+### What the model does well and badly (measured, not reviewed)
+
+Customer to English is accurate in both languages. English to Kiswahili is good. English to Luganda
+makes mistakes with insurance vocabulary ("claim on your policy" became "case on your plot", "claims
+officer" became "debt trader"), so Luganda replies keep those three terms in English. Speed on a 6-core
+laptop CPU was 1 to 5 seconds per message.
+
+### Not verified
+
+- A real WhatsApp message from a handset through to a translated reply. Everything up to the webhook
+  is verified live (the deployed API reaches the hosted model and translates), and the assistant is
+  tested end to end with the real model locally, but the last hop needs a handset.
+- The new staff screens have not been opened in a browser (they need an interactive Entra sign-in).
+- No translation has been reviewed by a native speaker. Do not claim Luganda or Kiswahili quality.
+
+### Deliberately not decided by the loop
+
+The model runs always on, in one container, on a small CPU: enough for a pilot, not for volume.
+Moving to a hosted translation service (Azure Translator, Sunbird) is a change to one class behind
+`ITranslationProvider`, and worth comparing against this model using the review sheet.
