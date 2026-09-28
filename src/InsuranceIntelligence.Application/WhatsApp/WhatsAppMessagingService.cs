@@ -63,14 +63,21 @@ public sealed class WhatsAppMessagingService(
         if (thread.Any(message => message.Direction == WhatsAppMessageDirection.Outbound
             && message.DeliveryState is WhatsAppDeliveryState.Queued or WhatsAppDeliveryState.Unknown))
             throw new WhatsAppPolicyException("ReconciliationRequired", "A previous WhatsApp attempt is unresolved. Reconcile it before trying again.");
+        // Verification is "this contact actually sent an inbound message on this exact thread",
+        // not "that inbound message already carries this case id": nothing in the inbound pipeline
+        // (CustomerAssistantService) ever stamps a CaseId onto the customer's own message, only
+        // onto the assistant's outbound reply once a case is opened, so every inbound row's CaseId
+        // is null in practice. Requiring an inbound/command CaseId match here made every reply
+        // attempt fail with RecipientNotVerified, on every thread, case-linked or not. ThreadId is
+        // already scoped to one exact contact (WhatsAppMessagingService.BuildThreadId), so the
+        // ContactWaId match below is what actually proves this is a real, consenting participant.
         var verifiedInbound = thread
             .Where(message => message.Direction == WhatsAppMessageDirection.Inbound
-                && message.CaseId == command.CaseId
                 && string.Equals(message.ContactWaId, NormalizeWaId(command.RecipientWaId), StringComparison.Ordinal))
             .OrderByDescending(message => message.CreatedAt)
             .FirstOrDefault();
         if (verifiedInbound is null)
-            throw new WhatsAppPolicyException("RecipientNotVerified", "The recipient is not verified by this case-linked WhatsApp thread.");
+            throw new WhatsAppPolicyException("RecipientNotVerified", "The recipient has not sent a message on this WhatsApp thread.");
 
         // Outcome M / AGENTS.md non-negotiable 5: a staff-typed ConsentBasis string (below) is a
         // claim, not a check. This is the real one, against the same ConsentRecord table every

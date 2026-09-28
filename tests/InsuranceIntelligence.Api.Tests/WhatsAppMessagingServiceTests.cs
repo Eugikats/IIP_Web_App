@@ -56,6 +56,38 @@ public sealed class WhatsAppMessagingServiceTests
     }
 
     [Fact]
+    public async Task SendAsync_VerifiesByContactOnTheThread_EvenWhenTheInboundMessageCarriesNoCaseId()
+    {
+        // The real bug this guards against: CustomerAssistantService never stamps a CaseId onto an
+        // inbound (customer-authored) message, only onto the assistant's own outbound reply once a
+        // case is opened, so every real inbound row's CaseId is null. A verification check that
+        // required the inbound message to already carry the command's CaseId failed on every single
+        // WhatsApp thread ever, case-linked or not (confirmed live in dev: every inbound message
+        // across every conversation had CaseId: null). ContactWaId on this thread is what actually
+        // proves this is the real, consenting participant.
+        var fixture = await Fixture.CreateAsync();
+        await fixture.Repository.SaveAsync(fixture.InboundMessage(DateTimeOffset.UtcNow.AddHours(-1)) with { CaseId = null });
+
+        var sent = await fixture.Service.SendAsync(fixture.SendRequest("send-no-inbound-case"));
+
+        Assert.Equal(WhatsAppDeliveryState.ProviderAccepted, sent.DeliveryState);
+        Assert.Equal(1, fixture.Provider.Attempts);
+    }
+
+    [Fact]
+    public async Task SendAsync_NoInboundMessageFromThisContactOnTheThread_IsRefused()
+    {
+        var fixture = await Fixture.CreateAsync();
+        // No inbound message saved for this thread at all.
+
+        var error = await Assert.ThrowsAsync<WhatsAppPolicyException>(() =>
+            fixture.Service.SendAsync(fixture.SendRequest("send-unverified")));
+
+        Assert.Equal("RecipientNotVerified", error.Code);
+        Assert.Equal(0, fixture.Provider.Attempts);
+    }
+
+    [Fact]
     public async Task SendAsync_OutsideCustomerServiceWindow_RequiresApprovedTemplate()
     {
         var fixture = await Fixture.CreateAsync();
