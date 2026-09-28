@@ -619,19 +619,21 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {detail.documents.map((document) => (
-                  <div key={document.documentId} className="flex items-center gap-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
-                    <div className="grid h-9 w-9 place-items-center rounded-dls-control bg-dls-info-tint text-dls-info-text">
+                  <div key={document.documentId} className="flex items-start gap-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-dls-control bg-dls-info-tint text-dls-info-text">
                       <FileText className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-semibold text-dls-text-primary">{document.documentType}</div>
-                      <div className="text-[11px] text-dls-text-muted">{document.processingStatus}</div>
+                      <div className="break-words text-[13px] font-semibold text-dls-text-primary">{document.documentType}</div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-[11px] text-dls-text-muted">{document.processingStatus}</span>
+                        {document.classificationConfidence > 0 ? (
+                          <ConfidenceBadge value={document.classificationConfidence > 1 ? document.classificationConfidence / 100 : document.classificationConfidence} />
+                        ) : (
+                          <Badge tone="neutral">Not scored</Badge>
+                        )}
+                      </div>
                     </div>
-                    {document.classificationConfidence > 0 ? (
-                      <ConfidenceBadge value={document.classificationConfidence > 1 ? document.classificationConfidence / 100 : document.classificationConfidence} />
-                    ) : (
-                      <Badge tone="neutral">Not scored</Badge>
-                    )}
                   </div>
                 ))}
               </div>
