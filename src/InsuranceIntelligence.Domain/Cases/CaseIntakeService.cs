@@ -183,9 +183,13 @@ public sealed class CaseIntakeService(
         }
 
         var products = await productRepository.ListCurrentForAllProductsAsync(scope, cancellationToken);
+        // ProductClass is the line ("Motor", "Medical"), not Name (an admin-chosen display name
+        // like "Motor Comprehensive" or the demo seed's "Motor Cover") -- matching on Name meant a
+        // freshly filed claim never pinned to a real product even when one existed for its line,
+        // silently falling back to the generic built-in checklist every time.
         var match = products.FirstOrDefault(product =>
             product.Status == ProductStatus.Published
-            && string.Equals(product.Name, productLine.Trim(), StringComparison.OrdinalIgnoreCase));
+            && string.Equals(product.ProductClass, productLine.Trim(), StringComparison.OrdinalIgnoreCase));
 
         return match is null ? (null, null) : (match.ProductId, match.Version);
     }

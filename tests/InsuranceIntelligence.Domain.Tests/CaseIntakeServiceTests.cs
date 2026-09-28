@@ -38,6 +38,26 @@ public sealed class CaseIntakeServiceTests
     }
 
     [Fact]
+    public async Task CreateCaseAsync_MatchesByProductClass_NotByTheProductsDisplayName()
+    {
+        // The real bug this guards against: the demo seed (and any admin who names a product
+        // something other than the bare line, e.g. "Motor Comprehensive" or "Motor Cover") set
+        // ProductClass to the line ("Motor") but Name to a display name. Matching on Name meant a
+        // freshly filed claim never pinned to a real product even though one existed and was
+        // published for that exact line, confirmed live in dev before this fix.
+        var products = new RecordingProductRepository();
+        var scope = TenantScope.Create("tenant-demo", "workspace-claims");
+        var product = PublishedProduct(scope, "Motor", version: 1) with { Name = "Motor Cover" };
+        await products.SaveAsync(product);
+        var service = new CaseIntakeService(new RecordingCaseRepository(), new RecordingAuditRepository(), products);
+
+        var claimCase = await service.CreateCaseAsync(ValidCommand());
+
+        Assert.Equal(product.ProductId, claimCase.ProductId);
+        Assert.Equal(1, claimCase.ProductVersion);
+    }
+
+    [Fact]
     public async Task CreateCaseAsync_IgnoresADraftProductWithTheSameName()
     {
         var products = new RecordingProductRepository();
