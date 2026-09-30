@@ -268,4 +268,8 @@ public sealed class SunbirdTranslationProviderTests
             return Task.FromResult(respond(request));
         }
     }
+
+    [Fact]
+    public void CopiedSourceMarkers_NeverReachTheCustomer() =>
+        Assert.Equal("Gyebale ko, nze Kato.", SunbirdTranslationProvider.WithoutMarkers("<<<\nGyebale ko, nze Kato.\n>>>"));
 }

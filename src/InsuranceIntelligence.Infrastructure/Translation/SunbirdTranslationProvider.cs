@@ -177,11 +177,18 @@ public sealed class SunbirdTranslationProvider(SunbirdSettings settings, HttpCli
             && message.TryGetProperty("content", out var content)
             && content.ValueKind == JsonValueKind.String)
         {
-            return content.GetString() ?? string.Empty;
+            return WithoutMarkers(content.GetString() ?? string.Empty);
         }
 
         return string.Empty;
     }
+
+    /// <summary>The model sometimes copies the &lt;&lt;&lt; &gt;&gt;&gt; markers that fence the source text into
+    /// its answer; a customer must never see them.</summary>
+    public static string WithoutMarkers(string translation) =>
+        translation.Replace("<<<", string.Empty, StringComparison.Ordinal)
+            .Replace(">>>", string.Empty, StringComparison.Ordinal)
+            .Trim();
 
     private string Url(string path) => settings.Endpoint.TrimEnd('/') + path;
 
