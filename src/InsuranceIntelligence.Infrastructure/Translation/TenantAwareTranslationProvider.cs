@@ -66,7 +66,31 @@ public sealed class TenantAwareTranslationProvider(
             : TranslationEngineStatus.NotConfigured;
     }
 
+    // Scoped lifetime: one resolution per request, taken under a lock, so sentences translated in
+    // parallel never run two queries on the same database context at once.
+    private readonly SemaphoreSlim resolveLock = new(1, 1);
+    private readonly Dictionary<TenantScope, ProviderResolution> resolved = new();
+
     private async Task<ProviderResolution> ResolveAsync(TenantScope scope, CancellationToken cancellationToken)
+    {
+        await resolveLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!resolved.TryGetValue(scope, out var resolution))
+            {
+                resolution = await ResolveUncachedAsync(scope, cancellationToken);
+                resolved[scope] = resolution;
+            }
+
+            return resolution;
+        }
+        finally
+        {
+            resolveLock.Release();
+        }
+    }
+
+    private async Task<ProviderResolution> ResolveUncachedAsync(TenantScope scope, CancellationToken cancellationToken)
     {
         var connection = await connectionRepository.GetAsync(scope, ConnectionType.Translation, cancellationToken);
         if (connection is not { IsActive: true })

@@ -979,6 +979,67 @@ public sealed partial class CustomerAssistantServiceTests
         File.WriteAllText(path, transcript.ToString());
     }
 
+    // Run by hand, as above, with real Sunbird translation both ways:
+    //   KATO_LIVE_TRANSCRIPT=... KATO_SUNBIRD_KEY_FILE=path/to/key dotnet test --filter Agent_LiveLugandaInterview
+    [Fact]
+    public async Task Agent_LiveLugandaInterview_WhenRequested()
+    {
+        var path = Environment.GetEnvironmentVariable("KATO_LIVE_TRANSCRIPT");
+        var keyFile = Environment.GetEnvironmentVariable("KATO_SUNBIRD_KEY_FILE");
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(keyFile) || !File.Exists(keyFile))
+        {
+            return;
+        }
+
+        var model = new InsuranceIntelligence.Api.Azure.AzureOpenAiToolCallingChatProvider(
+            new InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions
+            {
+                AzureOpenAI = new InsuranceIntelligence.Infrastructure.Configuration.AzureOpenAiOptions
+                {
+                    Endpoint = "https://oai-iip-dev-h5girbnzrayqe.openai.azure.com/",
+                    ChatDeployment = "iip-chat",
+                },
+            },
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<InsuranceIntelligence.Api.Azure.AzureOpenAiToolCallingChatProvider>.Instance,
+            tokenCredential: new global::Azure.Identity.AzureCliCredential());
+        var sunbird = new SunbirdTranslationProvider(
+            new SunbirdSettings(File.ReadAllText(keyFile).Trim(), SunbirdSettings.DefaultEndpoint, SunbirdSettings.DefaultModel, 60),
+            new HttpClient());
+
+        string[] script =
+        [
+            "Gyebale ko",
+            "Nnina edduuka e Kalerwe, onnyamba otya?",
+            "Ntunda engatto n'ensawo",
+            "Edduuka lirina oluggi olusibibwa. Ebintu biri nga obukadde butaano. Ebyamaguzi mbiggya Kikuubo ku boda",
+            "Kale kitandikibwe. Nze Grace Nakato",
+            "Ababbi bamenye edduuka lyange ekiro ne batwala engatto",
+            "Yee",
+        ];
+
+        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone, translator: sunbird);
+        var transcript = new System.Text.StringBuilder();
+        foreach (var line in script)
+        {
+            var before = fixture.Outbound.SentRequests.Count;
+            var started = DateTimeOffset.UtcNow;
+            await fixture.HandleNamedAsync(line, "Customer");
+            var turn = fixture.Conversations.Saved[^1];
+            transcript.AppendLine($"THEM: {line}");
+            transcript.AppendLine($"   [Kato understood: {turn.InboundMessageText}]");
+            transcript.AppendLine($"   [Kato wrote in English: {turn.OutboundReplyText}]");
+            foreach (var sent in fixture.Outbound.SentRequests.Skip(before))
+            {
+                transcript.AppendLine($"KATO ({(DateTimeOffset.UtcNow - started).TotalSeconds:0}s): {sent.CustomerSafeBody}");
+            }
+
+            transcript.AppendLine($"   [outcome {turn.Outcome}]");
+        }
+
+        transcript.AppendLine($"   [customers: {string.Join(", ", fixture.Customers.Customers.Select(c => c.FullName))}; policies: {string.Join(", ", fixture.Policies.Policies.Values.Select(p => p.ProductLine))}; claims: {(await fixture.Cases.ListAsync(fixture.Scope)).Count}]");
+        File.WriteAllText(path, transcript.ToString());
+    }
+
     private sealed class ScriptedAgentModel : IToolCallingChatProvider
     {
         private readonly Queue<AgentChatStep> steps = new();

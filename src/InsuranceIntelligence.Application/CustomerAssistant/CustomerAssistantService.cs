@@ -600,7 +600,7 @@ public sealed partial class CustomerAssistantService(
             try
             {
                 outcome = await RunAgentAsync(
-                    scope, original, text, waId, thread,
+                    scope, original, text, waId, thread, language.Reply,
                     understood.Status == TranslationStatus.Translated ? new CustomerOwnWords(original, SupportedLanguage.For(language.Inbound).Iso) : null,
                     correlationId, now, cancellationToken);
             }
@@ -1721,6 +1721,13 @@ public sealed partial class CustomerAssistantService(
             return new Understood(original, TranslationStatus.NotNeeded, false, null);
         }
 
+        // A bare greeting is a greeting in any language; the engine once turned "Gyebale ko" into
+        // "Thank you", and Kato answered "you're welcome".
+        if (ConversationContinuation.IsGreeting(original))
+        {
+            return new Understood("Hello (a greeting)", TranslationStatus.Translated, false, null);
+        }
+
         var outcome = await translationService!.TranslateAsync(original, inbound, SupportedLanguageCode.En, scope, cancellationToken);
         if (outcome.Translated)
         {
@@ -1768,6 +1775,9 @@ public sealed partial class CustomerAssistantService(
         }
 
         literals.AddRange(AssistantGlossary.KeptInEnglish(reply));
+        // Product names are names: "Small Business Shop Cover" once came back as "picture of the shop".
+        literals.AddRange(MicroinsuranceCatalog.All.SelectMany(p => new[] { p.Name, p.Name.Replace("Nile Shield ", string.Empty, StringComparison.Ordinal), p.ProductLine }));
+        literals.Add("Nile Shield");
         var outcome = await translationService!.TranslateAsync(english, SupportedLanguageCode.En, reply, scope, cancellationToken, literals);
         if (!outcome.Translated)
         {

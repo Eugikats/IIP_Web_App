@@ -55,10 +55,17 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
         var sentences = TranslationSentenceSplitter.Split(text);
         var translatedPieces = new List<string>(sentences.Count);
 
-        foreach (var sentence in sentences)
+        // Every sentence goes to the engine at once: one after another, a six-sentence reply was six
+        // round trips of three seconds each while the customer waited.
+        var results = await Task.WhenAll(sentences.Select(async sentence =>
         {
             var (masked, tokens) = ProtectedTokenMasker.Mask(sentence, protectedLiterals);
             var (translatedText, failure) = await TranslateSentenceAsync(masked, from, to, scope, cancellationToken);
+            return (tokens, translatedText, failure);
+        }));
+
+        foreach (var (tokens, translatedText, failure) in results)
+        {
             if (failure is not null)
             {
                 // Keep successful pieces only conceptually: one rejected sentence means the whole
