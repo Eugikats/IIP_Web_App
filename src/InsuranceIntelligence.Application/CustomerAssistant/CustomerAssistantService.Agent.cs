@@ -100,10 +100,23 @@ public sealed partial class CustomerAssistantService
             - Never start with "Sorry, I didn't understand". If a message is unclear, make your best guess from the conversation and ask one short question.
             - Answer greetings warmly and ask how you can help. Only say "you're welcome" when someone thanks you. The first time you speak to someone, say you are Kato from Nile Shield.
 
+            You are also Nile Shield's salesperson, the good kind: someone people are glad they spoke to. Most people who write have never had insurance and do not see why they need it. Your goal is that they leave protected, because they understood for themselves what could go wrong and how cheaply they can be covered, not because you pushed.
+
+            How you sell:
+            - Be curious about them first. Ask about their work and their life the way a friendly person at the counter would, one or two questions at a time, never as a form, and use what they already told you. For a business: what they sell, how they sell it (a lockable shop, a market stall, from home, by delivery), roughly what their stock is worth, and whether they carry stock from suppliers such as Kikuubo or Owino. For a boda boda rider: whether they own the motorcycle or ride for an owner, how many days a week they ride, and who depends on their income. For anyone: what would hurt most if it happened tomorrow, and who depends on them.
+            - Introduce insurance from their side of life, not from the product. Ask about what they actually do ("Do you usually bring stock from Kikuubo yourself?", "Are you expecting, or planning a family?") and build a short, concrete picture from their answers: "You told me you bring 2 million in stock on a boda every week. If it fell off or was snatched on the way, this cover would pay up to 2 million so your shop keeps running." For a mother: "Imagine you go into labour and the hospital bill for a caesarean is 2.5 million; Mama Care would pay 2 million of it, so you are not borrowing to bring your baby home."
+            - Never assume someone's gender or family situation from their work: say "you or your partner" until they tell you. Mention a waiting period whenever it matters to what they are planning (for example Mama Care covers childbirth only after 10 months).
+            - Always say exactly what the cover would pay in that picture, even when it is only part of the bill, and never suggest it pays more than list_products says. Use their own numbers or realistic ones; never exaggerate how likely something is and never invent statistics or other people's stories.
+            - Then recommend one cover, or at most two, and connect every part of it to what they told you: why this cover, why this level for their stock, what it would have paid in the situation they described.
+            - Make the price feel real: break the monthly price down to the day (UGX 15,000 a month is about UGX 500 a day) and set it against what they could lose.
+            - Welcome doubts and answer them: the price, "I have never needed it", "insurers never pay", "let me think about it". Answer calmly and truthfully, using the product facts; for "insurers never pay", explain how a claim works here: report on WhatsApp, share papers through the secure link, a person reviews it, and an approved claim is paid by mobile money.
+            - Ask for the decision naturally once they see the value ("shall I set it up for you now?"). If they say no or not now, respect it warmly, leave the door open, and do not ask again in the same conversation unless they bring it up.
+            - Never pressure, never invent urgency or discounts, never promise that a claim will be paid. If they ask directly for prices or the list of covers, answer first and then carry on the conversation.
+
             What you can do, always through your tools (never invent a price, policy, claim or rule):
-            - Explain covers: list_products for prices and what each pays; search_policy_information for detailed terms.
-            - Register a new customer: ask for whatever you do not already know of their full name, their work and their area, in one question, then call register_customer. Never ask again for something they already told you.
-            - Sell a cover: as soon as they agree to a cover ("yes", "ok", "that one", "the boda one"), call apply_for_cover straight away; do not ask them to confirm again. Register them first if they are not yet registered.{(demoPhone ? " On this test phone, applications are approved immediately as demo policies and no money is collected; tell them so plainly." : " The application is confirmed by a licensed person, who will also explain payment.")}
+            - Explain covers: list_products for prices, levels and what each pays; search_policy_information for detailed terms.
+            - Register a new customer: use what they already told you anywhere in the conversation (a first name and surname is a full name; "I sell shoes" is their work; "a shop in Kalerwe" is their area). If you have their name, call register_customer straight away and fill in the rest from the conversation; ask only for what is truly missing, in one short question. Never ask again for something they already said.
+            - Sell a cover: as soon as they agree to a cover ("yes", "ok", "that one", "the boda one"), call apply_for_cover straight away with the level that fits (cover_amount_ugx); do not ask them to confirm again. Register them first if they are not yet registered.{(demoPhone ? " On this test phone, applications are approved immediately as demo policies and no money is collected; tell them so plainly." : " The application is confirmed by a licensed person, who will also explain payment.")}
             - Someone with no cover who reports an accident or a loss: be kind, say they do not have cover with Nile Shield yet, and offer to register them and set up the right cover now. Once the cover is active, take the claim as below; the claims team decides whether it is covered, so do not tell them it will or will not be.
             - Report a claim: call get_my_account first. Find out what happened, when and where, and which cover it falls under, using everything already said in the conversation; if you already have all of it, read it back straight away. Read it back in one or two sentences and ask them to reply YES. Only after they reply yes, call file_claim. Never ask for photos, IDs or papers in the chat: papers go only through the secure link that file_claim returns.
             - Claim status and their covers: get_my_account. A secure link to upload papers for an open claim: send_claim_link.
@@ -161,7 +174,11 @@ public sealed partial class CustomerAssistantService
             new
             {
                 type = "object",
-                properties = new { product = new { type = "string", description = "The product name or line from list_products." } },
+                properties = new
+                {
+                    product = new { type = "string", description = "The product name or line from list_products." },
+                    cover_amount_ugx = new { type = "number", description = "For covers with levels: the most it should pay, matching what their stock or goods are worth." },
+                },
                 required = new[] { "product" },
                 additionalProperties = false,
             }),
@@ -203,7 +220,7 @@ public sealed partial class CustomerAssistantService
             "list_products" => ToolListProducts(),
             "search_policy_information" => await ToolSearchAsync(run, Arg(args, "question") ?? run.English, Arg(args, "product"), cancellationToken),
             "register_customer" => await ToolRegisterAsync(run, Arg(args, "full_name"), Arg(args, "occupation"), Arg(args, "area"), cancellationToken),
-            "apply_for_cover" => await ToolApplyAsync(run, Arg(args, "product"), cancellationToken),
+            "apply_for_cover" => await ToolApplyAsync(run, Arg(args, "product"), NumberArg(args, "cover_amount_ugx"), cancellationToken),
             "file_claim" => await ToolFileClaimAsync(run, Arg(args, "product_or_policy_number"), Arg(args, "what_happened"), Arg(args, "when_it_happened"), cancellationToken),
             "send_claim_link" => await ToolSendLinkAsync(run, cancellationToken),
             "hand_to_person" => await ToolHandToPersonAsync(run, Arg(args, "reason"), cancellationToken),
@@ -257,8 +274,7 @@ public sealed partial class CustomerAssistantService
             product = p.ProductLine,
             who_it_is_for = p.WhoItIsFor,
             what_it_pays = p.Explanation,
-            monthly_price_ugx = p.MonthlyPremium,
-            most_it_pays_ugx = p.SumInsured,
+            levels = p.ChoosableLevels.Select(level => new { cover_up_to_ugx = level.SumInsured, monthly_price_ugx = level.MonthlyPremium }),
             waiting_period = p.WaitingPeriod,
             papers_for_a_claim = p.PapersForAClaim,
             how_to_pay = "Monthly by mobile money (MTN or Airtel). The first payment starts the cover.",
@@ -329,7 +345,7 @@ public sealed partial class CustomerAssistantService
         return Json(new { registered = true, name, next = "Offer the covers from list_products that fit their work, and ask which they want." });
     }
 
-    private async Task<string> ToolApplyAsync(AgentRun run, string? productName, CancellationToken cancellationToken)
+    private async Task<string> ToolApplyAsync(AgentRun run, string? productName, decimal? coverAmount, CancellationToken cancellationToken)
     {
         var product = MicroinsuranceCatalog.FindByLineOrName(productName);
         if (product is null)
@@ -364,12 +380,13 @@ public sealed partial class CustomerAssistantService
 
         // The operator's standing decision for the field-test phone: a demo application is issued at
         // once so a participant can finish the journey. Marked as a demo policy everywhere.
+        var level = product.LevelFor(coverAmount);
         var today = DateOnly.FromDateTime(run.Now.UtcDateTime);
         var policyNumber = $"NSA/{product.Code}/{today.Year}/{Random.Shared.Next(10000, 99999)}";
         var policy = new Policy(
             Guid.NewGuid().ToString(), run.Scope.TenantId, run.Scope.WorkspaceId, policyNumber, product.ProductLine,
-            $"{product.Name}, UGX {product.MonthlyPremium:N0} a month (demo policy, field test)",
-            customers[0].CustomerId, null, today, today.AddYears(1), product.MonthlyPremium * 12m, "UGX", product.SumInsured);
+            $"{product.Name}, cover up to UGX {level.SumInsured:N0}, UGX {level.MonthlyPremium:N0} a month (demo policy, field test)",
+            customers[0].CustomerId, null, today, today.AddYears(1), level.MonthlyPremium * 12m, "UGX", level.SumInsured);
         await policyRepository.UpsertAsync(policy, cancellationToken);
         await auditRepository.WriteAsync(
             new AuditEvent(
@@ -384,6 +401,8 @@ public sealed partial class CustomerAssistantService
             status = "active_demo_policy",
             policy_number = policyNumber,
             product = product.Name,
+            cover_up_to_ugx = level.SumInsured,
+            monthly_price_ugx = level.MonthlyPremium,
             starts = today.ToString("d MMMM yyyy"),
             waiting_period = product.WaitingPeriod,
             note = "This is a demo policy for testing. No money is collected.",
@@ -574,6 +593,16 @@ public sealed partial class CustomerAssistantService
         args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
             && !string.IsNullOrWhiteSpace(value.GetString())
             ? value.GetString()!.Trim()
+            : null;
+
+    private static decimal? NumberArg(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value)
+            ? value.ValueKind switch
+            {
+                JsonValueKind.Number => value.GetDecimal(),
+                JsonValueKind.String when decimal.TryParse(value.GetString()?.Replace(",", string.Empty), out var parsed) => parsed,
+                _ => null,
+            }
             : null;
 
     private static string Json(object value) => JsonSerializer.Serialize(value, ToolJson);

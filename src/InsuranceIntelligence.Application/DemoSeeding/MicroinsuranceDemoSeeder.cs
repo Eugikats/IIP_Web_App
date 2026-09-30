@@ -237,6 +237,17 @@ public sealed class MicroinsuranceDemoSeeder(
             Requirement("StockList", "a list of what was lost or damaged and what it was worth", "Shows the value of the loss.", true),
             Requirement("PhotoEvidence", "photos of the shop after the loss", "Shows the damage.", false),
         ]),
+        new(MicroinsuranceCatalog.TransitLine, "Goods in Transit (microinsurance, demo)",
+        [
+            Requirement("PoliceAbstract", "the police report of the theft or the accident", "Confirms what happened on the road.", true),
+            Requirement("SupplierReceipt", "the supplier's receipt or delivery note for the goods", "Shows what was being carried and its value.", true),
+            Requirement("PhotoEvidence", "photos of the damaged goods or vehicle, if you have them", "Shows the damage.", false),
+        ]),
+        new(MicroinsuranceCatalog.MaternityLine, "Mama Care Maternity (microinsurance, demo)",
+        [
+            Requirement("MedicalReport", "the hospital discharge summary or birth notification", "Shows the delivery and how the baby was born.", true),
+            Requirement("Invoice", "the hospital bill or receipts", "Shows what the delivery cost.", true),
+        ]),
     ];
 
     private async Task<bool> EnsureProductAsync(TenantScope scope, CatalogueProduct entry, DateTimeOffset now, CancellationToken cancellationToken)
@@ -514,6 +525,93 @@ public sealed class MicroinsuranceDemoSeeder(
             Section 5, claims. Report the loss to the police or fire brigade and to us within 14 days. We need the police or fire brigade report, a list of what was lost or damaged with its value, and photos of the premises. We settle within 15 working days of complete documents and pay by mobile money.
 
             Section 6, complaints. A person reviews any complaint within 14 days. You may also complain to the Insurance Regulatory Authority of Uganda.
+            """),
+        new("Nile Shield Small Business Shop Cover, Cover Levels", MicroinsuranceCatalog.ShopLine, KnowledgeDocumentType.ProductOverview, """
+            Choosing your level of Small Business Shop Cover. Choose the level that matches what your stock, shelves and equipment are worth on a normal day, so a loss is paid in full.
+
+            Level 1: pays up to UGX 2,000,000 a year, for UGX 5,000 a month. Suits a kiosk or a small shop.
+
+            Level 2: pays up to UGX 4,000,000 a year, for UGX 9,000 a month. Suits a shop or boutique with a moderate amount of stock.
+
+            Level 3: pays up to UGX 8,000,000 a year, for UGX 15,000 a month. Suits a well-stocked boutique, hardware shop, pharmacy or salon with equipment.
+
+            If your stock is worth more than UGX 8,000,000, Level 3 pays up to UGX 8,000,000 and a person from Nile Shield can talk to you about a larger business policy. For every level you pay the first UGX 100,000 of each claim yourself, and cover starts 7 days after you join.
+            """),
+        new("Nile Shield Goods in Transit, Key Information", MicroinsuranceCatalog.TransitLine, KnowledgeDocumentType.ProductOverview, """
+            Key information: Nile Shield Goods in Transit. This is a microinsurance product for traders who carry stock from their suppliers, for example from Kikuubo or Owino, to their shop or stall by boda, taxi or pick-up, and for anyone who delivers goods to customers. It is a sample product being tested with customers.
+
+            What it pays. It pays for the goods you are carrying if they are stolen on the way, or destroyed or damaged in a road accident, from the moment they leave the supplier until they reach your shop, stall or customer. Level 1 pays up to UGX 1,000,000 per trip for UGX 3,000 a month. Level 2 pays up to UGX 2,000,000 per trip for UGX 5,000 a month.
+
+            When cover starts (waiting period). Cover starts 7 days after you join.
+
+            Grace period. If you miss a payment, you have 15 days to pay before your cover stops.
+
+            What it does not pay for. Goods left unattended on a vehicle. Cash or mobile money float. Goods that spoil because of delay or heat. Goods carried on a vehicle with an unlicensed driver or rider. Losses you cannot show with a receipt or delivery note.
+
+            How to claim. Report the theft or accident to the police and tell Kato on WhatsApp within 7 days. We need the police report and the supplier's receipt or delivery note. Send papers only through the secure link we give you, not in the chat. We pay by mobile money within 10 working days of getting the papers.
+            """),
+        new("Nile Shield Goods in Transit, Policy Wording", MicroinsuranceCatalog.TransitLine, KnowledgeDocumentType.PolicyWording, """
+            Nile Shield Goods in Transit, microinsurance policy wording, demo version 1.0.
+
+            Section 1, the cover. We cover goods belonging to the insured, or held by the insured for sale, while in transit by road within Uganda between the supplier's premises, the insured's premises and the insured's customers, against theft and against loss or damage caused by a road accident, fire or overturning of the carrying vehicle. The limit per trip is UGX 1,000,000 at Level 1 or UGX 2,000,000 at Level 2, within the microinsurance limit of UGX 10,000,000.
+
+            Section 2, premium and grace period. The premium is UGX 3,000 a month at Level 1 and UGX 5,000 a month at Level 2. There is a grace period of 15 days.
+
+            Section 3, waiting period. Cover starts 7 days after the first premium is paid.
+
+            Section 4, exclusions. We do not pay for: goods left unattended; cash, cheques or mobile money float; spoilage, delay or temperature damage; goods carried by an unlicensed driver or rider; losses not supported by a receipt or delivery note.
+
+            Section 5, claims. Report to the police and to us within 7 days. We need the police report and the supplier's receipt or delivery note. We settle within 10 working days of complete documents and pay by mobile money.
+
+            Section 6, complaints. A person reviews any complaint within 14 days. You may also complain to the Insurance Regulatory Authority of Uganda.
+            """),
+        new("Nile Shield Goods in Transit, How to Join, Pay and Claim", MicroinsuranceCatalog.TransitLine, KnowledgeDocumentType.ProductOverview, """
+            How to join Nile Shield Goods in Transit. This is a microinsurance product being tested with customers. Traders who carry stock from suppliers, and anyone who delivers goods, can join. Joining takes a few minutes on WhatsApp: tell Kato your full name, your work and your area, and choose the level.
+
+            How to pay. Level 1 costs UGX 3,000 a month and Level 2 costs UGX 5,000 a month, paid by mobile money on MTN or Airtel. The first payment starts the cover, which begins 7 days after you join.
+
+            How to make a claim. Tell Kato on WhatsApp what happened, when and where. Kato reads it back to you, and when you confirm, the claim goes straight to the Nile Shield claims team with a claim reference. Kato then sends you a secure link to share the police report and the supplier's receipt or delivery note. Never send papers or ID in the WhatsApp chat itself.
+
+            How claims are paid. When a claim is approved, the money is paid to you by mobile money on the phone number on your policy, usually within 10 working days of receiving all the papers.
+            """),
+        new("Nile Shield Mama Care Maternity, Key Information", MicroinsuranceCatalog.MaternityLine, KnowledgeDocumentType.ProductOverview, """
+            Key information: Nile Shield Mama Care Maternity. This is a microinsurance product for mothers and families. It is a sample product being tested with customers.
+
+            What it pays. It pays towards the cost of giving birth at a registered hospital or health centre in Uganda: up to UGX 600,000 for a normal delivery, or up to UGX 2,000,000 for a caesarean section. It can be paid to you or straight to the hospital. If the bill is higher, you pay the rest.
+
+            What it costs. UGX 12,000 a month, paid by mobile money.
+
+            When cover starts (waiting period). Childbirth is covered once you have had the cover for 10 months, so it is best taken before or at the very start of a pregnancy. Treatment after an accident during pregnancy is covered from the day you join.
+
+            Grace period. If you miss a payment, you have 30 days to pay before your cover stops.
+
+            What it does not pay for. A pregnancy that had already started before you joined, for childbirth itself. Delivery at home or at an unregistered clinic. Fertility treatment. Cosmetic procedures.
+
+            How to claim. Tell Kato on WhatsApp after the birth, within 30 days. We need the hospital discharge summary or birth notification and the hospital bill or receipts. Send papers only through the secure link we give you, not in the chat. We pay by mobile money within 10 working days of getting the papers.
+            """),
+        new("Nile Shield Mama Care Maternity, Policy Wording", MicroinsuranceCatalog.MaternityLine, KnowledgeDocumentType.PolicyWording, """
+            Nile Shield Mama Care Maternity, microinsurance policy wording, demo version 1.0.
+
+            Section 1, the cover. When the insured mother gives birth at a registered hospital or health centre in Uganda after the waiting period, we pay the reasonable cost of the delivery up to UGX 600,000 for a normal delivery or UGX 2,000,000 for a caesarean section, within the microinsurance limit of UGX 10,000,000.
+
+            Section 2, premium and grace period. The premium is UGX 12,000 a month. There is a grace period of 30 days.
+
+            Section 3, waiting period. Childbirth is covered after 10 months of continuous cover. Accidental injury during pregnancy is covered from the first day.
+
+            Section 4, exclusions. We do not pay for: childbirth from a pregnancy that began before cover started; home delivery or delivery at an unregistered facility; fertility treatment; cosmetic procedures.
+
+            Section 5, claims. Report within 30 days of the birth. We need the discharge summary or birth notification and the hospital bill or receipts. We settle within 10 working days of complete documents and pay by mobile money, to the insured or to the hospital.
+
+            Section 6, complaints. A person reviews any complaint within 14 days. You may also complain to the Insurance Regulatory Authority of Uganda.
+            """),
+        new("Nile Shield Mama Care Maternity, How to Join, Pay and Claim", MicroinsuranceCatalog.MaternityLine, KnowledgeDocumentType.ProductOverview, """
+            How to join Nile Shield Mama Care Maternity. This is a microinsurance product being tested with customers. Women aged 18 to 45 can join, or a husband or partner can take it for the mother of their child. Joining takes a few minutes on WhatsApp: tell Kato your full name, your work and your area.
+
+            How to pay. It costs UGX 12,000 a month, paid by mobile money on MTN or Airtel. Childbirth is covered once you have had the cover for 10 months.
+
+            How to make a claim. Tell Kato on WhatsApp after the birth. Kato reads it back to you, and when you confirm, the claim goes to the Nile Shield claims team with a claim reference. Kato then sends you a secure link to share the discharge summary or birth notification and the hospital bill. Never send papers in the WhatsApp chat itself.
+
+            How claims are paid. When a claim is approved, the money is paid by mobile money to the phone number on the policy, or straight to the hospital, usually within 10 working days of receiving all the papers.
             """),
     ];
 }

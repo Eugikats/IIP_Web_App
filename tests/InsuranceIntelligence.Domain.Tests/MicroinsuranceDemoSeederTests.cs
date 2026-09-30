@@ -24,19 +24,19 @@ public sealed class MicroinsuranceDemoSeederTests
         products, knowledge, index, customers, policies, cases, new InMemoryAuditRepository(), new DemoPolicyholderSettings(name));
 
     [Fact]
-    public async Task Catalogue_PublishesFourLabelledMicroinsuranceProducts_WithEvidenceMatrices_AndIsRerunnable()
+    public async Task Catalogue_PublishesEveryLabelledMicroinsuranceProduct_WithEvidenceMatrices_AndIsRerunnable()
     {
         var first = await Seeder().SeedCatalogueAsync(Scope, CancellationToken.None);
         var second = await Seeder().SeedCatalogueAsync(Scope, CancellationToken.None);
 
-        Assert.Equal(4, first.ProductsCreated);
-        Assert.Equal(12, first.DocumentsIndexed);
+        Assert.Equal(MicroinsuranceCatalog.All.Count, first.ProductsCreated);
+        Assert.Equal(19, first.DocumentsIndexed);
         Assert.Equal(0, second.ProductsCreated);
         Assert.Equal(0, second.DocumentsIndexed);
 
         var published = await products.ListCurrentForAllProductsAsync(Scope, CancellationToken.None);
         Assert.Equal(
-            new[] { MicroinsuranceCatalog.BodaAccidentLine, MicroinsuranceCatalog.HospitalCashLine, MicroinsuranceCatalog.StallStockLine, MicroinsuranceCatalog.ShopLine },
+            MicroinsuranceCatalog.All.Select(p => p.ProductLine).Order().ToArray(),
             published.Select(p => p.ProductClass).Order().ToArray());
         Assert.All(published, product =>
         {
@@ -52,10 +52,10 @@ public sealed class MicroinsuranceDemoSeederTests
     {
         await Seeder().SeedCatalogueAsync(Scope, CancellationToken.None);
 
-        foreach (var line in new[] { MicroinsuranceCatalog.HospitalCashLine, MicroinsuranceCatalog.BodaAccidentLine, MicroinsuranceCatalog.StallStockLine, MicroinsuranceCatalog.ShopLine })
+        foreach (var line in MicroinsuranceCatalog.All.Select(p => p.ProductLine))
         {
             var documents = (await knowledge.ListAsync(Scope, CancellationToken.None)).Where(d => d.ProductLine == line).ToArray();
-            Assert.Equal(3, documents.Length); // key information, wording, and how to join, pay and claim
+            Assert.True(documents.Length >= 3); // key information, wording, and how to join, pay and claim
             var text = string.Join(" ", documents.SelectMany(d => d.Chunks).Select(c => c.Content));
             Assert.Contains("microinsurance", text, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("waiting period", text, StringComparison.OrdinalIgnoreCase);

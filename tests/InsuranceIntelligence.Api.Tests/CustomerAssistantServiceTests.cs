@@ -821,6 +821,22 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
+    public async Task Agent_ChoosesTheShopCoverLevel_ThatMatchesTheStockValue()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("register_customer", """{"full_name":"Grace Nakato"}""")
+            .Calls("apply_for_cover", """{"product":"Small Business Shop","cover_amount_ugx":3000000}""")
+            .Says("Done.");
+        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone);
+
+        await fixture.HandleAsync("Go ahead, about 3 million in stock");
+
+        var policy = Assert.Single(fixture.Policies.Policies.Values);
+        Assert.Equal(4_000_000m, policy.SumInsured);
+        Assert.Equal(9_000m * 12, policy.AnnualPremium);
+    }
+
+    [Fact]
     public async Task Agent_OnAnyOtherPhone_AnApplicationWaitsForAPerson_AndNoPolicyIsIssued()
     {
         var model = new ScriptedAgentModel()
@@ -931,9 +947,10 @@ public sealed partial class CustomerAssistantServiceTests
 
         string[][] scripts =
         [
-            ["Good morning", "I own a boutique along Jinja road and I need an insurance policy but I'm not acquainted with the products", "Grace Nakato, I sell clothes, Jinja road", "Yes let's go with the shop cover", "How do I pay", "I lost my shop, thieves broke in last night and took the clothes", "Yes", "How will I get my money"],
+            ["Hello?", "I own a shop in Kalerwe, how can you help me?", "I sell shoes and bags", "It's a lockable shop. Stock is around 5 million. I buy from Kikuubo and bring it on a boda", "Okay let's do it. I'm Grace Nakato", "Thieves broke into my shop last night and took shoes", "Yes", "How will I get my money"],
             ["Hi", "I got into an accident", "I ride a boda", "Register me, I'm Musa Kato from Kawempe", "The boda one", "I got into an accident this morning at Wandegeya, a taxi hit me and I hurt my leg", "yes correct", "Help me with a link"],
-            ["Hello", "Am I talking to a real person?", "How easy is it to get a policy", "Then for businesses?", "Register me for Motor insurance"],
+            ["Hello, I sell tomatoes in Nakasero market", "Yes, and I'm newly married, we are planning our first baby", "What would that cost?", "Ok set it up, I'm Sarah Namubiru"],
+            ["Hi, a friend told me about you", "I run a salon in Ntinda", "Hmm, but insurance is expensive and they never pay", "I have never had a fire in 6 years", "Okay, how much for my equipment, it's about 3 million", "Let me think about it"],
         ];
 
         var transcript = new System.Text.StringBuilder();
