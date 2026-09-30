@@ -299,6 +299,7 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
     builder.Services.AddScoped<IAiAssistantProvider, AzureOpenAiAssistantProvider>();
     builder.Services.AddSingleton<IEmbeddingProvider, AzureOpenAiEmbeddingProvider>();
     builder.Services.AddScoped<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
+    builder.Services.AddScoped<IToolCallingChatProvider, AzureOpenAiToolCallingChatProvider>();
 }
 else
 {

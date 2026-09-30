@@ -53,6 +53,9 @@ public sealed class DemoSessionCommands(
     public const string LoadPolicyholderCommand = "#demo";
     private const string ActorId = "system:demo-session-reset";
 
+    /// <summary>The operator's field-test phone, where demo applications are issued at once.</summary>
+    public bool IsDemoPhone(string senderWaId) => settings.Allows(senderWaId);
+
     public DemoCommand Recognise(string senderWaId, string messageText)
     {
         if (!settings.Allows(senderWaId))

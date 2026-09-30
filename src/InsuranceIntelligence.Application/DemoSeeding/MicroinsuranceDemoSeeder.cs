@@ -231,6 +231,12 @@ public sealed class MicroinsuranceDemoSeeder(
             Requirement("StockList", "a list of the stock you lost and what it cost", "Shows the value of the goods lost.", true),
             Requirement("PhotoEvidence", "photos of the stall after the loss", "Shows the damage.", false),
         ]),
+        new(MicroinsuranceCatalog.ShopLine, "Small Business Shop Cover (microinsurance, demo)",
+        [
+            Requirement("PoliceAbstract", "the police report, or the fire brigade report for a fire", "Confirms the break-in or the fire.", true),
+            Requirement("StockList", "a list of what was lost or damaged and what it was worth", "Shows the value of the loss.", true),
+            Requirement("PhotoEvidence", "photos of the shop after the loss", "Shows the damage.", false),
+        ]),
     ];
 
     private async Task<bool> EnsureProductAsync(TenantScope scope, CatalogueProduct entry, DateTimeOffset now, CancellationToken cancellationToken)
@@ -440,6 +446,72 @@ public sealed class MicroinsuranceDemoSeeder(
             Section 4, exclusions. We do not pay for: theft without forcible and violent entry; cash or money; perishable goods that spoil; flood; wear and tear; losses that cannot be supported by a stock list or receipts.
 
             Section 5, claims. Report the loss to the police or fire brigade and to us within 14 days. We need the police or fire brigade report and a list of the stock lost with its cost. We settle within 15 working days of complete documents and pay by mobile money.
+
+            Section 6, complaints. A person reviews any complaint within 14 days. You may also complain to the Insurance Regulatory Authority of Uganda.
+            """),
+        new("Nile Shield Hospital Cash, How to Join, Pay and Claim", MicroinsuranceCatalog.HospitalCashLine, KnowledgeDocumentType.ProductOverview, """
+            How to join Nile Shield Hospital Cash. This is a microinsurance product being tested with customers. Anyone aged 18 to 65 can join, whatever their work. Joining takes a few minutes on WhatsApp: tell Kato your full name, your work and your area, and choose the cover. You do not need to visit an office and no papers are needed to join.
+
+            How to pay. The cover costs UGX 1,000 a month, paid by mobile money on MTN or Airtel. The first payment starts the cover. Accidents are covered from the day you join, illness 30 days after you join. If you miss a payment you have a grace period before the cover stops.
+
+            How to make a claim. Tell Kato on WhatsApp what happened, when and where. Kato reads it back to you, and when you confirm, the claim goes straight to the Nile Shield claims team with a claim reference. Kato then sends you a secure link to share your papers: the hospital discharge note or admission letter, or for a funeral the burial permit or an LC1 letter. Never send papers or ID in the WhatsApp chat itself.
+
+            How claims are paid. The claims team reviews the claim and the papers. When a claim is approved, the money is paid to you by mobile money on the phone number on your policy, usually within 10 working days of receiving all the papers. You can ask Kato where your claim is at any time.
+            """),
+        new("Nile Shield Boda Rider Accident, How to Join, Pay and Claim", MicroinsuranceCatalog.BodaAccidentLine, KnowledgeDocumentType.ProductOverview, """
+            How to join Nile Shield Boda Rider Accident. This is a microinsurance product being tested with customers. Boda boda riders aged 18 to 60 with a riding permit can join. Joining takes a few minutes on WhatsApp: tell Kato your full name, your work and your area, and choose the cover. You do not need to visit an office and no papers are needed to join.
+
+            How to pay. The cover costs UGX 6,000 a month, paid by mobile money on MTN or Airtel. The first payment starts the cover. You are covered from the day you join. If you miss a payment you have a grace period before the cover stops.
+
+            How to make a claim. Tell Kato on WhatsApp what happened, when and where. Kato reads it back to you, and when you confirm, the claim goes straight to the Nile Shield claims team with a claim reference. Kato then sends you a secure link to share your papers: the police report of the accident and the medical form from the clinic or hospital. Never send papers or ID in the WhatsApp chat itself.
+
+            How claims are paid. The claims team reviews the claim and the papers. When a claim is approved, the money is paid to you by mobile money on the phone number on your policy, usually within 10 working days of receiving all the papers. You can ask Kato where your claim is at any time.
+            """),
+        new("Nile Shield Market Stall Stock, How to Join, Pay and Claim", MicroinsuranceCatalog.StallStockLine, KnowledgeDocumentType.ProductOverview, """
+            How to join Nile Shield Market Stall Stock. This is a microinsurance product being tested with customers. Market vendors and stall owners can join. Joining takes a few minutes on WhatsApp: tell Kato your full name, your work and your area, and choose the cover. You do not need to visit an office and no papers are needed to join.
+
+            How to pay. The cover costs UGX 5,000 a month, paid by mobile money on MTN or Airtel. The first payment starts the cover. Cover starts 14 days after you join. If you miss a payment you have a grace period before the cover stops.
+
+            How to make a claim. Tell Kato on WhatsApp what happened, when and where. Kato reads it back to you, and when you confirm, the claim goes straight to the Nile Shield claims team with a claim reference. Kato then sends you a secure link to share your papers: the police or fire brigade report and a list of the goods you lost with what they cost. Never send papers or ID in the WhatsApp chat itself.
+
+            How claims are paid. The claims team reviews the claim and the papers. When a claim is approved, the money is paid to you by mobile money on the phone number on your policy, usually within 10 working days of receiving all the papers. You can ask Kato where your claim is at any time.
+            """),
+        new("Nile Shield Small Business Shop Cover, How to Join, Pay and Claim", MicroinsuranceCatalog.ShopLine, KnowledgeDocumentType.ProductOverview, """
+            How to join Nile Shield Small Business Shop Cover. This is a microinsurance product being tested with customers. Owners of a shop, boutique, salon, pharmacy, hardware or similar small business with a lockable premises can join. Joining takes a few minutes on WhatsApp: tell Kato your full name, your work and your area, and choose the cover. You do not need to visit an office and no papers are needed to join.
+
+            How to pay. The cover costs UGX 15,000 a month, paid by mobile money on MTN or Airtel. The first payment starts the cover. Cover starts 7 days after you join. If you miss a payment you have a grace period before the cover stops.
+
+            How to make a claim. Tell Kato on WhatsApp what happened, when and where. Kato reads it back to you, and when you confirm, the claim goes straight to the Nile Shield claims team with a claim reference. Kato then sends you a secure link to share your papers: the police or fire brigade report, a list of what was lost or damaged with its value, and photos of the premises. Never send papers or ID in the WhatsApp chat itself.
+
+            How claims are paid. The claims team reviews the claim and the papers. When a claim is approved, the money is paid to you by mobile money on the phone number on your policy, usually within 10 working days of receiving all the papers. You can ask Kato where your claim is at any time.
+            """),
+        new("Nile Shield Small Business Shop Cover, Key Information", MicroinsuranceCatalog.ShopLine, KnowledgeDocumentType.ProductOverview, """
+            Key information: Nile Shield Small Business Shop Cover. This is a microinsurance product for owners of shops, boutiques, salons, pharmacies, hardware shops and similar small businesses. It is a sample product being tested with customers.
+
+            What it pays. It pays for your stock, shelves, fittings and equipment kept in your shop if they are burnt in a fire, damaged by lightning or an explosion, or stolen in a break-in, up to UGX 8,000,000 a year. For each claim you pay the first UGX 100,000 yourself.
+
+            What it costs. UGX 15,000 a month, paid by mobile money.
+
+            When cover starts (waiting period). Cover starts 7 days after you join.
+
+            Grace period. If you miss a payment, you have 15 days to pay before your cover stops.
+
+            What it does not pay for. Goods stolen without a break-in, for example while the shop is open. Cash. Goods that rot or expire. Damage from floods. Wear and tear. Losses you cannot show with a list of what was lost and what it was worth.
+
+            How to claim. Report a break-in or fire to the police (or the fire brigade) and tell Kato on WhatsApp within 14 days. We need the police or fire brigade report, a list of what was lost or damaged with its value, and photos of the shop. Send papers only through the secure link we give you, not in the chat. We pay by mobile money within 15 working days of getting the papers.
+            """),
+        new("Nile Shield Small Business Shop Cover, Policy Wording", MicroinsuranceCatalog.ShopLine, KnowledgeDocumentType.PolicyWording, """
+            Nile Shield Small Business Shop Cover, microinsurance property policy wording, demo version 1.0.
+
+            Section 1, the cover. We cover stock in trade, shelves, fittings and business equipment kept at the insured premises against loss or damage by fire, lightning or explosion, and against theft involving forcible and violent entry into or exit from the premises. The sum insured is up to UGX 8,000,000 a year, within the microinsurance limit of UGX 10,000,000. An excess of UGX 100,000 applies to each claim.
+
+            Section 2, premium and grace period. The premium is UGX 15,000 a month. There is a grace period of 15 days.
+
+            Section 3, waiting period. Cover starts 7 days after the first premium is paid.
+
+            Section 4, exclusions. We do not pay for: theft without forcible and violent entry; cash, cheques or mobile money float; perishable or expired goods; flood; wear and tear or gradual deterioration; loss discovered only at stock-taking; losses that cannot be supported by a stock list, receipts or records.
+
+            Section 5, claims. Report the loss to the police or fire brigade and to us within 14 days. We need the police or fire brigade report, a list of what was lost or damaged with its value, and photos of the premises. We settle within 15 working days of complete documents and pay by mobile money.
 
             Section 6, complaints. A person reviews any complaint within 14 days. You may also complain to the Insurance Regulatory Authority of Uganda.
             """),

@@ -15,6 +15,7 @@ public static class MicroinsuranceCatalog
     public const string HospitalCashLine = "Hospital Cash";
     public const string BodaAccidentLine = "Boda Rider Accident";
     public const string StallStockLine = "Market Stall Stock";
+    public const string ShopLine = "Small Business Shop";
 
     public enum OccupationKind
     {
@@ -23,29 +24,92 @@ public static class MicroinsuranceCatalog
         Other,
     }
 
-    public sealed record MicroProduct(string Name, string ProductLine, string Explanation);
+    public sealed record MicroProduct(string Name, string ProductLine, string Explanation)
+    {
+        /// <summary>Short code used in policy numbers (NSA/{Code}/{year}/{sequence}).</summary>
+        public string Code { get; init; } = "MI";
+        public decimal MonthlyPremium { get; init; }
+        public decimal SumInsured { get; init; }
+        public string WhoItIsFor { get; init; } = string.Empty;
+        public string WaitingPeriod { get; init; } = string.Empty;
+        public string PapersForAClaim { get; init; } = string.Empty;
+    }
 
     public static readonly MicroProduct HospitalCash = new(
         "Nile Shield Hospital Cash",
         HospitalCashLine,
         "Nile Shield Hospital Cash pays you UGX 40,000 for each night you spend in hospital, up to 10 nights a year. " +
         "If you die, it pays your family UGX 1,000,000 for the funeral. It costs UGX 1,000 a month. " +
-        "Accidents are covered from the day you join, and illness after 30 days.");
+        "Accidents are covered from the day you join, and illness after 30 days.")
+    {
+        Code = "HC",
+        MonthlyPremium = 1_000m,
+        SumInsured = 1_400_000m,
+        WhoItIsFor = "Anyone aged 18 to 65, whatever their work.",
+        WaitingPeriod = "Accidents from the day you join; illness after 30 days; pregnancy after 9 months.",
+        PapersForAClaim = "The hospital discharge note or admission letter; for a funeral, the burial permit or an LC1 letter.",
+    };
 
     public static readonly MicroProduct BodaAccident = new(
         "Nile Shield Boda Rider Accident",
         BodaAccidentLine,
         "Nile Shield Boda Rider Accident pays you UGX 50,000 for each day an accident stops you working, up to 15 days. " +
         "If an accident leaves you disabled for life, or you die, it pays UGX 2,500,000. " +
-        "It costs UGX 6,000 a month, and you are covered from the day you join.");
+        "It costs UGX 6,000 a month, and you are covered from the day you join.")
+    {
+        Code = "BA",
+        MonthlyPremium = 6_000m,
+        SumInsured = 3_250_000m,
+        WhoItIsFor = "Boda boda riders aged 18 to 60 with a riding permit.",
+        WaitingPeriod = "None: covered from the day you join.",
+        PapersForAClaim = "The police report of the accident and the medical form from the clinic or hospital.",
+    };
 
     public static readonly MicroProduct StallStock = new(
         "Nile Shield Market Stall Stock",
         StallStockLine,
         "Nile Shield Market Stall Stock pays for the goods in your stall or shop if they are burnt in a fire or stolen in a break-in, up to UGX 3,000,000. " +
-        "It costs UGX 5,000 a month, and cover starts 14 days after you join.");
+        "It costs UGX 5,000 a month, and cover starts 14 days after you join.")
+    {
+        Code = "MS",
+        MonthlyPremium = 5_000m,
+        SumInsured = 3_000_000m,
+        WhoItIsFor = "Market vendors and stall owners.",
+        WaitingPeriod = "14 days after you join.",
+        PapersForAClaim = "The police or fire brigade report and a list of the goods you lost with what they cost.",
+    };
 
-    public static readonly IReadOnlyList<MicroProduct> All = [HospitalCash, BodaAccident, StallStock];
+    public static readonly MicroProduct ShopCover = new(
+        "Nile Shield Small Business Shop Cover",
+        ShopLine,
+        "Nile Shield Small Business Shop Cover pays for your stock, shelves and equipment if they are burnt in a fire, damaged by lightning, or stolen in a break-in, up to UGX 8,000,000 a year. " +
+        "It costs UGX 15,000 a month, you pay the first UGX 100,000 of each claim yourself, and cover starts 7 days after you join.")
+    {
+        Code = "SB",
+        MonthlyPremium = 15_000m,
+        SumInsured = 8_000_000m,
+        WhoItIsFor = "Owners of a shop, boutique, salon, pharmacy, hardware or similar small business with a fixed lockable premises.",
+        WaitingPeriod = "7 days after you join.",
+        PapersForAClaim = "The police report (or fire brigade report for a fire), a list of what was lost or damaged with its value, and photos of the premises.",
+    };
+
+    public static readonly IReadOnlyList<MicroProduct> All = [HospitalCash, BodaAccident, StallStock, ShopCover];
+
+    public static MicroProduct? FindByLineOrName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var wanted = value.Trim();
+        return All.FirstOrDefault(p =>
+            string.Equals(p.ProductLine, wanted, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.Name, wanted, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.Code, wanted, StringComparison.OrdinalIgnoreCase)
+            || p.Name.Contains(wanted, StringComparison.OrdinalIgnoreCase)
+            || wanted.Contains(p.ProductLine, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static readonly HashSet<string> BodaWords = new(StringComparer.Ordinal)
     {

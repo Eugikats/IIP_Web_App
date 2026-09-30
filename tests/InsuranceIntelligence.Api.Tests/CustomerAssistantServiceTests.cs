@@ -795,6 +795,219 @@ public sealed partial class CustomerAssistantServiceTests
         }
     }
 
+    // ---- Kato as an agent: the rules hold in the tools, whatever the model says ----
+
+    private const string AgentDemoPhone = "+256772118001"; // the fixture default sender
+
+    [Fact]
+    public async Task Agent_OnTheDemoPhone_RegistersANewPerson_AndIssuesTheCoverTheyChoose()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("register_customer", """{"full_name":"Grace Nakato","occupation":"boutique owner","area":"Jinja road"}""")
+            .Calls("apply_for_cover", """{"product":"Small Business Shop"}""")
+            .Says("Done, Grace. Your Small Business Shop Cover is active.");
+        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone);
+
+        await fixture.HandleAsync("I'm Grace Nakato, I own a boutique on Jinja road. Register me for shop cover");
+
+        var customer = Assert.Single(fixture.Customers.Customers);
+        Assert.Equal("Grace Nakato", customer.FullName);
+        var policy = Assert.Single(fixture.Policies.Policies.Values);
+        Assert.Equal(MicroinsuranceCatalog.ShopLine, policy.ProductLine);
+        Assert.Equal(customer.CustomerId, policy.CustomerId);
+        Assert.Contains("demo policy", policy.CoverType);
+        Assert.Contains("active_demo_policy", model.ToolResults[1]);
+        Assert.Equal("Done, Grace. Your Small Business Shop Cover is active.", Assert.Single(fixture.Outbound.SentRequests).CustomerSafeBody);
+    }
+
+    [Fact]
+    public async Task Agent_OnAnyOtherPhone_AnApplicationWaitsForAPerson_AndNoPolicyIsIssued()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("register_customer", """{"full_name":"Grace Nakato"}""")
+            .Calls("apply_for_cover", """{"product":"Small Business Shop"}""")
+            .Says("Thanks Grace, your application is in.");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleAsync("Register me for shop cover, I'm Grace Nakato");
+
+        Assert.Empty(fixture.Policies.Policies);
+        Assert.Contains("application_received", model.ToolResults[1]);
+        Assert.Contains(fixture.SalesLeads.Created, lead => lead.LeadSource == "WhatsApp - cover application");
+    }
+
+    [Fact]
+    public async Task Agent_ClaimIsNotFiled_UntilTheCustomersOwnReplySaysYes()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("file_claim", """{"what_happened":"Thieves broke into the shop and took stock"}""")
+            .Says("Let me read that back.")
+            .Calls("file_claim", """{"what_happened":"Thieves broke into the shop and took stock","when_it_happened":"last night"}""")
+            .Says("Your claim is in.");
+        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone);
+        fixture.SeedPolicyholder("Grace Nakato", AgentDemoPhone, (MicroinsuranceCatalog.ShopLine, "NSA/SB/2026/12345"));
+
+        await fixture.HandleAsync("I lost my shop, thieves broke in last night");
+        Assert.Contains("not_confirmed", model.ToolResults[0]);
+        Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
+
+        await fixture.HandleAsync("Yes that's right");
+        var claim = Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+        Assert.Equal("NSA/SB/2026/12345", claim.PolicyNumber);
+        Assert.Contains("claim_filed", model.ToolResults[1]);
+        Assert.Equal(CustomerAssistantOutcome.CaseOpened, fixture.Conversations.Saved[^1].Outcome);
+    }
+
+    [Fact]
+    public async Task Agent_AStranger_CannotFileAClaimOrGetALink_ForSomeoneElsesPolicy()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("file_claim", $$"""{"product_or_policy_number":"{{ValidPolicyNumber}}","what_happened":"accident"}""")
+            .Calls("send_claim_link", "{}")
+            .Says("I can't find cover on this number.");
+        var fixture = Fixture.Create(agent: model);
+        fixture.SeedPolicyholder("Brian Okello", "+256700000001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync("yes");
+
+        Assert.Contains("no_cover", model.ToolResults[0]);
+        Assert.Contains("not_registered", model.ToolResults[1]);
+        Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
+    }
+
+    [Fact]
+    public async Task Agent_WhenTheModelFails_TheRuleBasedRepliesAnswerInstead()
+    {
+        var fixture = Fixture.Create(agent: new ScriptedAgentModel().Throws());
+
+        await fixture.HandleNamedAsync("Hello", "Grace");
+
+        Assert.Contains("I'm Kato", Assert.Single(fixture.Outbound.SentRequests).CustomerSafeBody);
+    }
+
+    [Fact]
+    public async Task Agent_SeesTheConversationSoFar()
+    {
+        var model = new ScriptedAgentModel().Says("Hello Grace, how can I help?").Says("For a business, the Small Business Shop Cover fits.");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleNamedAsync("Hello", "Grace");
+        await fixture.HandleNamedAsync("Then for businesses?", "Grace");
+
+        var second = model.Conversations[1];
+        Assert.Contains(second, m => m.Role == "user" && m.Content == "Hello");
+        Assert.Contains(second, m => m.Role == "assistant" && m.Content == "Hello Grace, how can I help?");
+        Assert.Equal("Then for businesses?", second[^1].Content);
+    }
+
+    [Theory]
+    [InlineData("Customer", null)]
+    [InlineData("Mr Okello", "Okello")]
+    public void ProfileName_ThatIsNotAName_IsNotUsed(string profile, string? expected) =>
+        Assert.Equal(expected, CustomerAssistantService.FirstNameOf(profile));
+
+    // Run by hand against the real model (needs az login with access to the dev Azure OpenAI):
+    //   KATO_LIVE_TRANSCRIPT=path/to/transcript.txt dotnet test --filter Agent_LiveInterviewScripts
+    [Fact]
+    public async Task Agent_LiveInterviewScripts_WhenRequested()
+    {
+        var path = Environment.GetEnvironmentVariable("KATO_LIVE_TRANSCRIPT");
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        var model = new InsuranceIntelligence.Api.Azure.AzureOpenAiToolCallingChatProvider(
+            new InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions
+            {
+                AzureOpenAI = new InsuranceIntelligence.Infrastructure.Configuration.AzureOpenAiOptions
+                {
+                    Endpoint = "https://oai-iip-dev-h5girbnzrayqe.openai.azure.com/",
+                    ChatDeployment = "iip-chat",
+                },
+            },
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<InsuranceIntelligence.Api.Azure.AzureOpenAiToolCallingChatProvider>.Instance,
+            tokenCredential: new global::Azure.Identity.AzureCliCredential());
+
+        string[][] scripts =
+        [
+            ["Good morning", "I own a boutique along Jinja road and I need an insurance policy but I'm not acquainted with the products", "Grace Nakato, I sell clothes, Jinja road", "Yes let's go with the shop cover", "How do I pay", "I lost my shop, thieves broke in last night and took the clothes", "Yes", "How will I get my money"],
+            ["Hi", "I got into an accident", "I ride a boda", "Register me, I'm Musa Kato from Kawempe", "The boda one", "I got into an accident this morning at Wandegeya, a taxi hit me and I hurt my leg", "yes correct", "Help me with a link"],
+            ["Hello", "Am I talking to a real person?", "How easy is it to get a policy", "Then for businesses?", "Register me for Motor insurance"],
+        ];
+
+        var transcript = new System.Text.StringBuilder();
+        for (var i = 0; i < scripts.Length; i++)
+        {
+            var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone);
+            transcript.AppendLine($"===== Conversation {i + 1} =====");
+            foreach (var line in scripts[i])
+            {
+                var before = fixture.Outbound.SentRequests.Count;
+                var started = DateTimeOffset.UtcNow;
+                await fixture.HandleNamedAsync(line, "Customer");
+                transcript.AppendLine($"THEM: {line}");
+                foreach (var sent in fixture.Outbound.SentRequests.Skip(before))
+                {
+                    transcript.AppendLine($"KATO ({(DateTimeOffset.UtcNow - started).TotalSeconds:0}s): {sent.CustomerSafeBody}");
+                }
+
+                transcript.AppendLine($"   [outcome {fixture.Conversations.Saved[^1].Outcome}]");
+            }
+
+            transcript.AppendLine($"   [customers: {string.Join(", ", fixture.Customers.Customers.Select(c => c.FullName))}; policies: {string.Join(", ", fixture.Policies.Policies.Values.Select(p => p.ProductLine))}; claims: {(await fixture.Cases.ListAsync(fixture.Scope)).Count}]");
+            transcript.AppendLine();
+        }
+
+        File.WriteAllText(path, transcript.ToString());
+    }
+
+    private sealed class ScriptedAgentModel : IToolCallingChatProvider
+    {
+        private readonly Queue<AgentChatStep> steps = new();
+        private bool fail;
+
+        public List<string> ToolResults { get; } = [];
+        public List<IReadOnlyList<AgentChatMessage>> Conversations { get; } = [];
+
+        public ScriptedAgentModel Calls(string tool, string argumentsJson)
+        {
+            steps.Enqueue(new AgentChatStep(null, [new AgentToolCall($"call-{steps.Count}", tool, argumentsJson)]));
+            return this;
+        }
+
+        public ScriptedAgentModel Says(string text)
+        {
+            steps.Enqueue(new AgentChatStep(text, []));
+            return this;
+        }
+
+        public ScriptedAgentModel Throws()
+        {
+            fail = true;
+            return this;
+        }
+
+        public Task<AgentChatStep> NextAsync(IReadOnlyList<AgentChatMessage> messages, IReadOnlyList<AgentToolSpec> tools, string? correlationId, CancellationToken cancellationToken = default)
+        {
+            if (fail)
+            {
+                throw new InvalidOperationException("model down");
+            }
+
+            if (messages[^1].Role == "tool")
+            {
+                ToolResults.Add(messages[^1].Content!);
+            }
+            else
+            {
+                Conversations.Add(messages.ToArray());
+            }
+
+            return Task.FromResult(steps.Count > 0 ? steps.Dequeue() : new AgentChatStep("OK.", []));
+        }
+    }
+
     [Fact]
     public async Task AskingIfItIsABot_IsAnsweredHonestly()
     {
@@ -971,7 +1184,8 @@ public sealed partial class CustomerAssistantServiceTests
             bool allowUnreviewedTranslations = true,
             string? demoPhone = null,
             IVoiceNoteTranscriber? voice = null,
-            IVoiceNoteSpeaker? speaker = null)
+            IVoiceNoteSpeaker? speaker = null,
+            IToolCallingChatProvider? agent = null)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -1021,7 +1235,8 @@ public sealed partial class CustomerAssistantServiceTests
                 demoPhone is null ? null : new DemoSessionCommands(
                     new DemoSessionSettings(true, demoPhone), customers, policies, cases, languagePreferences, audit),
                 voice,
-                speaker);
+                speaker,
+                agent);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {

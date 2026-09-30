@@ -38,6 +38,37 @@ public static class KatoWords
 
     public static bool IsNo(string original, string english) => Matches(No, original) || Matches(No, english);
 
+    private static readonly HashSet<string> YesOpeners = new(StringComparer.Ordinal)
+    {
+        "yes", "yeah", "yep", "yup", "ok", "okay", "correct", "sure", "exactly", "right", "confirm", "confirmed",
+        "yee", "ye", "yego", "kale", "kituufu", "ndiyo", "ndio", "sawa", "naam",
+    };
+
+    private static readonly string[] Retractions = ["not", "wrong", "change", "incorrect", "nedda", "hapana", "si kituufu"];
+
+    /// <summary>A reply that opens with a clear yes ("yes that's right", "yee kituufu nnyo") and takes
+    /// nothing back. Used to confirm a claim the customer has just had read back to them.</summary>
+    public static bool StartsWithYes(string original, string english) => OpensWithYes(original) || OpensWithYes(english);
+
+    private static bool OpensWithYes(string text)
+    {
+        var normalized = Normalize(text);
+        if (normalized.Length == 0)
+        {
+            return false;
+        }
+
+        if (Yes.Contains(normalized))
+        {
+            return true;
+        }
+
+        var words = normalized.Split(' ');
+        return YesOpeners.Contains(words[0])
+            && words.Length <= 12
+            && !Retractions.Any(retraction => $" {normalized} ".Contains($" {retraction} ", StringComparison.Ordinal));
+    }
+
     public static bool IsNewIncident(string original, string english) =>
         Matches(NewIncident, original) || Matches(NewIncident, english);
 

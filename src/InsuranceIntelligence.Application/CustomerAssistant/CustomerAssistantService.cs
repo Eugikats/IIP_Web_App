@@ -79,7 +79,7 @@ public interface ICustomerAssistantService
         CancellationToken cancellationToken = default);
 }
 
-public sealed class CustomerAssistantService(
+public sealed partial class CustomerAssistantService(
     ICustomerIntentClassifier intentClassifier,
     IRetrievalProvider retrievalProvider,
     IAiAssistantProvider assistantProvider,
@@ -118,7 +118,10 @@ public sealed class CustomerAssistantService(
     IVoiceNoteTranscriber? voiceTranscriber = null,
     // Optional: a voice note is answered with a voice note in the same language. Without it, or
     // when speaking fails, the answer goes as text.
-    IVoiceNoteSpeaker? voiceSpeaker = null) : ICustomerAssistantService
+    IVoiceNoteSpeaker? voiceSpeaker = null,
+    // Optional: Kato as an agent that holds the conversation and acts through tools. Without it,
+    // or when the model fails, the rule-based replies below answer instead.
+    IToolCallingChatProvider? agentModel = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
@@ -258,6 +261,13 @@ public sealed class CustomerAssistantService(
         }, cancellationToken);
     }
 
+    // Display names people use instead of a name: never greet anyone as "Customer".
+    private static readonly HashSet<string> NotAName = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "customer", "client", "user", "me", "myself", "test", "tester", "demo", "whatsapp", "unknown", "admin", "phone",
+        "mr", "mrs", "ms", "dr", "sir", "madam", "boss", "official", "business", "shop", "store", "ltd", "limited",
+    };
+
     /// <summary>A usable first name from a self-chosen WhatsApp profile name: letters only, so
     /// "~Sarah N. *" becomes "Sarah" and a name made only of symbols or emoji gives nothing.</summary>
     public static string? FirstNameOf(string? profileName)
@@ -269,6 +279,11 @@ public sealed class CustomerAssistantService(
 
         foreach (var token in profileName.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
+            if (NotAName.Contains(token.Trim('.', ',', '~', '*', '!')))
+            {
+                continue;
+            }
+
             var letters = new string(token.Where(c => char.IsLetter(c) || c is '\'' or '-').ToArray()).Trim('\'', '-');
             if (letters.Length >= 2 && letters.Length <= 30 && char.IsLetter(letters[0]))
             {
@@ -578,7 +593,24 @@ public sealed class CustomerAssistantService(
         // A claim read back to the customer waits for their answer: yes opens it, no starts it
         // again, anything else is a correction. Nothing binding happens on the first telling.
         AssistantOutcome? outcome = null;
-        if (previousTurn is { Outcome: CustomerAssistantOutcome.AwaitingClaimConfirmation }
+        if (agentModel is not null)
+        {
+            try
+            {
+                outcome = await RunAgentAsync(
+                    scope, original, text, waId, thread,
+                    understood.Status == TranslationStatus.Translated ? new CustomerOwnWords(original, SupportedLanguage.For(language.Inbound).Iso) : null,
+                    correlationId, now, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // The model is unavailable or misbehaved: fall back to the rule-based replies
+                // rather than leave the customer without an answer.
+                outcome = null;
+            }
+        }
+
+        if (outcome is null && previousTurn is { Outcome: CustomerAssistantOutcome.AwaitingClaimConfirmation }
             && now - previousTurn.OccurredAt <= ConversationContinuation.Window)
         {
             outcome = await HandlePendingClaimAsync(
@@ -606,7 +638,7 @@ public sealed class CustomerAssistantService(
         // "which cover is this about?", a lead confirmation), which the gate does not govern.
         // An unknown number's first message always meets Kato, even when it goes straight to a
         // question or an accident, so the person knows who is answering and what he can do.
-        if (reply is not null && thread.Length == 0 && sender is null && !reply.StartsWith("Hello", StringComparison.Ordinal))
+        if (reply is not null && !outcome.FromAgent && thread.Length == 0 && sender is null && !reply.StartsWith("Hello", StringComparison.Ordinal))
         {
             reply = $"{KatoReplies.FirstContactPrefix(contactFirstName)} {reply}";
         }
@@ -1924,5 +1956,6 @@ public sealed class CustomerAssistantService(
         public string? PendingClaimOriginalLanguage { get; init; }
         public Guid? OfferedNewIncidentForCaseId { get; init; }
         public string? Occupation { get; init; }
+        public bool FromAgent { get; init; }
     }
 }
