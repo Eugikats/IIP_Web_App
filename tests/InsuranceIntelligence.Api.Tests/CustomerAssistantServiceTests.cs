@@ -299,11 +299,11 @@ public sealed partial class CustomerAssistantServiceTests
     {
         var fixture = Fixture.Create();
 
-        await fixture.HandleAsync("Hi");
+        await fixture.HandleNamedAsync("Hi", "~Sarah N.");
 
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, turn.Outcome);
-        Assert.Contains("I'm Kato, Nile Shield's helper", turn.OutboundReplyText);
+        Assert.StartsWith("Hello, Sarah. I'm Kato, Nile Shield's helper", turn.OutboundReplyText);
         Assert.Contains("get your money", turn.OutboundReplyText);
         Assert.Contains("PERSON", turn.OutboundReplyText);
         Assert.DoesNotContain("voice note", turn.OutboundReplyText); // voice is not offered until it works
@@ -357,7 +357,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(CustomerAssistantOutcome.AutoReplied, turn.Outcome);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
         Assert.EndsWith(fixture.Assistant.AnswerToReturn.AnswerText, sent.CustomerSafeBody);
-        Assert.StartsWith(KatoReplies.FirstContactPrefix, sent.CustomerSafeBody); // an unknown number meets Kato first
+        Assert.StartsWith(KatoReplies.FirstContactPrefix(null), sent.CustomerSafeBody); // an unknown number meets Kato first
         Assert.Single(fixture.WhatsAppMessages.Saved);
     }
 
@@ -623,10 +623,125 @@ public sealed partial class CustomerAssistantServiceTests
         await fixture.HandleAsync("the other one");
         await fixture.HandleAsync("that one");
 
-        // A first message nobody can read still meets Kato and hears what he can do.
+        // A first message nobody can read still meets Kato and hears what he can do, and "the
+        // other one" is not mistaken for the name he asked for.
         Assert.Contains("I'm Kato", fixture.Conversations.Saved[0].OutboundReplyText);
+        Assert.Empty(fixture.Customers.Customers);
         Assert.Equal(CustomerAssistantOutcome.Clarifying, fixture.Conversations.Saved[1].Outcome);
         Assert.Equal(CustomerAssistantOutcome.Escalated, fixture.Conversations.Saved[2].Outcome);
+    }
+
+    [Fact]
+    public async Task FirstContact_WithAProfileName_GreetsByIt_AndKeepsAContactThatUnlocksNothing()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleNamedAsync("Hello", "Grace Nakato");
+        await fixture.HandleNamedAsync("I had an accident on my boda", "Grace Nakato");
+
+        Assert.StartsWith("Hello, Grace.", fixture.Conversations.Saved[0].OutboundReplyText);
+        var contact = Assert.Single(fixture.Customers.Customers);
+        Assert.Equal("Grace Nakato", contact.FullName);
+        Assert.True(PhoneNumbers.SameNumber("256772118001", contact.Phone));
+        // A contact record holds no cover: no claim, and no claim confirmation.
+        Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
+        Assert.NotEqual(CustomerAssistantOutcome.AwaitingClaimConfirmation, fixture.Conversations.Saved[1].Outcome);
+    }
+
+    [Fact]
+    public async Task FirstContact_WithNoProfileName_AsksForOne_AndSavesTheAnswer()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleAsync("Hi");
+        await fixture.HandleAsync("My name is Grace");
+
+        Assert.Equal(CustomerAssistantOutcome.AwaitingName, fixture.Conversations.Saved[0].Outcome);
+        Assert.EndsWith(KatoReplies.AskName, fixture.Conversations.Saved[0].OutboundReplyText);
+        Assert.StartsWith("Nice to meet you, Grace.", fixture.Conversations.Saved[1].OutboundReplyText);
+        Assert.Equal("Grace", Assert.Single(fixture.Customers.Customers).FullName);
+    }
+
+    [Fact]
+    public async Task FirstContact_NeverAddsASecondNameToANumberAlreadyOnFile()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Brian Okello", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleNamedAsync("Hello", "Bee");
+
+        Assert.Equal("Brian Okello", Assert.Single(fixture.Customers.Customers).FullName);
+        Assert.StartsWith("Hello Brian", fixture.Conversations.Saved[0].OutboundReplyText);
+    }
+
+    [Theory]
+    [InlineData("~Sarah N. *", "Sarah")]
+    [InlineData("  okello  ", "Okello")]
+    [InlineData("*** ", null)]
+    [InlineData(null, null)]
+    public void ProfileName_GivesAUsableFirstName(string? profile, string? expected) =>
+        Assert.Equal(expected, CustomerAssistantService.FirstNameOf(profile));
+
+    [Fact]
+    public async Task VoiceNote_IsHeard_AndHandledLikeTheWordsWereTyped()
+    {
+        var voice = new FakeVoiceNoteTranscriber("I had an accident on my boda and hurt my leg");
+        var fixture = Fixture.Create(voice: voice);
+        fixture.SeedPolicyholder("Brian Okello", "+256772118001", ("Boda Rider Accident", ValidPolicyNumber));
+
+        await fixture.HandleVoiceAsync();
+
+        Assert.Equal("media-voice-1", voice.LastMediaId);
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.AwaitingClaimConfirmation, turn.Outcome);
+        Assert.Contains("hurt my leg", turn.OutboundReplyText);
+        Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope)); // read back first, never opened on a voice note alone
+    }
+
+    [Fact]
+    public async Task VoiceNote_ThatCannotBeHeard_GetsAWrittenReply_NeverSilence()
+    {
+        var fixture = Fixture.Create(voice: new FakeVoiceNoteTranscriber(null));
+
+        await fixture.HandleVoiceAsync();
+
+        var sent = Assert.Single(fixture.Outbound.SentRequests);
+        Assert.Contains("can't listen to voice notes yet", sent.CustomerSafeBody);
+    }
+
+    [Fact]
+    public async Task VoiceNote_WithNoSpeechEngine_GetsAWrittenReply_AndKatoDoesNotOfferVoice()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleVoiceAsync();
+        await fixture.HandleNamedAsync("Hello", "Grace");
+
+        Assert.Contains("can't listen to voice notes yet", fixture.Outbound.SentRequests[0].CustomerSafeBody);
+        Assert.DoesNotContain("voice note", fixture.Conversations.Saved[^1].OutboundReplyText);
+    }
+
+    [Fact]
+    public async Task WithASpeechEngine_KatoInvitesVoiceNotes()
+    {
+        var fixture = Fixture.Create(voice: new FakeVoiceNoteTranscriber("hello"));
+
+        await fixture.HandleNamedAsync("Hello", "Grace");
+
+        Assert.Contains("voice note", Assert.Single(fixture.Conversations.Saved).OutboundReplyText);
+    }
+
+    private sealed class FakeVoiceNoteTranscriber(string? transcript) : IVoiceNoteTranscriber
+    {
+        public string? LastMediaId { get; private set; }
+
+        public Task<bool> IsAvailableAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+        public Task<string?> TranscribeAsync(TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, CancellationToken cancellationToken = default)
+        {
+            LastMediaId = mediaId;
+            return Task.FromResult(transcript);
+        }
     }
 
     [Fact]
@@ -803,7 +918,8 @@ public sealed partial class CustomerAssistantServiceTests
             ITranslationProvider? translator = null,
             IReadOnlyCollection<SupportedLanguageCode>? enabledLanguages = null,
             bool allowUnreviewedTranslations = true,
-            string? demoPhone = null)
+            string? demoPhone = null,
+            IVoiceNoteTranscriber? voice = null)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -851,7 +967,8 @@ public sealed partial class CustomerAssistantServiceTests
                 translator is null ? null : new WordListLanguageDetector(),
                 translator is null ? null : new TestLanguageSettings(enabledLanguages ?? [SupportedLanguageCode.Lg, SupportedLanguageCode.Sw], allowUnreviewedTranslations),
                 demoPhone is null ? null : new DemoSessionCommands(
-                    new DemoSessionSettings(true, demoPhone), customers, policies, cases, languagePreferences, audit));
+                    new DemoSessionSettings(true, demoPhone), customers, policies, cases, languagePreferences, audit),
+                voice);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {
@@ -873,6 +990,20 @@ public sealed partial class CustomerAssistantServiceTests
             Service.HandleInboundMessagesAsync(
                 Scope,
                 [new WhatsAppInboundMessage($"wamid.{Guid.NewGuid():N}", "phone-1", "256772118001", WhatsAppContentType.Text, text, null, DateTimeOffset.UtcNow)],
+                $"correlation-{Guid.NewGuid():N}",
+                AutoReplyEnabled);
+
+        public Task<IReadOnlyList<Guid>> HandleNamedAsync(string text, string? profileName) =>
+            Service.HandleInboundMessagesAsync(
+                Scope,
+                [new WhatsAppInboundMessage($"wamid.{Guid.NewGuid():N}", "phone-1", "256772118001", WhatsAppContentType.Text, text, null, DateTimeOffset.UtcNow) { ProfileName = profileName }],
+                $"correlation-{Guid.NewGuid():N}",
+                AutoReplyEnabled);
+
+        public Task<IReadOnlyList<Guid>> HandleVoiceAsync(string mediaId = "media-voice-1") =>
+            Service.HandleInboundMessagesAsync(
+                Scope,
+                [new WhatsAppInboundMessage($"wamid.{Guid.NewGuid():N}", "phone-1", "256772118001", WhatsAppContentType.Audio, "[Voice note received]", null, DateTimeOffset.UtcNow) { MediaId = mediaId }],
                 $"correlation-{Guid.NewGuid():N}",
                 AutoReplyEnabled);
 

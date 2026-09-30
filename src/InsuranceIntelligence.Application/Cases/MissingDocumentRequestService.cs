@@ -80,8 +80,13 @@ public sealed class MissingDocumentRequestService(
         var missingLabels = string.Join(", ", checklist.MissingRequiredDocuments.Select(missing => missing.Label));
         var messageBody = $"We're still waiting on some documents for your claim {reference}: {missingLabels}. Please send them at your earliest convenience so we can continue reviewing your claim.";
 
+        // Papers like IDs and police or medical reports carry personal details, so on WhatsApp the
+        // customer is pointed to the secure upload link, never invited to send them in the chat.
+        var whatsAppBody = $"We're still waiting on some papers for your claim {reference}: {missingLabels}. " +
+                           "Please do not send them in this chat. Reply LINK and I will send you a secure link to share them.";
+
         return string.Equals(claimCase.Channel, "WhatsApp", StringComparison.OrdinalIgnoreCase)
-            ? await SendOverWhatsAppAsync(claimCase, messageBody, whatsAppBusinessPhoneNumberId, correlationId, cancellationToken)
+            ? await SendOverWhatsAppAsync(claimCase, whatsAppBody, whatsAppBusinessPhoneNumberId, correlationId, cancellationToken)
             : await SendOverCommunicationChannelAsync(claimCase, messageBody, correlationId, cancellationToken);
     }
 

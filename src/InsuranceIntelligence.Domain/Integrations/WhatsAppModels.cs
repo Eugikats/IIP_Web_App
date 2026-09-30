@@ -37,7 +37,7 @@ public sealed record WhatsAppIngestionResult(
     string? SafeError);
 
 public enum WhatsAppMessageDirection { Inbound, Outbound }
-public enum WhatsAppContentType { Text, Image, Document, Template, Unsupported }
+public enum WhatsAppContentType { Text, Image, Document, Template, Unsupported, Audio }
 public enum WhatsAppDeliveryState { Received, Queued, ProviderAccepted, Delivered, Read, Failed, Unknown }
 
 public sealed record WhatsAppInboundMessage(
@@ -47,7 +47,15 @@ public sealed record WhatsAppInboundMessage(
     WhatsAppContentType ContentType,
     string CustomerSafeBody,
     string? ReplyToProviderMessageId,
-    DateTimeOffset ReceivedAt);
+    DateTimeOffset ReceivedAt)
+{
+    /// <summary>The name the sender set on their own WhatsApp profile. Chosen by them, unverified:
+    /// good for a greeting, never proof of who they are.</summary>
+    public string? ProfileName { get; init; }
+
+    /// <summary>For a voice note, the Meta media id to download it with.</summary>
+    public string? MediaId { get; init; }
+}
 
 public sealed record WhatsAppDeliveryEvent(
     string ProviderMessageId,

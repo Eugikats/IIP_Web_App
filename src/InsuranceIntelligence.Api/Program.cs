@@ -452,6 +452,7 @@ builder.Services.AddSingleton(demoRuntime && !string.IsNullOrWhiteSpace(demoPhon
 builder.Services.AddSingleton(new InsuranceIntelligence.Application.DemoSeeding.DemoPolicyholderSettings(
     builder.Configuration["INSURANCEINTELLIGENCE_DEMO_POLICYHOLDER_NAME"] ?? string.Empty));
 builder.Services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.MicroinsuranceDemoSeeder>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IVoiceNoteTranscriber, InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IDemoPolicyholderLoader>(
     services => services.GetRequiredService<InsuranceIntelligence.Application.DemoSeeding.MicroinsuranceDemoSeeder>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.DemoSessionCommands>();

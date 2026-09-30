@@ -181,6 +181,26 @@ public sealed class WhatsAppMessagingServiceTests
         Assert.Equal(WhatsAppDeliveryState.Delivered, Assert.Single(delivery).DeliveryState);
     }
 
+    [Fact]
+    public void WebhookParser_CarriesTheSendersProfileName_AndAVoiceNotesMediaId()
+    {
+        const string json = """
+            {"entry":[{"changes":[{"value":{"metadata":{"phone_number_id":"phone-1"},
+            "contacts":[{"profile":{"name":"Grace Nakato"},"wa_id":"256772118001"}],
+            "messages":[
+              {"from":"256772118001","id":"wamid.a","timestamp":"1700000000","type":"audio","audio":{"id":"media-9","mime_type":"audio/ogg; codecs=opus","voice":true}},
+              {"from":"256700000999","id":"wamid.b","timestamp":"1700000000","type":"text","text":{"body":"Hi"}}]}}]}]}
+            """;
+
+        var inbound = WhatsAppWebhookParser.ParseMessages(json);
+
+        Assert.Equal(WhatsAppContentType.Audio, inbound[0].ContentType);
+        Assert.Equal("media-9", inbound[0].MediaId);
+        Assert.Equal("Grace Nakato", inbound[0].ProfileName);
+        Assert.Null(inbound[1].ProfileName); // a name is never borrowed from another contact
+        Assert.Null(inbound[1].MediaId);
+    }
+
     private sealed class Fixture
     {
         private Fixture(

@@ -27,7 +27,13 @@ public static class KatoReplies
         $"If you would rather talk to a person, reply {PersonWord} at any time.";
 
     /// <summary>Opens the first reply to an unknown number when that reply is not the introduction itself.</summary>
-    public const string FirstContactPrefix = "Hello, I'm Kato, Nile Shield's helper on WhatsApp. You can reply PERSON at any time to talk to someone from our team.";
+    public static string FirstContactPrefix(string? firstName) =>
+        $"Hello{Comma(firstName)}, I'm Kato, Nile Shield's helper on WhatsApp. You can reply {PersonWord} at any time to talk to someone from our team.";
+
+    public const string AskName = "What should I call you?";
+
+    public static string NiceToMeetYou(string firstName) =>
+        $"Nice to meet you, {firstName}. How can I help you today? If something has happened, just tell me what happened.";
 
     public static string WelcomeBack(string firstName) =>
         $"Hello {firstName}, it's Kato from Nile Shield. If something has happened, tell me and I will help you get your money. " +

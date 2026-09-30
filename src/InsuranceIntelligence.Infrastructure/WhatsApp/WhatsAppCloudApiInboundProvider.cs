@@ -187,6 +187,7 @@ public static class WhatsAppWebhookParser
         {
             var phoneNumberId = ReadPhoneNumberId(value);
             if (phoneNumberId is null || !value.TryGetProperty("messages", out var messages) || messages.ValueKind != JsonValueKind.Array) continue;
+            var profileNames = ReadProfileNames(value);
             foreach (var message in messages.EnumerateArray())
             {
                 var id = ReadString(message, "id");
@@ -198,6 +199,7 @@ public static class WhatsAppWebhookParser
                     "text" => WhatsAppContentType.Text,
                     "image" => WhatsAppContentType.Image,
                     "document" => WhatsAppContentType.Document,
+                    "audio" => WhatsAppContentType.Audio,
                     _ => WhatsAppContentType.Unsupported
                 };
                 var body = type switch
@@ -205,13 +207,32 @@ public static class WhatsAppWebhookParser
                     "text" when message.TryGetProperty("text", out var text) => ReadString(text, "body") ?? string.Empty,
                     "image" when message.TryGetProperty("image", out var image) => ReadString(image, "caption") ?? "[Image received]",
                     "document" when message.TryGetProperty("document", out var document) => ReadString(document, "caption") ?? ReadString(document, "filename") ?? "[Document received]",
+                    "audio" => "[Voice note received]",
                     _ => $"[Unsupported WhatsApp message type: {type}]"
                 };
                 var replyTo = message.TryGetProperty("context", out var context) ? ReadString(context, "id") : null;
-                results.Add(new WhatsAppInboundMessage(id, phoneNumberId, from, contentType, body, replyTo, ReadTimestamp(message)));
+                results.Add(new WhatsAppInboundMessage(id, phoneNumberId, from, contentType, body, replyTo, ReadTimestamp(message))
+                {
+                    ProfileName = profileNames.GetValueOrDefault(from),
+                    MediaId = type == "audio" && message.TryGetProperty("audio", out var audio) ? ReadString(audio, "id") : null,
+                });
             }
         }
         return results;
+    }
+
+    /// <summary>contacts[].profile.name keyed by wa_id: the name each sender chose for themselves.</summary>
+    private static Dictionary<string, string> ReadProfileNames(JsonElement value)
+    {
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!value.TryGetProperty("contacts", out var contacts) || contacts.ValueKind != JsonValueKind.Array) return names;
+        foreach (var contact in contacts.EnumerateArray())
+        {
+            var waId = ReadString(contact, "wa_id");
+            var name = contact.TryGetProperty("profile", out var profile) ? ReadString(profile, "name")?.Trim() : null;
+            if (!string.IsNullOrWhiteSpace(waId) && !string.IsNullOrWhiteSpace(name)) names[waId] = name;
+        }
+        return names;
     }
 
     public static IReadOnlyList<WhatsAppDeliveryEvent> ParseDeliveryEvents(string jsonPayload)

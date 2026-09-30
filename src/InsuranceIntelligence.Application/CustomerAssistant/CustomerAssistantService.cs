@@ -112,8 +112,17 @@ public sealed class CustomerAssistantService(
     ILanguageDetector? languageDetector = null,
     IAssistantLanguageSettings? languageSettings = null,
     // Optional: the hidden field-test commands, live only in the Demo profile for the demo phone.
-    DemoSessionCommands? demoSession = null) : ICustomerAssistantService
+    DemoSessionCommands? demoSession = null,
+    // Optional: voice notes in, text replies out. Without it a voice note gets a written reply
+    // saying Kato cannot listen yet, never silence.
+    IVoiceNoteTranscriber? voiceTranscriber = null) : ICustomerAssistantService
 {
+    // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
+    private string? contactFirstName;
+
+    // Per batch: whether a voice note would actually be understood, so Kato only invites them then.
+    private bool voiceNotesAvailable;
+
     private const string SystemActorId = "system:customer-assistant";
     private const string AgentKey = "customer-assistant";
     private const string GroundingAgentKey = "policy-intelligence"; // the same grounded-answer capability, reused for customers
@@ -138,10 +147,21 @@ public sealed class CustomerAssistantService(
         CancellationToken cancellationToken = default)
     {
         var opened = new List<Guid>();
+        try
+        {
+            voiceNotesAvailable = voiceTranscriber is not null && await voiceTranscriber.IsAvailableAsync(scope, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            voiceNotesAvailable = false;
+        }
+
         foreach (var inbound in messages)
         {
             try
             {
+                contactFirstName = FirstNameOf(inbound.ProfileName);
+
                 // Checked before anything else, including the agent kill switch: resetting the
                 // shared demo phone must work even when the assistant itself is switched off.
                 if (inbound.ContentType == WhatsAppContentType.Text && demoSession is not null)
@@ -162,12 +182,26 @@ public sealed class CustomerAssistantService(
                     continue;
                 }
 
-                if (inbound.ContentType != WhatsAppContentType.Text || string.IsNullOrWhiteSpace(inbound.CustomerSafeBody))
+                var message = inbound;
+                if (inbound.ContentType == WhatsAppContentType.Audio)
+                {
+                    var heard = await TranscribeVoiceNoteAsync(scope, inbound, cancellationToken);
+                    if (heard is null)
+                    {
+                        await ReplyCannotListenAsync(scope, inbound, correlationId, cancellationToken);
+                        continue;
+                    }
+
+                    // From here a voice note is handled exactly as if they had typed those words.
+                    message = inbound with { ContentType = WhatsAppContentType.Text, CustomerSafeBody = heard };
+                }
+
+                if (message.ContentType != WhatsAppContentType.Text || string.IsNullOrWhiteSpace(message.CustomerSafeBody))
                 {
                     continue;
                 }
 
-                var openedCaseId = await HandleTextMessageAsync(scope, inbound, correlationId, autoReplyEnabled, cancellationToken);
+                var openedCaseId = await HandleTextMessageAsync(scope, message, correlationId, autoReplyEnabled, cancellationToken);
                 if (openedCaseId is { } caseId)
                 {
                     opened.Add(caseId);
@@ -184,6 +218,123 @@ public sealed class CustomerAssistantService(
         }
 
         return opened;
+    }
+
+    private async Task<string?> TranscribeVoiceNoteAsync(TenantScope scope, WhatsAppInboundMessage inbound, CancellationToken cancellationToken)
+    {
+        if (!voiceNotesAvailable || voiceTranscriber is null || string.IsNullOrWhiteSpace(inbound.MediaId))
+        {
+            return null;
+        }
+
+        // Transcription can take a while on a cold start; the customer sees "typing..." meanwhile.
+        using var typing = StartTypingIndicator(inbound, cancellationToken);
+        return await voiceTranscriber.TranscribeAsync(scope, inbound.MediaId, preferredLanguage: null, cancellationToken);
+    }
+
+    private async Task ReplyCannotListenAsync(TenantScope scope, WhatsAppInboundMessage inbound, string correlationId, CancellationToken cancellationToken)
+    {
+        var waId = NormalizeWaId(inbound.SenderWaId);
+        var threadId = WhatsAppMessagingService.BuildThreadId(inbound.BusinessPhoneNumberId, waId);
+        await RecordConsentAsync(scope, waId, threadId, correlationId, cancellationToken);
+        var sender = await IdentifySenderAsync(scope, waId, cancellationToken);
+        var reply = KatoReplies.CannotListenYet(sender?.FirstName ?? contactFirstName);
+        await SendReplyAsync(scope, inbound, threadId, waId, reply, caseId: null, cancellationToken);
+        await conversationRepository.SaveAsync(new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(),
+            Scope = scope,
+            ThreadId = threadId,
+            ContactWaId = waId,
+            InboundMessageText = inbound.CustomerSafeBody,
+            ClassifiedIntent = CustomerIntent.Unknown,
+            OutboundReplyText = reply,
+            Outcome = CustomerAssistantOutcome.AutoReplied,
+            OccurredAt = DateTimeOffset.UtcNow,
+            CorrelationId = correlationId,
+        }, cancellationToken);
+    }
+
+    /// <summary>A usable first name from a self-chosen WhatsApp profile name: letters only, so
+    /// "~Sarah N. *" becomes "Sarah" and a name made only of symbols or emoji gives nothing.</summary>
+    public static string? FirstNameOf(string? profileName)
+    {
+        if (string.IsNullOrWhiteSpace(profileName))
+        {
+            return null;
+        }
+
+        foreach (var token in profileName.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var letters = new string(token.Where(c => char.IsLetter(c) || c is '\'' or '-').ToArray()).Trim('\'', '-');
+            if (letters.Length >= 2 && letters.Length <= 30 && char.IsLetter(letters[0]))
+            {
+                return char.ToUpperInvariant(letters[0]) + letters[1..];
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>A contact record for a number nobody is on file for. Never added beside an existing
+    /// record: two names on one number makes the sender unidentifiable everywhere.</summary>
+    private async Task SaveContactAsync(TenantScope scope, string waId, string name, CancellationToken cancellationToken)
+    {
+        var existing = (await customerRepository.ListAsync(scope, cancellationToken))
+            .Any(customer => PhoneNumbers.SameNumber(customer.Phone, waId));
+        if (existing)
+        {
+            return;
+        }
+
+        var fullName = string.Join(' ', name.Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim();
+        if (fullName.Length is 0 or > 80)
+        {
+            return;
+        }
+
+        var customerId = new Guid(System.Security.Cryptography.MD5.HashData(
+            System.Text.Encoding.UTF8.GetBytes($"{scope.TenantId}:{scope.WorkspaceId}:whatsapp-contact:{waId}"))).ToString();
+        await customerRepository.UpsertAsync(
+            new Customer(customerId, scope.TenantId, scope.WorkspaceId, fullName, null, $"+{waId}"), cancellationToken);
+    }
+
+    private static readonly string[] NamePrefixes =
+        ["my name is ", "i am ", "i'm ", "im ", "call me ", "it's ", "its ", "this is ", "nze ", "erinnya lyange ", "erinnya lyange nze ", "naitwa ", "jina langu ni "];
+
+    private static readonly HashSet<string> NotNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "the", "a", "an", "one", "other", "that", "this", "it", "yes", "no", "ok", "okay", "please", "thanks", "thank", "you",
+        "help", "claim", "accident", "person", "what", "why", "how", "who", "where", "when", "hello", "hi", "hey", "me", "my",
+        "yee", "nedda", "kale", "ndiyo", "hapana", "sawa", "stop", "nothing", "none", "later", "cover", "insurance", "policy",
+    };
+
+    /// <summary>The name in a reply to "What should I call you?", or null when it does not read as one.</summary>
+    public static string? GivenName(string reply)
+    {
+        var text = reply.Trim().TrimEnd('.', '!');
+        foreach (var prefix in NamePrefixes.OrderByDescending(p => p.Length))
+        {
+            if (text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                text = text[prefix.Length..].Trim();
+                break;
+            }
+        }
+
+        // Without "my name is", only a word or two, and none of them an ordinary word: "the other one"
+        // or "yes please" is not a name.
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var maxWords = text.Length == reply.Trim().TrimEnd('.', '!').Length ? 2 : 3;
+        if (words.Length == 0 || words.Length > maxWords
+            || words.Any(word => !word.All(c => char.IsLetter(c) || c is '\'' or '-'))
+            || words.Any(word => NotNames.Contains(word))
+            || ConversationContinuation.IsGreeting(text))
+        {
+            return null;
+        }
+
+        return string.Join(' ', words.Select(word => char.ToUpperInvariant(word[0]) + word[1..]));
     }
 
     private async Task HandleDemoCommandAsync(
@@ -368,6 +519,13 @@ public sealed class CustomerAssistantService(
         var thread = await CurrentThreadAsync(scope, threadId, cancellationToken);
         var previousTurn = thread.Length == 0 ? null : thread[^1];
 
+        // Someone new: keep a contact record under the name they gave WhatsApp, so staff see who
+        // wrote and Kato greets them by name next time. It holds no policy, so it unlocks nothing.
+        if (sender is null && contactFirstName is not null)
+        {
+            await SaveContactAsync(scope, waId, inbound.ProfileName!, cancellationToken);
+        }
+
         // Which language is this customer conversing in? Everything from here on runs on English:
         // the customer's message is translated at the door and the reply is translated on the way
         // out, so no gate, classifier, consent or identity check ever sees anything but English.
@@ -447,7 +605,7 @@ public sealed class CustomerAssistantService(
         // question or an accident, so the person knows who is answering and what he can do.
         if (reply is not null && thread.Length == 0 && sender is null && !reply.StartsWith("Hello", StringComparison.Ordinal))
         {
-            reply = $"{KatoReplies.FirstContactPrefix} {reply}";
+            reply = $"{KatoReplies.FirstContactPrefix(contactFirstName)} {reply}";
         }
 
         LocalisedReply? localised = null;
@@ -526,6 +684,17 @@ public sealed class CustomerAssistantService(
         var original = ownWords?.Text ?? text;
         var hasCover = sender is { Policies.Count: > 0 };
 
+        // Kato asked what to call them: a short reply that reads as a name is the answer.
+        if (previousTurn is { Outcome: CustomerAssistantOutcome.AwaitingName }
+            && sender is null
+            && now - previousTurn.OccurredAt <= ConversationContinuation.Window
+            && intent == CustomerIntent.Unknown
+            && GivenName(inbound.CustomerSafeBody) is { } givenName)
+        {
+            await SaveContactAsync(scope, waId, givenName, cancellationToken);
+            return AssistantOutcome.Of(KatoReplies.NiceToMeetYou(FirstNameOf(givenName)!), CustomerIntent.Unknown, CustomerAssistantOutcome.AutoReplied);
+        }
+
         // Kato asked what work they do: this message is the answer, unless it clearly asks for
         // something else (a person, a claim, a claim's status).
         if (previousTurn is { Outcome: CustomerAssistantOutcome.AwaitingOccupation }
@@ -563,6 +732,9 @@ public sealed class CustomerAssistantService(
             CustomerIntent.ProductInterest when !hasCover => await SuggestCoverAsync(scope, original, text, waId, sender, correlationId, cancellationToken, askIfUnclear: true),
             CustomerIntent.ProductInterest => await HandleProductInterestAsync(scope, text, waId, sender, correlationId, cancellationToken),
             CustomerIntent.HumanRequested => await HandleHumanRequestedAsync(scope, text, waId, sender, correlationId, cancellationToken),
+            // No name from WhatsApp and none on record: Kato introduces himself and asks for one.
+            _ when firstContact && sender is null && contactFirstName is null =>
+                AssistantOutcome.Of($"{Welcome(sender)} {KatoReplies.AskName}", CustomerIntent.Unknown, CustomerAssistantOutcome.AwaitingName),
             _ when ConversationContinuation.IsGreeting(text) || firstContact =>
                 AssistantOutcome.Of(Welcome(sender), CustomerIntent.Unknown, CustomerAssistantOutcome.AwaitingMoreInformation),
             _ => ClarifyOrEscalate(previousTurn, sender, now),
@@ -1389,16 +1561,16 @@ public sealed class CustomerAssistantService(
     private static string NormalizeWaId(string value) => new(value.Where(char.IsDigit).ToArray());
 
     private string Welcome(SenderProfile? sender) =>
-        sender is null
-            ? KatoReplies.Introduction(null, VoiceNotesSupported)
-            : KatoReplies.WelcomeBack(sender.FirstName);
+        sender is { Policies.Count: > 0 }
+            ? KatoReplies.WelcomeBack(sender.FirstName)
+            : KatoReplies.Introduction(sender?.FirstName ?? contactFirstName, VoiceNotesSupported);
 
     private static string HoldingReply(SenderProfile? sender) => KatoReplies.CheckingAnswer(sender?.FirstName);
 
     private static string DefaultEscalationMessage() => KatoReplies.CannotHelpDirectly();
 
     /// <summary>Kato mentions voice notes only when a voice note actually gets understood.</summary>
-    private bool VoiceNotesSupported => false;
+    private bool VoiceNotesSupported => voiceNotesAvailable;
 
 
     // ---- Language: understand the customer at the door, answer them in their own language ----

@@ -102,7 +102,18 @@ public sealed class MicroinsuranceDemoSeeder(
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var fullName = string.IsNullOrWhiteSpace(policyholderSettings.FullName) ? "Demo Policyholder" : policyholderSettings.FullName.Trim();
 
-        var customer = new Customer(DeterministicGuid($"micro-demo-{key}").ToString(), scope.TenantId, scope.WorkspaceId, fullName, null, $"+{digits}");
+        // Reuse whoever is already on file for this phone (the contact Kato saved on first contact),
+        // renamed: a second record under a different name would leave the number unidentifiable.
+        var onFile = (await customerRepository.ListAsync(scope, cancellationToken))
+            .Where(c => PhoneNumbers.SameNumber(c.Phone, digits))
+            .ToArray();
+        var customerId = onFile.Length == 1 ? onFile[0].CustomerId : DeterministicGuid($"micro-demo-{key}").ToString();
+        foreach (var other in onFile.Where(c => c.CustomerId != customerId))
+        {
+            await customerRepository.UpsertAsync(other with { FullName = "Erased customer", Email = null, Phone = null }, cancellationToken);
+        }
+
+        var customer = new Customer(customerId, scope.TenantId, scope.WorkspaceId, fullName, null, $"+{digits}");
         await customerRepository.UpsertAsync(customer, cancellationToken);
 
         var effectiveFrom = today.AddDays(-120);
