@@ -15,6 +15,10 @@ public interface ICustomerLanguageResolutionService
         string messageText,
         bool previousMessageWasChoicePrompt,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Remembers the language the customer has just clearly written in, so a short reply
+    /// that follows ("1", "yes", a policy number) stays in that language.</summary>
+    Task RememberAsync(TenantScope scope, string contactWaId, SupportedLanguageCode language, CancellationToken cancellationToken = default);
 }
 
 public sealed class CustomerLanguageResolutionService(
@@ -44,5 +48,23 @@ public sealed class CustomerLanguageResolutionService(
         }
 
         return resolution;
+    }
+
+    public async Task RememberAsync(TenantScope scope, string contactWaId, SupportedLanguageCode language, CancellationToken cancellationToken = default)
+    {
+        var remembered = await preferenceRepository.GetCurrentAsync(scope, contactWaId, cancellationToken);
+        if (remembered?.Language == language)
+        {
+            return;
+        }
+
+        await preferenceRepository.SaveAsync(new CustomerLanguagePreference
+        {
+            PreferenceId = Guid.NewGuid(),
+            Scope = scope,
+            ContactWaId = contactWaId,
+            Language = language,
+            SetAt = DateTimeOffset.UtcNow,
+        }, cancellationToken);
     }
 }

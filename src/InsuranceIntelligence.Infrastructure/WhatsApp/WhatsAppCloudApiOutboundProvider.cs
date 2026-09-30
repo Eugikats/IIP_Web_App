@@ -76,6 +76,75 @@ public sealed class WhatsAppCloudApiOutboundProvider(
         }
     }
 
+    /// <summary>Uploads the audio to Meta's media store, then sends it as an audio message. OGG with
+    /// the Opus codec is what WhatsApp shows as a voice note.</summary>
+    public async Task<WhatsAppProviderSendResult> SendVoiceNoteAsync(
+        string businessPhoneNumberId,
+        string recipientWaId,
+        byte[] oggOpusAudio,
+        string? replyToProviderMessageId,
+        CancellationToken cancellationToken = default)
+    {
+        var settings = settingsProvider.Current;
+        if (settings is null) return new(false, null, null, "WhatsApp outbound is not configured.");
+        if (!string.Equals(businessPhoneNumberId, settings.PhoneNumberId, StringComparison.Ordinal))
+            return new(false, null, null, "The WhatsApp sender is not configured for this tenant workspace.");
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(settings.RequestTimeoutSeconds * 2, 20, 90)));
+        var baseUrl = $"{settings.GraphBaseUrl.TrimEnd('/')}/{Uri.EscapeDataString(businessPhoneNumberId)}";
+
+        using var form = new MultipartFormDataContent();
+        form.Add(new StringContent("whatsapp"), "messaging_product");
+        form.Add(new StringContent("audio/ogg"), "type");
+        var file = new ByteArrayContent(oggOpusAudio);
+        file.Headers.ContentType = new MediaTypeHeaderValue("audio/ogg");
+        form.Add(file, "file", "reply.ogg");
+        using var upload = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/media") { Content = form };
+        upload.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.AccessToken);
+        using var uploadResponse = await httpClient.SendAsync(upload, timeout.Token);
+        var uploadJson = await uploadResponse.Content.ReadAsStringAsync(timeout.Token);
+        if (!uploadResponse.IsSuccessStatusCode)
+            return new(false, null, ReadProviderErrorCode(uploadJson), "WhatsApp did not accept the voice note.");
+
+        string? mediaId;
+        using (var uploaded = JsonDocument.Parse(uploadJson))
+        {
+            mediaId = uploaded.RootElement.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
+        }
+
+        if (string.IsNullOrWhiteSpace(mediaId))
+            return new(false, null, null, "WhatsApp returned no media reference for the voice note.");
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/messages");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.AccessToken);
+        message.Content = JsonContent.Create(BuildVoiceNotePayload(recipientWaId, mediaId, replyToProviderMessageId));
+        using var response = await httpClient.SendAsync(message, timeout.Token);
+        var responseJson = await response.Content.ReadAsStringAsync(timeout.Token);
+        if (!response.IsSuccessStatusCode)
+            return new(false, null, ReadProviderErrorCode(responseJson), "WhatsApp did not accept the voice note.");
+
+        using var document = JsonDocument.Parse(responseJson);
+        var providerMessageId = document.RootElement.TryGetProperty("messages", out var messages)
+            && messages.ValueKind == JsonValueKind.Array
+            && messages.GetArrayLength() > 0
+            && messages[0].TryGetProperty("id", out var id)
+                ? id.GetString()
+                : null;
+        return string.IsNullOrWhiteSpace(providerMessageId)
+            ? new(false, null, null, "WhatsApp returned no message reference. Reconcile before retrying.")
+            : new(true, providerMessageId, null, null);
+    }
+
+    public static object BuildVoiceNotePayload(string recipientWaId, string mediaId, string? replyToProviderMessageId) => new
+    {
+        messaging_product = "whatsapp",
+        to = recipientWaId,
+        type = "audio",
+        context = string.IsNullOrWhiteSpace(replyToProviderMessageId) ? null : new { message_id = replyToProviderMessageId },
+        audio = new { id = mediaId },
+    };
+
     /// <summary>Meta's read receipt with a typing indicator attached: one call marks the customer's
     /// message read and shows "typing..." until the reply is delivered or 25 seconds pass.</summary>
     public static object BuildTypingPayload(string inboundProviderMessageId) => new

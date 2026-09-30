@@ -26,7 +26,7 @@ public sealed class SunbirdVoiceNoteTranscriber(
     IConnectionSecretProtector protector,
     IWhatsAppInboundProvider whatsAppProvider,
     IHttpClientFactory httpClientFactory,
-    ILogger<SunbirdVoiceNoteTranscriber> logger) : IVoiceNoteTranscriber
+    ILogger<SunbirdVoiceNoteTranscriber> logger) : IVoiceNoteTranscriber, IVoiceNoteSpeaker
 {
     private const string SunbirdProviderKey = "Sunbird";
 
@@ -85,6 +85,60 @@ public sealed class SunbirdVoiceNoteTranscriber(
             return null;
         }
     }
+
+    /// <summary>Sunbird's text-to-speech (POST /tasks/audio/speech, streamed WAV), encoded to the
+    /// OGG/Opus WhatsApp plays as a voice note. Measured at about 12 seconds for a short reply.</summary>
+    public async Task<byte[]?> SpeakAsync(TenantScope scope, string text, SupportedLanguageCode language, CancellationToken cancellationToken = default)
+    {
+        var settings = await SettingsAsync(scope, cancellationToken);
+        if (settings is null || string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{settings.Endpoint}/tasks/audio/speech")
+            {
+                Content = System.Net.Http.Json.JsonContent.Create(new
+                {
+                    text = text.Trim(),
+                    language = SpeechLanguageFor(language),
+                    response_mode = "stream",
+                }),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(Timeout);
+            using var response = await httpClientFactory.CreateClient(nameof(SunbirdVoiceNoteTranscriber)).SendAsync(request, timeout.Token);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Sunbird speech failed with HTTP {StatusCode}.", (int)response.StatusCode);
+                return null;
+            }
+
+            var wav = await response.Content.ReadAsByteArrayAsync(timeout.Token);
+            var ogg = OggOpusVoiceNote.FromWav(wav);
+            if (ogg is null)
+            {
+                logger.LogWarning("Sunbird speech returned audio that could not be encoded as a voice note ({Bytes} bytes).", wav.Length);
+            }
+
+            return ogg;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning("Voice reply failed safely. ErrorType={ErrorType}", exception.GetType().Name);
+            return null;
+        }
+    }
+
+    internal static string SpeechLanguageFor(SupportedLanguageCode language) => language switch
+    {
+        SupportedLanguageCode.Lg => "lug",
+        SupportedLanguageCode.Sw => "swa",
+        _ => "eng",
+    };
 
     internal static string? ReadTranscript(JsonElement root) =>
         root.ValueKind == JsonValueKind.Object

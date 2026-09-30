@@ -745,6 +745,57 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
+    public async Task VoiceNote_IsAnsweredWithAVoiceNote_NotText()
+    {
+        var speaker = new FakeVoiceNoteSpeaker();
+        var fixture = Fixture.Create(voice: new FakeVoiceNoteTranscriber("hello"), speaker: speaker);
+
+        await fixture.HandleVoiceAsync();
+
+        Assert.Single(fixture.Outbound.VoiceNotes);
+        Assert.Empty(fixture.Outbound.SentRequests);
+        Assert.Contains("Kato", speaker.Spoken.Single());
+    }
+
+    [Fact]
+    public void VoiceReply_NeverReadsOutALinkOrTheTranslationNote() =>
+        Assert.Equal("Here is your link. It works for 24 hours.",
+            CustomerAssistantService.SpokenText("Here is your link. It works for 24 hours: https://portal.example/access?token=abc\n\n(This message was translated by a computer.)"));
+
+    [Fact]
+    public async Task VoiceReply_WhenSpeechFails_FallsBackToText()
+    {
+        var fixture = Fixture.Create(voice: new FakeVoiceNoteTranscriber("hello"), speaker: new FakeVoiceNoteSpeaker(fail: true));
+
+        await fixture.HandleVoiceAsync();
+
+        Assert.Empty(fixture.Outbound.VoiceNotes);
+        Assert.Single(fixture.Outbound.SentRequests);
+    }
+
+    [Fact]
+    public async Task TypedMessage_IsAnsweredInText_EvenWithASpeechEngine()
+    {
+        var fixture = Fixture.Create(voice: new FakeVoiceNoteTranscriber("hello"), speaker: new FakeVoiceNoteSpeaker());
+
+        await fixture.HandleNamedAsync("Hello", "Grace");
+
+        Assert.Empty(fixture.Outbound.VoiceNotes);
+        Assert.Single(fixture.Outbound.SentRequests);
+    }
+
+    private sealed class FakeVoiceNoteSpeaker(bool fail = false) : IVoiceNoteSpeaker
+    {
+        public List<string> Spoken { get; } = [];
+
+        public Task<byte[]?> SpeakAsync(TenantScope scope, string text, SupportedLanguageCode language, CancellationToken cancellationToken = default)
+        {
+            Spoken.Add(text);
+            return Task.FromResult<byte[]?>(fail ? null : [1, 2, 3]);
+        }
+    }
+
+    [Fact]
     public async Task AskingIfItIsABot_IsAnsweredHonestly()
     {
         var fixture = Fixture.Create();
@@ -752,7 +803,7 @@ public sealed partial class CustomerAssistantServiceTests
         await fixture.HandleAsync("Am I talking to a bot?");
 
         var reply = Assert.Single(fixture.Conversations.Saved).OutboundReplyText!;
-        Assert.Contains("I'm not a person", reply);
+        Assert.Contains("I'm not a person myself", reply);
         Assert.Contains("PERSON", reply);
     }
 
@@ -919,7 +970,8 @@ public sealed partial class CustomerAssistantServiceTests
             IReadOnlyCollection<SupportedLanguageCode>? enabledLanguages = null,
             bool allowUnreviewedTranslations = true,
             string? demoPhone = null,
-            IVoiceNoteTranscriber? voice = null)
+            IVoiceNoteTranscriber? voice = null,
+            IVoiceNoteSpeaker? speaker = null)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -968,7 +1020,8 @@ public sealed partial class CustomerAssistantServiceTests
                 translator is null ? null : new TestLanguageSettings(enabledLanguages ?? [SupportedLanguageCode.Lg, SupportedLanguageCode.Sw], allowUnreviewedTranslations),
                 demoPhone is null ? null : new DemoSessionCommands(
                     new DemoSessionSettings(true, demoPhone), customers, policies, cases, languagePreferences, audit),
-                voice);
+                voice,
+                speaker);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {
@@ -1157,6 +1210,16 @@ public sealed partial class CustomerAssistantServiceTests
             SentRequests.Add(request);
             Events.Add("send");
             return Task.FromResult(new WhatsAppProviderSendResult(true, $"wamid.out.{Guid.NewGuid():N}", null, null));
+        }
+
+        public List<byte[]> VoiceNotes { get; } = [];
+
+        public Task<WhatsAppProviderSendResult> SendVoiceNoteAsync(
+            string businessPhoneNumberId, string recipientWaId, byte[] oggOpusAudio, string? replyToProviderMessageId, CancellationToken cancellationToken = default)
+        {
+            VoiceNotes.Add(oggOpusAudio);
+            Events.Add("voice");
+            return Task.FromResult(new WhatsAppProviderSendResult(true, $"wamid.voice.{Guid.NewGuid():N}", null, null));
         }
 
         public Task<bool> ShowTypingAsync(string businessPhoneNumberId, string inboundProviderMessageId, CancellationToken cancellationToken = default)

@@ -35,6 +35,16 @@ public interface IWhatsAppOutboundProvider
         string businessPhoneNumberId,
         string inboundProviderMessageId,
         CancellationToken cancellationToken = default) => Task.FromResult(false);
+
+    /// <summary>Sends an OGG/Opus voice note. A provider without the capability refuses it, and
+    /// the caller sends text instead.</summary>
+    Task<WhatsAppProviderSendResult> SendVoiceNoteAsync(
+        string businessPhoneNumberId,
+        string recipientWaId,
+        byte[] oggOpusAudio,
+        string? replyToProviderMessageId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new WhatsAppProviderSendResult(false, null, null, "Voice notes are not supported by this provider."));
 }
 
 public interface IWhatsAppMessageRepository

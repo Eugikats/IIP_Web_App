@@ -207,16 +207,17 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
-    public async Task AShortMessageInAnotherLanguage_IsAskedWhichLanguageToUse()
+    public async Task AShortMessageInAnotherLanguage_IsAnsweredInThatLanguage_NotWithAMenu()
     {
         var fixture = Fixture.Create(translator: new ScriptedTranslator());
 
         await fixture.HandleAsync("Habari");
 
         var turn = Assert.Single(fixture.Conversations.Saved);
-        Assert.Equal(CustomerAssistantOutcome.AwaitingLanguageChoice, turn.Outcome);
+        Assert.Equal("sw", turn.CustomerLanguage);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("Reply 1 for English, 2 for Luganda, 3 for Kiswahili", sent.CustomerSafeBody);
+        Assert.StartsWith("[sw]", sent.CustomerSafeBody);
+        Assert.DoesNotContain("Reply 1 for English", sent.CustomerSafeBody);
     }
 
     [Fact]
@@ -232,20 +233,15 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
-    public async Task AnsweringTheLanguageMenu_SwitchesTheConversationAndRemembersTheChoice()
+    public async Task TheLanguageTheCustomerWritesIn_WinsOverAnEarlierPreference_AndStaysForShortReplies()
     {
         var fixture = Fixture.Create(translator: new ScriptedTranslator());
+        await fixture.HandleAsync("Let's speak English please, thank you");
+
         await fixture.HandleAsync("Habari");
+        await fixture.HandleMediaAsync(); // no words: answered in the language they last used
 
-        await fixture.HandleAsync("3");
-
-        var choice = fixture.Conversations.Saved[1];
-        Assert.Equal("sw", choice.CustomerLanguage);
-        Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, choice.Outcome);
         Assert.StartsWith("[sw]", fixture.Outbound.SentRequests[1].CustomerSafeBody);
-
-        // A photo has no words to detect a language from, so it is answered in the chosen one.
-        await fixture.HandleMediaAsync();
         Assert.StartsWith("[sw]", fixture.Outbound.SentRequests[2].CustomerSafeBody);
     }
 

@@ -115,7 +115,10 @@ public sealed class CustomerAssistantService(
     DemoSessionCommands? demoSession = null,
     // Optional: voice notes in, text replies out. Without it a voice note gets a written reply
     // saying Kato cannot listen yet, never silence.
-    IVoiceNoteTranscriber? voiceTranscriber = null) : ICustomerAssistantService
+    IVoiceNoteTranscriber? voiceTranscriber = null,
+    // Optional: a voice note is answered with a voice note in the same language. Without it, or
+    // when speaking fails, the answer goes as text.
+    IVoiceNoteSpeaker? voiceSpeaker = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
@@ -614,7 +617,8 @@ public sealed class CustomerAssistantService(
             var textToSend = outcome.Outcome == CustomerAssistantOutcome.QueuedForHumanApproval ? HoldingReply(sender) : reply;
             localised = await LocaliseAsync(scope, textToSend, language.Reply, sender?.FirstName, cancellationToken,
                 noteAlreadyShown: thread.Any(turn => turn.OutboundTranslationStatus == TranslationStatus.Translated));
-            await SendReplyAsync(scope, inbound, threadId, waId, localised.Text, outcome.CaseId, cancellationToken, LanguageIsoFor(localised.Status, language.Reply));
+            await SendReplyAsync(scope, inbound, threadId, waId, localised.Text, outcome.CaseId, cancellationToken, LanguageIsoFor(localised.Status, language.Reply),
+                asVoice: inbound.MediaId is not null);
         }
 
         await conversationRepository.SaveAsync(new CustomerConversationTurn
@@ -1504,7 +1508,7 @@ public sealed class CustomerAssistantService(
             InteractionReference = threadId,
         }, cancellationToken);
 
-    private async Task SendReplyAsync(TenantScope scope, WhatsAppInboundMessage inbound, string threadId, string waId, string replyText, Guid? caseId, CancellationToken cancellationToken, string languageIso = "en")
+    private async Task SendReplyAsync(TenantScope scope, WhatsAppInboundMessage inbound, string threadId, string waId, string replyText, Guid? caseId, CancellationToken cancellationToken, string languageIso = "en", bool asVoice = false)
     {
         if (!outboundProvider.IsConfigured)
         {
@@ -1521,35 +1525,29 @@ public sealed class CustomerAssistantService(
             return; // Honest no-op, no active consent basis to send on.
         }
 
+        // Spoken to, Kato speaks back, in the language of the reply. A reply carrying a link also
+        // goes as text, because a link cannot be tapped in a voice note.
+        if (asVoice && voiceSpeaker is not null && SpokenText(replyText) is { } spoken)
+        {
+            var audio = await voiceSpeaker.SpeakAsync(scope, spoken, LanguageFromIso(languageIso), cancellationToken);
+            if (audio is not null)
+            {
+                var voiceKey = Guid.NewGuid().ToString("N");
+                var voice = await outboundProvider.SendVoiceNoteAsync(inbound.BusinessPhoneNumberId, waId, audio, inbound.ProviderMessageId, cancellationToken);
+                await SaveOutboundAsync(scope, inbound, threadId, waId, replyText, caseId, voice, voiceKey, WhatsAppContentType.Audio, cancellationToken);
+                if (voice.Accepted && !replyText.Contains("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+        }
+
         var idempotencyKey = Guid.NewGuid().ToString("N");
         var result = await outboundProvider.SendAsync(new WhatsAppProviderSendRequest(
             inbound.BusinessPhoneNumberId, waId, replyText, TemplateName: null, Language: languageIso,
             ReplyToProviderMessageId: inbound.ProviderMessageId, IdempotencyKey: idempotencyKey), cancellationToken);
 
-        await whatsAppMessageRepository.SaveAsync(new WhatsAppMessage
-        {
-            MessageId = Guid.NewGuid(),
-            Scope = scope,
-            CaseId = caseId,
-            ThreadId = threadId,
-            BusinessPhoneNumberId = inbound.BusinessPhoneNumberId,
-            ContactWaId = waId,
-            Direction = WhatsAppMessageDirection.Outbound,
-            ContentType = WhatsAppContentType.Text,
-            CustomerSafeBody = replyText,
-            ProviderMessageId = result.ProviderMessageId,
-            ReplyToProviderMessageId = inbound.ProviderMessageId,
-            Purpose = "customer_assistant_reply",
-            ConsentBasis = "customer_initiated_conversation",
-            ApprovedByUserId = SystemActorId,
-            ApprovedAt = DateTimeOffset.UtcNow,
-            IdempotencyKey = idempotencyKey,
-            DeliveryState = result.Accepted ? WhatsAppDeliveryState.Queued : WhatsAppDeliveryState.Failed,
-            ProviderErrorCode = result.ProviderErrorCode,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
-            CorrelationId = Guid.NewGuid().ToString("N"),
-        }, cancellationToken);
+        await SaveOutboundAsync(scope, inbound, threadId, waId, replyText, caseId, result, idempotencyKey, WhatsAppContentType.Text, cancellationToken);
     }
 
     private static string? ExtractPolicyNumber(string text)
@@ -1632,19 +1630,36 @@ public sealed class CustomerAssistantService(
                 : new ConversationLanguage(requested, InboundLanguageFor(original, detected, requested, enabled), LanguageStep.Proceed);
         }
 
+        // Answer in the language the customer just used, the way a person would. Someone who wrote
+        // "let's speak English" yesterday and sends a Luganda voice note today wants Luganda back.
+        var wroteInLocalLanguage = detected.Language != SupportedLanguageCode.En
+            && detected.Confidence > 0
+            && enabled.Contains(detected.Language);
+        if (wroteInLocalLanguage)
+        {
+            if (resolution.Language != detected.Language || resolution.Source != LanguageResolutionSource.RememberedPreference)
+            {
+                await languageResolution.RememberAsync(scope, waId, detected.Language, cancellationToken);
+            }
+
+            return new ConversationLanguage(detected.Language, detected.Language, LanguageStep.Proceed);
+        }
+
         if (resolution.Source == LanguageResolutionSource.PromptedChoice)
         {
-            // Not sure. Ask only when the message shows a sign of one of the other languages; a
-            // short English message ("hi") must not be answered with a language menu.
-            var hasLocalSignal = detected.Language != SupportedLanguageCode.En
-                && detected.Confidence > 0
-                && enabled.Contains(detected.Language);
-            return hasLocalSignal
-                ? new ConversationLanguage(SupportedLanguageCode.En, SupportedLanguageCode.En, LanguageStep.AskChoice)
-                : English;
+            return English;
         }
 
         var reply = enabled.Contains(resolution.Language) ? resolution.Language : SupportedLanguageCode.En;
+        // A full English sentence gets English back, whatever was preferred before.
+        if (reply != SupportedLanguageCode.En
+            && detected.Confidence > 0
+            && original.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length > 3)
+        {
+            reply = SupportedLanguageCode.En;
+            await languageResolution.RememberAsync(scope, waId, reply, cancellationToken);
+        }
+
         return new ConversationLanguage(reply, InboundLanguageFor(original, detected, reply, enabled), LanguageStep.Proceed);
     }
 
@@ -1738,6 +1753,58 @@ public sealed class CustomerAssistantService(
     /// <summary>The language code a reply is labelled with: the customer's language only when the
     /// text really is in it. English that went out because a translation could not be shown is
     /// labelled English.</summary>
+    private Task SaveOutboundAsync(
+        TenantScope scope, WhatsAppInboundMessage inbound, string threadId, string waId, string replyText, Guid? caseId,
+        WhatsAppProviderSendResult result, string idempotencyKey, WhatsAppContentType contentType, CancellationToken cancellationToken) =>
+        whatsAppMessageRepository.SaveAsync(new WhatsAppMessage
+        {
+            MessageId = Guid.NewGuid(),
+            Scope = scope,
+            CaseId = caseId,
+            ThreadId = threadId,
+            BusinessPhoneNumberId = inbound.BusinessPhoneNumberId,
+            ContactWaId = waId,
+            Direction = WhatsAppMessageDirection.Outbound,
+            ContentType = contentType,
+            // For a voice note, the words that were spoken, so staff can read what the customer heard.
+            CustomerSafeBody = replyText,
+            ProviderMessageId = result.ProviderMessageId,
+            ReplyToProviderMessageId = inbound.ProviderMessageId,
+            Purpose = "customer_assistant_reply",
+            ConsentBasis = "customer_initiated_conversation",
+            ApprovedByUserId = SystemActorId,
+            ApprovedAt = DateTimeOffset.UtcNow,
+            IdempotencyKey = idempotencyKey,
+            DeliveryState = result.Accepted ? WhatsAppDeliveryState.Queued : WhatsAppDeliveryState.Failed,
+            ProviderErrorCode = result.ProviderErrorCode,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CorrelationId = Guid.NewGuid().ToString("N"),
+        }, cancellationToken);
+
+    /// <summary>What to say aloud: the reply without links and without the bracketed
+    /// machine-translation note, which the voice itself makes plain enough.</summary>
+    public static string? SpokenText(string replyText)
+    {
+        var paragraphs = replyText
+            .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(paragraph => !(paragraph.StartsWith('(') && paragraph.EndsWith(')')))
+            .Select(paragraph => string.Join(' ', paragraph
+                .Split([' ', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Where(word => !word.Contains("http", StringComparison.OrdinalIgnoreCase))).TrimEnd(':', ' '))
+            .Where(paragraph => paragraph.Length > 0)
+            .Select(paragraph => paragraph[^1] is '.' or '?' or '!' ? paragraph : paragraph + ".");
+        var spoken = string.Join(" ", paragraphs).Trim();
+        return spoken.Length == 0 ? null : spoken;
+    }
+
+    private static SupportedLanguageCode LanguageFromIso(string iso) => iso switch
+    {
+        "lg" => SupportedLanguageCode.Lg,
+        "sw" => SupportedLanguageCode.Sw,
+        _ => SupportedLanguageCode.En,
+    };
+
     private static string LanguageIsoFor(TranslationStatus status, SupportedLanguageCode language) =>
         status == TranslationStatus.Translated ? SupportedLanguage.For(language).Iso : "en";
 

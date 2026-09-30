@@ -47,9 +47,12 @@ public static class KatoReplies
     public static string HandingToPerson(string? firstName) =>
         $"Let me get someone from our team to help you{Comma(firstName)}. They will reply to you here soon.";
 
+    // Warm and plain, and still true: Kato never claims to be human. The people behind him are real,
+    // and one of them takes over whenever the customer wants.
     public static string NotAPerson(string? firstName) =>
-        $"No{Comma(firstName)}, I'm not a person. I'm Kato, Nile Shield's helper on WhatsApp, and I can help you at any time of day. " +
-        $"If you would like to talk to a person, reply {PersonWord}.";
+        $"I'm Kato{Comma(firstName)}, Nile Shield's assistant here on WhatsApp. I'm not a person myself, but I work with our team, " +
+        "and they see what you tell me. I'm here day and night to help you get things done quickly. " +
+        $"If you would rather talk to one of them, reply {PersonWord} and someone will pick this up.";
 
     public static string YoureWelcome(string? firstName) =>
         $"You're welcome{Comma(firstName)}. I'm here any time you need me.";
