@@ -258,6 +258,21 @@ All items are in scope. Build in this order so the phone is safe to hand over at
 
 Later hardening (not needed for the field test): durable queue, customer-managed storage keys, Data Protection keys in Key Vault, product-aware Luganda knowledge content, editable per-language templates.
 
+### Build outcome (2026-09-30)
+
+Built from [IIP_KATO_BUILD_PROMPT.md](IIP_KATO_BUILD_PROMPT.md) on `feature/claim-intake` and deployed to dev (`rg-iip-dev`). Status against the list above:
+
+- **Done and deployed:** 1 (`#reset`, plus `#demo` to load the demo policyholder), 2 (read-back before any claim, 72-hour duplicate check, photos never open claims), 3, 4 (profile name, ask when absent, contact record that holds no cover), 5, 6, 8 and 9 (link issued only when the sending number is the policyholder's, checked in the assistant and again in `WhatsAppClaimantAccessLinkIssuer`; a typed policy number unlocks nothing).
+- **7, voice:** voice in, text out. `SunbirdVoiceNoteTranscriber` sends the OGG voice note as it is to Sunbird's `/tasks/audio/transcriptions` using the tenant's Sunbird connection, and the words are handled exactly like typed text. Without a working speech engine the customer gets a written "I can't listen to voice notes yet" reply. Voice out is not built.
+- **Not done:** 10 (document requirements by claim value).
+- **Also changed:** the WhatsApp missing-documents reminder no longer invites papers into the chat.
+
+Dev configuration added for the field test:
+
+- API app settings: `INSURANCEINTELLIGENCE_DEMO_PHONE_NUMBER` (the one number `#reset` and `#demo` answer) and `INSURANCEINTELLIGENCE_DEMO_POLICYHOLDER_NAME`. Both commands exist only under the Demo runtime profile.
+- Translation connection: Sunbird (`sunflower-9b`), saved through `POST /api/v1/integrations/connections/translation`. The key is held encrypted in the connection, not in app settings.
+- Microinsurance catalogue seeded with `POST /api/v1/admin/demo-seed/microinsurance` (idempotent; with `{"phone": ...}` it also loads the demo policyholder).
+
 ---
 
 ## Sources
