@@ -575,7 +575,9 @@ public sealed partial class CustomerAssistantService(
         var answeringOurQuestion = continuation.EarlierMessageText is not null;
 
         var intent = continuation.Intent;
-        if (intent == CustomerIntent.Unknown && !answeringOurQuestion && ShouldAskModelForIntent(text))
+        // The agent reads the message itself; asking the model for an intent first only cost the
+        // customer about nine seconds per message for an answer nobody used.
+        if (agentModel is null && intent == CustomerIntent.Unknown && !answeringOurQuestion && ShouldAskModelForIntent(text))
         {
             intent = await ClassifyWithModelAsync(scope, text, correlationId, cancellationToken);
         }
