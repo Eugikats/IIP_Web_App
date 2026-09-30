@@ -111,11 +111,15 @@ public sealed class NotConfiguredKnowledgeStorageProvider : IKnowledgeStoragePro
 /// NotConfigured* provider here, not the expected path.</summary>
 public sealed class NotConfiguredTranslationProvider : ITranslationProvider, InsuranceIntelligence.Application.Translation.ITranslationEngineHealth
 {
-    public bool IsConfigured => false;
+    public const string ModelTag = "not-configured";
 
-    public Task<InsuranceIntelligence.Application.Translation.TranslationEngineStatus> CheckAsync(CancellationToken cancellationToken = default) =>
+    public Task<bool> IsConfiguredAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(false);
+
+    public Task<string> GetModelTagAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(ModelTag);
+
+    public Task<InsuranceIntelligence.Application.Translation.TranslationEngineStatus> CheckAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
         Task.FromResult(InsuranceIntelligence.Application.Translation.TranslationEngineStatus.NotConfigured);
 
-    public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default) =>
+    public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, TenantScope scope, CancellationToken cancellationToken = default) =>
         throw new ProviderNotConfiguredException("Translation", "Translation provider is not configured.");
 }

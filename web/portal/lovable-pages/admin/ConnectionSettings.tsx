@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Mail, MessageSquare, PlugZap, RefreshCcw, ShieldCheck, Unplug } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Languages, Loader2, Mail, MessageSquare, PlugZap, RefreshCcw, ShieldCheck, Unplug } from "lucide-react";
+import { TranslationTryPanel } from "@/components/iip/TranslationTryPanel";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
@@ -13,6 +14,7 @@ import {
   type ConnectionType,
   EMAIL_PROVIDER_FIELDS,
   SMS_PROVIDER_FIELDS,
+  TRANSLATION_PROVIDER_FIELDS,
   deleteConnection,
   getConnectionProviders,
   getConnectionStatus,
@@ -25,11 +27,13 @@ import {
 const CONNECTION_TYPES: { type: ConnectionType; label: string; icon: typeof MessageSquare; description: string }[] = [
   { type: "sms", label: "SMS", icon: MessageSquare, description: "Send text messages to customers, claim status, magic links, decision outcomes." },
   { type: "email", label: "Email", icon: Mail, description: "Send email to customers over any SMTP-speaking mail system, no Azure tenant needed." },
+  { type: "translation", label: "Translation", icon: Languages, description: "Translate customer messages and replies for the WhatsApp assistant, e.g. Sunbird AI." },
 ];
 
 const FIELD_GUIDE_BY_TYPE: Record<ConnectionType, Record<string, import("@/lib/connections").ConnectionFieldSpec[]>> = {
   sms: SMS_PROVIDER_FIELDS,
   email: EMAIL_PROVIDER_FIELDS,
+  translation: TRANSLATION_PROVIDER_FIELDS,
 };
 
 export default function ConnectionSettings() {
@@ -38,7 +42,7 @@ export default function ConnectionSettings() {
       <SectionHeader
         eyebrow="Admin · Channels"
         title="Connections"
-        sub="Connect the platforms this workspace sends customer messages through. Credentials are validated against the real provider before anything is saved, and encrypted at rest."
+        sub="Connect the platforms this workspace sends customer messages through, and the engine that translates them. Credentials are validated against the real provider before anything is saved, and encrypted at rest."
       />
       <div className="space-y-4">
         {CONNECTION_TYPES.map((entry) => (
@@ -196,6 +200,8 @@ function ConnectionCard({
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {status.lastValidationError}
             </div>
           )}
+
+          {status.connected && type === "translation" && <TranslationTryPanel role={role} />}
 
           {!status.connected && (
             <div className="mt-4">

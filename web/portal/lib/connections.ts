@@ -2,7 +2,7 @@
 
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 
-export type ConnectionType = "sms" | "email";
+export type ConnectionType = "sms" | "email" | "translation";
 
 export type ConnectionStatus = {
   connectionType: string;
@@ -127,6 +127,41 @@ export async function deleteConnection(role: string, connectionType: ConnectionT
   }
 }
 
+export type TranslationTryResult = { translated: boolean; text: string; failure: string | null; fromCache: boolean };
+
+export async function tryTranslation(
+  role: string,
+  input: { text: string; from: string; to: string }
+): Promise<ConnectionResult<TranslationTryResult>> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/integrations/connections/translation/try`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...scopedHeaders(role, "") },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "The translation test could not be run.") };
+    }
+    return { ok: true, value: (await response.json()) as TranslationTryResult };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "The translation test could not be run.") };
+  }
+}
+
+// Plain-language reasons for a rejected translation, keyed by the backend's TranslationFailureReason.
+export const TRANSLATION_FAILURE_WORDS: Record<string, string> = {
+  Empty: "The engine returned nothing.",
+  Unchanged: "The engine returned the text unchanged.",
+  EchoedPrompt: "The engine repeated its instructions instead of translating.",
+  RepetitionLoop: "The engine got stuck repeating a phrase.",
+  LengthBlowup: "The engine added far more text than the original, so it was not a straight translation.",
+  StillEnglish: "The result still reads as English.",
+  GarbledScript: "The result was in the wrong alphabet.",
+  ProviderNotConfigured: "No translation engine is connected for this workspace.",
+  ProviderUnavailable: "The translation engine could not be reached or returned an error.",
+  ProtectedTokenLost: "The engine dropped or changed a name, number or reference that must stay exact.",
+};
+
 // Field guide per provider, what to show, what's secret. Kept here (not fetched from the
 // backend) since it's presentation metadata, the same way WhatsAppSettings.tsx's FIELD_GUIDE is
 // local, the backend only needs to know field names, not labels/help text/placeholders.
@@ -162,5 +197,13 @@ export const EMAIL_PROVIDER_FIELDS: Record<string, ConnectionFieldSpec[]> = {
     { key: "password", label: "Password", placeholder: "••••••••", help: "The mailbox password or an app-specific password.", secret: true },
     { key: "fromAddress", label: "From address", placeholder: "claims@yourcompany.com", help: "The address customers see as the sender.", secret: false },
     { key: "useSsl", label: "Use TLS", placeholder: "true or false", help: "Leave as true (the default) unless your provider explicitly requires plaintext.", secret: false, optional: true },
+  ],
+};
+
+export const TRANSLATION_PROVIDER_FIELDS: Record<string, ConnectionFieldSpec[]> = {
+  Sunbird: [
+    { key: "apiKey", label: "API key", placeholder: "your_sunbird_api_key", help: "From your account at sunbird.ai.", secret: true },
+    { key: "endpoint", label: "API endpoint (optional)", placeholder: "https://api.sunbird.ai", help: "Leave blank to use Sunbird's default API address.", secret: false, optional: true },
+    { key: "model", label: "Model (optional)", placeholder: "sunflower-9b", help: "Leave blank to use Sunbird's broader-language default (sunflower-9b).", secret: false, optional: true },
   ],
 };

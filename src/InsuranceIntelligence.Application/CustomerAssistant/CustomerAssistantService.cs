@@ -110,7 +110,9 @@ public sealed class CustomerAssistantService(
     ITranslationService? translationService = null,
     ICustomerLanguageResolutionService? languageResolution = null,
     ILanguageDetector? languageDetector = null,
-    IAssistantLanguageSettings? languageSettings = null) : ICustomerAssistantService
+    IAssistantLanguageSettings? languageSettings = null,
+    // Optional: the hidden field-test commands, live only in the Demo profile for the demo phone.
+    DemoSessionCommands? demoSession = null) : ICustomerAssistantService
 {
     private const string SystemActorId = "system:customer-assistant";
     private const string AgentKey = "customer-assistant";
@@ -140,6 +142,18 @@ public sealed class CustomerAssistantService(
         {
             try
             {
+                // Checked before anything else, including the agent kill switch: resetting the
+                // shared demo phone must work even when the assistant itself is switched off.
+                if (inbound.ContentType == WhatsAppContentType.Text && demoSession is not null)
+                {
+                    var command = demoSession.Recognise(NormalizeWaId(inbound.SenderWaId), inbound.CustomerSafeBody);
+                    if (command != DemoCommand.None)
+                    {
+                        await HandleDemoCommandAsync(scope, inbound, command, correlationId, cancellationToken);
+                        continue;
+                    }
+                }
+
                 if (inbound.ContentType is WhatsAppContentType.Image or WhatsAppContentType.Document)
                 {
                     // The file itself is stored on the claim by WhatsAppInboundDocumentIngestionService
@@ -170,6 +184,42 @@ public sealed class CustomerAssistantService(
         }
 
         return opened;
+    }
+
+    private async Task HandleDemoCommandAsync(
+        TenantScope scope, WhatsAppInboundMessage inbound, DemoCommand command, string correlationId, CancellationToken cancellationToken)
+    {
+        var waId = NormalizeWaId(inbound.SenderWaId);
+        var threadId = WhatsAppMessagingService.BuildThreadId(inbound.BusinessPhoneNumberId, waId);
+        await RecordConsentAsync(scope, waId, threadId, correlationId, cancellationToken);
+
+        var reply = await demoSession!.RunAsync(command, scope, waId, correlationId, cancellationToken);
+        await SendReplyAsync(scope, inbound, threadId, waId, reply, caseId: null, cancellationToken);
+
+        // Both commands start a fresh conversation: everything before this turn is ignored.
+        await conversationRepository.SaveAsync(new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(),
+            Scope = scope,
+            ThreadId = threadId,
+            ContactWaId = waId,
+            InboundMessageText = inbound.CustomerSafeBody.Trim(),
+            ClassifiedIntent = CustomerIntent.Unknown,
+            OutboundReplyText = reply,
+            Outcome = CustomerAssistantOutcome.SessionReset,
+            OccurredAt = DateTimeOffset.UtcNow,
+            CorrelationId = correlationId,
+        }, cancellationToken);
+    }
+
+    /// <summary>This conversation's turns, oldest first, from after the most recent demo reset.</summary>
+    private async Task<CustomerConversationTurn[]> CurrentThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken)
+    {
+        var turns = (await conversationRepository.ListForThreadAsync(scope, threadId, cancellationToken))
+            .OrderBy(turn => turn.OccurredAt)
+            .ToArray();
+        var lastReset = Array.FindLastIndex(turns, turn => turn.Outcome == CustomerAssistantOutcome.SessionReset);
+        return lastReset < 0 ? turns : turns[(lastReset + 1)..];
     }
 
     public async Task EscalateUnhandledAsync(
@@ -236,6 +286,53 @@ public sealed class CustomerAssistantService(
         catch { } // Best effort: the failure being handled may be the store itself.
     }
 
+    /// <summary>WhatsApp clears a typing indicator after 25 seconds, and an AI answer that is then
+    /// translated can take longer, so it is refreshed shortly before it would lapse, a bounded number
+    /// of times so a stuck reply cannot keep a customer watching "typing..." indefinitely.</summary>
+    internal static readonly TimeSpan TypingRefreshInterval = TimeSpan.FromSeconds(20);
+    internal const int MaxTypingIndicators = 4;
+
+    private TypingIndicator StartTypingIndicator(WhatsAppInboundMessage inbound, CancellationToken cancellationToken)
+    {
+        var indicator = new TypingIndicator(cancellationToken);
+        _ = KeepTypingAsync(inbound, indicator.Token);
+        return indicator;
+    }
+
+    private async Task KeepTypingAsync(WhatsAppInboundMessage inbound, CancellationToken token)
+    {
+        for (var shown = 0; shown < MaxTypingIndicators && !token.IsCancellationRequested; shown++)
+        {
+            try
+            {
+                if (!await outboundProvider.ShowTypingAsync(inbound.BusinessPhoneNumberId, inbound.ProviderMessageId, token))
+                {
+                    return;
+                }
+
+                await Task.Delay(TypingRefreshInterval, token);
+            }
+            catch
+            {
+                // Cosmetic only: a failed or cancelled indicator must never affect the reply itself.
+                return;
+            }
+        }
+    }
+
+    private sealed class TypingIndicator(CancellationToken cancellationToken) : IDisposable
+    {
+        private readonly CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        public CancellationToken Token => stop.Token;
+
+        public void Dispose()
+        {
+            stop.Cancel();
+            stop.Dispose();
+        }
+    }
+
     private async Task<Guid?> HandleTextMessageAsync(TenantScope scope, WhatsAppInboundMessage inbound, string correlationId, bool autoReplyEnabled, CancellationToken cancellationToken)
     {
         var text = inbound.CustomerSafeBody.Trim();
@@ -254,6 +351,11 @@ public sealed class CustomerAssistantService(
             return null;
         }
 
+        // From here on the customer always gets a reply (an answer, a holding message, a language
+        // question or a hand-off to a person), so show them "typing..." while it is prepared. It stops
+        // when this method returns, whatever path it takes.
+        using var typing = StartTypingIndicator(inbound, cancellationToken);
+
         // WO 6.1 capture point: the customer messaging first is the real basis every hardcoded
         // "customer_initiated_conversation" string in this codebase was standing in for, record
         // it as a real, queryable, auditable grant instead of an ambient assumption. Every inbound
@@ -263,9 +365,7 @@ public sealed class CustomerAssistantService(
 
         var now = DateTimeOffset.UtcNow;
         var sender = await IdentifySenderAsync(scope, waId, cancellationToken);
-        var thread = (await conversationRepository.ListForThreadAsync(scope, threadId, cancellationToken))
-            .OrderBy(turn => turn.OccurredAt)
-            .ToArray();
+        var thread = await CurrentThreadAsync(scope, threadId, cancellationToken);
         var previousTurn = thread.Length == 0 ? null : thread[^1];
 
         // Which language is this customer conversing in? Everything from here on runs on English:
@@ -275,11 +375,12 @@ public sealed class CustomerAssistantService(
         var language = await ResolveConversationLanguageAsync(scope, waId, original, previousTurn, cancellationToken);
         if (language.Step != LanguageStep.Proceed)
         {
-            await HandleLanguageStepAsync(scope, inbound, threadId, waId, original, language, sender, correlationId, cancellationToken);
+            await HandleLanguageStepAsync(scope, inbound, threadId, waId, original, language, sender, correlationId, cancellationToken,
+                firstContact: thread.Length == 0 && sender is null);
             return null;
         }
 
-        var understood = await UnderstandAsync(original, language.Inbound, cancellationToken);
+        var understood = await UnderstandAsync(scope, original, language.Inbound, cancellationToken);
         if (understood.NeedsAPerson)
         {
             await EscalateUntranslatedAsync(scope, inbound, threadId, waId, original, language, sender, understood.Failure, correlationId, cancellationToken);
@@ -313,8 +414,21 @@ public sealed class CustomerAssistantService(
             ownWords = new CustomerOwnWords(wording, SupportedLanguage.For(language.Inbound).Iso);
         }
 
-        var outcome = await DecideAsync(
-            scope, inbound, text, waId, intent, continuation, answeringOurQuestion, previousTurn, sender, correlationId, autoReplyEnabled, now, cancellationToken, ownWords);
+        // A claim read back to the customer waits for their answer: yes opens it, no starts it
+        // again, anything else is a correction. Nothing binding happens on the first telling.
+        AssistantOutcome? outcome = null;
+        if (previousTurn is { Outcome: CustomerAssistantOutcome.AwaitingClaimConfirmation }
+            && now - previousTurn.OccurredAt <= ConversationContinuation.Window)
+        {
+            outcome = await HandlePendingClaimAsync(
+                scope, original, text, classified, waId, previousTurn, sender, correlationId, now,
+                understood.Status == TranslationStatus.Translated ? new CustomerOwnWords(original, SupportedLanguage.For(language.Inbound).Iso) : null,
+                cancellationToken);
+        }
+
+        outcome ??= await DecideAsync(
+            scope, inbound, text, waId, intent, continuation, answeringOurQuestion, previousTurn, sender, correlationId, autoReplyEnabled, now, cancellationToken, ownWords,
+            firstContact: thread.Length == 0);
 
         // GeneralQuestion replies are model prose and arrive with markdown in them, the staff
         // portal renders that, WhatsApp does not (its bold is *single* asterisks, so a model's
@@ -329,11 +443,19 @@ public sealed class CustomerAssistantService(
         // the conversation never goes silent; that message discloses nothing and is the same
         // lower-risk template category as every other non-AI reply here (a claim reference,
         // "which cover is this about?", a lead confirmation), which the gate does not govern.
+        // An unknown number's first message always meets Kato, even when it goes straight to a
+        // question or an accident, so the person knows who is answering and what he can do.
+        if (reply is not null && thread.Length == 0 && sender is null && !reply.StartsWith("Hello", StringComparison.Ordinal))
+        {
+            reply = $"{KatoReplies.FirstContactPrefix} {reply}";
+        }
+
         LocalisedReply? localised = null;
         if (reply is not null)
         {
             var textToSend = outcome.Outcome == CustomerAssistantOutcome.QueuedForHumanApproval ? HoldingReply(sender) : reply;
-            localised = await LocaliseAsync(textToSend, language.Reply, sender?.FirstName, cancellationToken);
+            localised = await LocaliseAsync(scope, textToSend, language.Reply, sender?.FirstName, cancellationToken,
+                noteAlreadyShown: thread.Any(turn => turn.OutboundTranslationStatus == TranslationStatus.Translated));
             await SendReplyAsync(scope, inbound, threadId, waId, localised.Text, outcome.CaseId, cancellationToken, LanguageIsoFor(localised.Status, language.Reply));
         }
 
@@ -356,6 +478,11 @@ public sealed class CustomerAssistantService(
             OutboundLocalisedText = localised is { Status: TranslationStatus.Translated } ? localised.Text : null,
             InboundTranslationStatus = understood.Status,
             OutboundTranslationStatus = localised?.Status,
+            PendingClaimDescription = outcome.PendingClaimDescription,
+            PendingClaimOriginalText = outcome.PendingClaimOriginalText,
+            PendingClaimOriginalLanguage = outcome.PendingClaimOriginalLanguage,
+            OfferedNewIncidentForCaseId = outcome.OfferedNewIncidentForCaseId,
+            Occupation = outcome.Occupation,
             OccurredAt = DateTimeOffset.UtcNow,
             CorrelationId = correlationId,
         }, cancellationToken);
@@ -387,31 +514,44 @@ public sealed class CustomerAssistantService(
         bool autoReplyEnabled,
         DateTimeOffset now,
         CancellationToken cancellationToken,
-        CustomerOwnWords? ownWords = null)
+        CustomerOwnWords? ownWords = null,
+        bool firstContact = false)
     {
-        // Honest about what it is: the conversation should feel natural, but a customer who asks
-        // is told they are talking to the automated assistant, and how to reach a person.
+        // Honest about what he is: asked directly, Kato says plainly he is not a person.
         if (CustomerMessageSignals.IsAskingIfAutomated(text))
         {
-            return AssistantOutcome.Of(
-                $"I'm the automated assistant for our claims team{(sender is null ? "" : $", {sender.FirstName}")}, so I can help any time of day. If you'd rather talk to a person, just say so and I'll bring someone in.",
-                CustomerIntent.Unknown, CustomerAssistantOutcome.AutoReplied);
+            return AssistantOutcome.Of(KatoReplies.NotAPerson(sender?.FirstName), CustomerIntent.Unknown, CustomerAssistantOutcome.AutoReplied);
+        }
+
+        var original = ownWords?.Text ?? text;
+        var hasCover = sender is { Policies.Count: > 0 };
+
+        // Kato asked what work they do: this message is the answer, unless it clearly asks for
+        // something else (a person, a claim, a claim's status).
+        if (previousTurn is { Outcome: CustomerAssistantOutcome.AwaitingOccupation }
+            && now - previousTurn.OccurredAt <= ConversationContinuation.Window
+            && intent is not (CustomerIntent.HumanRequested or CustomerIntent.NewClaim or CustomerIntent.ExistingClaimStatus))
+        {
+            return await SuggestCoverAsync(scope, original, text, waId, sender, correlationId, cancellationToken, askIfUnclear: false);
         }
 
         if (!answeringOurQuestion && intent is CustomerIntent.Unknown or CustomerIntent.GeneralQuestion)
         {
             if (CustomerMessageSignals.IsThanksOrClose(text))
             {
-                return AssistantOutcome.Of(
-                    sender is null
-                        ? "You're welcome. I'm here whenever you need anything."
-                        : $"You're welcome, {sender.FirstName}. I'm here whenever you need anything.",
-                    CustomerIntent.Unknown, CustomerAssistantOutcome.AutoReplied);
+                return AssistantOutcome.Of(KatoReplies.YoureWelcome(sender?.FirstName), CustomerIntent.Unknown, CustomerAssistantOutcome.AutoReplied);
             }
 
             if (CustomerMessageSignals.IsAccessLinkRequest(text))
             {
                 return await HandleAccessLinkRequestAsync(scope, waId, sender, previousTurn, correlationId, cancellationToken);
+            }
+
+            // "I sell tomatoes in Nakasero" from someone without cover is the start of finding cover
+            // that fits their work, not an unclear message.
+            if (!hasCover && intent == CustomerIntent.Unknown && MicroinsuranceCatalog.OccupationFrom(original, text) is not null)
+            {
+                return await SuggestCoverAsync(scope, original, text, waId, sender, correlationId, cancellationToken, askIfUnclear: true);
             }
         }
 
@@ -419,12 +559,40 @@ public sealed class CustomerAssistantService(
         {
             CustomerIntent.NewClaim => await HandleNewClaimAsync(scope, text, waId, continuation, previousTurn, sender, correlationId, now, cancellationToken, ownWords),
             CustomerIntent.ExistingClaimStatus => await HandleExistingClaimStatusAsync(scope, text, waId, sender, cancellationToken),
-            CustomerIntent.GeneralQuestion => await HandleGeneralQuestionAsync(scope, text, correlationId, autoReplyEnabled, cancellationToken),
+            CustomerIntent.GeneralQuestion => await HandleGeneralQuestionAsync(scope, text, sender, correlationId, autoReplyEnabled, cancellationToken),
+            CustomerIntent.ProductInterest when !hasCover => await SuggestCoverAsync(scope, original, text, waId, sender, correlationId, cancellationToken, askIfUnclear: true),
             CustomerIntent.ProductInterest => await HandleProductInterestAsync(scope, text, waId, sender, correlationId, cancellationToken),
             CustomerIntent.HumanRequested => await HandleHumanRequestedAsync(scope, text, waId, sender, correlationId, cancellationToken),
-            _ when ConversationContinuation.IsGreeting(text) =>
+            _ when ConversationContinuation.IsGreeting(text) || firstContact =>
                 AssistantOutcome.Of(Welcome(sender), CustomerIntent.Unknown, CustomerAssistantOutcome.AwaitingMoreInformation),
             _ => ClarifyOrEscalate(previousTurn, sender, now),
+        };
+    }
+
+    /// <summary>For someone without cover: the products that fit the work they do, explained in
+    /// plain words, and a lead so a licensed person can follow up. Kato never completes a sale and
+    /// never compares insurers.</summary>
+    private async Task<AssistantOutcome> SuggestCoverAsync(
+        TenantScope scope, string original, string text, string waId, SenderProfile? sender, string correlationId,
+        CancellationToken cancellationToken, bool askIfUnclear)
+    {
+        var occupation = MicroinsuranceCatalog.OccupationFrom(original, text);
+        if (occupation is null && askIfUnclear)
+        {
+            return AssistantOutcome.Of(KatoReplies.AskOccupation(sender?.FirstName), CustomerIntent.ProductInterest, CustomerAssistantOutcome.AwaitingOccupation);
+        }
+
+        var kind = occupation ?? MicroinsuranceCatalog.OccupationKind.Other;
+        var products = MicroinsuranceCatalog.ProductsFor(kind);
+        var leadId = await CreateLeadAsync(
+            scope, original, waId, sender, "WhatsApp - Kato cover suggestion", correlationId, cancellationToken,
+            productFit: string.Join(" + ", products.Select(p => p.Name)),
+            occupation: original);
+        return AssistantOutcome.Of(
+            KatoReplies.CoverSuggestion(sender?.FirstName, MicroinsuranceCatalog.Explain(kind)),
+            CustomerIntent.ProductInterest, CustomerAssistantOutcome.LeadCreated, leadId: leadId) with
+        {
+            Occupation = original,
         };
     }
 
@@ -437,14 +605,10 @@ public sealed class CustomerAssistantService(
             && now - previousTurn.OccurredAt <= ConversationContinuation.Window;
         if (alreadyAsked)
         {
-            return AssistantOutcome.Of(
-                $"Let me bring in someone from our team so you get the right help{(sender is null ? "" : $", {sender.FirstName}")}. They'll reply to you here shortly.",
-                CustomerIntent.Unknown, CustomerAssistantOutcome.Escalated);
+            return AssistantOutcome.Of(KatoReplies.HandingToPerson(sender?.FirstName), CustomerIntent.Unknown, CustomerAssistantOutcome.Escalated);
         }
 
-        return AssistantOutcome.Of(
-            "Sorry, I didn't quite catch that. Are you reporting something that has happened, checking on a claim, or asking about your cover? You can also say \"agent\" to talk to someone from our team.",
-            CustomerIntent.Unknown, CustomerAssistantOutcome.Clarifying);
+        return AssistantOutcome.Of(KatoReplies.Clarify(), CustomerIntent.Unknown, CustomerAssistantOutcome.Clarifying);
     }
 
     private async Task<AssistantOutcome> HandleNewClaimAsync(
@@ -462,70 +626,190 @@ public sealed class CustomerAssistantService(
         var earlier = continuation.EarlierMessageText;
         var everything = string.IsNullOrWhiteSpace(earlier) ? text : $"{earlier}\n{text}";
 
-        // The current message wins: after "I couldn't find that policy" the customer retypes it,
-        // and the earlier, wrong number must not be picked up again.
+        // A claim can only be reported from the phone number on the policy. A typed policy number is
+        // printed on paperwork anyone can hold, so on its own it proves nothing about who is writing.
+        if (sender is not { Policies.Count: > 0 })
+        {
+            return AssistantOutcome.Of(
+                KatoReplies.NoCoverOnThisNumber(sender?.FirstName),
+                CustomerIntent.NewClaim, CustomerAssistantOutcome.Declined);
+        }
+
         var typedPolicyNumber = ExtractPolicyNumber(text) ?? (earlier is null ? null : ExtractPolicyNumber(earlier));
         Policy? policy = null;
         if (typedPolicyNumber is not null)
         {
-            policy = await policyRepository.GetByPolicyNumberAsync(typedPolicyNumber, scope, cancellationToken);
+            policy = sender.Policies.FirstOrDefault(p => string.Equals(p.PolicyNumber, typedPolicyNumber, StringComparison.OrdinalIgnoreCase));
             if (policy is null)
             {
                 return AssistantOutcome.Of(
-                    $"I couldn't find a policy matching {typedPolicyNumber}. Please double-check the number, or say \"agent\" and someone from our team will help.",
+                    KatoReplies.PolicyNotOnThisNumber(sender.FirstName),
                     CustomerIntent.NewClaim, CustomerAssistantOutcome.Declined);
             }
         }
         else if (continuation.PolicyNumber is not null)
         {
-            policy = await policyRepository.GetByPolicyNumberAsync(continuation.PolicyNumber, scope, cancellationToken);
+            policy = sender.Policies.FirstOrDefault(p => string.Equals(p.PolicyNumber, continuation.PolicyNumber, StringComparison.OrdinalIgnoreCase));
         }
-        else if (sender is { Policies.Count: > 0 })
+
+        if (policy is null)
         {
             var choosing = previousTurn?.Outcome == CustomerAssistantOutcome.AwaitingPolicyChoice;
             policy = ChoosePolicy(sender.Policies, choosing ? text : everything, choosing);
             if (policy is null)
             {
                 return AssistantOutcome.Of(
-                    $"I'm sorry to hear that, {sender.FirstName}. Which cover is this about?\n{PolicyChoiceList(sender.Policies)}\nReply with the number or the name.",
+                    KatoReplies.WhichCover(sender.FirstName, sender.Policies),
                     CustomerIntent.NewClaim, CustomerAssistantOutcome.AwaitingPolicyChoice);
             }
-        }
-
-        if (policy is null)
-        {
-            return AssistantOutcome.Of(
-                "I'm sorry to hear that. To start your claim, please reply with your policy number. It's on your policy schedule or certificate.",
-                CustomerIntent.NewClaim, CustomerAssistantOutcome.AwaitingMoreInformation);
         }
 
         var description = IncidentDescription(everything);
         if (!CustomerMessageSignals.HasEnoughIncidentDetail(description))
         {
-            var name = sender is null ? "" : $", {sender.FirstName}";
             return AssistantOutcome.Of(
-                $"I'm sorry to hear that{name}, I hope everyone is safe. Tell me in your own words what happened, when it happened and where, and I'll open the claim on your {policy.ProductLine} policy ({policy.PolicyNumber}).",
+                KatoReplies.AskWhatHappened(sender.FirstName, policy.ProductLine),
                 CustomerIntent.NewClaim, CustomerAssistantOutcome.AwaitingIncidentDetails, policyNumber: policy.PolicyNumber);
+        }
+
+        // The same accident told twice (or retold hours later) must never become two claims. The
+        // new words are added to the open claim, and the customer is asked before a second is started.
+        var recent = await RecentOpenClaimAsync(scope, policy.PolicyNumber, now, cancellationToken);
+        if (recent is not null)
+        {
+            await AddDetailToClaimAsync(recent, description, now, correlationId, cancellationToken);
+            return AssistantOutcome.Of(
+                KatoReplies.AlreadyReported(sender.FirstName, ClaimReference.For(recent.CaseId), recent.CreatedAt),
+                CustomerIntent.NewClaim, CustomerAssistantOutcome.AwaitingClaimConfirmation,
+                caseId: recent.CaseId, policyNumber: policy.PolicyNumber) with
+            {
+                PendingClaimDescription = description,
+                PendingClaimOriginalText = ownWords?.Text,
+                PendingClaimOriginalLanguage = ownWords?.LanguageIso,
+                OfferedNewIncidentForCaseId = recent.CaseId,
+            };
+        }
+
+        return ReadBack(sender.FirstName, policy, description, ownWords?.Text, ownWords?.LanguageIso);
+    }
+
+    private static AssistantOutcome ReadBack(string? firstName, Policy policy, string description, string? originalText, string? originalLanguage) =>
+        AssistantOutcome.Of(
+            KatoReplies.ReadBack(firstName, policy.ProductLine, description),
+            CustomerIntent.NewClaim, CustomerAssistantOutcome.AwaitingClaimConfirmation, policyNumber: policy.PolicyNumber) with
+        {
+            PendingClaimDescription = description,
+            PendingClaimOriginalText = originalText,
+            PendingClaimOriginalLanguage = originalLanguage,
+        };
+
+    private static readonly TimeSpan DuplicateClaimWindow = TimeSpan.FromHours(72);
+
+    private async Task<ClaimCase?> RecentOpenClaimAsync(TenantScope scope, string policyNumber, DateTimeOffset now, CancellationToken cancellationToken) =>
+        (await caseRepository.ListAsync(scope, cancellationToken))
+            .Where(c => string.Equals(c.PolicyNumber, policyNumber, StringComparison.OrdinalIgnoreCase))
+            .Where(c => ClaimStatusLabels.IsOpen(c.Status) && now - c.CreatedAt <= DuplicateClaimWindow)
+            .OrderByDescending(c => c.CreatedAt)
+            .FirstOrDefault();
+
+    private async Task AddDetailToClaimAsync(ClaimCase claimCase, string detail, DateTimeOffset now, string correlationId, CancellationToken cancellationToken)
+    {
+        if (claimCase.IncidentDescription.Contains(detail, StringComparison.OrdinalIgnoreCase))
+        {
+            return; // Told exactly the same thing again: nothing new to add.
+        }
+
+        await caseRepository.SaveAsync(claimCase with
+        {
+            IncidentDescription = $"{claimCase.IncidentDescription}\n\nMore from the customer on WhatsApp ({now:d MMM, HH:mm}): {detail}",
+            UpdatedAt = now,
+        }, cancellationToken);
+        await auditRepository.WriteAsync(
+            new AuditEvent(
+                Guid.NewGuid(), claimCase.Scope, claimCase.CaseId, null, SystemActorId, ActorType.Integration,
+                "case.detail_added", now, null, null, [], "CustomerAssistant", null, "recorded", null,
+                "The customer described this incident again on WhatsApp; the new detail was added to the open claim instead of opening a second one. Message body omitted from evidence.",
+                correlationId),
+            cancellationToken);
+    }
+
+    /// <summary>The customer answered a read-back (or the "is this a new accident?" question).
+    /// Null means the message is about something else and takes the normal route.</summary>
+    private async Task<AssistantOutcome?> HandlePendingClaimAsync(
+        TenantScope scope, string original, string text, CustomerIntent classified, string waId,
+        CustomerConversationTurn pending, SenderProfile? sender, string correlationId, DateTimeOffset now,
+        CustomerOwnWords? ownWords, CancellationToken cancellationToken)
+    {
+        if (classified is CustomerIntent.HumanRequested or CustomerIntent.ExistingClaimStatus or CustomerIntent.ProductInterest
+            || CustomerMessageSignals.IsAskingIfAutomated(text))
+        {
+            return null;
+        }
+
+        var policy = sender?.Policies.FirstOrDefault(p => string.Equals(p.PolicyNumber, pending.PolicyNumber, StringComparison.OrdinalIgnoreCase));
+        if (policy is null || string.IsNullOrWhiteSpace(pending.PendingClaimDescription))
+        {
+            return null;
+        }
+
+        if (pending.OfferedNewIncidentForCaseId is not null)
+        {
+            return KatoWords.IsNewIncident(original, text)
+                ? ReadBack(sender!.FirstName, policy, pending.PendingClaimDescription, pending.PendingClaimOriginalText, pending.PendingClaimOriginalLanguage)
+                : null;
+        }
+
+        if (KatoWords.IsYes(original, text))
+        {
+            return await OpenConfirmedClaimAsync(scope, waId, sender!, policy, pending, correlationId, now, cancellationToken);
+        }
+
+        if (KatoWords.IsNo(original, text))
+        {
+            return AssistantOutcome.Of(
+                KatoReplies.TellMeAgain(sender!.FirstName),
+                CustomerIntent.NewClaim, CustomerAssistantOutcome.AwaitingIncidentDetails, policyNumber: policy.PolicyNumber);
+        }
+
+        // Anything else is a correction or more detail: add it and read the whole thing back again.
+        var corrected = $"{pending.PendingClaimDescription}\n{text}";
+        var correctedOriginal = ownWords is null ? pending.PendingClaimOriginalText : $"{pending.PendingClaimOriginalText}\n{ownWords.Text}".Trim();
+        return ReadBack(sender!.FirstName, policy, corrected, correctedOriginal, ownWords?.LanguageIso ?? pending.PendingClaimOriginalLanguage);
+    }
+
+    private async Task<AssistantOutcome> OpenConfirmedClaimAsync(
+        TenantScope scope, string waId, SenderProfile sender, Policy policy, CustomerConversationTurn pending,
+        string correlationId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var description = pending.PendingClaimDescription!;
+
+        // Confirmed twice in quick succession (a double tap, a retried webhook): one claim only.
+        var recent = await RecentOpenClaimAsync(scope, policy.PolicyNumber, now, cancellationToken);
+        if (recent is not null && now - recent.CreatedAt <= TimeSpan.FromMinutes(10))
+        {
+            return AssistantOutcome.Of(
+                KatoReplies.AlreadyReported(sender.FirstName, ClaimReference.For(recent.CaseId), recent.CreatedAt),
+                CustomerIntent.NewClaim, CustomerAssistantOutcome.AutoReplied, caseId: recent.CaseId, policyNumber: policy.PolicyNumber);
         }
 
         var customer = string.IsNullOrWhiteSpace(policy.CustomerId) ? null : await customerRepository.GetAsync(policy.CustomerId, scope, cancellationToken);
         var caseIntake = new CaseIntakeService(caseRepository, auditRepository, productRepository);
         var claimCase = await caseIntake.CreateCaseAsync(new CreateCaseCommand(
             scope,
-            CustomerName: customer?.FullName ?? sender?.FullName ?? "WhatsApp customer",
+            CustomerName: customer?.FullName ?? sender.FullName,
             CustomerEmail: customer?.Email,
             CustomerPhone: customer?.Phone ?? $"+{waId}",
             PolicyNumber: policy.PolicyNumber,
             ProductLine: policy.ProductLine,
-            ClaimType: "Unclassified, reported via WhatsApp",
+            ClaimType: $"{policy.ProductLine} claim reported on WhatsApp",
             Channel: "WhatsApp",
             IncidentDate: CustomerMessageSignals.IncidentDate(description, DateOnly.FromDateTime(now.UtcDateTime)),
             IncidentDescription: description,
             CreatedByUserId: SystemActorId,
             CorrelationId: correlationId,
             RequiresConfirmation: true,
-            OriginalIncidentText: ownWords?.Text,
-            OriginalIncidentLanguage: ownWords?.LanguageIso), cancellationToken);
+            OriginalIncidentText: pending.PendingClaimOriginalText,
+            OriginalIncidentLanguage: pending.PendingClaimOriginalLanguage), cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(claimCase.AssignedUserId))
         {
@@ -535,7 +819,7 @@ public sealed class CustomerAssistantService(
                     claimCase.Scope,
                     claimCase.AssignedUserId,
                     NotificationType.ClaimAssigned,
-                    $"New WhatsApp claim assigned to you on the {claimCase.AssignedTeam} team, awaiting confirmation.",
+                    $"New WhatsApp claim assigned to you on the {claimCase.AssignedTeam} team, confirmed by the customer, awaiting your confirmation.",
                     claimCase.CaseId,
                     cancellationToken);
             }
@@ -546,121 +830,67 @@ public sealed class CustomerAssistantService(
             }
         }
 
-        var reference = ClaimReference.For(claimCase.CaseId);
         var documents = await DocumentsToRequestAsync(claimCase, cancellationToken);
         var link = await IssueAccessLinkAsync(scope, claimCase, waId, correlationId, cancellationToken);
-
-        var greeting = sender is null ? "Thank you." : $"Thank you, {sender.FirstName}.";
-        var message =
-            $"{greeting} I've opened your claim on your {policy.ProductLine} policy. Your reference is {reference}. A claims officer will review it and keep you updated here.\n\n" +
-            $"To help us move quickly, please send {ClaimDocumentChecklist.AsSentenceList(documents)}. " +
-            (link is null
-                ? "You can send photos and documents right here in this chat."
-                : $"You can send photos right here in this chat, or upload them securely at this link, which works for 24 hours:\n{link}");
-
-        return AssistantOutcome.Of(message, CustomerIntent.NewClaim, CustomerAssistantOutcome.CaseOpened,
+        return AssistantOutcome.Of(
+            KatoReplies.ClaimSent(sender.FirstName, ClaimReference.For(claimCase.CaseId), ClaimDocumentChecklist.AsSentenceList(documents), link),
+            CustomerIntent.NewClaim, CustomerAssistantOutcome.CaseOpened,
             caseId: claimCase.CaseId, policyNumber: policy.PolicyNumber, openedCase: true);
     }
 
     private async Task<AssistantOutcome> HandleExistingClaimStatusAsync(
         TenantScope scope, string text, string waId, SenderProfile? sender, CancellationToken cancellationToken)
     {
-        var policyNumber = ExtractPolicyNumber(text);
+        // Claim news goes only to the phone number on the policy. WhatsApp verified that number when
+        // the customer registered it; a typed policy number proves nothing about who is writing.
+        if (sender is null)
+        {
+            return AssistantOutcome.Of(KatoReplies.OnlyForThePolicyNumber(), CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.Declined);
+        }
+
         var cases = await caseRepository.ListAsync(scope, cancellationToken);
-
-        // A recognised sender is identified by the number WhatsApp itself verified, so they are
-        // shown only the claims tied to that number or to their own policies, without being asked
-        // for a policy number first.
-        if (policyNumber is null && sender is not null)
+        var theirs = CasesFor(cases, sender, waId).OrderByDescending(c => c.CreatedAt).ToArray();
+        var open = theirs.Where(c => ClaimStatusLabels.IsOpen(c.Status)).Take(3).ToArray();
+        if (open.Length > 0)
         {
-            var theirs = CasesFor(cases, sender, waId).OrderByDescending(c => c.CreatedAt).ToArray();
-            var open = theirs.Where(c => ClaimStatusLabels.IsOpen(c.Status)).Take(3).ToArray();
-            if (open.Length > 0)
-            {
-                var lines = string.Join("\n", open.Select(c =>
-                    $"- {ClaimReference.For(c.CaseId)}, {c.ProductLine}, reported {c.CreatedAt:d MMM}: {ClaimStatusLabels.For(c.Status)}"));
-                return AssistantOutcome.Of(
-                    $"Hi {sender.FirstName}, here's where things stand:\n{lines}\n\nA claims officer will contact you here if they need anything. Reply \"link\" if you'd like to view your claim or add documents.",
-                    CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AutoReplied, caseId: open[0].CaseId);
-            }
-
-            if (theirs.Length > 0)
-            {
-                var latest = theirs[0];
-                return AssistantOutcome.Of(
-                    $"Hi {sender.FirstName}, you don't have any open claims right now. Your most recent claim, {ClaimReference.For(latest.CaseId)} ({latest.ProductLine}), is {ClaimStatusLabels.For(latest.Status).ToLowerInvariant()}. If something new has happened, tell me and I'll start a claim.",
-                    CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AutoReplied, caseId: latest.CaseId);
-            }
-
+            var sentences = open.Select(c => KatoReplies.ClaimStatusSentence(
+                ClaimReference.For(c.CaseId), c.ProductLine, c.CreatedAt, ClaimStatusLabels.For(c.Status).ToLowerInvariant()));
             return AssistantOutcome.Of(
-                $"Hi {sender.FirstName}, I can't see any claims on your policies yet. If something has happened, tell me what and I'll start one for you.",
-                CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AutoReplied);
+                KatoReplies.ClaimStatusList(sender.FirstName, sentences),
+                CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AutoReplied, caseId: open[0].CaseId);
         }
 
-        if (policyNumber is null)
+        if (theirs.Length > 0)
         {
+            var latest = theirs[0];
             return AssistantOutcome.Of(
-                "To check your claim status, please reply with your policy number so I can verify it's you.",
-                CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AwaitingMoreInformation);
+                KatoReplies.NoOpenClaims(sender.FirstName, ClaimReference.For(latest.CaseId), latest.ProductLine, ClaimStatusLabels.For(latest.Status).ToLowerInvariant()),
+                CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AutoReplied, caseId: latest.CaseId);
         }
 
-        // For a sender not on file, the policy-number match IS the identity verification
-        // (blueprint §8.3 WO 4.4), a bare WhatsApp number is never, on its own, enough to disclose
-        // anything about a case.
-        var policy = await policyRepository.GetByPolicyNumberAsync(policyNumber, scope, cancellationToken);
-        if (policy is null)
-        {
-            return AssistantOutcome.Of(
-                $"I couldn't verify a policy matching {policyNumber}. Please double-check the number, or say \"agent\" and someone from our team will help.",
-                CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.Declined);
-        }
-
-        var matchingCase = cases
-            .Where(c => string.Equals(c.PolicyNumber, policy.PolicyNumber, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(c => c.CreatedAt)
-            .FirstOrDefault();
-
-        if (matchingCase is null)
-        {
-            return AssistantOutcome.Of(
-                $"I verified policy {policyNumber}, but there's no claim on file for it yet. If something has happened, tell me what and I'll start one.",
-                CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.Declined, policyNumber: policy.PolicyNumber);
-        }
-
-        return AssistantOutcome.Of(
-            $"Your claim {ClaimReference.For(matchingCase.CaseId)} on policy {policyNumber} is currently: {ClaimStatusLabels.For(matchingCase.Status)}. A claims officer will contact you here if they need anything.",
-            CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AutoReplied, caseId: matchingCase.CaseId, policyNumber: policy.PolicyNumber);
+        return AssistantOutcome.Of(KatoReplies.NoClaimsYet(sender.FirstName), CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AutoReplied);
     }
 
     private async Task<AssistantOutcome> HandleAccessLinkRequestAsync(
         TenantScope scope, string waId, SenderProfile? sender, CustomerConversationTurn? previousTurn, string correlationId, CancellationToken cancellationToken)
     {
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
-        var claimCase = sender is null
-            ? null
-            : CasesFor(cases, sender, waId).Where(c => ClaimStatusLabels.IsOpen(c.Status)).OrderByDescending(c => c.CreatedAt).FirstOrDefault();
-
-        // Someone not on file can still get the link for the claim this same conversation opened.
-        if (claimCase is null && previousTurn?.CaseId is { } threadCaseId)
+        // A link opens the claim portal, so it goes only to the phone number on the policy.
+        if (sender is null)
         {
-            claimCase = cases.FirstOrDefault(c => c.CaseId == threadCaseId && ClaimStatusLabels.IsOpen(c.Status));
+            return AssistantOutcome.Of(KatoReplies.OnlyForThePolicyNumber(), CustomerIntent.Unknown, CustomerAssistantOutcome.Declined);
         }
 
+        var cases = await caseRepository.ListAsync(scope, cancellationToken);
+        var claimCase = CasesFor(cases, sender, waId).Where(c => ClaimStatusLabels.IsOpen(c.Status)).OrderByDescending(c => c.CreatedAt).FirstOrDefault();
         if (claimCase is null)
         {
-            return AssistantOutcome.Of(
-                sender is null
-                    ? "I couldn't find an open claim linked to this number. Please reply with your policy number or claim reference, or tell me what happened and I'll start a claim."
-                    : $"You don't have an open claim with us right now, {sender.FirstName}. If something has happened, tell me what and I'll start one.",
-                CustomerIntent.Unknown, CustomerAssistantOutcome.AutoReplied);
+            return AssistantOutcome.Of(KatoReplies.NoOpenClaimForLink(sender.FirstName), CustomerIntent.Unknown, CustomerAssistantOutcome.AutoReplied);
         }
 
         var link = await IssueAccessLinkAsync(scope, claimCase, waId, correlationId, cancellationToken);
         var reference = ClaimReference.For(claimCase.CaseId);
         return AssistantOutcome.Of(
-            link is null
-                ? $"You can send photos and documents for claim {reference} right here in this chat, and I'll add them to it."
-                : $"Here's your secure link for claim {reference}. It works for 24 hours:\n{link}\n\nYou can also send photos right here in this chat.",
+            link is null ? KatoReplies.LinkUnavailable(reference) : KatoReplies.SecureLink(reference, link),
             CustomerIntent.Unknown, CustomerAssistantOutcome.AutoReplied, caseId: claimCase.CaseId);
     }
 
@@ -678,9 +908,7 @@ public sealed class CustomerAssistantService(
         await RecordConsentAsync(scope, waId, threadId, correlationId, cancellationToken);
 
         var sender = await IdentifySenderAsync(scope, waId, cancellationToken);
-        var thread = (await conversationRepository.ListForThreadAsync(scope, threadId, cancellationToken))
-            .OrderBy(turn => turn.OccurredAt)
-            .ToArray();
+        var thread = await CurrentThreadAsync(scope, threadId, cancellationToken);
         var previousTurn = thread.Length == 0 ? null : thread[^1];
 
         var cases = await caseRepository.ListAsync(scope, cancellationToken);
@@ -698,10 +926,9 @@ public sealed class CustomerAssistantService(
         string? reply = null;
         if (!burst)
         {
-            var thanks = sender is null ? "Thank you." : $"Thank you, {sender.FirstName}.";
             reply = claimCase is null
-                ? $"{thanks} I've received your file. To add it to the right claim, please reply with your policy number or claim reference."
-                : $"{thanks} I've added that to your claim {ClaimReference.For(claimCase.CaseId)}. Send anything else you have whenever you're ready.";
+                ? KatoReplies.PhotoHeld(sender?.FirstName)
+                : KatoReplies.PhotoAdded(sender?.FirstName, ClaimReference.For(claimCase.CaseId));
 
             // A photo has no words to detect a language from, so use the one this customer already
             // chose. Nothing remembered means English, as it always was.
@@ -715,7 +942,7 @@ public sealed class CustomerAssistantService(
                 }
             }
 
-            var localisedAck = await LocaliseAsync(reply, replyLanguage, sender?.FirstName, cancellationToken);
+            var localisedAck = await LocaliseAsync(scope, reply, replyLanguage, sender?.FirstName, cancellationToken);
             await SendReplyAsync(scope, inbound, threadId, waId, localisedAck.Text, claimCase?.CaseId, cancellationToken,
                 LanguageIsoFor(localisedAck.Status, replyLanguage));
         }
@@ -777,16 +1004,23 @@ public sealed class CustomerAssistantService(
     }
 
     private async Task<AssistantOutcome> HandleGeneralQuestionAsync(
-        TenantScope scope, string text, string correlationId, bool autoReplyEnabled, CancellationToken cancellationToken)
+        TenantScope scope, string text, SenderProfile? sender, string correlationId, bool autoReplyEnabled, CancellationToken cancellationToken)
     {
-        var question = new AssistantQuestion(scope, null, text, null, "Customer", SystemActorId, correlationId);
+        // Search only the product the question is about, so a motor question is answered from the
+        // motor wording and not from whatever else shares its words.
+        var productLine = QuestionProductLine(text, sender);
+        var question = new AssistantQuestion(scope, null, text, productLine, "Customer", SystemActorId, correlationId);
         var retrieval = await retrievalProvider.RetrieveAsync(question, cancellationToken);
+        if (retrieval.Chunks.Count == 0 && productLine is not null)
+        {
+            question = question with { ProductLine = null };
+            retrieval = await retrievalProvider.RetrieveAsync(question, cancellationToken);
+        }
 
         if (retrieval.Chunks.Count == 0)
         {
             // Nothing approved to ground an answer in, never guess from model memory for a customer.
-            var fallback = "I don't have an approved answer for that yet, I've passed this to our team and someone will follow up with you.";
-            return AssistantOutcome.Of(fallback, CustomerIntent.GeneralQuestion, CustomerAssistantOutcome.QueuedForHumanApproval);
+            return AssistantOutcome.Of(KatoReplies.NoTrustedAnswer(), CustomerIntent.GeneralQuestion, CustomerAssistantOutcome.QueuedForHumanApproval);
         }
 
         var answer = await assistantProvider.AnswerPolicyQuestionAsync(question, retrieval, cancellationToken);
@@ -813,8 +1047,21 @@ public sealed class CustomerAssistantService(
     {
         var leadId = await CreateLeadAsync(scope, text, waId, sender, "WhatsApp", correlationId, cancellationToken);
         return AssistantOutcome.Of(
-            $"Thanks for your interest{(sender is null ? "" : $", {sender.FirstName}")}. I've passed your details to our sales team, and someone will reach out with options that fit what you need.",
+            KatoReplies.PersonRequested(sender?.FirstName),
             CustomerIntent.ProductInterest, CustomerAssistantOutcome.LeadCreated, leadId: leadId);
+    }
+
+    /// <summary>The product line a customer's question is about: one they name, preferring their own
+    /// covers, otherwise their only cover. Null searches every approved product.</summary>
+    private static string? QuestionProductLine(string text, SenderProfile? sender)
+    {
+        var own = sender?.Policies.Select(p => p.ProductLine).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? [];
+        if (own.Length > 0 && CustomerMessageSignals.ProductLineHint(text, own) is { } ownHint)
+        {
+            return ownHint;
+        }
+
+        return CustomerMessageSignals.ProductLineHint(text) ?? (own.Length == 1 ? own[0] : null);
     }
 
     private async Task<AssistantOutcome> HandleHumanRequestedAsync(
@@ -822,12 +1069,13 @@ public sealed class CustomerAssistantService(
     {
         var leadId = await CreateLeadAsync(scope, text, waId, sender, "WhatsApp - human requested", correlationId, cancellationToken);
         return AssistantOutcome.Of(
-            $"Of course{(sender is null ? "" : $", {sender.FirstName}")}. I've asked a member of our team to pick this up, and they'll reply to you here shortly.",
+            KatoReplies.PersonRequested(sender?.FirstName),
             CustomerIntent.HumanRequested, CustomerAssistantOutcome.Escalated, leadId: leadId);
     }
 
     private async Task<string> CreateLeadAsync(
-        TenantScope scope, string text, string waId, SenderProfile? sender, string leadSource, string correlationId, CancellationToken cancellationToken)
+        TenantScope scope, string text, string waId, SenderProfile? sender, string leadSource, string correlationId, CancellationToken cancellationToken,
+        string? productFit = null, string? occupation = null)
     {
         var now = DateTimeOffset.UtcNow;
         var leadId = $"LEAD-{now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
@@ -835,8 +1083,10 @@ public sealed class CustomerAssistantService(
             LeadId: leadId,
             LeadSource: leadSource,
             CustomerNeed: text,
-            ConversationSummary: $"Captured automatically from an inbound WhatsApp message on {now:yyyy-MM-dd}.",
-            ProductFit: "To be assessed",
+            ConversationSummary: occupation is null
+                ? $"Captured automatically from an inbound WhatsApp message on {now:yyyy-MM-dd}."
+                : $"Captured by Kato on WhatsApp on {now:yyyy-MM-dd}. Work described by the customer: \"{occupation}\". Products explained (not sold): {productFit}.",
+            ProductFit: productFit ?? "To be assessed",
             QuoteStatus: "New",
             RequiredInformation: ["Confirm contact details", "Confirm insurable interest", "Capture risk details for quote"],
             FollowUpActions: ["Contact customer to confirm details", "Prepare indicative quote for human review"],
@@ -939,7 +1189,7 @@ public sealed class CustomerAssistantService(
             return policies[choice - 1];
         }
 
-        var hint = CustomerMessageSignals.ProductLineHint(text);
+        var hint = CustomerMessageSignals.ProductLineHint(text, policies.Select(policy => policy.ProductLine).ToArray());
         if (hint is null)
         {
             return null;
@@ -1138,16 +1388,17 @@ public sealed class CustomerAssistantService(
 
     private static string NormalizeWaId(string value) => new(value.Where(char.IsDigit).ToArray());
 
-    private static string Welcome(SenderProfile? sender) =>
+    private string Welcome(SenderProfile? sender) =>
         sender is null
-            ? "Hello, thanks for getting in touch. I can help you report a claim, check on a claim you've already made, or answer questions about your cover. What can I do for you today?"
-            : $"Hi {sender.FirstName}, good to hear from you. I can help you report a claim, check on a claim you've already made, or answer questions about your cover. What can I do for you today?";
+            ? KatoReplies.Introduction(null, VoiceNotesSupported)
+            : KatoReplies.WelcomeBack(sender.FirstName);
 
-    private static string HoldingReply(SenderProfile? sender) =>
-        $"Thank you for your question{(sender is null ? "" : $", {sender.FirstName}")}. I've passed it to our team to confirm the answer, and someone will reply to you here shortly.";
+    private static string HoldingReply(SenderProfile? sender) => KatoReplies.CheckingAnswer(sender?.FirstName);
 
-    private static string DefaultEscalationMessage() =>
-        "I'm not able to help with that directly, I've passed this to our team and someone will follow up with you.";
+    private static string DefaultEscalationMessage() => KatoReplies.CannotHelpDirectly();
+
+    /// <summary>Kato mentions voice notes only when a voice note actually gets understood.</summary>
+    private bool VoiceNotesSupported => false;
 
 
     // ---- Language: understand the customer at the door, answer them in their own language ----
@@ -1231,22 +1482,25 @@ public sealed class CustomerAssistantService(
     private static SupportedLanguageCode InboundLanguageFor(
         string original, LanguageResolution detected, SupportedLanguageCode preferred, IReadOnlyCollection<SupportedLanguageCode> enabled)
     {
+        // Only a positive sign of a local language sends a message to translation. A message with
+        // none is English, even when the customer prefers another language: treating "what does
+        // Motor insurance cover" as Luganda sent plain English through a translator and refused it.
         if (detected.Language != SupportedLanguageCode.En && detected.Confidence > 0 && enabled.Contains(detected.Language))
         {
             return detected.Language;
         }
 
-        return TranslationQualityJudge.LooksLikeEnglish(original) ? SupportedLanguageCode.En : preferred;
+        return SupportedLanguageCode.En;
     }
 
-    private async Task<Understood> UnderstandAsync(string original, SupportedLanguageCode inbound, CancellationToken cancellationToken)
+    private async Task<Understood> UnderstandAsync(TenantScope scope, string original, SupportedLanguageCode inbound, CancellationToken cancellationToken)
     {
         if (inbound == SupportedLanguageCode.En || !HasWordsToTranslate(original))
         {
             return new Understood(original, TranslationStatus.NotNeeded, false, null);
         }
 
-        var outcome = await translationService!.TranslateAsync(original, inbound, SupportedLanguageCode.En, cancellationToken);
+        var outcome = await translationService!.TranslateAsync(original, inbound, SupportedLanguageCode.En, scope, cancellationToken);
         if (outcome.Translated)
         {
             return new Understood(outcome.Text, TranslationStatus.Translated, false, null);
@@ -1272,7 +1526,7 @@ public sealed class CustomerAssistantService(
     /// why. Only ever a machine translation, so it is only ever done where the workspace allows
     /// unreviewed translations, it carries a note saying a computer did it, and a failure of any kind
     /// sends the English rather than something unchecked.</summary>
-    private async Task<LocalisedReply> LocaliseAsync(string english, SupportedLanguageCode reply, string? firstName, CancellationToken cancellationToken)
+    private async Task<LocalisedReply> LocaliseAsync(TenantScope scope, string english, SupportedLanguageCode reply, string? firstName, CancellationToken cancellationToken, bool noteAlreadyShown = false)
     {
         if (reply == SupportedLanguageCode.En)
         {
@@ -1293,13 +1547,19 @@ public sealed class CustomerAssistantService(
         }
 
         literals.AddRange(AssistantGlossary.KeptInEnglish(reply));
-        var outcome = await translationService!.TranslateAsync(english, SupportedLanguageCode.En, reply, cancellationToken, literals);
+        var outcome = await translationService!.TranslateAsync(english, SupportedLanguageCode.En, reply, scope, cancellationToken, literals);
         if (!outcome.Translated)
         {
             return new LocalisedReply(english, TranslationStatus.FellBackToEnglish);
         }
 
-        var note = await translationService.TranslateAsync(MachineTranslatedNote, SupportedLanguageCode.En, reply, cancellationToken);
+        // Said once per conversation, not on every reply: the customer has been told.
+        if (noteAlreadyShown)
+        {
+            return new LocalisedReply(outcome.Text, TranslationStatus.Translated);
+        }
+
+        var note = await translationService.TranslateAsync(MachineTranslatedNote, SupportedLanguageCode.En, reply, scope, cancellationToken);
         return new LocalisedReply($"{outcome.Text}\n\n({(note.Translated ? note.Text : MachineTranslatedNote)})", TranslationStatus.Translated);
     }
 
@@ -1317,15 +1577,16 @@ public sealed class CustomerAssistantService(
     /// <summary>Asks which language to use, or greets the customer in the one they just chose.</summary>
     private async Task HandleLanguageStepAsync(
         TenantScope scope, WhatsAppInboundMessage inbound, string threadId, string waId, string original,
-        ConversationLanguage language, SenderProfile? sender, string correlationId, CancellationToken cancellationToken)
+        ConversationLanguage language, SenderProfile? sender, string correlationId, CancellationToken cancellationToken,
+        bool firstContact = false)
     {
         var asking = language.Step == LanguageStep.AskChoice;
         var english = asking
-            ? $"I can reply in English, Luganda or Kiswahili. {LanguageChoicePrompt.Text}"
+            ? $"{(firstContact ? Welcome(sender) + " " : "")}I can reply in English, Luganda or Kiswahili. {LanguageChoicePrompt.Text}"
             : Welcome(sender);
         var localised = asking
             ? new LocalisedReply(english, TranslationStatus.NotNeeded)
-            : await LocaliseAsync(english, language.Reply, sender?.FirstName, cancellationToken);
+            : await LocaliseAsync(scope, english, language.Reply, sender?.FirstName, cancellationToken);
 
         await SendReplyAsync(scope, inbound, threadId, waId, localised.Text, null, cancellationToken, asking ? "en" : LanguageIsoFor(localised.Status, language.Reply));
         await conversationRepository.SaveAsync(new CustomerConversationTurn
@@ -1363,7 +1624,7 @@ public sealed class CustomerAssistantService(
         ConversationLanguage language, SenderProfile? sender, TranslationFailureReason? failure, string correlationId, CancellationToken cancellationToken)
     {
         var english = DefaultEscalationMessage();
-        var localised = await LocaliseAsync(english, language.Reply, sender?.FirstName, cancellationToken);
+        var localised = await LocaliseAsync(scope, english, language.Reply, sender?.FirstName, cancellationToken);
         await SendReplyAsync(scope, inbound, threadId, waId, localised.Text, null, cancellationToken, LanguageIsoFor(localised.Status, language.Reply));
 
         await conversationRepository.SaveAsync(new CustomerConversationTurn
@@ -1418,5 +1679,11 @@ public sealed class CustomerAssistantService(
             string? policyNumber = null,
             bool openedCase = false) =>
             new(reply, intent, outcome, citations ?? [], caseId, leadId, policyNumber, openedCase);
+
+        public string? PendingClaimDescription { get; init; }
+        public string? PendingClaimOriginalText { get; init; }
+        public string? PendingClaimOriginalLanguage { get; init; }
+        public Guid? OfferedNewIncidentForCaseId { get; init; }
+        public string? Occupation { get; init; }
     }
 }

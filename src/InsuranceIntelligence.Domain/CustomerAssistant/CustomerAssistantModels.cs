@@ -53,6 +53,20 @@ public enum CustomerAssistantOutcome
     /// <summary>The assistant could not tell which language the customer writes in and asked them
     /// to choose. Their next message is the answer. Appended last so stored values keep their meaning.</summary>
     AwaitingLanguageChoice,
+
+    /// <summary>The demo phone sent the hidden reset command. Everything in this thread before this
+    /// turn belongs to the previous participant and is ignored from here on.</summary>
+    SessionReset,
+
+    /// <summary>The assistant read a claim back to the customer and is waiting for a yes before
+    /// opening it. Nothing binding happens until the customer confirms.</summary>
+    AwaitingClaimConfirmation,
+
+    /// <summary>A new customer was asked for their name.</summary>
+    AwaitingName,
+
+    /// <summary>A customer with no policy was asked what they do for a living.</summary>
+    AwaitingOccupation,
 }
 
 public sealed record CustomerConversationTurn
@@ -87,6 +101,23 @@ public sealed record CustomerConversationTurn
     public InsuranceIntelligence.Domain.Translation.TranslationStatus? InboundTranslationStatus { get; init; }
 
     public InsuranceIntelligence.Domain.Translation.TranslationStatus? OutboundTranslationStatus { get; init; }
+
+    /// <summary>The English description of a claim read back to the customer and not yet
+    /// confirmed. Nothing is opened until they say yes.</summary>
+    public string? PendingClaimDescription { get; init; }
+
+    /// <summary>The customer's own words for the pending claim, and their language, when the
+    /// English above is a translation.</summary>
+    public string? PendingClaimOriginalText { get; init; }
+
+    public string? PendingClaimOriginalLanguage { get; init; }
+
+    /// <summary>Set when the customer described an accident that matched an open claim on the same
+    /// cover: the detail was added to that claim, and they were asked whether this is a new one.</summary>
+    public Guid? OfferedNewIncidentForCaseId { get; init; }
+
+    /// <summary>What a customer without a policy said they do for a living.</summary>
+    public string? Occupation { get; init; }
 
     public required DateTimeOffset OccurredAt { get; init; }
     public required string CorrelationId { get; init; }

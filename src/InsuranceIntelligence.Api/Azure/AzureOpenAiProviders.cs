@@ -246,7 +246,12 @@ public sealed class AzureOpenAiAssistantProvider(
         var audienceLabel = string.Equals(question.Audience, "Customer", StringComparison.OrdinalIgnoreCase)
             ? "customer-facing"
             : "internal workflow";
-        var template = LoadPromptTemplate();
+        // A customer reads this on a phone, often in a second language: short, plain and direct,
+        // with no lists, headings, clause numbers or quoted extracts unless they asked for one.
+        var customerStyle = string.Equals(question.Audience, "Customer", StringComparison.OrdinalIgnoreCase)
+            ? "\nWrite for a customer reading on WhatsApp: at most four short sentences in plain words, no bullet points, no headings, no section numbers, no quotes from the wording, and no mention of sources. Give the amounts and time limits exactly as the source states them."
+            : string.Empty;
+        var template = LoadPromptTemplate() + customerStyle;
         return Sanitize(template
             .Replace("{audiencePrefix}", prefix, StringComparison.Ordinal)
             .Replace("{audienceLabel}", audienceLabel, StringComparison.Ordinal)

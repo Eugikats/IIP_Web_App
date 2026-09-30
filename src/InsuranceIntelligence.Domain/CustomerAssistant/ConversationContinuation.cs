@@ -19,7 +19,8 @@ public static class ConversationContinuation
 
     private static readonly string[] Greetings =
         ["hi", "hello", "hey", "hallo", "good morning", "good afternoon", "good evening", "greetings",
-         "oli otya", "gyebale ko", "habari", "jambo", "mambo", "salaam"];
+         "oli otya", "gyebale ko", "gyebaleko", "gyebale", "wasuze otya", "osiibye otya", "ki kati", "kiki",
+         "habari", "habari yako", "jambo", "mambo", "salaam", "hujambo"];
 
     /// <summary>Single-turn form, kept for callers that only have the previous turn.</summary>
     public static ContinuationResult Resolve(

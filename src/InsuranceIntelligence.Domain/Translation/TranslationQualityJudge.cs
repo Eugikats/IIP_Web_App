@@ -119,12 +119,20 @@ public static class TranslationQualityJudge
         return nonLatin > letters.Length / 4.0;
     }
 
+    /// <summary>Covers both providers' own tuned prompt wording: AfriSlmTranslationProvider's
+    /// ("professional ... translator", "produce only the", "please translate the following") and
+    /// SunbirdTranslationProvider's ("verbatim translation engine", "output only the",
+    /// "text to translate ... between the markers"), so this check is not silently blind to one
+    /// engine echoing its own instruction back.</summary>
     private static bool LooksLikeEchoedPrompt(string text)
     {
         var lowered = text.ToLowerInvariant();
         return (lowered.Contains("professional") && lowered.Contains("translator"))
             || lowered.Contains("produce only the")
-            || lowered.Contains("please translate the following");
+            || lowered.Contains("please translate the following")
+            || lowered.Contains("verbatim translation engine")
+            || lowered.Contains("output only the")
+            || lowered.Contains("between the markers");
     }
 
     private static int CountWords(string text) => text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;

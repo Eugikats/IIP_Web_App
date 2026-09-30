@@ -19,6 +19,10 @@ public static class LanguageWordListScorer
         "nga", "nnina", "jjo", "enkya", "makya", "ekiro", "motoka", "poliisi", "ssente", "yinsuwa",
         "ddwaliro", "musawo", "nsonyiwa", "nkusaba", "mbeera", "empapula", "ebiwandiiko", "omuntu",
         "abantu", "bwe", "oba", "leero", "mumbeeko", "nsaba", "kyange", "ebyange", "ekyange",
+        // Everyday greetings and claim words the field transcript showed falling through.
+        "gyebaleko", "kabenje", "mbadde", "ngude", "njagala", "kulopa", "nnyinza", "wasuze", "osiibye",
+        "ssebo", "bulungi", "mwattu", "nkoze", "nfunye", "nnumiziddwa", "mmotoka", "ndwadde", "nnwadde",
+        "ntunda", "katale", "akatale", "dduuka", "nkola", "nvuga",
     };
 
     private static readonly HashSet<string> KiswahiliWords = new(StringComparer.OrdinalIgnoreCase)

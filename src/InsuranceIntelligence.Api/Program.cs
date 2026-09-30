@@ -252,35 +252,25 @@ else
     builder.Services.AddSingleton<IDocumentProcessingProvider, NotConfiguredDocumentProcessingProvider>();
 }
 
-// Mock is Development only (AzureProviderStartupValidator refuses it under every deployed profile).
+// ITranslationProvider is always the tenant-aware resolver now, the same three-step order as
+// ISmsProvider/IEmailSendingProvider: a tenant's own dashboard-configured connection (e.g. Sunbird
+// AI) first, then the deployment's environment-configured engine below, then not configured.
+// TranslationProvider/Translation options still govern step 2, the fallback, exactly as before.
+// Mock is Development only (AzureProviderStartupValidator refuses it under every deployed profile);
 // AfriSlm is the llama.cpp container that hosts the model file. Anything else, including an absent
-// setting, fails closed to English rather than guessing.
-if (infrastructureOptions.TranslationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
-{
-    builder.Services.AddSingleton<MockTranslationProvider>();
-    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider>(sp => sp.GetRequiredService<MockTranslationProvider>());
-    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationEngineHealth>(sp => sp.GetRequiredService<MockTranslationProvider>());
-}
-else if (infrastructureOptions.TranslationProvider.Equals("AfriSlm", StringComparison.OrdinalIgnoreCase))
-{
-    builder.Services.AddSingleton(sp => new InsuranceIntelligence.Infrastructure.Translation.AfriSlmTranslationProvider(
-        infrastructureOptions.Translation,
-        new HttpClient { Timeout = TimeSpan.FromSeconds(infrastructureOptions.Translation.RequestTimeoutSeconds) }));
-    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.AfriSlmTranslationProvider>());
-    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationEngineHealth>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.AfriSlmTranslationProvider>());
-}
-else
-{
-    builder.Services.AddSingleton<NotConfiguredTranslationProvider>();
-    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProvider>(sp => sp.GetRequiredService<NotConfiguredTranslationProvider>());
-    builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationEngineHealth>(sp => sp.GetRequiredService<NotConfiguredTranslationProvider>());
-}
+// setting, fails closed to English rather than guessing. Scoped because it depends on the scoped
+// connection repository, mirroring TenantAwareSmsProvider.
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationProviderFactory, InsuranceIntelligence.Api.Local.TranslationProviderFactory>();
+builder.Services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, InsuranceIntelligence.Infrastructure.Translation.SunbirdConnectionValidator>();
+builder.Services.AddScoped<InsuranceIntelligence.Infrastructure.Translation.TenantAwareTranslationProvider>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ITranslationProvider>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.TenantAwareTranslationProvider>());
+builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ITranslationEngineHealth>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.TenantAwareTranslationProvider>());
 
 builder.Services.AddSingleton<InsuranceIntelligence.Application.CustomerAssistant.IAssistantLanguageSettings>(
     new InsuranceIntelligence.Api.Local.ConfiguredAssistantLanguageSettings(infrastructureOptions.Translation));
 
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationCache, InsuranceIntelligence.Infrastructure.Translation.InMemoryTranslationCache>();
-builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationService, InsuranceIntelligence.Application.Translation.TranslationService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ITranslationService, InsuranceIntelligence.Application.Translation.TranslationService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ILanguageDetector, InsuranceIntelligence.Application.Translation.WordListLanguageDetector>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ICustomerLanguageResolutionService, InsuranceIntelligence.Application.Translation.CustomerLanguageResolutionService>();
 
@@ -449,6 +439,22 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAge
 builder.Services.AddScoped<InsuranceIntelligence.Application.MyWork.IMyWorkService, InsuranceIntelligence.Application.MyWork.MyWorkService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.IWhatsAppMessagingService, InsuranceIntelligence.Application.WhatsApp.WhatsAppMessagingService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.ICustomerAssistantService, InsuranceIntelligence.Application.CustomerAssistant.CustomerAssistantService>();
+
+// Hidden field-test commands (#reset, #demo) for one shared phone: Demo runtime profile only, and
+// only for the number in INSURANCEINTELLIGENCE_DEMO_PHONE_NUMBER. Anywhere else they do not exist.
+var demoRuntime = InsuranceIntelligence.Api.Azure.AzureProviderStartupValidator
+    .ResolveRuntimeProfile(infrastructureOptions, builder.Environment.EnvironmentName)
+    .Equals("Demo", StringComparison.OrdinalIgnoreCase);
+var demoPhoneNumber = builder.Configuration["INSURANCEINTELLIGENCE_DEMO_PHONE_NUMBER"];
+builder.Services.AddSingleton(demoRuntime && !string.IsNullOrWhiteSpace(demoPhoneNumber)
+    ? new InsuranceIntelligence.Application.CustomerAssistant.DemoSessionSettings(true, demoPhoneNumber.Trim())
+    : InsuranceIntelligence.Application.CustomerAssistant.DemoSessionSettings.Disabled);
+builder.Services.AddSingleton(new InsuranceIntelligence.Application.DemoSeeding.DemoPolicyholderSettings(
+    builder.Configuration["INSURANCEINTELLIGENCE_DEMO_POLICYHOLDER_NAME"] ?? string.Empty));
+builder.Services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.MicroinsuranceDemoSeeder>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IDemoPolicyholderLoader>(
+    services => services.GetRequiredService<InsuranceIntelligence.Application.DemoSeeding.MicroinsuranceDemoSeeder>());
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.DemoSessionCommands>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IClaimantAccessLinkIssuer, InsuranceIntelligence.Api.ClientPortal.WhatsAppClaimantAccessLinkIssuer>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IFnolAcknowledgementService, InsuranceIntelligence.Application.Cases.FnolAcknowledgementService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IMissingDocumentRequestService, InsuranceIntelligence.Application.Cases.MissingDocumentRequestService>();
@@ -853,6 +859,7 @@ app.MapPut("/api/v1/admin/users/{userId}/role", AdminEndpoints.UpdateUserRole)
 app.MapPost("/api/v1/admin/demo-seed", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.Run);
 app.MapPost("/api/v1/admin/demo-seed/policyholders", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedPolicyholders);
 app.MapPost("/api/v1/admin/demo-seed/test-policyholder", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedTestPolicyholder);
+app.MapPost("/api/v1/admin/demo-seed/microinsurance", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedMicroinsurance);
 app.MapPost("/api/v1/admin/db-migrate", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ApplyPending);
 app.MapPost("/api/v1/admin/db-migrate/reconcile-history", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ReconcileHistory);
 app.MapPost("/api/v1/admin/db-migrate/force-reconcile-schema", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ForceReconcileSchema);
@@ -1086,8 +1093,10 @@ app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints
 app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);
 
 // Generic connection settings surface (blueprint §3.4), the /app/admin/connections screen's
-// backend. {connectionType} is "sms" or "email" today; adding a type is a new ConnectionType enum
-// value plus IConnectionValidator implementations, no new routes.
+// backend. {connectionType} is "sms", "email" or "translation"; adding a type is a new
+// ConnectionType enum value plus IConnectionValidator implementations, no new routes.
+app.MapPost("/api/v1/integrations/connections/translation/try", InsuranceIntelligence.Api.Agents.TranslationStatusEndpoints.TryConnection)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/connections/{connectionType}/providers", ConnectionEndpoints.ListProviders)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/connections/{connectionType}", ConnectionEndpoints.GetStatus)

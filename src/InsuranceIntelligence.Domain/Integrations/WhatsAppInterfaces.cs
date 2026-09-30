@@ -27,6 +27,14 @@ public interface IWhatsAppOutboundProvider
     Task<WhatsAppProviderSendResult> SendAsync(
         WhatsAppProviderSendRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Marks the customer's message as read and shows "typing..." in their chat until our
+    /// reply arrives or 25 seconds pass, whichever is first. Purely cosmetic: returns false rather
+    /// than throwing, and a provider without the capability does nothing.</summary>
+    Task<bool> ShowTypingAsync(
+        string businessPhoneNumberId,
+        string inboundProviderMessageId,
+        CancellationToken cancellationToken = default) => Task.FromResult(false);
 }
 
 public interface IWhatsAppMessageRepository

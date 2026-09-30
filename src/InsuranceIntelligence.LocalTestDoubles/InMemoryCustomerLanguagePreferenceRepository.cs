@@ -6,7 +6,14 @@ namespace InsuranceIntelligence.LocalTestDoubles;
 
 public sealed class InMemoryCustomerLanguagePreferenceRepository : ICustomerLanguagePreferenceRepository
 {
-    private readonly ConcurrentBag<CustomerLanguagePreference> preferences = new();
+    private ConcurrentBag<CustomerLanguagePreference> preferences = new();
+
+    public Task ClearAsync(TenantScope scope, string contactWaId, CancellationToken cancellationToken = default)
+    {
+        preferences = new ConcurrentBag<CustomerLanguagePreference>(
+            preferences.Where(preference => !(preference.Scope.Matches(scope) && preference.ContactWaId == contactWaId)));
+        return Task.CompletedTask;
+    }
 
     public Task<CustomerLanguagePreference?> GetCurrentAsync(TenantScope scope, string contactWaId, CancellationToken cancellationToken = default)
     {

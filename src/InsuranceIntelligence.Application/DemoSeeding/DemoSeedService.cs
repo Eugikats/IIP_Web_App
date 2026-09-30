@@ -256,7 +256,7 @@ public sealed class DemoSeedService(
                 Version = 1,
                 Name = $"{line.Name} Cover",
                 ProductClass = line.Name,
-                IraApprovalReference = $"IRA/DEMO/{line.Name.ToUpperInvariant()}/2026",
+                IraApprovalReference = MicroinsuranceDemoSeeder.DemoApprovalMarker,
                 IraApprovalEffectiveDate = DateOnly.FromDateTime(now.AddYears(-1).UtcDateTime),
                 ApprovedWordingKnowledgeDocumentId = null,
                 Status = ProductStatus.Published,

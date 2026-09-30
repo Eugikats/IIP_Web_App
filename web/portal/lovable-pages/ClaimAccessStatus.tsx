@@ -339,9 +339,9 @@ export default function ClaimAccessStatus() {
             )}
 
             <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6">
-              <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">Ask for a human review</div>
+              <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">Want to ask about your claim?</div>
               <p className="mt-1 text-xs leading-5 text-dls-text-muted">
-                If something about your claim doesn&apos;t look right, tell us why and our team will take another look.
+                Type your requirements below.
               </p>
               {claim.reviewRequests.length > 0 && (
                 <ul className="mt-3 space-y-1.5">
@@ -358,8 +358,8 @@ export default function ClaimAccessStatus() {
                   <Input
                     value={reviewReason}
                     onChange={(event) => setReviewReason(event.target.value)}
-                    placeholder="Briefly explain why you'd like a review"
-                    aria-label="Reason for review request"
+                    placeholder="Type your question or request"
+                    aria-label="Your question or request about this claim"
                   />
                 </div>
                 <Button
@@ -367,9 +367,9 @@ export default function ClaimAccessStatus() {
                   variant="primary"
                   disabled={reviewBusy || !reviewReason.trim()}
                   icon={reviewBusy ? <Loader2 className="animate-spin" aria-hidden="true" /> : undefined}
-                  aria-label="Request review"
+                  aria-label="Send to the claims team"
                 >
-                  {reviewBusy ? "" : "Request review"}
+                  {reviewBusy ? "" : "Send"}
                 </Button>
               </form>
               {reviewNotice && <p className="mt-3 text-xs leading-5 text-dls-text-muted">{reviewNotice}</p>}

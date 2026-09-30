@@ -37,7 +37,7 @@ public sealed class DemoSeedServiceTests
             new InMemoryCoverageRepository(),
             new InMemoryBranchRepository(),
             new InMemoryProducerRepository(),
-            new InMemoryProductRepository());
+            new DemoSeedInMemoryProductRepository());
 
         var first = await service.SeedTestPolicyholderAsync(Scope, "Test Person", "+256 700 123456", null, "system:test-seeder", "officer-1", CancellationToken.None);
         var second = await service.SeedTestPolicyholderAsync(Scope, "Test Person", "+256700123456", null, "system:test-seeder", "officer-1", CancellationToken.None);
@@ -74,7 +74,7 @@ public sealed class DemoSeedServiceTests
         var coverageRepository = new InMemoryCoverageRepository();
         var branchRepository = new InMemoryBranchRepository();
         var producerRepository = new InMemoryProducerRepository();
-        var productRepository = new InMemoryProductRepository();
+        var productRepository = new DemoSeedInMemoryProductRepository();
 
         var service = new DemoSeedService(
             caseRepository,
@@ -189,7 +189,7 @@ public sealed class DemoSeedServiceTests
                 new InMemoryCoverageRepository(),
                 new InMemoryBranchRepository(),
                 new InMemoryProducerRepository(),
-                new InMemoryProductRepository());
+                new DemoSeedInMemoryProductRepository());
 
             return service.SeedAsync(Scope, "system:test-seeder");
         }
@@ -198,7 +198,7 @@ public sealed class DemoSeedServiceTests
     [Fact]
     public async Task SeedAsync_RunTwice_NeverDuplicatesTheProducts()
     {
-        var productRepository = new InMemoryProductRepository();
+        var productRepository = new DemoSeedInMemoryProductRepository();
         var service = new DemoSeedService(
             new InMemoryCaseRepository(),
             new InMemoryCaseDocumentRepository(),
@@ -326,7 +326,7 @@ file sealed class InMemoryProducerRepository : IProducerRepository
     }
 }
 
-file sealed class InMemoryProductRepository : IProductRepository
+internal sealed class DemoSeedInMemoryProductRepository : IProductRepository
 {
     private readonly List<Product> versions = [];
 

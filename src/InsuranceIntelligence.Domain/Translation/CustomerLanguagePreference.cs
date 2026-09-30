@@ -23,4 +23,8 @@ public interface ICustomerLanguagePreferenceRepository
     Task<CustomerLanguagePreference?> GetCurrentAsync(TenantScope scope, string contactWaId, CancellationToken cancellationToken = default);
 
     Task SaveAsync(CustomerLanguagePreference preference, CancellationToken cancellationToken = default);
+
+    /// <summary>Forgets every preference on file for the number, so the next message is resolved
+    /// as if from someone new. Used by the demo reset on a shared phone.</summary>
+    Task ClearAsync(TenantScope scope, string contactWaId, CancellationToken cancellationToken = default);
 }

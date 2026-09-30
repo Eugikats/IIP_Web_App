@@ -30,28 +30,36 @@ public sealed class RuleBasedWhatsAppToCaseMatcher(
         TenantScope scope,
         CancellationToken cancellationToken = default)
     {
+        // A file is only ever added to a claim that belongs to the phone number sending it. A claim
+        // id or policy number in a caption is typed by the sender, so on its own it proves nothing:
+        // matching on it alone would let anyone attach files to someone else's claim.
+        var identifiedSender = await IdentifySenderAsync(message.SenderWaId, scope, cancellationToken);
+        if (identifiedSender is null)
+        {
+            return new WhatsAppToCaseMatchResult(null, "no_match", RequiresManualReview: true);
+        }
+
         var text = $"{message.Caption} {message.FileName}";
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
+        var cases = (await caseRepository.ListAsync(scope, cancellationToken))
+            .Where(claimCase =>
+                identifiedSender.PolicyNumbers.Contains(claimCase.PolicyNumber, StringComparer.OrdinalIgnoreCase)
+                || PhoneNumbers.SameNumber(claimCase.CustomerPhone, message.SenderWaId))
+            .ToArray();
         var guid = GuidPattern.Match(text);
         if (guid.Success
             && Guid.TryParse(guid.Value, out var caseId)
             && cases.Any(claimCase => claimCase.CaseId == caseId))
         {
-            return new WhatsAppToCaseMatchResult(caseId, "case_id", RequiresManualReview: false);
+            return new WhatsAppToCaseMatchResult(caseId, "case_id", RequiresManualReview: false, identifiedSender);
         }
 
         var byPolicyNumber = cases.FirstOrDefault(claimCase =>
             !string.IsNullOrWhiteSpace(claimCase.PolicyNumber)
+            && claimCase.Status is not (CaseStatus.Settled or CaseStatus.Closed)
             && text.Contains(claimCase.PolicyNumber, StringComparison.OrdinalIgnoreCase));
         if (byPolicyNumber is not null)
         {
-            return new WhatsAppToCaseMatchResult(byPolicyNumber.CaseId, "claim_or_policy_number", RequiresManualReview: false);
-        }
-
-        var identifiedSender = await IdentifySenderAsync(message.SenderWaId, scope, cancellationToken);
-        if (identifiedSender is null)
-        {
-            return new WhatsAppToCaseMatchResult(null, "no_match", RequiresManualReview: true);
+            return new WhatsAppToCaseMatchResult(byPolicyNumber.CaseId, "claim_or_policy_number", RequiresManualReview: false, identifiedSender);
         }
 
         // A recognised customer sending photos after reporting a claim is adding to that claim.

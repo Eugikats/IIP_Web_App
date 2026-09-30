@@ -25,13 +25,13 @@ public sealed partial class CustomerAssistantServiceTests
     {
         var translator = new ScriptedTranslator();
         var fixture = Fixture.Create(translator: translator);
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync($"I was in an accident, my policy is {ValidPolicyNumber}");
 
         Assert.Empty(translator.Calls);
         var turn = Assert.Single(fixture.Conversations.Saved);
-        Assert.Equal(CustomerAssistantOutcome.CaseOpened, turn.Outcome);
+        Assert.Equal(CustomerAssistantOutcome.AwaitingClaimConfirmation, turn.Outcome);
         Assert.Null(turn.CustomerLanguage);
         Assert.Null(turn.OriginalInboundText);
         Assert.Null(turn.OutboundLocalisedText);
@@ -45,14 +45,14 @@ public sealed partial class CustomerAssistantServiceTests
     {
         var translator = LugandaClaimTranslator();
         var fixture = Fixture.Create(translator: translator);
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync(LugandaClaim);
 
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerIntent.NewClaim, turn.ClassifiedIntent);
-        Assert.Equal(CustomerAssistantOutcome.CaseOpened, turn.Outcome);
-        Assert.NotNull(turn.CaseId);
+        Assert.Equal(CustomerAssistantOutcome.AwaitingClaimConfirmation, turn.Outcome); // read back before anything is opened
+        Assert.Null(turn.CaseId);
         Assert.Equal("lg", turn.CustomerLanguage);
         Assert.Equal(TranslationStatus.Translated, turn.InboundTranslationStatus);
         Assert.Equal(TranslationStatus.Translated, turn.OutboundTranslationStatus);
@@ -61,7 +61,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("accident", turn.InboundMessageText);
         Assert.Contains(ValidPolicyNumber, turn.InboundMessageText);
         Assert.Equal(LugandaClaim, turn.OriginalInboundText);
-        Assert.Contains("opened your claim", turn.OutboundReplyText);
+        Assert.Contains("Is that right?", turn.OutboundReplyText);
         Assert.StartsWith("[lg]", turn.OutboundLocalisedText);
 
         var sent = Assert.Single(fixture.Outbound.SentRequests);
@@ -69,7 +69,8 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.StartsWith("[lg]", sent.CustomerSafeBody);
         Assert.Contains("translated by a computer", sent.CustomerSafeBody.Replace("[lg] ", string.Empty), StringComparison.OrdinalIgnoreCase);
 
-        var claim = await fixture.Cases.GetAsync(turn.CaseId!.Value);
+        var opened = await fixture.HandleAsync("Yee");
+        var claim = await fixture.Cases.GetAsync(Assert.Single(opened));
         Assert.Equal(ValidPolicyNumber, claim!.PolicyNumber);
     }
 
@@ -77,9 +78,10 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task ThePolicyNumberInATranslatedMessageIsNeverLost()
     {
         var fixture = Fixture.Create(translator: LugandaClaimTranslator());
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync(LugandaClaim);
+        await fixture.HandleAsync("Yee");
 
         Assert.Equal(ValidPolicyNumber, Assert.Single(await fixture.Cases.ListAsync(fixture.Scope)).PolicyNumber);
     }
@@ -88,9 +90,10 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task AClaimOpenedFromATranslation_KeepsTheCustomersOwnWordsAndLanguage()
     {
         var fixture = Fixture.Create(translator: LugandaClaimTranslator());
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync(LugandaClaim);
+        await fixture.HandleAsync("Yee");
 
         var claim = Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
         Assert.Contains("accident", claim.IncidentDescription); // the English description
@@ -102,9 +105,10 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task AnEnglishClaim_HasNoSeparateOriginalText()
     {
         var fixture = Fixture.Create(translator: new ScriptedTranslator());
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
-        await fixture.HandleAsync($"I was in an accident, my policy is {ValidPolicyNumber}");
+        await fixture.HandleAsync($"I was in an accident on Jinja Road this morning, my policy is {ValidPolicyNumber}");
+        await fixture.HandleAsync("yes");
 
         var claim = Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
         Assert.Null(claim.OriginalIncidentText);
@@ -121,12 +125,13 @@ public sealed partial class CustomerAssistantServiceTests
                 : null,
         };
         var fixture = Fixture.Create(translator: translator);
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
         const string first = "Nfunye akabenje leero nsaba mumbeeko yange NSA/MO/2026/00009";
         const string second = "Ekyaliwo jjo ku luguudo lwa Jinja okumpi ne kalannamba wa nnyo nnyo leero";
 
         await fixture.HandleAsync(first);
         await fixture.HandleAsync(second);
+        await fixture.HandleAsync("Yee");
 
         var claim = Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
         Assert.Contains(first, claim.OriginalIncidentText);
@@ -138,21 +143,23 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task ThePolicyNumberAndReferenceInTheReplyReachTheCustomerUntouched()
     {
         var fixture = Fixture.Create(translator: LugandaClaimTranslator());
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync(LugandaClaim);
+        await fixture.HandleAsync("Yee");
 
         var claim = Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
-        var sent = Assert.Single(fixture.Outbound.SentRequests);
+        var sent = fixture.Outbound.SentRequests[^1];
         Assert.Contains(InsuranceIntelligence.Domain.Cases.ClaimReference.For(claim.CaseId), sent.CustomerSafeBody);
         Assert.DoesNotContain("TKN", sent.CustomerSafeBody);
+        Assert.All(fixture.Outbound.SentRequests, r => Assert.DoesNotContain("TKN", r.CustomerSafeBody));
     }
 
     [Fact]
     public async Task AnEngineThatIsDown_EscalatesTheMessageToAPersonWithTheOriginalWords()
     {
         var fixture = Fixture.Create(translator: new ScriptedTranslator { Throw = true });
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync(LugandaClaim);
 
@@ -162,7 +169,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(TranslationStatus.FellBackToEnglish, turn.InboundTranslationStatus);
         Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("passed this to our team", sent.CustomerSafeBody);
+        Assert.Contains("someone from our team", sent.CustomerSafeBody);
         Assert.Equal("en", sent.Language);
         var audit = Assert.Single(fixture.Audit.Written);
         Assert.Equal("customer_assistant.translation_failed", audit.ActionName);
@@ -173,17 +180,17 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task WhereUnreviewedTranslationsAreNotAllowed_TheReplyIsEnglishAndSaysSo()
     {
         var fixture = Fixture.Create(translator: LugandaClaimTranslator(), allowUnreviewedTranslations: false);
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync(LugandaClaim);
 
         var turn = Assert.Single(fixture.Conversations.Saved);
-        Assert.Equal(CustomerAssistantOutcome.CaseOpened, turn.Outcome); // still understood
+        Assert.Equal(CustomerAssistantOutcome.AwaitingClaimConfirmation, turn.Outcome); // still understood
         Assert.Equal(TranslationStatus.FellBackToEnglish, turn.OutboundTranslationStatus);
         Assert.Null(turn.OutboundLocalisedText);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
         Assert.Equal("en", sent.Language);
-        Assert.Contains("opened your claim", sent.CustomerSafeBody);
+        Assert.Contains("Is that right?", sent.CustomerSafeBody);
     }
 
     [Fact]
@@ -191,7 +198,7 @@ public sealed partial class CustomerAssistantServiceTests
     {
         var translator = LugandaClaimTranslator();
         var fixture = Fixture.Create(translator: translator, enabledLanguages: [SupportedLanguageCode.Sw]);
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync(LugandaClaim);
 
@@ -221,7 +228,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         var sent = Assert.Single(fixture.Outbound.SentRequests);
         Assert.DoesNotContain("Reply 1 for English", sent.CustomerSafeBody);
-        Assert.Contains("report a claim", sent.CustomerSafeBody);
+        Assert.Contains("I'm Kato", sent.CustomerSafeBody);
     }
 
     [Fact]
@@ -247,7 +254,7 @@ public sealed partial class CustomerAssistantServiceTests
     {
         var translator = new ScriptedTranslator();
         var fixture = Fixture.Create(translator: translator);
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
         await fixture.HandleAsync(LugandaClaim); // makes Luganda this customer's language
         translator.Calls.Clear();
 
@@ -260,7 +267,7 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task TheAuditTrailRecordsTheLanguageAndTheStatusButNeverTheWords()
     {
         var fixture = Fixture.Create(translator: LugandaClaimTranslator());
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync(LugandaClaim);
 
@@ -303,7 +310,7 @@ public sealed partial class CustomerAssistantServiceTests
             new InsuranceIntelligence.Infrastructure.Configuration.TranslationOptions { Endpoint = endpoint, RequestTimeoutSeconds = 120 },
             new HttpClient { Timeout = TimeSpan.FromSeconds(120) });
         var fixture = Fixture.Create(translator: provider);
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync(message);
 
@@ -346,7 +353,9 @@ public sealed partial class CustomerAssistantServiceTests
 
     private sealed class ScriptedTranslator : ITranslationProvider
     {
-        public bool IsConfigured => true;
+        public Task<bool> IsConfiguredAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+        public Task<string> GetModelTagAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult("scripted");
 
         public bool Throw { get; init; }
 
@@ -354,7 +363,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         public List<(string Text, SupportedLanguageCode From, SupportedLanguageCode To)> Calls { get; } = [];
 
-        public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default)
+        public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, InsuranceIntelligence.Domain.Common.TenantScope scope, CancellationToken cancellationToken = default)
         {
             Calls.Add((text, from, to));
             if (Throw)

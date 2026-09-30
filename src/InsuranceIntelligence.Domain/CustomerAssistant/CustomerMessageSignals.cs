@@ -53,6 +53,10 @@ public static partial class CustomerMessageSignals
         ("Life", ["life", "death", "died", "funeral", "burial", "deceased", "maturity", "endowment"]),
         ("General", ["general", "fire", "burglary", "burgled", "shop", "warehouse", "house", "home", "property", "cargo", "goods", "stock", "premises", "office"]),
         ("Agriculture", ["agriculture", "farm", "crop", "crops", "harvest", "livestock", "cow", "cows", "cattle", "goat", "goats", "poultry", "chicken", "chickens", "drought", "maize", "beans", "coffee"]),
+        // Microinsurance lines (Kato field test).
+        ("Hospital Cash", ["hospital", "admitted", "admission", "ward", "nights", "clinic", "sick", "illness", "ill", "malaria", "funeral", "burial", "died", "death", "ddwaliro"]),
+        ("Boda Rider Accident", ["boda", "bodaboda", "rider", "accident", "injured", "injury", "hurt", "knocked", "crash", "crashed", "motorcycle", "motorbike", "fell", "akabenje", "kabenje", "ajali"]),
+        ("Market Stall Stock", ["stall", "stock", "goods", "market", "shop", "fire", "burnt", "burned", "burglary", "burgled", "stolen", "thieves", "kiosk", "katale", "dduuka"]),
     ];
 
     private static readonly (string Line, string Phrase)[] LinePhrases =
@@ -62,6 +66,11 @@ public static partial class CustomerMessageSignals
         ("General", "break in"),
         ("Motor", "hit my car"),
         ("Motor", "knocked my"),
+        ("Hospital Cash", "hospital cash"),
+        ("Boda Rider Accident", "boda rider"),
+        ("Boda Rider Accident", "rider accident"),
+        ("Market Stall Stock", "market stall"),
+        ("Market Stall Stock", "stall stock"),
     ];
 
     private static readonly string[] Weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -90,11 +99,16 @@ public static partial class CustomerMessageSignals
 
     /// <summary>The product line a message most clearly points at, or null when it points at none
     /// or at two lines equally.</summary>
-    public static string? ProductLineHint(string text)
+    public static string? ProductLineHint(string text) => ProductLineHint(text, null);
+
+    /// <summary>The same reading, limited to the given product lines (for example the customer's
+    /// own covers), so a word shared with a line they do not hold cannot cause a tie.</summary>
+    public static string? ProductLineHint(string text, IReadOnlyCollection<string>? candidateLines)
     {
         var normalized = Normalized(text);
         var words = Words(text);
         var scores = LineWords
+            .Where(line => candidateLines is null || candidateLines.Contains(line.Line, StringComparer.OrdinalIgnoreCase))
             .Select(line => (line.Line, Score: words.Count(word => line.Words.Contains(word))
                 + LinePhrases.Count(phrase => phrase.Line == line.Line && ContainsWordPhrase(normalized, phrase.Phrase))))
             .Where(item => item.Score > 0)

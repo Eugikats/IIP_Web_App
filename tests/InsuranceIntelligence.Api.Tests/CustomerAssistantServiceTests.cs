@@ -32,27 +32,80 @@ public sealed partial class CustomerAssistantServiceTests
     private const string ValidPolicyNumber = "NSA/MO/2026/00009";
 
     [Fact]
-    public async Task NewClaim_WithValidPolicyNumber_CreatesUnconfirmedCase()
+    public async Task NewClaim_FromThePolicyholder_IsReadBackAndOpensOnlyAfterYes()
     {
         var fixture = Fixture.Create();
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
-        await fixture.HandleAsync($"I was in an accident, my policy is {ValidPolicyNumber}");
+        await fixture.HandleAsync("A taxi hit my car at the Kira roundabout this morning and broke the lights");
 
-        var turn = Assert.Single(fixture.Conversations.Saved);
-        Assert.Equal(CustomerIntent.NewClaim, turn.ClassifiedIntent);
+        var readBack = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.AwaitingClaimConfirmation, readBack.Outcome);
+        Assert.Contains("Is that right?", readBack.OutboundReplyText);
+        Assert.Contains("Kira roundabout", readBack.OutboundReplyText);
+        Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope)); // nothing binding on the first telling
+
+        var opened = await fixture.HandleAsync("Yes");
+
+        var turn = fixture.Conversations.Saved[1];
         Assert.Equal(CustomerAssistantOutcome.CaseOpened, turn.Outcome);
-        Assert.NotNull(turn.CaseId);
-
+        Assert.Equal(turn.CaseId!.Value, Assert.Single(opened));
         var created = await fixture.Cases.GetAsync(turn.CaseId!.Value);
-        Assert.NotNull(created);
         Assert.True(created!.RequiresConfirmation);
         Assert.Equal(ValidPolicyNumber, created.PolicyNumber);
         Assert.Equal("WhatsApp", created.Channel);
+        Assert.Contains("Kira roundabout", created.IncidentDescription);
     }
 
     [Fact]
-    public async Task NewClaim_WithoutPolicyNumber_AsksForItAndCreatesNoCase()
+    public async Task NewClaim_ReadBackCorrection_IsAddedAndReadBackAgain_NoIsStartedAgain()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync("A taxi hit my car at the Kira roundabout this morning and broke the lights");
+        await fixture.HandleAsync("It was yesterday evening, not this morning");
+        var corrected = fixture.Conversations.Saved[1];
+        Assert.Equal(CustomerAssistantOutcome.AwaitingClaimConfirmation, corrected.Outcome);
+        Assert.Contains("yesterday evening", corrected.OutboundReplyText);
+
+        await fixture.HandleAsync("No");
+        Assert.Equal(CustomerAssistantOutcome.AwaitingIncidentDetails, fixture.Conversations.Saved[2].Outcome);
+        Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
+    }
+
+    [Fact]
+    public async Task NewClaim_ToldAgainAfterItWasOpened_SurfacesTheExistingClaim_AndNeverOpensASecond()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+        await fixture.HandleAsync("A taxi hit my car at the Kira roundabout this morning and broke the lights");
+        await fixture.HandleAsync("yes");
+        var first = Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+
+        await fixture.HandleAsync("I had an accident at the Kira roundabout this morning, a taxi hit my car");
+
+        var turn = fixture.Conversations.Saved[^1];
+        Assert.Equal(first.CaseId, turn.CaseId);
+        Assert.Contains(ClaimReference.For(first.CaseId), turn.OutboundReplyText);
+        Assert.Contains("reply NEW", turn.OutboundReplyText);
+        Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+        Assert.Contains("More from the customer", (await fixture.Cases.GetAsync(first.CaseId))!.IncidentDescription);
+
+        // Answering anything but NEW keeps the one claim.
+        await fixture.HandleAsync("ok thanks");
+        Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+
+        // Saying it is a different accident reads a new one back, still nothing opened until yes.
+        await fixture.HandleAsync("I had an accident at the Kira roundabout this morning, a taxi hit my car");
+        await fixture.HandleAsync("NEW");
+        Assert.Equal(CustomerAssistantOutcome.AwaitingClaimConfirmation, fixture.Conversations.Saved[^1].Outcome);
+        Assert.Null(fixture.Conversations.Saved[^1].OfferedNewIncidentForCaseId);
+        Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+    }
+
+    [Fact]
+    public async Task NewClaim_FromANumberWithNoCover_OpensNothingAndOffersAPerson()
     {
         var fixture = Fixture.Create();
 
@@ -60,13 +113,15 @@ public sealed partial class CustomerAssistantServiceTests
 
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerIntent.NewClaim, turn.ClassifiedIntent);
-        Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, turn.Outcome);
+        Assert.Equal(CustomerAssistantOutcome.Declined, turn.Outcome);
         Assert.Null(turn.CaseId);
         Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
+        Assert.Contains("PERSON", turn.OutboundReplyText);
+        Assert.DoesNotContain("policy number", turn.OutboundReplyText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task ExistingClaimStatus_WithoutPolicyNumber_NeverDisclosesAnything()
+    public async Task ExistingClaimStatus_FromAnUnrecognisedNumber_NeverDisclosesAnything()
     {
         var fixture = Fixture.Create();
         var existingCaseId = fixture.SeedCase(ValidPolicyNumber);
@@ -75,13 +130,13 @@ public sealed partial class CustomerAssistantServiceTests
 
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerIntent.ExistingClaimStatus, turn.ClassifiedIntent);
-        Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, turn.Outcome);
+        Assert.Equal(CustomerAssistantOutcome.Declined, turn.Outcome);
         Assert.Null(turn.CaseId);
         Assert.DoesNotContain(existingCaseId.ToString()[..8], turn.OutboundReplyText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task ExistingClaimStatus_WithMatchingPolicyNumber_DisclosesOnlyCoarseStatus()
+    public async Task ATypedPolicyNumber_FromAnUnrecognisedNumber_DisclosesNoClaimStatus()
     {
         var fixture = Fixture.Create();
         fixture.SeedPolicy(ValidPolicyNumber);
@@ -90,58 +145,153 @@ public sealed partial class CustomerAssistantServiceTests
         await fixture.HandleAsync($"What is the status of my claim on {ValidPolicyNumber}?");
 
         var turn = Assert.Single(fixture.Conversations.Saved);
-        Assert.Equal(CustomerAssistantOutcome.AutoReplied, turn.Outcome);
-        Assert.Equal(existingCaseId, turn.CaseId);
-        Assert.Contains("Under review", turn.OutboundReplyText);
+        Assert.Equal(CustomerAssistantOutcome.Declined, turn.Outcome);
+        Assert.Null(turn.CaseId);
+        Assert.DoesNotContain(ClaimReference.For(existingCaseId), turn.OutboundReplyText);
+        Assert.DoesNotContain("review", turn.OutboundReplyText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task NewClaim_PolicyNumberSentAsAFollowUp_OpensTheClaimWithTheOriginalDescription()
+    public async Task ATypedPolicyNumber_FromAnUnrecognisedNumber_NeverOpensAClaimOrIssuesALink()
     {
-        var fixture = Fixture.Create();
+        var fixture = Fixture.Create(withAccessLinks: true);
         fixture.SeedPolicy(ValidPolicyNumber);
 
         await fixture.HandleAsync("I had an accident on Jinja Road this morning");
         await fixture.HandleAsync(ValidPolicyNumber);
+        await fixture.HandleAsync($"I was in an accident on Jinja Road, my policy is {ValidPolicyNumber}");
+        await fixture.HandleAsync("yes");
+        await fixture.HandleAsync("Please send me the link to upload my documents");
 
-        Assert.Equal(2, fixture.Conversations.Saved.Count);
-        var followUp = fixture.Conversations.Saved[1];
-        Assert.Equal(CustomerIntent.NewClaim, followUp.ClassifiedIntent);
-        Assert.Equal(CustomerAssistantOutcome.CaseOpened, followUp.Outcome);
-        var created = await fixture.Cases.GetAsync(followUp.CaseId!.Value);
-        Assert.Contains("Jinja Road", created!.IncidentDescription);
-        Assert.Contains(ClaimReference.For(created.CaseId), followUp.OutboundReplyText);
+        Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
+        Assert.Empty(fixture.LinkIssuer.Issued);
+        Assert.DoesNotContain(fixture.Outbound.SentRequests, r => r.CustomerSafeBody.Contains("access/verify", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task NewClaim_RetypedPolicyNumberAfterNotFound_UsesTheNewNumber()
+    public async Task APolicyholderTypingSomeoneElsesPolicyNumber_IsDeclined()
     {
         var fixture = Fixture.Create();
-        fixture.SeedPolicy(ValidPolicyNumber);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+        fixture.SeedPolicy("NSA/MO/2026/00077");
 
-        await fixture.HandleAsync("I was in an accident, my policy is NSA/MO/2026/99999");
-        await fixture.HandleAsync($"Sorry, it is {ValidPolicyNumber}");
+        await fixture.HandleAsync("I was in an accident on Jinja Road this morning, my policy is NSA/MO/2026/00077");
 
-        var followUp = fixture.Conversations.Saved[1];
-        Assert.Equal(CustomerAssistantOutcome.CaseOpened, followUp.Outcome);
-        var created = await fixture.Cases.GetAsync(followUp.CaseId!.Value);
-        Assert.Equal(ValidPolicyNumber, created!.PolicyNumber);
+        Assert.Equal(CustomerAssistantOutcome.Declined, Assert.Single(fixture.Conversations.Saved).Outcome);
+        Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
+    }
+
+
+
+    private const string DemoPhone = "256772118001";
+
+    [Fact]
+    public async Task Reset_FromTheDemoPhone_ClearsTheNumberAndTheNextMessageStartsFresh()
+    {
+        var fixture = Fixture.Create(demoPhone: DemoPhone);
+        fixture.SeedPolicyholder("Aisha Nakato", "+256772118001", ("Motor", ValidPolicyNumber));
+        var openClaim = fixture.SeedCase(ValidPolicyNumber, CaseStatus.MissingDocuments);
+        await fixture.LanguagePreferences.SaveAsync(new CustomerLanguagePreference
+        {
+            PreferenceId = Guid.NewGuid(), Scope = fixture.Scope, ContactWaId = DemoPhone,
+            Language = SupportedLanguageCode.Lg, SetAt = DateTimeOffset.UtcNow,
+        });
+        await fixture.HandleAsync("I had an accident"); // leaves the thread waiting for incident details
+
+        await fixture.HandleAsync("#reset");
+
+        var customer = Assert.Single(fixture.Customers.Customers);
+        Assert.Equal("Erased customer", customer.FullName);
+        Assert.Null(customer.Phone);
+        Assert.Equal(CaseStatus.Closed, (await fixture.Cases.GetAsync(openClaim))!.Status);
+        Assert.Null(await fixture.LanguagePreferences.GetCurrentAsync(fixture.Scope, DemoPhone));
+        Assert.Contains(fixture.Audit.Written, e => e.ActionName == "demo.session_reset");
+        Assert.Contains(fixture.Audit.Written, e => e.ActionName == "case.closed" && e.CaseId == openClaim);
+        Assert.StartsWith("Reset done", fixture.Outbound.SentRequests[^1].CustomerSafeBody);
+        Assert.Equal(CustomerAssistantOutcome.SessionReset, fixture.Conversations.Saved[^1].Outcome);
+
+        // The earlier "waiting for incident details" belongs to the previous participant.
+        await fixture.HandleAsync("Hi");
+        var turn = fixture.Conversations.Saved[^1];
+        Assert.NotEqual(CustomerIntent.NewClaim, turn.ClassifiedIntent);
+        Assert.DoesNotContain("Aisha", turn.OutboundReplyText);
     }
 
     [Fact]
-    public async Task ClaimStatus_PolicyNumberSentAsAFollowUp_DisclosesStatusOnlyAfterTheMatch()
+    public async Task Reset_FromAnyOtherNumber_IsAnOrdinaryMessageAndChangesNothing()
+    {
+        var fixture = Fixture.Create(demoPhone: DemoPhone);
+        fixture.SeedPolicyholder("Brian Okello", "+256700000001", ("Motor", ValidPolicyNumber));
+        var openClaim = fixture.SeedCase(ValidPolicyNumber, CaseStatus.MissingDocuments);
+
+        await fixture.HandleFromAsync("#reset", "256700000001");
+
+        Assert.Equal("Brian Okello", Assert.Single(fixture.Customers.Customers).FullName);
+        Assert.Equal(CaseStatus.MissingDocuments, (await fixture.Cases.GetAsync(openClaim))!.Status);
+        Assert.DoesNotContain(fixture.Audit.Written, e => e.ActionName == "demo.session_reset");
+        Assert.DoesNotContain(fixture.Outbound.SentRequests, r => r.CustomerSafeBody.StartsWith("Reset done", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("#Reset")]
+    [InlineData("reset")]
+    [InlineData("please #reset")]
+    [InlineData("#reset now")]
+    public async Task Reset_OnlyTheExactCommandTriggersIt(string text)
+    {
+        var fixture = Fixture.Create(demoPhone: DemoPhone);
+        fixture.SeedPolicyholder("Aisha Nakato", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync(text);
+
+        Assert.Equal("Aisha Nakato", Assert.Single(fixture.Customers.Customers).FullName);
+        Assert.DoesNotContain(fixture.Audit.Written, e => e.ActionName == "demo.session_reset");
+    }
+
+    [Fact]
+    public async Task Reset_WorksEvenWhenTheAssistantIsSwitchedOff()
+    {
+        var fixture = Fixture.Create(agentEnabled: false, demoPhone: DemoPhone);
+        fixture.SeedPolicyholder("Aisha Nakato", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync("  #reset  ");
+
+        Assert.Equal("Erased customer", Assert.Single(fixture.Customers.Customers).FullName);
+        Assert.Contains(fixture.Audit.Written, e => e.ActionName == "demo.session_reset");
+    }
+
+    [Fact]
+    public void Reset_IsOffOutsideTheDemoProfileAndForUnconfiguredNumbers()
+    {
+        Assert.False(DemoSessionSettings.Disabled.Allows(DemoPhone));
+        Assert.False(new DemoSessionSettings(true, null).Allows(DemoPhone));
+        Assert.False(new DemoSessionSettings(false, DemoPhone).Allows(DemoPhone));
+        Assert.True(new DemoSessionSettings(true, "+256772118001").Allows(DemoPhone));
+        Assert.True(new DemoSessionSettings(true, "0772118001").Allows(DemoPhone));
+    }
+
+    [Fact]
+    public async Task TheCustomerSeesTypingOnTheirOwnMessageBeforeTheReplyArrives()
     {
         var fixture = Fixture.Create();
-        fixture.SeedPolicy(ValidPolicyNumber);
-        var existingCaseId = fixture.SeedCase(ValidPolicyNumber, CaseStatus.MissingDocuments);
 
-        await fixture.HandleAsync("What is the status of my claim?");
-        await fixture.HandleAsync(ValidPolicyNumber);
+        await fixture.HandleAsync("Hi");
 
-        var followUp = fixture.Conversations.Saved[1];
-        Assert.Equal(CustomerIntent.ExistingClaimStatus, followUp.ClassifiedIntent);
-        Assert.Equal(existingCaseId, followUp.CaseId);
-        Assert.Contains("Waiting on documents", followUp.OutboundReplyText);
+        var events = fixture.Outbound.Events;
+        Assert.StartsWith("typing:wamid.", events[0]);
+        Assert.Equal("send", events[^1]);
+        Assert.Single(events, e => e.StartsWith("typing:", StringComparison.Ordinal)); // a fast reply needs no refresh
+    }
+
+    [Fact]
+    public async Task NoTypingIsShownWhenTheAssistantIsSwitchedOff()
+    {
+        // With the kill switch on, the assistant is not the one replying, so it must not look as if it is.
+        var fixture = Fixture.Create(agentEnabled: false);
+
+        await fixture.HandleAsync("Hi");
+
+        Assert.DoesNotContain(fixture.Outbound.Events, e => e.StartsWith("typing:", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -153,7 +303,10 @@ public sealed partial class CustomerAssistantServiceTests
 
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, turn.Outcome);
-        Assert.Contains("report a claim", turn.OutboundReplyText);
+        Assert.Contains("I'm Kato, Nile Shield's helper", turn.OutboundReplyText);
+        Assert.Contains("get your money", turn.OutboundReplyText);
+        Assert.Contains("PERSON", turn.OutboundReplyText);
+        Assert.DoesNotContain("voice note", turn.OutboundReplyText); // voice is not offered until it works
         Assert.Empty(fixture.SalesLeads.Created);
     }
 
@@ -182,7 +335,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(CustomerIntent.GeneralQuestion, turn.ClassifiedIntent);
         Assert.Equal(CustomerAssistantOutcome.QueuedForHumanApproval, turn.Outcome);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("passed it to our team", sent.CustomerSafeBody);
+        Assert.Contains("asked our team", sent.CustomerSafeBody);
     }
 
     [Fact]
@@ -203,7 +356,8 @@ public sealed partial class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.AutoReplied, turn.Outcome);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Equal(fixture.Assistant.AnswerToReturn.AnswerText, sent.CustomerSafeBody);
+        Assert.EndsWith(fixture.Assistant.AnswerToReturn.AnswerText, sent.CustomerSafeBody);
+        Assert.StartsWith(KatoReplies.FirstContactPrefix, sent.CustomerSafeBody); // an unknown number meets Kato first
         Assert.Single(fixture.WhatsAppMessages.Saved);
     }
 
@@ -227,27 +381,51 @@ public sealed partial class CustomerAssistantServiceTests
         // The held AI answer never reaches the customer; only the fixed holding message does.
         var sent = Assert.Single(fixture.Outbound.SentRequests);
         Assert.DoesNotContain("own damage", sent.CustomerSafeBody);
-        Assert.Contains("passed it to our team", sent.CustomerSafeBody);
+        Assert.Contains("asked our team to check", sent.CustomerSafeBody);
     }
 
     [Fact]
-    public async Task ProductInterest_CreatesLead()
+    public async Task ProductInterest_WithNoCover_AsksWhatWorkTheyDo_ThenExplainsFittingCoverAndCreatesALead()
     {
         var fixture = Fixture.Create();
 
-        await fixture.HandleAsync("I'm interested in getting a quote for home insurance");
+        await fixture.HandleAsync("I'm interested in getting a quote for insurance");
+        Assert.Equal(CustomerAssistantOutcome.AwaitingOccupation, Assert.Single(fixture.Conversations.Saved).Outcome);
+        Assert.Empty(fixture.SalesLeads.Created);
 
-        var turn = Assert.Single(fixture.Conversations.Saved);
+        await fixture.HandleAsync("I sell tomatoes in Nakasero market");
+
+        var turn = fixture.Conversations.Saved[1];
         Assert.Equal(CustomerIntent.ProductInterest, turn.ClassifiedIntent);
         Assert.Equal(CustomerAssistantOutcome.LeadCreated, turn.Outcome);
-        Assert.NotNull(turn.LeadId);
+        Assert.Equal("I sell tomatoes in Nakasero market", turn.Occupation);
+        Assert.Contains("Market Stall Stock", turn.OutboundReplyText);
+        Assert.Contains("Hospital Cash", turn.OutboundReplyText);
+        Assert.Contains("nothing is sold in this chat", turn.OutboundReplyText);
         var lead = Assert.Single(fixture.SalesLeads.Created);
-        Assert.Equal("WhatsApp", lead.LeadSource);
+        Assert.Contains("Market Stall Stock", lead.ProductFit);
 
         // Outcome P: "route it to a licensed person." A lead has no assigned officer at
         // creation, so routing is the same team-broadcast ApprovalRequired already uses.
         var notification = Assert.Single(fixture.TeamsQueue.Enqueued);
         Assert.Equal(TeamsNotificationType.LeadCreated, notification.NotificationType);
+    }
+
+    [Theory]
+    [InlineData("I sell tomatoes in Nakasero", "Market Stall Stock")]
+    [InlineData("I ride a boda boda in Kawempe", "Boda Rider Accident")]
+    [InlineData("I work as a tailor", "Hospital Cash")]
+    public async Task AFirstMessageDescribingWork_FromSomeoneWithNoCover_GetsFittingCoverExplained(string message, string expectedProduct)
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleAsync(message);
+
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.LeadCreated, turn.Outcome);
+        Assert.Contains(expectedProduct, turn.OutboundReplyText);
+        Assert.Contains("UGX", turn.OutboundReplyText);
+        Assert.DoesNotContain("IRA/", turn.OutboundReplyText);
     }
 
     [Fact]
@@ -308,7 +486,7 @@ public sealed partial class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.DocumentReceived, turn.Outcome);
         Assert.Null(turn.CaseId);
-        Assert.Contains("policy number or claim reference", Assert.Single(fixture.Outbound.SentRequests).CustomerSafeBody);
+        Assert.Contains("Someone from our team will look at it", Assert.Single(fixture.Outbound.SentRequests).CustomerSafeBody);
     }
 
     [Fact]
@@ -336,7 +514,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         await fixture.HandleAsync("Hello");
 
-        Assert.Contains("Hi Eugene", Assert.Single(fixture.Conversations.Saved).OutboundReplyText);
+        Assert.Contains("Hello Eugene, it's Kato from Nile Shield", Assert.Single(fixture.Conversations.Saved).OutboundReplyText);
     }
 
     [Fact]
@@ -351,9 +529,11 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("what happened", first.OutboundReplyText);
         Assert.DoesNotContain("reply with your policy number", first.OutboundReplyText);
 
-        var opened = await fixture.HandleAsync("A taxi hit the back of my car at the Kira roundabout this morning");
+        await fixture.HandleAsync("A taxi hit the back of my car at the Kira roundabout this morning");
+        Assert.Equal(CustomerAssistantOutcome.AwaitingClaimConfirmation, fixture.Conversations.Saved[1].Outcome);
+        var opened = await fixture.HandleAsync("yes");
 
-        var second = fixture.Conversations.Saved[1];
+        var second = fixture.Conversations.Saved[2];
         Assert.Equal(CustomerAssistantOutcome.CaseOpened, second.Outcome);
         Assert.Equal(second.CaseId!.Value, Assert.Single(opened)); // returned so the webhook can start the claim review
         var created = await fixture.Cases.GetAsync(second.CaseId!.Value);
@@ -382,8 +562,9 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(ValidPolicyNumber, fixture.Conversations.Saved[1].PolicyNumber);
 
         await fixture.HandleAsync("Someone reversed into my parked car outside the office yesterday afternoon");
+        await fixture.HandleAsync("yes");
 
-        var created = await fixture.Cases.GetAsync(fixture.Conversations.Saved[2].CaseId!.Value);
+        var created = await fixture.Cases.GetAsync(fixture.Conversations.Saved[3].CaseId!.Value);
         Assert.Equal(ValidPolicyNumber, created!.PolicyNumber);
         Assert.DoesNotContain("\n2", created.IncidentDescription); // the "2" answered a question, it is not part of the story
         Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1), created.IncidentDate);
@@ -398,8 +579,8 @@ public sealed partial class CustomerAssistantServiceTests
         await fixture.HandleAsync("My car was hit by a boda boda at the Jinja Road roundabout this morning");
 
         var turn = Assert.Single(fixture.Conversations.Saved);
-        Assert.Equal(CustomerAssistantOutcome.CaseOpened, turn.Outcome);
-        Assert.Equal(ValidPolicyNumber, (await fixture.Cases.GetAsync(turn.CaseId!.Value))!.PolicyNumber);
+        Assert.Equal(CustomerAssistantOutcome.AwaitingClaimConfirmation, turn.Outcome);
+        Assert.Equal(ValidPolicyNumber, turn.PolicyNumber);
     }
 
     [Fact]
@@ -415,7 +596,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         var reply = Assert.Single(fixture.Conversations.Saved).OutboundReplyText!;
         Assert.Contains(ClaimReference.For(theirs), reply);
-        Assert.Contains("Under review", reply);
+        Assert.Contains("under review", reply, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(ClaimReference.For(someoneElses), reply);
     }
 
@@ -429,8 +610,8 @@ public sealed partial class CustomerAssistantServiceTests
         await fixture.HandleAsync("What is the status of my claim?");
 
         var turn = Assert.Single(fixture.Conversations.Saved);
-        Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, turn.Outcome);
-        Assert.Contains("policy number", turn.OutboundReplyText);
+        Assert.Equal(CustomerAssistantOutcome.Declined, turn.Outcome);
+        Assert.Contains("phone number on the policy", turn.OutboundReplyText);
     }
 
     [Fact]
@@ -440,9 +621,12 @@ public sealed partial class CustomerAssistantServiceTests
 
         await fixture.HandleAsync("the thing from last week");
         await fixture.HandleAsync("the other one");
+        await fixture.HandleAsync("that one");
 
-        Assert.Equal(CustomerAssistantOutcome.Clarifying, fixture.Conversations.Saved[0].Outcome);
-        Assert.Equal(CustomerAssistantOutcome.Escalated, fixture.Conversations.Saved[1].Outcome);
+        // A first message nobody can read still meets Kato and hears what he can do.
+        Assert.Contains("I'm Kato", fixture.Conversations.Saved[0].OutboundReplyText);
+        Assert.Equal(CustomerAssistantOutcome.Clarifying, fixture.Conversations.Saved[1].Outcome);
+        Assert.Equal(CustomerAssistantOutcome.Escalated, fixture.Conversations.Saved[2].Outcome);
     }
 
     [Fact]
@@ -453,8 +637,8 @@ public sealed partial class CustomerAssistantServiceTests
         await fixture.HandleAsync("Am I talking to a bot?");
 
         var reply = Assert.Single(fixture.Conversations.Saved).OutboundReplyText!;
-        Assert.Contains("automated assistant", reply);
-        Assert.Contains("person", reply);
+        Assert.Contains("I'm not a person", reply);
+        Assert.Contains("PERSON", reply);
     }
 
     [Fact]
@@ -486,10 +670,11 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task ModelFailure_FallsBackToAskingTheCustomer()
     {
         var fixture = Fixture.Create(modelThrows: true);
+        await fixture.HandleAsync("Hi");
 
         await fixture.HandleAsync("the paperwork thing from before");
 
-        Assert.Equal(CustomerAssistantOutcome.Clarifying, Assert.Single(fixture.Conversations.Saved).Outcome);
+        Assert.Equal(CustomerAssistantOutcome.Clarifying, fixture.Conversations.Saved[1].Outcome);
     }
 
     [Fact]
@@ -510,6 +695,7 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task AMessageThatFails_IsEscalatedToAPersonInsteadOfLost()
     {
         var fixture = Fixture.Create(casesThrow: true);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         var opened = await fixture.HandleAsync("What is the status of my claim NSA/MO/2026/00009?");
 
@@ -517,7 +703,7 @@ public sealed partial class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.Escalated, turn.Outcome);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("passed this to our team", sent.CustomerSafeBody);
+        Assert.Contains("someone from our team", sent.CustomerSafeBody);
         var audit = Assert.Single(fixture.Audit.Written);
         Assert.Equal("customer_assistant.processing_failed", audit.ActionName);
     }
@@ -526,6 +712,7 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task AFailedMessage_NeverPutsTheCustomersWordsInTheAuditTrail()
     {
         var fixture = Fixture.Create(casesThrow: true);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
 
         await fixture.HandleAsync("What is the status of my claim NSA/MO/2026/00009? This is my private note.");
 
@@ -615,7 +802,8 @@ public sealed partial class CustomerAssistantServiceTests
             bool casesThrow = false,
             ITranslationProvider? translator = null,
             IReadOnlyCollection<SupportedLanguageCode>? enabledLanguages = null,
-            bool allowUnreviewedTranslations = true)
+            bool allowUnreviewedTranslations = true,
+            string? demoPhone = null)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -661,13 +849,25 @@ public sealed partial class CustomerAssistantServiceTests
                 translator is null ? null : new TranslationService(translator, new InMemoryTranslationCache()),
                 translator is null ? null : new CustomerLanguageResolutionService(languagePreferences, new WordListLanguageDetector()),
                 translator is null ? null : new WordListLanguageDetector(),
-                translator is null ? null : new TestLanguageSettings(enabledLanguages ?? [SupportedLanguageCode.Lg, SupportedLanguageCode.Sw], allowUnreviewedTranslations));
+                translator is null ? null : new TestLanguageSettings(enabledLanguages ?? [SupportedLanguageCode.Lg, SupportedLanguageCode.Sw], allowUnreviewedTranslations),
+                demoPhone is null ? null : new DemoSessionCommands(
+                    new DemoSessionSettings(true, demoPhone), customers, policies, cases, languagePreferences, audit));
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {
                 LinkIssuer = linkIssuer,
+                LanguagePreferences = languagePreferences,
             };
         }
+
+        public InMemoryCustomerLanguagePreferenceRepository LanguagePreferences { get; private init; } = new();
+
+        public Task<IReadOnlyList<Guid>> HandleFromAsync(string text, string waId) =>
+            Service.HandleInboundMessagesAsync(
+                Scope,
+                [new WhatsAppInboundMessage($"wamid.{Guid.NewGuid():N}", "phone-1", waId, WhatsAppContentType.Text, text, null, DateTimeOffset.UtcNow)],
+                $"correlation-{Guid.NewGuid():N}",
+                AutoReplyEnabled);
 
         public Task<IReadOnlyList<Guid>> HandleAsync(string text) =>
             Service.HandleInboundMessagesAsync(
@@ -777,6 +977,7 @@ public sealed partial class CustomerAssistantServiceTests
             Task.FromResult<IReadOnlyCollection<InsuranceIntelligence.Domain.Customers.Customer>>(Customers.ToArray());
         public Task UpsertAsync(InsuranceIntelligence.Domain.Customers.Customer customer, CancellationToken cancellationToken)
         {
+            Customers.RemoveAll(existing => existing.CustomerId == customer.CustomerId);
             Customers.Add(customer);
             return Task.CompletedTask;
         }
@@ -816,10 +1017,21 @@ public sealed partial class CustomerAssistantServiceTests
     {
         public bool IsConfigured => true;
         public List<WhatsAppProviderSendRequest> SentRequests { get; } = [];
+
+        /// <summary>Typing indicators and sends in the order they happened, e.g. "typing:wamid.x", "send".</summary>
+        public List<string> Events { get; } = [];
+
         public Task<WhatsAppProviderSendResult> SendAsync(WhatsAppProviderSendRequest request, CancellationToken cancellationToken = default)
         {
             SentRequests.Add(request);
+            Events.Add("send");
             return Task.FromResult(new WhatsAppProviderSendResult(true, $"wamid.out.{Guid.NewGuid():N}", null, null));
+        }
+
+        public Task<bool> ShowTypingAsync(string businessPhoneNumberId, string inboundProviderMessageId, CancellationToken cancellationToken = default)
+        {
+            Events.Add($"typing:{inboundProviderMessageId}");
+            return Task.FromResult(true);
         }
     }
 

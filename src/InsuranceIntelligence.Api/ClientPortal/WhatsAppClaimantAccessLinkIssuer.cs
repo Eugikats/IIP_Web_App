@@ -1,6 +1,8 @@
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Domain.ClientPortal;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Customers;
+using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
 namespace InsuranceIntelligence.Api.ClientPortal;
@@ -15,9 +17,15 @@ namespace InsuranceIntelligence.Api.ClientPortal;
 /// customer asked for on a web page is used at once; a link in a WhatsApp conversation is opened
 /// when the customer has the photos and papers to hand, often hours later. It is delivered only
 /// to the WhatsApp number the conversation came from, and stays single-use.
+///
+/// Issued only when that number is the policyholder's number on record. The assistant already
+/// checks this; the issuer checks it again because a link opens someone's claim, and a typed policy
+/// number (printed on paperwork anyone can hold) must never be enough to get one.
 /// </summary>
 public sealed class WhatsAppClaimantAccessLinkIssuer(
     IClaimantMagicLinkTokenRepository tokenRepository,
+    IPolicyRepository policyRepository,
+    ICustomerRepository customerRepository,
     InfrastructureOptions options) : IClaimantAccessLinkIssuer
 {
     public static readonly TimeSpan LinkLifetime = TimeSpan.FromHours(24);
@@ -32,6 +40,15 @@ public sealed class WhatsAppClaimantAccessLinkIssuer(
     {
         var baseUrl = ResolveBaseUrl(options);
         if (baseUrl is null)
+        {
+            return null;
+        }
+
+        var policy = await policyRepository.GetByPolicyNumberAsync(policyNumber, scope, cancellationToken);
+        var holder = policy?.CustomerId is { Length: > 0 } customerId
+            ? await customerRepository.GetAsync(customerId, scope, cancellationToken)
+            : null;
+        if (holder is null || !PhoneNumbers.SameNumber(holder.Phone, contactPhone))
         {
             return null;
         }

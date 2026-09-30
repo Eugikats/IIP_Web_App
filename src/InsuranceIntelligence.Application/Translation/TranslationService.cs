@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Translation;
 
 namespace InsuranceIntelligence.Application.Translation;
@@ -14,6 +15,7 @@ public interface ITranslationService
         string text,
         SupportedLanguageCode from,
         SupportedLanguageCode to,
+        TenantScope scope,
         CancellationToken cancellationToken = default,
         IReadOnlyCollection<string>? protectedLiterals = null);
 }
@@ -24,12 +26,8 @@ public interface ITranslationService
 /// <see cref="TranslationSentenceSplitter"/>.</summary>
 public sealed class TranslationService(ITranslationProvider provider, ITranslationCache cache) : ITranslationService
 {
-    /// <summary>Included in every cache key so a new quant or a different model file never reuses
-    /// a translation produced by the one it replaced (build plan §5).</summary>
-    public const string ModelTag = "afrislm-0.8b-q4_k_m.gguf#671088640";
-
     public async Task<TranslationOutcome> TranslateAsync(
-        string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default,
+        string text, SupportedLanguageCode from, SupportedLanguageCode to, TenantScope scope, CancellationToken cancellationToken = default,
         IReadOnlyCollection<string>? protectedLiterals = null)
     {
         if (string.IsNullOrWhiteSpace(text) || from == to)
@@ -37,12 +35,17 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
             return TranslationOutcome.NotNeeded(text);
         }
 
-        if (!provider.IsConfigured)
+        if (!await provider.IsConfiguredAsync(scope, cancellationToken))
         {
             return TranslationOutcome.Fallback(text, TranslationFailureReason.ProviderNotConfigured);
         }
 
-        var cacheKey = BuildCacheKey(from, to, text);
+        // Which model actually serves this tenant, folded into the cache key so a tenant that
+        // switches translation engines (e.g. AfriSLM's env-var fallback to a dashboard-configured
+        // Sunbird connection) never gets a stale translation from the previous engine served back
+        // under the new one's key.
+        var modelTag = await provider.GetModelTagAsync(scope, cancellationToken);
+        var cacheKey = BuildCacheKey(modelTag, from, to, text);
         var cached = await cache.GetAsync(cacheKey, cancellationToken);
         if (cached is not null)
         {
@@ -55,7 +58,7 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
         foreach (var sentence in sentences)
         {
             var (masked, tokens) = ProtectedTokenMasker.Mask(sentence, protectedLiterals);
-            var (translatedText, failure) = await TranslateSentenceAsync(masked, from, to, cancellationToken);
+            var (translatedText, failure) = await TranslateSentenceAsync(masked, from, to, scope, cancellationToken);
             if (failure is not null)
             {
                 // Keep successful pieces only conceptually: one rejected sentence means the whole
@@ -81,7 +84,7 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
     }
 
     private async Task<(string? Text, TranslationFailureReason? Failure)> TranslateSentenceAsync(
-        string sentence, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken)
+        string sentence, SupportedLanguageCode from, SupportedLanguageCode to, TenantScope scope, CancellationToken cancellationToken)
     {
         TranslationFailureReason lastFailure = TranslationFailureReason.Empty;
 
@@ -90,7 +93,7 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
             string raw;
             try
             {
-                raw = await provider.TranslateAsync(sentence, from, to, cancellationToken);
+                raw = await provider.TranslateAsync(sentence, from, to, scope, cancellationToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
@@ -119,10 +122,10 @@ public sealed class TranslationService(ITranslationProvider provider, ITranslati
         return (null, lastFailure);
     }
 
-    public static string BuildCacheKey(SupportedLanguageCode from, SupportedLanguageCode to, string text)
+    public static string BuildCacheKey(string modelTag, SupportedLanguageCode from, SupportedLanguageCode to, string text)
     {
         var normalized = text.Trim().ToLowerInvariant();
-        var payload = $"{ModelTag}|{from}|{to}|{normalized}";
+        var payload = $"{modelTag}|{from}|{to}|{normalized}";
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hash);
     }

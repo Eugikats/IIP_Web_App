@@ -45,6 +45,47 @@ public sealed class WhatsAppCloudApiOutboundProvider(
             : new(true, providerMessageId, null, null);
     }
 
+    public async Task<bool> ShowTypingAsync(
+        string businessPhoneNumberId,
+        string inboundProviderMessageId,
+        CancellationToken cancellationToken = default)
+    {
+        var settings = settingsProvider.Current;
+        if (settings is null
+            || string.IsNullOrWhiteSpace(inboundProviderMessageId)
+            || !string.Equals(businessPhoneNumberId, settings.PhoneNumberId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(10));
+            using var message = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"{settings.GraphBaseUrl.TrimEnd('/')}/{Uri.EscapeDataString(businessPhoneNumberId)}/messages");
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.AccessToken);
+            message.Content = JsonContent.Create(BuildTypingPayload(inboundProviderMessageId));
+            using var response = await httpClient.SendAsync(message, timeout.Token);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Meta's read receipt with a typing indicator attached: one call marks the customer's
+    /// message read and shows "typing..." until the reply is delivered or 25 seconds pass.</summary>
+    public static object BuildTypingPayload(string inboundProviderMessageId) => new
+    {
+        messaging_product = "whatsapp",
+        status = "read",
+        message_id = inboundProviderMessageId,
+        typing_indicator = new { type = "text" },
+    };
+
     private static object BuildPayload(WhatsAppProviderSendRequest request)
     {
         if (!string.IsNullOrWhiteSpace(request.TemplateName))

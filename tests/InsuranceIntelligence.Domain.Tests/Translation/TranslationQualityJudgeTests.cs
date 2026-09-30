@@ -31,6 +31,17 @@ public sealed class TranslationQualityJudgeTests
         Assert.Equal(TranslationFailureReason.EchoedPrompt, reason);
     }
 
+    [Theory]
+    [InlineData("I am a literal, verbatim translation engine and will translate this")]
+    [InlineData("Output only the direct translation: I have insurance")]
+    [InlineData("The text between the markers says I have insurance")]
+    public void Sunbirds_own_instruction_echoed_back_is_rejected(string candidate)
+    {
+        var reason = TranslationQualityJudge.Judge("Nina bima", candidate, candidateShouldNotBeEnglish: false);
+
+        Assert.Equal(TranslationFailureReason.EchoedPrompt, reason);
+    }
+
     [Fact]
     public void A_prefix_of_commentary_is_stripped_before_judging_the_rest()
     {

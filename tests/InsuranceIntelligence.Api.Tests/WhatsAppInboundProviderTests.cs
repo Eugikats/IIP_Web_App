@@ -124,7 +124,6 @@ public sealed class WhatsAppInboundProviderTests
             new DisabledWhatsAppAttachmentProcessor(),
             new StubCaseRepository(),
             new StubDocumentRepository(),
-            new CaseIntakeService(new StubCaseRepository(), new StubAuditRepository()),
             new StubAuditRepository(),
             NullLogger<WhatsAppInboundDocumentIngestionService>.Instance);
 
@@ -154,7 +153,6 @@ public sealed class WhatsAppInboundProviderTests
             new DisabledWhatsAppAttachmentProcessor(),
             new StubCaseRepository(CreateCase(caseId)),
             new StubDocumentRepository(),
-            new CaseIntakeService(new StubCaseRepository(CreateCase(caseId)), auditRepository),
             auditRepository,
             NullLogger<WhatsAppInboundDocumentIngestionService>.Instance);
 
@@ -178,7 +176,6 @@ public sealed class WhatsAppInboundProviderTests
             new DisabledWhatsAppAttachmentProcessor(),
             new StubCaseRepository(),
             new StubDocumentRepository(),
-            new CaseIntakeService(new StubCaseRepository(), new StubAuditRepository()),
             new StubAuditRepository(),
             NullLogger<WhatsAppInboundDocumentIngestionService>.Instance);
 
@@ -225,7 +222,6 @@ public sealed class WhatsAppInboundProviderTests
             processor,
             new StubCaseRepository(CreateCase(caseId)),
             documents,
-            new CaseIntakeService(new StubCaseRepository(CreateCase(caseId)), new StubAuditRepository()),
             new StubAuditRepository(),
             NullLogger<WhatsAppInboundDocumentIngestionService>.Instance);
 
@@ -244,27 +240,36 @@ public sealed class WhatsAppInboundProviderTests
     }
 
     [Fact]
-    public async Task Matcher_UsesCaptionGuid()
+    public async Task Matcher_UsesCaptionGuid_ForTheSendersOwnClaim()
     {
         var caseId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var customers = new InMemoryCustomerRepository();
+        var policies = new InMemoryPolicyRepository();
+        await customers.UpsertAsync(new InsuranceIntelligence.Domain.Customers.Customer("cust-1", "tenant-a", "workspace-a", "Amina Okello", null, "+256772118001"), CancellationToken.None);
+        await policies.UpsertAsync(new Policy("pol-1", "tenant-a", "workspace-a", "POL-9001", "Motor", null, "cust-1", null, null, null), CancellationToken.None);
         var matcher = new RuleBasedWhatsAppToCaseMatcher(
-            new StubCaseRepository(CreateCase(caseId)),
-            new InMemoryCustomerRepository(),
-            new InMemoryPolicyRepository());
+            new StubCaseRepository(CreateCase(caseId) with { PolicyNumber = "POL-9001" }), customers, policies);
         var message = new WhatsAppInboundMediaMessage(
-            "wamid.1",
-            "phone-1",
-            "256772118001",
-            "media-1",
-            "image",
-            "image/jpeg",
-            null,
-            $"Claim {caseId}",
-            DateTimeOffset.UtcNow);
+            "wamid.1", "phone-1", "256772118001", "media-1", "image", "image/jpeg", null, $"Claim {caseId}", DateTimeOffset.UtcNow);
 
         var match = await matcher.MatchAsync(message, TenantScope.Create("tenant-a", "workspace-a"));
         Assert.Equal(caseId, match.CaseId);
         Assert.False(match.RequiresManualReview);
+    }
+
+    [Fact]
+    public async Task Matcher_ACaptionNamingSomeoneElsesClaim_FromAStranger_IsHeldForAPerson()
+    {
+        var caseId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var matcher = new RuleBasedWhatsAppToCaseMatcher(
+            new StubCaseRepository(CreateCase(caseId)), new InMemoryCustomerRepository(), new InMemoryPolicyRepository());
+        var message = new WhatsAppInboundMediaMessage(
+            "wamid.1", "phone-1", "256700000999", "media-1", "image", "image/jpeg", null, $"Claim {caseId} POL-9001", DateTimeOffset.UtcNow);
+
+        var match = await matcher.MatchAsync(message, TenantScope.Create("tenant-a", "workspace-a"));
+
+        Assert.Null(match.CaseId);
+        Assert.True(match.RequiresManualReview);
     }
 
     [Fact]
@@ -332,7 +337,7 @@ public sealed class WhatsAppInboundProviderTests
     }
 
     [Fact]
-    public async Task Ingestion_WhenSenderIdentifiedButNoCase_AutoCreatesUnconfirmedCaseAndAttachesDocument()
+    public async Task Ingestion_WhenSenderIdentifiedButNoCase_NeverCreatesAClaim_AndHoldsThePhotoForAPerson()
     {
         var scope = TenantScope.Create("tenant-a", "workspace-a");
         var options = new InfrastructureOptions { ChannelProvider = "WhatsAppCloudApi" };
@@ -368,26 +373,18 @@ public sealed class WhatsAppInboundProviderTests
             processor,
             caseRepository,
             documents,
-            new CaseIntakeService(caseRepository, auditRepository),
             auditRepository,
             NullLogger<WhatsAppInboundDocumentIngestionService>.Instance);
-        // Caption carries no case GUID/policy number IIP already knows about, only sender identity resolves this.
         var body = Encoding.UTF8.GetBytes(SampleWebhook);
 
         var result = await service.IngestWebhookPayloadAsync(body, Sign("app-secret", body));
 
+        // A photo alone never opens a claim, and never on whichever policy happens to be first.
         Assert.Equal("Accepted", result.Status);
-        Assert.Equal(1, result.DocumentsStored);
-        Assert.Equal(0, result.ManualReviewRequired);
-        var created = Assert.Single(documents.Saved);
-        var claimCase = await caseRepository.GetAsync(created.CaseId);
-        Assert.NotNull(claimCase);
-        Assert.True(claimCase!.RequiresConfirmation);
-        Assert.Null(claimCase.SlaDueAt);
-        Assert.Equal("POL-9001", claimCase.PolicyNumber);
-        Assert.Equal("WhatsApp", claimCase.Channel);
-        var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, CancellationToken.None);
-        Assert.Contains(auditEvents, e => e.ActionName == "whatsapp.inbound.case_auto_created");
+        Assert.Equal(0, result.DocumentsStored);
+        Assert.Equal(1, result.ManualReviewRequired);
+        Assert.Empty(documents.Saved);
+        Assert.Empty(await caseRepository.ListAsync(scope));
     }
 
     private static WhatsAppEffectiveSettings ConfiguredSettings() => new(

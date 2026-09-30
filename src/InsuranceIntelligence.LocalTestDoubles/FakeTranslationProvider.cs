@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Application.Translation;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Translation;
 
 namespace InsuranceIntelligence.LocalTestDoubles;
@@ -11,10 +12,16 @@ namespace InsuranceIntelligence.LocalTestDoubles;
 /// or a purpose-built fake <see cref="ITranslationProvider"/> instead.</summary>
 public sealed class FakeTranslationProvider : ITranslationProvider
 {
+    public const string ModelTag = "fake-translator";
+
     public bool IsConfigured { get; init; } = true;
 
+    public Task<bool> IsConfiguredAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(IsConfigured);
+
+    public Task<string> GetModelTagAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(ModelTag);
+
     public Task<string> TranslateAsync(
-        string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default)
+        string text, SupportedLanguageCode from, SupportedLanguageCode to, TenantScope scope, CancellationToken cancellationToken = default)
     {
         var target = SupportedLanguage.For(to);
         return Task.FromResult($"[{target.Iso}] {text}");

@@ -20,6 +20,10 @@ public enum ConnectionType
     /// generic REST adapter behind IPolicyLookupProvider. StorageKey hashes the enum name, not its
     /// ordinal, so adding this here does not disturb Sms/Email's existing storage keys.</summary>
     PolicySystem,
+
+    /// <summary>A local-language translation engine (e.g. Sunbird AI), behind ITranslationProvider.
+    /// Same StorageKey-by-name guarantee: adding this does not disturb any existing type's key.</summary>
+    Translation,
 }
 
 /// <summary>

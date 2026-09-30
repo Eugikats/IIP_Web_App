@@ -31,4 +31,18 @@ public sealed class EfCustomerLanguagePreferenceRepository(InsuranceIntelligence
             Serialize(preference),
             record => record.ContactWaId = preference.ContactWaId,
             cancellationToken);
+
+    public async Task ClearAsync(TenantScope scope, string contactWaId, CancellationToken cancellationToken = default)
+    {
+        var records = await Scoped(DbContext.CustomerLanguagePreferences, scope)
+            .Where(record => record.ContactWaId == contactWaId)
+            .ToArrayAsync(cancellationToken);
+        if (records.Length == 0)
+        {
+            return;
+        }
+
+        DbContext.CustomerLanguagePreferences.RemoveRange(records);
+        await DbContext.SaveChangesAsync(cancellationToken);
+    }
 }

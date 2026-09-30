@@ -160,6 +160,58 @@ public static class DemoSeedEndpoints
             scope, request.FullName, request.Phone, request.Email, "system:demo-seed", userId, cancellationToken);
         return Results.Ok(result);
     }
+
+    /// <summary>
+    /// Publishes the Kato field test's microinsurance products, indexes their wordings and key
+    /// information summaries, and replaces the made-up approval references earlier seeds stamped on
+    /// products with a plain demo marker. With a phone number, also loads the demo policyholder for
+    /// it (the same thing "#demo" does from the demo phone). Idempotent; same Demo-only gate.
+    /// </summary>
+    public static async Task<IResult> SeedMicroinsurance(
+        MicroinsuranceSeedRequest? request,
+        MicroinsuranceDemoSeeder seeder,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        IWebHostEnvironment environment,
+        CancellationToken cancellationToken)
+    {
+        var runtimeProfile = AzureProviderStartupValidator.ResolveRuntimeProfile(options, environment.EnvironmentName);
+        if (AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile))
+        {
+            return Results.Problem(
+                $"Demo data seeding is not available under the '{runtimeProfile}' runtime profile.",
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!InsuranceIntelligence.Api.Workflow.WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var catalogue = await seeder.SeedCatalogueAsync(scope, cancellationToken);
+        MicroinsuranceDemoSeeder.DemoPolicyholderResult? policyholder = null;
+        if (!string.IsNullOrWhiteSpace(request?.Phone))
+        {
+            if (InsuranceIntelligence.Domain.Customers.PhoneNumbers.Digits(request.Phone).Length < 9)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["phone"] = ["A phone number with the country code is required, for example +256 7XX XXXXXX."]
+                });
+            }
+
+            policyholder = await seeder.SeedDemoPolicyholderAsync(scope, request.Phone, cancellationToken);
+        }
+
+        return Results.Ok(new { catalogue, policyholder });
+    }
 }
+
+public sealed record MicroinsuranceSeedRequest(string? Phone);
 
 public sealed record TestPolicyholderRequest(string FullName, string Phone, string? Email);

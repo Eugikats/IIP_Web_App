@@ -39,6 +39,36 @@ public sealed class WhatsAppOutboundProviderTests
     }
 
     [Fact]
+    public async Task ShowTypingAsync_MarksTheCustomersMessageReadWithATypingIndicator()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK, """{"success":true}""");
+        var provider = new WhatsAppCloudApiOutboundProvider(new StaticWhatsAppRuntimeSettingsProvider(ConfiguredSettings()), new HttpClient(handler));
+
+        var shown = await provider.ShowTypingAsync("phone-1", "wamid.inbound");
+
+        Assert.True(shown);
+        Assert.EndsWith("/phone-1/messages", handler.Uri?.AbsoluteUri);
+        Assert.Contains("\"status\":\"read\"", handler.Body);
+        Assert.Contains("\"message_id\":\"wamid.inbound\"", handler.Body);
+        Assert.Contains("\"typing_indicator\":{\"type\":\"text\"}", handler.Body);
+        Assert.Contains("Bearer", handler.Authorization);
+    }
+
+    [Fact]
+    public async Task ShowTypingAsync_NeverThrowsAndNeverCallsMetaForAnotherTenantsNumber()
+    {
+        var failing = new WhatsAppCloudApiOutboundProvider(
+            new StaticWhatsAppRuntimeSettingsProvider(ConfiguredSettings()),
+            new HttpClient(new CapturingHandler(HttpStatusCode.BadRequest, """{"error":{"code":100}}""")));
+        var wrongNumber = new CapturingHandler(HttpStatusCode.OK, """{"success":true}""");
+        var otherTenant = new WhatsAppCloudApiOutboundProvider(new StaticWhatsAppRuntimeSettingsProvider(ConfiguredSettings()), new HttpClient(wrongNumber));
+
+        Assert.False(await failing.ShowTypingAsync("phone-1", "wamid.inbound"));
+        Assert.False(await otherTenant.ShowTypingAsync("someone-elses-number", "wamid.inbound"));
+        Assert.Null(wrongNumber.Uri);
+    }
+
+    [Fact]
     public async Task SendAsync_ProviderFailure_ReturnsSafeFailureAndCode()
     {
         var handler = new CapturingHandler(HttpStatusCode.BadRequest, """{"error":{"code":131047,"message":"provider detail"}}""");

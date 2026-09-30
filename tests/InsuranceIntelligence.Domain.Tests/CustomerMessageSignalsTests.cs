@@ -43,9 +43,9 @@ public sealed class CustomerMessageSignalsTests
     [Theory]
     [InlineData("My car was hit at the roundabout", "Motor")]
     [InlineData("the medical one", "Medical")]
-    [InlineData("I was admitted to hospital last night", "Medical")]
+    [InlineData("I was admitted to hospital last night", null)] // Medical and Hospital Cash both fit, so the customer is asked
     [InlineData("my father passed away", "Life")]
-    [InlineData("I had an accident", null)]
+    [InlineData("I had an accident", "Boda Rider Accident")]
     [InlineData("the car crashed into the house", "Motor")]
     public void Reads_which_cover_a_message_points_at(string text, string? expected) =>
         Assert.Equal(expected, CustomerMessageSignals.ProductLineHint(text));

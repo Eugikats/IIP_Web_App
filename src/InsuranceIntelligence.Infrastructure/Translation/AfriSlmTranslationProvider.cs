@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using InsuranceIntelligence.Application.Translation;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Translation;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
@@ -25,10 +26,20 @@ public sealed class AfriSlmTranslationProvider(TranslationOptions options, HttpC
     public const int MinTokens = 64;
     public const int MaxTokens = 512;
 
+    /// <summary>Included in every cache key so a new quant or a different model file never reuses
+    /// a translation produced by the one it replaced (build plan §5).</summary>
+    public const string ModelTag = "afrislm-0.8b-q4_k_m.gguf#671088640";
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(options.Endpoint);
 
+    public Task<bool> IsConfiguredAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+        Task.FromResult(IsConfigured);
+
+    public Task<string> GetModelTagAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+        Task.FromResult(ModelTag);
+
     public async Task<string> TranslateAsync(
-        string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default)
+        string text, SupportedLanguageCode from, SupportedLanguageCode to, TenantScope scope, CancellationToken cancellationToken = default)
     {
         if (!IsConfigured)
         {
@@ -49,7 +60,7 @@ public sealed class AfriSlmTranslationProvider(TranslationOptions options, HttpC
         return ReadContent(document.RootElement);
     }
 
-    public async Task<TranslationEngineStatus> CheckAsync(CancellationToken cancellationToken = default)
+    public async Task<TranslationEngineStatus> CheckAsync(TenantScope scope, CancellationToken cancellationToken = default)
     {
         if (!IsConfigured)
         {

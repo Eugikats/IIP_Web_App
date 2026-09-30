@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using InsuranceIntelligence.Application.Translation;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Translation;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.Translation;
@@ -14,6 +15,8 @@ namespace InsuranceIntelligence.Api.Tests;
 /// </summary>
 public sealed class AfriSlmTranslationProviderTests
 {
+    private static readonly TenantScope Scope = new("tenant-a", "workspace-a");
+
     private static TranslationOptions Options(string? key = "secret") =>
         new() { Endpoint = "https://afrislm.example.test/", ApiKey = key, RequestTimeoutSeconds = 5 };
 
@@ -75,7 +78,7 @@ public sealed class AfriSlmTranslationProviderTests
         var handler = new StubHandler(_ => Json("""{"choices":[{"message":{"content":"Nimefungua madai yako."}}]}"""));
         var provider = new AfriSlmTranslationProvider(Options(), new HttpClient(handler));
 
-        var text = await provider.TranslateAsync("I have opened your claim.", SupportedLanguageCode.En, SupportedLanguageCode.Sw);
+        var text = await provider.TranslateAsync("I have opened your claim.", SupportedLanguageCode.En, SupportedLanguageCode.Sw, Scope);
 
         Assert.Equal("Nimefungua madai yako.", text);
         var request = Assert.Single(handler.Requests);
@@ -90,7 +93,7 @@ public sealed class AfriSlmTranslationProviderTests
         var handler = new StubHandler(_ => Json("""{"choices":[{"message":{"content":"ok"}}]}"""));
         var provider = new AfriSlmTranslationProvider(Options(key: null), new HttpClient(handler));
 
-        await provider.TranslateAsync("hello", SupportedLanguageCode.En, SupportedLanguageCode.Sw);
+        await provider.TranslateAsync("hello", SupportedLanguageCode.En, SupportedLanguageCode.Sw, Scope);
 
         Assert.Null(Assert.Single(handler.Requests).Headers.Authorization);
     }
@@ -102,7 +105,7 @@ public sealed class AfriSlmTranslationProviderTests
         var provider = new AfriSlmTranslationProvider(Options(), new HttpClient(handler));
 
         await Assert.ThrowsAsync<HttpRequestException>(() =>
-            provider.TranslateAsync("hello", SupportedLanguageCode.En, SupportedLanguageCode.Sw));
+            provider.TranslateAsync("hello", SupportedLanguageCode.En, SupportedLanguageCode.Sw, Scope));
     }
 
     [Fact]
@@ -111,7 +114,7 @@ public sealed class AfriSlmTranslationProviderTests
         var handler = new StubHandler(_ => Json("""{"choices":[]}"""));
         var provider = new AfriSlmTranslationProvider(Options(), new HttpClient(handler));
 
-        Assert.Equal(string.Empty, await provider.TranslateAsync("hello", SupportedLanguageCode.En, SupportedLanguageCode.Sw));
+        Assert.Equal(string.Empty, await provider.TranslateAsync("hello", SupportedLanguageCode.En, SupportedLanguageCode.Sw, Scope));
     }
 
     [Fact]
@@ -120,7 +123,7 @@ public sealed class AfriSlmTranslationProviderTests
         var provider = new AfriSlmTranslationProvider(new TranslationOptions(), new HttpClient(new StubHandler(_ => Json("{}"))));
 
         Assert.False(provider.IsConfigured);
-        Assert.Equal(TranslationEngineStatus.NotConfigured, await provider.CheckAsync());
+        Assert.Equal(TranslationEngineStatus.NotConfigured, await provider.CheckAsync(Scope));
     }
 
     [Fact]
@@ -129,8 +132,8 @@ public sealed class AfriSlmTranslationProviderTests
         var healthy = new AfriSlmTranslationProvider(Options(), new HttpClient(new StubHandler(_ => Json("""{"status":"ok"}"""))));
         var failing = new AfriSlmTranslationProvider(Options(), new HttpClient(new StubHandler(_ => throw new HttpRequestException("down"))));
 
-        Assert.Equal(TranslationEngineStatus.Healthy, await healthy.CheckAsync());
-        Assert.Equal(TranslationEngineStatus.Failing, await failing.CheckAsync());
+        Assert.Equal(TranslationEngineStatus.Healthy, await healthy.CheckAsync(Scope));
+        Assert.Equal(TranslationEngineStatus.Failing, await failing.CheckAsync(Scope));
     }
 
     [Fact]
@@ -140,7 +143,7 @@ public sealed class AfriSlmTranslationProviderTests
             Options(), new HttpClient(new StubHandler(_ => throw new HttpRequestException("down"))));
         var service = new TranslationService(provider, new InMemoryTranslationCache());
 
-        var outcome = await service.TranslateAsync("Habari yako", SupportedLanguageCode.Sw, SupportedLanguageCode.En);
+        var outcome = await service.TranslateAsync("Habari yako", SupportedLanguageCode.Sw, SupportedLanguageCode.En, Scope);
 
         Assert.False(outcome.Translated);
         Assert.Equal("Habari yako", outcome.Text);
@@ -166,12 +169,12 @@ public sealed class AfriSlmTranslationProviderTests
 
         var outcome = await service.TranslateAsync(
             "Nimepata ajali na gari langu leo asubuhi, sera yangu ni NSA/MO/2026/00033",
-            SupportedLanguageCode.Sw, SupportedLanguageCode.En);
+            SupportedLanguageCode.Sw, SupportedLanguageCode.En, Scope);
 
         Assert.True(outcome.Translated, $"Fell back: {outcome.Failure}");
         Assert.Contains("NSA/MO/2026/00033", outcome.Text);
         Assert.Contains("accident", outcome.Text, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(TranslationEngineStatus.Healthy, await provider.CheckAsync());
+        Assert.Equal(TranslationEngineStatus.Healthy, await provider.CheckAsync(Scope));
     }
 
     private static HttpResponseMessage Json(string body) =>

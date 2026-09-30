@@ -1,8 +1,10 @@
 using InsuranceIntelligence.Api.Auth;
+using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Application.Translation;
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Translation;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
@@ -31,6 +33,7 @@ public static class TranslationStatusEndpoints
 {
     public static async Task<IResult> Get(
         ITranslationEngineHealth health,
+        IIntegrationConnectionRepository connectionRepository,
         IAssistantLanguageSettings settings,
         InfrastructureOptions options,
         HttpContext httpContext,
@@ -41,14 +44,19 @@ public static class TranslationStatusEndpoints
             return forbidden;
         }
 
-        var status = await health.CheckAsync(cancellationToken);
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var status = await health.CheckAsync(scope, cancellationToken);
         var languages = settings.EnabledLanguages
             .Select(SupportedLanguage.For)
             .Select(language => new TranslationLanguageResponse(language.Iso, language.DisplayName))
             .ToArray();
 
         return Results.Ok(new TranslationStatusResponse(
-            Engine: EngineName(options.TranslationProvider),
+            Engine: await ResolveEngineNameAsync(scope, connectionRepository, options, cancellationToken),
             Status: status.ToString(),
             Languages: languages,
             AllowUnreviewedTranslations: settings.AllowUnreviewedTranslations,
@@ -71,6 +79,11 @@ public static class TranslationStatusEndpoints
             return forbidden;
         }
 
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var scopeError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [scopeError] });
+        }
+
         var text = request.Text?.Trim();
         var from = SupportedLanguage.FromIso(request.From);
         var to = SupportedLanguage.FromIso(request.To);
@@ -91,15 +104,69 @@ public static class TranslationStatusEndpoints
         }
 
         var protectedTerms = AssistantGlossary.KeptInEnglish(to.Code);
-        var outcome = await translation.TranslateAsync(text, from.Code, to.Code, cancellationToken, protectedTerms);
+        var outcome = await translation.TranslateAsync(text, from.Code, to.Code, scope, cancellationToken, protectedTerms);
+        return Results.Ok(new TranslationTestResponse(outcome.Translated, outcome.Text, outcome.Failure?.ToString(), outcome.FromCache));
+    }
+
+    /// <summary>The connections screen's "try a translation" box: runs the same judged, fallback-
+    /// guarded service customers get, through whichever engine this tenant has active, and stores
+    /// nothing. Unlike <see cref="Test"/> it is not limited to languages already switched on for the
+    /// workspace, because checking the engine is exactly what someone does before switching one on.</summary>
+    public static async Task<IResult> TryConnection(
+        TranslationTestRequest request,
+        ITranslationService translation,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var scopeError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [scopeError] });
+        }
+
+        var text = request.Text?.Trim();
+        var from = SupportedLanguage.FromIso(request.From);
+        var to = SupportedLanguage.FromIso(request.To);
+        if (string.IsNullOrWhiteSpace(text) || text.Length > MaxTestTextLength)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["text"] = [$"Enter between 1 and {MaxTestTextLength} characters."] });
+        }
+
+        if (from is null || to is null || from.Code == to.Code)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["language"] = ["Choose two different languages from English, Luganda and Kiswahili."] });
+        }
+
+        var outcome = await translation.TranslateAsync(text, from.Code, to.Code, scope, cancellationToken, AssistantGlossary.KeptInEnglish(to.Code));
         return Results.Ok(new TranslationTestResponse(outcome.Translated, outcome.Text, outcome.Failure?.ToString(), outcome.FromCache));
     }
 
     private const int MaxTestTextLength = 600;
 
+    /// <summary>Reports the tenant's actual active engine when one is connected through the
+    /// dashboard (e.g. Sunbird AI), falling back to the deployment's environment-configured engine
+    /// otherwise. Never silently keeps naming the deployment default once a tenant has switched.</summary>
+    private static async Task<string> ResolveEngineNameAsync(
+        InsuranceIntelligence.Domain.Common.TenantScope scope,
+        IIntegrationConnectionRepository connectionRepository,
+        InfrastructureOptions options,
+        CancellationToken cancellationToken)
+    {
+        var connection = await connectionRepository.GetAsync(scope, ConnectionType.Translation, cancellationToken);
+        return connection is { IsActive: true }
+            ? EngineName(connection.ProviderKey)
+            : EngineName(options.TranslationProvider);
+    }
+
     public static string EngineName(string provider) => provider.ToLowerInvariant() switch
     {
         "afrislm" => "AfriSLM translation model",
+        "sunbird" => "Sunbird AI translation model",
         "mock" => "Test translator (not real)",
         _ => "None",
     };

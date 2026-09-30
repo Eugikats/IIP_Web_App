@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Application.Translation;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Translation;
 
 namespace InsuranceIntelligence.Api.Local;
@@ -12,11 +13,15 @@ namespace InsuranceIntelligence.Api.Local;
 /// reach a real deployment, not just a runtime check.</summary>
 public sealed class MockTranslationProvider : ITranslationProvider, ITranslationEngineHealth
 {
-    public bool IsConfigured => true;
+    public const string ModelTag = "mock-translator";
 
-    public Task<TranslationEngineStatus> CheckAsync(CancellationToken cancellationToken = default) =>
+    public Task<bool> IsConfiguredAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    public Task<string> GetModelTagAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(ModelTag);
+
+    public Task<TranslationEngineStatus> CheckAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
         Task.FromResult(TranslationEngineStatus.Healthy);
 
-    public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, CancellationToken cancellationToken = default) =>
+    public Task<string> TranslateAsync(string text, SupportedLanguageCode from, SupportedLanguageCode to, TenantScope scope, CancellationToken cancellationToken = default) =>
         Task.FromResult($"[{SupportedLanguage.For(to).Iso}] {text}");
 }
