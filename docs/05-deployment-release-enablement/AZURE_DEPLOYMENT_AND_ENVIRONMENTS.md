@@ -289,8 +289,19 @@ insurance vocabulary, so Luganda replies keep "claim", "policy" and "claims offi
 translated reply is labelled as machine translated.
 
 To replace the model: upload the new file to the `afrislm-models` share, verify its SHA-256, update the
-file name in the container arguments and `TranslationService.ModelTag` (so cached translations from
-the old model are never reused), and record the new hash here.
+file name in the container arguments and `AfriSlmTranslationProvider.ModelTag` (so cached translations
+from the old model are never reused), and record the new hash here.
+
+**Sunbird AI (per tenant, no redeploy).** A tenant admin can connect Sunbird AI under
+`/app/admin/connections` → Translation (API key, optional endpoint, optional model, default
+`sunflower-9b`). The connection is saved only after a real sample translation succeeds, the key is
+encrypted at rest and never returned to the browser, and a connected tenant uses Sunbird instead of
+the AfriSLM container above; tenants without one keep the AfriSLM fallback unchanged. The same card
+has a "Try a translation" box (`POST /api/v1/integrations/connections/translation/try`, needs
+`ConfigureIntegrations`) that runs text through the same checks a customer message gets. Sunbird is
+called on its chat endpoint with a verbatim-only instruction, not on `/tasks/translate`, which
+accepts no instruction. Switching engines changes the cache key, so earlier translations are never
+reused. Quality against real Sunbird output has not yet been measured or reviewed by a native speaker.
 
 ### Inbound email is deployed but switched off in `dev` (verified 2026-09-14)
 
