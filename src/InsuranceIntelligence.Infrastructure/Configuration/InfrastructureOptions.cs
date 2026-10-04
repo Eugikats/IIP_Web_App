@@ -25,6 +25,12 @@ public sealed record InfrastructureOptions
     /// Microsoft account or an email code): the authority of that External ID tenant, for example
     /// https://contoso.ciamlogin.com/{tenant-id}/v2.0. Used when AuthMode is EntraExternalId.</summary>
     public string? ExternalIdAuthority { get; init; }
+
+    /// <summary>Where the key ring that encrypts stored credentials lives (an Azure Blob URI), and the
+    /// Key Vault key that wraps it. With both set, every instance shares one ring and no key sits on
+    /// the web server's disk. Required in multi-tenant mode.</summary>
+    public string? DataProtectionBlobUri { get; init; }
+    public string? DataProtectionKeyUri { get; init; }
     /// <summary>Public origin of the customer-facing client portal (e.g. https://portal.example.com),
     /// used to build magic-link URLs sent to claimants. Required outside Development for
     /// magic-link issuance to work, see ClaimantAuthenticationEndpoints.</summary>

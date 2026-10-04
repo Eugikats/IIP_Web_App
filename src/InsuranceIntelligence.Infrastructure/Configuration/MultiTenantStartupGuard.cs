@@ -36,6 +36,12 @@ public static class MultiTenantStartupGuard
             problems.Add("Multi-tenant mode requires real sign-in; Development auth is only allowed under the LocalTest profile.");
         }
 
+        var local = (options.RuntimeProfile ?? string.Empty).Equals("LocalTest", StringComparison.OrdinalIgnoreCase);
+        if (!local && (string.IsNullOrWhiteSpace(options.DataProtectionBlobUri) || string.IsNullOrWhiteSpace(options.DataProtectionKeyUri)))
+        {
+            problems.Add("Multi-tenant mode needs the credential key ring stored outside the web server: set INSURANCEINTELLIGENCE_DATAPROTECTION_BLOB_URI and INSURANCEINTELLIGENCE_DATAPROTECTION_KEY_URI.");
+        }
+
         return problems;
     }
 }

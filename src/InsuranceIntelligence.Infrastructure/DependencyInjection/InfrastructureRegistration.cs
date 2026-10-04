@@ -318,6 +318,8 @@ public static class InfrastructureRegistration
             EntraAudience = configuration["INSURANCEINTELLIGENCE_ENTRA_AUDIENCE"],
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
             ExternalIdAuthority = configuration["INSURANCEINTELLIGENCE_EXTERNAL_ID_AUTHORITY"],
+            DataProtectionBlobUri = configuration["INSURANCEINTELLIGENCE_DATAPROTECTION_BLOB_URI"],
+            DataProtectionKeyUri = configuration["INSURANCEINTELLIGENCE_DATAPROTECTION_KEY_URI"],
             ClientPortalBaseUrl = configuration["INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL"],
             SmsWebhookSharedSecret = configuration["INSURANCEINTELLIGENCE_SMS_WEBHOOK_SHARED_SECRET"],
             ApiPublicBaseUrl = configuration["INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL"],

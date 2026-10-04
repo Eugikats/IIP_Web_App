@@ -21,16 +21,45 @@ public sealed class MultiTenantFoundationTests
     [Fact]
     public void StartingWithADeploymentWideTenantOrWhatsAppConnection_IsRefused()
     {
-        var clean = new InfrastructureOptions { MultiTenant = true, AuthMode = "Entra" };
+        var clean = new InfrastructureOptions
+        {
+            MultiTenant = true,
+            AuthMode = "Entra",
+            DataProtectionBlobUri = "https://keys.blob.core.windows.net/dp/keyring.xml",
+            DataProtectionKeyUri = "https://vault.vault.azure.net/keys/dp",
+        };
         Assert.Empty(MultiTenantStartupGuard.Problems(clean));
 
         Assert.Single(MultiTenantStartupGuard.Problems(clean with { TenantId = "tenant-demo" }));
         Assert.Single(MultiTenantStartupGuard.Problems(clean with { WorkspaceId = "workspace-operations" }));
         Assert.Single(MultiTenantStartupGuard.Problems(clean with { WhatsApp = new WhatsAppOptions { PhoneNumberId = "123", AccessToken = "t" } }));
         Assert.Single(MultiTenantStartupGuard.Problems(clean with { AuthMode = "Development" }));
+        // Stored credentials must not live in a key file on the web server.
+        Assert.Single(MultiTenantStartupGuard.Problems(clean with { DataProtectionKeyUri = null }));
+        Assert.Empty(MultiTenantStartupGuard.Problems(new InfrastructureOptions
+        {
+            MultiTenant = true, AuthMode = "Development", RuntimeProfile = "LocalTest",
+        }));
 
         // The Managed Application edition is untouched by any of this.
         Assert.Empty(MultiTenantStartupGuard.Problems(new InfrastructureOptions { TenantId = "tenant-demo", AuthMode = "Development" }));
+    }
+
+    [Fact]
+    public void RateLimitsAreKeyedPerPersonOrPerRealAddress_NotPerProxy()
+    {
+        var anonymous = new DefaultHttpContext();
+        anonymous.Request.Headers["X-Forwarded-For"] = "203.0.113.7:51234, 10.0.0.4";
+        var sameAddressDifferentPort = new DefaultHttpContext();
+        sameAddressDifferentPort.Request.Headers["X-Forwarded-For"] = "203.0.113.7:60000";
+        var other = new DefaultHttpContext();
+        other.Request.Headers["X-Forwarded-For"] = "198.51.100.9";
+        var noHeader = new DefaultHttpContext();
+
+        Assert.Equal("ip:203.0.113.7", RateLimitKeys.For(anonymous));
+        Assert.Equal(RateLimitKeys.For(anonymous), RateLimitKeys.For(sameAddressDifferentPort));
+        Assert.Equal("ip:198.51.100.9", RateLimitKeys.For(other));
+        Assert.Equal("ip:unknown", RateLimitKeys.For(noHeader));
     }
 
     [Fact]

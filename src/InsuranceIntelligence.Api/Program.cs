@@ -113,7 +113,25 @@ builder.Services.AddProblemDetails();
 // durable across app restarts on this deployment's current single-instance B1 plan. Scaling to
 // multiple instances would need PersistKeysToAzureBlobStorage + ProtectKeysWithAzureKeyVault so
 // every instance shares one key ring; noted here rather than built speculatively.
-builder.Services.AddDataProtection().SetApplicationName("InsuranceIntelligence");
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("InsuranceIntelligence");
+if (!string.IsNullOrWhiteSpace(infrastructureOptions.DataProtectionBlobUri) && !string.IsNullOrWhiteSpace(infrastructureOptions.DataProtectionKeyUri))
+{
+    // One shared key ring in blob storage, wrapped by a Key Vault key: every instance reads the
+    // same ring, a redeploy never strands stored credentials, and no key sits on a web server disk.
+    var keyRingCredential = new Azure.Identity.DefaultAzureCredential();
+    dataProtection
+        .PersistKeysToAzureBlobStorage(new Uri(infrastructureOptions.DataProtectionBlobUri), keyRingCredential)
+        .ProtectKeysWithAzureKeyVault(new Uri(infrastructureOptions.DataProtectionKeyUri), keyRingCredential);
+}
+
+builder.Services.AddRateLimiter(limits =>
+{
+    limits.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    limits.AddPolicy("signup", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 10, TimeSpan.FromHours(1)));
+    limits.AddPolicy("join", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 20, TimeSpan.FromMinutes(10)));
+    limits.AddPolicy("marketplace", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
+    limits.AddPolicy("webhook", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 3000, TimeSpan.FromMinutes(1)));
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(swagger =>
@@ -548,6 +566,7 @@ if (developmentDiagnosticsEnabled)
 }
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 // Baseline security response headers. The API only returns JSON, so a strict
@@ -667,9 +686,9 @@ app.MapGet("/health/ready", HealthEndpoints.Ready);
 app.MapGet("/api/v1/me", RuntimeContextEndpoints.GetMe);
 
 // SaaS: sign-up, invitations, broker/insurer links. See docs/01-strategy-requirements-roadmap/IIP_SAAS_BUILD_PLAN.md.
-app.MapPost("/api/v1/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Create);
+app.MapPost("/api/v1/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Create).RequireRateLimiting("signup");
 app.MapGet("/api/v1/me/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Mine);
-app.MapPost("/api/v1/invitations/accept", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Accept);
+app.MapPost("/api/v1/invitations/accept", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Accept).RequireRateLimiting("join");
 app.MapGet("/api/v1/organisation/invitations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ListInvitations);
 app.MapPost("/api/v1/organisation/invitations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Invite);
 app.MapDelete("/api/v1/organisation/invitations/{invitationId:guid}", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.RevokeInvitation);
@@ -679,9 +698,9 @@ app.MapPost("/api/v1/organisation/links/{linkId:guid}/approve", InsuranceIntelli
 app.MapPost("/api/v1/organisation/links/{linkId:guid}/decline", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Decline);
 app.MapPost("/api/v1/organisation/links/{linkId:guid}/revoke", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Revoke);
 app.MapGet("/api/v1/organisation/broker-dashboard", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.BrokerDashboard);
-app.MapPost("/api/v1/marketplace/resolve", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Resolve);
-app.MapPost("/api/v1/marketplace/activate", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Activate);
-app.MapPost("/api/v1/marketplace/webhook", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Webhook);
+app.MapPost("/api/v1/marketplace/resolve", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Resolve).RequireRateLimiting("marketplace");
+app.MapPost("/api/v1/marketplace/activate", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Activate).RequireRateLimiting("marketplace");
+app.MapPost("/api/v1/marketplace/webhook", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Webhook).RequireRateLimiting("webhook");
 app.MapGet("/api/v1/organisation/onboarding", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Onboarding);
 app.MapPost("/api/v1/organisation/sandbox", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.EnableSandbox);
 app.MapGet("/api/v1/organisation/usage", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Usage);
@@ -1156,7 +1175,7 @@ app.MapPost("/api/v1/integrations/whatsapp/configuration/test", WhatsAppConfigur
 app.MapDelete("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.DeleteConfiguration)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
-app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);
+app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook).RequireRateLimiting("webhook");
 
 // Generic connection settings surface (blueprint §3.4), the /app/admin/connections screen's
 // backend. {connectionType} is "sms", "email" or "translation"; adding a type is a new
