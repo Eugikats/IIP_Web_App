@@ -35,7 +35,41 @@ public static class PolicyImportFields
     public static string? SuggestFieldFor(string columnHeader)
     {
         var normalized = Normalize(columnHeader);
-        return All.FirstOrDefault(field => Normalize(field) == normalized || Normalize(HumanLabel(field)) == normalized);
+        return All.FirstOrDefault(field => Normalize(field) == normalized || Normalize(HumanLabel(field)) == normalized)
+            ?? (Synonyms.TryGetValue(normalized, out var field) ? field : null);
+    }
+
+    /// <summary>The names insurers' core systems and spreadsheets actually give these columns. An
+    /// export from any of them arrives with its columns already matched, so loading policies is a
+    /// check and a click rather than a mapping exercise. Compared after dropping case, spaces and
+    /// punctuation, so "POLICY_NO", "Policy No." and "policy no" are one entry.</summary>
+    private static readonly Dictionary<string, string> Synonyms = BuildSynonyms();
+
+    private static Dictionary<string, string> BuildSynonyms()
+    {
+        var table = new Dictionary<string, string[]>
+        {
+            [PolicyNumber] = ["policyno", "polno", "policyref", "policyreference", "policynum", "policyid", "certificateno", "certno", "contractno", "policyidentifier"],
+            [ProductLine] = ["classofbusiness", "class", "lineofbusiness", "lob", "product", "productname", "productcode", "producttype", "businessclass", "insuranceclass", "subclass"],
+            [CoverType] = ["cover", "covertype", "coverage", "coveragetype", "coverdescription", "plan", "plantype", "policytype", "risktype"],
+            [CustomerId] = ["customer", "customercode", "customerno", "clientid", "clientcode", "clientno", "insuredid", "insuredcode", "insuredno", "assuredid", "policyholderid", "memberno", "membernumber", "accountno"],
+            [BranchId] = ["branch", "branchcode", "branchname", "office", "agency", "agencycode"],
+            [EffectiveFrom] = ["inceptiondate", "inception", "startdate", "start", "commencementdate", "commencement", "effectivedate", "effective", "periodfrom", "coverfrom", "validfrom", "from", "datefrom", "riskstartdate"],
+            [EffectiveTo] = ["expirydate", "expiry", "expirationdate", "expiration", "enddate", "end", "renewaldate", "periodto", "coverto", "validto", "validuntil", "to", "dateto", "riskenddate", "maturitydate"],
+            [AnnualPremium] = ["premium", "grosspremium", "totalpremium", "annualpremium", "yearlypremium", "premiumamount", "premiumdue", "gwp", "netpremium"],
+            [PremiumCurrency] = ["currency", "ccy", "curr", "currencycode", "premiumcurrency"],
+            [SumInsured] = ["suminsured", "sumassured", "si", "limit", "limitofliability", "insuredvalue", "coveramount", "totalsuminsured", "tsi", "sumcovered"],
+        };
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (field, names) in table)
+        {
+            foreach (var name in names)
+            {
+                result.TryAdd(name, field);
+            }
+        }
+
+        return result;
     }
 
     public static string HumanLabel(string field) => field switch

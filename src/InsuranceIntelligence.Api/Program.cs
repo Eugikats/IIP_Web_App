@@ -749,6 +749,10 @@ app.MapGet("/api/v1/document-checklist/preview", InsuranceIntelligence.Api.Docum
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim));
 app.MapGet("/api/v1/policy-lookup", InsuranceIntelligence.Api.Cases.PolicyLookupEndpoints.LookupByPolicyNumber)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim));
+app.MapGet("/api/v1/exports/claims-register", InsuranceIntelligence.Api.Exports.ExportEndpoints.ClaimsRegister)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapGet("/api/v1/exports/claims-register/columns", InsuranceIntelligence.Api.Exports.ExportEndpoints.ClaimsRegisterColumns)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/cases", CaseEndpoints.ListCases)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}", CaseEndpoints.GetCase)
