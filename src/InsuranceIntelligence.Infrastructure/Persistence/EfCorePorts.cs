@@ -104,6 +104,17 @@ public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext db
         }
 
         var scope = memberships[0];
+
+        // A suspended, cancelled or closed organisation is a tenant nobody can enter, whatever
+        // memberships remain. Deployments with no organisations (Managed Application) have no row
+        // here and are unaffected.
+        var organisation = await dbContext.Organisations.AsNoTracking()
+            .FirstOrDefaultAsync(o => o.OrganisationId == scope.TenantId, cancellationToken);
+        if (organisation is not null && organisation.Status != "Active")
+        {
+            return null;
+        }
+
         var roles = await dbContext.RoleAssignments.AsNoTracking()
             .Where(r => r.TenantId == scope.TenantId && r.WorkspaceId == scope.WorkspaceId && r.UserId == userId)
             .Select(r => r.RoleCode)

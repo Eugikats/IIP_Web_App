@@ -39,6 +39,12 @@ public sealed class EfOrganisationRepository(InsuranceIntelligenceDbContext db) 
         return entity is null ? null : ToDomain(entity);
     }
 
+    public async Task<Organisation?> GetByMarketplaceSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken = default)
+    {
+        var entity = await db.Organisations.AsNoTracking().FirstOrDefaultAsync(o => o.MarketplaceSubscriptionId == subscriptionId, cancellationToken);
+        return entity is null ? null : ToDomain(entity);
+    }
+
     public async Task<IReadOnlyList<Organisation>> GetManyAsync(IEnumerable<string> organisationIds, CancellationToken cancellationToken = default)
     {
         var ids = organisationIds.Distinct().ToArray();

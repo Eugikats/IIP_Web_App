@@ -25,6 +25,10 @@ public sealed record Organisation(
 {
     public const string ActiveStatus = "Active";
     public const string SuspendedStatus = "Suspended";
+
+    /// <summary>The Marketplace subscription ended. Access stops; data is kept for the retention period.</summary>
+    public const string CancelledStatus = "Cancelled";
+    public const string ClosedStatus = "Closed";
     public const string DefaultWorkspace = "main";
     public const string TrialPlan = "trial";
 
@@ -93,6 +97,7 @@ public interface IOrganisationRepository
 {
     Task AddAsync(Organisation organisation, CancellationToken cancellationToken = default);
     Task<Organisation?> GetAsync(string organisationId, CancellationToken cancellationToken = default);
+    Task<Organisation?> GetByMarketplaceSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken = default);
     Task UpdateOrganisationAsync(Organisation organisation, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Organisation>> GetManyAsync(IEnumerable<string> organisationIds, CancellationToken cancellationToken = default);
     Task<int> CountCreatedByAsync(string userId, CancellationToken cancellationToken = default);

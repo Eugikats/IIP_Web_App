@@ -145,6 +145,23 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Organisations.OrganisationService>();
         services.AddScoped<InsuranceIntelligence.Domain.Usage.IUsageMeter, InsuranceIntelligence.Infrastructure.Persistence.EfUsageMeter>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.Persistence.TenantDataService>();
+
+        // Microsoft Marketplace. The real client is used only when the deployment says it is a
+        // registered publisher (INSURANCEINTELLIGENCE_MARKETPLACE_ENABLED); otherwise every
+        // Marketplace route reports it is not connected rather than pretending.
+        services.AddSingleton(InsuranceIntelligence.Application.Marketplace.MarketplacePlanMap.Parse(configuration["INSURANCEINTELLIGENCE_MARKETPLACE_PLAN_MAP"]));
+        if (bool.TryParse(configuration["INSURANCEINTELLIGENCE_MARKETPLACE_ENABLED"], out var marketplaceEnabled) && marketplaceEnabled)
+        {
+            services.AddHttpClient<InsuranceIntelligence.Domain.Marketplace.IMarketplaceFulfillmentClient, InsuranceIntelligence.Infrastructure.Marketplace.MicrosoftMarketplaceFulfillmentClient>()
+                .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(30));
+            services.AddSingleton<Azure.Core.TokenCredential>(_ => new Azure.Identity.DefaultAzureCredential());
+        }
+        else
+        {
+            services.AddSingleton<InsuranceIntelligence.Domain.Marketplace.IMarketplaceFulfillmentClient, InsuranceIntelligence.Infrastructure.Marketplace.NotConfiguredMarketplaceFulfillmentClient>();
+        }
+
+        services.AddScoped<InsuranceIntelligence.Application.Marketplace.MarketplaceFulfillmentService>();
         services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppGraphValidationClient, MetaGraphWhatsAppValidationClient>();
 
         // The real inbound/outbound providers are registered unconditionally now (blueprint §3.3,
