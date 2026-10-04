@@ -297,6 +297,7 @@ public static class InfrastructureRegistration
             EntraClientId = configuration["INSURANCEINTELLIGENCE_ENTRA_CLIENT_ID"],
             EntraAudience = configuration["INSURANCEINTELLIGENCE_ENTRA_AUDIENCE"],
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
+            ExternalIdAuthority = configuration["INSURANCEINTELLIGENCE_EXTERNAL_ID_AUTHORITY"],
             ClientPortalBaseUrl = configuration["INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL"],
             SmsWebhookSharedSecret = configuration["INSURANCEINTELLIGENCE_SMS_WEBHOOK_SHARED_SECRET"],
             ApiPublicBaseUrl = configuration["INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL"],

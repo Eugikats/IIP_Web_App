@@ -196,6 +196,29 @@ if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnor
                 // (Microsoft.Identity.Web 4.x) exposes no Audience property.
             });
 }
+else if (infrastructureOptions.AuthMode.Equals("EntraExternalId", StringComparison.OrdinalIgnoreCase))
+{
+    // SaaS sign-in: people sign up and in through an Entra External ID tenant (Google, Microsoft
+    // account or email one-time code). Tokens are checked against that tenant's own metadata, so the
+    // issuer is the External ID tenant's and nothing else is accepted. Who a person is comes from
+    // the token; which organisation they may act in comes only from IIP's membership store.
+    var authority = RequireSetting(infrastructureOptions.ExternalIdAuthority, "INSURANCEINTELLIGENCE_EXTERNAL_ID_AUTHORITY");
+    var externalClientId = RequireSetting(infrastructureOptions.EntraClientId, "INSURANCEINTELLIGENCE_ENTRA_CLIENT_ID");
+    var externalAudience = string.IsNullOrWhiteSpace(infrastructureOptions.EntraAudience) ? externalClientId : infrastructureOptions.EntraAudience;
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(jwt =>
+        {
+            jwt.Authority = authority;
+            jwt.Audience = externalAudience;
+            jwt.RequireHttpsMetadata = true;
+            jwt.TokenValidationParameters.ValidateIssuer = true;
+            jwt.TokenValidationParameters.ValidateAudience = true;
+            jwt.TokenValidationParameters.ValidateLifetime = true;
+            jwt.TokenValidationParameters.ValidateIssuerSigningKey = true;
+            jwt.TokenValidationParameters.ClockSkew = TimeSpan.FromMinutes(2);
+        });
+}
 else
 {
     builder.Services.AddAuthentication();

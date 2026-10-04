@@ -20,6 +20,11 @@ public sealed record InfrastructureOptions
     public string? EntraClientId { get; init; }
     public string? EntraAudience { get; init; }
     public string? EntraIssuer { get; init; }
+
+    /// <summary>SaaS sign-in through Microsoft Entra External ID (customers can use Google, a
+    /// Microsoft account or an email code): the authority of that External ID tenant, for example
+    /// https://contoso.ciamlogin.com/{tenant-id}/v2.0. Used when AuthMode is EntraExternalId.</summary>
+    public string? ExternalIdAuthority { get; init; }
     /// <summary>Public origin of the customer-facing client portal (e.g. https://portal.example.com),
     /// used to build magic-link URLs sent to claimants. Required outside Development for
     /// magic-link issuance to work, see ClaimantAuthenticationEndpoints.</summary>
