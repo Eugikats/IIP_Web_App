@@ -19,6 +19,7 @@ namespace InsuranceIntelligence.Functions;
 /// </summary>
 public class CaseFollowThroughTimerFunction(
     ICaseFollowThroughService followThroughService,
+    InsuranceIntelligence.Domain.Common.IWorkspaceDirectory workspaceDirectory,
     InfrastructureOptions options,
     ILogger<CaseFollowThroughTimerFunction> logger)
 {
@@ -27,22 +28,19 @@ public class CaseFollowThroughTimerFunction(
     [Function("CaseFollowThrough")]
     public async Task Run([TimerTrigger("0 0 */6 * * *")] TimerInfo timer, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(options.TenantId) || string.IsNullOrWhiteSpace(options.WorkspaceId))
-        {
-            logger.LogWarning("Case follow-through run skipped: no deployment-level TenantId/WorkspaceId is configured.");
-            return;
-        }
-
-        var scope = TenantScope.Create(options.TenantId, options.WorkspaceId);
+        var workspaces = await ScheduledWorkspaces.ResolveAsync(options, workspaceDirectory, logger, "Case follow-through", cancellationToken);
         var correlationId = $"follow-through-timer-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}";
 
-        logger.LogInformation("Case follow-through run starting. Tenant={TenantId} Workspace={WorkspaceId} CorrelationId={CorrelationId}",
-            scope.TenantId, scope.WorkspaceId, correlationId);
+        await ScheduledWorkspaces.ForEachAsync(workspaces, logger, "Case follow-through", async scope =>
+        {
+            logger.LogInformation("Case follow-through run starting. Tenant={TenantId} Workspace={WorkspaceId} CorrelationId={CorrelationId}",
+                scope.TenantId, scope.WorkspaceId, correlationId);
 
-        var result = await followThroughService.RunAsync(scope, correlationId, cancellationToken);
+            var result = await followThroughService.RunAsync(scope, correlationId, cancellationToken);
 
-        logger.LogInformation(
-            "Case follow-through: {Reminders} missing-document reminder(s) sent, {Warnings} SLA-at-risk warning(s) sent.",
-            result.MissingDocumentRemindersSent, result.SlaWarningsSent);
+            logger.LogInformation(
+                "Case follow-through: {Reminders} missing-document reminder(s) sent, {Warnings} SLA-at-risk warning(s) sent.",
+                result.MissingDocumentRemindersSent, result.SlaWarningsSent);
+        });
     }
 }

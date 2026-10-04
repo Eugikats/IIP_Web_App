@@ -20,6 +20,7 @@ namespace InsuranceIntelligence.Functions;
 /// </summary>
 public class RetentionEnforcementTimerFunction(
     IRetentionEnforcementService enforcementService,
+    InsuranceIntelligence.Domain.Common.IWorkspaceDirectory workspaceDirectory,
     InfrastructureOptions options,
     ILogger<RetentionEnforcementTimerFunction> logger)
 {
@@ -28,25 +29,22 @@ public class RetentionEnforcementTimerFunction(
     [Function("RetentionEnforcement")]
     public async Task Run([TimerTrigger("0 0 2 * * *")] TimerInfo timer, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(options.TenantId) || string.IsNullOrWhiteSpace(options.WorkspaceId))
-        {
-            logger.LogWarning("Retention enforcement run skipped: no deployment-level TenantId/WorkspaceId is configured.");
-            return;
-        }
-
-        var scope = TenantScope.Create(options.TenantId, options.WorkspaceId);
+        var workspaces = await ScheduledWorkspaces.ResolveAsync(options, workspaceDirectory, logger, "Retention enforcement", cancellationToken);
         var correlationId = $"retention-timer-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}";
 
-        logger.LogInformation("Retention enforcement run starting. Tenant={TenantId} Workspace={WorkspaceId} CorrelationId={CorrelationId}",
-            scope.TenantId, scope.WorkspaceId, correlationId);
-
-        var results = await enforcementService.EnforceAsync(scope, correlationId, cancellationToken);
-
-        foreach (var result in results)
+        await ScheduledWorkspaces.ForEachAsync(workspaces, logger, "Retention enforcement", async scope =>
         {
-            logger.LogInformation(
-                "Retention enforcement: {DataClass} deleted {Count} record(s) (retention {Days} days applied).",
-                result.DataClass, result.RecordsDeleted, result.RetentionDaysApplied);
-        }
+            logger.LogInformation("Retention enforcement run starting. Tenant={TenantId} Workspace={WorkspaceId} CorrelationId={CorrelationId}",
+                scope.TenantId, scope.WorkspaceId, correlationId);
+
+            var results = await enforcementService.EnforceAsync(scope, correlationId, cancellationToken);
+
+            foreach (var result in results)
+            {
+                logger.LogInformation(
+                    "Retention enforcement: {DataClass} deleted {Count} record(s) (retention {Days} days applied).",
+                    result.DataClass, result.RecordsDeleted, result.RetentionDaysApplied);
+            }
+        });
     }
 }

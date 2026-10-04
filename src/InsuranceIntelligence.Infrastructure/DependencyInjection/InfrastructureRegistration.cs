@@ -140,6 +140,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppChannelConfigurationRepository, EfWhatsAppChannelConfigurationRepository>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IWhatsAppCredentialProtector, DataProtectionWhatsAppCredentialProtector>();
         services.AddSingleton<IWhatsAppRuntimeSettingsProvider, WhatsAppRuntimeSettingsProvider>();
+        services.AddScoped<InsuranceIntelligence.Domain.Common.IWorkspaceDirectory, InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceDirectory>();
         services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppGraphValidationClient, MetaGraphWhatsAppValidationClient>();
 
         // The real inbound/outbound providers are registered unconditionally now (blueprint §3.3,

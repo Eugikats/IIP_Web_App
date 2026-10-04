@@ -63,6 +63,15 @@ public static class TenantScopeReader
         out TenantScope scope,
         out string validationError)
     {
+        if (options.MultiTenant)
+        {
+            // Many insurers share this deployment: a request that does not say which one it is for
+            // is refused, never sent to a configured default.
+            scope = new TenantScope(string.Empty, string.Empty);
+            validationError = "This request does not identify an organisation.";
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(options.TenantId)
             && string.IsNullOrWhiteSpace(options.WorkspaceId))
         {

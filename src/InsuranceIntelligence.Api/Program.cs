@@ -481,11 +481,18 @@ var app = builder.Build();
 await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Environment);
 
 // Offline developer mode: with in-memory storage the database starts empty on every run, so
+var multiTenantProblems = InsuranceIntelligence.Infrastructure.Configuration.MultiTenantStartupGuard.Problems(infrastructureOptions);
+if (multiTenantProblems.Count > 0)
+{
+    throw new InvalidOperationException("Multi-tenant configuration is unsafe: " + string.Join(" ", multiTenantProblems));
+}
+
 // seed the demo dataset at boot to give the app something to show without any Azure account.
 // Guarded to in-memory storage only, this can never run against SqlServer, and the storage
 // provider itself is already restricted to local runtimes.
 if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
-    && infrastructureOptions.SeedDemoData)
+    && infrastructureOptions.SeedDemoData
+    && !infrastructureOptions.MultiTenant)
 {
     using var seedScope = app.Services.CreateScope();
     var seedService = seedScope.ServiceProvider

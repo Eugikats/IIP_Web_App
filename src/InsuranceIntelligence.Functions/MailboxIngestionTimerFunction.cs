@@ -32,6 +32,13 @@ public class MailboxIngestionTimerFunction(
     [Function("MailboxIngestion")]
     public async Task Run([TimerTrigger("0 */5 * * * *")] TimerInfo timer, CancellationToken cancellationToken)
     {
+        if (options.MultiTenant)
+        {
+            // Shared mailbox settings belong to one deployment, not to any one insurer. Until each
+            // insurer connects its own mailbox, SaaS mode collects no email rather than guess whose it is.
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(options.TenantId) || string.IsNullOrWhiteSpace(options.WorkspaceId))
         {
             logger.LogWarning("Mailbox ingestion run skipped: no deployment-level TenantId/WorkspaceId is configured.");

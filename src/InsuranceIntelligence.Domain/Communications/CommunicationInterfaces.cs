@@ -15,6 +15,12 @@ public interface ICommunicationRepository
     /// provider's own message id. Used by SmsIntegrationEndpoints to turn a raw "Success"/"Failed"
     /// callback into a real delivery-status update on the right record.</summary>
     Task<Communication?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default);
+
+    /// <summary>The communication the gateway's own message id refers to, in whichever tenant sent it.
+    /// Null when none matches, or when more than one does (two tenants' gateway accounts reusing an
+    /// id): an ambiguous delivery receipt updates nothing rather than the wrong insurer's record.</summary>
+    Task<Communication?> FindByProviderMessageIdAcrossTenantsAsync(string providerMessageId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<Communication?>(null);
 }
 
 public interface ICommunicationSendingProvider

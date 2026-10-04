@@ -36,19 +36,30 @@ public static class SmsIntegrationEndpoints
             return Results.NotFound();
         }
 
-        if (string.IsNullOrWhiteSpace(options.TenantId) || string.IsNullOrWhiteSpace(options.WorkspaceId))
-        {
-            logger.LogWarning("SMS delivery-status webhook received but INSURANCEINTELLIGENCE_TENANT_ID/WORKSPACE_ID are not configured.");
-            return Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "Not configured");
-        }
-
         if (string.IsNullOrWhiteSpace(payload.MessageId))
         {
             return Results.BadRequest(new { message = "A message id is required." });
         }
 
-        var scope = TenantScope.Create(options.TenantId!, options.WorkspaceId!);
-        var communication = await repository.FindByProviderMessageIdAsync(scope, payload.MessageId, cancellationToken);
+        Communication? communication;
+        if (options.MultiTenant)
+        {
+            // Many insurers: the receipt carries no tenant, so the gateway's own message id finds
+            // the one communication it belongs to, in whichever insurer sent it.
+            communication = await repository.FindByProviderMessageIdAcrossTenantsAsync(payload.MessageId, cancellationToken);
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(options.TenantId) || string.IsNullOrWhiteSpace(options.WorkspaceId))
+            {
+                logger.LogWarning("SMS delivery-status webhook received but INSURANCEINTELLIGENCE_TENANT_ID/WORKSPACE_ID are not configured.");
+                return Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "Not configured");
+            }
+
+            var scope = TenantScope.Create(options.TenantId!, options.WorkspaceId!);
+            communication = await repository.FindByProviderMessageIdAsync(scope, payload.MessageId, cancellationToken);
+        }
+
         if (communication is null)
         {
             // Not an error from the gateway's point of view, just nothing to update on our side
