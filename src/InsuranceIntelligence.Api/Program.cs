@@ -680,6 +680,8 @@ app.MapGet("/api/v1/organisation/broker-dashboard", InsuranceIntelligence.Api.Or
 app.MapPost("/api/v1/marketplace/resolve", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Resolve);
 app.MapPost("/api/v1/marketplace/activate", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Activate);
 app.MapPost("/api/v1/marketplace/webhook", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Webhook);
+app.MapGet("/api/v1/organisation/onboarding", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Onboarding);
+app.MapPost("/api/v1/organisation/sandbox", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.EnableSandbox);
 app.MapGet("/api/v1/organisation/usage", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Usage);
 app.MapGet("/api/v1/organisation/data-export", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ExportData);
 app.MapPost("/api/v1/organisation/close", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Close);

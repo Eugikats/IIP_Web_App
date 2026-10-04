@@ -130,6 +130,18 @@ public static class OrganisationEndpoints
                 : Results.StatusCode(StatusCodes.Status403Forbidden);
         });
 
+    public static Task<IResult> Onboarding(
+        OrganisationOnboardingService service, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, _) => Results.Ok(await service.ChecklistAsync(organisationId, cancellationToken)));
+
+    public static Task<IResult> EnableSandbox(
+        OrganisationOnboardingService service, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, userId) =>
+        {
+            var scope = await service.EnableSandboxAsync(organisationId, userId, cancellationToken);
+            return Results.Ok(new { organisationId = scope.TenantId, workspaceId = scope.WorkspaceId });
+        });
+
     public static Task<IResult> Usage(
         InsuranceIntelligence.Domain.Usage.IUsageMeter meter, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
         Admin(httpContext, options, async (organisationId, _) =>
