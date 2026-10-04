@@ -102,3 +102,11 @@ Each insurer connects its own WhatsApp Business number. One webhook URL serves a
 1. **WhatsApp numbers:** does every insurer bring its own WhatsApp Business number (recommended: their brand, their number, their Meta account, connected through Meta's embedded sign-up with Otic as a Tech Provider), or does Otic run one shared number that asks which insurer?
 2. **Broker approval:** must an insurer approve every broker, or can a broker request access and be approved later?
 3. **Pricing:** plan tiers and what is metered.
+
+## Status (2026-10-05)
+
+Steps 1 to 8 are built and tested locally (Domain 655, Api 1113 tests passing). Nothing is deployed or pushed.
+
+- Built: per-insurer WhatsApp routing; single-tenant paths removed; organisations, sign-up, invitations; brokers across insurers; tenant-safe shared resources including cross-tenant overwrite and read fixes; Marketplace fulfillment (backend only); onboarding and sandbox; plan limits, export and purge; Key Vault key ring; rate limits; durable recovery of lost WhatsApp messages.
+- Integration: import header synonyms, claims register CSV, signed outbound webhooks, API keys. See docs/05-deployment-release-enablement/IIP_INTEGRATION_GUIDE.md.
+- Needs people and accounts: see docs/05-deployment-release-enablement/IIP_SAAS_GO_LIVE_CHECKLIST.md.
