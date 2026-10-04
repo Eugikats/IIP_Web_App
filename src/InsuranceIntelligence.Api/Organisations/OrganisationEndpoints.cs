@@ -12,6 +12,7 @@ public sealed record CreateOrganisationRequest(string? Name, string? Type);
 public sealed record InviteRequest(string? Email, string? Role);
 public sealed record AcceptInvitationRequest(string? Token);
 public sealed record LinkRequest(string? OrganisationId);
+public sealed record CloseRequest(string? ConfirmName);
 
 /// <summary>
 /// Sign-up, invitations, and broker/insurer links. Creating an organisation and accepting an
@@ -127,6 +128,31 @@ public static class OrganisationEndpoints
             return WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out _)
                 ? Results.Ok(await service.BrokerDashboardAsync(scope.TenantId, cancellationToken))
                 : Results.StatusCode(StatusCodes.Status403Forbidden);
+        });
+
+    public static Task<IResult> Usage(
+        InsuranceIntelligence.Domain.Usage.IUsageMeter meter, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, _) =>
+            await meter.GetAsync(InsuranceIntelligence.Domain.Common.TenantScope.Create(organisationId, Organisation.DefaultWorkspace), cancellationToken) is { } snapshot
+                ? Results.Ok(snapshot)
+                : Results.NotFound());
+
+    /// <summary>Everything the organisation owns, as one file, without stored credentials.</summary>
+    public static Task<IResult> ExportData(
+        InsuranceIntelligence.Infrastructure.Persistence.TenantDataService data, OrganisationService service, InfrastructureOptions options,
+        HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, _) =>
+            Results.Text(await data.ExportAsync(organisationId, cancellationToken), "application/json"));
+
+    /// <summary>Closes the organisation and deletes everything it owns. Irreversible; needs its exact name.</summary>
+    public static Task<IResult> Close(
+        CloseRequest request, InsuranceIntelligence.Infrastructure.Persistence.TenantDataService data, OrganisationService service,
+        InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, userId) =>
+        {
+            await service.CloseAsync(organisationId, userId, request.ConfirmName ?? string.Empty, CorrelationId(httpContext), cancellationToken);
+            var removed = await data.PurgeAsync(organisationId, cancellationToken);
+            return Results.Ok(new { closed = true, recordsRemoved = removed });
         });
 
     private static Task<IResult> Admin(

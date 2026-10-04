@@ -24,6 +24,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<OrganisationEntity> Organisations => Set<OrganisationEntity>();
     public DbSet<OrganisationInvitationEntity> OrganisationInvitations => Set<OrganisationInvitationEntity>();
     public DbSet<BrokerLinkEntity> BrokerLinks => Set<BrokerLinkEntity>();
+    public DbSet<UsageCounterEntity> UsageCounters => Set<UsageCounterEntity>();
     public DbSet<RoleAssignmentEntity> RoleAssignments => Set<RoleAssignmentEntity>();
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<RolePermissionEntity> RolePermissions => Set<RolePermissionEntity>();
@@ -225,6 +226,17 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
             entity.Property(item => item.AcceptedByUserId).HasMaxLength(240);
             entity.HasIndex(item => item.TokenHash).IsUnique();
             entity.HasIndex(item => item.OrganisationId);
+        });
+
+        modelBuilder.Entity<UsageCounterEntity>(entity =>
+        {
+            entity.ToTable("UsageCounters");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.TenantId).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Period).HasMaxLength(7).IsRequired();
+            entity.Property(item => item.Kind).HasMaxLength(40).IsRequired();
+            entity.Property(item => item.Count).IsConcurrencyToken();
+            entity.HasIndex(item => new { item.TenantId, item.Period, item.Kind }).IsUnique();
         });
 
         modelBuilder.Entity<BrokerLinkEntity>(entity =>

@@ -93,6 +93,7 @@ public interface IOrganisationRepository
 {
     Task AddAsync(Organisation organisation, CancellationToken cancellationToken = default);
     Task<Organisation?> GetAsync(string organisationId, CancellationToken cancellationToken = default);
+    Task UpdateOrganisationAsync(Organisation organisation, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Organisation>> GetManyAsync(IEnumerable<string> organisationIds, CancellationToken cancellationToken = default);
     Task<int> CountCreatedByAsync(string userId, CancellationToken cancellationToken = default);
 

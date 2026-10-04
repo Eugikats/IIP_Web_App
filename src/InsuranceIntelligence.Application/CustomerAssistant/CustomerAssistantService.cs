@@ -121,7 +121,10 @@ public sealed partial class CustomerAssistantService(
     IVoiceNoteSpeaker? voiceSpeaker = null,
     // Optional: Kato as an agent that holds the conversation and acts through tools. Without it,
     // or when the model fails, the rule-based replies below answer instead.
-    IToolCallingChatProvider? agentModel = null) : ICustomerAssistantService
+    IToolCallingChatProvider? agentModel = null,
+    // Optional: per-organisation plan limits. Over the monthly ceiling the AI agent steps aside and
+    // the plain rule-based replies answer, so no organisation can run up the platform's AI cost.
+    InsuranceIntelligence.Domain.Usage.IUsageMeter? usageMeter = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
@@ -595,7 +598,9 @@ public sealed partial class CustomerAssistantService(
         // A claim read back to the customer waits for their answer: yes opens it, no starts it
         // again, anything else is a correction. Nothing binding happens on the first telling.
         AssistantOutcome? outcome = null;
-        if (agentModel is not null)
+        if (agentModel is not null
+            && (usageMeter is null
+                || (await usageMeter.TryConsumeAsync(scope, InsuranceIntelligence.Domain.Usage.UsageKind.AssistantTurn, cancellationToken)).Allowed))
         {
             try
             {

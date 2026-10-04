@@ -143,6 +143,8 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Common.IWorkspaceDirectory, InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceDirectory>();
         services.AddScoped<InsuranceIntelligence.Domain.Organisations.IOrganisationRepository, InsuranceIntelligence.Infrastructure.Persistence.EfOrganisationRepository>();
         services.AddScoped<InsuranceIntelligence.Application.Organisations.OrganisationService>();
+        services.AddScoped<InsuranceIntelligence.Domain.Usage.IUsageMeter, InsuranceIntelligence.Infrastructure.Persistence.EfUsageMeter>();
+        services.AddScoped<InsuranceIntelligence.Infrastructure.Persistence.TenantDataService>();
         services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppGraphValidationClient, MetaGraphWhatsAppValidationClient>();
 
         // The real inbound/outbound providers are registered unconditionally now (blueprint §3.3,

@@ -23,6 +23,16 @@ public sealed class EfOrganisationRepository(InsuranceIntelligenceDbContext db) 
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task UpdateOrganisationAsync(Organisation organisation, CancellationToken cancellationToken = default)
+    {
+        var entity = await db.Organisations.FirstAsync(o => o.OrganisationId == organisation.OrganisationId, cancellationToken);
+        entity.Name = organisation.Name;
+        entity.Status = organisation.Status;
+        entity.PlanId = organisation.PlanId;
+        entity.MarketplaceSubscriptionId = organisation.MarketplaceSubscriptionId;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<Organisation?> GetAsync(string organisationId, CancellationToken cancellationToken = default)
     {
         var entity = await db.Organisations.AsNoTracking().FirstOrDefaultAsync(o => o.OrganisationId == organisationId, cancellationToken);

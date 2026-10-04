@@ -349,6 +349,32 @@ public sealed class OrganisationService(
             brokerOrganisationId, summaries.Count, summaries.Sum(s => s.ClaimsSubmitted), summaries.Sum(s => s.OpenClaims), summaries);
     }
 
+    /// <summary>Ends the organisation: marks it deleted, ends every membership and link, and records
+    /// who did it. The caller removes the organisation's data separately; this is the part that
+    /// makes sure nobody can get back in while that happens.</summary>
+    public async Task<Organisation> CloseAsync(
+        string organisationId, string actorUserId, string confirmName, string correlationId, CancellationToken cancellationToken = default)
+    {
+        var organisation = await RequireOrganisationAsync(organisationId, cancellationToken);
+        if (!string.Equals(confirmName?.Trim(), organisation.Name, StringComparison.Ordinal))
+        {
+            throw OrganisationException.Invalid("Type the organisation's exact name to confirm.");
+        }
+
+        foreach (var link in await repository.ListLinksForOrganisationAsync(organisationId, cancellationToken))
+        {
+            if (link.Status is BrokerLinkStatus.Active or BrokerLinkStatus.Requested)
+            {
+                await repository.UpdateLinkAsync(link with { Status = BrokerLinkStatus.Revoked, DecidedByUserId = actorUserId, UpdatedAt = DateTimeOffset.UtcNow }, cancellationToken);
+            }
+        }
+
+        var closed = organisation with { Status = "Closed" };
+        await repository.UpdateOrganisationAsync(closed, cancellationToken);
+        await AuditAsync(TenantScope.Create("iip-platform", "organisations"), actorUserId, "organisation.closed", [organisationId], "Organisation closed at its own request.", correlationId, cancellationToken);
+        return closed;
+    }
+
     // ---- helpers
 
     private async Task<Organisation> RequireOrganisationAsync(string organisationId, CancellationToken cancellationToken) =>

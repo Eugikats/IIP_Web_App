@@ -677,6 +677,9 @@ app.MapPost("/api/v1/organisation/links/{linkId:guid}/approve", InsuranceIntelli
 app.MapPost("/api/v1/organisation/links/{linkId:guid}/decline", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Decline);
 app.MapPost("/api/v1/organisation/links/{linkId:guid}/revoke", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Revoke);
 app.MapGet("/api/v1/organisation/broker-dashboard", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.BrokerDashboard);
+app.MapGet("/api/v1/organisation/usage", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Usage);
+app.MapGet("/api/v1/organisation/data-export", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ExportData);
+app.MapPost("/api/v1/organisation/close", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Close);
 
 // WO-14: the recipient's own feed, self-scoped like /api/v1/me, no extra permission (any
 // authenticated tenant member can see their own notifications).
