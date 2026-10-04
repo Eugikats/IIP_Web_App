@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InsuranceIntelligence.Infrastructure.Persistence;
 
-public sealed class EfCaseRepository(InsuranceIntelligenceDbContext dbContext)
+public sealed class EfCaseRepository(InsuranceIntelligenceDbContext dbContext, InsuranceIntelligence.Application.Core.ITenantContextAccessor? tenantContext = null)
     : JsonRepositoryBase(dbContext), ICaseRepository
 {
     public Task SaveAsync(ClaimCase claimCase, CancellationToken cancellationToken = default) =>
@@ -22,7 +22,21 @@ public sealed class EfCaseRepository(InsuranceIntelligenceDbContext dbContext)
     public async Task<ClaimCase?> GetAsync(Guid caseId, CancellationToken cancellationToken = default)
     {
         var record = await DbContext.Cases.FindAsync([caseId], cancellationToken);
-        return record is null ? null : Deserialize<ClaimCase>(record.PayloadJson);
+        if (record is null)
+        {
+            return null;
+        }
+
+        // Looked up by id alone, so enforce the caller's organisation here: when a request is running
+        // inside one, a claim that belongs to another organisation does not exist as far as it is concerned.
+        if (tenantContext is { HasCurrent: true }
+            && (!string.Equals(record.TenantId, tenantContext.Current.TenantId, StringComparison.Ordinal)
+                || !string.Equals(record.WorkspaceId, tenantContext.Current.WorkspaceId, StringComparison.Ordinal)))
+        {
+            return null;
+        }
+
+        return Deserialize<ClaimCase>(record.PayloadJson);
     }
 
     public async Task<IReadOnlyCollection<ClaimCase>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>

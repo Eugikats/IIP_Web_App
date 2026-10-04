@@ -590,12 +590,15 @@ public sealed class DemoSeedService(
     {
         var digits = PhoneNumbers.Digits(phone);
         var key = digits.Length > 9 ? digits[^9..] : digits;
+        // Ids are derived from the phone, so they must also be derived from the workspace: two
+        // organisations seeding the same number must never address the same rows.
+        var idKey = $"{scope.TenantId}:{scope.WorkspaceId}:{key}";
         var now = DateTimeOffset.UtcNow;
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var rng = new Random(Seed + key.GetHashCode(StringComparison.Ordinal));
         var assignee = string.IsNullOrWhiteSpace(assignedToUserId) ? seededByUserId : assignedToUserId.Trim();
 
-        var customer = new Customer(DeterministicGuid($"test-policyholder-{key}").ToString(), scope.TenantId, scope.WorkspaceId, fullName.Trim(),
+        var customer = new Customer(DeterministicGuid($"test-policyholder-{idKey}").ToString(), scope.TenantId, scope.WorkspaceId, fullName.Trim(),
             string.IsNullOrWhiteSpace(email) ? null : email.Trim(), phone.Trim());
         await customerRepository.UpsertAsync(customer, cancellationToken);
 
@@ -615,10 +618,10 @@ public sealed class DemoSeedService(
         var effectiveFrom = today.AddDays(-200);
         var sequence = key[^5..];
         var motor = new Policy(
-            DeterministicGuid($"test-policyholder-{key}-motor").ToString(), scope.TenantId, scope.WorkspaceId, $"NSA/MO/{effectiveFrom.Year}/{sequence}", "Motor",
+            DeterministicGuid($"test-policyholder-{idKey}-motor").ToString(), scope.TenantId, scope.WorkspaceId, $"NSA/MO/{effectiveFrom.Year}/{sequence}", "Motor",
             "Comprehensive", customer.CustomerId, branchId, effectiveFrom, effectiveFrom.AddYears(1), 2_450_000m, "UGX", 48_000_000m);
         var medical = new Policy(
-            DeterministicGuid($"test-policyholder-{key}-medical").ToString(), scope.TenantId, scope.WorkspaceId, $"NSA/ME/{effectiveFrom.Year}/{sequence}", "Medical",
+            DeterministicGuid($"test-policyholder-{idKey}-medical").ToString(), scope.TenantId, scope.WorkspaceId, $"NSA/ME/{effectiveFrom.Year}/{sequence}", "Medical",
             "Gold", customer.CustomerId, branchId, effectiveFrom, effectiveFrom.AddYears(1), 2_000_000m, "UGX", 70_000_000m);
 
         foreach (var policy in new[] { motor, medical })
@@ -646,9 +649,9 @@ public sealed class DemoSeedService(
         var results = new List<TestPolicyholderClaim>();
         foreach (var claim in pastClaims)
         {
-            var caseId = DeterministicGuid($"test-policyholder-{key}-{claim.Slot}");
+            var caseId = DeterministicGuid($"test-policyholder-{idKey}-{claim.Slot}");
             var createdAt = now.AddDays(-claim.AgeDays);
-            var correlationId = $"test-policyholder-{key}-{claim.Slot}";
+            var correlationId = $"test-policyholder-{idKey}-{claim.Slot}";
             var alreadySeeded = await caseRepository.GetAsync(caseId, cancellationToken) is not null;
 
             var claimCase = new ClaimCase

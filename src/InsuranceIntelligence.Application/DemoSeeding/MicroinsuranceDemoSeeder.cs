@@ -98,6 +98,7 @@ public sealed class MicroinsuranceDemoSeeder(
     {
         var digits = PhoneNumbers.Digits(phone);
         var key = digits.Length > 9 ? digits[^9..] : digits;
+        var idKey = $"{scope.TenantId}:{scope.WorkspaceId}:{key}"; // ids are per workspace, never shared between organisations
         var now = DateTimeOffset.UtcNow;
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var fullName = string.IsNullOrWhiteSpace(policyholderSettings.FullName) ? "Demo Policyholder" : policyholderSettings.FullName.Trim();
@@ -107,7 +108,7 @@ public sealed class MicroinsuranceDemoSeeder(
         var onFile = (await customerRepository.ListAsync(scope, cancellationToken))
             .Where(c => PhoneNumbers.SameNumber(c.Phone, digits))
             .ToArray();
-        var customerId = onFile.Length == 1 ? onFile[0].CustomerId : DeterministicGuid($"micro-demo-{key}").ToString();
+        var customerId = onFile.Length == 1 ? onFile[0].CustomerId : DeterministicGuid($"micro-demo-{idKey}").ToString();
         foreach (var other in onFile.Where(c => c.CustomerId != customerId))
         {
             await customerRepository.UpsertAsync(other with { FullName = "Erased customer", Email = null, Phone = null }, cancellationToken);
@@ -119,18 +120,18 @@ public sealed class MicroinsuranceDemoSeeder(
         var effectiveFrom = today.AddDays(-120);
         var sequence = key[^5..];
         var hospital = new Policy(
-            DeterministicGuid($"micro-demo-{key}-hospital").ToString(), scope.TenantId, scope.WorkspaceId,
+            DeterministicGuid($"micro-demo-{idKey}-hospital").ToString(), scope.TenantId, scope.WorkspaceId,
             $"NSA/HC/{effectiveFrom.Year}/{sequence}", MicroinsuranceCatalog.HospitalCashLine, "Hospital Cash, UGX 1,000 a month",
             customer.CustomerId, null, effectiveFrom, effectiveFrom.AddYears(1), 12_000m, "UGX", 1_000_000m);
         var boda = new Policy(
-            DeterministicGuid($"micro-demo-{key}-boda").ToString(), scope.TenantId, scope.WorkspaceId,
+            DeterministicGuid($"micro-demo-{idKey}-boda").ToString(), scope.TenantId, scope.WorkspaceId,
             $"NSA/BA/{effectiveFrom.Year}/{sequence}", MicroinsuranceCatalog.BodaAccidentLine, "Boda Rider Accident, UGX 6,000 a month",
             customer.CustomerId, null, effectiveFrom, effectiveFrom.AddYears(1), 72_000m, "UGX", 2_500_000m);
         await policyRepository.UpsertAsync(hospital, cancellationToken);
         await policyRepository.UpsertAsync(boda, cancellationToken);
 
         // Older than the 72-hour duplicate window, so a new accident report is never mistaken for it.
-        var claimId = DeterministicGuid($"micro-demo-{key}-hospital-claim");
+        var claimId = DeterministicGuid($"micro-demo-{idKey}-hospital-claim");
         var createdAt = now.AddDays(-5);
         var product = (await productRepository.ListCurrentForAllProductsAsync(scope, cancellationToken))
             .FirstOrDefault(p => string.Equals(p.ProductClass, MicroinsuranceCatalog.HospitalCashLine, StringComparison.OrdinalIgnoreCase)

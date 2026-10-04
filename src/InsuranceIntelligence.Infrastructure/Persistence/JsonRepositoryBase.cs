@@ -40,6 +40,13 @@ public abstract class JsonRepositoryBase(InsuranceIntelligenceDbContext dbContex
             record = new TRecord { Id = id };
             set.Add(record);
         }
+        else if (!string.Equals(record.TenantId, scope.TenantId, StringComparison.Ordinal)
+            || !string.Equals(record.WorkspaceId, scope.WorkspaceId, StringComparison.Ordinal))
+        {
+            // The id already belongs to another organisation or workspace. Writing here would have
+            // quietly moved their record to the caller; refuse, and say nothing about whose it is.
+            throw new TenantIsolationException();
+        }
 
         ApplyScope(record, scope);
         record.PayloadJson = payloadJson;
@@ -47,3 +54,7 @@ public abstract class JsonRepositoryBase(InsuranceIntelligenceDbContext dbContex
         await DbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>A write was refused because the record id belongs to another organisation or workspace.</summary>
+public sealed class TenantIsolationException()
+    : InvalidOperationException("That record cannot be written from this organisation.");
