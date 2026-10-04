@@ -21,6 +21,9 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedInboundEmail> InboundEmails => Set<PersistedInboundEmail>();
     public DbSet<PersistedTeamsNotification> TeamsNotifications => Set<PersistedTeamsNotification>();
     public DbSet<UserTenantMembershipEntity> UserTenantMemberships => Set<UserTenantMembershipEntity>();
+    public DbSet<OrganisationEntity> Organisations => Set<OrganisationEntity>();
+    public DbSet<OrganisationInvitationEntity> OrganisationInvitations => Set<OrganisationInvitationEntity>();
+    public DbSet<BrokerLinkEntity> BrokerLinks => Set<BrokerLinkEntity>();
     public DbSet<RoleAssignmentEntity> RoleAssignments => Set<RoleAssignmentEntity>();
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<RolePermissionEntity> RolePermissions => Set<RolePermissionEntity>();
@@ -89,6 +92,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedTeamsNotification>(), "TeamsNotifications", "NotificationId");
         modelBuilder.Entity<PersistedTeamsNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigurePermissionModel(modelBuilder);
+        ConfigureOrganisationModel(modelBuilder);
 
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomer>(), "Customers", "CustomerId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentState>(), "AgentStates", "AgentStateId");
@@ -187,6 +191,55 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.TemplateKey).HasMaxLength(200).IsRequired();
         modelBuilder.Entity<PersistedCommunicationTemplate>().Property(entity => entity.Version).IsRequired();
         modelBuilder.Entity<PersistedCommunicationTemplate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.TemplateKey });
+    }
+
+    private static void ConfigureOrganisationModel(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<OrganisationEntity>(entity =>
+        {
+            entity.ToTable("Organisations");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.OrganisationId).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Name).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.Type).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.DefaultWorkspaceId).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Status).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.PlanId).HasMaxLength(60).IsRequired();
+            entity.Property(item => item.CreatedByUserId).HasMaxLength(240).IsRequired();
+            entity.Property(item => item.MarketplaceSubscriptionId).HasMaxLength(120);
+            entity.HasIndex(item => item.OrganisationId).IsUnique();
+            entity.HasIndex(item => item.CreatedByUserId);
+            entity.HasIndex(item => item.MarketplaceSubscriptionId);
+        });
+
+        modelBuilder.Entity<OrganisationInvitationEntity>(entity =>
+        {
+            entity.ToTable("OrganisationInvitations");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.OrganisationId).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Email).HasMaxLength(254).IsRequired();
+            entity.Property(item => item.RoleCode).HasMaxLength(60).IsRequired();
+            entity.Property(item => item.TokenHash).HasMaxLength(64).IsRequired();
+            entity.Property(item => item.Status).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.InvitedByUserId).HasMaxLength(240).IsRequired();
+            entity.Property(item => item.AcceptedByUserId).HasMaxLength(240);
+            entity.HasIndex(item => item.TokenHash).IsUnique();
+            entity.HasIndex(item => item.OrganisationId);
+        });
+
+        modelBuilder.Entity<BrokerLinkEntity>(entity =>
+        {
+            entity.ToTable("BrokerLinks");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.BrokerOrganisationId).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.InsurerOrganisationId).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Status).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.InitiatedBy).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.RequestedByUserId).HasMaxLength(240).IsRequired();
+            entity.Property(item => item.DecidedByUserId).HasMaxLength(240);
+            entity.HasIndex(item => new { item.BrokerOrganisationId, item.Status });
+            entity.HasIndex(item => new { item.InsurerOrganisationId, item.Status });
+        });
     }
 
     private static void ConfigurePermissionModel(ModelBuilder modelBuilder)

@@ -585,9 +585,17 @@ app.Use(async (context, next) =>
             var userId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
             if (!string.IsNullOrWhiteSpace(userId))
             {
-                var tenantHint = RuntimeClaimTypes.TenantScope
-                    .Select(t => context.User.FindFirst(t)?.Value)
-                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+                var requestedOrganisation = context.Request.Headers.TryGetValue(
+                    RuntimeClaimTypes.RequestedOrganisationHeaderName, out var requestedOrganisationValue)
+                    ? requestedOrganisationValue.ToString()
+                    : null;
+                var tenantHint = !string.IsNullOrWhiteSpace(requestedOrganisation)
+                    ? requestedOrganisation.Trim()
+                    : infrastructureOptions.MultiTenant
+                        ? null // the token's tenant claim is a sign-in directory, never an insurer
+                        : RuntimeClaimTypes.TenantScope
+                            .Select(t => context.User.FindFirst(t)?.Value)
+                            .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
                 // The portal's workspace switcher (WO-13) sends the user's chosen workspace as a
                 // request header, not a claim, a new token isn't minted per switch. It is only ever
                 // a hint: GetEffectiveMembershipAsync below re-validates it against the user's real
@@ -632,6 +640,20 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "live" }));
 app.MapGet("/health/ready", HealthEndpoints.Ready);
 
 app.MapGet("/api/v1/me", RuntimeContextEndpoints.GetMe);
+
+// SaaS: sign-up, invitations, broker/insurer links. See docs/01-strategy-requirements-roadmap/IIP_SAAS_BUILD_PLAN.md.
+app.MapPost("/api/v1/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Create);
+app.MapGet("/api/v1/me/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Mine);
+app.MapPost("/api/v1/invitations/accept", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Accept);
+app.MapGet("/api/v1/organisation/invitations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ListInvitations);
+app.MapPost("/api/v1/organisation/invitations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Invite);
+app.MapDelete("/api/v1/organisation/invitations/{invitationId:guid}", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.RevokeInvitation);
+app.MapGet("/api/v1/organisation/links", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ListLinks);
+app.MapPost("/api/v1/organisation/links", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.RequestLink);
+app.MapPost("/api/v1/organisation/links/{linkId:guid}/approve", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Approve);
+app.MapPost("/api/v1/organisation/links/{linkId:guid}/decline", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Decline);
+app.MapPost("/api/v1/organisation/links/{linkId:guid}/revoke", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Revoke);
+app.MapGet("/api/v1/organisation/broker-dashboard", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.BrokerDashboard);
 
 // WO-14: the recipient's own feed, self-scoped like /api/v1/me, no extra permission (any
 // authenticated tenant member can see their own notifications).

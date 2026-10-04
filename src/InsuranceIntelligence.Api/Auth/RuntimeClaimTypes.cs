@@ -13,6 +13,15 @@ public static class RuntimeClaimTypes
     /// </summary>
     public const string RequestedWorkspaceHeaderName = "X-Requested-Workspace-Id";
 
+    /// <summary>
+    /// The organisation (insurer or broker) the person has chosen to act in. Like the workspace
+    /// header it is a request, never authority: the membership store confirms they belong to it, or
+    /// that their broker organisation has an active link to it, and refuses otherwise. In multi-tenant
+    /// mode this is the only organisation hint; the token's own tenant claim names a sign-in
+    /// directory, not an insurer.
+    /// </summary>
+    public const string RequestedOrganisationHeaderName = "X-Organisation-Id";
+
     public static readonly IReadOnlyCollection<string> TenantScope =
     [
         "tenant_id",

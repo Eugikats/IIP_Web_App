@@ -90,6 +90,13 @@ public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext db
             .Select(m => new { m.TenantId, m.WorkspaceId })
             .ToArrayAsync(cancellationToken);
 
+        // No direct membership in the organisation asked for: a broker whose organisation has an
+        // active link with that insurer reaches it, as a broker, for exactly as long as the link stands.
+        if (memberships.Length == 0 && !string.IsNullOrWhiteSpace(tenantHint))
+        {
+            return await BrokerLinkedMembershipAsync(userId, tenantHint, workspaceHint, cancellationToken);
+        }
+
         // Fail closed: no membership, or ambiguous (multiple) without a hint to disambiguate.
         if (memberships.Length != 1)
         {
@@ -131,6 +138,41 @@ public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext db
             permissions);
 
         return new EffectiveMembership(scope.TenantId, scope.WorkspaceId, userId, roles, permissions);
+    }
+
+    private async Task<EffectiveMembership?> BrokerLinkedMembershipAsync(
+        string userId, string insurerOrganisationId, string? workspaceHint, CancellationToken cancellationToken)
+    {
+        var memberOf = await dbContext.UserTenantMemberships.AsNoTracking()
+            .Where(m => m.UserId == userId && m.IsActive)
+            .Select(m => m.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        if (memberOf.Count == 0)
+        {
+            return null;
+        }
+
+        var insurer = await dbContext.Organisations.AsNoTracking()
+            .FirstOrDefaultAsync(o => o.OrganisationId == insurerOrganisationId && o.Type == "Insurer" && o.Status == "Active", cancellationToken);
+        if (insurer is null || (!string.IsNullOrWhiteSpace(workspaceHint) && workspaceHint != insurer.DefaultWorkspaceId))
+        {
+            return null;
+        }
+
+        var activeBrokers = dbContext.Organisations.AsNoTracking()
+            .Where(o => memberOf.Contains(o.OrganisationId) && o.Type == "Broker" && o.Status == "Active")
+            .Select(o => o.OrganisationId);
+        var linked = await dbContext.BrokerLinks.AsNoTracking()
+            .AnyAsync(l => l.InsurerOrganisationId == insurerOrganisationId && l.Status == "Active" && activeBrokers.Contains(l.BrokerOrganisationId), cancellationToken);
+        if (!linked)
+        {
+            return null;
+        }
+
+        var permissions = RolePermissionMap.ForRole(PlatformRole.Broker).Distinct().ToArray();
+        _effectivePermissionCache = new EffectivePermissionCache(insurer.OrganisationId, insurer.DefaultWorkspaceId, userId, permissions);
+        return new EffectiveMembership(insurer.OrganisationId, insurer.DefaultWorkspaceId, userId, [nameof(PlatformRole.Broker)], permissions);
     }
 
     private sealed record EffectivePermissionCache(

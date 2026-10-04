@@ -35,5 +35,8 @@ public enum Permission
     ReviewAgentWorkItems,
     ViewBilling,
     ManageTenantOnboarding,
-    ManageProducts
+    ManageProducts,
+
+    /// <summary>Invite people, and manage the links between a broker and an insurer.</summary>
+    ManageOrganisation
 }
