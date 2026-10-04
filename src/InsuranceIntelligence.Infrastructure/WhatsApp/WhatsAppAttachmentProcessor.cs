@@ -32,7 +32,7 @@ public sealed class WhatsAppAttachmentProcessor(
         string actorUserId,
         CancellationToken cancellationToken = default)
     {
-        if (!WhatsAppChannelProviderSupport.IsLive(options, settingsProvider.Current))
+        if (!WhatsAppChannelProviderSupport.IsLive(options, settingsProvider.ForPhoneNumberId(message.BusinessPhoneNumberId)))
         {
             return Array.Empty<CaseDocument>();
         }
@@ -42,7 +42,7 @@ public sealed class WhatsAppAttachmentProcessor(
             throw new InvalidOperationException("WhatsApp provider is not configured.");
         }
 
-        var content = await whatsAppProvider.DownloadMediaAsync(message.MediaId, cancellationToken);
+        var content = await whatsAppProvider.DownloadMediaAsync(message.MediaId, message.BusinessPhoneNumberId, cancellationToken);
         var contentType = string.IsNullOrWhiteSpace(content.ContentType)
             ? message.MimeType ?? "application/octet-stream"
             : content.ContentType;

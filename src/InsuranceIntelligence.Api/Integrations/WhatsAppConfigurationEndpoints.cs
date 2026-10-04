@@ -97,6 +97,21 @@ public static class WhatsAppConfigurationEndpoints
             });
         }
 
+        // One WhatsApp number belongs to one insurer. Without this, a second organisation entering
+        // someone else's number and token could attract that insurer's customers' messages.
+        var phoneNumberId = request.PhoneNumberId.Trim();
+        var holders = await repository.ListActiveAsync(cancellationToken);
+        if (holders.Any(existing => string.Equals(existing.PhoneNumberId, phoneNumberId, StringComparison.Ordinal)
+                && !(string.Equals(existing.Scope.TenantId, scope.TenantId, StringComparison.Ordinal)
+                    && string.Equals(existing.Scope.WorkspaceId, scope.WorkspaceId, StringComparison.Ordinal))))
+        {
+            return Results.Conflict(new
+            {
+                deliveryStatus = "NumberAlreadyConnected",
+                message = "This WhatsApp number is already connected to another organisation. Contact support if it should be moved."
+            });
+        }
+
         // Guide-through validation: confirm the credentials actually work against the real Meta
         // API before anything is persisted, never store a connection that is silently broken.
         var validation = await validationClient.ValidateAsync(

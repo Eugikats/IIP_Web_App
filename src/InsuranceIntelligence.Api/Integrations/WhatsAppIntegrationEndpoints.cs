@@ -21,7 +21,7 @@ public static class WhatsAppIntegrationEndpoints
         IWhatsAppRuntimeSettingsProvider settingsProvider,
         InfrastructureOptions options)
     {
-        var settings = settingsProvider.Current;
+        var settings = settingsProvider.Current ?? settingsProvider.All.FirstOrDefault();
         var mappingConfigured = settings is not null
             && !string.IsNullOrWhiteSpace(settings.TenantId)
             && !string.IsNullOrWhiteSpace(settings.WorkspaceId);
@@ -29,8 +29,7 @@ public static class WhatsAppIntegrationEndpoints
         // providers are registered unconditionally, see InfrastructureRegistration), so it counts
         // as selected here too. Previously this reported "Not configured" for a working, tenant-
         // connected channel whenever INSURANCEINTELLIGENCE_CHANNEL_PROVIDER was still Disabled.
-        var providerSelected = options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(settings?.Source, "TenantConfigured", StringComparison.Ordinal);
+        var providerSelected = WhatsAppChannelProviderSupport.IsLive(options, settingsProvider);
         var configured = providerSelected && inboundProvider.IsConfigured && outboundProvider.IsConfigured && mappingConfigured;
         return Results.Ok(new
         {
@@ -97,8 +96,12 @@ public static class WhatsAppIntegrationEndpoints
         }
         if (result.Status == "InvalidSignature") return Results.Unauthorized();
 
-        var settings = settingsProvider.Current;
-        if (settings is null)
+        if (result.Status == "Ignored")
+        {
+            return Results.Ok(new { status = "Ignored" });
+        }
+
+        if (!settingsProvider.AnyConfigured)
         {
             return Results.Problem(
                 statusCode: StatusCodes.Status503ServiceUnavailable,
@@ -106,37 +109,54 @@ public static class WhatsAppIntegrationEndpoints
                 detail: "WhatsApp inbound is not configured.");
         }
 
-        var scope = TenantScope.Create(settings.TenantId, settings.WorkspaceId);
         try
         {
             var json = System.Text.Encoding.UTF8.GetString(rawBody);
-            var inbound = WhatsAppWebhookParser.ParseMessages(json)
-                .Where(message => string.Equals(message.BusinessPhoneNumberId, settings.PhoneNumberId, StringComparison.Ordinal))
-                .ToArray();
-            var statuses = WhatsAppWebhookParser.ParseDeliveryEvents(json)
-                .Where(status => string.Equals(status.BusinessPhoneNumberId, settings.PhoneNumberId, StringComparison.Ordinal))
-                .ToArray();
-            var newInbound = await messagingService.IngestInboundAsync(scope, inbound, cancellationToken);
-            var messagesSaved = newInbound.Count;
-            var deliveryUpdates = await messagingService.ApplyDeliveryEventsAsync(scope, statuses, cancellationToken);
-            if (newInbound.Count > 0)
+            var allInbound = WhatsAppWebhookParser.ParseMessages(json);
+            var allStatuses = WhatsAppWebhookParser.ParseDeliveryEvents(json);
+            var messagesSaved = 0;
+            var deliveryUpdates = 0;
+
+            // One payload can carry several numbers; each is handled in its own insurer's scope.
+            // The signature was already verified for every number that belongs to an insurer here.
+            foreach (var phoneNumberId in WhatsAppWebhookParser.ReadPhoneNumberIds(json))
             {
-                // The messages are already durably saved above, so Meta is answered now and the
-                // assistant runs in the background. Handling it inside this request meant a slow
-                // assistant outlasted Meta's patience, and a dropped connection cancelled the work
-                // after the message was saved, so the retry saw it as already handled and the
-                // customer was never answered. Only messages seen for the first time reach the
-                // queue, so a redelivered webhook neither answers twice nor loses the message.
-                var assistantRequest = new WhatsAppAssistantRequest(
-                    scope, newInbound, request.HttpContext.TraceIdentifier, options.WhatsApp.AssistantAutoReplyEnabled);
-                if (!assistantQueue.TryEnqueue(assistantRequest))
+                var settings = settingsProvider.ForPhoneNumberId(phoneNumberId);
+                if (settings is null)
                 {
-                    // The queue is full. Never drop a customer's message: handle it here instead,
-                    // on a token that survives the caller hanging up.
-                    logger.LogWarning("WhatsApp assistant queue is full; handling a batch inline for tenant {TenantId}", scope.TenantId);
-                    _ = WhatsAppAssistantWorker.RunAsync(assistantRequest, scopeFactory, logger, CancellationToken.None);
+                    continue;
+                }
+
+                var scope = TenantScope.Create(settings.TenantId, settings.WorkspaceId);
+                var inbound = allInbound
+                    .Where(message => string.Equals(message.BusinessPhoneNumberId, phoneNumberId, StringComparison.Ordinal))
+                    .ToArray();
+                var statuses = allStatuses
+                    .Where(status => string.Equals(status.BusinessPhoneNumberId, phoneNumberId, StringComparison.Ordinal))
+                    .ToArray();
+                var newInbound = await messagingService.IngestInboundAsync(scope, inbound, cancellationToken);
+                messagesSaved += newInbound.Count;
+                deliveryUpdates += await messagingService.ApplyDeliveryEventsAsync(scope, statuses, cancellationToken);
+                if (newInbound.Count > 0)
+                {
+                    // The messages are already durably saved above, so Meta is answered now and the
+                    // assistant runs in the background. Handling it inside this request meant a slow
+                    // assistant outlasted Meta's patience, and a dropped connection cancelled the work
+                    // after the message was saved, so the retry saw it as already handled and the
+                    // customer was never answered. Only messages seen for the first time reach the
+                    // queue, so a redelivered webhook neither answers twice nor loses the message.
+                    var assistantRequest = new WhatsAppAssistantRequest(
+                        scope, newInbound, request.HttpContext.TraceIdentifier, options.WhatsApp.AssistantAutoReplyEnabled);
+                    if (!assistantQueue.TryEnqueue(assistantRequest))
+                    {
+                        // The queue is full. Never drop a customer's message: handle it here instead,
+                        // on a token that survives the caller hanging up.
+                        logger.LogWarning("WhatsApp assistant queue is full; handling a batch inline for tenant {TenantId}", scope.TenantId);
+                        _ = WhatsAppAssistantWorker.RunAsync(assistantRequest, scopeFactory, logger, CancellationToken.None);
+                    }
                 }
             }
+
             return Results.Ok(new
             {
                 status = "Accepted",

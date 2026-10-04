@@ -186,7 +186,7 @@ public static class WorkflowEndpoints
                         claimForWorkflow,
                         context.Checklist,
                         correlationId,
-                        whatsAppSettingsProvider.Current?.PhoneNumberId,
+                        whatsAppSettingsProvider.ForTenant(claimForWorkflow.Scope)?.PhoneNumberId,
                         cancellationToken);
                 }
                 catch (Exception ex)

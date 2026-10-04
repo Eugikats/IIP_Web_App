@@ -63,6 +63,11 @@ public interface IWhatsAppChannelConfigurationRepository
     Task SaveAsync(WhatsAppChannelConfiguration configuration, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(TenantScope scope, CancellationToken cancellationToken = default);
+
+    /// <summary>Every active connection across all tenants. Platform-level on purpose: the one
+    /// webhook URL must find which insurer a WhatsApp number belongs to before any tenant is known.
+    /// Never exposed through an API; only the runtime settings provider calls it.</summary>
+    Task<IReadOnlyList<WhatsAppChannelConfiguration>> ListActiveAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>Encrypts/decrypts WhatsApp secret fields at rest. Implemented over ASP.NET Core Data

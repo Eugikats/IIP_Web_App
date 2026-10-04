@@ -9,15 +9,15 @@ public sealed class WhatsAppCloudApiOutboundProvider(
     IWhatsAppRuntimeSettingsProvider settingsProvider,
     HttpClient httpClient) : IWhatsAppOutboundProvider
 {
-    public bool IsConfigured => settingsProvider.Current is not null;
+    public bool IsConfigured => settingsProvider.AnyConfigured;
 
     public async Task<WhatsAppProviderSendResult> SendAsync(
         WhatsAppProviderSendRequest request,
         CancellationToken cancellationToken = default)
     {
-        var settings = settingsProvider.Current;
-        if (settings is null) return new(false, null, null, "WhatsApp outbound is not configured.");
-        if (!string.Equals(request.BusinessPhoneNumberId, settings.PhoneNumberId, StringComparison.Ordinal))
+        if (!settingsProvider.AnyConfigured) return new(false, null, null, "WhatsApp outbound is not configured.");
+        var settings = settingsProvider.ForPhoneNumberId(request.BusinessPhoneNumberId);
+        if (settings is null)
             return new(false, null, null, "The WhatsApp sender is not configured for this tenant workspace.");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -50,10 +50,8 @@ public sealed class WhatsAppCloudApiOutboundProvider(
         string inboundProviderMessageId,
         CancellationToken cancellationToken = default)
     {
-        var settings = settingsProvider.Current;
-        if (settings is null
-            || string.IsNullOrWhiteSpace(inboundProviderMessageId)
-            || !string.Equals(businessPhoneNumberId, settings.PhoneNumberId, StringComparison.Ordinal))
+        var settings = settingsProvider.ForPhoneNumberId(businessPhoneNumberId);
+        if (settings is null || string.IsNullOrWhiteSpace(inboundProviderMessageId))
         {
             return false;
         }
@@ -85,9 +83,9 @@ public sealed class WhatsAppCloudApiOutboundProvider(
         string? replyToProviderMessageId,
         CancellationToken cancellationToken = default)
     {
-        var settings = settingsProvider.Current;
-        if (settings is null) return new(false, null, null, "WhatsApp outbound is not configured.");
-        if (!string.Equals(businessPhoneNumberId, settings.PhoneNumberId, StringComparison.Ordinal))
+        if (!settingsProvider.AnyConfigured) return new(false, null, null, "WhatsApp outbound is not configured.");
+        var settings = settingsProvider.ForPhoneNumberId(businessPhoneNumberId);
+        if (settings is null)
             return new(false, null, null, "The WhatsApp sender is not configured for this tenant workspace.");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

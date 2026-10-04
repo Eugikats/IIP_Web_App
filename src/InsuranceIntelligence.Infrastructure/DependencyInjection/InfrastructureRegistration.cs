@@ -398,6 +398,7 @@ public static class InfrastructureRegistration
                 RequestTimeoutSeconds = int.TryParse(configuration["AfricasTalking:RequestTimeoutSeconds"], out var atTimeout) ? atTimeout : 15,
                 AutoSendTransactionalSmsEnabled = bool.TryParse(configuration["AfricasTalking:AutoSendTransactionalSmsEnabled"], out var autoSms) && autoSms,
             },
+            MultiTenant = bool.TryParse(configuration["INSURANCEINTELLIGENCE_MULTI_TENANT"], out var multiTenant) && multiTenant,
             WhatsApp = new WhatsAppOptions
             {
                 PhoneNumberId = configuration["WhatsApp:PhoneNumberId"],

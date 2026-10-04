@@ -737,7 +737,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         public Task<bool> IsAvailableAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
-        public Task<string?> TranscribeAsync(TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, CancellationToken cancellationToken = default)
+        public Task<string?> TranscribeAsync(TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, string? businessPhoneNumberId = null, CancellationToken cancellationToken = default)
         {
             LastMediaId = mediaId;
             return Task.FromResult(transcript);

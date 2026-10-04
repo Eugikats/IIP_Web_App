@@ -31,9 +31,26 @@ public sealed record WhatsAppEffectiveSettings(
 /// </summary>
 public interface IWhatsAppRuntimeSettingsProvider
 {
+    /// <summary>The one deployment-wide connection (Managed App). Always null in multi-tenant mode.</summary>
     WhatsAppEffectiveSettings? Current { get; }
 
     Task RefreshAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Every live connection: one in the Managed App, one per insurer in SaaS mode.</summary>
+    IReadOnlyCollection<WhatsAppEffectiveSettings> All => Current is null ? [] : [Current];
+
+    bool AnyConfigured => All.Count > 0;
+
+    /// <summary>The connection that owns this WhatsApp number, or null: the number is not ours.</summary>
+    WhatsAppEffectiveSettings? ForPhoneNumberId(string? phoneNumberId) =>
+        string.IsNullOrWhiteSpace(phoneNumberId)
+            ? null
+            : All.FirstOrDefault(s => string.Equals(s.PhoneNumberId, phoneNumberId, StringComparison.Ordinal));
+
+    /// <summary>This insurer's connection, or null when it has not connected WhatsApp.</summary>
+    WhatsAppEffectiveSettings? ForTenant(TenantScope scope) =>
+        All.FirstOrDefault(s => string.Equals(s.TenantId, scope.TenantId, StringComparison.Ordinal)
+            && string.Equals(s.WorkspaceId, scope.WorkspaceId, StringComparison.Ordinal));
 }
 
 public sealed class WhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsProvider
@@ -41,7 +58,7 @@ public sealed class WhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsPr
     private readonly IServiceScopeFactory scopeFactory;
     private readonly InfrastructureOptions options;
     private readonly object gate = new();
-    private volatile WhatsAppEffectiveSettings? cached;
+    private volatile IReadOnlyList<WhatsAppEffectiveSettings> cachedAll = [];
     private volatile bool loaded;
 
     public WhatsAppRuntimeSettingsProvider(IServiceScopeFactory scopeFactory, InfrastructureOptions options)
@@ -54,15 +71,46 @@ public sealed class WhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsPr
     {
         get
         {
-            if (!loaded)
+            // SaaS mode has no deployment-wide default connection: a caller that asks for "the"
+            // connection gets nothing, and must name the number or the insurer it means.
+            if (options.MultiTenant)
             {
-                // First access blocks briefly on a real DB read, acceptable here (happens once,
-                // not per webhook call) and avoids making every interface member async for a value
-                // that changes only when someone saves new settings.
-                RefreshAsync().GetAwaiter().GetResult();
+                return null;
             }
 
-            return cached;
+            EnsureLoaded();
+            return cachedAll.FirstOrDefault();
+        }
+    }
+
+    public IReadOnlyCollection<WhatsAppEffectiveSettings> All
+    {
+        get
+        {
+            EnsureLoaded();
+            return cachedAll;
+        }
+    }
+
+    public bool AnyConfigured => All.Count > 0;
+
+    public WhatsAppEffectiveSettings? ForPhoneNumberId(string? phoneNumberId) =>
+        string.IsNullOrWhiteSpace(phoneNumberId)
+            ? null
+            : All.FirstOrDefault(s => string.Equals(s.PhoneNumberId, phoneNumberId, StringComparison.Ordinal));
+
+    public WhatsAppEffectiveSettings? ForTenant(TenantScope scope) =>
+        All.FirstOrDefault(s => string.Equals(s.TenantId, scope.TenantId, StringComparison.Ordinal)
+            && string.Equals(s.WorkspaceId, scope.WorkspaceId, StringComparison.Ordinal));
+
+    private void EnsureLoaded()
+    {
+        if (!loaded)
+        {
+            // First access blocks briefly on a real DB read, acceptable here (happens once,
+            // not per webhook call) and avoids making every interface member async for a value
+            // that changes only when someone saves new settings.
+            RefreshAsync().GetAwaiter().GetResult();
         }
     }
 
@@ -71,6 +119,43 @@ public sealed class WhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsPr
         using var scope = scopeFactory.CreateScope();
         var repository = scope.ServiceProvider.GetService<IWhatsAppChannelConfigurationRepository>();
         var protector = scope.ServiceProvider.GetService<IWhatsAppCredentialProtector>();
+
+        if (options.MultiTenant)
+        {
+            var all = new List<WhatsAppEffectiveSettings>();
+            if (repository is not null && protector is not null)
+            {
+                // Oldest connection wins a number: a later claim on the same number can never take
+                // it over (SaveConfiguration also refuses it outright).
+                foreach (var saved in (await repository.ListActiveAsync(cancellationToken)).OrderBy(c => c.ConfiguredAt))
+                {
+                    if (all.Any(existing => string.Equals(existing.PhoneNumberId, saved.PhoneNumberId, StringComparison.Ordinal)))
+                    {
+                        continue;
+                    }
+
+                    all.Add(new WhatsAppEffectiveSettings(
+                        saved.PhoneNumberId,
+                        protector.Unprotect(saved.EncryptedAccessToken),
+                        protector.Unprotect(saved.EncryptedAppSecret),
+                        protector.Unprotect(saved.EncryptedVerifyToken),
+                        options.WhatsApp.GraphBaseUrl,
+                        options.WhatsApp.RequestTimeoutSeconds,
+                        saved.Scope.TenantId,
+                        saved.Scope.WorkspaceId,
+                        options.WhatsApp.IntegrationUserId,
+                        "TenantConfigured"));
+                }
+            }
+
+            lock (gate)
+            {
+                cachedAll = all;
+                loaded = true;
+            }
+
+            return;
+        }
 
         WhatsAppEffectiveSettings? resolved = null;
         if (repository is not null && protector is not null
@@ -98,7 +183,7 @@ public sealed class WhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsPr
 
         lock (gate)
         {
-            cached = resolved;
+            cachedAll = resolved is null ? [] : [resolved];
             loaded = true;
         }
     }
@@ -147,4 +232,9 @@ public static class WhatsAppChannelProviderSupport
     public static bool IsLive(InfrastructureOptions options, WhatsAppEffectiveSettings? settings) =>
         options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase)
         || string.Equals(settings?.Source, "TenantConfigured", StringComparison.Ordinal);
+
+    /// <summary>Live when the deployment selected WhatsApp, or any insurer has a saved connection.</summary>
+    public static bool IsLive(InfrastructureOptions options, IWhatsAppRuntimeSettingsProvider settingsProvider) =>
+        options.ChannelProvider.Equals("WhatsAppCloudApi", StringComparison.OrdinalIgnoreCase)
+        || settingsProvider.All.Any(s => string.Equals(s.Source, "TenantConfigured", StringComparison.Ordinal));
 }

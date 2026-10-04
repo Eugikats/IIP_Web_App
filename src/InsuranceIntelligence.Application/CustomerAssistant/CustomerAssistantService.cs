@@ -235,7 +235,7 @@ public sealed partial class CustomerAssistantService(
 
         // Transcription can take a while on a cold start; the customer sees "typing..." meanwhile.
         using var typing = StartTypingIndicator(inbound, cancellationToken);
-        return await voiceTranscriber.TranscribeAsync(scope, inbound.MediaId, preferredLanguage: null, cancellationToken);
+        return await voiceTranscriber.TranscribeAsync(scope, inbound.MediaId, preferredLanguage: null, inbound.BusinessPhoneNumberId, cancellationToken);
     }
 
     private async Task ReplyCannotListenAsync(TenantScope scope, WhatsAppInboundMessage inbound, string correlationId, CancellationToken cancellationToken)

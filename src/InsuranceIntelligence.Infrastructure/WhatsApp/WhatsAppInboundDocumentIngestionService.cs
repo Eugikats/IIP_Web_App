@@ -33,8 +33,7 @@ public sealed class WhatsAppInboundDocumentIngestionService(
         string? signatureHeader,
         CancellationToken cancellationToken = default)
     {
-        var settings = settingsProvider.Current;
-        if (!whatsAppProvider.IsConfigured || !WhatsAppChannelProviderSupport.IsLive(options, settings))
+        if (!whatsAppProvider.IsConfigured || !WhatsAppChannelProviderSupport.IsLive(options, settingsProvider))
         {
             return new WhatsAppIngestionResult(
                 "ConfigurationRequired",
@@ -44,51 +43,64 @@ public sealed class WhatsAppInboundDocumentIngestionService(
                 "WhatsApp inbound is not configured.");
         }
 
-        if (!whatsAppProvider.IsValidSignature(rawBody.Span, signatureHeader))
+        var json = System.Text.Encoding.UTF8.GetString(rawBody.Span);
+        IReadOnlyList<string> phoneNumberIds;
+        try
+        {
+            phoneNumberIds = WhatsAppWebhookParser.ReadPhoneNumberIds(json);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Unreadable, so it cannot be attributed to any insurer and cannot be verified.
+            return new WhatsAppIngestionResult("InvalidSignature", 0, 0, 0, "Webhook signature was invalid.");
+        }
+
+        // The payload says which WhatsApp number it is about; that number alone decides which
+        // insurer's app secret must have signed it. Numbers that belong to no insurer here are
+        // ignored without being processed. Every number that does belong to one must verify.
+        var ownedNumbers = phoneNumberIds.Where(id => settingsProvider.ForPhoneNumberId(id) is not null).ToArray();
+        if (ownedNumbers.Length == 0)
+        {
+            return phoneNumberIds.Count == 0
+                ? new WhatsAppIngestionResult("InvalidSignature", 0, 0, 0, "Webhook signature was invalid.")
+                : new WhatsAppIngestionResult("Ignored", 0, 0, 0, null);
+        }
+
+        if (ownedNumbers.Any(id => !whatsAppProvider.IsValidSignatureFor(id, rawBody.Span, signatureHeader)))
         {
             logger.LogWarning("WhatsApp webhook rejected: invalid X-Hub-Signature-256.");
             return new WhatsAppIngestionResult("InvalidSignature", 0, 0, 0, "Webhook signature was invalid.");
         }
 
-        if (settings is null)
-        {
-            return new WhatsAppIngestionResult(
-                "ConfigurationRequired",
-                0,
-                0,
-                0,
-                "WhatsApp channel mapping (tenant/workspace) is not configured.");
-        }
-
-        var json = System.Text.Encoding.UTF8.GetString(rawBody.Span);
         var mediaMessages = whatsAppProvider.ParseInboundMediaMessages(json);
         if (mediaMessages.Count == 0)
         {
             return new WhatsAppIngestionResult("Ignored", 0, 0, 0, null);
         }
 
-        var expectedPhoneNumberId = settings.PhoneNumberId;
-        var scope = TenantScope.Create(settings.TenantId, settings.WorkspaceId);
-        // IntegrationUserId attributes a document upload to a real staff account for audit; it is
-        // an optional deployment-level refinement, not a precondition for the channel to work at
-        // all. A tenant that connects WhatsApp from the settings screen has set nothing like it
-        // (there is no field for it on that screen), and this used to reject every single message,
-        // text included, until an operator learned of an env var no UI ever mentioned.
-        var actor = string.IsNullOrWhiteSpace(settings.IntegrationUserId) ? SystemActorId : settings.IntegrationUserId!;
         var documentsStored = 0;
         var manualReview = 0;
 
         foreach (var message in mediaMessages)
         {
-            if (!string.Equals(message.BusinessPhoneNumberId, expectedPhoneNumberId, StringComparison.Ordinal))
+            // Which insurer owns the number this arrived on. Routing never falls back to a default.
+            var settings = settingsProvider.ForPhoneNumberId(message.BusinessPhoneNumberId);
+            if (settings is null)
             {
                 logger.LogWarning(
-                    "WhatsApp media ignored: phone_number_id mismatch. Expected={Expected} Actual={Actual}",
-                    expectedPhoneNumberId,
+                    "WhatsApp media ignored: phone_number_id belongs to no connected insurer. Actual={Actual}",
                     message.BusinessPhoneNumberId);
                 manualReview++;
                 continue;
             }
+
+            var scope = TenantScope.Create(settings.TenantId, settings.WorkspaceId);
+            // IntegrationUserId attributes a document upload to a real staff account for audit; it is
+            // an optional deployment-level refinement, not a precondition for the channel to work at
+            // all. A tenant that connects WhatsApp from the settings screen has set nothing like it
+            // (there is no field for it on that screen), and this used to reject every single message,
+            // text included, until an operator learned of an env var no UI ever mentioned.
+            var actor = string.IsNullOrWhiteSpace(settings.IntegrationUserId) ? SystemActorId : settings.IntegrationUserId!;
 
             var match = await matcher.MatchAsync(message, scope, cancellationToken);
             ClaimCase claimCase;

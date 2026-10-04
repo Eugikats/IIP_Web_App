@@ -8,6 +8,11 @@ public sealed record InfrastructureOptions
     public string? RuntimeProfile { get; init; }
     public string? TenantId { get; init; }
     public string? WorkspaceId { get; init; }
+
+    /// <summary>SaaS mode: many insurers on one deployment. No tenant is ever taken from
+    /// configuration; every request, webhook and job resolves its own tenant, and anything that
+    /// cannot is refused rather than sent to a default. Off for the single-insurer Managed App.</summary>
+    public bool MultiTenant { get; init; }
     public bool AllowProductionMockProviders { get; init; }
     public bool SeedDemoData { get; init; }
     public string? SqlServerConnectionString { get; init; }

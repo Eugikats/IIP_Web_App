@@ -41,7 +41,7 @@ public sealed class SunbirdVoiceNoteTranscriber(
         await SettingsAsync(scope, cancellationToken) is not null && whatsAppProvider.IsConfigured;
 
     public async Task<string?> TranscribeAsync(
-        TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, CancellationToken cancellationToken = default)
+        TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, string? businessPhoneNumberId = null, CancellationToken cancellationToken = default)
     {
         var settings = await SettingsAsync(scope, cancellationToken);
         if (settings is null || string.IsNullOrWhiteSpace(mediaId))
@@ -51,7 +51,9 @@ public sealed class SunbirdVoiceNoteTranscriber(
 
         try
         {
-            var media = await whatsAppProvider.DownloadMediaAsync(mediaId, cancellationToken);
+            var media = string.IsNullOrWhiteSpace(businessPhoneNumberId)
+                ? await whatsAppProvider.DownloadMediaAsync(mediaId, cancellationToken)
+                : await whatsAppProvider.DownloadMediaAsync(mediaId, businessPhoneNumberId, cancellationToken);
             if (media.ContentBytes.Length == 0 || media.ContentBytes.Length > MaxAudioBytes)
             {
                 return null;

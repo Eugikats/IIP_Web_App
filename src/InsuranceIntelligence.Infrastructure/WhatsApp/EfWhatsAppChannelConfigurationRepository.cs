@@ -24,6 +24,16 @@ public sealed class EfWhatsAppChannelConfigurationRepository(InsuranceIntelligen
             Serialize(configuration),
             cancellationToken: cancellationToken);
 
+    public async Task<IReadOnlyList<WhatsAppChannelConfiguration>> ListActiveAsync(CancellationToken cancellationToken = default)
+    {
+        var records = await DbContext.WhatsAppChannelConfigurations.AsNoTracking().ToListAsync(cancellationToken);
+        return records
+            .Select(record => Deserialize<WhatsAppChannelConfiguration>(record.PayloadJson))
+            .Where(configuration => configuration is { IsActive: true })
+            .Select(configuration => configuration!)
+            .ToArray();
+    }
+
     public async Task DeleteAsync(TenantScope scope, CancellationToken cancellationToken = default)
     {
         var id = WhatsAppChannelConfiguration.StorageKey(scope);

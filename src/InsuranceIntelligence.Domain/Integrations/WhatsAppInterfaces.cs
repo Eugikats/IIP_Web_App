@@ -16,9 +16,19 @@ public interface IWhatsAppInboundProvider
 
     bool IsValidSignature(ReadOnlySpan<byte> payload, string? signatureHeader);
 
+    /// <summary>Signature check against the app secret of the insurer that owns the given WhatsApp
+    /// number. With several insurers on one webhook, a payload must verify under the secret of the
+    /// number it is about, never under any secret that happens to match.</summary>
+    bool IsValidSignatureFor(string businessPhoneNumberId, ReadOnlySpan<byte> payload, string? signatureHeader) =>
+        IsValidSignature(payload, signatureHeader);
+
     IReadOnlyList<WhatsAppInboundMediaMessage> ParseInboundMediaMessages(string jsonPayload);
 
     Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, CancellationToken cancellationToken = default);
+
+    /// <summary>Downloads media with the credentials of the insurer that owns the number it arrived on.</summary>
+    Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, string businessPhoneNumberId, CancellationToken cancellationToken = default) =>
+        DownloadMediaAsync(mediaId, cancellationToken);
 }
 
 public interface IWhatsAppOutboundProvider

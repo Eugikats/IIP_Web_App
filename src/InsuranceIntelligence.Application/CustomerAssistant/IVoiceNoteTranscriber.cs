@@ -16,5 +16,5 @@ public interface IVoiceNoteTranscriber
     /// <summary>The words in the voice note, or null when it could not be understood (no engine,
     /// download failed, engine failed, silence). Never throws for those: the caller answers in text.</summary>
     Task<string?> TranscribeAsync(
-        TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, CancellationToken cancellationToken = default);
+        TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, string? businessPhoneNumberId = null, CancellationToken cancellationToken = default);
 }
