@@ -146,6 +146,8 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Webhooks.OutboundEventPublisher>();
         services.AddSingleton<InsuranceIntelligence.Application.Webhooks.IWebhookHttpSender, InsuranceIntelligence.Infrastructure.Webhooks.SafeWebhookHttpSender>();
         services.AddScoped<InsuranceIntelligence.Application.Webhooks.OutboundWebhookDispatcher>();
+        services.AddScoped<InsuranceIntelligence.Domain.Organisations.IApiKeyRepository, InsuranceIntelligence.Infrastructure.Persistence.EfApiKeyRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.Organisations.ApiKeyService>();
         services.AddScoped<InsuranceIntelligence.Application.Organisations.OrganisationService>();
         services.AddScoped<InsuranceIntelligence.Application.Organisations.OrganisationOnboardingService>();
         services.AddScoped<InsuranceIntelligence.Domain.Usage.IUsageMeter, InsuranceIntelligence.Infrastructure.Persistence.EfUsageMeter>();

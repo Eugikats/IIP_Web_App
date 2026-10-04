@@ -225,7 +225,9 @@ public static class OrganisationEndpoints
         }
 
         var userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
-        return string.IsNullOrWhiteSpace(userId) ? null : userId;
+
+        // A system holding an API key is not a person: it cannot found organisations or accept invitations.
+        return string.IsNullOrWhiteSpace(userId) || InsuranceIntelligence.Domain.Organisations.ApiKeyRecord.IsMachineUser(userId) ? null : userId;
     }
 
     private static readonly string[] EmailClaims = ["email", ClaimTypes.Email, "preferred_username", "upn", "unique_name"];

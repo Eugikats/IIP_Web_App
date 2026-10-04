@@ -97,6 +97,16 @@ public static class RolePermissionMap
                 Permission.ManageKnowledgeBase,
                 Permission.ViewAiOutputs
             ],
+            // An insurer's own system: it can file and read claims and take the claims register, and
+            // nothing else. It cannot change settings, people, connections or other keys.
+            [PlatformRole.Integration] =
+            [
+                Permission.CreateClaim,
+                Permission.UploadDocument,
+                Permission.ViewAllClaims,
+                Permission.ViewCustomers,
+                Permission.ExportEvidencePack
+            ],
             [PlatformRole.PublisherSupport] =
             [
                 Permission.ViewCommandCenter,

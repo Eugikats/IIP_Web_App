@@ -124,6 +124,26 @@ if (!string.IsNullOrWhiteSpace(infrastructureOptions.DataProtectionBlobUri) && !
         .ProtectKeysWithAzureKeyVault(new Uri(infrastructureOptions.DataProtectionKeyUri), keyRingCredential);
 }
 
+if (infrastructureOptions.MultiTenant && !infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+{
+    // People sign in with a token; a company's own systems present an API key. One door, two ways in.
+    builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultScheme = "IipAuth";
+            options.DefaultChallengeScheme = "IipAuth";
+        })
+        .AddPolicyScheme("IipAuth", "Bearer token or API key", options =>
+        {
+            options.ForwardDefaultSelector = context =>
+                context.Request.Headers.ContainsKey(InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.HeaderName)
+                    ? InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.Scheme
+                    : JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler>(
+            InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.Scheme, _ => { });
+}
+
 builder.Services.AddRateLimiter(limits =>
 {
     limits.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -634,6 +654,12 @@ app.Use(async (context, next) =>
                     RuntimeClaimTypes.RequestedOrganisationHeaderName, out var requestedOrganisationValue)
                     ? requestedOrganisationValue.ToString()
                     : null;
+                // A key acts only in the organisation it belongs to, whatever the header says.
+                if (context.Items[InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.OrganisationItemKey] is string keyOrganisation)
+                {
+                    requestedOrganisation = keyOrganisation;
+                }
+
                 var tenantHint = !string.IsNullOrWhiteSpace(requestedOrganisation)
                     ? requestedOrganisation.Trim()
                     : infrastructureOptions.MultiTenant
@@ -710,6 +736,9 @@ app.MapGet("/api/v1/organisation/webhooks", InsuranceIntelligence.Api.Webhooks.W
 app.MapDelete("/api/v1/organisation/webhooks/{subscriptionId:guid}", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Remove);
 app.MapPost("/api/v1/organisation/webhooks/{subscriptionId:guid}/test", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Test);
 app.MapGet("/api/v1/organisation/webhooks/{subscriptionId:guid}/deliveries", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Deliveries);
+app.MapPost("/api/v1/organisation/api-keys", InsuranceIntelligence.Api.Organisations.ApiKeyEndpoints.Create);
+app.MapGet("/api/v1/organisation/api-keys", InsuranceIntelligence.Api.Organisations.ApiKeyEndpoints.List);
+app.MapDelete("/api/v1/organisation/api-keys/{keyId:guid}", InsuranceIntelligence.Api.Organisations.ApiKeyEndpoints.Revoke);
 app.MapGet("/api/v1/organisation/usage", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Usage);
 app.MapGet("/api/v1/organisation/data-export", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ExportData);
 app.MapPost("/api/v1/organisation/close", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Close);

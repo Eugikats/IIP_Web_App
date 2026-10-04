@@ -25,6 +25,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<OrganisationInvitationEntity> OrganisationInvitations => Set<OrganisationInvitationEntity>();
     public DbSet<BrokerLinkEntity> BrokerLinks => Set<BrokerLinkEntity>();
     public DbSet<UsageCounterEntity> UsageCounters => Set<UsageCounterEntity>();
+    public DbSet<ApiKeyEntity> ApiKeys => Set<ApiKeyEntity>();
     public DbSet<PersistedOutboundWebhookSubscription> OutboundWebhookSubscriptions => Set<PersistedOutboundWebhookSubscription>();
     public DbSet<PersistedOutboundDelivery> OutboundDeliveries => Set<PersistedOutboundDelivery>();
     public DbSet<RoleAssignmentEntity> RoleAssignments => Set<RoleAssignmentEntity>();
@@ -232,6 +233,20 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
             entity.Property(item => item.InvitedByUserId).HasMaxLength(240).IsRequired();
             entity.Property(item => item.AcceptedByUserId).HasMaxLength(240);
             entity.HasIndex(item => item.TokenHash).IsUnique();
+            entity.HasIndex(item => item.OrganisationId);
+        });
+
+        modelBuilder.Entity<ApiKeyEntity>(entity =>
+        {
+            entity.ToTable("ApiKeys");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.OrganisationId).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Prefix).HasMaxLength(16).IsRequired();
+            entity.Property(item => item.KeyHash).HasMaxLength(64).IsRequired();
+            entity.Property(item => item.UserId).HasMaxLength(240).IsRequired();
+            entity.Property(item => item.CreatedByUserId).HasMaxLength(240).IsRequired();
+            entity.HasIndex(item => item.KeyHash).IsUnique();
             entity.HasIndex(item => item.OrganisationId);
         });
 

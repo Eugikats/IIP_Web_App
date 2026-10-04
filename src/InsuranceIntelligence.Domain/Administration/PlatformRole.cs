@@ -11,5 +11,8 @@ public enum PlatformRole
     Client,
     KnowledgeManager,
     ITAdmin,
-    PublisherSupport
+    PublisherSupport,
+
+    /// <summary>A system acting for an insurer through an API key, never a person.</summary>
+    Integration
 }

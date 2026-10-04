@@ -52,10 +52,18 @@ public static class MarketplaceEndpoints
         }
     }
 
-    private static bool SignedIn(HttpContext httpContext, InfrastructureOptions options) =>
-        options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)
-            ? !string.IsNullOrWhiteSpace(DemoAuthorization.GetUserId(httpContext, fallback: string.Empty))
+    private static bool SignedIn(HttpContext httpContext, InfrastructureOptions options)
+    {
+        var userId = DemoAuthorization.GetUserId(httpContext, fallback: string.Empty);
+        if (InsuranceIntelligence.Domain.Organisations.ApiKeyRecord.IsMachineUser(userId))
+        {
+            return false; // buying a subscription is for a person
+        }
+
+        return options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)
+            ? !string.IsNullOrWhiteSpace(userId)
             : httpContext.User.Identity?.IsAuthenticated == true;
+    }
 
     private static async Task<IResult> Run(Func<Task<IResult>> action)
     {

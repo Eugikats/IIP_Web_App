@@ -76,7 +76,7 @@ public sealed class EfOrganisationRepository(InsuranceIntelligenceDbContext db) 
 
     public async Task<IReadOnlyList<string>> ListMemberUserIdsAsync(string organisationId, CancellationToken cancellationToken = default) =>
         await db.UserTenantMemberships.AsNoTracking()
-            .Where(m => m.TenantId == organisationId && m.IsActive)
+            .Where(m => m.TenantId == organisationId && m.IsActive && !m.UserId.StartsWith(ApiKeyRecord.UserPrefix))
             .Select(m => m.UserId)
             .Distinct()
             .ToListAsync(cancellationToken);
