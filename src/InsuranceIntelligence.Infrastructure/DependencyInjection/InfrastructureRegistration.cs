@@ -142,6 +142,10 @@ public static class InfrastructureRegistration
         services.AddSingleton<IWhatsAppRuntimeSettingsProvider, WhatsAppRuntimeSettingsProvider>();
         services.AddScoped<InsuranceIntelligence.Domain.Common.IWorkspaceDirectory, InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceDirectory>();
         services.AddScoped<InsuranceIntelligence.Domain.Organisations.IOrganisationRepository, InsuranceIntelligence.Infrastructure.Persistence.EfOrganisationRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Webhooks.IOutboundWebhookRepository, InsuranceIntelligence.Infrastructure.Webhooks.EfOutboundWebhookRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.Webhooks.OutboundEventPublisher>();
+        services.AddSingleton<InsuranceIntelligence.Application.Webhooks.IWebhookHttpSender, InsuranceIntelligence.Infrastructure.Webhooks.SafeWebhookHttpSender>();
+        services.AddScoped<InsuranceIntelligence.Application.Webhooks.OutboundWebhookDispatcher>();
         services.AddScoped<InsuranceIntelligence.Application.Organisations.OrganisationService>();
         services.AddScoped<InsuranceIntelligence.Application.Organisations.OrganisationOnboardingService>();
         services.AddScoped<InsuranceIntelligence.Domain.Usage.IUsageMeter, InsuranceIntelligence.Infrastructure.Persistence.EfUsageMeter>();

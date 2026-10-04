@@ -117,11 +117,15 @@ public sealed class EfKnowledgeDocumentRepository(InsuranceIntelligenceDbContext
             .ToArrayAsync(cancellationToken);
 }
 
-public sealed class EfAuditRepository(InsuranceIntelligenceDbContext dbContext)
+public sealed class EfAuditRepository(
+    InsuranceIntelligenceDbContext dbContext,
+    InsuranceIntelligence.Application.Core.ITenantContextAccessor? tenantContext = null,
+    InsuranceIntelligence.Application.Webhooks.OutboundEventPublisher? events = null)
     : JsonRepositoryBase(dbContext), IAuditRepository
 {
-    public Task WriteAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default) =>
-        UpsertAsync(
+    public async Task WriteAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+    {
+        await UpsertAsync(
             DbContext.AuditEvents,
             auditEvent.EventId,
             auditEvent.Scope,
@@ -129,11 +133,33 @@ public sealed class EfAuditRepository(InsuranceIntelligenceDbContext dbContext)
             record => record.CaseId = auditEvent.CaseId,
             cancellationToken);
 
-    public async Task<IReadOnlyCollection<AuditEvent>> ListForCaseAsync(Guid caseId, CancellationToken cancellationToken = default) =>
-        await DbContext.AuditEvents.AsNoTracking()
-            .Where(record => record.CaseId == caseId)
-            .Select(record => Deserialize<AuditEvent>(record.PayloadJson))
-            .ToArrayAsync(cancellationToken);
+        // Events for the insurer's own systems come from the audit trail. The audit entry is
+        // already safely written; a problem queuing an event must never undo or hide it.
+        if (events is not null)
+        {
+            try
+            {
+                await events.PublishFromAuditAsync(auditEvent, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // The event can be replayed from the audit trail; the audit entry itself stands.
+            }
+        }
+    }
+
+    public async Task<IReadOnlyCollection<AuditEvent>> ListForCaseAsync(Guid caseId, CancellationToken cancellationToken = default)
+    {
+        var query = DbContext.AuditEvents.AsNoTracking().Where(record => record.CaseId == caseId);
+        // Looked up by case id alone, so inside a request it only returns the caller's own organisation's trail.
+        if (tenantContext is { HasCurrent: true })
+        {
+            var current = tenantContext.Current;
+            query = query.Where(record => record.TenantId == current.TenantId && record.WorkspaceId == current.WorkspaceId);
+        }
+
+        return await query.Select(record => Deserialize<AuditEvent>(record.PayloadJson)).ToArrayAsync(cancellationToken);
+    }
 
     public async Task<IReadOnlyCollection<AuditEvent>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
         await Scoped(DbContext.AuditEvents.AsNoTracking(), scope)

@@ -472,6 +472,7 @@ builder.Services.AddSingleton<InsuranceIntelligence.Api.Integrations.IWhatsAppAs
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantWorker>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.WhatsAppAssistantRecoveryService>();
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantRecoveryWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Webhooks.OutboundWebhookWorker>();
 // WO-14: one instance backs both the emitter (called from the 5 real event sites) and the
 // recipient's own feed (list/read-state), same underlying repository either way.
 builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.NotificationService>();
@@ -703,6 +704,12 @@ app.MapPost("/api/v1/marketplace/activate", InsuranceIntelligence.Api.Marketplac
 app.MapPost("/api/v1/marketplace/webhook", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Webhook).RequireRateLimiting("webhook");
 app.MapGet("/api/v1/organisation/onboarding", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Onboarding);
 app.MapPost("/api/v1/organisation/sandbox", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.EnableSandbox);
+app.MapGet("/api/v1/events/catalogue", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Catalogue);
+app.MapPost("/api/v1/organisation/webhooks", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Create);
+app.MapGet("/api/v1/organisation/webhooks", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.List);
+app.MapDelete("/api/v1/organisation/webhooks/{subscriptionId:guid}", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Remove);
+app.MapPost("/api/v1/organisation/webhooks/{subscriptionId:guid}/test", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Test);
+app.MapGet("/api/v1/organisation/webhooks/{subscriptionId:guid}/deliveries", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Deliveries);
 app.MapGet("/api/v1/organisation/usage", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Usage);
 app.MapGet("/api/v1/organisation/data-export", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ExportData);
 app.MapPost("/api/v1/organisation/close", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Close);

@@ -25,6 +25,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<OrganisationInvitationEntity> OrganisationInvitations => Set<OrganisationInvitationEntity>();
     public DbSet<BrokerLinkEntity> BrokerLinks => Set<BrokerLinkEntity>();
     public DbSet<UsageCounterEntity> UsageCounters => Set<UsageCounterEntity>();
+    public DbSet<PersistedOutboundWebhookSubscription> OutboundWebhookSubscriptions => Set<PersistedOutboundWebhookSubscription>();
+    public DbSet<PersistedOutboundDelivery> OutboundDeliveries => Set<PersistedOutboundDelivery>();
     public DbSet<RoleAssignmentEntity> RoleAssignments => Set<RoleAssignmentEntity>();
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<RolePermissionEntity> RolePermissions => Set<RolePermissionEntity>();
@@ -167,6 +169,11 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedWhatsAppChannelConfiguration>(), "WhatsAppChannelConfigurations", "ConfigurationId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedCaseReview>(), "CaseReviews", "CaseReviewId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedIntegrationConnection>(), "IntegrationConnections", "ConnectionId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedOutboundWebhookSubscription>(), "OutboundWebhookSubscriptions", "SubscriptionId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedOutboundDelivery>(), "OutboundDeliveries", "DeliveryId");
+        modelBuilder.Entity<PersistedOutboundDelivery>().Property(entity => entity.Status).HasMaxLength(20).IsRequired();
+        modelBuilder.Entity<PersistedOutboundDelivery>().HasIndex(entity => new { entity.Status, entity.NextAttemptAt });
+        modelBuilder.Entity<PersistedOutboundDelivery>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.SubscriptionId, entity.CreatedAt });
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentBehaviourProfile>(), "AgentBehaviourProfiles", "VersionId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomerConversationTurn>(), "CustomerConversationTurns", "TurnId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedConsentRecord>(), "ConsentRecords", "RecordId");
@@ -424,6 +431,15 @@ public sealed class PersistedClaimantPortalSession : PersistedScopedJson
 }
 public sealed class PersistedWhatsAppChannelConfiguration : PersistedScopedJson;
 public sealed class PersistedIntegrationConnection : PersistedScopedJson;
+public sealed class PersistedOutboundWebhookSubscription : PersistedScopedJson;
+
+public sealed class PersistedOutboundDelivery : PersistedScopedJson
+{
+    public Guid SubscriptionId { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTimeOffset NextAttemptAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
 public sealed class PersistedAgentBehaviourProfile : PersistedScopedJson { public string AgentKey { get; set; } = string.Empty; }
 public sealed class PersistedCustomerConversationTurn : PersistedScopedJson { public string ThreadId { get; set; } = string.Empty; }
 public sealed class PersistedConsentRecord : PersistedScopedJson { public string CustomerIdentifier { get; set; } = string.Empty; }
