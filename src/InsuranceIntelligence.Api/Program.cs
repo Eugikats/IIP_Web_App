@@ -452,6 +452,8 @@ builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ClaimTriageWo
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantQueue>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Integrations.IWhatsAppAssistantQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantQueue>());
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantWorker>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.WhatsAppAssistantRecoveryService>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantRecoveryWorker>();
 // WO-14: one instance backs both the emitter (called from the 5 real event sites) and the
 // recipient's own feed (list/read-state), same underlying repository either way.
 builder.Services.AddScoped<InsuranceIntelligence.Application.Notifications.NotificationService>();

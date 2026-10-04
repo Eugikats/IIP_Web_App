@@ -224,6 +224,8 @@ public sealed partial class CustomerAssistantService(
                 // person instead, and keep going with the rest of the batch.
                 await EscalateAfterFailureAsync(scope, inbound, correlationId, exception, cancellationToken);
             }
+
+            await MarkHandledAsync(scope, inbound, cancellationToken);
         }
 
         return opened;
@@ -400,6 +402,21 @@ public sealed partial class CustomerAssistantService(
         foreach (var inbound in messages.Where(m => m.ContentType == WhatsAppContentType.Text && !string.IsNullOrWhiteSpace(m.CustomerSafeBody)))
         {
             await EscalateAfterFailureAsync(scope, inbound, correlationId, reason, cancellationToken);
+            await MarkHandledAsync(scope, inbound, cancellationToken);
+        }
+    }
+
+    /// <summary>Best effort: a failed mark means a message may be offered to the recovery sweep once
+    /// more, which checks the conversation before answering anything twice.</summary>
+    private async Task MarkHandledAsync(TenantScope scope, WhatsAppInboundMessage inbound, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await whatsAppMessageRepository.MarkAssistantHandledAsync(scope, inbound.ProviderMessageId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Never let bookkeeping change what the customer sees.
         }
     }
 

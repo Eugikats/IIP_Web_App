@@ -38,6 +38,16 @@ public sealed class EfWhatsAppMessageRepository(InsuranceIntelligenceDbContext d
         return record is null ? null : Deserialize<WhatsAppMessage>(record.PayloadJson);
     }
 
+    public async Task<IReadOnlyList<WhatsAppMessage>> ListSinceAsync(TenantScope scope, DateTimeOffset since, CancellationToken cancellationToken = default)
+    {
+        var payloads = await Scoped(DbContext.WhatsAppMessages.AsNoTracking(), scope)
+            .Where(item => item.CreatedAt >= since)
+            .OrderBy(item => item.CreatedAt)
+            .Select(item => item.PayloadJson)
+            .ToListAsync(cancellationToken);
+        return payloads.Select(Deserialize<WhatsAppMessage>).ToArray();
+    }
+
     public async Task<IReadOnlyList<WhatsAppMessage>> ListThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default)
     {
         var payloads = await Scoped(DbContext.WhatsAppMessages.AsNoTracking(), scope)

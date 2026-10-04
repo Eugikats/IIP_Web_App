@@ -64,6 +64,20 @@ public interface IWhatsAppMessageRepository
     Task<WhatsAppMessage?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default);
     Task<WhatsAppMessage?> FindByIdempotencyKeyAsync(TenantScope scope, string idempotencyKey, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WhatsAppMessage>> ListThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default);
+
+    /// <summary>Records that the assistant is finished with an inbound message.</summary>
+    async Task MarkAssistantHandledAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default)
+    {
+        var message = await FindByProviderMessageIdAsync(scope, providerMessageId, cancellationToken);
+        if (message is { AssistantHandledAt: null })
+        {
+            await SaveAsync(message with { AssistantHandledAt = DateTimeOffset.UtcNow }, cancellationToken);
+        }
+    }
+
+    /// <summary>Messages in the workspace created since the given time, oldest first.</summary>
+    Task<IReadOnlyList<WhatsAppMessage>> ListSinceAsync(TenantScope scope, DateTimeOffset since, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<WhatsAppMessage>>([]);
 }
 
 /// <summary>

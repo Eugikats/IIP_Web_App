@@ -95,6 +95,10 @@ public sealed record WhatsAppMessage
     public required DateTimeOffset CreatedAt { get; init; }
     public required DateTimeOffset UpdatedAt { get; init; }
     public required string CorrelationId { get; init; }
+
+    /// <summary>For an inbound message: when the assistant finished with it (answered, or handed to a
+    /// person). A message that stays empty here long after it arrived was lost in a restart.</summary>
+    public DateTimeOffset? AssistantHandledAt { get; init; }
 }
 
 public sealed record WhatsAppProviderSendRequest(
