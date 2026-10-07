@@ -897,7 +897,7 @@ app.MapPost("/api/v1/customers/{customerId}/consent/withdraw", InsuranceIntellig
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 // Names for ids, for any staff member who can see claims or customers; also feeds the assignment picker.
 app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEndpoints.ListPeople)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers));
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers, Permission.ViewSalesLeads));
 app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBrief)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)

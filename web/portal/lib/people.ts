@@ -22,6 +22,7 @@ const SYSTEM_ACTORS: Record<string, string> = {
   "system:missing-document-request": "Document request (automatic)",
   "system:claim-triage": "Claims agent (automatic)",
   "system:retention": "Retention policy (automatic)",
+  "system:conversation-insights": "Conversation insights (automatic)",
 };
 
 // One fetch per page load, shared by every component that asks. The list is small and changes only

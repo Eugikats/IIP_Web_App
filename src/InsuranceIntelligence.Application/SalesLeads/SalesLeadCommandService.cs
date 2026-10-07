@@ -59,6 +59,15 @@ public sealed class SalesLeadCommandService(
             CreatedAt: now,
             CreatedBy: context.UserId);
 
+        var contactDigits = new string((lead.ContactInfo ?? string.Empty).Where(char.IsDigit).ToArray());
+        lead = lead with
+        {
+            Phone = lead.ContactInfo is not null && !lead.ContactInfo.Contains('@') && contactDigits.Length >= 9 ? contactDigits : null,
+            PrimaryChannel = "Manual",
+            LastInteractionAt = now,
+            Activity = [new ProspectActivity(now, $"Captured by staff ({lead.LeadSource})", await NameOfAsync(context.UserId, cancellationToken) ?? "A colleague")],
+        };
+
         await repository.CreateAsync(context.TenantId, context.WorkspaceId, lead, cancellationToken);
 
         await auditWriter.WriteAsync(

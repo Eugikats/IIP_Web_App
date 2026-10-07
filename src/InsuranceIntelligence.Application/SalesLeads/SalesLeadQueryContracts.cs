@@ -164,6 +164,9 @@ public sealed record SalesLeadDetailDto(
     public string? ProductInterest { get; init; }
     public string? AppliedFor { get; init; }
     public bool HasConversation { get; init; }
+
+    /// <summary>The WhatsApp conversation, so the screen can open it. Not shown as text.</summary>
+    public string? ConversationId { get; init; }
     public LeadConsentDto Consent { get; init; } = new("NotRecorded", "Not recorded", null, null, null);
     public IReadOnlyList<LeadFactDto> Facts { get; init; } = [];
     public IReadOnlyList<string> Missing { get; init; } = [];

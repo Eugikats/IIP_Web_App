@@ -6,6 +6,13 @@ import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { leads as mockLeads } from "@/lib/lovable-parity/mock";
 
+// The acquisition list and a lead's record, from GET /api/v1/sales-leads. Every label here (stage,
+// relationship, consent) is derived by the API from recorded facts; the screen only shows it.
+
+export type LeadStage = "New" | "GettingToKnow" | "Interested" | "Considering" | "ReadyToApply" | "Applied" | "WithAPerson" | "NotNow";
+export type LeadRelationship = "NewToInsurer" | "Registered" | "ExistingCustomer";
+export type ConsentStatus = "NotRecorded" | "Agreed" | "Declined" | "Withdrawn";
+
 export type SalesLeadView = {
   leadId: string;
   customerName: string;
@@ -14,6 +21,17 @@ export type SalesLeadView = {
   quoteStatus: string;
   assignedSalesOfficer: string | null;
   createdAt: string | null;
+  maskedContact: string;
+  occupation: string | null;
+  relationship: LeadRelationship;
+  relationshipLabel: string;
+  primaryChannel: string | null;
+  productInterest: string | null;
+  stage: LeadStage;
+  stageLabel: string;
+  assignedOfficerName: string | null;
+  lastInteractionAt: string | null;
+  consentStatus: ConsentStatus;
 };
 
 export type CreateLeadInput = {
@@ -24,6 +42,28 @@ export type CreateLeadInput = {
   assignedSalesOfficer?: string;
   contactInfo?: string;
 };
+
+export type InsightPoint = { text: string; refs: string[] };
+export type InsightInterest = { product: string; strength: string; text: string; refs: string[] };
+export type InsightSource = { tag: string; turnId: string; at: string; excerpt: string };
+export type ConversationInsights = {
+  generatedAt: string;
+  messageCount: number;
+  enoughConversation: boolean;
+  summary: InsightPoint | null;
+  interests: InsightInterest[];
+  problems: InsightPoint[];
+  objections: InsightPoint[];
+  tone: string | null;
+  nextStep: InsightPoint | null;
+  sources: InsightSource[];
+};
+
+export type LeadFact = { key: string; label: string; value: string; source: string; recordedAt: string };
+export type LeadInterest = { product: string; strength: string; strengthLabel: string; reason: string; recordedAt: string };
+export type LeadNote = { noteId: string; text: string; authorUserId: string; authorName: string; at: string };
+export type LeadActivity = { at: string; text: string; actor: string };
+export type LeadPolicy = { policyNumber: string; productLine: string; effectiveTo: string | null };
 
 export type SalesLeadDetail = {
   leadId: string;
@@ -40,17 +80,31 @@ export type SalesLeadDetail = {
   contactInfo: string | null;
   createdAt: string | null;
   createdBy: string | null;
+  maskedContact: string;
+  primaryChannel: string | null;
+  lastInteractionAt: string | null;
+  stage: LeadStage;
+  stageLabel: string;
+  relationship: LeadRelationship;
+  relationshipLabel: string;
+  assignedOfficerName: string | null;
+  occupation: string | null;
+  productInterest: string | null;
+  appliedFor: string | null;
+  hasConversation: boolean;
+  conversationId: string | null;
+  consent: { status: ConsentStatus; statusLabel: string; at: string | null; wording: string | null; channel: string | null };
+  facts: LeadFact[];
+  missing: string[];
+  interests: LeadInterest[];
+  notes: LeadNote[];
+  activity: LeadActivity[];
+  policies: LeadPolicy[];
+  insights: ConversationInsights | null;
+  insightsStale: boolean;
 };
 
-type SalesLeadDto = {
-  leadId: string;
-  customerName: string;
-  leadSource: string;
-  productFit: string;
-  quoteStatus: string;
-  assignedSalesOfficer: string | null;
-  createdAt: string | null;
-};
+export type LeadResult = { ok: true; detail: SalesLeadDetail } | { ok: false; message: string; status?: number };
 
 const PARITY: SalesLeadView[] = mockLeads.map((l) => ({
   leadId: l.id,
@@ -60,7 +114,29 @@ const PARITY: SalesLeadView[] = mockLeads.map((l) => ({
   quoteStatus: l.status,
   assignedSalesOfficer: l.officer,
   createdAt: null,
+  maskedContact: "Hidden",
+  occupation: null,
+  relationship: "NewToInsurer",
+  relationshipLabel: "New to insurer",
+  primaryChannel: null,
+  productInterest: l.product,
+  stage: "New",
+  stageLabel: "New",
+  assignedOfficerName: l.officer,
+  lastInteractionAt: null,
+  consentStatus: "NotRecorded",
 }));
+
+async function readMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { message?: string; errors?: Record<string, string[]> };
+    if (body.message) return body.message;
+    const first = body.errors ? Object.values(body.errors)[0]?.[0] : undefined;
+    return first ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export function useSalesLeads() {
   const { roleDef } = useUI();
@@ -68,19 +144,25 @@ export function useSalesLeads() {
   const [leads, setLeads] = useState<SalesLeadView[]>(LOVABLE_VISUAL_PARITY_MODE ? PARITY : []);
   const [loading, setLoading] = useState(!LOVABLE_VISUAL_PARITY_MODE);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     if (LOVABLE_VISUAL_PARITY_MODE) return;
     setLoading(true);
     setError(null);
+    setForbidden(false);
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads`, { headers: scopedHeaders(role, "") });
-      if (!response.ok) throw new Error(`Sales leads failed.`);
-      const rows = (await response.json()) as SalesLeadDto[];
-      setLeads(rows.map((r) => ({ ...r })));
+      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads`, { headers: scopedHeaders(role, ""), cache: "no-store" });
+      if (response.status === 403) {
+        setForbidden(true);
+        setLeads([]);
+        return;
+      }
+      if (!response.ok) throw new Error("The prospect list could not be loaded.");
+      setLeads((await response.json()) as SalesLeadView[]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sales leads failed to load.");
+      setError(err instanceof Error ? err.message : "The prospect list could not be loaded.");
       setLeads([]);
     } finally {
       setLoading(false);
@@ -90,14 +172,7 @@ export function useSalesLeads() {
   useEffect(() => { void load(); }, [load]);
 
   const createLead = useCallback(async (input: CreateLeadInput): Promise<{ ok: boolean; message?: string }> => {
-    if (LOVABLE_VISUAL_PARITY_MODE) {
-      setLeads((prev) => [{
-        leadId: `LEAD-${Date.now()}`, customerName: input.customerName, leadSource: input.leadSource,
-        productFit: input.productFit || "To be assessed", quoteStatus: "New",
-        assignedSalesOfficer: input.assignedSalesOfficer || null, createdAt: new Date().toISOString(),
-      }, ...prev]);
-      return { ok: true };
-    }
+    if (LOVABLE_VISUAL_PARITY_MODE) return { ok: false, message: "Not available in the visual preview." };
     setCreating(true);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads`, {
@@ -106,47 +181,53 @@ export function useSalesLeads() {
         body: JSON.stringify(input),
       });
       if (response.status === 403) return { ok: false, message: "You do not have permission to create leads." };
-      if (response.status === 400) return { ok: false, message: "Please complete the required fields." };
-      if (!response.ok) return { ok: false, message: `Create failed.` };
+      if (!response.ok) return { ok: false, message: await readMessage(response, "The lead could not be saved.") };
       await load();
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : "Create failed." };
+      return { ok: false, message: err instanceof Error ? err.message : "The lead could not be saved." };
     } finally {
       setCreating(false);
     }
   }, [role, load]);
 
-  const getLeadDetail = useCallback(async (leadId: string): Promise<{ ok: true; detail: SalesLeadDetail } | { ok: false; message: string }> => {
-    if (LOVABLE_VISUAL_PARITY_MODE) {
-      const found = PARITY.find((l) => l.leadId === leadId);
-      if (!found) return { ok: false, message: "Lead not found." };
-      return {
-        ok: true,
-        detail: {
-          ...found,
-          customerNeed: "Sample customer need for the visual-parity fixture.",
-          conversationSummary: "Sample conversation summary for the visual-parity fixture.",
-          requiredInformation: [], followUpActions: [], conversionProbability: null,
-          contactInfo: null, createdBy: null,
-        },
-      };
-    }
+  const send = useCallback(async (path: string, init: RequestInit, fallback: string): Promise<LeadResult> => {
+    if (LOVABLE_VISUAL_PARITY_MODE) return { ok: false, message: "Not available in the visual preview." };
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads/${encodeURIComponent(leadId)}`, { headers: scopedHeaders(role, "") });
-      if (response.status === 404) return { ok: false, message: "Lead not found." };
-      if (!response.ok) return { ok: false, message: "Lead details could not be loaded." };
-      const dto = await response.json() as {
-        leadId: string; customerName: string; leadSource: string; customerNeed: string; conversationSummary: string;
-        productFit: string; quoteStatus: string; requiredInformation: string[]; followUpActions: string[];
-        assignedSalesOfficer: string | null; conversionProbability: number | null; contactInfo: string | null;
-        createdAt: string | null; createdBy: string | null;
-      };
-      return { ok: true, detail: dto };
+      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads/${path}`, {
+        ...init,
+        headers: { ...scopedHeaders(role, ""), ...(init.body ? { "Content-Type": "application/json" } : {}) },
+        cache: "no-store",
+      });
+      if (response.status === 403) return { ok: false, status: 403, message: "You do not have permission to do this." };
+      if (response.status === 404) return { ok: false, status: 404, message: "This prospect is no longer in this workspace." };
+      if (!response.ok) return { ok: false, status: response.status, message: await readMessage(response, fallback) };
+      return { ok: true, detail: (await response.json()) as SalesLeadDetail };
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : "Lead details could not be loaded." };
+      return { ok: false, message: err instanceof Error ? err.message : fallback };
     }
   }, [role]);
 
-  return { leads, loading, error, creating, createLead, getLeadDetail, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  const getLeadDetail = useCallback((leadId: string) =>
+    send(encodeURIComponent(leadId), { method: "GET" }, "The prospect's details could not be loaded."), [send]);
+
+  const addNote = useCallback(async (leadId: string, text: string) => {
+    const result = await send(`${encodeURIComponent(leadId)}/notes`, { method: "POST", body: JSON.stringify({ text }) }, "The note could not be saved.");
+    if (result.ok) void load();
+    return result;
+  }, [send, load]);
+
+  const assign = useCallback(async (leadId: string, userId: string | null) => {
+    const result = await send(`${encodeURIComponent(leadId)}/assignee`, { method: "PUT", body: JSON.stringify({ userId }) }, "The owner could not be changed.");
+    if (result.ok) void load();
+    return result;
+  }, [send, load]);
+
+  const refreshInsights = useCallback(async (leadId: string) => {
+    const result = await send(`${encodeURIComponent(leadId)}/insights/refresh`, { method: "POST" }, "The insights could not be prepared.");
+    if (result.ok) void load();
+    return result;
+  }, [send, load]);
+
+  return { leads, loading, error, forbidden, creating, reload: load, createLead, getLeadDetail, addNote, assign, refreshInsights, parityMode: LOVABLE_VISUAL_PARITY_MODE };
 }

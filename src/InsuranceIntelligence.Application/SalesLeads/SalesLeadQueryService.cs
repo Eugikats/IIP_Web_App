@@ -148,6 +148,7 @@ public sealed class SalesLeadQueryService(
             ProductInterest = ProductInterestOf(lead),
             AppliedFor = lead.AppliedFor,
             HasConversation = !string.IsNullOrWhiteSpace(lead.ThreadId),
+            ConversationId = lead.ThreadId,
             Consent = new LeadConsentDto(
                 (consent?.Status ?? ContactConsentStatus.NotRecorded).ToString(),
                 LeadStages.Label(consent?.Status ?? ContactConsentStatus.NotRecorded),

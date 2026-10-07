@@ -33,6 +33,12 @@ export default function Channels() {
   const [sending, setSending] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // A link from elsewhere (a prospect's record, a cited message) opens that conversation directly.
+  useEffect(() => {
+    const thread = new URLSearchParams(window.location.search).get("thread");
+    if (thread) setActiveId(thread);
+  }, []);
+
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return conversations.filter((c) => {
