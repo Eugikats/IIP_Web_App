@@ -64,6 +64,7 @@ public sealed class SalesLeadCommandService(
         {
             Phone = lead.ContactInfo is not null && !lead.ContactInfo.Contains('@') && contactDigits.Length >= 9 ? contactDigits : null,
             PrimaryChannel = "Manual",
+            BankCustomer = request.BankCustomer,
             LastInteractionAt = now,
             Activity = [new ProspectActivity(now, $"Captured by staff ({lead.LeadSource})", await NameOfAsync(context.UserId, cancellationToken) ?? "A colleague")],
         };

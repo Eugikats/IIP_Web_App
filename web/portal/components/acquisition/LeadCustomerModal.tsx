@@ -250,6 +250,7 @@ function CustomerTab({ detail }: { detail: SalesLeadDetail }) {
         <Row label="Full name" value={detail.customerName} />
         <Row label="Contact" value={<span className="tabular-nums">{detail.maskedContact}</span>} />
         <Row label="Channel" value={detail.primaryChannel ?? "Not recorded"} />
+        <Row label="Bank customer" value={<StatusPill tone={detail.bankCustomer === true ? "success" : "neutral"} label={detail.bankCustomerLabel} />} />
         <Row label="Relationship" value={<StatusPill tone={relationshipTone(detail.relationship)} label={detail.relationshipLabel} />} />
         {detail.facts.map((fact) => (
           <Row key={fact.key} label={fact.label} value={fact.value} note={`${fact.source}, ${formatDateTime(fact.recordedAt)}`} />

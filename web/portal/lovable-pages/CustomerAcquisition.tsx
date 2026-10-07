@@ -29,6 +29,7 @@ const TREND_DAYS = 14;
 
 type StageFilter = "All" | "Ready" | "Talking" | "WithAPerson" | "Applied" | "NotNow";
 type RelationshipFilter = "All" | "NewToInsurer" | "Registered" | "ExistingCustomer";
+type BankFilter = "All" | "Yes" | "No" | "Unknown";
 type SortKey = "recent" | "name" | "stage";
 
 const STAGE_FILTERS: { key: StageFilter; label: string; stages: string[] }[] = [
@@ -47,6 +48,7 @@ export default function CustomerAcquisition() {
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<StageFilter>("All");
   const [relationshipFilter, setRelationshipFilter] = useState<RelationshipFilter>("All");
+  const [bankFilter, setBankFilter] = useState<BankFilter>("All");
   const [sort, setSort] = useState<SortKey>("recent");
   const [page, setPage] = useState(0);
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
@@ -58,6 +60,9 @@ export default function CustomerAcquisition() {
     const rows = leads.filter((lead) => {
       if (stages.length > 0 && !stages.includes(lead.stage)) return false;
       if (relationshipFilter !== "All" && lead.relationship !== relationshipFilter) return false;
+      if (bankFilter === "Yes" && lead.bankCustomer !== true) return false;
+      if (bankFilter === "No" && lead.bankCustomer !== false) return false;
+      if (bankFilter === "Unknown" && lead.bankCustomer !== null) return false;
       if (q && !`${lead.customerName} ${lead.maskedContact} ${lead.productInterest ?? ""} ${lead.occupation ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -66,17 +71,18 @@ export default function CustomerAcquisition() {
       if (sort === "stage") return STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage);
       return (b.lastInteractionAt ?? "").localeCompare(a.lastInteractionAt ?? "");
     });
-  }, [leads, query, stageFilter, relationshipFilter, sort]);
+  }, [leads, query, stageFilter, relationshipFilter, bankFilter, sort]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   const visible = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
-  const filtersActive = query.length > 0 || stageFilter !== "All" || relationshipFilter !== "All";
+  const filtersActive = query.length > 0 || stageFilter !== "All" || relationshipFilter !== "All" || bankFilter !== "All";
 
   const clearFilters = useCallback(() => {
     setQuery("");
     setStageFilter("All");
     setRelationshipFilter("All");
+    setBankFilter("All");
     setPage(0);
   }, []);
 
@@ -112,6 +118,13 @@ export default function CustomerAcquisition() {
               { value: "NewToInsurer", label: "New to insurer" },
               { value: "Registered", label: "Registered" },
               { value: "ExistingCustomer", label: "Existing customer" },
+            ]} />
+          <Select label="Bank customer" value={bankFilter} onChange={(value) => { setBankFilter(value as BankFilter); setPage(0); }}
+            options={[
+              { value: "All", label: "Bank customer: any" },
+              { value: "Yes", label: "Bank customer: yes" },
+              { value: "No", label: "Bank customer: no" },
+              { value: "Unknown", label: "Bank customer: not known" },
             ]} />
           <Select label="Sort" value={sort} onChange={(value) => setSort(value as SortKey)}
             options={[
@@ -195,10 +208,10 @@ function ProspectTable({ rows, onOpen }: { rows: SalesLeadView[]; onOpen: (leadI
   const reduceMotion = useReducedMotion();
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1040px] border-collapse text-left">
+      <table className="w-full min-w-[1160px] border-collapse text-left">
         <thead>
           <tr className="border-b border-dls-border-subtle">
-            {["Customer", "Masked contact", "Relationship", "Channel", "Product interest", "Stage", "Assigned officer", "Last interaction", ""].map((heading) => (
+            {["Customer", "Masked contact", "Bank customer", "Relationship", "Channel", "Product interest", "Stage", "Assigned officer", "Last interaction", ""].map((heading) => (
               <th key={heading || "action"} scope="col" className="px-5 py-3 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-dls-text-muted">
                 {heading || <span className="sr-only">Action</span>}
               </th>
@@ -221,6 +234,7 @@ function ProspectTable({ rows, onOpen }: { rows: SalesLeadView[]; onOpen: (leadI
                 </button>
               </td>
               <td className="px-5 py-3.5 text-[13.5px] tabular-nums text-dls-text-secondary">{lead.maskedContact}</td>
+              <td className="px-5 py-3.5"><StatusPill tone={lead.bankCustomer === true ? "success" : "neutral"} label={lead.bankCustomerLabel} /></td>
               <td className="px-5 py-3.5"><StatusPill tone={relationshipTone(lead.relationship)} label={lead.relationshipLabel} /></td>
               <td className="px-5 py-3.5 text-[13.5px] text-dls-text-secondary">
                 <span className="inline-flex items-center gap-1.5">
@@ -321,9 +335,10 @@ function Select({ label, value, onChange, options }: { label: string; value: str
 function CaptureLead({ creating, onCancel, onSave }: {
   creating: boolean;
   onCancel: () => void;
-  onSave: (input: { customerName: string; leadSource: string; customerNeed: string; productFit: string; contactInfo: string }) => Promise<void>;
+  onSave: (input: { customerName: string; leadSource: string; customerNeed: string; productFit: string; contactInfo: string; bankCustomer: boolean | null }) => Promise<void>;
 }) {
-  const [form, setForm] = useState({ customerName: "", leadSource: "Manual capture", customerNeed: "", productFit: "", contactInfo: "" });
+  const [form, setForm] = useState<{ customerName: string; leadSource: string; customerNeed: string; productFit: string; contactInfo: string; bankCustomer: boolean | null }>(
+    { customerName: "", leadSource: "Manual capture", customerNeed: "", productFit: "", contactInfo: "", bankCustomer: null });
   return (
     <div className="mt-4 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-5">
       <h3 className="m-0 text-[15px] font-bold text-dls-text-primary">Capture a lead</h3>
@@ -333,6 +348,14 @@ function CaptureLead({ creating, onCancel, onSave }: {
         <Field label="What does the customer need?" required value={form.customerNeed} onChange={(value) => setForm({ ...form, customerNeed: value })} className="md:col-span-2" />
         <Field label="Cover they asked about" value={form.productFit} onChange={(value) => setForm({ ...form, productFit: value })} />
         <Field label="Where the lead came from" value={form.leadSource} onChange={(value) => setForm({ ...form, leadSource: value })} />
+        <label className="block">
+          <span className="text-[12px] font-semibold text-dls-text-secondary">Banks with the partner bank?</span>
+          <div className="mt-1">
+            <Select label="Banks with the partner bank" value={form.bankCustomer === null ? "" : form.bankCustomer ? "yes" : "no"}
+              onChange={(value) => setForm({ ...form, bankCustomer: value === "" ? null : value === "yes" })}
+              options={[{ value: "", label: "Not known" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }]} />
+          </div>
+        </label>
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="ghost" onClick={onCancel}>Cancel</Button>

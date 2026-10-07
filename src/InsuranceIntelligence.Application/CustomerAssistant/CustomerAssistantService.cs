@@ -1316,14 +1316,20 @@ public sealed partial class CustomerAssistantService(
     /// does not. One record per person, however many times they write; each call adds a line to its
     /// activity so the record shows what happened and when.
     /// </summary>
-    private async Task<string> CreateLeadAsync(
+    private async Task<string?> CreateLeadAsync(
         TenantScope scope, string text, string waId, SenderProfile? sender, string leadSource, string correlationId, CancellationToken cancellationToken,
-        string? productFit = null, string? occupation = null, Func<SalesLeadDetailReadModel, SalesLeadDetailReadModel>? change = null)
+        string? productFit = null, string? occupation = null, Func<SalesLeadDetailReadModel, SalesLeadDetailReadModel>? change = null,
+        bool createIfMissing = true)
     {
         var now = DateTimeOffset.UtcNow;
         var digits = NormalizeWaId(waId);
         var activity = new ProspectActivity(now, LeadActivityText(leadSource, productFit), "Kato");
         var existing = await salesLeadWriteRepository.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, digits, cancellationToken);
+
+        if (existing is null && !createIfMissing)
+        {
+            return null;
+        }
 
         SalesLeadDetailReadModel lead;
         if (existing is not null)

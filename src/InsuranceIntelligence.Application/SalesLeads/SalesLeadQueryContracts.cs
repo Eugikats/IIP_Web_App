@@ -111,6 +111,10 @@ public sealed record SalesLeadDetailReadModel(
     public DateTimeOffset? HandedToPersonAt { get; init; }
 
     public ConversationInsights? Insights { get; init; }
+
+    /// <summary>Whether the person already banks with the partner bank (bancassurance). Null when
+    /// nobody has said: shown as "Not known", never guessed. Set by staff or by an imported bank list.</summary>
+    public bool? BankCustomer { get; init; }
 }
 
 /// <summary>What the conversation insights agent made of a conversation. Every point carries the tags
@@ -163,6 +167,8 @@ public sealed record SalesLeadDetailDto(
     public string? Occupation { get; init; }
     public string? ProductInterest { get; init; }
     public string? AppliedFor { get; init; }
+    public bool? BankCustomer { get; init; }
+    public string BankCustomerLabel { get; init; } = "Not known";
     public bool HasConversation { get; init; }
 
     /// <summary>The WhatsApp conversation, so the screen can open it. Not shown as text.</summary>
@@ -208,6 +214,8 @@ public sealed record SalesLeadListItemDto(
     public string? AssignedOfficerName { get; init; }
     public DateTimeOffset? LastInteractionAt { get; init; }
     public string ConsentStatus { get; init; } = nameof(ContactConsentStatus.NotRecorded);
+    public bool? BankCustomer { get; init; }
+    public string BankCustomerLabel { get; init; } = "Not known";
 }
 
 public sealed record CreateSalesLeadRequest(
@@ -216,7 +224,8 @@ public sealed record CreateSalesLeadRequest(
     string? CustomerNeed,
     string? ProductFit,
     string? AssignedSalesOfficer,
-    string? ContactInfo);
+    string? ContactInfo,
+    bool? BankCustomer = null);
 
 public sealed record AddLeadNoteRequest(string? Text);
 

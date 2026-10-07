@@ -27,8 +27,8 @@ public interface IConversationInsightsQueue
 public interface IConversationInsightsService
 {
     /// <summary>Reads a WhatsApp conversation and updates the person's prospect record. Creates the
-    /// record when the person has no cover with the insurer yet or the conversation shows interest in
-    /// cover. False when there was nothing to do.</summary>
+    /// record only once the person has asked about, or shown interest in, a cover. False when there was
+    /// nothing to do.</summary>
     Task<bool> RefreshConversationAsync(TenantScope scope, string waId, string threadId, string actorId, string correlationId, CancellationToken cancellationToken);
 
     /// <summary>The same for a lead a person is looking at. False when the lead is not in this
@@ -51,8 +51,6 @@ public sealed class ConversationInsightsService(
     ISalesLeadWriteRepository leadWriteRepository,
     ISalesLeadReadRepository leadReadRepository,
     ICustomerConversationRepository conversationRepository,
-    ICustomerRepository customerRepository,
-    IPolicyRepository policyRepository,
     IToolCallingChatProvider model,
     IAgentActionLogRepository actionLogRepository,
     IAuditRepository auditRepository,
@@ -99,7 +97,6 @@ public sealed class ConversationInsightsService(
             return false;
         }
 
-        var holdsCover = await HoldsCoverAsync(scope, waId, cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
         if (customerTurns.Length < MinimumCustomerMessages)
@@ -158,9 +155,10 @@ public sealed class ConversationInsightsService(
 
         if (lead is null)
         {
-            // Not everyone who writes is a prospect: a policyholder asking about their claim is not.
-            // Someone with no cover yet is, and so is anyone who shows interest in a cover.
-            if (holdsCover && parsed.Interests.Count == 0)
+            // Writing in does not make someone a prospect; asking about a cover does (owner decision
+            // 2026-10-07). From there the stage follows them to "Ready to apply". A customer only
+            // asking about a claim, or someone who said "not now" to everything, is not one.
+            if (!IsProspect(parsed.Interests))
             {
                 return false;
             }
@@ -224,20 +222,10 @@ public sealed class ConversationInsightsService(
         return true;
     }
 
-    private async Task<bool> HoldsCoverAsync(TenantScope scope, string waId, CancellationToken cancellationToken)
-    {
-        var customerIds = (await customerRepository.ListAsync(scope, cancellationToken))
-            .Where(customer => PhoneNumbers.SameNumber(customer.Phone, waId))
-            .Select(customer => customer.CustomerId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (customerIds.Count == 0)
-        {
-            return false;
-        }
-
-        return (await policyRepository.ListAsync(scope, cancellationToken))
-            .Any(policy => policy.CustomerId is not null && customerIds.Contains(policy.CustomerId));
-    }
+    /// <summary>A person becomes a prospect once they have asked about, or shown interest in, at least
+    /// one cover. "Not now" on its own does not count.</summary>
+    public static bool IsProspect(IEnumerable<ProspectInterest> interests) =>
+        interests.Any(interest => interest.Strength != InterestStrength.NotNow);
 
     private static SalesLeadDetailReadModel NewLead(string waId, string threadId, CustomerConversationTurn first, DateTimeOffset now)
     {

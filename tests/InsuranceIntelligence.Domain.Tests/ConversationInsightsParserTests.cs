@@ -132,6 +132,17 @@ public sealed class ConversationInsightsParserTests
         Assert.Empty(result.Interests);
     }
 
+    [Fact]
+    public void Asking_about_a_cover_makes_someone_a_prospect_and_not_now_alone_does_not()
+    {
+        ProspectInterest Interest(InterestStrength strength) => new("Small Business Shop Cover", strength, "", Now);
+
+        Assert.False(ConversationInsightsService.IsProspect([]));
+        Assert.False(ConversationInsightsService.IsProspect([Interest(InterestStrength.NotNow)]));
+        Assert.True(ConversationInsightsService.IsProspect([Interest(InterestStrength.Mentioned)]));
+        Assert.True(ConversationInsightsService.IsProspect([Interest(InterestStrength.NotNow), Interest(InterestStrength.WantsIt)]));
+    }
+
     private static CustomerConversationTurn Turn(string text) => new()
     {
         TurnId = Guid.NewGuid(),

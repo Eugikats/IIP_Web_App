@@ -861,14 +861,14 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task Agent_OnePersonIsOneProspect_HowEverManyTimesTheyWrite()
     {
         var model = new ScriptedAgentModel()
-            .Calls("hand_to_person", """{"reason":"Wants to talk about Motor cover"}""")
-            .Says("Someone from the team will reply here soon.")
             .Calls("register_customer", """{"full_name":"Grace Nakato","occupation":"I sell shoes","area":"Kalerwe"}""")
-            .Says("You are registered, Grace.");
+            .Says("You are registered, Grace.")
+            .Calls("hand_to_person", """{"reason":"Wants to talk about Motor cover"}""")
+            .Says("Someone from the team will reply here soon.");
         var fixture = Fixture.Create(agent: model);
 
-        await fixture.HandleAsync("Can I talk to someone about motor insurance?");
         await fixture.HandleAsync("I am Grace Nakato, I sell shoes in Kalerwe");
+        await fixture.HandleAsync("Can I talk to someone about motor insurance?");
 
         var lead = Assert.Single(fixture.SalesLeads.Created);
         Assert.Equal("Grace Nakato", lead.CustomerName);
@@ -876,8 +876,21 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal("I sell shoes", lead.Facts.Single(fact => fact.Key == "occupation").Value);
         Assert.Equal("Kalerwe", lead.Facts.Single(fact => fact.Key == "area").Value);
         Assert.All(lead.Facts, fact => Assert.Equal(ProspectFactSource.Customer, fact.Source));
-        Assert.Equal(["Asked to speak to a person", "Registered on WhatsApp"], lead.Activity.Select(entry => entry.Text));
+        Assert.Equal(["Registered on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
         Assert.NotNull(lead.ThreadId);
+    }
+
+    [Fact]
+    public async Task Agent_AskingForAPersonAlone_DoesNotMakeSomeoneAProspect()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("hand_to_person", """{"reason":"Unhappy about how long a claim is taking"}""")
+            .Says("Someone from the team will reply here soon.");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleAsync("I want to talk to a manager about my claim");
+
+        Assert.Empty(fixture.SalesLeads.Created);
     }
 
     [Fact]

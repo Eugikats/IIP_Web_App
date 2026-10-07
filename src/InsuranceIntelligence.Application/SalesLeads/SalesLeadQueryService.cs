@@ -92,6 +92,8 @@ public sealed class SalesLeadQueryService(
                     AssignedOfficerName = lookup.NameOf(lead.AssignedSalesOfficer),
                     LastInteractionAt = lead.LastInteractionAt ?? lead.CreatedAt,
                     ConsentStatus = (lead.Consent?.Status ?? ContactConsentStatus.NotRecorded).ToString(),
+                    BankCustomer = lead.BankCustomer,
+                    BankCustomerLabel = BankCustomerLabel(lead.BankCustomer),
                 };
             })
             .ToArray();
@@ -147,6 +149,8 @@ public sealed class SalesLeadQueryService(
             Occupation = FactValue(lead, "occupation"),
             ProductInterest = ProductInterestOf(lead),
             AppliedFor = lead.AppliedFor,
+            BankCustomer = lead.BankCustomer,
+            BankCustomerLabel = BankCustomerLabel(lead.BankCustomer),
             HasConversation = !string.IsNullOrWhiteSpace(lead.ThreadId),
             ConversationId = lead.ThreadId,
             Consent = new LeadConsentDto(
@@ -171,6 +175,13 @@ public sealed class SalesLeadQueryService(
             InsightsStale = customerTurns > 0 && (lead.Insights is null || lead.Insights.MessageCount < customerTurns),
         };
     }
+
+    internal static string BankCustomerLabel(bool? bankCustomer) => bankCustomer switch
+    {
+        true => "Yes",
+        false => "No",
+        null => "Not known",
+    };
 
     private static string SourceLabel(ProspectFactSource source) => source switch
     {

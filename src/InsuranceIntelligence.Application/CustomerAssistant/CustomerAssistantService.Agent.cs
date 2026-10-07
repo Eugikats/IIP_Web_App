@@ -606,7 +606,10 @@ public sealed partial class CustomerAssistantService
         run.LeadId = await CreateLeadAsync(
             run.Scope, $"{reason ?? "Asked for a person"}. Customer said: {Trim(run.English, 300)}", run.WaId, sender,
             "WhatsApp - human requested", run.CorrelationId, cancellationToken,
-            change: lead => lead with { HandedToPersonAt = run.Now, ThreadId = run.ThreadId ?? lead.ThreadId });
+            change: lead => lead with { HandedToPersonAt = run.Now, ThreadId = run.ThreadId ?? lead.ThreadId },
+            // Asking for a person is not buying interest: someone complaining about a claim is not a
+            // prospect. An existing prospect is marked as being with a person.
+            createIfMissing: false) ?? run.LeadId;
         run.Escalated = true;
         return Json(new { handed_over = true, note = "Tell them someone from the team will reply here soon." });
     }
@@ -640,7 +643,7 @@ public sealed partial class CustomerAssistantService
         await auditRepository.WriteAsync(
             new AuditEvent(
                 Guid.NewGuid(), run.Scope, null, null, SystemActorId, ActorType.Integration, "sales_lead.contact_consent_recorded", run.Now,
-                null, status.ToString(), [run.LeadId], "CustomerAssistant", null, "recorded", null,
+                null, status.ToString(), [run.LeadId!], "CustomerAssistant", null, "recorded", null,
                 "Customer answered whether they may be contacted later about cover; the question asked is kept with the answer.",
                 run.CorrelationId),
             cancellationToken);
