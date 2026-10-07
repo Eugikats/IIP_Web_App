@@ -215,6 +215,7 @@ public static class DemoSeedEndpoints
     /// demonstration. Idempotent; same Demo-only gate as every other seed route.</summary>
     public static async Task<IResult> SeedBankCustomers(
         InsuranceIntelligence.Application.DemoSeeding.BankCustomerDemoSeeder seeder,
+        InsuranceIntelligence.Application.SalesLeads.IProspectTriageService triage,
         InfrastructureOptions options,
         HttpContext httpContext,
         IWebHostEnvironment environment,
@@ -238,7 +239,19 @@ public static class DemoSeedEndpoints
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
         }
 
-        return Results.Ok(await seeder.SeedAsync(scope, cancellationToken));
+        var seeded = await seeder.SeedAsync(scope, cancellationToken);
+
+        // Score the people just loaded so the Scores tab and the recommended covers are not empty.
+        try
+        {
+            await triage.RunAsync(null, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Seeding succeeded; scoring can be run from the Scores tab.
+        }
+
+        return Results.Ok(seeded);
     }
 
     /// <summary>Gives four of the invented bank customers a WhatsApp conversation with Kato, with the
@@ -246,6 +259,7 @@ public static class DemoSeedEndpoints
     /// same Demo-only gate.</summary>
     public static async Task<IResult> SeedConversations(
         InsuranceIntelligence.Application.DemoSeeding.DemoConversationSeeder seeder,
+        InsuranceIntelligence.Application.SalesLeads.IProspectTriageService triage,
         InfrastructureOptions options,
         HttpContext httpContext,
         IWebHostEnvironment environment,
@@ -269,7 +283,19 @@ public static class DemoSeedEndpoints
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
         }
 
-        return Results.Ok(await seeder.SeedAsync(scope, cancellationToken));
+        var seeded = await seeder.SeedAsync(scope, cancellationToken);
+
+        // Score the people just loaded so the Scores tab and the recommended covers are not empty.
+        try
+        {
+            await triage.RunAsync(null, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Seeding succeeded; scoring can be run from the Scores tab.
+        }
+
+        return Results.Ok(seeded);
     }
 }
 

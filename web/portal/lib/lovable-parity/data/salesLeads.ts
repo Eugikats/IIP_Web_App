@@ -13,6 +13,18 @@ export type LeadStage = "New" | "GettingToKnow" | "Interested" | "Considering" |
 export type LeadRelationship = "NewToInsurer" | "Registered" | "ExistingCustomer";
 export type ConsentStatus = "NotRecorded" | "Agreed" | "Declined" | "Withdrawn";
 
+export type LeadFit = { product: string; productLine: string; insurer: string; score: number; reasons: string[]; citationTitle: string | null; citationDocumentId: string | null };
+export type LeadTriage = {
+  score: number;
+  band: "Cold" | "Early" | "Warm" | "Qualified" | "HighPriority";
+  bandLabel: string;
+  confidence: string;
+  scoredAt: string;
+  fits: LeadFit[];
+  signals: string[];
+  missing: string[];
+};
+
 export type SalesLeadView = {
   leadId: string;
   customerName: string;
@@ -35,6 +47,7 @@ export type SalesLeadView = {
   bankCustomer: boolean | null;
   bankCustomerLabel: string;
   conversationId: string | null;
+  triage: LeadTriage | null;
 };
 
 export type CreateLeadInput = {
@@ -108,6 +121,7 @@ export type SalesLeadDetail = {
   policies: LeadPolicy[];
   insights: ConversationInsights | null;
   insightsStale: boolean;
+  triage: LeadTriage | null;
 };
 
 export type LeadResult = { ok: true; detail: SalesLeadDetail } | { ok: false; message: string; status?: number };
@@ -134,6 +148,7 @@ const PARITY: SalesLeadView[] = mockLeads.map((l) => ({
   bankCustomer: null,
   bankCustomerLabel: "Not known",
   conversationId: null,
+  triage: null,
 }));
 
 async function readMessage(response: Response, fallback: string): Promise<string> {
@@ -238,7 +253,26 @@ export function useSalesLeads() {
     return result;
   }, [send, load]);
 
-  return { leads, loading, error, forbidden, creating, reload: load, createLead, getLeadDetail, addNote, assign, refreshInsights, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  /** Scores everyone (or one prospect) and stores the two best-fitting covers. */
+  const runTriage = useCallback(async (leadId?: string): Promise<{ ok: boolean; message?: string; scored?: number; skipped?: number }> => {
+    if (LOVABLE_VISUAL_PARITY_MODE) return { ok: false, message: "Not available in the visual preview." };
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads/${leadId ? `${encodeURIComponent(leadId)}/` : ""}triage`, {
+        method: "POST",
+        headers: scopedHeaders(role, ""),
+        cache: "no-store",
+      });
+      if (response.status === 403) return { ok: false, message: "You do not have permission to score prospects." };
+      if (!response.ok) return { ok: false, message: await readMessage(response, "The prospects could not be scored.") };
+      const result = (await response.json()) as { scored: number; skipped: number };
+      await load();
+      return { ok: true, scored: result.scored, skipped: result.skipped };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "The prospects could not be scored." };
+    }
+  }, [role, load]);
+
+  return { leads, loading, error, forbidden, creating, reload: load, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, parityMode: LOVABLE_VISUAL_PARITY_MODE };
 }
 
 /**

@@ -259,6 +259,39 @@ function CustomerTab({ detail }: { detail: SalesLeadDetail }) {
         <Row label="Became a prospect" value={formatDateTime(detail.createdAt)} note={detail.leadSource} />
       </Card>
 
+      <Card
+        title="Recommended covers"
+        icon={ShieldCheck}
+        aside={detail.triage ? <StatusPill tone={detail.triage.band === "HighPriority" ? "danger" : detail.triage.band === "Qualified" ? "success" : detail.triage.band === "Warm" ? "warning" : "neutral"} label={`${detail.triage.bandLabel}, score ${detail.triage.score}`} /> : null}
+      >
+        {!detail.triage ? (
+          <p className="m-0 text-[13.5px] text-dls-text-secondary">Not scored yet. Open the Scores tab and choose Score prospects to rank this person and see the two covers that fit.</p>
+        ) : detail.triage.fits.length === 0 ? (
+          <p className="m-0 text-[13.5px] text-dls-text-secondary">Too little is recorded to recommend a cover. Still unknown: {detail.triage.missing.slice(0, 3).join(", ") || "nothing"}.</p>
+        ) : (
+          <ol className="m-0 space-y-4 p-0">
+            {detail.triage.fits.map((fit, index) => (
+              <li key={fit.product} className="list-none">
+                <div className="text-[14px] font-semibold text-dls-text-primary">{index + 1}. {fit.product}</div>
+                <div className="text-[12px] text-dls-text-muted">Provided by {fit.insurer}</div>
+                <ul className="m-0 mt-1.5 space-y-1 p-0">
+                  {fit.reasons.map((reason) => (
+                    <li key={reason} className="list-none text-[13px] text-dls-text-secondary">{reason}</li>
+                  ))}
+                </ul>
+                {fit.citationTitle ? (
+                  <Link href="/app/knowledge" className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-medium text-dls-primary-accent hover:underline">
+                    <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                    {fit.citationTitle}
+                  </Link>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        )}
+        {detail.triage ? <p className="m-0 mt-3 text-[11.5px] text-dls-text-muted">{detail.triage.confidence} confidence, scored {formatAgeSince(detail.triage.scoredAt)} ago. A ranking for your team, not a decision about cover.</p> : null}
+      </Card>
+
       <Card title="Still unknown">
         {detail.missing.length === 0 ? (
           <p className="m-0 text-[13.5px] text-dls-text-secondary">Everything Kato asks about has been answered.</p>

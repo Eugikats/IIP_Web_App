@@ -235,6 +235,7 @@ public static class InfrastructureRegistration
         services.AddScoped<ICommandCenterConversationRepository, EfCommandCenterConversationRepository>();
         services.AddScoped<IWhatsAppMessageRepository, EfWhatsAppMessageRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerConversationRepository, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfCustomerConversationRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.SalesLeads.IConversationActivityReader, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfConversationActivityReader>();
         services.AddScoped<InsuranceIntelligence.Domain.Compliance.IConsentRepository, InsuranceIntelligence.Infrastructure.Compliance.EfConsentRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Translation.ICustomerLanguagePreferenceRepository, InsuranceIntelligence.Infrastructure.Translation.EfCustomerLanguagePreferenceRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Retention.IRetentionReminderRepository, InsuranceIntelligence.Infrastructure.Retention.EfRetentionReminderRepository>();

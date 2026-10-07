@@ -9,7 +9,7 @@ using InsuranceIntelligence.Domain.Integrations;
 namespace InsuranceIntelligence.Application.DemoSeeding;
 
 /// <summary>
-/// Gives four of the invented bank customers a WhatsApp conversation with Kato, with the assistant's
+/// Gives five of the invented bank customers a WhatsApp conversation with Kato, with the assistant's
 /// reading of each one, so the chat screen has something to show before anyone texts. Everything is
 /// invented: the people, the numbers (a range that belongs to no subscriber) and the words. The
 /// conversations live on a demonstration number id, so a reply typed into one can never reach a real
@@ -38,7 +38,8 @@ public sealed class DemoConversationSeeder(
         (string Text, int[] Refs)[] Worries,
         (string Text, int[] Refs)[] Doubts,
         (string Text, int[] Refs)? NextStep,
-        (string Key, string Value, int Ref)[] Facts);
+        (string Key, string Value, int Ref)[] Facts,
+        bool AsksForPerson = false);
 
     private static readonly Script[] Scripts =
     [
@@ -91,6 +92,22 @@ public sealed class DemoConversationSeeder(
         [("Needs to talk to his wife and the branch first.", [4])],
         ("Call after he has spoken to his wife, and quote the UGX 10,000,000 level to cover his UGX 7,000,000 balance.", [4]),
         [("occupation", "taxi driver", 2), ("dependants", "five children, only earner", 2), ("existing_cover", "none mentioned", 2)]),
+
+        new("LEAD-BANK-012", 70,
+        [
+            new(true, "Hello, I run a boutique in Entebbe and the bank said you can insure my stock", 0),
+            new(false, "Hello Lydia, I am Kato, Mavuno Bank's insurance assistant. Small Business Shop Cover from Nile Shield Assurance protects your stock and equipment against fire and theft. About how much stock do you hold?", 1),
+            new(true, "Around 15 million, and I want to speak to a person about a bigger cover than your levels, I need to be sure of the price", 4),
+            new(false, "That is above the levels I can set up myself, so I have asked a colleague from the bank to call you. They will see this conversation, so you will not need to repeat yourself.", 5),
+        ],
+        "Boutique owner in Entebbe with about UGX 15,000,000 of stock who wants a person to quote a larger cover.",
+        "businesslike, wants certainty",
+        [(MicroinsuranceCatalog.ShopCover.Name, InterestStrength.WantsIt, "Holds about UGX 15,000,000 of stock and asked for a person to quote a larger cover.", [1, 2])],
+        [("Needs a price she can be sure of for a larger stock value.", [2])],
+        [],
+        ("Call her to quote above the highest standard level (UGX 8,000,000) for about UGX 15,000,000 of stock.", [2]),
+        [("occupation", "boutique owner", 0), ("business", "boutique in Entebbe", 0), ("worries", "stock above the standard cover levels", 2)],
+        AsksForPerson: true),
 
         new("LEAD-BANK-004", 600,
         [
@@ -176,6 +193,13 @@ public sealed class DemoConversationSeeder(
                 await SaveTurnAsync(scope, threadId, lead.Phone, pendingTurnId, pendingAt, pendingCustomerText, null, cancellationToken);
             }
 
+            if (script.AsksForPerson)
+            {
+                // The last customer message asked for a person: Kato handed the conversation over.
+                var last = customerTurnIds[^1];
+                await SaveTurnAsync(scope, threadId, lead.Phone, last.TurnId, last.At, last.Text, script.Lines[^1].Text, cancellationToken, CustomerAssistantOutcome.Escalated);
+            }
+
             var sources = customerTurnIds
                 .Select((turn, index) => new InsightSource($"M{index + 1}", turn.TurnId, turn.At, Excerpt(turn.Text)))
                 .ToArray();
@@ -210,6 +234,7 @@ public sealed class DemoConversationSeeder(
                 Facts = facts,
                 Interests = interests.Length == 0 ? lead.Interests : interests,
                 Insights = insights,
+                HandedToPersonAt = script.AsksForPerson ? start.AddMinutes(script.Lines[^1].MinutesAfterStart) : lead.HandedToPersonAt,
                 Activity = [.. lead.Activity, new ProspectActivity(start, "Wrote to Kato on WhatsApp", "Demo data")],
             }, cancellationToken);
             conversations++;
@@ -218,7 +243,7 @@ public sealed class DemoConversationSeeder(
         return new Result(conversations, messageCount);
     }
 
-    private Task SaveTurnAsync(TenantScope scope, string threadId, string waId, Guid turnId, DateTimeOffset at, string inbound, string? reply, CancellationToken cancellationToken) =>
+    private Task SaveTurnAsync(TenantScope scope, string threadId, string waId, Guid turnId, DateTimeOffset at, string inbound, string? reply, CancellationToken cancellationToken, CustomerAssistantOutcome outcome = CustomerAssistantOutcome.AutoReplied) =>
         turns.SaveAsync(new CustomerConversationTurn
         {
             TurnId = turnId,
@@ -228,7 +253,7 @@ public sealed class DemoConversationSeeder(
             InboundMessageText = inbound,
             ClassifiedIntent = CustomerIntent.ProductInterest,
             OutboundReplyText = reply,
-            Outcome = CustomerAssistantOutcome.AutoReplied,
+            Outcome = outcome,
             OccurredAt = at,
             CorrelationId = "demo-conversation",
         }, cancellationToken);

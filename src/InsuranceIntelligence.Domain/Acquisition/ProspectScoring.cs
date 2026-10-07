@@ -220,7 +220,7 @@ public static partial class ProspectScoring
             score += 20;
             reasons.Add(string.IsNullOrWhiteSpace(fact("dependants"))
                 ? $"Their situation points to this cover ({lifeWord})"
-                : $"Has {fact("dependants")}, which this cover protects");
+                : $"Family situation: {fact("dependants")}");
         }
 
         var needText = $"{fact("worries")} {fact("timing")}".ToLowerInvariant();
@@ -231,6 +231,12 @@ public static partial class ProspectScoring
         }
 
         var asked = input.Interests.FirstOrDefault(interest => string.Equals(interest.Product, profile.Product, StringComparison.OrdinalIgnoreCase));
+        if (asked is { Strength: InterestStrength.NotNow })
+        {
+            // They said not now to this one: it is not recommended back to them.
+            return new ProductFit(profile.Product, profile.ProductLine, profile.Insurer, 0, []);
+        }
+
         if (asked is not null && asked.Strength != InterestStrength.NotNow)
         {
             score += asked.Strength == InterestStrength.WantsIt ? 40 : asked.Strength == InterestStrength.Interested ? 30 : 20;

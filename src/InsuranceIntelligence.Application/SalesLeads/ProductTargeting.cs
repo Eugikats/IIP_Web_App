@@ -13,15 +13,15 @@ public static class ProductTargeting
 {
     private static readonly IReadOnlyDictionary<string, Words> ByLine = new Dictionary<string, Words>(StringComparer.OrdinalIgnoreCase)
     {
-        [MicroinsuranceCatalog.HospitalCashLine] = new([], ["salary", "current", "savings"], ["child", "children", "dependant", "family", "wife", "husband"], ["hospital", "sick", "illness", "medical", "health"], 30),
+        [MicroinsuranceCatalog.HospitalCashLine] = new([], [], ["child", "children", "dependant", "family", "wife", "husband"], ["hospital", "sick", "illness", "medical", "health"], 20),
         [MicroinsuranceCatalog.BodaAccidentLine] = new(["boda", "rider", "motorcycle", "piki"], [], [], ["accident", "crash", "injur"], 0),
-        [MicroinsuranceCatalog.StallStockLine] = new(["stall", "market", "vendor", "hawker", "kiosk", "trader"], ["merchant", "business"], [], ["fire", "theft", "stolen", "flood"], 0),
-        [MicroinsuranceCatalog.ShopLine] = new(["shop", "retail", "wholesale", "salon", "restaurant"], ["merchant", "business", "sme"], [], ["fire", "theft", "burglar", "stolen"], 0),
-        [MicroinsuranceCatalog.TransitLine] = new(["driver", "transport", "trucker", "courier", "delivery", "haul"], ["merchant", "business"], [], ["transit", "road", "goods", "stolen"], 0),
+        [MicroinsuranceCatalog.StallStockLine] = new(["stall", "market", "vendor", "hawker", "kiosk", "trader", "seller"], ["trade loan", "stock loan"], [], ["fire", "theft", "stolen", "flood"], 0),
+        [MicroinsuranceCatalog.ShopLine] = new(["shop", "retail", "wholesale", "salon", "restaurant", "boutique", "pharmacy", "owner"], ["business account", "working capital", "overdraft", "stock loan", "equipment loan"], [], ["fire", "theft", "burglar", "stolen"], 0),
+        [MicroinsuranceCatalog.TransitLine] = new(["driver", "transport", "trucker", "courier", "delivery", "haul", "wholesale", "fish trader"], ["trade loan", "vehicle loan", "asset loan"], [], ["transit", "road", "goods", "stolen"], 0),
         [MicroinsuranceCatalog.MaternityLine] = new(["midwife"], [], ["pregnan", "expecting", "baby", "maternity"], ["pregnan", "birth", "deliver", "antenatal"], 0),
         [MicroinsuranceCatalog.LoanProtectorLine] = new([], ["loan", "credit", "overdraft", "mortgage"], ["loan"], ["repay", "loan", "debt"], 0),
-        [MicroinsuranceCatalog.FuneralLine] = new([], ["savings", "salary"], ["parents", "elderly", "spouse", "wife", "husband", "children", "dependant", "family"], ["funeral", "burial", "death", "die"], 15),
-        [MicroinsuranceCatalog.SchoolFeesLine] = new(["teacher"], ["savings", "salary", "school"], ["child", "children", "school", "student", "daughter", "son", "fees"], ["school", "fees", "education"], 0),
+        [MicroinsuranceCatalog.FuneralLine] = new([], [], ["parents", "elderly", "spouse", "wife", "husband", "children", "grandchildren", "dependant", "family"], ["funeral", "burial", "death", "die"], 15),
+        [MicroinsuranceCatalog.SchoolFeesLine] = new(["teacher"], ["school fees"], ["school", "student", "daughter", "fees"], ["school", "fees", "education"], 0),
         [MicroinsuranceCatalog.HomeContentsLine] = new([], ["mortgage", "home loan"], ["home", "house", "rent", "landlord"], ["burglar", "theft", "fire", "flood", "break"], 0),
     };
 

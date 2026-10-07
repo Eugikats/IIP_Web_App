@@ -56,7 +56,7 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
   );
 }
 
-function Donut({ data }: { data: { name: string; value: number }[] }) {
+export function Donut({ data, unit = "Prospects" }: { data: { name: string; value: number }[]; unit?: string }) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row">
@@ -73,7 +73,7 @@ function Donut({ data }: { data: { name: string; value: number }[] }) {
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-[22px] font-bold leading-none text-[#0B1640]">{total}</span>
-          <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Prospects</span>
+          <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{unit}</span>
         </div>
       </div>
       <ul className="m-0 w-full min-w-0 space-y-1.5 p-0">

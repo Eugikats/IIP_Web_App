@@ -9,6 +9,10 @@ import AcquisitionKpiStrip from "@/components/cip/AcquisitionKpiStrip";
 import AcquisitionTabs from "@/components/cip/AcquisitionTabs";
 import CipStatusPill from "@/components/cip/CipStatusPill";
 import ProspectCharts from "@/components/cip/ProspectCharts";
+import AgentsTab from "@/components/acquisition/tabs/AgentsTab";
+import ChannelIntelligenceTab from "@/components/acquisition/tabs/ChannelIntelligenceTab";
+import EscalationsTab from "@/components/acquisition/tabs/EscalationsTab";
+import ScoresTab from "@/components/acquisition/tabs/ScoresTab";
 import { dailyCounts, trendDirection } from "@/components/cip/series";
 import { Input } from "@/components/ui/Input";
 import { EmptyStateSurface, ErrorStateSurface, LoadingSkeleton, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
@@ -32,6 +36,10 @@ function shortWhen(value: string | null): string {
 const PAGE_SIZE = 12;
 const TABS = [
   { id: "prospects", label: "Prospects" },
+  { id: "escalations", label: "Escalations" },
+  { id: "scores", label: "Scores" },
+  { id: "agents", label: "Agents" },
+  { id: "channels", label: "Channel Intelligence" },
   { id: "charts", label: "Charts" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -96,7 +104,7 @@ function optionLabel(options: { label: string; value: string }[], value: string)
 }
 
 export default function CustomerAcquisition() {
-  const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights } = useSalesLeads();
+  const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage } = useSalesLeads();
   const [tab, setTab] = useState<TabId>("prospects");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [newestFirst, setNewestFirst] = useState(true);
@@ -196,6 +204,7 @@ export default function CustomerAcquisition() {
 
       <AcquisitionTabs tabs={[...TABS]} active={tab} onChange={setTab} chatHref="/app/channels" />
 
+      {tab === "prospects" || tab === "charts" ? (
       <AcquisitionKpiStrip
         items={[
           kpi("Total prospects", kpiRows.total),
@@ -205,9 +214,18 @@ export default function CustomerAcquisition() {
           kpi("Ready to apply", kpiRows.ready),
         ]}
       />
+      ) : null}
 
       {tab === "charts" ? (
         <ProspectCharts leads={leads} loading={loading} />
+      ) : tab === "escalations" ? (
+        <EscalationsTab onOpenLead={setOpenLeadId} />
+      ) : tab === "scores" ? (
+        <ScoresTab leads={leads} loading={loading} error={error} forbidden={forbidden} reload={reload} runTriage={runTriage} onOpenLead={setOpenLeadId} />
+      ) : tab === "agents" ? (
+        <AgentsTab runTriage={runTriage} />
+      ) : tab === "channels" ? (
+        <ChannelIntelligenceTab />
       ) : (
         <>
           <div className="flex items-start gap-2">
@@ -287,7 +305,7 @@ export default function CustomerAcquisition() {
               <>
                 {/* Desktop table */}
                 <div className="hidden overflow-x-auto lg:block">
-                  <table className="w-full min-w-[900px] text-left">
+                  <table className="w-full min-w-[980px] text-left">
                     <thead>
                       <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                         <th className="px-5 py-3 font-semibold">Customer</th>
@@ -296,6 +314,7 @@ export default function CustomerAcquisition() {
                         <th className="px-3 py-3 font-semibold">Relationship</th>
                         <th className="px-3 py-3 font-semibold">Product interest</th>
                         <th className="px-3 py-3 font-semibold">Stage</th>
+                        <th className="px-3 py-3 font-semibold">Score</th>
                         <th className="px-3 py-3 font-semibold">Assigned officer</th>
                         <th className="px-3 py-3 font-semibold">Last interaction</th>
                         <th className="px-3 py-3 pr-4 font-semibold">Action</th>
@@ -321,6 +340,9 @@ export default function CustomerAcquisition() {
                           <td className="min-w-[9rem] px-3 py-3.5 text-[12px] text-slate-700">{row.productInterest ?? "Not yet known"}</td>
                           <td className="whitespace-nowrap px-3 py-3.5">
                             <CipStatusPill tone={stageTone(row.stage)}>{row.stageLabel}</CipStatusPill>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3.5 text-[12px] text-slate-700">
+                            {row.triage ? <span className="font-semibold tabular-nums text-[#0B1640]">{row.triage.score}<span className="ml-1.5 font-normal text-slate-500">{row.triage.bandLabel}</span></span> : <span className="text-slate-400">Not scored</span>}
                           </td>
                           <td className="px-3 py-3.5 text-[12px] text-slate-700">{row.assignedOfficerName ?? "Unassigned"}</td>
                           <td className="whitespace-nowrap px-3 py-3.5 text-[12px] text-slate-600">{shortWhen(row.lastInteractionAt)}</td>
