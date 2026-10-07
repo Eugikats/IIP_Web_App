@@ -83,8 +83,8 @@ export default function ConversationListPane({
 
   const tabs: { id: ListTab; label: string }[] = [
     { id: "all", label: "All" },
-    { id: "attention", label: "Needs attention" },
-    { id: "person", label: "With a person" },
+    { id: "attention", label: "Attention" },
+    { id: "person", label: "Person" },
     { id: "kato", label: "Kato" },
   ];
 
@@ -133,7 +133,7 @@ export default function ConversationListPane({
           </div>
         </div>
 
-        <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Conversation views">
+        <div className="flex flex-wrap gap-x-1 gap-y-0.5" role="tablist" aria-label="Conversation views">
           {tabs.map((item) => (
             <button
               key={item.id}
@@ -141,7 +141,7 @@ export default function ConversationListPane({
               role="tab"
               aria-selected={tab === item.id}
               onClick={() => setTab(item.id)}
-              className={`shrink-0 border-b-2 px-2.5 pb-2 text-[11px] font-semibold transition-colors ${
+              className={`shrink-0 whitespace-nowrap border-b-2 px-2 pb-2 text-[11px] font-semibold transition-colors ${
                 tab === item.id ? "border-[#1769FF] text-[#1769FF]" : "border-transparent text-slate-500 hover:text-[#0B1640]"
               }`}
             >
@@ -186,7 +186,7 @@ export default function ConversationListPane({
                   <p className="m-0 mt-0.5 truncate text-[12px] text-slate-500">{conversation.snippet || "No messages"}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-1">
                     {/^whatsapp contact/i.test(conversation.customer) ? <span className="rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-slate-500">New contact</span> : null}
-                    {conversation.controlMode === "Person" ? <span className="rounded-full border border-violet-100 bg-violet-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-violet-700">With a person</span> : null}
+                    {conversation.controlMode === "Person" ? <span className="rounded-full border border-sky-100 bg-sky-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-sky-700">With a person</span> : null}
                     {attention ? <span className="rounded-full border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-amber-700">{conversation.intent === "Wants a person" ? "Wants a person" : "Needs approval"}</span> : null}
                     {conversation.language ? <span className="rounded-full border border-blue-100 bg-blue-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-blue-700">{conversation.language}</span> : null}
                   </div>

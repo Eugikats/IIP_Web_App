@@ -180,7 +180,7 @@ export default function ChatThreadPane({
     <div className="flex h-full min-h-0 flex-col bg-[#F7F9FC]">
       <div className="relative flex items-center gap-3 border-b border-[#E6EAF2] bg-white px-3 py-2.5 sm:px-4">
         {onBack ? (
-          <button type="button" onClick={onBack} className="rounded-lg p-1.5 text-slate-500 hover:bg-[#F7F9FC] md:hidden" aria-label="Back to conversations">
+          <button type="button" onClick={onBack} className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-[#F7F9FC]" aria-label="Back to conversations">
             <ChevronLeft className="h-5 w-5" />
           </button>
         ) : null}
@@ -198,8 +198,8 @@ export default function ChatThreadPane({
 
         {isWhatsApp ? (
           withPerson ? (
-            <div className="flex items-center gap-2">
-              <span className="hidden items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold text-violet-700 lg:inline-flex">
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="hidden items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold text-sky-700 2xl:inline-flex">
                 <UserRound className="h-3.5 w-3.5" aria-hidden />
                 {control?.byName ? `${control.byName} is answering` : "A person is answering"}
               </span>
@@ -214,8 +214,8 @@ export default function ChatThreadPane({
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <span className="hidden items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold text-emerald-700 lg:inline-flex">
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="hidden items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold text-emerald-700 2xl:inline-flex">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
                 Kato is answering
               </span>
@@ -236,7 +236,7 @@ export default function ChatThreadPane({
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
         </button>
         {onOpenInfo ? (
-          <button type="button" onClick={onOpenInfo} className="inline-flex items-center gap-1 rounded-lg border border-[#E6EAF2] px-2 py-1.5 text-[11px] font-semibold text-[#0B1640] hover:bg-[#F7F9FC] xl:hidden" aria-label="Open customer information">
+          <button type="button" onClick={onOpenInfo} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#E6EAF2] px-2 py-1.5 text-[11px] font-semibold text-[#0B1640] hover:bg-[#F7F9FC]" aria-label="Open customer information">
             <Info className="h-3.5 w-3.5 text-[#1769FF]" aria-hidden />
             Info
           </button>

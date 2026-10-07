@@ -178,7 +178,7 @@ const config: Config = {
         // Design language §6.3, the only three shadows a new component may use.
         "dls-popover": "var(--shadow-popover)",
         "dls-modal": "var(--shadow-drawer)",
-        "dls-primary": "0 1px 2px rgb(91 42 232 / 0.25)",
+        "dls-primary": "0 1px 2px rgb(23 105 255 / 0.25)",
         "dls-none": "none",
       },
       backgroundImage: {

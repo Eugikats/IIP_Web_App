@@ -41,7 +41,7 @@ export default function DashboardCard<T extends ElementType = "section">({
         "rounded-2xl border text-slate-950",
         toneClasses[tone],
         paddingClasses[padding],
-        interactive && "transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)]",
+        interactive && "transition-all hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)]",
         className
       )}
       {...props}

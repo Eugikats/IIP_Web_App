@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +22,19 @@ export default function Channels() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const [infoOpen, setInfoOpen] = useState(false);
+
+  // The layout follows the room the screen actually has, not the browser width: with the Ask IIP panel
+  // open the same window leaves far less. Three panes need about 1,100px, two about 720px.
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const [boxWidth, setBoxWidth] = useState(1200);
+  useEffect(() => {
+    const node = boxRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => setBoxWidth(entry.contentRect.width));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const layout: "three" | "two" | "one" = boxWidth >= 1100 ? "three" : boxWidth >= 720 ? "two" : "one";
 
   // A link from elsewhere (a prospect's row, a cited message) opens that conversation directly.
   useEffect(() => {
@@ -93,12 +106,16 @@ export default function Channels() {
         </Link>
       </div>
 
-      <div className="grid h-[calc(100dvh-13rem)] min-h-[34rem] grid-cols-1 overflow-hidden rounded-2xl border border-[#E6EAF2] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)] md:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)_22rem]">
-        <div className={`min-h-0 ${mobileView === "thread" ? "hidden md:block" : ""}`}>
+      <div
+        ref={boxRef}
+        className="grid h-[calc(100dvh-13rem)] min-h-[34rem] overflow-hidden rounded-2xl border border-[#E6EAF2] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
+        style={{ gridTemplateColumns: layout === "three" ? "20rem minmax(0,1fr) 22rem" : layout === "two" ? "19rem minmax(0,1fr)" : "minmax(0,1fr)" }}
+      >
+        <div className={`min-h-0 ${layout === "one" && mobileView === "thread" ? "hidden" : ""}`}>
           <ConversationListPane conversations={conversations} selectedId={activeId} loading={loading} error={error} onSelect={select} />
         </div>
 
-        <div className={`min-h-0 ${mobileView === "list" ? "hidden md:block" : ""}`}>
+        <div className={`min-h-0 min-w-0 ${layout === "one" && mobileView === "list" ? "hidden" : ""}`}>
           {active ? (
             <ChatThreadPane
               conversation={{ ...active, controlMode: control.control?.mode ?? active.controlMode }}
@@ -112,8 +129,8 @@ export default function Channels() {
               onTakeOver={control.takeOver}
               onHandBack={control.handBack}
               onSend={onSend}
-              onBack={() => setMobileView("list")}
-              onOpenInfo={isWhatsApp ? () => setInfoOpen(true) : undefined}
+              onBack={layout === "one" ? () => setMobileView("list") : undefined}
+              onOpenInfo={isWhatsApp && layout !== "three" ? () => setInfoOpen(true) : undefined}
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center bg-[#F7F9FC] px-6 text-center">
@@ -124,7 +141,7 @@ export default function Channels() {
           )}
         </div>
 
-        <div className="hidden min-h-0 border-l border-[#E6EAF2] xl:block">
+        <div className={`min-h-0 border-l border-[#E6EAF2] ${layout === "three" ? "" : "hidden"}`}>
           {active && isWhatsApp ? (
             <CustomerInfoPanel
               conversation={active}

@@ -18,7 +18,7 @@ const toneClasses: Record<StatusTone, string> = {
   danger: "border-red-100 bg-red-50 text-red-700",
   info: "border-blue-100 bg-blue-50 text-blue-700",
   neutral: "border-slate-200 bg-slate-50 text-slate-600",
-  violet: "border-violet-100 bg-violet-50 text-violet-700",
+  violet: "border-sky-100 bg-sky-50 text-sky-700",
 };
 
 const dotClasses: Record<StatusTone, string> = {
@@ -27,7 +27,7 @@ const dotClasses: Record<StatusTone, string> = {
   danger: "bg-red-500",
   info: "bg-blue-500",
   neutral: "bg-slate-400",
-  violet: "bg-violet-500",
+  violet: "bg-sky-500",
 };
 
 export default function CipStatusPill({

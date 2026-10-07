@@ -15,12 +15,12 @@
     --info: 222 100% 57%;        /* #2563FF */
     --warning: 38 92% 50%;
     --error: 0 84% 60%;
-    --violet: 259 92% 65%;       /* #7C4DFF-ish */
+    --violet: 219 100% 55%;      /* #1769FF, the platform accent (CIP blue) */
 
     /* Ambient gradient tints */
     --sky-violet: 230 100% 96%;
     --pearl-glow: 210 40% 98%;
-    --lavender-mist: 270 100% 95%;
+    --lavender-mist: 214 100% 96%;
     --mint-aura: 152 81% 96%;
     --warm-halo: 33 100% 96%;
 
@@ -43,7 +43,7 @@
     --muted: 228 16% 96%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 259 92% 65%;
+    --accent: 219 100% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
