@@ -30,7 +30,10 @@ public sealed class ChannelQueryService(
                 row.LastActivityAt.ToString("O"),
                 row.CustomerContact,
                 row.CustomerLanguage,
-                row.LanguageNote))
+                row.LanguageNote)
+            {
+                ControlMode = row.ControlMode,
+            })
             .ToArray();
     }
 

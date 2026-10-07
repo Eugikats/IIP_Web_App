@@ -376,6 +376,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Policies.IPolicyImp
 builder.Services.AddScoped<InsuranceIntelligence.Application.Customers.ICustomerConsentService, InsuranceIntelligence.Application.Customers.CustomerConsentService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Retention.IRetentionWatchService, InsuranceIntelligence.Application.Retention.RetentionWatchService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IConversationControlService, InsuranceIntelligence.Application.CustomerAssistant.ConversationControlService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Brief.IBriefService, InsuranceIntelligence.Application.Brief.BriefService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQueryService, InsuranceIntelligence.Application.Products.ProductQueryService>();
@@ -1157,6 +1158,14 @@ app.MapGet("/api/v1/admin/tenant-policy", InsuranceIntelligence.Api.Administrati
 app.MapPost("/api/v1/integrations/sms/status/{pathSecret}", SmsIntegrationEndpoints.ReceiveDeliveryStatus);
 app.MapGet("/api/v1/channels/whatsapp/threads/{threadId}", WhatsAppIntegrationEndpoints.GetThread)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapGet("/api/v1/channels/whatsapp/threads/{threadId}/control", ConversationControlEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications, Permission.ViewSalesLeads, Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPut("/api/v1/channels/whatsapp/threads/{threadId}/control", ConversationControlEndpoints.Set)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapGet("/api/v1/channels/whatsapp/threads/{threadId}/prospect", SalesLeadEndpoints.GetByThread)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapPost("/api/v1/admin/sales-leads/merge-duplicates", SalesLeadEndpoints.MergeDuplicates)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapPost("/api/v1/channels/whatsapp/threads/{threadId}/messages", WhatsAppIntegrationEndpoints.SendMessage)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.SendCustomerUpdate));
 app.MapPost("/api/v1/communications/send-email", CommunicationEndpoints.SendEmail)

@@ -523,6 +523,28 @@ public sealed partial class CustomerAssistantService(
             return null;
         }
 
+        // A person has taken this conversation: record what the customer wrote and say nothing. This
+        // runs before the typing indicator so the customer never sees Kato typing while a person is
+        // the one answering.
+        var heldThread = await CurrentThreadAsync(scope, threadId, cancellationToken);
+        if (ConversationControl.ModeOf(heldThread, DateTimeOffset.UtcNow) == ConversationMode.Person)
+        {
+            await conversationRepository.SaveAsync(new CustomerConversationTurn
+            {
+                TurnId = Guid.NewGuid(),
+                Scope = scope,
+                ThreadId = threadId,
+                ContactWaId = waId,
+                InboundMessageText = text,
+                ClassifiedIntent = CustomerIntent.Unknown,
+                Outcome = CustomerAssistantOutcome.HeldForPerson,
+                OccurredAt = DateTimeOffset.UtcNow,
+                CorrelationId = correlationId,
+            }, cancellationToken);
+            await NoteProspectActivityAsync(scope, waId, threadId, correlationId, cancellationToken);
+            return null;
+        }
+
         // From here on the customer always gets a reply (an answer, a holding message, a language
         // question or a hand-off to a person), so show them "typing..." while it is prepared. It stops
         // when this method returns, whatever path it takes.

@@ -931,6 +931,34 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
+    public async Task WhileAPersonHasTheConversation_KatoStaysSilent_ButRecordsAndReadsTheMessage()
+    {
+        var model = new ScriptedAgentModel().Says("This must never be sent.");
+        var fixture = Fixture.Create(agent: model);
+        var threadId = InsuranceIntelligence.Application.WhatsApp.WhatsAppMessagingService.BuildThreadId("phone-1", "256772118001");
+        await fixture.Conversations.SaveAsync(new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(),
+            Scope = fixture.Scope,
+            ThreadId = threadId,
+            ContactWaId = "256772118001",
+            InboundMessageText = string.Empty,
+            ClassifiedIntent = CustomerIntent.Unknown,
+            Outcome = CustomerAssistantOutcome.HumanTookOver,
+            OccurredAt = DateTimeOffset.UtcNow.AddMinutes(-2),
+            CorrelationId = "takeover",
+        });
+
+        await fixture.HandleAsync("Is the shop cover still UGX 15,000?");
+
+        Assert.Empty(fixture.Outbound.SentRequests);
+        Assert.Empty(model.Conversations);
+        var turns = await fixture.Conversations.ListForThreadAsync(fixture.Scope, threadId);
+        Assert.Contains(turns, turn => turn.Outcome == CustomerAssistantOutcome.HeldForPerson && turn.InboundMessageText.Contains("shop cover"));
+        Assert.Single(fixture.InsightsQueue.Requests);
+    }
+
+    [Fact]
     public async Task Agent_AsksForTheConversationToBeReadAgain_AfterEveryReply()
     {
         var model = new ScriptedAgentModel().Says("Hello, I am Kato from Nile Shield.");
@@ -1595,6 +1623,12 @@ public sealed partial class CustomerAssistantServiceTests
                 Created.Add(lead);
             }
 
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteAsync(string tenantId, string workspaceId, string leadId, CancellationToken cancellationToken = default)
+        {
+            Created.RemoveAll(lead => lead.LeadId == leadId);
             return Task.CompletedTask;
         }
 

@@ -55,9 +55,14 @@ public sealed class WhatsAppMessagingService(
             return ToDto(existing);
         }
 
-        var claimCase = await caseRepository.GetAsync(command.CaseId, cancellationToken);
-        if (claimCase is null || !claimCase.Scope.Matches(context.Scope))
-            throw new WhatsAppPolicyException("CaseNotFound", "The case was not found in this tenant workspace.");
+        // A claim is optional: staff also reply to prospects and to people who have not reported
+        // anything. When a claim is named it must still be this workspace's.
+        if (command.CaseId is { } caseId)
+        {
+            var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
+            if (claimCase is null || !claimCase.Scope.Matches(context.Scope))
+                throw new WhatsAppPolicyException("CaseNotFound", "The case was not found in this tenant workspace.");
+        }
 
         var thread = await repository.ListThreadAsync(context.Scope, command.ThreadId.Trim(), cancellationToken);
         if (thread.Any(message => message.Direction == WhatsAppMessageDirection.Outbound

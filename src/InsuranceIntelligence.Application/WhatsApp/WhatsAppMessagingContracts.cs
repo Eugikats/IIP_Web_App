@@ -4,7 +4,7 @@ using InsuranceIntelligence.Domain.Integrations;
 namespace InsuranceIntelligence.Application.WhatsApp;
 
 public sealed record SendWhatsAppMessageCommand(
-    Guid CaseId,
+    Guid? CaseId,
     string ThreadId,
     string RecipientWaId,
     string CustomerSafeBody,

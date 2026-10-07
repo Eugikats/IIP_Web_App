@@ -56,6 +56,16 @@ public sealed class EfSalesLeadRepository(InsuranceIntelligenceDbContext dbConte
         return UpsertAsync(DbContext.SalesLeads, id, scope, Serialize(lead), cancellationToken: cancellationToken);
     }
 
+    public async Task DeleteAsync(string tenantId, string workspaceId, string leadId, CancellationToken cancellationToken = default)
+    {
+        var record = await DbContext.SalesLeads.FindAsync([DeterministicId(tenantId, workspaceId, leadId)], cancellationToken);
+        if (record is not null && record.TenantId == tenantId && record.WorkspaceId == workspaceId)
+        {
+            DbContext.SalesLeads.Remove(record);
+            await DbContext.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     public async Task<SalesLeadDetailReadModel?> FindByPhoneAsync(
         string tenantId,
         string workspaceId,

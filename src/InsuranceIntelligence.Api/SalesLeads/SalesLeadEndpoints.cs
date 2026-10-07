@@ -122,4 +122,49 @@ public static class SalesLeadEndpoints
         var detail = await queryService.GetLeadDetailAsync(leadId, cancellationToken);
         return detail is null ? Results.NotFound() : Results.Ok(detail);
     }
+
+    public static async Task<IResult> GetByThread(string threadId, ISalesLeadQueryService queryService, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var detail = await queryService.GetLeadByThreadAsync(threadId, cancellationToken);
+            return detail is null ? Results.NotFound(new { message = "This conversation is not a prospect yet." }) : Results.Ok(detail);
+        }
+        catch (SalesLeadQueryValidationException ex)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { [ex.Field] = [ex.Message] });
+        }
+    }
+
+    /// <summary>Merges leads that are the same person (the same phone number) into one record, keeping
+    /// everything recorded on each. Safe to run again.</summary>
+    public static async Task<IResult> MergeDuplicates(
+        InsuranceIntelligence.Application.Core.ITenantContextAccessor tenantContextAccessor,
+        ISalesLeadReadRepository readRepository,
+        ISalesLeadWriteRepository writeRepository,
+        CancellationToken cancellationToken)
+    {
+        var context = tenantContextAccessor.Current;
+        var all = await readRepository.ListLeadsAsync(context.TenantId, context.WorkspaceId, cancellationToken);
+        var merged = 0;
+        var removed = 0;
+        foreach (var group in all
+                     .Where(lead => !string.IsNullOrWhiteSpace(lead.Phone ?? lead.ContactInfo))
+                     .GroupBy(lead => InsuranceIntelligence.Domain.Customers.PhoneNumbers.Digits(lead.Phone ?? lead.ContactInfo))
+                     .Where(group => group.Key.Length >= 9 && group.Count() > 1))
+        {
+            var ordered = group.OrderBy(lead => lead.CreatedAt ?? DateTimeOffset.MaxValue).ToArray();
+            var keep = LeadMerge.Merge(ordered);
+            await writeRepository.CreateAsync(context.TenantId, context.WorkspaceId, keep, cancellationToken);
+            foreach (var duplicate in ordered.Where(lead => lead.LeadId != keep.LeadId))
+            {
+                await writeRepository.DeleteAsync(context.TenantId, context.WorkspaceId, duplicate.LeadId, cancellationToken);
+                removed++;
+            }
+
+            merged++;
+        }
+
+        return Results.Ok(new { peopleMerged = merged, recordsRemoved = removed });
+    }
 }

@@ -10,6 +10,12 @@ public interface ISalesLeadQueryService
 
     Task<IReadOnlyList<SalesLeadListItemDto>> ListLeadsAsync(
         CancellationToken cancellationToken = default);
+
+    /// <summary>The prospect behind a WhatsApp conversation, or null when the person is not one yet
+    /// (they wrote in but have not asked about a cover).</summary>
+    Task<SalesLeadDetailDto?> GetLeadByThreadAsync(
+        string threadId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -52,6 +58,13 @@ public interface ISalesLeadWriteRepository
         string tenantId,
         string workspaceId,
         SalesLeadDetailReadModel lead,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Removes a lead. Used only to merge duplicates of the same person into one record.</summary>
+    Task DeleteAsync(
+        string tenantId,
+        string workspaceId,
+        string leadId,
         CancellationToken cancellationToken = default);
 
     /// <summary>The lead for this phone number in the workspace, if there is one. One prospect per

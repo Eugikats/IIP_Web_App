@@ -57,6 +57,24 @@ public sealed class SalesLeadQueryService(
         return ToDetailDto(lead, lookup, customerTurns);
     }
 
+    public async Task<SalesLeadDetailDto?> GetLeadByThreadAsync(string threadId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(threadId))
+        {
+            throw new SalesLeadQueryValidationException("threadId", "Thread ID is required.");
+        }
+
+        await permissionService.RequirePermissionAsync(Permission.ViewSalesLeads, cancellationToken);
+        var context = tenantContextAccessor.Current;
+        var leads = await repository.ListLeadsAsync(context.TenantId, context.WorkspaceId, cancellationToken);
+        var trimmed = threadId.Trim();
+        // A thread id ends with the customer's number, so a lead whose own thread has not been
+        // recorded yet is still found by it.
+        var lead = leads.FirstOrDefault(item => string.Equals(item.ThreadId, trimmed, StringComparison.Ordinal))
+            ?? leads.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Phone) && trimmed.EndsWith(item.Phone, StringComparison.Ordinal));
+        return lead is null ? null : await GetLeadDetailAsync(lead.LeadId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<SalesLeadListItemDto>> ListLeadsAsync(
         CancellationToken cancellationToken = default)
     {

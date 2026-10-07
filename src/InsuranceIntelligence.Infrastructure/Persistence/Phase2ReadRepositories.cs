@@ -396,15 +396,21 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
         // fell through to "general_service" for every thread and showed WhatsApp's delivery state
         // as though it were a work state, so an officer could not see which conversations were
         // new claims, and a reply held for human approval looked identical to one already sent.
-        var latestTurnByThread = (await Scoped(DbContext.CustomerConversationTurns.AsNoTracking(), scope)
+        var turnsByThread = (await Scoped(DbContext.CustomerConversationTurns.AsNoTracking(), scope)
                 .Select(record => record.PayloadJson)
                 .ToArrayAsync(cancellationToken))
             .Select(Deserialize<CustomerConversationTurn>)
             .GroupBy(turn => turn.ThreadId, StringComparer.Ordinal)
-            .ToDictionary(
-                group => group.Key,
-                group => group.OrderByDescending(turn => turn.OccurredAt).First(),
-                StringComparer.Ordinal);
+            .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
+        // Who is answering is a conversation-level state, so it reads every turn; the customer-facing
+        // classification below uses the latest one that is not just a control event.
+        var latestTurnByThread = turnsByThread.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value
+                .Where(turn => turn.Outcome is not (CustomerAssistantOutcome.HumanTookOver or CustomerAssistantOutcome.HandedBackToKato or CustomerAssistantOutcome.HumanReplied or CustomerAssistantOutcome.HeldForPerson))
+                .OrderByDescending(turn => turn.OccurredAt)
+                .FirstOrDefault(),
+            StringComparer.Ordinal);
 
         var cases = (await Scoped(DbContext.Cases.AsNoTracking(), scope)
                 .Select(record => record.PayloadJson)
@@ -436,6 +442,7 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                     : null;
                 var turn = latestTurnByThread.GetValueOrDefault(message.ThreadId);
                 var language = ConversationLanguageNote.For(turn);
+                var controlMode = ConversationControl.ModeOf(turnsByThread.GetValueOrDefault(message.ThreadId) ?? [], DateTimeOffset.UtcNow);
                 return new ChannelConversationReadModel(
                     message.ThreadId,
                     claimCase?.CustomerName ?? matchedCustomer?.FullName ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
@@ -449,7 +456,10 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                     message.CreatedAt,
                     claimCase?.CustomerPhone ?? message.ContactWaId,
                     language.Language,
-                    language.Note);
+                    language.Note)
+                {
+                    ControlMode = controlMode.ToString(),
+                };
             });
 
         var emailRows = emailMessages.Select(message =>
