@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from "@/components/iip/NextRouterCompat";
 import { useUI } from "@/context/UIStateContext";
 import { useProviderHealth } from "@/lib/lovable-parity/data/providerHealth";
 import { isProviderHealthy } from "@/lib/providerHealth";
+import { presentationMode } from "@/lib/config";
 import { useCommandCenterQuery, type CommandCenterAnswer } from "@/lib/lovable-parity/data/commandCenterQuery";
 import { AIMessageBubble, UserMessageBubble, Composer } from "@/components/iip/ChatPrimitives";
 import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
@@ -282,6 +283,7 @@ export default function CopilotPanel() {
               </div>
             )}
 
+            {!presentationMode && (
             <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
               <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Provider health</div>
               {providersLoading ? (
@@ -304,6 +306,7 @@ export default function CopilotPanel() {
                 </div>
               )}
             </div>
+            )}
 
             {ctx.footer && (
               <div className="rounded-dls-card border border-dls-primary-border bg-dls-primary-soft-alt p-4">
