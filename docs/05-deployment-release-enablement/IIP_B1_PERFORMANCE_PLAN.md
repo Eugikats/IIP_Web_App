@@ -115,4 +115,25 @@ Phase 0, then Phase 1, then re-measure. If lists are under 2 seconds on B1, stop
 
 ## 9. Measured on B1
 
-To be filled in after the plan is scaled down and the same calls are timed again.
+The plan was scaled back to B1 on 2026-10-07 and the same calls were timed with `scripts/local/time-dev-api.sh`, once both apps had finished starting. Same laptop, same five calls each, so these compare directly with section 2.
+
+| Call | P1v3 average | B1 average | B1 slowest |
+|---|---|---|---|
+| Health check | 1.1 s | 1.8 s | 2.0 s |
+| Prospects list | 5.0 s | 4.1 s | 9.7 s |
+| Customers list | 2.0 s | 3.8 s | 9.6 s |
+| Claims list | 12.7 s | 32.9 s | 60.0 s |
+| Today's brief | 3.8 s | 2.8 s | 3.5 s |
+| Channel intelligence | 1.2 s | 4.1 s | 11.7 s |
+| Escalations | 1.6 s | 1.9 s | 2.3 s |
+| Course prices | 1.5 s | 1.8 s | 2.0 s |
+| Portal home page | 1.1 s | 1.7 s | 2.0 s |
+
+What this shows:
+
+- Calls that do little work (health, course prices, escalations) cost only a little more on B1. The small server is fine for those.
+- Calls that read many records are 2 to 3 times slower on B1, and the claims list is the clear outlier at 33 seconds on average and a full minute at worst. That is the query-per-row pattern in section 3, and it is the first thing to fix.
+- The prospects list and channel intelligence have a slow first call (about 10 s) and quicker later ones, which points at work done on every request that a cache would remove.
+- Nothing here suggests the database is the limit.
+
+The target figures in section 5 stand. Start with the claims list.
