@@ -221,7 +221,12 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
             .Select(Deserialize<ClaimCase>)
             .ToArray();
 
+        // The same person can be on file more than once (a demonstration list loaded again, or a customer
+        // added by hand and later by WhatsApp). One row per person: the email if there is one, else the
+        // phone number, else the record itself. The earliest-created record is kept so links stay stable.
         return customers
+            .GroupBy(customer => IdentityKey(customer), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderBy(customer => customer.CustomerId, StringComparer.Ordinal).First())
             .OrderBy(customer => customer.FullName, StringComparer.OrdinalIgnoreCase)
             .Select(customer => new CustomerListItemDto(
                 customer.CustomerId,
@@ -230,6 +235,17 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
                 customer.Phone,
                 claims.Count(claim => MatchesCustomer(claim, customer) && IsOpenClaim(claim))))
             .ToArray();
+    }
+
+    private static string IdentityKey(Customer customer)
+    {
+        if (!string.IsNullOrWhiteSpace(customer.Email))
+        {
+            return $"email:{customer.Email.Trim()}";
+        }
+
+        var phone = NormalizePhone(customer.Phone ?? string.Empty);
+        return phone.Length >= 9 ? $"phone:{phone}" : $"id:{customer.CustomerId}";
     }
 
     private static bool IsOpenClaim(ClaimCase claim) =>

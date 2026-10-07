@@ -379,6 +379,7 @@ builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IConversationControlService, InsuranceIntelligence.Application.CustomerAssistant.ConversationControlService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
 builder.Services.AddScoped<IProspectTriageService, ProspectTriageService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
 // A message that cannot reach a real phone may be recorded as a clearly labelled demonstration send, but
 // only where the runtime profile is not protected. In Staging and Production it is blocked, never faked.
 builder.Services.AddSingleton(new OutreachOptions(!AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile)));
@@ -916,6 +917,9 @@ app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEn
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers, Permission.ViewSalesLeads));
 app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBrief)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);
+app.MapPut("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.SavePricing)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)

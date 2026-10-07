@@ -5,12 +5,14 @@ import { Award, Clock, GraduationCap, Users } from "lucide-react";
 import { COURSES } from "@/lib/academy/courses";
 import { downloadCertificate } from "@/lib/academy/certificate";
 import { useAcademyProgress } from "@/lib/academy/progress";
+import { formatPrice, useAcademyPricing } from "@/lib/academy/pricing";
 
 // IIP Academy: short text courses taught against the real IIP screens. A person works through the steps,
 // answers a few questions and receives a certificate of completion they can download.
 
 export default function AcademyCatalogue() {
   const { completions } = useAcademyProgress();
+  const { prices, currency } = useAcademyPricing();
   const done = (id: string) => completions.find((item) => item.courseId === id);
 
   return (
@@ -49,6 +51,7 @@ export default function AcademyCatalogue() {
                 <Link href={`/app/academy/${course.id}`} className="inline-flex h-9 items-center rounded-lg bg-[#1769FF] px-4 text-[13px] font-semibold text-white hover:bg-[#1258d6]">
                   {completion ? "Review course" : "Start course"}
                 </Link>
+                {prices?.[course.id] !== undefined ? <span className="ml-auto text-[15px] font-bold text-[#0B1640]">{formatPrice(prices[course.id], currency)}</span> : null}
                 {completion ? (
                   <button
                     type="button"

@@ -22,13 +22,12 @@ public static class KatoReplies
         "If you have cover with us and something has happened, I can help you get your money. " +
         "I can also tell you what your cover pays for, or find cover that fits your work. " +
         (voiceNotes
-            ? "Just tell me what you need in your own words. You can write or send a voice note, in the language you like best. "
-            : "Just write to me in your own words, in the language you like best. ") +
-        $"If you would rather talk to a person, reply {PersonWord} at any time.";
+            ? "Just tell me what you need in your own words. You can write or send a voice note, in the language you like best."
+            : "Just write to me in your own words, in the language you like best.");
 
     /// <summary>Opens the first reply to an unknown number when that reply is not the introduction itself.</summary>
     public static string FirstContactPrefix(string? firstName) =>
-        $"Hello{Comma(firstName)}, I'm Kato, {KatoBrand.Current.ShortName}'s helper on WhatsApp. You can reply {PersonWord} at any time to talk to someone from our team.";
+        $"Hello{Comma(firstName)}, I'm Kato, {KatoBrand.Current.ShortName}'s helper on WhatsApp.";
 
     public const string AskName = "What should I call you?";
 
@@ -37,49 +36,45 @@ public static class KatoReplies
 
     public static string WelcomeBack(string firstName) =>
         $"Hello {firstName}, it's Kato from {KatoBrand.Current.ShortName}. If something has happened, tell me and I will help you get your money. " +
-        $"I can also tell you where your claim is, or what your cover pays for. Reply {PersonWord} at any time to talk to someone from our team.";
+        $"I can also tell you where your claim is, or what your cover pays for.";
 
     public static string Clarify() =>
         "Sorry, I didn't understand that. Has something happened that you want help with? " +
-        "Or do you want to know about your cover, or check on a claim? " +
-        $"You can also reply {PersonWord} to talk to someone from our team.";
+        "Or do you want to know about your cover, or check on a claim?";
 
     public static string HandingToPerson(string? firstName) =>
-        $"Let me get someone from our team to help you{Comma(firstName)}. They will reply to you here soon.";
+        $"Thank you{Comma(firstName)}. We will get back to you shortly, right here.";
 
     // Warm and plain, and still true: Kato never claims to be human. The people behind him are real,
     // and one of them takes over whenever the customer wants.
     public static string NotAPerson(string? firstName) =>
         $"I'm Kato{Comma(firstName)}, {KatoBrand.Current.ShortName}'s assistant here on WhatsApp. I'm not a person myself, but I work with our team, " +
-        "and they see what you tell me. I'm here day and night to help you get things done quickly. " +
-        $"If you would rather talk to one of them, reply {PersonWord} and someone will pick this up.";
+        "and they see what you tell me. I'm here day and night to help you get things done quickly.";
 
     public static string YoureWelcome(string? firstName) =>
         $"You're welcome{Comma(firstName)}. I'm here any time you need me.";
 
     public static string PersonRequested(string? firstName) =>
-        $"Of course{Comma(firstName)}. I've asked someone from our team to help you. They will reply to you here soon.";
+        $"Of course{Comma(firstName)}. We will get back to you shortly, right here.";
 
     public static string CheckingAnswer(string? firstName) =>
-        $"Thank you for your question{Comma(firstName)}. I want to be sure I give you the right answer, so I've asked our team to check it. Someone will reply here soon.";
+        $"Thank you for your question{Comma(firstName)}. I want to be sure I give you the right answer, so we are checking it. We will get back to you shortly, right here.";
 
     public static string NoTrustedAnswer() =>
-        "I don't have an answer I can trust for that yet. I've asked our team, and someone will reply to you here soon.";
+        "I don't have an answer I can trust for that yet. We will get back to you shortly, right here.";
 
     public static string CannotHelpDirectly() =>
-        "I'm not able to help with that myself. I've asked someone from our team, and they will reply to you here soon.";
+        "I'm not able to help with that myself. We will get back to you shortly, right here.";
 
     // ---- Claims ----
 
     public static string NoCoverOnThisNumber(string? firstName) =>
         $"I'm sorry to hear that{Comma(firstName)}. I can't find cover with {KatoBrand.Current.ShortName} for this phone number, " +
         "and I can only start a claim from the phone number on the policy. " +
-        $"If you have cover with us, reply {PersonWord} and someone from our team will help you. " +
         "If you don't have cover yet, tell me what work you do, and I'll tell you about cover that could help you.";
 
     public static string PolicyNotOnThisNumber(string? firstName) =>
-        $"Thank you{Comma(firstName)}. That policy is not on this phone number, so I can't use it here. " +
-        $"Reply {PersonWord} and someone from our team will help you.";
+        $"Thank you{Comma(firstName)}. That policy is not on this phone number, so I can't use it here. Please check the policy number on your documents and tell me again.";
 
     public static string WhichCover(string firstName, IReadOnlyList<Policy> policies)
     {
@@ -132,8 +127,7 @@ public static class KatoReplies
         $"Hello {firstName}. I can't see any claims for you yet. If something has happened, tell me and I'll help you.";
 
     public static string OnlyForThePolicyNumber() =>
-        "I can only share claim news with the phone number on the policy, and this number is not on any of our policies. " +
-        $"Reply {PersonWord} and someone from our team will help you.";
+        "I can only share claim news with the phone number on the policy, and this number is not on any of our policies.";
 
     public static string SecureLink(string reference, string link) =>
         $"Here is your secure link for claim {reference}. It works for 24 hours: {link} " +
@@ -154,8 +148,7 @@ public static class KatoReplies
         $"Thank you{Comma(firstName)}. I have your photo. Someone from our team will look at it and reply to you here.";
 
     public static string CannotListenYet(string? firstName) =>
-        $"Thank you{Comma(firstName)}. I can't listen to voice notes yet. Please write your message to me instead, in any language you like. " +
-        $"You can also reply {PersonWord} to talk to someone from our team.";
+        $"Thank you{Comma(firstName)}. I can't listen to voice notes yet. Please write your message to me instead, in any language you like.";
 
     // ---- No policy: cover that fits their work ----
 
@@ -166,6 +159,5 @@ public static class KatoReplies
     public static string CoverSuggestion(string? firstName, string explanation) =>
         $"Thank you{Comma(firstName)}. {explanation} " +
         "These are microinsurance covers we are trying out, so nothing is sold in this chat. " +
-        "I've passed your details to our team, and a person will call you to explain them if you want. " +
-        $"You can also reply {PersonWord} to talk to someone now.";
+        "We will get back to you shortly with more detail.";
 }

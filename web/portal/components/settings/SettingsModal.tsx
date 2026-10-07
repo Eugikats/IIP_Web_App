@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  Bot, CreditCard, FolderOpen, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Smartphone, Users, type LucideIcon,
+  Bot, CreditCard, FolderOpen, GraduationCap, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Smartphone, Users, type LucideIcon,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
@@ -15,19 +15,22 @@ import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { COURSES } from "@/lib/academy/courses";
+import { formatPrice, useAcademyPricing } from "@/lib/academy/pricing";
 
 // Settings as one place: integrations first (what the platform supports, what is connected and what is
 // is not), then the existing administration screens grouped under it. Every status here is read from
 // the API; a card is "Connected" only when the provider validated the saved connection. File sources
 // without a connection screen say "Not connected" and why, so nobody expects them to work.
 
-type Section = "integrations" | "agents" | "team" | "products" | "billing";
+type Section = "integrations" | "agents" | "team" | "products" | "academy" | "billing";
 
 const SECTIONS: { key: Section; label: string; icon: LucideIcon }[] = [
   { key: "integrations", label: "Integrations", icon: Plug },
   { key: "agents", label: "Agent rules", icon: Bot },
   { key: "team", label: "Team and access", icon: Users },
   { key: "products", label: "Products", icon: Package },
+  { key: "academy", label: "IIP Academy", icon: GraduationCap },
   { key: "billing", label: "Usage and billing", icon: CreditCard },
 ];
 
@@ -147,6 +150,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
                   ]}
                 />
               ) : null}
+              {section === "academy" ? <AcademyPricingSection /> : null}
               {section === "billing" ? (
                 <LinkSection
                   onNavigate={onClose}
@@ -302,6 +306,77 @@ function IntegrationsSection({ onNavigate }: { onNavigate: () => void }) {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+
+function AcademyPricingSection() {
+  const { prices, currency, loading, error, save } = useAcademyPricing();
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (prices) setDraft(Object.fromEntries(Object.entries(prices).map(([id, amount]) => [id, String(amount)])));
+  }, [prices]);
+
+  const invalid = COURSES.some((course) => {
+    const value = draft[course.id];
+    return value === undefined || value.trim() === "" || Number.isNaN(Number(value)) || Number(value) < 0 || Number(value) > 10000;
+  });
+  const changed = !!prices && COURSES.some((course) => Number(draft[course.id]) !== prices[course.id]);
+
+  const onSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    const result = await save(Object.fromEntries(COURSES.map((course) => [course.id, Math.round(Number(draft[course.id]) * 100) / 100])));
+    setSaving(false);
+    setMessage(result.ok ? { tone: "ok", text: "Prices saved." } : { tone: "bad", text: result.message ?? "The prices could not be saved." });
+  };
+
+  return (
+    <div>
+      <h3 className="m-0 text-[16px] font-bold text-dls-text-primary">IIP Academy prices</h3>
+      <p className="m-0 mt-1 max-w-2xl text-[13px] text-dls-text-secondary">
+        What each course costs a learner, in US dollars. Learners see the price on the course page. Every course starts at {formatPrice(50)}. Payment is not connected yet, so nobody is charged.
+      </p>
+      {loading && !prices ? <div className="mt-4"><LoadingSkeleton rows={4} /></div> : null}
+      {error ? <p role="alert" className="m-0 mt-4 text-[13px] text-red-700">{error}</p> : null}
+      {prices ? (
+        <div className="mt-4 space-y-2.5">
+          {COURSES.map((course) => (
+            <label key={course.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dls-border-subtle bg-dls-surface px-4 py-3">
+              <span className="min-w-0">
+                <span className="block text-[14px] font-semibold text-dls-text-primary">{course.title}</span>
+                <span className="block text-[12px] text-dls-text-muted">Course {course.number}, {course.duration}</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-[13px] text-dls-text-secondary" aria-hidden>{currency === "USD" ? "$" : currency}</span>
+                <Input
+                  inputMode="decimal"
+                  value={draft[course.id] ?? ""}
+                  onChange={(event) => { setDraft({ ...draft, [course.id]: event.target.value }); setMessage(null); }}
+                  aria-label={`Price of ${course.title} in ${currency}`}
+                  className="w-24 text-right"
+                />
+              </span>
+            </label>
+          ))}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              disabled={saving || invalid || !changed}
+              onClick={() => void onSave()}
+              className="inline-flex h-9 items-center rounded-lg bg-dls-primary-accent px-4 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? "Saving" : "Save prices"}
+            </button>
+            {invalid ? <span className="text-[12.5px] text-amber-700">Enter a price from 0 to 10,000. Use 0 for a free course.</span> : null}
+            {message ? <span role="status" className={cn("text-[12.5px]", message.tone === "ok" ? "text-emerald-700" : "text-red-700")}>{message.text}</span> : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

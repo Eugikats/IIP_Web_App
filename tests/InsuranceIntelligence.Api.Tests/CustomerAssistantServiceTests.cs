@@ -117,7 +117,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(CustomerAssistantOutcome.Declined, turn.Outcome);
         Assert.Null(turn.CaseId);
         Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
-        Assert.Contains("PERSON", turn.OutboundReplyText);
+        Assert.DoesNotContain("PERSON", turn.OutboundReplyText);
         Assert.DoesNotContain("policy number", turn.OutboundReplyText, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -306,7 +306,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, turn.Outcome);
         Assert.StartsWith("Hello, Sarah. I'm Kato, Nile Shield's helper", turn.OutboundReplyText);
         Assert.Contains("get your money", turn.OutboundReplyText);
-        Assert.Contains("PERSON", turn.OutboundReplyText);
+        Assert.DoesNotContain("PERSON", turn.OutboundReplyText);
         Assert.DoesNotContain("voice note", turn.OutboundReplyText); // voice is not offered until it works
         Assert.Empty(fixture.SalesLeads.Created);
     }
@@ -336,7 +336,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(CustomerIntent.GeneralQuestion, turn.ClassifiedIntent);
         Assert.Equal(CustomerAssistantOutcome.QueuedForHumanApproval, turn.Outcome);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("asked our team", sent.CustomerSafeBody);
+        Assert.Contains("get back to you shortly", sent.CustomerSafeBody);
     }
 
     [Fact]
@@ -382,7 +382,7 @@ public sealed partial class CustomerAssistantServiceTests
         // The held AI answer never reaches the customer; only the fixed holding message does.
         var sent = Assert.Single(fixture.Outbound.SentRequests);
         Assert.DoesNotContain("own damage", sent.CustomerSafeBody);
-        Assert.Contains("asked our team to check", sent.CustomerSafeBody);
+        Assert.Contains("get back to you shortly", sent.CustomerSafeBody);
     }
 
     [Fact]
@@ -1213,7 +1213,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         var reply = Assert.Single(fixture.Conversations.Saved).OutboundReplyText!;
         Assert.Contains("I'm not a person myself", reply);
-        Assert.Contains("PERSON", reply);
+        Assert.DoesNotContain("PERSON", reply);
     }
 
     [Fact]
@@ -1278,7 +1278,7 @@ public sealed partial class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.Escalated, turn.Outcome);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("someone from our team", sent.CustomerSafeBody);
+        Assert.Contains("get back to you shortly", sent.CustomerSafeBody);
         var audit = Assert.Single(fixture.Audit.Written);
         Assert.Equal("customer_assistant.processing_failed", audit.ActionName);
     }

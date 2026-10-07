@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { getCourse, type Course, type Module } from "@/lib/academy/courses";
 import { downloadCertificate } from "@/lib/academy/certificate";
 import { useAcademyProgress } from "@/lib/academy/progress";
+import CourseOverview from "@/components/academy/CourseOverview";
 
 // A course as steps: each module is one page (goal, the idea as a flow, a small real screen from IIP, a
 // worked example, an exercise, takeaways). After the last module come a few questions, then the
@@ -36,6 +37,7 @@ function Player({ course }: { course: Course }) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [checked, setChecked] = useState(false);
   const [enlarged, setEnlarged] = useState<string | null>(null);
+  const [begun, setBegun] = useState(false);
 
   useEffect(() => { if (!name) setName(existing?.name ?? displayName); }, [displayName, existing, name]);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [index]);
@@ -53,6 +55,9 @@ function Player({ course }: { course: Course }) {
   };
 
   const certificate = existing ?? null;
+
+  // A course opens on its overview (duration, content, price). The steps start from the button there.
+  if (!begun) return <CourseOverview course={course} completed={!!existing} onBegin={() => setBegun(true)} />;
 
   return (
     <div className="cip-acq space-y-4">
