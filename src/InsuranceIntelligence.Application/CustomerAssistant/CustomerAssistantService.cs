@@ -236,9 +236,37 @@ public sealed partial class CustomerAssistantService(
             return null;
         }
 
-        // Transcription can take a while on a cold start; the customer sees "typing..." meanwhile.
+        // Transcription can take a while on a cold start; the customer sees "typing..." meanwhile. The speech
+        // service sometimes fails its first request after a quiet spell, so one more try is made before giving up.
         using var typing = StartTypingIndicator(inbound, cancellationToken);
-        return await voiceTranscriber.TranscribeAsync(scope, inbound.MediaId, preferredLanguage: null, cancellationToken);
+        var preferred = await RememberedSpokenLanguageAsync(scope, NormalizeWaId(inbound.SenderWaId), cancellationToken);
+        var heard = await voiceTranscriber.TranscribeAsync(scope, inbound.MediaId, preferred, cancellationToken);
+        if (heard is null)
+        {
+            heard = await voiceTranscriber.TranscribeAsync(scope, inbound.MediaId, preferred, cancellationToken);
+        }
+
+        return heard;
+    }
+
+    /// <summary>Kiswahili is passed to the speech engine only for a customer who chose it; everyone else is
+    /// transcribed as Luganda, which also writes English speech down as English.</summary>
+    private async Task<SupportedLanguageCode?> RememberedSpokenLanguageAsync(TenantScope scope, string waId, CancellationToken cancellationToken)
+    {
+        if (languageResolution is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var remembered = await languageResolution.ResolveAsync(scope, waId, string.Empty, false, cancellationToken);
+            return remembered.Language == SupportedLanguageCode.Sw ? SupportedLanguageCode.Sw : null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     private async Task ReplyCannotListenAsync(TenantScope scope, WhatsAppInboundMessage inbound, string correlationId, CancellationToken cancellationToken)
@@ -247,7 +275,11 @@ public sealed partial class CustomerAssistantService(
         var threadId = WhatsAppMessagingService.BuildThreadId(inbound.BusinessPhoneNumberId, waId);
         await RecordConsentAsync(scope, waId, threadId, correlationId, cancellationToken);
         var sender = await IdentifySenderAsync(scope, waId, cancellationToken);
-        var reply = KatoReplies.CannotListenYet(sender?.FirstName ?? contactFirstName);
+        // Only say voice notes are unsupported when they are. When the speech service is connected and this clip
+        // could not be made out, say that instead: telling someone Kato cannot listen when he can is untrue.
+        var reply = voiceNotesAvailable
+            ? KatoReplies.CouldNotHearVoiceNote(sender?.FirstName ?? contactFirstName)
+            : KatoReplies.CannotListenYet(sender?.FirstName ?? contactFirstName);
         await SendReplyAsync(scope, inbound, threadId, waId, reply, caseId: null, cancellationToken);
         await conversationRepository.SaveAsync(new CustomerConversationTurn
         {

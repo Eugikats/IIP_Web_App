@@ -702,12 +702,16 @@ public sealed partial class CustomerAssistantServiceTests
     [Fact]
     public async Task VoiceNote_ThatCannotBeHeard_GetsAWrittenReply_NeverSilence()
     {
-        var fixture = Fixture.Create(voice: new FakeVoiceNoteTranscriber(null));
+        var voice = new FakeVoiceNoteTranscriber(null);
+        var fixture = Fixture.Create(voice: voice);
 
         await fixture.HandleVoiceAsync();
 
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("can't listen to voice notes yet", sent.CustomerSafeBody);
+        // Voice notes work here, so the customer is told this one could not be made out, never that Kato cannot listen.
+        Assert.DoesNotContain("can't listen", sent.CustomerSafeBody);
+        Assert.Contains("could not make out that voice note", sent.CustomerSafeBody);
+        Assert.Equal(2, voice.Attempts); // tried again once before giving up
     }
 
     [Fact]
@@ -736,11 +740,14 @@ public sealed partial class CustomerAssistantServiceTests
     {
         public string? LastMediaId { get; private set; }
 
+        public int Attempts { get; private set; }
+
         public Task<bool> IsAvailableAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public Task<string?> TranscribeAsync(TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, CancellationToken cancellationToken = default)
         {
             LastMediaId = mediaId;
+            Attempts++;
             return Task.FromResult(transcript);
         }
     }

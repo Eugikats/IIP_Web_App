@@ -150,6 +150,11 @@ public static class KatoReplies
     public static string CannotListenYet(string? firstName) =>
         $"Thank you{Comma(firstName)}. I can't listen to voice notes yet. Please write your message to me instead, in any language you like.";
 
+    /// <summary>Voice notes work, but this one could not be made out (a bad connection, silence, a very short
+    /// clip). The customer is told that, not that voice notes are unsupported.</summary>
+    public static string CouldNotHearVoiceNote(string? firstName) =>
+        $"Sorry{Comma(firstName)}, I could not make out that voice note. Please send it again, or write your message and I will answer straight away.";
+
     // ---- No policy: cover that fits their work ----
 
     public static string AskOccupation(string? firstName) =>

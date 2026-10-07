@@ -139,4 +139,48 @@ public sealed class LanguageResolutionOrderTests
 
         Assert.Equal(LanguageResolutionSource.RememberedPreference, result.Source);
     }
+
+    [Fact]
+    public void A_luganda_sentence_switches_a_customer_who_has_been_writing_in_english()
+    {
+        var remembered = Preference(SupportedLanguageCode.En, Now - TimeSpan.FromDays(3));
+        var detected = LanguageWordListScorer.Score("Nsaba mumbeeko ku mbeera ya yinsuwa yange");
+
+        var result = LanguageResolutionOrder.Resolve("Nsaba mumbeeko ku mbeera ya yinsuwa yange", false, remembered, detected, Now);
+
+        Assert.Equal(SupportedLanguageCode.Lg, result.Language);
+    }
+
+    [Fact]
+    public void A_two_word_luganda_message_switches_language_but_one_word_does_not()
+    {
+        var remembered = Preference(SupportedLanguageCode.En, Now - TimeSpan.FromDays(3));
+
+        var two = LanguageResolutionOrder.Resolve("Webale nnyo", false, remembered, LanguageWordListScorer.Score("Webale nnyo"), Now);
+        var one = LanguageResolutionOrder.Resolve("Webale", false, remembered, LanguageWordListScorer.Score("Webale"), Now);
+
+        Assert.Equal(SupportedLanguageCode.Lg, two.Language);
+        Assert.Equal(SupportedLanguageCode.En, one.Language);
+    }
+
+    [Fact]
+    public void A_customer_who_wrote_in_luganda_can_go_back_to_plain_english()
+    {
+        var remembered = Preference(SupportedLanguageCode.Lg, Now - TimeSpan.FromDays(1));
+        const string text = "I would like to know what the cover is for and how much it costs";
+
+        var result = LanguageResolutionOrder.Resolve(text, false, remembered, LanguageWordListScorer.Score(text), Now);
+
+        Assert.Equal(SupportedLanguageCode.En, result.Language);
+    }
+
+    [Fact]
+    public void A_short_english_reply_does_not_pull_a_luganda_customer_back_to_english()
+    {
+        var remembered = Preference(SupportedLanguageCode.Lg, Now - TimeSpan.FromDays(1));
+
+        var result = LanguageResolutionOrder.Resolve("ok thanks", false, remembered, LanguageWordListScorer.Score("ok thanks"), Now);
+
+        Assert.Equal(SupportedLanguageCode.Lg, result.Language);
+    }
 }
