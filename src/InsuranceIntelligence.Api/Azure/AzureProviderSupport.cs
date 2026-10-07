@@ -9,7 +9,12 @@ namespace InsuranceIntelligence.Api.Azure;
 
 public static partial class AzureProviderSupport
 {
-    public static TokenCredential Credential() => new DefaultAzureCredential();
+    // One credential for the whole process. A credential caches its tokens, so a new one per client
+    // meant a fresh managed identity token request on most API calls and model calls: measured on
+    // dev on 2026-10-07 at 3 to 6 seconds each, the bulk of a slow /api/v1/me.
+    private static readonly Lazy<TokenCredential> SharedCredential = new(() => new DefaultAzureCredential());
+
+    public static TokenCredential Credential() => SharedCredential.Value;
 
     public static string SafeBlobName(TenantScope scope, params string[] segments) =>
         string.Join('/', new[] { scope.TenantId, scope.WorkspaceId }.Concat(segments.Select(SanitizeSegment)));

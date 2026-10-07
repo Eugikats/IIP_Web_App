@@ -102,6 +102,11 @@ public sealed record AzureOpenAiOptions
     public int MaxTokens { get; init; } = 800;
     public decimal Temperature { get; init; } = 0.25m;
     public int RequestTimeoutSeconds { get; init; } = 30;
+
+    /// <summary>Reasoning effort for the WhatsApp agent's tool-calling steps (for example "low"),
+    /// sent only when set, because models without reasoning reject the parameter. Each step of a
+    /// reply waits on it, so it is the main lever on how fast Kato answers.</summary>
+    public string? AgentReasoningEffort { get; init; }
 }
 
 public sealed record ServiceBusOptions

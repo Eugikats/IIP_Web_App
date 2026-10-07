@@ -30,18 +30,20 @@ public sealed class FraudQueryService(
 
         var scope = tenantContextAccessor.Current.Scope;
         var claims = await claimsReadRepository.ListAsync(new ClaimsQuery(Take: AnalysisWindow), cancellationToken);
-        var inputs = new List<FraudClaimInput>(claims.Count);
-        foreach (var claim in claims)
-        {
-            // AML/CFT rules need the policy's own EffectiveFrom/SumInsured (WO 7.3), a real
-            // per-claim lookup, not fabricated data; a claim whose policy number doesn't resolve
-            // (or never existed) simply carries null for those two fields, and the two AML/CFT
-            // rules honestly skip it rather than guessing.
-            var policy = string.IsNullOrWhiteSpace(claim.PolicyNumber)
-                ? null
-                : await policyRepository.GetByPolicyNumberAsync(claim.PolicyNumber, scope, cancellationToken);
-            inputs.Add(ToFraudInput(claim, policy));
-        }
+        // AML/CFT rules need the policy's own EffectiveFrom/SumInsured (WO 7.3), real policy data,
+        // not fabricated; a claim whose policy number doesn't resolve (or never existed) simply
+        // carries null for those two fields, and the two AML/CFT rules honestly skip it rather than
+        // guessing. The workspace's policies are read once: one lookup per claim was about 300 SQL
+        // round trips per request on dev (7 seconds).
+        var policiesByNumber = (await policyRepository.ListAsync(scope, cancellationToken))
+            .Where(policy => !string.IsNullOrWhiteSpace(policy.PolicyNumber))
+            .GroupBy(policy => policy.PolicyNumber.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var inputs = claims
+            .Select(claim => ToFraudInput(
+                claim,
+                string.IsNullOrWhiteSpace(claim.PolicyNumber) ? null : policiesByNumber.GetValueOrDefault(claim.PolicyNumber.Trim())))
+            .ToList();
 
         var signals = FraudRuleEngine.Evaluate(inputs);
         // WO-19: signals are recomputed fresh every call, join each one to its persisted
