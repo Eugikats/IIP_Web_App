@@ -316,6 +316,8 @@ export function useSalesLeads() {
 
   const draftOutreach = useCallback((leadIds?: string[]) =>
     outreachCall<{ drafted: number; skipped: number }>("outreach/draft", { method: "POST", body: JSON.stringify({ leadIds: leadIds ?? null }) }, "The messages could not be drafted."), [outreachCall]);
+  const draftFollowUps = useCallback(() =>
+    outreachCall<{ quiet: number; ending: number; skipped: number }>("outreach/follow-ups", { method: "POST" }, "The follow-ups could not be drafted."), [outreachCall]);
   const editOutreach = useCallback((leadId: string, draftId: string, text: string) =>
     outreachCall<OutreachDraft>(`${encodeURIComponent(leadId)}/outreach/${draftId}`, { method: "PUT", body: JSON.stringify({ text }) }, "The message could not be saved."), [outreachCall]);
   const sendOutreach = useCallback((leadId: string, draftId: string) =>
@@ -325,7 +327,7 @@ export function useSalesLeads() {
   const dismissOutreach = useCallback((leadId: string, draftId: string) =>
     outreachCall<null>(`${encodeURIComponent(leadId)}/outreach/${draftId}/dismiss`, { method: "POST" }, "The message could not be dismissed."), [outreachCall]);
 
-  return { leads, loading, error, forbidden, creating, reload: load, refresh, draftOutreach, editOutreach, sendOutreach, sendOutreachMany, dismissOutreach, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  return { leads, loading, error, forbidden, creating, reload: load, refresh, draftOutreach, draftFollowUps, editOutreach, sendOutreach, sendOutreachMany, dismissOutreach, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, parityMode: LOVABLE_VISUAL_PARITY_MODE };
 }
 
 /**

@@ -1,10 +1,14 @@
+using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Domain.Acquisition;
 using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
+using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Integrations;
+using InsuranceIntelligence.Domain.Policies;
 
 namespace InsuranceIntelligence.Application.SalesLeads;
 
@@ -12,6 +16,9 @@ public interface IOutreachService
 {
     /// <summary>Writes an introduction for each named prospect, or for everyone with a recommended cover.</summary>
     Task<OutreachDraftResult> DraftAsync(IReadOnlyList<string>? leadIds, CancellationToken cancellationToken = default);
+
+    /// <summary>Finds people who have gone quiet and policies that are ending, and drafts a message for each.</summary>
+    Task<FollowUpResult> DraftFollowUpsAsync(CancellationToken cancellationToken = default);
 
     Task<OutreachDraft?> EditAsync(string leadId, Guid draftId, string text, CancellationToken cancellationToken = default);
 
@@ -26,6 +33,8 @@ public interface IOutreachService
 public sealed record OutreachRef(string LeadId, Guid DraftId);
 
 public sealed record OutreachDraftResult(int Drafted, int Skipped);
+
+public sealed record FollowUpResult(int Quiet, int Ending, int Skipped);
 
 public sealed record OutreachSendResult(string LeadId, Guid DraftId, string Status, string StatusLabel, string? Reason);
 
@@ -49,8 +58,15 @@ public sealed class OutreachService(
     IWhatsAppMessageRepository messageRepository,
     OutreachOptions options,
     IUserAccountRepository? userAccountRepository = null,
-    KatoBrand? brand = null) : IOutreachService
+    KatoBrand? brand = null,
+    ICustomerRepository? customerRepository = null,
+    IPolicyRepository? policyRepository = null,
+    IAgentRunRecorder? agentRunRecorder = null) : IOutreachService
 {
+    public const string AgentKey = "outreach";
+    public static readonly TimeSpan QuietAfter = TimeSpan.FromDays(3);
+    public static readonly TimeSpan EndingWithin = TimeSpan.FromDays(30);
+
     private KatoBrand Brand => brand ?? KatoBrand.Current;
 
     public const int MaxBulk = 50;
@@ -105,9 +121,107 @@ public sealed class OutreachService(
             drafted++;
         }
 
+        await RecordRunAsync("draft", cancellationToken);
         await AuditAsync("outreach.drafted", null, $"Drafted {drafted} messages ({skipped} skipped) for review. Message text omitted.", cancellationToken);
         _ = author;
         return new OutreachDraftResult(drafted, skipped);
+    }
+
+    public async Task<FollowUpResult> DraftFollowUpsAsync(CancellationToken cancellationToken = default)
+    {
+        await permissionService.RequirePermissionAsync(Permission.ManageSalesLeads, cancellationToken);
+        var context = tenantContextAccessor.Current;
+        var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var customers = customerRepository is null ? [] : (await customerRepository.ListAsync(context.Scope, cancellationToken)).ToArray();
+        var policies = policyRepository is null ? [] : (await policyRepository.ListAsync(context.Scope, cancellationToken)).ToArray();
+
+        var quiet = 0;
+        var ending = 0;
+        var skipped = 0;
+        foreach (var lead in await readRepository.ListLeadsAsync(context.TenantId, context.WorkspaceId, cancellationToken))
+        {
+            if (lead.Consent?.Status != ContactConsentStatus.Agreed
+                || string.IsNullOrWhiteSpace(lead.Phone)
+                || lead.Outreach.Any(draft => draft.Status is OutreachStatus.Draft or OutreachStatus.Edited))
+            {
+                skipped++;
+                continue;
+            }
+
+            var added = new List<OutreachDraft>();
+
+            // A policy ending soon, matched through the customer's phone number on the insurer's own records.
+            var ids = customers.Where(customer => PhoneNumbers.SameNumber(customer.Phone, lead.Phone)).Select(customer => customer.CustomerId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var endingPolicy = policies
+                .Where(policy => policy.CustomerId is not null && ids.Contains(policy.CustomerId) && policy.EffectiveTo is { } end
+                    && end >= today && end.ToDateTime(TimeOnly.MinValue) <= now.UtcDateTime + EndingWithin)
+                .OrderBy(policy => policy.EffectiveTo)
+                .FirstOrDefault();
+            if (endingPolicy is not null)
+            {
+                if (!lead.Outreach.Any(draft => draft.Kind == OutreachKind.PolicyEnding && draft.Product == endingPolicy.ProductLine && draft.Status != OutreachStatus.Dismissed))
+                {
+                    added.Add(new OutreachDraft(
+                        Guid.NewGuid(), OutreachKind.PolicyEnding,
+                        OutreachDrafting.PolicyEnding(Brand.Organisation, lead.CustomerName, endingPolicy.ProductLine, endingPolicy.EffectiveTo!.Value),
+                        endingPolicy.ProductLine, null, OutreachStatus.Draft, now, "Outreach agent"));
+                    ending++;
+                }
+            }
+            else if (IsQuiet(lead, now))
+            {
+                var interest = lead.Interests.Where(item => item.Strength != InterestStrength.NotNow).OrderByDescending(item => item.Strength).First();
+                var product = Brand.Products.FirstOrDefault(item => string.Equals(item.Name, interest.Product, StringComparison.OrdinalIgnoreCase))
+                    ?? MicroinsuranceCatalog.FindByLineOrName(interest.Product);
+                var name = product?.Name ?? interest.Product;
+                added.Add(new OutreachDraft(
+                    Guid.NewGuid(), OutreachKind.QuietFollowUp,
+                    OutreachDrafting.QuietFollowUp(Brand.Organisation, lead.CustomerName, name, product?.Insurer ?? "the insurer"),
+                    name, product?.Insurer, OutreachStatus.Draft, now, "Outreach agent"));
+                quiet++;
+            }
+
+            if (added.Count == 0)
+            {
+                skipped++;
+                continue;
+            }
+
+            await writeRepository.CreateAsync(
+                context.TenantId, context.WorkspaceId,
+                lead with
+                {
+                    Outreach = [.. lead.Outreach, .. added],
+                    Activity = [.. lead.Activity, new ProspectActivity(now, added[0].Kind == OutreachKind.PolicyEnding ? "A renewal message was drafted for review" : "A follow-up message was drafted for review", "Outreach agent")],
+                },
+                cancellationToken);
+        }
+
+        await RecordRunAsync("follow_up", cancellationToken);
+        await AuditAsync("outreach.follow_ups_drafted", null, $"Drafted {quiet} quiet-client and {ending} policy-ending messages for review. Message text omitted.", cancellationToken);
+        return new FollowUpResult(quiet, ending, skipped);
+    }
+
+    internal static bool IsQuiet(SalesLeadDetailReadModel lead, DateTimeOffset now)
+    {
+        var last = lead.LastInteractionAt ?? lead.CreatedAt;
+        var interested = lead.Interests.Any(item => item.Strength is InterestStrength.Interested or InterestStrength.WantsIt)
+            && lead.AppliedFor is null && lead.HandedToPersonAt is null;
+        return interested && last is { } at && now - at >= QuietAfter;
+    }
+
+    private Task RecordRunAsync(string trigger, CancellationToken cancellationToken)
+    {
+        if (agentRunRecorder is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var context = tenantContextAccessor.Current;
+        return agentRunRecorder.RecordAsync(
+            context.Scope, AgentKey, trigger, [], AgentRunStatus.Completed, DateTimeOffset.UtcNow,
+            Guid.NewGuid().ToString("N"), context.UserId, caseId: null, cancellationToken: cancellationToken);
     }
 
     public async Task<OutreachDraft?> EditAsync(string leadId, Guid draftId, string text, CancellationToken cancellationToken = default)

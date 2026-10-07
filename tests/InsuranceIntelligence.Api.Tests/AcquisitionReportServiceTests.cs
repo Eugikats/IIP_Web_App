@@ -109,7 +109,7 @@ public sealed class AcquisitionReportServiceTests
         Assert.Equal("Errors", report.Rows.Single(row => row.Key == ProspectTriageService.AgentKey).Health);
         Assert.Equal("No runs yet", report.Rows.First(row => row.Key != ProspectTriageService.AgentKey).Health);
         Assert.Equal(1, report.Errors);
-        Assert.Equal(2, report.NoRuns);
+        Assert.Equal(3, report.NoRuns);
     }
 
     [Fact]

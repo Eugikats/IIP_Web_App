@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { Loader2, PenLine, Send, Sparkles } from "lucide-react";
+import { Clock, Loader2, PenLine, Send, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import CipStatusPill from "@/components/cip/CipStatusPill";
 import type { OutreachDraft, OutreachSendResult, SalesLeadView } from "@/lib/lovable-parity/data/salesLeads";
@@ -25,6 +25,7 @@ export default function OutreachTab({
   forbidden,
   reload,
   draftOutreach,
+  draftFollowUps,
   editOutreach,
   sendOutreach,
   sendOutreachMany,
@@ -36,6 +37,7 @@ export default function OutreachTab({
   forbidden: boolean;
   reload: () => Promise<void>;
   draftOutreach: (leadIds?: string[]) => Result<{ drafted: number; skipped: number }>;
+  draftFollowUps: () => Result<{ quiet: number; ending: number; skipped: number }>;
   editOutreach: (leadId: string, draftId: string, text: string) => Result<OutreachDraft>;
   sendOutreach: (leadId: string, draftId: string) => Result<OutreachSendResult>;
   sendOutreachMany: (drafts: { leadId: string; draftId: string }[]) => Result<OutreachSendResult[]>;
@@ -74,6 +76,17 @@ export default function OutreachTab({
     setBusy(null);
     if (result.ok) toast.success(`Drafted ${result.data.drafted} messages`, { description: result.data.skipped ? `${result.data.skipped} skipped: already drafted, no agreement to be contacted, or no recommended cover.` : undefined });
     else toast.error(result.message);
+  };
+
+  const followUps = async () => {
+    setBusy("followups");
+    const result = await draftFollowUps();
+    setBusy(null);
+    if (!result.ok) return toast.error(result.message);
+    const total = result.data.quiet + result.data.ending;
+    toast(total > 0 ? `Drafted ${total} follow-ups` : "Nobody needs a follow-up right now", {
+      description: total > 0 ? `${result.data.quiet} quiet clients and ${result.data.ending} policies ending soon.` : "People who wrote recently, or have not agreed to be contacted, are left alone.",
+    });
   };
 
   const sendOne = async (lead: SalesLeadView) => {
@@ -116,12 +129,16 @@ export default function OutreachTab({
       />
       <TableCard
         title="Messages"
-        subtitle="Drafted by the outreach agent from what is recorded about each person. You read, change and approve; nothing goes out on its own."
+        subtitle="Drafted by the outreach agent from what is recorded about each person, including follow-ups for quiet clients and policies ending. You read, change and approve; nothing goes out on its own."
         actions={
           <>
             <button type="button" onClick={() => void draftAll()} disabled={busy !== null || leads.length === 0} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
               {busy === "draft" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Sparkles className="h-3.5 w-3.5 text-[#1769FF]" aria-hidden />}
               Draft messages
+            </button>
+            <button type="button" onClick={() => void followUps()} disabled={busy !== null || leads.length === 0} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+              {busy === "followups" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Clock className="h-3.5 w-3.5 text-[#1769FF]" aria-hidden />}
+              Find follow-ups
             </button>
             <button type="button" onClick={() => setConfirming(true)} disabled={chosen.length === 0 || busy !== null} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#1769FF] px-3 text-[12px] font-semibold text-white hover:bg-[#1258d6] disabled:cursor-not-allowed disabled:opacity-50">
               <Send className="h-3.5 w-3.5" aria-hidden />
@@ -223,6 +240,46 @@ export default function OutreachTab({
           </div>
         </ReportState>
       </TableCard>
+
+      <WhatsAppTemplates />
     </div>
+  );
+}
+
+// WhatsApp only lets a business start a conversation with a message template that Meta has approved.
+// IIP is not connected to Meta's template service yet, so each template below is shown as what it is:
+// proposed wording, not submitted. People who wrote in the last 24 hours can be answered without one.
+const PROPOSED_TEMPLATES = [
+  { name: "cover_introduction", use: "First message to a bank customer about a cover that suits them", body: "Hello {{1}}, this is {{2}}'s insurance team. {{3}} from {{4}} may suit you. Would you like me to explain how it works? Reply STOP at any time and we will not message you again." },
+  { name: "quiet_follow_up", use: "A gentle nudge after a few quiet days", body: "Hello {{1}}, this is {{2}}'s insurance team. We spoke recently about {{3}}. Would you like to carry on? Reply STOP at any time and we will not message you again." },
+  { name: "policy_renewal", use: "A policy is about to end", body: "Hello {{1}}, your {{2}} cover runs until {{3}}. Would you like to renew it? Reply STOP at any time and we will not message you again." },
+];
+
+function WhatsAppTemplates() {
+  return (
+    <TableCard
+      title="WhatsApp templates"
+      subtitle="Needed to message someone who has not written in the last 24 hours."
+      actions={<CipStatusPill tone="neutral">Not connected to Meta</CipStatusPill>}
+    >
+      <div className="space-y-3 p-4 sm:p-5">
+        <p className="m-0 max-w-3xl text-[12.5px] leading-relaxed text-slate-600">
+          A business can start a WhatsApp conversation only with a template that Meta has approved. None has been submitted from IIP yet, so messages to people who have not written in recently are held with the reason shown. People who wrote in the last 24 hours can be answered with an ordinary message.
+        </p>
+        <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-3">
+          {PROPOSED_TEMPLATES.map((template) => (
+            <li key={template.name} className="rounded-xl border border-slate-200 bg-white p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-mono text-[12px] font-semibold text-[#0B1640]">{template.name}</span>
+                <CipStatusPill tone="warning">Not submitted</CipStatusPill>
+              </div>
+              <p className="m-0 mt-1 text-[11.5px] text-slate-500">{template.use}</p>
+              <p className="m-0 mt-2 rounded-lg bg-[#F7F9FC] p-2.5 text-[12px] leading-snug text-slate-700">{template.body}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="m-0 text-[11.5px] text-slate-500">Proposed wording only. Meta decides whether each template is approved, and that decision cannot be made from here.</p>
+      </div>
+    </TableCard>
   );
 }

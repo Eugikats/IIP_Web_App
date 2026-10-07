@@ -139,6 +139,56 @@ public sealed class OutreachServiceTests
         Assert.Equal(["DemoSent", "NotFound"], results.Select(result => result.Status));
     }
 
+    private static SalesLeadDetailReadModel Interested(int daysQuiet, ContactConsentStatus consent = ContactConsentStatus.Agreed) =>
+        Lead(consent) with
+        {
+            LastInteractionAt = DateTimeOffset.UtcNow.AddDays(-daysQuiet),
+            Interests = [new ProspectInterest(MicroinsuranceCatalog.BodaAccident.Name, InterestStrength.Interested, "asked", DateTimeOffset.UtcNow.AddDays(-daysQuiet))],
+        };
+
+    [Fact]
+    public async Task Someone_interested_who_has_gone_quiet_gets_a_follow_up_draft_naming_the_cover()
+    {
+        var (service, store, _) = Build(Interested(daysQuiet: 5));
+
+        var result = await service.DraftFollowUpsAsync();
+
+        Assert.Equal(1, result.Quiet);
+        var draft = Assert.Single(store.Lead.Outreach);
+        Assert.Equal(OutreachKind.QuietFollowUp, draft.Kind);
+        Assert.Contains("Boda Rider Accident", draft.Text);
+        Assert.EndsWith(OutreachDrafting.OptOut, draft.Text);
+    }
+
+    [Fact]
+    public async Task Someone_who_wrote_recently_is_not_chased()
+    {
+        var (service, store, _) = Build(Interested(daysQuiet: 1));
+
+        Assert.Equal(0, (await service.DraftFollowUpsAsync()).Quiet);
+        Assert.Empty(store.Lead.Outreach);
+    }
+
+    [Fact]
+    public async Task Nobody_without_a_recorded_agreement_gets_a_follow_up()
+    {
+        var (service, store, _) = Build(Interested(daysQuiet: 9, ContactConsentStatus.NotRecorded));
+
+        Assert.Equal(0, (await service.DraftFollowUpsAsync()).Quiet);
+        Assert.Empty(store.Lead.Outreach);
+    }
+
+    [Fact]
+    public async Task Running_the_follow_up_agent_twice_does_not_stack_drafts()
+    {
+        var (service, store, _) = Build(Interested(daysQuiet: 5));
+
+        await service.DraftFollowUpsAsync();
+        await service.DraftFollowUpsAsync();
+
+        Assert.Single(store.Lead.Outreach);
+    }
+
     [Fact]
     public void Sending_hours_are_seven_to_twenty_in_east_africa()
     {

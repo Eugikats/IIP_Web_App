@@ -85,7 +85,7 @@ public sealed class AcquisitionReportService(
     IAgentGate agentGate,
     IUserAccountRepository? userAccountRepository = null) : IAcquisitionReportService
 {
-    private static readonly string[] AcquisitionAgents = ["customer-assistant", "conversation-insights", ProspectTriageService.AgentKey];
+    private static readonly string[] AcquisitionAgents = ["customer-assistant", "conversation-insights", ProspectTriageService.AgentKey, OutreachService.AgentKey];
 
     public async Task<EscalationReportDto> EscalationsAsync(CancellationToken cancellationToken = default)
     {

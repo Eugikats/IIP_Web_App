@@ -164,6 +164,9 @@ public static class SalesLeadEndpoints
     public static Task<IResult> DraftOutreach(DraftOutreachRequest? request, IOutreachService outreach, CancellationToken cancellationToken) =>
         OutreachCall(async () => Results.Ok(await outreach.DraftAsync(request?.LeadIds, cancellationToken)));
 
+    public static Task<IResult> DraftFollowUps(IOutreachService outreach, CancellationToken cancellationToken) =>
+        OutreachCall(async () => Results.Ok(await outreach.DraftFollowUpsAsync(cancellationToken)));
+
     public static Task<IResult> SendOutreachMany(SendOutreachRequest request, IOutreachService outreach, CancellationToken cancellationToken) =>
         OutreachCall(async () => Results.Ok(await outreach.SendManyAsync(request.Drafts ?? [], cancellationToken)));
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowDown, ArrowUp, ChevronRight, Loader2, MoreHorizontal, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Loader2, MoreHorizontal, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 import AcquisitionFilterToolbar, { type AcquisitionActiveChip, type AcquisitionFilterField } from "@/components/cip/AcquisitionFilterToolbar";
 import AcquisitionKpiStrip from "@/components/cip/AcquisitionKpiStrip";
@@ -110,7 +110,7 @@ function optionLabel(options: { label: string; value: string }[], value: string)
 }
 
 export default function CustomerAcquisition() {
-  const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, refresh, draftOutreach, editOutreach, sendOutreach, sendOutreachMany, dismissOutreach } = useSalesLeads();
+  const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, refresh, draftOutreach, draftFollowUps, editOutreach, sendOutreach, sendOutreachMany, dismissOutreach } = useSalesLeads();
   const live = useLiveProspects(leads, refresh, true, presentationMode ? 3000 : 15000);
   const [tab, setTab] = useState<TabId>("prospects");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -246,7 +246,7 @@ export default function CustomerAcquisition() {
       ) : tab === "scores" ? (
         <ScoresTab leads={leads} loading={loading} error={error} forbidden={forbidden} reload={reload} runTriage={runTriage} onOpenLead={setOpenLeadId} />
       ) : tab === "outreach" ? (
-        <OutreachTab leads={leads} loading={loading} error={error} forbidden={forbidden} reload={reload} draftOutreach={draftOutreach} editOutreach={editOutreach} sendOutreach={sendOutreach} sendOutreachMany={sendOutreachMany} dismissOutreach={dismissOutreach} />
+        <OutreachTab leads={leads} loading={loading} error={error} forbidden={forbidden} reload={reload} draftOutreach={draftOutreach} draftFollowUps={draftFollowUps} editOutreach={editOutreach} sendOutreach={sendOutreach} sendOutreachMany={sendOutreachMany} dismissOutreach={dismissOutreach} />
       ) : tab === "agents" ? (
         <AgentsTab runTriage={runTriage} />
       ) : tab === "channels" ? (
@@ -274,6 +274,10 @@ export default function CustomerAcquisition() {
               <Plus className="h-4 w-4" aria-hidden />
               New lead
             </button>
+            <Link href="/app/acquisition/import" className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-50">
+              <Upload className="h-4 w-4" aria-hidden />
+              Import list
+            </Link>
           </div>
 
           {capturing ? (
