@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { FileText, Loader2, MessageCircle, RefreshCw, ShieldCheck, Sparkles, UserPlus, Users } from "lucide-react";
+import { Check, ChevronDown, FileText, Loader2, MessageCircle, RefreshCw, ShieldCheck, Sparkles, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
+import { Avatar } from "@/components/ui/Avatar";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { usePeople } from "@/lib/people";
-import { formatAgeSince, formatDateTime } from "@/lib/format";
+import { formatAgeSince, formatDateTime, humanizeIdentifier } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { InsightPoint, LeadResult, SalesLeadDetail } from "@/lib/lovable-parity/data/salesLeads";
 
@@ -590,38 +591,151 @@ function AssignControl({
 }) {
   const { people, loading } = usePeople();
   const [saving, setSaving] = useState(false);
-  const staff = people.filter((person) => !person.userId.toLowerCase().startsWith("system:"));
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const listId = useId();
 
-  async function change(userId: string) {
+  const staff = people.filter((person) => !person.userId.toLowerCase().startsWith("system:"));
+  // The unassigned choice first, then the people; the current owner is kept even when the directory
+  // has not listed them, so the picker never hides who owns the lead.
+  const options: { userId: string | null; name: string; role: string | null }[] = [
+    { userId: null, name: "Unassigned", role: null },
+    ...(detail.assignedSalesOfficer && !staff.some((person) => person.userId === detail.assignedSalesOfficer)
+      ? [{ userId: detail.assignedSalesOfficer, name: detail.assignedOfficerName ?? "Current owner", role: null }]
+      : []),
+    ...staff.map((person) => ({ userId: person.userId, name: person.name, role: humanizeIdentifier(person.role) })),
+  ];
+  const selectedIndex = Math.max(0, options.findIndex((option) => option.userId === (detail.assignedSalesOfficer ?? null)));
+  const ownerName = detail.assignedOfficerName ?? "Unassigned";
+
+  useEffect(() => {
+    if (!open) return;
+    setActive(selectedIndex);
+    function onPointerDown(event: PointerEvent) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open, selectedIndex]);
+
+  async function choose(index: number) {
+    const option = options[index];
+    setOpen(false);
+    buttonRef.current?.focus();
+    if (!option || option.userId === (detail.assignedSalesOfficer ?? null)) return;
     setSaving(true);
-    const result = await assign(detail.leadId, userId === "" ? null : userId);
+    const result = await assign(detail.leadId, option.userId);
     setSaving(false);
     if (result.ok) {
       onAssigned(result.detail);
-      toast.success(userId === "" ? "Unassigned" : `Assigned to ${result.detail.assignedOfficerName ?? "a colleague"}`);
+      toast.success(option.userId === null ? "Unassigned" : `Assigned to ${option.name}`);
     } else {
       toast.error(result.message);
     }
   }
 
+  function onKeyDown(event: React.KeyboardEvent) {
+    if (!open) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setOpen(true);
+      }
+      return;
+    }
+    if (event.key === "Escape") {
+      // The modal closes on Escape too; this one only closes the list.
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActive((index) => Math.min(options.length - 1, index + 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActive((index) => Math.max(0, index - 1));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setActive(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setActive(options.length - 1);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      void choose(active);
+    }
+  }
+
   return (
-    <label className="relative inline-flex min-h-10 items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface pl-3 pr-2 text-[13px] font-semibold text-dls-text-primary focus-within:ring-2 focus-within:ring-dls-primary-border">
-      {saving ? <Loader2 className="h-4 w-4 animate-spin text-dls-text-muted" aria-hidden="true" /> : <UserPlus className="h-4 w-4 text-dls-text-muted" aria-hidden="true" />}
-      <span className="sr-only">Assigned officer</span>
-      <select
-        value={detail.assignedSalesOfficer ?? ""}
-        onChange={(event) => void change(event.target.value)}
+    <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((value) => !value)}
         disabled={saving || loading}
-        className="min-w-[9rem] cursor-pointer appearance-none bg-transparent pr-1 outline-none"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-label={`Assigned officer: ${ownerName}. Change`}
+        className="dls-focus-outline inline-flex min-h-10 min-w-[11rem] items-center gap-2 rounded-dls-control border border-dls-border-input bg-dls-surface py-1 pl-2 pr-2.5 text-[13px] font-semibold text-dls-text-primary hover:bg-dls-bg-page disabled:opacity-70"
       >
-        <option value="">{loading ? "Loading people" : "Unassigned"}</option>
-        {detail.assignedSalesOfficer && !staff.some((person) => person.userId === detail.assignedSalesOfficer) ? (
-          <option value={detail.assignedSalesOfficer}>{detail.assignedOfficerName ?? "Current owner"}</option>
-        ) : null}
-        {staff.map((person) => (
-          <option key={person.userId} value={person.userId}>{person.name}</option>
-        ))}
-      </select>
-    </label>
+        {saving ? (
+          <Loader2 className="h-4 w-4 animate-spin text-dls-text-muted" aria-hidden="true" />
+        ) : detail.assignedSalesOfficer ? (
+          <Avatar id={detail.assignedSalesOfficer} initials={initialsOf(ownerName)} size={26} />
+        ) : (
+          <span className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full border border-dashed border-dls-border-strong text-dls-text-muted">
+            <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        )}
+        <span className="min-w-0 flex-1 truncate text-left">{loading ? "Loading people" : ownerName}</span>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 text-dls-text-muted transition-transform duration-dls-fast", open && "rotate-180")} aria-hidden="true" />
+      </button>
+
+      {open ? (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label="Assign to"
+          aria-activedescendant={`${listId}-${active}`}
+          tabIndex={-1}
+          ref={(node) => node?.focus({ preventScroll: true })}
+          className="absolute right-0 z-20 mt-1.5 max-h-72 w-72 max-w-[calc(100vw-3rem)] overflow-y-auto rounded-dls-overlay border border-dls-border-subtle bg-dls-surface p-1.5 shadow-dls-popover outline-none"
+        >
+          <li className="list-none px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted" role="presentation">Assign to</li>
+          {options.map((option, index) => {
+            const selected = index === selectedIndex;
+            return (
+              <li
+                key={option.userId ?? "unassigned"}
+                id={`${listId}-${index}`}
+                role="option"
+                aria-selected={selected}
+                onPointerEnter={() => setActive(index)}
+                onClick={() => void choose(index)}
+                className={cn(
+                  "flex cursor-pointer list-none items-center gap-2.5 rounded-dls-control px-2.5 py-2",
+                  index === active ? "bg-dls-bg-page" : "",
+                )}
+              >
+                {option.userId ? (
+                  <Avatar id={option.userId} initials={initialsOf(option.name)} size={28} />
+                ) : (
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-dls-border-strong text-dls-text-muted">
+                    <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className={cn("block truncate text-[13.5px]", selected ? "font-bold text-dls-text-primary" : "font-semibold text-dls-text-primary")}>{option.name}</span>
+                  {option.role ? <span className="block truncate text-[12px] text-dls-text-muted">{option.role}</span> : null}
+                </span>
+                {selected ? <Check className="h-4 w-4 shrink-0 text-dls-primary-accent" aria-hidden="true" /> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
   );
 }

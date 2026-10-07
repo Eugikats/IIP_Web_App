@@ -216,6 +216,9 @@ public sealed record SalesLeadListItemDto(
     public string ConsentStatus { get; init; } = nameof(ContactConsentStatus.NotRecorded);
     public bool? BankCustomer { get; init; }
     public string BankCustomerLabel { get; init; } = "Not known";
+
+    /// <summary>The WhatsApp conversation, so a row can open it. Null for leads with no conversation.</summary>
+    public string? ConversationId { get; init; }
 }
 
 public sealed record CreateSalesLeadRequest(

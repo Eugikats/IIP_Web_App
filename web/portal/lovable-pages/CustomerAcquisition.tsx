@@ -1,196 +1,411 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Loader2, MessageCircle, Plus, Search, UserRound } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { ArrowDown, ArrowUp, ChevronRight, Loader2, MoreHorizontal, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { SectionHeader } from "@/components/iip/Primitives";
-import { Button } from "@/components/ui/Button";
+import AcquisitionFilterToolbar, { type AcquisitionActiveChip, type AcquisitionFilterField } from "@/components/cip/AcquisitionFilterToolbar";
+import AcquisitionKpiStrip from "@/components/cip/AcquisitionKpiStrip";
+import AcquisitionTabs from "@/components/cip/AcquisitionTabs";
+import CipStatusPill from "@/components/cip/CipStatusPill";
+import ProspectCharts from "@/components/cip/ProspectCharts";
+import { dailyCounts, trendDirection } from "@/components/cip/series";
 import { Input } from "@/components/ui/Input";
-import { StatusPill } from "@/components/ui/StatusPill";
-import {
-  EmptyFilteredStateSurface,
-  EmptyStateSurface,
-  ErrorStateSurface,
-  LoadingSkeleton,
-  NoPermissionStateSurface,
-} from "@/components/ui/StateSurfaces";
-import { LeadCustomerModal, relationshipTone, stageTone } from "@/components/acquisition/LeadCustomerModal";
+import { EmptyStateSurface, ErrorStateSurface, LoadingSkeleton, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
+import { LeadCustomerModal, initialsOf } from "@/components/acquisition/LeadCustomerModal";
 import { useSalesLeads, type SalesLeadView } from "@/lib/lovable-parity/data/salesLeads";
 import { formatDateTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
-// The prospect queue: everyone who might buy cover, from WhatsApp conversations and staff capture.
-// Counts and trends are computed from the records on screen; a trend line is drawn only from real
-// daily counts, and a tile with no movement in the window says "No trend" rather than inventing one.
+/** "6 Oct, 08:20": short enough for a table cell; the full date is in the record. */
+function shortWhen(value: string | null): string {
+  if (!value) return "Not recorded";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Not recorded"
+    : date.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
-const PAGE_SIZE = 20;
-const TREND_DAYS = 14;
+// The acquisition dashboard in the same layout as CIP's: tabs, KPI cards with the trend beside the
+// number, a filter button with a count badge and chips, a compact queue table with paging, and a
+// Charts tab. A trend is drawn only from real creation dates; otherwise the card says "No trend".
 
-type StageFilter = "All" | "Ready" | "Talking" | "WithAPerson" | "Applied" | "NotNow";
-type RelationshipFilter = "All" | "NewToInsurer" | "Registered" | "ExistingCustomer";
-type BankFilter = "All" | "Yes" | "No" | "Unknown";
-type SortKey = "recent" | "name" | "stage";
+const PAGE_SIZE = 12;
+const TABS = [
+  { id: "prospects", label: "Prospects" },
+  { id: "charts", label: "Charts" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
 
-const STAGE_FILTERS: { key: StageFilter; label: string; stages: string[] }[] = [
-  { key: "All", label: "All stages", stages: [] },
-  { key: "Ready", label: "Ready to apply", stages: ["ReadyToApply"] },
-  { key: "Talking", label: "In conversation", stages: ["New", "GettingToKnow", "Interested", "Considering"] },
-  { key: "WithAPerson", label: "With a person", stages: ["WithAPerson"] },
-  { key: "Applied", label: "Applied", stages: ["Applied"] },
-  { key: "NotNow", label: "Not now", stages: ["NotNow"] },
+const STAGE_OPTIONS = [
+  { label: "All", value: "all" },
+  { label: "New", value: "New" },
+  { label: "Getting to know them", value: "GettingToKnow" },
+  { label: "Interested", value: "Interested" },
+  { label: "Considering", value: "Considering" },
+  { label: "Ready to apply", value: "ReadyToApply" },
+  { label: "Applied", value: "Applied" },
+  { label: "With a person", value: "WithAPerson" },
+  { label: "Not now", value: "NotNow" },
+];
+const RELATIONSHIP_OPTIONS = [
+  { label: "All", value: "all" },
+  { label: "Existing customer", value: "ExistingCustomer" },
+  { label: "Registered", value: "Registered" },
+  { label: "New to insurer", value: "NewToInsurer" },
+];
+const BANK_OPTIONS = [
+  { label: "All", value: "all" },
+  { label: "Yes", value: "yes" },
+  { label: "No", value: "no" },
+  { label: "Not known", value: "unknown" },
+];
+const CONSENT_OPTIONS = [
+  { label: "All", value: "all" },
+  { label: "Agreed", value: "Agreed" },
+  { label: "Declined", value: "Declined" },
+  { label: "Withdrawn", value: "Withdrawn" },
+  { label: "Not recorded", value: "NotRecorded" },
 ];
 
-const STAGE_ORDER = ["ReadyToApply", "WithAPerson", "Considering", "Interested", "GettingToKnow", "New", "Applied", "NotNow"];
+const DEFAULT_FILTERS = { stage: "all", relationship: "all", bank: "all", consent: "all", channel: "all", officer: "all", product: "", search: "" };
+type Filters = typeof DEFAULT_FILTERS;
+
+type Tone = "success" | "warning" | "danger" | "info" | "neutral" | "violet";
+function stageTone(stage: string): Tone {
+  switch (stage) {
+    case "ReadyToApply":
+    case "Applied":
+      return "success";
+    case "Considering":
+      return "warning";
+    case "Interested":
+    case "GettingToKnow":
+      return "info";
+    case "WithAPerson":
+      return "violet";
+    default:
+      return "neutral";
+  }
+}
+function relationshipTone(relationship: string): Tone {
+  return relationship === "ExistingCustomer" ? "success" : relationship === "Registered" ? "info" : "neutral";
+}
+
+function optionLabel(options: { label: string; value: string }[], value: string) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
 
 export default function CustomerAcquisition() {
   const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights } = useSalesLeads();
-  const [query, setQuery] = useState("");
-  const [stageFilter, setStageFilter] = useState<StageFilter>("All");
-  const [relationshipFilter, setRelationshipFilter] = useState<RelationshipFilter>("All");
-  const [bankFilter, setBankFilter] = useState<BankFilter>("All");
-  const [sort, setSort] = useState<SortKey>("recent");
-  const [page, setPage] = useState(0);
+  const [tab, setTab] = useState<TabId>("prospects");
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [newestFirst, setNewestFirst] = useState(true);
+  const [page, setPage] = useState(1);
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const stages = STAGE_FILTERS.find((item) => item.key === stageFilter)?.stages ?? [];
-    const rows = leads.filter((lead) => {
-      if (stages.length > 0 && !stages.includes(lead.stage)) return false;
-      if (relationshipFilter !== "All" && lead.relationship !== relationshipFilter) return false;
-      if (bankFilter === "Yes" && lead.bankCustomer !== true) return false;
-      if (bankFilter === "No" && lead.bankCustomer !== false) return false;
-      if (bankFilter === "Unknown" && lead.bankCustomer !== null) return false;
-      if (q && !`${lead.customerName} ${lead.maskedContact} ${lead.productInterest ?? ""} ${lead.occupation ?? ""}`.toLowerCase().includes(q)) return false;
-      return true;
-    });
-    return [...rows].sort((a, b) => {
-      if (sort === "name") return a.customerName.localeCompare(b.customerName);
-      if (sort === "stage") return STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage);
-      return (b.lastInteractionAt ?? "").localeCompare(a.lastInteractionAt ?? "");
-    });
-  }, [leads, query, stageFilter, relationshipFilter, bankFilter, sort]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount - 1);
-  const visible = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
-  const filtersActive = query.length > 0 || stageFilter !== "All" || relationshipFilter !== "All" || bankFilter !== "All";
-
-  const clearFilters = useCallback(() => {
-    setQuery("");
-    setStageFilter("All");
-    setRelationshipFilter("All");
-    setBankFilter("All");
-    setPage(0);
+  const patchFilter = useCallback((key: string, value: string) => {
+    setPage(1);
+    setFilters((current) => ({ ...current, [key]: value }));
   }, []);
 
+  const officers = useMemo(
+    () => [...new Set(leads.map((lead) => lead.assignedOfficerName).filter((name): name is string => !!name))].sort(),
+    [leads],
+  );
+  const channels = useMemo(
+    () => [...new Set(leads.map((lead) => lead.primaryChannel).filter((name): name is string => !!name))].sort(),
+    [leads],
+  );
+
+  const rows = useMemo(() => {
+    const q = filters.search.trim().toLowerCase();
+    const product = filters.product.trim().toLowerCase();
+    return leads
+      .filter((lead) => {
+        if (filters.stage !== "all" && lead.stage !== filters.stage) return false;
+        if (filters.relationship !== "all" && lead.relationship !== filters.relationship) return false;
+        if (filters.bank === "yes" && lead.bankCustomer !== true) return false;
+        if (filters.bank === "no" && lead.bankCustomer !== false) return false;
+        if (filters.bank === "unknown" && lead.bankCustomer !== null) return false;
+        if (filters.consent !== "all" && lead.consentStatus !== filters.consent) return false;
+        if (filters.channel !== "all" && lead.primaryChannel !== filters.channel) return false;
+        if (filters.officer !== "all" && lead.assignedOfficerName !== filters.officer) return false;
+        if (product && !(lead.productInterest ?? "").toLowerCase().includes(product)) return false;
+        if (q && !`${lead.customerName} ${lead.maskedContact} ${lead.occupation ?? ""}`.toLowerCase().includes(q)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const diff = (b.lastInteractionAt ?? "").localeCompare(a.lastInteractionAt ?? "");
+        return newestFirst ? diff : -diff;
+      });
+  }, [leads, filters, newestFirst]);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pagedRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const rangeStart = rows.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(rows.length, safePage * PAGE_SIZE);
+
+  const filterFields: AcquisitionFilterField[] = [
+    { key: "stage", label: "Stage", kind: "select", value: filters.stage, options: STAGE_OPTIONS },
+    { key: "relationship", label: "Relationship", kind: "select", value: filters.relationship, options: RELATIONSHIP_OPTIONS },
+    { key: "bank", label: "Bank customer", kind: "select", value: filters.bank, options: BANK_OPTIONS },
+    { key: "consent", label: "Agreed to follow-up", kind: "select", value: filters.consent, options: CONSENT_OPTIONS },
+    { key: "channel", label: "Channel", kind: "select", value: filters.channel, options: [{ label: "All channels", value: "all" }, ...channels.map((c) => ({ label: c, value: c }))] },
+    { key: "officer", label: "Assigned officer", kind: "select", value: filters.officer, options: [{ label: "All officers", value: "all" }, ...officers.map((o) => ({ label: o, value: o }))] },
+    { key: "product", label: "Product interest", kind: "text", value: filters.product, placeholder: "For example Shop cover" },
+  ];
+
+  const activeChips: AcquisitionActiveChip[] = [];
+  if (filters.stage !== "all") activeChips.push({ key: "stage", label: `Stage: ${optionLabel(STAGE_OPTIONS, filters.stage)}` });
+  if (filters.relationship !== "all") activeChips.push({ key: "relationship", label: optionLabel(RELATIONSHIP_OPTIONS, filters.relationship) });
+  if (filters.bank !== "all") activeChips.push({ key: "bank", label: `Bank customer: ${optionLabel(BANK_OPTIONS, filters.bank)}` });
+  if (filters.consent !== "all") activeChips.push({ key: "consent", label: `Follow-up: ${optionLabel(CONSENT_OPTIONS, filters.consent)}` });
+  if (filters.channel !== "all") activeChips.push({ key: "channel", label: filters.channel });
+  if (filters.officer !== "all") activeChips.push({ key: "officer", label: filters.officer });
+  if (filters.product.trim()) activeChips.push({ key: "product", label: filters.product.trim() });
+
+  const clearChip = (key: string) => patchFilter(key, key === "product" ? "" : "all");
+  const clearAll = () => {
+    setPage(1);
+    setFilters((current) => ({ ...DEFAULT_FILTERS, search: current.search }));
+  };
+
+  const kpiRows = useMemo(() => ({
+    total: leads,
+    existing: leads.filter((lead) => lead.relationship === "ExistingCustomer"),
+    newToInsurer: leads.filter((lead) => lead.relationship === "NewToInsurer"),
+    bank: leads.filter((lead) => lead.bankCustomer === true),
+    ready: leads.filter((lead) => lead.stage === "ReadyToApply"),
+  }), [leads]);
+  const kpi = (label: string, subset: SalesLeadView[]) => {
+    const series = dailyCounts(subset.map((lead) => lead.createdAt));
+    // "Down" only means fewer new prospects than earlier in the fortnight, which is not bad news, so the
+    // line is drawn in the neutral colour rather than the warning one.
+    const direction = trendDirection(series);
+    return { label, value: subset.length.toLocaleString(), sparklineData: series, trendDirection: direction === "down" ? ("flat" as const) : direction };
+  };
+
   return (
-    <>
-      <SectionHeader
-        eyebrow="Customer acquisition"
-        title="Prospects"
-        sub="Everyone who might take cover: people who wrote to Kato on WhatsApp and leads your team captured. Open a prospect to see what they told us and what the agent made of it."
-      />
-
-      <KpiStrip leads={leads} loading={loading} />
-
-      <div className="mt-5 flex flex-col gap-3">
-        <label className="relative block w-full">
-          <span className="sr-only">Search prospects</span>
-          <Input
-            leadingIcon={<Search aria-hidden="true" />}
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setPage(0);
-            }}
-            placeholder="Search name, masked contact, work or cover"
-          />
-        </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select label="Stage" value={stageFilter} onChange={(value) => { setStageFilter(value as StageFilter); setPage(0); }}
-            options={STAGE_FILTERS.map((item) => ({ value: item.key, label: item.label }))} />
-          <Select label="Relationship" value={relationshipFilter} onChange={(value) => { setRelationshipFilter(value as RelationshipFilter); setPage(0); }}
-            options={[
-              { value: "All", label: "Any relationship" },
-              { value: "NewToInsurer", label: "New to insurer" },
-              { value: "Registered", label: "Registered" },
-              { value: "ExistingCustomer", label: "Existing customer" },
-            ]} />
-          <Select label="Bank customer" value={bankFilter} onChange={(value) => { setBankFilter(value as BankFilter); setPage(0); }}
-            options={[
-              { value: "All", label: "Bank customer: any" },
-              { value: "Yes", label: "Bank customer: yes" },
-              { value: "No", label: "Bank customer: no" },
-              { value: "Unknown", label: "Bank customer: not known" },
-            ]} />
-          <Select label="Sort" value={sort} onChange={(value) => setSort(value as SortKey)}
-            options={[
-              { value: "recent", label: "Most recent" },
-              { value: "stage", label: "Closest to buying" },
-              { value: "name", label: "Name" },
-            ]} />
-          <Button variant="primary" onClick={() => setCapturing((value) => !value)} icon={<Plus aria-hidden="true" />}>
-            New lead
-          </Button>
-        </div>
+    <div className="cip-acq space-y-4">
+      <div>
+        <h1 className="m-0 text-[20px] font-semibold tracking-tight text-[#0B1640]">Acquisition dashboard</h1>
+        <p className="m-0 mt-0.5 text-[12.5px] text-slate-500">People who might take cover, from WhatsApp conversations, bank lists and your team.</p>
       </div>
 
-      {capturing ? <CaptureLead creating={creating} onCancel={() => setCapturing(false)} onSave={async (input) => {
-        const result = await createLead(input);
-        if (result.ok) {
-          toast.success("Lead captured");
-          setCapturing(false);
-        } else {
-          toast.error(result.message ?? "The lead could not be saved.");
-        }
-      }} /> : null}
+      <AcquisitionTabs tabs={[...TABS]} active={tab} onChange={setTab} chatHref="/app/channels" />
 
-      <section className="mt-5 overflow-hidden rounded-dls-card border border-dls-border-subtle bg-dls-surface" aria-labelledby="prospect-queue-title">
-        <div className="flex items-center justify-between gap-3 border-b border-dls-border-subtle px-5 py-4">
-          <h2 id="prospect-queue-title" className="m-0 text-[16px] font-bold text-dls-text-primary">Prospect queue</h2>
-          {!loading && !error && !forbidden ? (
-            <span className="text-[12.5px] text-dls-text-muted">{filtered.length} of {leads.length}</span>
-          ) : null}
-        </div>
+      <AcquisitionKpiStrip
+        items={[
+          kpi("Total prospects", kpiRows.total),
+          kpi("Existing customers", kpiRows.existing),
+          kpi("New to the insurer", kpiRows.newToInsurer),
+          kpi("Bank customers", kpiRows.bank),
+          kpi("Ready to apply", kpiRows.ready),
+        ]}
+      />
 
-        {loading ? (
-          <div className="p-5"><LoadingSkeleton rows={6} /></div>
-        ) : forbidden ? (
-          <div className="p-5"><NoPermissionStateSurface permission="View sales leads" /></div>
-        ) : error ? (
-          <div className="p-5"><ErrorStateSurface title="Prospects unavailable" message={error} onRetry={() => void reload()} /></div>
-        ) : leads.length === 0 ? (
-          <div className="p-5">
-            <EmptyStateSurface
-              title="No prospects yet"
-              message="Prospects appear here when someone writes to Kato on WhatsApp about cover, or when your team captures a lead."
-            />
+      {tab === "charts" ? (
+        <ProspectCharts leads={leads} loading={loading} />
+      ) : (
+        <>
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <AcquisitionFilterToolbar
+                fields={filterFields}
+                activeChips={activeChips}
+                activeCount={activeChips.length}
+                search={filters.search}
+                onSearchChange={(value) => patchFilter("search", value)}
+                onFieldChange={patchFilter}
+                onClearChip={clearChip}
+                onClearAll={clearAll}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setCapturing((value) => !value)}
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#1769FF] px-3.5 text-[13px] font-semibold text-white hover:bg-[#1258d6]"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              New lead
+            </button>
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-5"><EmptyFilteredStateSurface onClear={clearFilters} /></div>
-        ) : (
-          <>
-            <ProspectTable rows={visible} onOpen={setOpenLeadId} />
-            {pageCount > 1 ? (
-              <div className="flex items-center justify-between gap-3 border-t border-dls-border-subtle px-5 py-3 text-[13px] text-dls-text-secondary">
-                <span>Page {currentPage + 1} of {pageCount}</span>
-                <div className="flex gap-2">
-                  <Button variant="secondary" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 0} icon={<ChevronLeft aria-hidden="true" />}>Previous</Button>
-                  <Button variant="secondary" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pageCount - 1} icon={<ChevronRight aria-hidden="true" />}>Next</Button>
+
+          {capturing ? (
+            <CaptureLead
+              creating={creating}
+              onCancel={() => setCapturing(false)}
+              onSave={async (input) => {
+                const result = await createLead(input);
+                if (result.ok) {
+                  toast.success("Lead captured");
+                  setCapturing(false);
+                } else {
+                  toast.error(result.message ?? "The lead could not be saved.");
+                }
+              }}
+            />
+          ) : null}
+
+          <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+              <h2 className="m-0 text-[15px] font-semibold text-[#0B1640]">Prospect queue</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setPage(1);
+                  setNewestFirst((value) => !value);
+                }}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[12px] font-medium text-slate-600 hover:bg-slate-50"
+                aria-label={newestFirst ? "Sorted by last interaction, newest first. Click to reverse." : "Sorted by last interaction, oldest first. Click to reverse."}
+              >
+                <span>Sort</span>
+                <span className="inline-flex flex-col leading-none text-[#1769FF]" aria-hidden>
+                  <ArrowUp className={`h-2.5 w-2.5 ${newestFirst ? "opacity-35" : "opacity-100"}`} strokeWidth={2.5} />
+                  <ArrowDown className={`-mt-0.5 h-2.5 w-2.5 ${newestFirst ? "opacity-100" : "opacity-35"}`} strokeWidth={2.5} />
+                </span>
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="p-5"><LoadingSkeleton rows={6} /></div>
+            ) : forbidden ? (
+              <div className="p-5"><NoPermissionStateSurface permission="View sales leads" /></div>
+            ) : error ? (
+              <div className="p-5"><ErrorStateSurface title="Prospects unavailable" message={error} onRetry={() => void reload()} /></div>
+            ) : leads.length === 0 ? (
+              <div className="p-5">
+                <EmptyStateSurface title="No prospects yet" message="Prospects appear here when someone asks Kato about a cover on WhatsApp, or when your team captures a lead." />
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="p-5">
+                <EmptyStateSurface title="No prospects match these filters" message="Clear a filter or change the search to see more." action={{ label: "Clear filters", onClick: () => { clearAll(); patchFilter("search", ""); } }} />
+              </div>
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto lg:block">
+                  <table className="w-full min-w-[900px] text-left">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                        <th className="px-5 py-3 font-semibold">Customer</th>
+                        <th className="px-3 py-3 font-semibold">Contact</th>
+                        <th className="px-3 py-3 font-semibold">Bank customer</th>
+                        <th className="px-3 py-3 font-semibold">Relationship</th>
+                        <th className="px-3 py-3 font-semibold">Product interest</th>
+                        <th className="px-3 py-3 font-semibold">Stage</th>
+                        <th className="px-3 py-3 font-semibold">Assigned officer</th>
+                        <th className="px-3 py-3 font-semibold">Last interaction</th>
+                        <th className="px-3 py-3 pr-4 font-semibold">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {pagedRows.map((row) => (
+                        <tr key={row.leadId} className="cursor-pointer hover:bg-slate-50/70" onClick={() => setOpenLeadId(row.leadId)}>
+                          <td className="min-w-[8.5rem] px-5 py-3.5">
+                            <div className="text-[13px] font-semibold text-[#0B1640]">{row.customerName}</div>
+                            <div className="mt-0.5 text-[11px] text-slate-500">{row.occupation ?? "Work not known yet"}</div>
+                          </td>
+                          <td className="px-3 py-3.5">
+                            <div className="font-mono text-[12px] text-slate-600">{row.maskedContact}</div>
+                            <div className="mt-0.5 text-[11px] text-slate-500">{row.primaryChannel ?? "Manual"}</div>
+                          </td>
+                          <td className="px-3 py-3.5">
+                            <CipStatusPill tone={row.bankCustomer === true ? "success" : "neutral"}>{row.bankCustomerLabel}</CipStatusPill>
+                          </td>
+                          <td className="px-3 py-3.5">
+                            <CipStatusPill tone={relationshipTone(row.relationship)}>{row.relationshipLabel}</CipStatusPill>
+                          </td>
+                          <td className="min-w-[9rem] px-3 py-3.5 text-[12px] text-slate-700">{row.productInterest ?? "Not yet known"}</td>
+                          <td className="whitespace-nowrap px-3 py-3.5">
+                            <CipStatusPill tone={stageTone(row.stage)}>{row.stageLabel}</CipStatusPill>
+                          </td>
+                          <td className="px-3 py-3.5 text-[12px] text-slate-700">{row.assignedOfficerName ?? "Unassigned"}</td>
+                          <td className="whitespace-nowrap px-3 py-3.5 text-[12px] text-slate-600">{shortWhen(row.lastInteractionAt)}</td>
+                          <td className="px-3 py-3.5 pr-4" onClick={(event) => event.stopPropagation()}>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setOpenLeadId(row.leadId)}
+                                aria-label={`View ${row.customerName}`}
+                                className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
+                              >
+                                View
+                              </button>
+                              <RowMenu row={row} onView={() => setOpenLeadId(row.leadId)} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile list */}
+                <ul className="m-0 divide-y divide-slate-100 p-0 lg:hidden">
+                  {pagedRows.map((row) => (
+                    <li key={row.leadId} className="list-none">
+                      <button type="button" onClick={() => setOpenLeadId(row.leadId)} className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50/80 active:bg-slate-50">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[12px] font-semibold text-[#0B1640]">{initialsOf(row.customerName)}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="m-0 truncate text-[14px] font-semibold text-[#0B1640]">{row.customerName}</p>
+                              <p className="m-0 mt-0.5 text-[11px] text-slate-500">{row.occupation ?? "Work not known yet"}</p>
+                            </div>
+                            <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300" />
+                          </div>
+                          <p className="m-0 mt-1.5 text-[12px] text-slate-600">
+                            <span className="font-mono">{row.maskedContact}</span>
+                            <span className="text-slate-300"> · </span>
+                            {row.primaryChannel ?? "Manual"}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <CipStatusPill tone={stageTone(row.stage)}>{row.stageLabel}</CipStatusPill>
+                            <span className="truncate text-[11px] text-slate-500">{row.productInterest ?? "Not yet known"}</span>
+                          </div>
+                          <p className="m-0 mt-1.5 text-[11px] text-slate-400">Last interaction: {formatDateTime(row.lastInteractionAt, "Not recorded")}</p>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {!loading && !error && !forbidden && rows.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:px-5">
+                <p className="m-0 text-[12px] text-slate-500">
+                  Showing {rangeStart}–{rangeEnd} of {rows.length.toLocaleString()} prospects
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage(Math.max(1, safePage - 1))}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Previous page"
+                  >
+                    ‹
+                  </button>
+                  <span className="inline-flex h-8 min-w-[2rem] items-center justify-center rounded-lg bg-[#1769FF] px-2 text-[12px] font-semibold text-white">{safePage}</span>
+                  <button
+                    type="button"
+                    disabled={safePage >= pageCount}
+                    onClick={() => setPage(Math.min(pageCount, safePage + 1))}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Next page"
+                  >
+                    ›
+                  </button>
                 </div>
               </div>
             ) : null}
-          </>
-        )}
-        {filtersActive && !loading && filtered.length > 0 ? (
-          <div className="border-t border-dls-border-subtle px-5 py-3">
-            <button type="button" onClick={clearFilters} className="dls-focus-outline text-[13px] font-semibold text-dls-primary-accent hover:underline">Clear filters</button>
-          </div>
-        ) : null}
-      </section>
+          </section>
+        </>
+      )}
 
       <LeadCustomerModal
         leadId={openLeadId}
@@ -200,135 +415,47 @@ export default function CustomerAcquisition() {
         assign={assign}
         refreshInsights={refreshInsights}
       />
-    </>
-  );
-}
-
-function ProspectTable({ rows, onOpen }: { rows: SalesLeadView[]; onOpen: (leadId: string) => void }) {
-  const reduceMotion = useReducedMotion();
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[1320px] border-collapse text-left">
-        <thead>
-          <tr className="border-b border-dls-border-subtle">
-            {["Customer", "Masked contact", "Bank customer", "Relationship", "Channel", "Product interest", "Stage", "Assigned officer", "Last interaction", ""].map((heading) => (
-              <th key={heading || "action"} scope="col" className="px-5 py-3 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-dls-text-muted">
-                {heading || <span className="sr-only">Action</span>}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((lead, index) => (
-            <motion.tr
-              key={lead.leadId}
-              className="border-b border-dls-border-subtle last:border-b-0 hover:bg-dls-bg-page"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: reduceMotion ? 0 : 0.15, delay: reduceMotion ? 0 : Math.min(index, 10) * 0.02 }}
-            >
-              <td className="min-w-[10rem] px-5 py-3.5">
-                <button type="button" onClick={() => onOpen(lead.leadId)} className="dls-focus-outline text-left">
-                  <div className="text-[14px] font-semibold text-dls-text-primary hover:underline">{lead.customerName}</div>
-                  <div className="text-[12.5px] text-dls-text-muted">{lead.occupation ?? "Work not known yet"}</div>
-                </button>
-              </td>
-              <td className="px-5 py-3.5 text-[13.5px] tabular-nums text-dls-text-secondary">{lead.maskedContact}</td>
-              <td className="px-5 py-3.5"><StatusPill tone={lead.bankCustomer === true ? "success" : "neutral"} label={lead.bankCustomerLabel} /></td>
-              <td className="px-5 py-3.5"><StatusPill tone={relationshipTone(lead.relationship)} label={lead.relationshipLabel} /></td>
-              <td className="px-5 py-3.5 text-[13.5px] text-dls-text-secondary">
-                <span className="inline-flex items-center gap-1.5">
-                  {lead.primaryChannel === "WhatsApp" ? <MessageCircle className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" /> : <UserRound className="h-3.5 w-3.5 text-dls-text-muted" aria-hidden="true" />}
-                  {lead.primaryChannel ?? "Manual"}
-                </span>
-              </td>
-              <td className="min-w-[13rem] px-5 py-3.5 text-[13.5px] text-dls-text-primary">{lead.productInterest ?? <span className="text-dls-text-muted">Not yet known</span>}</td>
-              <td className="px-5 py-3.5"><StatusPill tone={stageTone(lead.stage)} label={lead.stageLabel} /></td>
-              <td className="px-5 py-3.5 text-[13.5px] text-dls-text-secondary">{lead.assignedOfficerName ?? "Unassigned"}</td>
-              <td className="px-5 py-3.5 text-[13px] text-dls-text-secondary">{formatDateTime(lead.lastInteractionAt, "Not recorded")}</td>
-              <td className="px-5 py-3.5 text-right">
-                <Button variant="secondary" onClick={() => onOpen(lead.leadId)} aria-label={`View ${lead.customerName}`}>View</Button>
-              </td>
-            </motion.tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
 
-function KpiStrip({ leads, loading }: { leads: SalesLeadView[]; loading: boolean }) {
-  const tiles = useMemo(() => [
-    { label: "Total prospects", rows: leads },
-    { label: "Existing customers", rows: leads.filter((lead) => lead.relationship === "ExistingCustomer") },
-    { label: "New to the insurer", rows: leads.filter((lead) => lead.relationship === "NewToInsurer") },
-    { label: "Ready to apply", rows: leads.filter((lead) => lead.stage === "ReadyToApply") },
-    { label: "Unassigned", rows: leads.filter((lead) => !lead.assignedSalesOfficer) },
-  ], [leads]);
-
+/** The "..." menu on a row, as in CIP: view the record, open the conversation when there is one. */
+function RowMenu({ row, onView }: { row: SalesLeadView; onView: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-3">
-      {tiles.map((tile) => (
-        <div key={tile.label} className="rounded-dls-card border border-dls-border-subtle bg-dls-surface px-4 py-4">
-          <div className="text-[13px] font-semibold text-dls-text-secondary">{tile.label}</div>
-          <div className="mt-2 flex flex-col gap-2">
-            {loading ? (
-              <Loader2 className="h-5 w-5 animate-spin text-dls-text-muted" aria-label="Loading" />
-            ) : (
-              <span className="text-[28px] font-bold leading-none tabular-nums text-dls-text-primary">{tile.rows.length}</span>
-            )}
-            {!loading ? <Trend rows={tile.rows} label={tile.label} /> : null}
-          </div>
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`More actions for ${row.customerName}`}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+      >
+        <MoreHorizontal className="h-4 w-4" aria-hidden />
+      </button>
+      {open ? (
+        <div role="menu" className="absolute right-0 z-20 mt-1 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-[0_16px_40px_rgba(15,23,42,0.14)]">
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); onView(); }} className="block w-full rounded-lg px-3 py-2 text-left text-[12.5px] font-medium text-slate-700 hover:bg-slate-50">
+            View details
+          </button>
+          {row.conversationId ? (
+            <Link role="menuitem" href={`/app/channels?thread=${encodeURIComponent(row.conversationId)}`} className="block rounded-lg px-3 py-2 text-[12.5px] font-medium text-slate-700 hover:bg-slate-50">
+              Open conversation
+            </Link>
+          ) : null}
         </div>
-      ))}
+      ) : null}
     </div>
-  );
-}
-
-/** New prospects per day over the last 14 days, from when each record was created. */
-function Trend({ rows, label }: { rows: SalesLeadView[]; label: string }) {
-  const counts = useMemo(() => {
-    const days = Array.from({ length: TREND_DAYS }, () => 0);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    for (const row of rows) {
-      if (!row.createdAt) continue;
-      const created = new Date(row.createdAt);
-      created.setHours(0, 0, 0, 0);
-      const age = Math.round((today.getTime() - created.getTime()) / 86_400_000);
-      if (age >= 0 && age < TREND_DAYS) days[TREND_DAYS - 1 - age] += 1;
-    }
-    return days;
-  }, [rows]);
-
-  const max = Math.max(...counts);
-  if (max === 0) {
-    return (
-      <span className="flex w-full flex-col items-start gap-1" title={`No new ${label.toLowerCase()} in the last ${TREND_DAYS} days`}>
-        <span className="block w-full border-t border-dashed border-dls-border-strong" aria-hidden="true" />
-        <span className="text-[11px] text-dls-text-muted">No trend</span>
-      </span>
-    );
-  }
-
-  const width = 120;
-  const height = 32;
-  const points = counts.map((count, index) => `${(index / (TREND_DAYS - 1)) * width},${height - 2 - (count / max) * (height - 4)}`).join(" ");
-  return (
-    <svg className="h-8 w-full" preserveAspectRatio="none" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`New per day over the last ${TREND_DAYS} days: ${counts.join(", ")}`}>
-      <polyline points={points} fill="none" stroke="rgb(var(--color-primary))" strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
-
-function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
-  return (
-    <label className="inline-flex min-h-10 items-center rounded-dls-control border border-dls-border-input bg-dls-surface px-3 text-[13px] text-dls-text-primary focus-within:ring-2 focus-within:ring-dls-primary-border">
-      <span className="sr-only">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className={cn("cursor-pointer bg-transparent outline-none")}>
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-    </label>
   );
 }
 
@@ -340,8 +467,8 @@ function CaptureLead({ creating, onCancel, onSave }: {
   const [form, setForm] = useState<{ customerName: string; leadSource: string; customerNeed: string; productFit: string; contactInfo: string; bankCustomer: boolean | null }>(
     { customerName: "", leadSource: "Manual capture", customerNeed: "", productFit: "", contactInfo: "", bankCustomer: null });
   return (
-    <div className="mt-4 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-5">
-      <h3 className="m-0 text-[15px] font-bold text-dls-text-primary">Capture a lead</h3>
+    <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)] sm:p-5">
+      <h2 className="m-0 text-[15px] font-semibold text-[#0B1640]">Capture a lead</h2>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <Field label="Customer name" required value={form.customerName} onChange={(value) => setForm({ ...form, customerName: value })} />
         <Field label="Phone or email" value={form.contactInfo} onChange={(value) => setForm({ ...form, contactInfo: value })} />
@@ -349,34 +476,42 @@ function CaptureLead({ creating, onCancel, onSave }: {
         <Field label="Cover they asked about" value={form.productFit} onChange={(value) => setForm({ ...form, productFit: value })} />
         <Field label="Where the lead came from" value={form.leadSource} onChange={(value) => setForm({ ...form, leadSource: value })} />
         <label className="block">
-          <span className="text-[12px] font-semibold text-dls-text-secondary">Banks with the partner bank?</span>
-          <div className="mt-1">
-            <Select label="Banks with the partner bank" value={form.bankCustomer === null ? "" : form.bankCustomer ? "yes" : "no"}
-              onChange={(value) => setForm({ ...form, bankCustomer: value === "" ? null : value === "yes" })}
-              options={[{ value: "", label: "Not known" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }]} />
-          </div>
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Banks with the partner bank?</span>
+          <select
+            value={form.bankCustomer === null ? "" : form.bankCustomer ? "yes" : "no"}
+            onChange={(event) => setForm({ ...form, bankCustomer: event.target.value === "" ? null : event.target.value === "yes" })}
+            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[13px] text-[#0B1640] outline-none focus:border-[#1769FF]/40"
+          >
+            <option value="">Not known</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
         </label>
       </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onCancel}>Cancel</Button>
-        <Button
-          variant="primary"
+      <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-3">
+        <button type="button" onClick={onCancel} className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
+        <button
+          type="button"
           onClick={() => void onSave(form)}
           disabled={creating || !form.customerName.trim() || !form.customerNeed.trim()}
-          icon={creating ? <Loader2 className="animate-spin" aria-hidden="true" /> : undefined}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#1769FF] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#1258d6] disabled:cursor-not-allowed disabled:opacity-50"
         >
+          {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
           Save lead
-        </Button>
+        </button>
       </div>
-    </div>
+    </section>
   );
 }
 
 function Field({ label, value, onChange, className, required }: { label: string; value: string; onChange: (value: string) => void; className?: string; required?: boolean }) {
   return (
-    <label className={cn("block", className)}>
-      <span className="text-[12px] font-semibold text-dls-text-secondary">{label}{required ? <span className="text-dls-text-muted"> (required)</span> : null}</span>
-      <div className="mt-1"><Input value={value} onChange={(event) => onChange(event.target.value)} /></div>
+    <label className={`block ${className ?? ""}`}>
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+        {required ? " (required)" : ""}
+      </span>
+      <Input value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }

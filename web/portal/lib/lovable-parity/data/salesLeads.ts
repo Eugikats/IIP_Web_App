@@ -34,6 +34,7 @@ export type SalesLeadView = {
   consentStatus: ConsentStatus;
   bankCustomer: boolean | null;
   bankCustomerLabel: string;
+  conversationId: string | null;
 };
 
 export type CreateLeadInput = {
@@ -132,6 +133,7 @@ const PARITY: SalesLeadView[] = mockLeads.map((l) => ({
   consentStatus: "NotRecorded",
   bankCustomer: null,
   bankCustomerLabel: "Not known",
+  conversationId: null,
 }));
 
 async function readMessage(response: Response, fallback: string): Promise<string> {

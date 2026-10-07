@@ -94,6 +94,7 @@ public sealed class SalesLeadQueryService(
                     ConsentStatus = (lead.Consent?.Status ?? ContactConsentStatus.NotRecorded).ToString(),
                     BankCustomer = lead.BankCustomer,
                     BankCustomerLabel = BankCustomerLabel(lead.BankCustomer),
+                    ConversationId = string.IsNullOrWhiteSpace(lead.ThreadId) ? null : lead.ThreadId,
                 };
             })
             .ToArray();
