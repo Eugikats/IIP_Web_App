@@ -91,6 +91,44 @@ public sealed partial class CustomerAssistantService
         return null;
     }
 
+    /// <summary>
+    /// What is already known about this person and the next few things worth finding out, so Kato can aim
+    /// his questions at the gaps instead of guessing. One read of the person's record, no extra model call,
+    /// so the reply stays as fast as before. The answers are recorded afterwards by the insights agent,
+    /// which keeps only facts the customer actually said.
+    /// </summary>
+    private async Task<string> ProfileGuidanceAsync(AgentRun run, KatoBrand brand, CancellationToken cancellationToken)
+    {
+        SalesLeadDetailReadModel? lead = null;
+        try
+        {
+            lead = await salesLeadWriteRepository.FindByPhoneAsync(run.Scope.TenantId, run.Scope.WorkspaceId, run.WaId, cancellationToken);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Without the record Kato still talks; he simply has no list of gaps this turn.
+        }
+
+        var facts = lead?.Facts ?? [];
+        var known = facts.Count == 0
+            ? "Nothing is recorded about them yet."
+            : string.Join("; ", facts.Select(fact => $"{ProspectFacts.Label(fact.Key).ToLowerInvariant()}: {fact.Value}"));
+        var gaps = ProspectFacts.Missing(facts).Select(field => field.Label.ToLowerInvariant()).ToList();
+        if (brand.IsBancassurance && lead?.BankCustomer is null && !facts.Any(fact => fact.Key is "branch" or "bank_products"))
+        {
+            // For a person who wrote in cold, whether they already bank with us is worth knowing early.
+            gaps.Insert(Math.Min(2, gaps.Count), $"whether they already bank with {brand.ShortName} and at which branch");
+        }
+
+        var next = gaps.Count == 0
+            ? "Everything you normally ask about is recorded, so concentrate on helping them decide."
+            : $"Still to find out, most useful first: {string.Join("; ", gaps.Take(4))}.";
+        return $"""
+            What is already recorded about this person (do not ask for any of it again): {known}
+            {next}
+            """;
+    }
+
     private async Task<string> AgentSystemPromptAsync(AgentRun run, Domain.Translation.SupportedLanguageCode replyLanguage, CancellationToken cancellationToken)
     {
         var translated = replyLanguage != Domain.Translation.SupportedLanguageCode.En;
@@ -98,6 +136,7 @@ public sealed partial class CustomerAssistantService
         var knownName = sender?.FirstName ?? contactFirstName;
         var demoPhone = demoSession?.IsDemoPhone(run.WaId) == true;
         var brand = KatoBrand.Current;
+        var profileBlock = await ProfileGuidanceAsync(run, brand, cancellationToken);
         var org = brand.ShortName;
         var who = brand.IsBancassurance
             ? $"You are Kato, {brand.Organisation}'s insurance assistant on WhatsApp in Uganda. {brand.Organisation} sells cover from its partner insurers ({string.Join(", ", brand.PartnerInsurers)}); every cover in list_products names the insurer that provides it and pays its claims. When you recommend or explain a cover, always say which insurer provides it, for example \"Mpingo Family Funeral Cover from Mpingo Life Assurance\". Recommend across the partners on what fits the person, never on which insurer it is."
@@ -128,7 +167,10 @@ public sealed partial class CustomerAssistantService
             - Ask for the decision naturally once they see the value ("shall I set it up for you now?"). If they say no or not now, respect it warmly, leave the door open, and do not ask again in the same conversation unless they bring it up.
             - Never pressure, never invent urgency or discounts, never promise that a claim will be paid. If they ask directly for prices or the list of covers, answer first and then carry on the conversation.
 
-            What to find out, over the conversation and only as it fits naturally (never as a list of questions): their work and what they sell, where they live or work, roughly what they earn or turn over, who depends on them, any cover they already have, what worries them, what they could pay a month, and when they would want cover. Ask first about the things that matter for the cover they are leaning toward. Never ask about religion, tribe, health conditions, disability or politics; if they mention their health because of a medical or maternity cover, talk about the cover, not the condition.
+            Getting to know them is part of every reply, because what they tell you becomes their profile and saves your team from chasing them later. {profileBlock}
+            - From your very first reply, answer what they asked and then add ONE short, friendly question about the first thing still to find out. After that, ask one, at most two, per reply. Tie each question to what they just said ("You mentioned the shop: is it in Kalerwe or somewhere else?") and never write them as a list or a form.
+            - Skip the question when they are upset, in a hurry, reporting a claim, asking for a person, or have just said no. Never ask something already recorded above. If they answer, acknowledge it in a few words before moving on; if they dodge a question, drop it.
+            - The things worth finding out are their work and what they sell, where they live or work, roughly what they earn or turn over, who depends on them, any cover they already have, what worries them, what they could pay a month, and when they would want cover. Ask first about the things that matter for the cover they are leaning toward. Never ask about religion, tribe, health conditions, disability or politics; if they mention their health because of a medical or maternity cover, talk about the cover, not the condition.
 
             You decide and recommend yourself. Recommend the cover that fits from what they told you and say why, plainly. Never pass a question to "the team" that list_products or search_policy_information can answer, and never stall with "let me check with my colleagues".
 

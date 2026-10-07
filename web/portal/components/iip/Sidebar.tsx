@@ -33,12 +33,14 @@ const PEEK_CLOSE_DELAY_MS = 180;
 // built, so these routes existed and worked but had no link pointing at them anywhere in the app.
 // An expandable, grouped rail reaches all of them without abandoning a compact default.
 const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: typeof MessageSquare }[] }[] = [
+  // PRESENTATION: the entries commented out below are hidden for the bancassurance meeting so the audience
+  // sees only what is being shown. Uncomment them to bring them back; the routes themselves still work.
   {
     label: "Work",
     items: [
       { to: "/app", label: "Brief", icon: Home },
-      { to: "/app/assistant", label: "Assistant", icon: MessageSquare },
-      { to: "/app/work-items", label: "My work", icon: ListChecks },
+      // { to: "/app/assistant", label: "Assistant", icon: MessageSquare },
+      // { to: "/app/work-items", label: "My work", icon: ListChecks },
       { to: "/app/claims", label: "Claims", icon: FileSearch },
       { to: "/app/channels", label: "Inbox", icon: Inbox },
       { to: "/app/academy", label: "IIP Academy", icon: GraduationCap },
@@ -49,28 +51,28 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
     items: [
       { to: "/app/customers", label: "Customers", icon: Users },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
-      { to: "/app/communications", label: "Communications", icon: Mail },
-      { to: "/app/retention", label: "Retention", icon: RefreshCw },
+      // { to: "/app/communications", label: "Communications", icon: Mail },
+      // { to: "/app/retention", label: "Retention", icon: RefreshCw },
     ],
   },
-  {
-    label: "Intelligence",
-    items: [
-      { to: "/app/documents", label: "Documents", icon: FileText },
-      { to: "/app/knowledge", label: "Knowledge", icon: BookOpen },
-      { to: "/app/policy", label: "Policy", icon: ScrollText },
-      { to: "/app/fraud", label: "Fraud", icon: ShieldAlert },
-      { to: "/app/underwriting", label: "Underwriting", icon: Gavel },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { to: "/app/flows", label: "Automation", icon: GitBranch },
-      { to: "/app/executive", label: "Insights", icon: LineChart },
-      { to: "/app/audit", label: "Audit", icon: ShieldCheck },
-    ],
-  },
+  // {
+  //   label: "Intelligence",
+  //   items: [
+  //     { to: "/app/documents", label: "Documents", icon: FileText },
+  //     { to: "/app/knowledge", label: "Knowledge", icon: BookOpen },
+  //     { to: "/app/policy", label: "Policy", icon: ScrollText },
+  //     { to: "/app/fraud", label: "Fraud", icon: ShieldAlert },
+  //     { to: "/app/underwriting", label: "Underwriting", icon: Gavel },
+  //   ],
+  // },
+  // {
+  //   label: "Operations",
+  //   items: [
+  //     { to: "/app/flows", label: "Automation", icon: GitBranch },
+  //     { to: "/app/executive", label: "Insights", icon: LineChart },
+  //     { to: "/app/audit", label: "Audit", icon: ShieldCheck },
+  //   ],
+  // },
 ];
 
 function isActive(pathname: string, to: string) {
