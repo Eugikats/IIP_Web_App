@@ -133,7 +133,7 @@ export default function OutreachTab({
         {confirming ? (
           <div role="alertdialog" aria-label="Confirm sending" className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-100 bg-amber-50 px-5 py-3">
             <p className="m-0 max-w-2xl text-[12.5px] text-amber-900">
-              Send {chosen.length} {chosen.length === 1 ? "message" : "messages"} exactly as written? Each one is checked first for agreement to be contacted, sending hours (07:00 to 20:00) and WhatsApp's rules. Any that fail are kept with the reason.
+              Send {chosen.length} {chosen.length === 1 ? "message" : "messages"} exactly as written? Each one is checked first for agreement to be contacted, sending hours (07:00 to 20:00) and WhatsApp&apos;s rules. Any that fail are kept with the reason.
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirming(false)} className="h-8 rounded-md px-3 text-[12px] font-medium text-slate-600 hover:bg-white">Cancel</button>
