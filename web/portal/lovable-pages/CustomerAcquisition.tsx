@@ -208,7 +208,7 @@ function ProspectTable({ rows, onOpen }: { rows: SalesLeadView[]; onOpen: (leadI
   const reduceMotion = useReducedMotion();
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1160px] border-collapse text-left">
+      <table className="w-full min-w-[1320px] border-collapse text-left">
         <thead>
           <tr className="border-b border-dls-border-subtle">
             {["Customer", "Masked contact", "Bank customer", "Relationship", "Channel", "Product interest", "Stage", "Assigned officer", "Last interaction", ""].map((heading) => (
@@ -227,7 +227,7 @@ function ProspectTable({ rows, onOpen }: { rows: SalesLeadView[]; onOpen: (leadI
               animate={{ opacity: 1 }}
               transition={{ duration: reduceMotion ? 0 : 0.15, delay: reduceMotion ? 0 : Math.min(index, 10) * 0.02 }}
             >
-              <td className="px-5 py-3.5">
+              <td className="min-w-[10rem] px-5 py-3.5">
                 <button type="button" onClick={() => onOpen(lead.leadId)} className="dls-focus-outline text-left">
                   <div className="text-[14px] font-semibold text-dls-text-primary hover:underline">{lead.customerName}</div>
                   <div className="text-[12.5px] text-dls-text-muted">{lead.occupation ?? "Work not known yet"}</div>
@@ -242,7 +242,7 @@ function ProspectTable({ rows, onOpen }: { rows: SalesLeadView[]; onOpen: (leadI
                   {lead.primaryChannel ?? "Manual"}
                 </span>
               </td>
-              <td className="px-5 py-3.5 text-[13.5px] text-dls-text-primary">{lead.productInterest ?? <span className="text-dls-text-muted">Not yet known</span>}</td>
+              <td className="min-w-[13rem] px-5 py-3.5 text-[13.5px] text-dls-text-primary">{lead.productInterest ?? <span className="text-dls-text-muted">Not yet known</span>}</td>
               <td className="px-5 py-3.5"><StatusPill tone={stageTone(lead.stage)} label={lead.stageLabel} /></td>
               <td className="px-5 py-3.5 text-[13.5px] text-dls-text-secondary">{lead.assignedOfficerName ?? "Unassigned"}</td>
               <td className="px-5 py-3.5 text-[13px] text-dls-text-secondary">{formatDateTime(lead.lastInteractionAt, "Not recorded")}</td>

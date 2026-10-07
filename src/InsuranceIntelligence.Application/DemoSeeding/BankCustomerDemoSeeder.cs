@@ -8,7 +8,7 @@ using InsuranceIntelligence.Domain.Common;
 namespace InsuranceIntelligence.Application.DemoSeeding;
 
 /// <summary>
-/// An invented customer list for a bank selling insurance (bancassurance): 40 made-up people with the
+/// An invented customer list for a bank selling insurance (bancassurance): 39 made-up people with the
 /// kind of facts a bank holds (work, area, branch, products held, income band), a mix of marketing
 /// consent, and different distances along the way to buying. Phone numbers are in a range that does not
 /// belong to real subscribers, so nothing here can reach a real person. Re-running replaces the same

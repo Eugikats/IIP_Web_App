@@ -211,7 +211,7 @@ public static class DemoSeedEndpoints
         return Results.Ok(new { catalogue, policyholder });
     }
 
-    /// <summary>Loads an invented bank customer list (40 people) as prospects, for the bancassurance
+    /// <summary>Loads an invented bank customer list (39 people) as prospects, for the bancassurance
     /// demonstration. Idempotent; same Demo-only gate as every other seed route.</summary>
     public static async Task<IResult> SeedBankCustomers(
         InsuranceIntelligence.Application.DemoSeeding.BankCustomerDemoSeeder seeder,

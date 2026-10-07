@@ -19,6 +19,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Popover, PopoverGroupLabel } from "@/components/ui/Popover";
 import RoleSwitcher from "./RoleSwitcher";
 import { openFirstRunOrientation } from "./FirstRunOrientation";
+import { SettingsModal } from "@/components/settings/SettingsModal";
 
 const EXPANDED_STORAGE_KEY = "iip.sidebar.expanded";
 
@@ -146,6 +147,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const [expandedLoaded, setExpandedLoaded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const [scrollClipped, setScrollClipped] = useState<{ top: boolean; bottom: boolean }>({ top: false, bottom: false });
@@ -365,9 +367,9 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
               </button>
             )}
             {settingsAvailable && (
-              <Link to="/app/settings" onClick={() => setProfileOpen(false)} role="menuitem" className="flex items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
+              <button type="button" onClick={() => { setProfileOpen(false); setSettingsOpen(true); }} role="menuitem" className="flex w-full items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
                 <Settings className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Settings
-              </Link>
+              </button>
             )}
             {integrationsAvailable && (
               <Link to="/app/integrations" onClick={() => setProfileOpen(false)} role="menuitem" className="flex items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
@@ -439,6 +441,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
           </Popover>
         )}
       </div>
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </aside>
   );
 }
