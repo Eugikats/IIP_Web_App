@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, Link } from "@/components/iip/NextRouterCompat";
 import iipLogo from "@/assets/iip-logo";
 import {
-  MessageSquare, ListChecks, FileSearch, Inbox, FileText, GitBranch, LineChart,
+  MessageSquare, ListChecks, FileSearch, Inbox, GraduationCap, FileText, GitBranch, LineChart,
   Users, Building2, Mail, BookOpen, ShieldAlert, Gavel, ScrollText,
   Search, LogOut, ShieldCheck, Plug, LifeBuoy, Settings,
   ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw,
@@ -41,6 +41,7 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
       { to: "/app/work-items", label: "My work", icon: ListChecks },
       { to: "/app/claims", label: "Claims", icon: FileSearch },
       { to: "/app/channels", label: "Inbox", icon: Inbox },
+      { to: "/app/academy", label: "IIP Academy", icon: GraduationCap },
     ],
   },
   {

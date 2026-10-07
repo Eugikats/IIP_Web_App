@@ -28,6 +28,7 @@
     "@azure/msal-browser": "^5.14.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.16.0",
     "next": "^15.0.0",
     "react": "^19.0.0",
