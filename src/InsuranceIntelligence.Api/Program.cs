@@ -877,6 +877,7 @@ app.MapPost("/api/v1/admin/demo-seed/policyholders", InsuranceIntelligence.Api.A
 app.MapPost("/api/v1/admin/demo-seed/test-policyholder", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedTestPolicyholder);
 app.MapPost("/api/v1/admin/demo-seed/microinsurance", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedMicroinsurance);
 app.MapPost("/api/v1/admin/demo-seed/bank-customers", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedBankCustomers);
+app.MapPost("/api/v1/admin/demo-seed/conversations", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedConversations);
 app.MapPost("/api/v1/admin/db-migrate", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ApplyPending);
 app.MapPost("/api/v1/admin/db-migrate/reconcile-history", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ReconcileHistory);
 app.MapPost("/api/v1/admin/db-migrate/force-reconcile-schema", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ForceReconcileSchema);

@@ -20,7 +20,8 @@ public sealed class SalesLeadQueryService(
     ICustomerRepository? customerRepository = null,
     IPolicyRepository? policyRepository = null,
     IUserAccountRepository? userAccountRepository = null,
-    ICustomerConversationRepository? conversationRepository = null) : ISalesLeadQueryService
+    ICustomerConversationRepository? conversationRepository = null,
+    InsuranceIntelligence.Domain.Integrations.IWhatsAppMessageRepository? messageRepository = null) : ISalesLeadQueryService
 {
     private static readonly HashSet<string> Unassessed = new(StringComparer.OrdinalIgnoreCase) { "To be assessed", "To be chosen", "" };
 
@@ -68,10 +69,22 @@ public sealed class SalesLeadQueryService(
         var context = tenantContextAccessor.Current;
         var leads = await repository.ListLeadsAsync(context.TenantId, context.WorkspaceId, cancellationToken);
         var trimmed = threadId.Trim();
-        // A thread id ends with the customer's number, so a lead whose own thread has not been
-        // recorded yet is still found by it.
-        var lead = leads.FirstOrDefault(item => string.Equals(item.ThreadId, trimmed, StringComparison.Ordinal))
-            ?? leads.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Phone) && trimmed.EndsWith(item.Phone, StringComparison.Ordinal));
+        var lead = leads.FirstOrDefault(item => string.Equals(item.ThreadId, trimmed, StringComparison.Ordinal));
+        if (lead is null && messageRepository is not null)
+        {
+            // A thread id is a hash, so the customer's number comes from the thread's own messages.
+            var contact = (await messageRepository.ListThreadAsync(context.Scope, trimmed, cancellationToken))
+                .Select(message => message.ContactWaId)
+                .FirstOrDefault(waId => !string.IsNullOrWhiteSpace(waId));
+            if (contact is not null)
+            {
+                lead = leads
+                    .Where(item => PhoneNumbers.SameNumber(item.Phone ?? item.ContactInfo, contact))
+                    .OrderByDescending(item => item.LastInteractionAt ?? item.CreatedAt ?? DateTimeOffset.MinValue)
+                    .FirstOrDefault();
+            }
+        }
+
         return lead is null ? null : await GetLeadDetailAsync(lead.LeadId, cancellationToken);
     }
 

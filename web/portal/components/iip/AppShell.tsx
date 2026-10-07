@@ -127,7 +127,9 @@ function ShellInner({ children }: { children: ReactNode }) {
           </div>
 
           <main className="flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-[1040px] px-8 pb-[60px] pt-7">{children}</div>
+            {/* The two CIP-style working screens (acquisition and the inbox) use the full width; every
+                other page keeps the reading width. */}
+            <div className={`mx-auto pb-[60px] pt-7 ${loc.pathname.startsWith("/app/channels") || loc.pathname.startsWith("/app/acquisition") ? "max-w-[1760px] px-6" : "max-w-[1040px] px-8"}`}>{children}</div>
           </main>
           <AssistantBar />
         </div>

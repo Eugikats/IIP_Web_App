@@ -240,3 +240,87 @@ export function useSalesLeads() {
 
   return { leads, loading, error, forbidden, creating, reload: load, createLead, getLeadDetail, addNote, assign, refreshInsights, parityMode: LOVABLE_VISUAL_PARITY_MODE };
 }
+
+/**
+ * The prospect behind one WhatsApp conversation, for the chat screen's customer panel. `detail` is
+ * null when the person is not a prospect yet (they wrote in but have not asked about a cover).
+ */
+export function useThreadProspect(threadId?: string | null) {
+  const { roleDef } = useUI();
+  const role = roleDef.key;
+  const [detail, setDetail] = useState<SalesLeadDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!threadId || LOVABLE_VISUAL_PARITY_MODE) {
+      setDetail(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/channels/whatsapp/threads/${encodeURIComponent(threadId)}/prospect`, {
+        headers: scopedHeaders(role, ""),
+        cache: "no-store",
+      });
+      if (response.status === 404) setDetail(null);
+      else if (response.status === 403) {
+        setDetail(null);
+        setError("Your role cannot see prospect details.");
+      } else if (!response.ok) throw new Error("failed");
+      else setDetail((await response.json()) as SalesLeadDetail);
+    } catch {
+      setError("The customer details could not be loaded.");
+      setDetail(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [role, threadId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const call = useCallback(async (path: string, init: RequestInit, fallback: string): Promise<LeadResult> => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads/${path}`, {
+        ...init,
+        headers: { ...scopedHeaders(role, ""), ...(init.body ? { "Content-Type": "application/json" } : {}) },
+        cache: "no-store",
+      });
+      if (response.status === 403) return { ok: false, status: 403, message: "You do not have permission to do this." };
+      if (!response.ok) return { ok: false, status: response.status, message: await readMessage(response, fallback) };
+      const next = (await response.json()) as SalesLeadDetail;
+      setDetail(next);
+      return { ok: true, detail: next };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : fallback };
+    }
+  }, [role]);
+
+  const addNote = useCallback((leadId: string, text: string) =>
+    call(`${encodeURIComponent(leadId)}/notes`, { method: "POST", body: JSON.stringify({ text }) }, "The note could not be saved."), [call]);
+  const assign = useCallback((leadId: string, userId: string | null) =>
+    call(`${encodeURIComponent(leadId)}/assignee`, { method: "PUT", body: JSON.stringify({ userId }) }, "The owner could not be changed."), [call]);
+  const refreshInsights = useCallback((leadId: string) =>
+    call(`${encodeURIComponent(leadId)}/insights/refresh`, { method: "POST" }, "The insights could not be prepared."), [call]);
+
+  /** Makes this person a lead by hand, for someone who has written in but not asked about a cover. */
+  const capture = useCallback(async (input: CreateLeadInput): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (response.status === 403) return { ok: false, message: "You do not have permission to create leads." };
+      if (!response.ok) return { ok: false, message: await readMessage(response, "The lead could not be saved.") };
+      await load();
+      return { ok: true };
+    } catch {
+      return { ok: false, message: "The lead could not be saved." };
+    }
+  }, [role, load]);
+
+  return { detail, loading, error, reload: load, addNote, assign, refreshInsights, capture };
+}
+

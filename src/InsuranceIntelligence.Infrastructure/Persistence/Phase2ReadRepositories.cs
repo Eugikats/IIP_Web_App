@@ -431,6 +431,19 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
             .GroupBy(customer => PhoneNumbers.Digits(customer.Phone))
             .ToDictionary(group => group.Key, group => group.First());
 
+        // A prospect who has not become a customer still has a name worth showing: the one a person
+        // typed, an imported list gave, or the customer told Kato. Generic placeholders are skipped.
+        var prospectNamesByPhoneDigits = (await Scoped(DbContext.SalesLeads.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<InsuranceIntelligence.Application.SalesLeads.SalesLeadDetailReadModel>)
+            .Where(lead => !string.IsNullOrWhiteSpace(lead.CustomerName)
+                && !string.Equals(lead.CustomerName, "WhatsApp customer", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(lead.CustomerName, "WhatsApp contact", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(lead.Phone ?? lead.ContactInfo))
+            .GroupBy(lead => PhoneNumbers.Digits(lead.Phone ?? lead.ContactInfo))
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(lead => lead.CreatedAt).First().CustomerName);
+
         var whatsAppRows = whatsAppMessages
             .GroupBy(message => message.ThreadId, StringComparer.Ordinal)
             .Select(group => group.OrderByDescending(message => message.CreatedAt).First())
@@ -445,7 +458,7 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                 var controlMode = ConversationControl.ModeOf(turnsByThread.GetValueOrDefault(message.ThreadId) ?? [], DateTimeOffset.UtcNow);
                 return new ChannelConversationReadModel(
                     message.ThreadId,
-                    claimCase?.CustomerName ?? matchedCustomer?.FullName ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
+                    claimCase?.CustomerName ?? matchedCustomer?.FullName ?? prospectNamesByPhoneDigits.GetValueOrDefault(PhoneNumbers.Digits(message.ContactWaId)) ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
                     ChannelValues.WhatsApp,
                     DetectedIntentFor(turn),
                     RoutingFor(turn, claimCase is not null),

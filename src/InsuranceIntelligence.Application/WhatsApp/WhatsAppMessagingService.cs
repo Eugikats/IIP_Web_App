@@ -287,5 +287,5 @@ public sealed class WhatsAppMessagingService(
         message.MessageId, message.CaseId, message.ThreadId, message.BusinessPhoneNumberId,
         message.ContactWaId, message.Direction, message.ContentType, message.CustomerSafeBody,
         message.ProviderMessageId, message.TemplateName, message.Language, message.DeliveryState,
-        message.CreatedAt, message.UpdatedAt, message.SafeError);
+        message.CreatedAt, message.UpdatedAt, message.SafeError, message.ApprovedByUserId);
 }

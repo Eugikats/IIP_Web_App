@@ -389,7 +389,7 @@ function InsightsTab({
   );
 }
 
-function PointList({
+export function PointList({
   title,
   points,
   insights,
@@ -420,7 +420,7 @@ function PointList({
   );
 }
 
-function PointText({
+export function PointText({
   point,
   insights,
   conversationHref,
@@ -440,7 +440,7 @@ function PointText({
 
 /** Each cited message opens in place, with its time and the words the customer used, and from there
  *  in the conversation itself. */
-function Citations({ refs, insights, conversationHref }: { refs: string[]; insights: NonNullable<SalesLeadDetail["insights"]>; conversationHref: string | null }) {
+export function Citations({ refs, insights, conversationHref }: { refs: string[]; insights: NonNullable<SalesLeadDetail["insights"]>; conversationHref: string | null }) {
   const [open, setOpen] = useState<string | null>(null);
   const source = open ? insights.sources.find((item) => item.tag === open) : null;
   return (
@@ -580,7 +580,7 @@ function ActivityTab({ detail }: { detail: SalesLeadDetail }) {
   );
 }
 
-function AssignControl({
+export function AssignControl({
   detail,
   onAssigned,
   assign,
