@@ -25,10 +25,10 @@ public sealed class OutreachServiceTests
 
     private static (OutreachService Service, Store Store, Messages Messages) Build(SalesLeadDetailReadModel lead, bool allowDemo = true)
     {
-        KatoBrand.Current = new KatoBrand("Mavuno Bank", "Mavuno", [MicroinsuranceCatalog.NileShield, MicroinsuranceCatalog.Mpingo]);
+        var brand = new KatoBrand("Mavuno Bank", "Mavuno", [MicroinsuranceCatalog.NileShield, MicroinsuranceCatalog.Mpingo]);
         var store = new Store(lead);
         var messages = new Messages();
-        var service = new OutreachService(new Ctx(), new Allow(), store, store, new NullAudit(), new NoSend(), messages, new OutreachOptions(allowDemo));
+        var service = new OutreachService(new Ctx(), new Allow(), store, store, new NullAudit(), new NoSend(), messages, new OutreachOptions(allowDemo), brand: brand);
         return (service, store, messages);
     }
 

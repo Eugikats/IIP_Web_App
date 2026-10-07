@@ -8,10 +8,10 @@ import type { SalesLeadView } from "@/lib/lovable-parity/data/salesLeads";
 // event is a difference between two reads of the same records.
 
 export type LiveEvent = { id: string; at: number; text: string };
-export type LiveMark = { kind: "new" | "scored" | "interest"; until: number; from?: number };
+export type LiveMark = { kind: "new" | "message" | "scored" | "interest"; until: number; from?: number };
 
 const MARK_MS = 6000;
-const FEED_MAX = 4;
+const FEED_MAX = 5;
 
 export function useLiveProspects(leads: SalesLeadView[], refresh: () => void | Promise<void>, enabled: boolean, intervalMs = 3000) {
   const previous = useRef<Map<string, SalesLeadView> | null>(null);
@@ -50,7 +50,11 @@ export function useLiveProspects(leads: SalesLeadView[], refresh: () => void | P
         events.push({ id: `${lead.leadId}-new-${at}`, at, text: `${lead.customerName} is new. The triage agent is reading what they said.` });
         continue;
       }
-      if (lead.triage && old.triage && lead.triage.score !== old.triage.score) {
+      const wroteAgain = !!lead.lastInteractionAt && lead.lastInteractionAt !== old.lastInteractionAt && lead.lastInteractionAt > (old.lastInteractionAt ?? "");
+      if (wroteAgain && !(lead.triage && old.triage && lead.triage.score !== old.triage.score)) {
+        nextMarks[lead.leadId] = { kind: "message", until: at + MARK_MS };
+        events.push({ id: `${lead.leadId}-m-${at}`, at, text: `${lead.customerName} just wrote in. The triage agent is updating their score.` });
+      } else if (lead.triage && old.triage && lead.triage.score !== old.triage.score) {
         nextMarks[lead.leadId] = { kind: "scored", until: at + MARK_MS, from: old.triage.score };
         events.push({ id: `${lead.leadId}-s-${at}`, at, text: `Triage agent scored ${lead.customerName}: ${old.triage.score} to ${lead.triage.score}.` });
       } else if (lead.triage && !old.triage) {

@@ -48,8 +48,11 @@ public sealed class OutreachService(
     IWhatsAppMessagingService messaging,
     IWhatsAppMessageRepository messageRepository,
     OutreachOptions options,
-    IUserAccountRepository? userAccountRepository = null) : IOutreachService
+    IUserAccountRepository? userAccountRepository = null,
+    KatoBrand? brand = null) : IOutreachService
 {
+    private KatoBrand Brand => brand ?? KatoBrand.Current;
+
     public const int MaxBulk = 50;
     private const int MaxLength = 1000;
     private static readonly TimeSpan EastAfrica = TimeSpan.FromHours(3);
@@ -81,7 +84,7 @@ public sealed class OutreachService(
             }
 
             var fit = triage.Fits[0];
-            var product = KatoBrand.Current.Products.FirstOrDefault(item => string.Equals(item.Name, fit.Product, StringComparison.OrdinalIgnoreCase));
+            var product = Brand.Products.FirstOrDefault(item => string.Equals(item.Name, fit.Product, StringComparison.OrdinalIgnoreCase));
             if (product is null)
             {
                 skipped++;
@@ -89,7 +92,7 @@ public sealed class OutreachService(
             }
 
             var text = OutreachDrafting.Introduction(
-                KatoBrand.Current.Organisation, lead.CustomerName, OutreachDrafting.CustomerReason(fit.Reasons), product.Explanation, fit.Insurer);
+                Brand.Organisation, lead.CustomerName, OutreachDrafting.CustomerReason(fit.Reasons), product.Explanation, fit.Insurer);
             var draft = new OutreachDraft(Guid.NewGuid(), OutreachKind.Introduction, text, fit.Product, fit.Insurer, OutreachStatus.Draft, now, "Outreach drafting agent");
             await writeRepository.CreateAsync(
                 context.TenantId, context.WorkspaceId,

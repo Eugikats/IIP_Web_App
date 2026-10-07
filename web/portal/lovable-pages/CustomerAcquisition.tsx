@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ArrowDown, ArrowUp, ChevronRight, Loader2, MoreHorizontal, Plus } from "lucide-react";
 import { toast } from "sonner";
 import AcquisitionFilterToolbar, { type AcquisitionActiveChip, type AcquisitionFilterField } from "@/components/cip/AcquisitionFilterToolbar";
@@ -211,10 +212,17 @@ export default function CustomerAcquisition() {
             <span className="iip-live-dot h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
             Live
           </span>
-          <span className="text-[12px] text-slate-500">
-            {live.feed[0] ? live.feed[0].text : "Watching for new messages. New people and score changes appear here as they happen."}
-          </span>
+          {live.feed.length === 0 ? (
+            <span className="text-[12px] text-slate-500">Watching for new messages. New people and score changes appear here as they happen.</span>
+          ) : null}
         </div>
+        {live.feed.length > 0 ? (
+          <ul className="m-0 mt-1.5 space-y-0.5 p-0">
+            {live.feed.slice(0, 3).map((event, i) => (
+              <li key={event.id} className={`list-none text-[12px] ${i === 0 ? "iip-flash rounded px-1 font-medium text-[#0B1640]" : "px-1 text-slate-500"}`}>{event.text}</li>
+            ))}
+          </ul>
+        ) : null}
       </div>
 
       <AcquisitionTabs tabs={[...TABS]} active={tab} onChange={setTab} chatHref="/app/channels" />
@@ -326,9 +334,9 @@ export default function CustomerAcquisition() {
                     <thead>
                       <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                         <th className="px-5 py-3 font-semibold">Customer</th>
-                        <th className="px-3 py-3 font-semibold">Contact</th>
-                        <th className="px-3 py-3 font-semibold">Bank customer</th>
-                        <th className="px-3 py-3 font-semibold">Relationship</th>
+                        <th className="hidden 2xl:table-cell px-3 py-3 font-semibold">Contact</th>
+                        <th className="hidden 2xl:table-cell px-3 py-3 font-semibold">Bank customer</th>
+                        <th className="hidden 2xl:table-cell px-3 py-3 font-semibold">Relationship</th>
                         <th className="px-3 py-3 font-semibold">Product interest</th>
                         <th className="px-3 py-3 font-semibold">Stage</th>
                         <th className="px-3 py-3 font-semibold">Score</th>
@@ -340,19 +348,19 @@ export default function CustomerAcquisition() {
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {pagedRows.map((row) => (
-                        <tr key={row.leadId} className={`cursor-pointer hover:bg-slate-50/70 ${live.active(row.leadId)?.kind === "new" ? "iip-row-in" : ""}`} onClick={() => setOpenLeadId(row.leadId)}>
+                        <motion.tr key={row.leadId} layout="position" transition={{ type: "spring", stiffness: 260, damping: 30 }} className={`cursor-pointer hover:bg-slate-50/70 ${live.active(row.leadId)?.kind === "new" ? "iip-row-in" : live.active(row.leadId)?.kind === "message" ? "iip-flash" : ""}`} onClick={() => setOpenLeadId(row.leadId)}>
                           <td className="min-w-[8.5rem] px-5 py-3.5">
                             <div className="text-[13px] font-semibold text-[#0B1640]">{row.customerName}</div>
                             <div className="mt-0.5 text-[11px] text-slate-500">{row.occupation ?? "Work not known yet"}</div>
                           </td>
-                          <td className="px-3 py-3.5">
+                          <td className="hidden 2xl:table-cell px-3 py-3.5">
                             <div className="font-mono text-[12px] text-slate-600">{row.maskedContact}</div>
                             <div className="mt-0.5 text-[11px] text-slate-500">{row.primaryChannel ?? "Manual"}</div>
                           </td>
-                          <td className="px-3 py-3.5">
+                          <td className="hidden 2xl:table-cell px-3 py-3.5">
                             <CipStatusPill tone={row.bankCustomer === true ? "success" : "neutral"}>{row.bankCustomerLabel}</CipStatusPill>
                           </td>
-                          <td className="px-3 py-3.5">
+                          <td className="hidden 2xl:table-cell px-3 py-3.5">
                             <CipStatusPill tone={relationshipTone(row.relationship)}>{row.relationshipLabel}</CipStatusPill>
                           </td>
                           <td className={`min-w-[9rem] px-3 py-3.5 text-[12px] text-slate-700 ${live.active(row.leadId)?.kind === "interest" ? "iip-flash" : ""}`}>{row.productInterest ?? "Not yet known"}</td>
@@ -386,7 +394,7 @@ export default function CustomerAcquisition() {
                               <RowMenu row={row} onView={() => setOpenLeadId(row.leadId)} />
                             </div>
                           </td>
-                        </tr>
+                        </motion.tr>
                       ))}
                     </tbody>
                   </table>
