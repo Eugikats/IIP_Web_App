@@ -128,6 +128,10 @@ public sealed record SalesLeadDetailReadModel(
     /// <summary>Whether the person already banks with the partner bank (bancassurance). Null when
     /// nobody has said: shown as "Not known", never guessed. Set by staff or by an imported bank list.</summary>
     public bool? BankCustomer { get; init; }
+
+    /// <summary>The latest score and the two covers that fit best, from the triage agent. Null until
+    /// the prospect has been scored.</summary>
+    public ProspectTriage? Triage { get; init; }
 }
 
 /// <summary>What the conversation insights agent made of a conversation. Every point carries the tags
@@ -195,6 +199,8 @@ public sealed record SalesLeadDetailDto(
     public IReadOnlyList<LeadPolicyDto> Policies { get; init; } = [];
     public ConversationInsights? Insights { get; init; }
 
+    public LeadTriageDto? Triage { get; init; }
+
     /// <summary>True when the conversation has moved on since the insights were prepared.</summary>
     public bool InsightsStale { get; init; }
 }
@@ -204,6 +210,18 @@ public sealed record LeadFactDto(string Key, string Label, string Value, string 
 public sealed record LeadInterestDto(string Product, string Strength, string StrengthLabel, string Reason, DateTimeOffset RecordedAt);
 
 public sealed record LeadConsentDto(string Status, string StatusLabel, DateTimeOffset? At, string? Wording, string? Channel);
+
+public sealed record LeadFitDto(string Product, string ProductLine, string Insurer, int Score, IReadOnlyList<string> Reasons, string? CitationTitle, Guid? CitationDocumentId);
+
+public sealed record LeadTriageDto(
+    int Score,
+    string Band,
+    string BandLabel,
+    string Confidence,
+    DateTimeOffset ScoredAt,
+    IReadOnlyList<LeadFitDto> Fits,
+    IReadOnlyList<string> Signals,
+    IReadOnlyList<string> Missing);
 
 public sealed record LeadPolicyDto(string PolicyNumber, string ProductLine, DateOnly? EffectiveTo);
 
@@ -229,6 +247,7 @@ public sealed record SalesLeadListItemDto(
     public string ConsentStatus { get; init; } = nameof(ContactConsentStatus.NotRecorded);
     public bool? BankCustomer { get; init; }
     public string BankCustomerLabel { get; init; } = "Not known";
+    public LeadTriageDto? Triage { get; init; }
 
     /// <summary>The WhatsApp conversation, so a row can open it. Null for leads with no conversation.</summary>
     public string? ConversationId { get; init; }
@@ -242,6 +261,16 @@ public sealed record CreateSalesLeadRequest(
     string? AssignedSalesOfficer,
     string? ContactInfo,
     bool? BankCustomer = null);
+
+/// <summary>Scores prospects and picks the two covers that fit each. Runs over the whole workspace or
+/// one prospect; the result is stored on the prospect so every screen shows the same reading.</summary>
+public interface IProspectTriageService
+{
+    /// <summary>Scores every prospect in the workspace, or only the one named. Returns how many were scored.</summary>
+    Task<TriageRunResult> RunAsync(string? leadId, CancellationToken cancellationToken = default);
+}
+
+public sealed record TriageRunResult(int Scored, int Skipped, DateTimeOffset RanAt);
 
 public sealed record AddLeadNoteRequest(string? Text);
 

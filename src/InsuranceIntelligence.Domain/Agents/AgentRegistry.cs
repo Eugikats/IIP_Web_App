@@ -108,6 +108,10 @@ public static class AgentCatalog
         // own words and come from an allowed list, so nothing sensitive or invented is stored.
         new("conversation-insights", "Conversation Insights Agent", "Reads a prospect's WhatsApp conversation after each reply and records what they said about themselves, the covers they are interested in, their problems and doubts, and a suggested next step, citing the message behind each point.", "Low", HumanApprovalRequired: false,
             AgentImplementationKind.ModelBacked, ["conversation.read", "lead.update"]),
+        // Scores each prospect from what is recorded about them and names the two covers that fit best,
+        // with reasons quoted from the record. A ranking for staff to act on, never a decision.
+        new("prospect-triage", "Prospect Triage Agent", "Scores each prospect from the facts recorded about them, names the two covers that fit best with the reasons and the insurer's own summary of each cover, and ranks who to contact first. It never contacts anyone or decides cover.", "Low", HumanApprovalRequired: false,
+            AgentImplementationKind.RuleBased, ["lead.read", "lead.update", "knowledge.search"]),
         new("customer-assistant", "Customer Assistant (WhatsApp)", "Classifies inbound WhatsApp messages into six intents; answers general questions from approved knowledge, opens provisional claims, and captures sales leads, never discloses case-specific detail without a matched policy number.", "High", HumanApprovalRequired: true,
             AgentImplementationKind.RuleBased, ["customer.intent.classify", "knowledge.search", "case.create", "lead.create"]),
     ];

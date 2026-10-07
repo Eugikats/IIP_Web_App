@@ -378,6 +378,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Retention.IRetentio
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IConversationControlService, InsuranceIntelligence.Application.CustomerAssistant.ConversationControlService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
+builder.Services.AddScoped<IProspectTriageService, ProspectTriageService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Brief.IBriefService, InsuranceIntelligence.Application.Brief.BriefService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQueryService, InsuranceIntelligence.Application.Products.ProductQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCommandService, InsuranceIntelligence.Application.Products.ProductCommandService>();
@@ -922,6 +923,10 @@ app.MapPut("/api/v1/sales-leads/{leadId}/assignee", SalesLeadEndpoints.Assign)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapPost("/api/v1/sales-leads/{leadId}/insights/refresh", SalesLeadEndpoints.RefreshInsights)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapPost("/api/v1/sales-leads/triage", SalesLeadEndpoints.RunTriageForAll)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/{leadId}/triage", SalesLeadEndpoints.RunTriageForLead)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 
 // Product configuration, the spine everything else in claim handling reads from (blueprint
 // outcome A/C). Every save is a new version; publishing needs an IRA approval reference and a

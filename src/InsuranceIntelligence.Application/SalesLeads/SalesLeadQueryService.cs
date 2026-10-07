@@ -126,6 +126,7 @@ public sealed class SalesLeadQueryService(
                     BankCustomer = lead.BankCustomer,
                     BankCustomerLabel = BankCustomerLabel(lead.BankCustomer),
                     ConversationId = string.IsNullOrWhiteSpace(lead.ThreadId) ? null : lead.ThreadId,
+                    Triage = TriageDto(lead.Triage),
                 };
             })
             .ToArray();
@@ -204,9 +205,22 @@ public sealed class SalesLeadQueryService(
             Activity = lead.Activity.OrderByDescending(entry => entry.At).ToArray(),
             Policies = lookup.PoliciesFor(lead.Phone ?? lead.ContactInfo),
             Insights = lead.Insights,
+            Triage = TriageDto(lead.Triage),
             InsightsStale = customerTurns > 0 && (lead.Insights is null || lead.Insights.MessageCount < customerTurns),
         };
     }
+
+    internal static LeadTriageDto? TriageDto(ProspectTriage? triage) => triage is null
+        ? null
+        : new LeadTriageDto(
+            triage.Score,
+            triage.Band.ToString(),
+            ProspectScoring.Label(triage.Band),
+            triage.Confidence,
+            triage.ScoredAt,
+            triage.Fits.Select(fit => new LeadFitDto(fit.Product, fit.ProductLine, fit.Insurer, fit.Score, fit.Reasons, fit.CitationTitle, fit.CitationDocumentId)).ToArray(),
+            triage.Signals,
+            triage.Missing);
 
     internal static string BankCustomerLabel(bool? bankCustomer) => bankCustomer switch
     {

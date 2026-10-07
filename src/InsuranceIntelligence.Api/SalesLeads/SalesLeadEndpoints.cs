@@ -123,6 +123,38 @@ public static class SalesLeadEndpoints
         return detail is null ? Results.NotFound() : Results.Ok(detail);
     }
 
+    /// <summary>Scores every prospect, or the one named, and stores the two best-fitting covers.</summary>
+    public static async Task<IResult> RunTriage(
+        string? leadId,
+        IProspectTriageService triage,
+        InsuranceIntelligence.Application.Core.ITenantContextAccessor tenantContextAccessor,
+        InsuranceIntelligence.Application.Agents.IAgentGate agentGate,
+        CancellationToken cancellationToken)
+    {
+        var gate = await agentGate.CheckAsync(tenantContextAccessor.Current.Scope, ProspectTriageService.AgentKey, cancellationToken);
+        if (!gate.Enabled)
+        {
+            return Results.Json(new { message = "The Prospect Triage Agent is switched off for this workspace." }, statusCode: 409);
+        }
+
+        return Results.Ok(await triage.RunAsync(leadId, cancellationToken));
+    }
+
+    public static Task<IResult> RunTriageForLead(
+        string leadId,
+        IProspectTriageService triage,
+        InsuranceIntelligence.Application.Core.ITenantContextAccessor tenantContextAccessor,
+        InsuranceIntelligence.Application.Agents.IAgentGate agentGate,
+        CancellationToken cancellationToken) =>
+        RunTriage(leadId, triage, tenantContextAccessor, agentGate, cancellationToken);
+
+    public static Task<IResult> RunTriageForAll(
+        IProspectTriageService triage,
+        InsuranceIntelligence.Application.Core.ITenantContextAccessor tenantContextAccessor,
+        InsuranceIntelligence.Application.Agents.IAgentGate agentGate,
+        CancellationToken cancellationToken) =>
+        RunTriage(null, triage, tenantContextAccessor, agentGate, cancellationToken);
+
     public static async Task<IResult> GetByThread(string threadId, ISalesLeadQueryService queryService, CancellationToken cancellationToken)
     {
         try
