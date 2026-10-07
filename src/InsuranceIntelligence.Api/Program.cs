@@ -480,6 +480,13 @@ builder.Configuration["INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER"] ??= "Mock"
 builder.Configuration["INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_MAX_BYTES"] ??= DocumentEndpoints.MaxLocalMockFileSizeBytes.ToString();
 builder.Configuration["INSURANCEINTELLIGENCE_LOCAL_KNOWLEDGE_MAX_BYTES"] ??= KnowledgeEndpoints.MaxKnowledgeFileSizeBytes.ToString();
 
+// Whose assistant Kato is: Nile Shield Assurance unless configured for a bank selling its partner
+// insurers' covers (Assistant:Organisation, Assistant:ShortName, Assistant:PartnerInsurers).
+InsuranceIntelligence.Application.CustomerAssistant.KatoBrand.Current = InsuranceIntelligence.Application.CustomerAssistant.KatoBrand.FromSettings(
+    builder.Configuration["Assistant:Organisation"],
+    builder.Configuration["Assistant:ShortName"],
+    builder.Configuration["Assistant:PartnerInsurers"]);
+
 var app = builder.Build();
 
 await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Environment);
@@ -868,6 +875,7 @@ app.MapPost("/api/v1/admin/demo-seed", InsuranceIntelligence.Api.Admin.DemoSeedE
 app.MapPost("/api/v1/admin/demo-seed/policyholders", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedPolicyholders);
 app.MapPost("/api/v1/admin/demo-seed/test-policyholder", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedTestPolicyholder);
 app.MapPost("/api/v1/admin/demo-seed/microinsurance", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedMicroinsurance);
+app.MapPost("/api/v1/admin/demo-seed/bank-customers", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedBankCustomers);
 app.MapPost("/api/v1/admin/db-migrate", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ApplyPending);
 app.MapPost("/api/v1/admin/db-migrate/reconcile-history", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ReconcileHistory);
 app.MapPost("/api/v1/admin/db-migrate/force-reconcile-schema", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ForceReconcileSchema);

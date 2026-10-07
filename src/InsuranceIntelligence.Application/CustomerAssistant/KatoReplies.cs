@@ -18,7 +18,7 @@ public static class KatoReplies
     private static string Comma(string? firstName) => string.IsNullOrWhiteSpace(firstName) ? "" : $", {firstName}";
 
     public static string Introduction(string? firstName, bool voiceNotes) =>
-        $"Hello{Comma(firstName)}. I'm Kato, Nile Shield's helper on WhatsApp. " +
+        $"Hello{Comma(firstName)}. I'm Kato, {KatoBrand.Current.ShortName}'s helper on WhatsApp. " +
         "If you have cover with us and something has happened, I can help you get your money. " +
         "I can also tell you what your cover pays for, or find cover that fits your work. " +
         (voiceNotes
@@ -28,7 +28,7 @@ public static class KatoReplies
 
     /// <summary>Opens the first reply to an unknown number when that reply is not the introduction itself.</summary>
     public static string FirstContactPrefix(string? firstName) =>
-        $"Hello{Comma(firstName)}, I'm Kato, Nile Shield's helper on WhatsApp. You can reply {PersonWord} at any time to talk to someone from our team.";
+        $"Hello{Comma(firstName)}, I'm Kato, {KatoBrand.Current.ShortName}'s helper on WhatsApp. You can reply {PersonWord} at any time to talk to someone from our team.";
 
     public const string AskName = "What should I call you?";
 
@@ -36,7 +36,7 @@ public static class KatoReplies
         $"Nice to meet you, {firstName}. How can I help you today? If something has happened, just tell me what happened.";
 
     public static string WelcomeBack(string firstName) =>
-        $"Hello {firstName}, it's Kato from Nile Shield. If something has happened, tell me and I will help you get your money. " +
+        $"Hello {firstName}, it's Kato from {KatoBrand.Current.ShortName}. If something has happened, tell me and I will help you get your money. " +
         $"I can also tell you where your claim is, or what your cover pays for. Reply {PersonWord} at any time to talk to someone from our team.";
 
     public static string Clarify() =>
@@ -50,7 +50,7 @@ public static class KatoReplies
     // Warm and plain, and still true: Kato never claims to be human. The people behind him are real,
     // and one of them takes over whenever the customer wants.
     public static string NotAPerson(string? firstName) =>
-        $"I'm Kato{Comma(firstName)}, Nile Shield's assistant here on WhatsApp. I'm not a person myself, but I work with our team, " +
+        $"I'm Kato{Comma(firstName)}, {KatoBrand.Current.ShortName}'s assistant here on WhatsApp. I'm not a person myself, but I work with our team, " +
         "and they see what you tell me. I'm here day and night to help you get things done quickly. " +
         $"If you would rather talk to one of them, reply {PersonWord} and someone will pick this up.";
 
@@ -72,7 +72,7 @@ public static class KatoReplies
     // ---- Claims ----
 
     public static string NoCoverOnThisNumber(string? firstName) =>
-        $"I'm sorry to hear that{Comma(firstName)}. I can't find cover with Nile Shield for this phone number, " +
+        $"I'm sorry to hear that{Comma(firstName)}. I can't find cover with {KatoBrand.Current.ShortName} for this phone number, " +
         "and I can only start a claim from the phone number on the policy. " +
         $"If you have cover with us, reply {PersonWord} and someone from our team will help you. " +
         "If you don't have cover yet, tell me what work you do, and I'll tell you about cover that could help you.";

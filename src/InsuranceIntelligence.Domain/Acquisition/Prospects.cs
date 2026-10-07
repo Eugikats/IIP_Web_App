@@ -103,6 +103,8 @@ public static partial class ProspectFacts
         new("timing", "When they want cover", true),
         new("age_band", "Age", false),
         new("email", "Email", false),
+        new("bank_products", "Products held at the bank", false),
+        new("branch", "Bank branch", false),
     ];
 
     private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)

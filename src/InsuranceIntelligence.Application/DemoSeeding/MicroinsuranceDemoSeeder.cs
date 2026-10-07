@@ -51,7 +51,7 @@ public sealed class MicroinsuranceDemoSeeder(
         var now = DateTimeOffset.UtcNow;
         var relabelled = await RelabelLegacyReferencesAsync(scope, now, cancellationToken);
         var created = 0;
-        foreach (var product in CatalogueProducts)
+        foreach (var product in CatalogueProducts.Concat(PartnerProducts))
         {
             if (await EnsureProductAsync(scope, product, now, cancellationToken))
             {
@@ -61,7 +61,7 @@ public sealed class MicroinsuranceDemoSeeder(
 
         var indexed = 0;
         var notIndexed = 0;
-        foreach (var document in CatalogueDocuments)
+        foreach (var document in CatalogueDocuments.Concat(PartnerDocuments()))
         {
             try
             {
@@ -249,6 +249,86 @@ public sealed class MicroinsuranceDemoSeeder(
             Requirement("Invoice", "the hospital bill or receipts", "Shows what the delivery cost.", true),
         ]),
     ];
+
+    // The partner insurers' covers a bank sells alongside Nile Shield (bancassurance demo).
+    private static readonly CatalogueProduct[] PartnerProducts =
+    [
+        new(MicroinsuranceCatalog.LoanProtectorLine, "Mpingo Loan Protector, credit life (microinsurance, demo)",
+        [
+            Requirement("DeathCertificate", "the death certificate, or the medical board report on the disability", "Confirms the death or the permanent disability.", true),
+            Requirement("LoanStatement", "the latest loan statement from the bank", "Shows what is still owed on the loan.", true),
+            Requirement("CustomerId", "the national ID of the person claiming", "Confirms who is claiming.", false),
+        ]),
+        new(MicroinsuranceCatalog.FuneralLine, "Mpingo Family Funeral Cover (microinsurance, demo)",
+        [
+            Requirement("BurialPermit", "the death certificate, or the burial permit or an LC1 letter", "Confirms the death.", true),
+            Requirement("CustomerId", "the national ID of the person claiming", "Confirms who is claiming.", true),
+        ]),
+        new(MicroinsuranceCatalog.SchoolFeesLine, "Mpingo School Fees Protector (microinsurance, demo)",
+        [
+            Requirement("DeathCertificate", "the death certificate, or the medical board report on the disability", "Confirms the death or the permanent disability.", true),
+            Requirement("Invoice", "the school's fees invoice for the term", "Shows the fees to be paid to the school.", true),
+        ]),
+        new(MicroinsuranceCatalog.HomeContentsLine, "Kifaru Home Contents (microinsurance, demo)",
+        [
+            Requirement("PoliceAbstract", "the police report, or the fire brigade report for a fire", "Confirms the break-in or the fire.", true),
+            Requirement("StockList", "a list of what was lost or damaged and what it was worth", "Shows the value of the loss.", true),
+            Requirement("PhotoEvidence", "photos of the home after the loss", "Shows the damage.", false),
+        ]),
+    ];
+
+    private sealed record PartnerTerms(MicroinsuranceCatalog.MicroProduct Product, string GracePeriod, string Exclusions, string ClaimWindow);
+
+    private static readonly PartnerTerms[] PartnerCovers =
+    [
+        new(MicroinsuranceCatalog.LoanProtector, "30 days",
+            "Death or disability from an illness you already had when the loan was paid out and that you did not tell us about. Self-inflicted injury. Death or injury while taking part in a riot or a crime. Loans taken after age 60. Missed loan payments before the death or disability.",
+            "within 90 days of the death or disability"),
+        new(MicroinsuranceCatalog.FamilyFuneral, "30 days",
+            "Death from illness in the first 3 months of cover. Suicide in the first year. Family members not named when you joined. Children aged 21 or over.",
+            "within 60 days of the death"),
+        new(MicroinsuranceCatalog.SchoolFees, "30 days",
+            "Death or disability from illness in the first 6 months of cover. Self-inflicted injury. Fees for more than two children, or for a level of school the child had not started when the claim began. Uniform, transport and pocket money.",
+            "within 90 days of the death or disability"),
+        new(MicroinsuranceCatalog.HomeContents, "15 days",
+            "Theft without a break-in. Cash, jewellery worth more than UGX 500,000 and documents. Damage from floods. Wear and tear. Losses you cannot show with a list of what was lost.",
+            "within 14 days of the loss"),
+    ];
+
+    /// <summary>Key information, policy wording and how to join, pay and claim for each partner cover,
+    /// built from the cover's own facts so the three documents never contradict what Kato quotes.</summary>
+    private static IEnumerable<CatalogueDocument> PartnerDocuments()
+    {
+        foreach (var terms in PartnerCovers)
+        {
+            var product = terms.Product;
+            var levels = product.ChoosableLevels.Count > 1
+                ? "You choose the level: " + string.Join(", ", product.ChoosableLevels.Select(level => $"up to UGX {level.SumInsured:N0} for UGX {level.MonthlyPremium:N0} a month")) + "."
+                : $"It costs UGX {product.MonthlyPremium:N0} a month.";
+            yield return new CatalogueDocument($"{product.Name}, Key Information", product.ProductLine, KnowledgeDocumentType.ProductOverview, string.Join("\n\n",
+                $"Key information: {product.Name}, provided by {product.Insurer}. This is a microinsurance product. It is a sample product being tested with customers.",
+                $"What it pays. {product.Explanation}",
+                $"What it costs. {levels} Paid by mobile money on MTN or Airtel.",
+                $"Who it is for. {product.WhoItIsFor}",
+                $"When cover starts (waiting period). {product.WaitingPeriod}",
+                $"Grace period. If you miss a payment, you have {terms.GracePeriod} to pay before your cover stops.",
+                $"What it does not pay for. {terms.Exclusions}",
+                $"How to claim. Tell Kato on WhatsApp {terms.ClaimWindow}. We need: {product.PapersForAClaim} Send papers only through the secure link we give you, not in the chat. {product.Insurer} pays by mobile money within 10 working days of getting all the papers."));
+            yield return new CatalogueDocument($"{product.Name}, Policy Wording", product.ProductLine, KnowledgeDocumentType.PolicyWording, string.Join("\n\n",
+                $"{product.Name}, microinsurance policy wording issued by {product.Insurer}, demo version 1.0.",
+                $"Section 1, the cover. {product.Explanation} The most payable is UGX {product.SumInsured:N0}, within the microinsurance limit of UGX 10,000,000.",
+                $"Section 2, premium and grace period. {levels} There is a grace period of {terms.GracePeriod} for a missed premium; cover continues during it and lapses if the premium is still unpaid at its end.",
+                $"Section 3, waiting period. {product.WaitingPeriod}",
+                $"Section 4, exclusions. We do not pay for: {terms.Exclusions} The cover does not pay for anything not set out in Section 1.",
+                $"Section 5, claims. A claim must be reported {terms.ClaimWindow}. We need: {product.PapersForAClaim} We settle within 10 working days of complete documents and pay by mobile money.",
+                "Section 6, complaints. A person reviews any complaint within 14 days. You may also complain to the Insurance Regulatory Authority of Uganda."));
+            yield return new CatalogueDocument($"{product.Name}, How to Join, Pay and Claim", product.ProductLine, KnowledgeDocumentType.ProductOverview, string.Join("\n\n",
+                $"How to join {product.Name}. This is a microinsurance product from {product.Insurer}, being tested with customers. {product.WhoItIsFor} Joining takes a few minutes on WhatsApp: tell Kato your full name, your work and your area, and choose the cover. No papers are needed to join.",
+                $"How to pay. {levels} Paid by mobile money on MTN or Airtel; the first payment starts the cover. The waiting period: {product.WaitingPeriod} If you miss a payment you have a grace period of {terms.GracePeriod}.",
+                $"How to make a claim. Tell Kato on WhatsApp what happened, when and where. Kato reads it back to you, and when you confirm, the claim goes to the {product.Insurer} claims team with a claim reference. Kato then sends a secure link to share the papers. Never send papers or ID in the WhatsApp chat itself.",
+                "How claims are paid. The claims team reviews the claim and the papers. An approved claim is paid by mobile money, usually within 10 working days of receiving all the papers."));
+        }
+    }
 
     private async Task<bool> EnsureProductAsync(TenantScope scope, CatalogueProduct entry, DateTimeOffset now, CancellationToken cancellationToken)
     {

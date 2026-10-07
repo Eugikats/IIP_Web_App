@@ -210,6 +210,36 @@ public static class DemoSeedEndpoints
 
         return Results.Ok(new { catalogue, policyholder });
     }
+
+    /// <summary>Loads an invented bank customer list (40 people) as prospects, for the bancassurance
+    /// demonstration. Idempotent; same Demo-only gate as every other seed route.</summary>
+    public static async Task<IResult> SeedBankCustomers(
+        InsuranceIntelligence.Application.DemoSeeding.BankCustomerDemoSeeder seeder,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        IWebHostEnvironment environment,
+        CancellationToken cancellationToken)
+    {
+        var runtimeProfile = AzureProviderStartupValidator.ResolveRuntimeProfile(options, environment.EnvironmentName);
+        if (AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile))
+        {
+            return Results.Problem(
+                $"Demo data seeding is not available under the '{runtimeProfile}' runtime profile.",
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!InsuranceIntelligence.Api.Workflow.WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        return Results.Ok(await seeder.SeedAsync(scope, cancellationToken));
+    }
 }
 
 public sealed record MicroinsuranceSeedRequest(string? Phone);

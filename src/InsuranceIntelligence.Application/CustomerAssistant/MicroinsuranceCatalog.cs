@@ -1,7 +1,7 @@
 namespace InsuranceIntelligence.Application.CustomerAssistant;
 
 /// <summary>
-/// The three microinsurance products Kato explains to someone without cover, and which of them fit
+/// The microinsurance products Kato explains to someone without cover, and which of them fit
 /// the work a person does. The explanations are the plain-language first paragraph of each
 /// product's key information summary in the knowledge base (see DemoSeedService), kept here as
 /// fixed text so what a participant reads never depends on a model's wording.
@@ -18,6 +18,14 @@ public static class MicroinsuranceCatalog
     public const string ShopLine = "Small Business Shop";
     public const string TransitLine = "Goods in Transit";
     public const string MaternityLine = "Mama Care Maternity";
+    public const string LoanProtectorLine = "Loan Protector";
+    public const string FuneralLine = "Family Funeral";
+    public const string SchoolFeesLine = "School Fees Protector";
+    public const string HomeContentsLine = "Home Contents";
+
+    public const string NileShield = "Nile Shield Assurance";
+    public const string Mpingo = "Mpingo Life Assurance";
+    public const string Kifaru = "Kifaru General Insurance";
 
     /// <summary>One level of cover a customer can choose: the most it pays, and its monthly price.</summary>
     public sealed record CoverLevel(decimal SumInsured, decimal MonthlyPremium);
@@ -31,8 +39,15 @@ public static class MicroinsuranceCatalog
 
     public sealed record MicroProduct(string Name, string ProductLine, string Explanation)
     {
-        /// <summary>Short code used in policy numbers (NSA/{Code}/{year}/{sequence}).</summary>
+        /// <summary>Short code used in policy numbers ({PolicyPrefix}/{Code}/{year}/{sequence}).</summary>
         public string Code { get; init; } = "MI";
+
+        /// <summary>The insurer that provides and pays this cover. A bank selling covers from several
+        /// insurers (bancassurance) must always say which one, so every product carries it.</summary>
+        public string Insurer { get; init; } = NileShield;
+
+        /// <summary>The insurer's prefix for policy numbers, for example NSA for Nile Shield Assurance.</summary>
+        public string PolicyPrefix { get; init; } = "NSA";
         public decimal MonthlyPremium { get; init; }
         public decimal SumInsured { get; init; }
         public string WhoItIsFor { get; init; } = string.Empty;
@@ -143,7 +158,79 @@ public static class MicroinsuranceCatalog
         PapersForAClaim = "The hospital discharge summary or birth notification, and the hospital bill or receipts.",
     };
 
-    public static readonly IReadOnlyList<MicroProduct> All = [HospitalCash, BodaAccident, StallStock, ShopCover, GoodsInTransit, MamaCare];
+    // Covers from the partner insurers a bank sells alongside Nile Shield (bancassurance). Invented
+    // insurers for demonstration; the products follow common bancassurance covers in East Africa.
+    public static readonly MicroProduct LoanProtector = new(
+        "Mpingo Loan Protector",
+        LoanProtectorLine,
+        "Mpingo Loan Protector pays off what you still owe on your bank loan if you die or are left permanently unable to work, so your family keeps the business, the house or the boda instead of the debt. " +
+        "Choose the level that matches your loan: up to UGX 3,000,000 for UGX 4,500 a month, up to UGX 6,000,000 for UGX 9,000 a month, or up to UGX 10,000,000 for UGX 15,000 a month. " +
+        "Accidents are covered from the day the loan is paid out; death or disability from illness after 90 days.")
+    {
+        Code = "LP",
+        Insurer = Mpingo,
+        PolicyPrefix = "MLA",
+        MonthlyPremium = 15_000m,
+        SumInsured = 10_000_000m,
+        Levels = [new(3_000_000m, 4_500m), new(6_000_000m, 9_000m), new(10_000_000m, 15_000m)],
+        WhoItIsFor = "Anyone aged 18 to 60 with a bank or SACCO loan, including business, salary and boda loans.",
+        WaitingPeriod = "Accidents from the day the loan is paid out; illness after 90 days.",
+        PapersForAClaim = "The death certificate or the medical board report on the disability, and the latest loan statement from the bank.",
+    };
+
+    public static readonly MicroProduct FamilyFuneral = new(
+        "Mpingo Family Funeral Cover",
+        FuneralLine,
+        "Mpingo Family Funeral Cover pays UGX 3,000,000 within 48 hours of the papers arriving when you, your husband or wife, or one of up to four children dies, for the burial and the days after. " +
+        "It costs UGX 8,000 a month. Death in an accident is covered from the day you join, and death from illness after 3 months.")
+    {
+        Code = "FF",
+        Insurer = Mpingo,
+        PolicyPrefix = "MLA",
+        MonthlyPremium = 8_000m,
+        SumInsured = 3_000_000m,
+        WhoItIsFor = "Anyone aged 18 to 65, with their husband or wife and up to four children under 21.",
+        WaitingPeriod = "Accidents from the day you join; illness after 3 months.",
+        PapersForAClaim = "The death certificate, or the burial permit or an LC1 letter, and the national ID of the person claiming.",
+    };
+
+    public static readonly MicroProduct SchoolFees = new(
+        "Mpingo School Fees Protector",
+        SchoolFeesLine,
+        "Mpingo School Fees Protector keeps your children in school if you die or are permanently disabled: it pays their school fees straight to the school, up to UGX 1,500,000 a term for each of up to two children, until they finish their current level of school, up to UGX 9,000,000 in total. " +
+        "It costs UGX 10,000 a month. Accidents are covered from the day you join, and illness after 6 months.")
+    {
+        Code = "SF",
+        Insurer = Mpingo,
+        PolicyPrefix = "MLA",
+        MonthlyPremium = 10_000m,
+        SumInsured = 9_000_000m,
+        WhoItIsFor = "Parents and guardians aged 18 to 60 paying school fees for up to two children.",
+        WaitingPeriod = "Accidents from the day you join; illness after 6 months.",
+        PapersForAClaim = "The death certificate or the medical board report, and the school's fees invoice for the term.",
+    };
+
+    public static readonly MicroProduct HomeContents = new(
+        "Kifaru Home Contents",
+        HomeContentsLine,
+        "Kifaru Home Contents pays for your household goods (furniture, TV, fridge, phones, clothes) if they are burnt in a fire or stolen in a break-in at your home. " +
+        "Up to UGX 3,000,000 for UGX 4,000 a month, or up to UGX 6,000,000 for UGX 7,500 a month. You pay the first UGX 50,000 of each claim yourself, and cover starts 7 days after you join.")
+    {
+        Code = "HM",
+        Insurer = Kifaru,
+        PolicyPrefix = "KGI",
+        MonthlyPremium = 7_500m,
+        SumInsured = 6_000_000m,
+        Levels = [new(3_000_000m, 4_000m), new(6_000_000m, 7_500m)],
+        WhoItIsFor = "Anyone renting or owning a home with doors that lock.",
+        WaitingPeriod = "7 days after you join.",
+        PapersForAClaim = "The police report (or fire brigade report for a fire), a list of what was lost with its value, and photos of the home.",
+    };
+
+    /// <summary>Every cover any configured insurer offers. What Kato actually sells depends on whose
+    /// assistant he is: see <see cref="KatoBrand.Products"/>.</summary>
+    public static readonly IReadOnlyList<MicroProduct> All =
+        [HospitalCash, BodaAccident, StallStock, ShopCover, GoodsInTransit, MamaCare, LoanProtector, FamilyFuneral, SchoolFees, HomeContents];
 
     public static MicroProduct? FindByLineOrName(string? value)
     {

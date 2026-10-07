@@ -1863,6 +1863,10 @@ public sealed partial class CustomerAssistantService(
         // Product names are names: "Small Business Shop Cover" once came back as "picture of the shop".
         literals.AddRange(MicroinsuranceCatalog.All.SelectMany(p => new[] { p.Name, p.Name.Replace("Nile Shield ", string.Empty, StringComparison.Ordinal), p.ProductLine }));
         literals.Add("Nile Shield");
+        literals.Add(KatoBrand.Current.Organisation);
+        literals.Add(KatoBrand.Current.ShortName);
+        literals.AddRange(KatoBrand.Current.PartnerInsurers);
+        literals.AddRange(MicroinsuranceCatalog.All.Select(p => p.Insurer).Distinct());
         var outcome = await translationService!.TranslateAsync(english, SupportedLanguageCode.En, reply, scope, cancellationToken, literals);
         if (!outcome.Translated)
         {

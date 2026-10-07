@@ -249,6 +249,7 @@ public static class InfrastructureRegistration
         services.AddSingleton<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerIntentClassifier, InsuranceIntelligence.Domain.CustomerAssistant.KeywordCustomerIntentClassifier>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.DemoSeeding.IDemoDataPurgeService, InsuranceIntelligence.Infrastructure.DemoSeeding.EfDemoDataPurgeService>();
         services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.DemoSeedService>();
+        services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.BankCustomerDemoSeeder>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
         // Azure SQL connectivity probe). The other three Core ports (ITenantContextAccessor,
         // IPermissionService, IAuditWriter) are already correctly implemented via the hexagonal

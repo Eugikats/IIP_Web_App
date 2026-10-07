@@ -30,7 +30,8 @@ public sealed class MicroinsuranceDemoSeederTests
         var second = await Seeder().SeedCatalogueAsync(Scope, CancellationToken.None);
 
         Assert.Equal(MicroinsuranceCatalog.All.Count, first.ProductsCreated);
-        Assert.Equal(19, first.DocumentsIndexed);
+        // 19 documents for the six Nile Shield covers, plus three for each of the four partner covers.
+        Assert.Equal(31, first.DocumentsIndexed);
         Assert.Equal(0, second.ProductsCreated);
         Assert.Equal(0, second.DocumentsIndexed);
 

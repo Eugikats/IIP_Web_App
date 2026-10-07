@@ -267,7 +267,7 @@ public sealed class ConversationInsightsService(
 
     private static string Instructions(DateTimeOffset now)
     {
-        var products = string.Join(", ", MicroinsuranceCatalog.All.Select(product => product.Name));
+        var products = string.Join(", ", KatoBrand.Current.Products.Select(product => $"{product.Name} ({product.Insurer})"));
         var fields = string.Join(", ", ProspectFacts.Fields.Select(field => $"{field.Key} ({field.Label.ToLowerInvariant()})"));
         return $$"""
             You read a WhatsApp conversation between a customer and Kato, an insurer's assistant in Uganda, and prepare notes for the sales officer who will follow up.
@@ -275,7 +275,7 @@ public sealed class ConversationInsightsService(
             Every point must cite the customer messages it comes from in "refs", for example ["M2","M5"]. A point with no message behind it must be left out.
             Never state or guess anything about religion, ethnicity, tribe, health conditions, disability, sexuality or political views, and never judge whether the customer is honest.
             Do not decide anything about cover, price or claims. Write plain, short English for a busy officer. Do not use em dashes.
-            Covers the insurer sells on WhatsApp: {{products}}. The insurer also sells Motor and Medical cover through its staff.
+            Covers sold on WhatsApp: {{products}}. Motor and Medical cover are also sold through staff.
             Fact fields you may fill, only with what the customer said: {{fields}}.
             Interest strength: "not_now" (said no or not now), "asked" (asked about it), "interested" (keen, still deciding), "wants_it" (said they want it).
             Today is {{now:d MMMM yyyy}}.
