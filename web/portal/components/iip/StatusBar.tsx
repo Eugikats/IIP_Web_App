@@ -4,6 +4,7 @@ import { Activity, CheckCircle2, AlertTriangle, ShieldCheck, X } from "lucide-re
 import { useProviderHealth } from "@/lib/lovable-parity/data/providerHealth";
 import { isProviderHealthy } from "@/lib/providerHealth";
 import { useRuntimeContext } from "@/lib/runtimeContext";
+import { presentationMode } from "@/lib/config";
 
 const DISMISS_KEY = "iip.statusbar.providerWarningDismissed";
 
@@ -46,7 +47,7 @@ export default function StatusBar() {
   const summary = source === "synthetic" && !loading
     ? `Synthetic snapshot · ${providerSummary}`
     : providerSummary;
-  const showProviderStatus = !dismissed || ok || loading;
+  const showProviderStatus = !presentationMode && (!dismissed || ok || loading);
 
   return (
     <footer aria-label="System status" className="min-h-8 shrink-0 border-t border-line/70 bg-white/60 px-2 py-1 backdrop-blur-xl sm:px-4 flex items-center gap-2 sm:gap-5 text-[10px] sm:text-[11px] text-muted">
@@ -66,7 +67,7 @@ export default function StatusBar() {
             </button>
           ) : null}
         </span>
-      ) : (
+      ) : presentationMode ? null : (
         <span role="status" className="inline-flex min-w-0 items-center gap-1.5 text-muted">
           <ShieldCheck className="h-3 w-3" aria-hidden="true" />
           <span className="truncate">System status hidden for this session</span>

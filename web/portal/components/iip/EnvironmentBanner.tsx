@@ -1,6 +1,7 @@
 "use client";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { useEnvironment } from "@/lib/lovable-parity/data/environment";
+import { presentationMode } from "@/lib/config";
 
 /**
  * A slim, always-visible strip that tells the operator which review mode they are in.
@@ -10,6 +11,9 @@ import { useEnvironment } from "@/lib/lovable-parity/data/environment";
  */
 export default function EnvironmentBanner() {
   const { environment, error } = useEnvironment();
+
+  // Demonstration profiles only: see presentationMode in lib/config.
+  if (presentationMode) return null;
 
   // Production with live data: no banner, a calm, unbadged workspace is the signal.
   if (environment && environment.reviewMode === "Production" && !environment.syntheticData) {

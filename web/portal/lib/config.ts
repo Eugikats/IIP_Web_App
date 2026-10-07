@@ -8,6 +8,15 @@ export const localDevelopmentUserId = process.env.NEXT_PUBLIC_LOCAL_USER_ID || "
 const developmentBuild = process.env.NODE_ENV === "development";
 export const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || (developmentBuild ? "Development" : "NotConfigured");
 export const runtimeProfile = process.env.NEXT_PUBLIC_RUNTIME_PROFILE || (developmentBuild ? "Development" : "Unknown");
+
+/**
+ * Presentation mode hides the environment banner and the provider-health message so a demonstration
+ * is not interrupted by status chrome. Both are honest indicators, so this is honoured only in the
+ * profiles that are demonstrations by definition (Demo, LocalTest, Development) and ignored in
+ * Staging, Production and any unknown profile, where they must always show.
+ */
+export const presentationMode =
+  process.env.NEXT_PUBLIC_PRESENTATION_MODE === "true" && ["Demo", "LocalTest", "Development"].includes(runtimeProfile);
 export const entraTenantId = process.env.NEXT_PUBLIC_ENTRA_TENANT_ID || "";
 export const entraClientId =
   process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID || process.env.NEXT_PUBLIC_ENTRA_PORTAL_CLIENT_ID || "";
