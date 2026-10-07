@@ -8,6 +8,7 @@ using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Domain.Agents;
+using InsuranceIntelligence.Domain.Acquisition;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -121,7 +122,9 @@ public sealed partial class CustomerAssistantService(
     IVoiceNoteSpeaker? voiceSpeaker = null,
     // Optional: Kato as an agent that holds the conversation and acts through tools. Without it,
     // or when the model fails, the rule-based replies below answer instead.
-    IToolCallingChatProvider? agentModel = null) : ICustomerAssistantService
+    IToolCallingChatProvider? agentModel = null,
+    // Optional: reads the conversation again once it goes quiet and keeps the prospect record current.
+    IConversationInsightsQueue? insightsQueue = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
@@ -129,7 +132,7 @@ public sealed partial class CustomerAssistantService(
     // Per batch: whether a voice note would actually be understood, so Kato only invites them then.
     private bool voiceNotesAvailable;
 
-    private const string SystemActorId = "system:customer-assistant";
+    internal const string SystemActorId = "system:customer-assistant";
     private const string AgentKey = "customer-assistant";
     private const string GroundingAgentKey = "policy-intelligence"; // the same grounded-answer capability, reused for customers
 
@@ -595,12 +598,13 @@ public sealed partial class CustomerAssistantService(
         // A claim read back to the customer waits for their answer: yes opens it, no starts it
         // again, anything else is a correction. Nothing binding happens on the first telling.
         AssistantOutcome? outcome = null;
+        var turnId = Guid.NewGuid();
         if (agentModel is not null)
         {
             try
             {
                 outcome = await RunAgentAsync(
-                    scope, original, text, waId, thread, language.Reply,
+                    scope, original, text, waId, threadId, turnId, thread, language.Reply,
                     understood.Status == TranslationStatus.Translated ? new CustomerOwnWords(original, SupportedLanguage.For(language.Inbound).Iso) : null,
                     correlationId, now, cancellationToken);
             }
@@ -657,7 +661,7 @@ public sealed partial class CustomerAssistantService(
 
         await conversationRepository.SaveAsync(new CustomerConversationTurn
         {
-            TurnId = Guid.NewGuid(),
+            TurnId = turnId,
             Scope = scope,
             ThreadId = threadId,
             ContactWaId = waId,
@@ -693,7 +697,31 @@ public sealed partial class CustomerAssistantService(
                 correlationId),
             cancellationToken);
 
+        await NoteProspectActivityAsync(scope, waId, threadId, correlationId, cancellationToken);
+
         return outcome.OpenedCase ? outcome.CaseId : null;
+    }
+
+    /// <summary>After the reply has gone: keep the person's prospect record (if they have one) pointing
+    /// at this conversation and its last message, and ask for the conversation to be read again once it
+    /// goes quiet. Never fails the customer's turn.</summary>
+    private async Task NoteProspectActivityAsync(TenantScope scope, string waId, string threadId, string correlationId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var lead = await salesLeadWriteRepository.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, waId, cancellationToken);
+            if (lead is not null)
+            {
+                await salesLeadWriteRepository.CreateAsync(scope.TenantId, scope.WorkspaceId,
+                    lead with { ThreadId = threadId, LastInteractionAt = DateTimeOffset.UtcNow }, cancellationToken);
+            }
+
+            insightsQueue?.Enqueue(scope, waId, threadId, correlationId);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // The customer already has their answer; the record catches up on the next message.
+        }
     }
 
     private async Task<AssistantOutcome> DecideAsync(
@@ -1283,31 +1311,72 @@ public sealed partial class CustomerAssistantService(
             CustomerIntent.HumanRequested, CustomerAssistantOutcome.Escalated, leadId: leadId);
     }
 
+    /// <summary>
+    /// The person's prospect record: updated when this phone number already has one, created when it
+    /// does not. One record per person, however many times they write; each call adds a line to its
+    /// activity so the record shows what happened and when.
+    /// </summary>
     private async Task<string> CreateLeadAsync(
         TenantScope scope, string text, string waId, SenderProfile? sender, string leadSource, string correlationId, CancellationToken cancellationToken,
-        string? productFit = null, string? occupation = null)
+        string? productFit = null, string? occupation = null, Func<SalesLeadDetailReadModel, SalesLeadDetailReadModel>? change = null)
     {
         var now = DateTimeOffset.UtcNow;
-        var leadId = $"LEAD-{now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
-        var lead = new SalesLeadDetailReadModel(
-            LeadId: leadId,
-            LeadSource: leadSource,
-            CustomerNeed: text,
-            ConversationSummary: occupation is null
-                ? $"Captured automatically from an inbound WhatsApp message on {now:yyyy-MM-dd}."
-                : $"Captured by Kato on WhatsApp on {now:yyyy-MM-dd}. Work described by the customer: \"{occupation}\". Products explained (not sold): {productFit}.",
-            ProductFit: productFit ?? "To be assessed",
-            QuoteStatus: "New",
-            RequiredInformation: ["Confirm contact details", "Confirm insurable interest", "Capture risk details for quote"],
-            FollowUpActions: ["Contact customer to confirm details", "Prepare indicative quote for human review"],
-            AssignedSalesOfficer: null,
-            ConversionProbability: null,
-            CustomerName: sender?.FullName ?? "WhatsApp customer",
-            ContactInfo: $"+{waId}",
-            CreatedAt: now,
-            CreatedBy: SystemActorId);
+        var digits = NormalizeWaId(waId);
+        var activity = new ProspectActivity(now, LeadActivityText(leadSource, productFit), "Kato");
+        var existing = await salesLeadWriteRepository.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, digits, cancellationToken);
+
+        SalesLeadDetailReadModel lead;
+        if (existing is not null)
+        {
+            var assessed = productFit is not null && !string.Equals(productFit, "To be chosen", StringComparison.OrdinalIgnoreCase);
+            lead = existing with
+            {
+                CustomerName = sender?.FullName is { Length: > 0 } known && existing.CustomerName is "WhatsApp customer" or "" ? known : existing.CustomerName,
+                ProductFit = assessed ? productFit! : existing.ProductFit,
+                Phone = existing.Phone ?? digits,
+                PrimaryChannel = existing.PrimaryChannel ?? "WhatsApp",
+                LastInteractionAt = now,
+                Activity = [.. existing.Activity, activity],
+            };
+        }
+        else
+        {
+            lead = new SalesLeadDetailReadModel(
+                LeadId: $"LEAD-{now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
+                LeadSource: leadSource,
+                CustomerNeed: text,
+                ConversationSummary: occupation is null
+                    ? $"Captured automatically from an inbound WhatsApp message on {now:yyyy-MM-dd}."
+                    : $"Captured by Kato on WhatsApp on {now:yyyy-MM-dd}. Work described by the customer: \"{occupation}\". Products explained (not sold): {productFit}.",
+                ProductFit: productFit ?? "To be assessed",
+                QuoteStatus: "New",
+                RequiredInformation: ["Confirm contact details", "Confirm insurable interest", "Capture risk details for quote"],
+                FollowUpActions: ["Contact customer to confirm details", "Prepare indicative quote for human review"],
+                AssignedSalesOfficer: null,
+                ConversionProbability: null,
+                CustomerName: sender?.FullName ?? "WhatsApp customer",
+                ContactInfo: $"+{digits}",
+                CreatedAt: now,
+                CreatedBy: SystemActorId)
+            {
+                Phone = digits,
+                PrimaryChannel = "WhatsApp",
+                LastInteractionAt = now,
+                Activity = [activity],
+            };
+        }
+
+        if (change is not null)
+        {
+            lead = change(lead);
+        }
 
         await salesLeadWriteRepository.CreateAsync(scope.TenantId, scope.WorkspaceId, lead, cancellationToken);
+        var leadId = lead.LeadId;
+        if (existing is not null)
+        {
+            return leadId;
+        }
 
         if (teamsNotificationQueue is not null)
         {
@@ -1330,6 +1399,16 @@ public sealed partial class CustomerAssistantService(
 
         return leadId;
     }
+
+    private static string LeadActivityText(string leadSource, string? productFit) => leadSource switch
+    {
+        "WhatsApp - human requested" => "Asked to speak to a person",
+        "WhatsApp - cover application" => productFit is null ? "Applied for cover" : $"Applied for {productFit}",
+        "WhatsApp - Kato registration" => "Registered on WhatsApp",
+        "WhatsApp - Kato cover suggestion" => "Kato suggested covers that fit their work",
+        "WhatsApp" => "Asked about cover",
+        _ => leadSource,
+    };
 
     /// <summary>
     /// Recognises a customer by the number WhatsApp delivered their message from. WhatsApp itself

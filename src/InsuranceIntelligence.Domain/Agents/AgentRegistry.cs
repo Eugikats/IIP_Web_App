@@ -103,6 +103,11 @@ public static class AgentCatalog
         // staff user in the loop at all, disabling it (Admin > Agents) is the fail-closed switch:
         // CustomerAssistantService checks it before processing any inbound message and escalates
         // to human instead when disabled.
+        // Reads a prospect's WhatsApp conversation after the reply has gone and keeps their record
+        // current. Every point cites the customer message behind it; facts must echo the customer's
+        // own words and come from an allowed list, so nothing sensitive or invented is stored.
+        new("conversation-insights", "Conversation Insights Agent", "Reads a prospect's WhatsApp conversation after each reply and records what they said about themselves, the covers they are interested in, their problems and doubts, and a suggested next step, citing the message behind each point.", "Low", HumanApprovalRequired: false,
+            AgentImplementationKind.ModelBacked, ["conversation.read", "lead.update"]),
         new("customer-assistant", "Customer Assistant (WhatsApp)", "Classifies inbound WhatsApp messages into six intents; answers general questions from approved knowledge, opens provisional claims, and captures sales leads, never discloses case-specific detail without a matched policy number.", "High", HumanApprovalRequired: true,
             AgentImplementationKind.RuleBased, ["customer.intent.classify", "knowledge.search", "case.create", "lead.create"]),
     ];

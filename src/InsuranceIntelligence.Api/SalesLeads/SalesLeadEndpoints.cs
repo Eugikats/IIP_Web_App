@@ -51,4 +51,75 @@ public static class SalesLeadEndpoints
             });
         }
     }
+
+    public static Task<IResult> AddNote(
+        string leadId,
+        AddLeadNoteRequest request,
+        ISalesLeadCommandService commandService,
+        ISalesLeadQueryService queryService,
+        CancellationToken cancellationToken) =>
+        AfterChange(() => commandService.AddNoteAsync(leadId, request, cancellationToken), leadId, queryService, cancellationToken);
+
+    public static Task<IResult> Assign(
+        string leadId,
+        AssignLeadRequest request,
+        ISalesLeadCommandService commandService,
+        ISalesLeadQueryService queryService,
+        CancellationToken cancellationToken) =>
+        AfterChange(() => commandService.AssignAsync(leadId, request, cancellationToken), leadId, queryService, cancellationToken);
+
+    private static async Task<IResult> AfterChange(
+        Func<Task<bool>> change, string leadId, ISalesLeadQueryService queryService, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!await change())
+            {
+                return Results.NotFound(new { message = "Sales lead was not found for the current tenant workspace." });
+            }
+
+            var detail = await queryService.GetLeadDetailAsync(leadId, cancellationToken);
+            return detail is null ? Results.NotFound() : Results.Ok(detail);
+        }
+        catch (SalesLeadQueryValidationException ex)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { [ex.Field] = [ex.Message] });
+        }
+    }
+
+    /// <summary>Reads the lead's conversation again now. 503 when no model is configured, so the
+    /// screen can say so rather than show a stale summary as current.</summary>
+    public static async Task<IResult> RefreshInsights(
+        string leadId,
+        IServiceProvider services,
+        InsuranceIntelligence.Application.Core.ITenantContextAccessor tenantContextAccessor,
+        InsuranceIntelligence.Application.Agents.IAgentGate agentGate,
+        ISalesLeadQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        var insights = services.GetService<IConversationInsightsService>();
+        if (insights is null)
+        {
+            return Results.Json(new { message = "Conversation insights are not configured: no language model is connected." }, statusCode: 503);
+        }
+
+        var context = tenantContextAccessor.Current;
+        var gate = await agentGate.CheckAsync(context.Scope, ConversationInsightsService.AgentKey, cancellationToken);
+        if (!gate.Enabled)
+        {
+            return Results.Json(new { message = "The Conversation Insights Agent is switched off for this workspace." }, statusCode: 409);
+        }
+
+        try
+        {
+            await insights.RefreshLeadAsync(context.Scope, leadId, context.UserId, Guid.NewGuid().ToString("N"), cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return Results.Json(new { message = "The insights could not be prepared just now. Try again in a moment." }, statusCode: 502);
+        }
+
+        var detail = await queryService.GetLeadDetailAsync(leadId, cancellationToken);
+        return detail is null ? Results.NotFound() : Results.Ok(detail);
+    }
 }

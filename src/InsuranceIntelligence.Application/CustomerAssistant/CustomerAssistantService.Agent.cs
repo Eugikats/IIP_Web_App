@@ -1,7 +1,9 @@
 using System.Text.Json;
 using InsuranceIntelligence.Application.Ai;
+using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.Cases;
 using InsuranceIntelligence.Application.CommandCenter;
+using InsuranceIntelligence.Domain.Acquisition;
 using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -30,7 +32,7 @@ public sealed partial class CustomerAssistantService
     private static readonly JsonSerializerOptions ToolJson = new(JsonSerializerDefaults.Web);
 
     private async Task<AssistantOutcome?> RunAgentAsync(
-        TenantScope scope, string original, string english, string waId, CustomerConversationTurn[] thread,
+        TenantScope scope, string original, string english, string waId, string threadId, Guid turnId, CustomerConversationTurn[] thread,
         Domain.Translation.SupportedLanguageCode replyLanguage,
         CustomerOwnWords? ownWords, string correlationId, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -39,7 +41,12 @@ public sealed partial class CustomerAssistantService
             return null;
         }
 
-        var run = new AgentRun(scope, waId, original, english, ownWords, correlationId, now);
+        var run = new AgentRun(scope, waId, original, english, ownWords, correlationId, now)
+        {
+            ThreadId = threadId,
+            TurnId = turnId,
+            PreviousReply = thread.LastOrDefault(turn => !string.IsNullOrWhiteSpace(turn.OutboundReplyText))?.OutboundReplyText,
+        };
         var messages = new List<AgentChatMessage> { AgentChatMessage.System(await AgentSystemPromptAsync(run, replyLanguage, cancellationToken)) };
         foreach (var turn in thread.TakeLast(AgentHistoryTurns))
         {
@@ -115,6 +122,12 @@ public sealed partial class CustomerAssistantService
             - Welcome doubts and answer them: the price, "I have never needed it", "insurers never pay", "let me think about it". Answer calmly and truthfully, using the product facts; for "insurers never pay", explain how a claim works here: report on WhatsApp, share papers through the secure link, a person reviews it, and an approved claim is paid by mobile money.
             - Ask for the decision naturally once they see the value ("shall I set it up for you now?"). If they say no or not now, respect it warmly, leave the door open, and do not ask again in the same conversation unless they bring it up.
             - Never pressure, never invent urgency or discounts, never promise that a claim will be paid. If they ask directly for prices or the list of covers, answer first and then carry on the conversation.
+
+            What to find out, over the conversation and only as it fits naturally (never as a list of questions): their work and what they sell, where they live or work, roughly what they earn or turn over, who depends on them, any cover they already have, what worries them, what they could pay a month, and when they would want cover. Ask first about the things that matter for the cover they are leaning toward. Never ask about religion, tribe, health conditions, disability or politics; if they mention their health because of a medical or maternity cover, talk about the cover, not the condition.
+
+            You decide and recommend yourself. Recommend the cover that fits from what they told you and say why, plainly. Never pass a question to "the team" that list_products or search_policy_information can answer, and never stall with "let me check with my colleagues".
+
+            When someone is interested but has not decided, ask once, in your own words, whether Nile Shield may send them a WhatsApp message later about cover. When they answer that question, call record_contact_consent with their answer. Never ask again in the same conversation, and never ask someone who has just applied.
 
             What you can do, always through your tools (never invent a price, policy, claim or rule):
             - Explain covers: list_products for prices, levels and what each pays; search_policy_information for detailed terms.
@@ -203,6 +216,15 @@ public sealed partial class CustomerAssistantService
         new("send_claim_link",
             "A secure link for the person writing to upload papers and follow their latest open claim.",
             new { type = "object", properties = new { }, additionalProperties = false }),
+        new("record_contact_consent",
+            "Record the customer's answer to your question about whether Nile Shield may message them later about cover. Call it only in reply to their answer to that question.",
+            new
+            {
+                type = "object",
+                properties = new { agreed = new { type = "boolean", description = "True when they said yes, false when they said no." } },
+                required = new[] { "agreed" },
+                additionalProperties = false,
+            }),
         new("hand_to_person",
             "Hand the conversation to a person on the Nile Shield team.",
             new
@@ -228,6 +250,7 @@ public sealed partial class CustomerAssistantService
             "file_claim" => await ToolFileClaimAsync(run, Arg(args, "product_or_policy_number"), Arg(args, "what_happened"), Arg(args, "when_it_happened"), cancellationToken),
             "send_claim_link" => await ToolSendLinkAsync(run, cancellationToken),
             "hand_to_person" => await ToolHandToPersonAsync(run, Arg(args, "reason"), cancellationToken),
+            "record_contact_consent" => await ToolRecordConsentAsync(run, BoolArg(args, "agreed"), cancellationToken),
             _ => Json(new { error = "unknown_tool" }),
         };
     }
@@ -345,7 +368,13 @@ public sealed partial class CustomerAssistantService
         var profile = await IdentifySenderAsync(run.Scope, run.WaId, cancellationToken);
         run.LeadId ??= await CreateLeadAsync(
             run.Scope, $"Registered on WhatsApp. Work: {occupation ?? "not given"}. Area: {area ?? "not given"}.", run.WaId, profile,
-            "WhatsApp - Kato registration", run.CorrelationId, cancellationToken, productFit: "To be chosen", occupation: occupation);
+            "WhatsApp - Kato registration", run.CorrelationId, cancellationToken, productFit: "To be chosen", occupation: occupation,
+            change: lead => lead with
+            {
+                CustomerName = name,
+                ThreadId = run.ThreadId ?? lead.ThreadId,
+                Facts = ProspectFacts.Merge(lead.Facts, CustomerFacts(run, ("occupation", occupation), ("area", area))),
+            });
         return Json(new { registered = true, name, next = "Offer the covers from list_products that fit their work, and ask which they want." });
     }
 
@@ -373,7 +402,8 @@ public sealed partial class CustomerAssistantService
         {
             run.LeadId = await CreateLeadAsync(
                 run.Scope, $"Applied on WhatsApp for {product.Name}.", run.WaId, sender, "WhatsApp - cover application",
-                run.CorrelationId, cancellationToken, productFit: product.Name);
+                run.CorrelationId, cancellationToken, productFit: product.Name,
+                change: lead => lead with { AppliedFor = product.Name, ThreadId = run.ThreadId ?? lead.ThreadId });
             return Json(new
             {
                 status = "application_received",
@@ -400,6 +430,10 @@ public sealed partial class CustomerAssistantService
                 run.CorrelationId),
             cancellationToken);
         run.PolicyNumber = policyNumber;
+        run.LeadId = await CreateLeadAsync(
+            run.Scope, $"Took {product.Name} on WhatsApp (demo policy {policyNumber}).", run.WaId, sender, "WhatsApp - cover application",
+            run.CorrelationId, cancellationToken, productFit: product.Name,
+            change: lead => lead with { AppliedFor = product.Name, ThreadId = run.ThreadId ?? lead.ThreadId });
         return Json(new
         {
             status = "active_demo_policy",
@@ -571,10 +605,63 @@ public sealed partial class CustomerAssistantService
         var sender = await IdentifySenderAsync(run.Scope, run.WaId, cancellationToken);
         run.LeadId = await CreateLeadAsync(
             run.Scope, $"{reason ?? "Asked for a person"}. Customer said: {Trim(run.English, 300)}", run.WaId, sender,
-            "WhatsApp - human requested", run.CorrelationId, cancellationToken);
+            "WhatsApp - human requested", run.CorrelationId, cancellationToken,
+            change: lead => lead with { HandedToPersonAt = run.Now, ThreadId = run.ThreadId ?? lead.ThreadId });
         run.Escalated = true;
         return Json(new { handed_over = true, note = "Tell them someone from the team will reply here soon." });
     }
+
+    private async Task<string> ToolRecordConsentAsync(AgentRun run, bool? agreed, CancellationToken cancellationToken)
+    {
+        // The wording stored is what the customer was actually asked: Kato's previous message, not the
+        // model's account of it. An answer is accepted only when the customer's own message says it.
+        if (agreed is null || string.IsNullOrWhiteSpace(run.PreviousReply))
+        {
+            return Json(new { error = "ask_first", instruction = "Ask them first; record their answer when they reply." });
+        }
+
+        var saidYes = KatoWords.IsYes(run.Original, run.English);
+        var saidNo = KatoWords.IsNo(run.Original, run.English);
+        if ((agreed.Value && !saidYes) || (!agreed.Value && !saidNo))
+        {
+            return Json(new { error = "not_their_answer", instruction = "Their message does not answer your question. Carry on the conversation." });
+        }
+
+        var sender = await IdentifySenderAsync(run.Scope, run.WaId, cancellationToken);
+        var status = agreed.Value ? ContactConsentStatus.Agreed : ContactConsentStatus.Declined;
+        run.LeadId = await CreateLeadAsync(
+            run.Scope, run.English, run.WaId, sender, agreed.Value ? "WhatsApp - agreed to follow-up" : "WhatsApp - declined follow-up",
+            run.CorrelationId, cancellationToken,
+            change: lead => lead with
+            {
+                ThreadId = run.ThreadId ?? lead.ThreadId,
+                Consent = new ContactConsent(status, run.Now, run.PreviousReply!, "WhatsApp", run.TurnId),
+            });
+        await auditRepository.WriteAsync(
+            new AuditEvent(
+                Guid.NewGuid(), run.Scope, null, null, SystemActorId, ActorType.Integration, "sales_lead.contact_consent_recorded", run.Now,
+                null, status.ToString(), [run.LeadId], "CustomerAssistant", null, "recorded", null,
+                "Customer answered whether they may be contacted later about cover; the question asked is kept with the answer.",
+                run.CorrelationId),
+            cancellationToken);
+        return Json(new { recorded = true, note = agreed.Value ? "Thank them briefly and carry on." : "Respect it warmly and carry on; do not ask again." });
+    }
+
+    private static IEnumerable<ProspectFact> CustomerFacts(AgentRun run, params (string Key, string? Value)[] values) =>
+        values
+            .Where(item => !string.IsNullOrWhiteSpace(item.Value) && ProspectFacts.Find(item.Key) is not null)
+            .Select(item => new ProspectFact(item.Key, item.Value!.Trim(), ProspectFactSource.Customer, run.Now, run.TurnId, "Kato"));
+
+    private static bool? BoolArg(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value)
+            ? value.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
+                _ => null,
+            }
+            : null;
 
     private async Task<Customer[]> CustomersOnThisPhoneAsync(AgentRun run, CancellationToken cancellationToken) =>
         (await customerRepository.ListAsync(run.Scope, cancellationToken))
@@ -628,6 +715,11 @@ public sealed partial class CustomerAssistantService
         public string? LeadId { get; set; }
         public string? PolicyNumber { get; set; }
         public bool Escalated { get; set; }
+        public string? ThreadId { get; init; }
+        public Guid? TurnId { get; init; }
+
+        /// <summary>Kato's last message before this one: the question a consent answer replies to.</summary>
+        public string? PreviousReply { get; init; }
 
         public AssistantOutcome Finish(string reply) => AssistantOutcome.Of(
             reply,

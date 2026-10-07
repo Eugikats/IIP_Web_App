@@ -14,8 +14,11 @@ public sealed class AgentWorkflowCatalogTests
         // is an eleventh, deliberately separate entry, a customer-facing agent, not a staff one,
         // added so it gets the same kill-switch/governance discipline the other ten already have.
         // customer-summary (September 2026) is a twelfth: a staff agent for the Customer 360 page.
-        Assert.Equal(12, AgentCatalog.Agents.Count);
-        Assert.Equal(12, AgentCatalog.Agents.Select(agent => agent.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        // conversation-insights (October 2026) is a thirteenth: it keeps a prospect's record current
+        // from their WhatsApp conversation.
+        Assert.Equal(13, AgentCatalog.Agents.Count);
+        Assert.Equal(13, AgentCatalog.Agents.Select(agent => agent.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "conversation-insights");
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "customer-summary");
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "command-center");
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "underwriting-intelligence");

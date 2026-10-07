@@ -300,6 +300,7 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
     builder.Services.AddSingleton<IEmbeddingProvider, AzureOpenAiEmbeddingProvider>();
     builder.Services.AddScoped<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
     builder.Services.AddScoped<IToolCallingChatProvider, AzureOpenAiToolCallingChatProvider>();
+    builder.Services.AddScoped<IConversationInsightsService, ConversationInsightsService>();
 }
 else
 {
@@ -426,6 +427,9 @@ builder.Services.AddScoped<ICommandCenterActionService, CommandCenterActionServi
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.IClaimTriageQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>());
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ClaimTriageWorker>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>();
+builder.Services.AddSingleton<IConversationInsightsQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>());
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ConversationInsightsWorker>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantQueue>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Integrations.IWhatsAppAssistantQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantQueue>());
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantWorker>();
@@ -902,6 +906,12 @@ app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapPost("/api/v1/sales-leads", SalesLeadEndpoints.CreateLead)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/{leadId}/notes", SalesLeadEndpoints.AddNote)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPut("/api/v1/sales-leads/{leadId}/assignee", SalesLeadEndpoints.Assign)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/{leadId}/insights/refresh", SalesLeadEndpoints.RefreshInsights)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 
 // Product configuration, the spine everything else in claim handling reads from (blueprint
 // outcome A/C). Every save is a new version; publishing needs an IRA approval reference and a

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Customers;
 using Microsoft.EntityFrameworkCore;
 
 namespace InsuranceIntelligence.Infrastructure.Persistence;
@@ -53,6 +54,19 @@ public sealed class EfSalesLeadRepository(InsuranceIntelligenceDbContext dbConte
         var scope = TenantScope.Create(tenantId, workspaceId);
         var id = DeterministicId(tenantId, workspaceId, lead.LeadId);
         return UpsertAsync(DbContext.SalesLeads, id, scope, Serialize(lead), cancellationToken: cancellationToken);
+    }
+
+    public async Task<SalesLeadDetailReadModel?> FindByPhoneAsync(
+        string tenantId,
+        string workspaceId,
+        string phone,
+        CancellationToken cancellationToken = default)
+    {
+        var leads = await ListLeadsAsync(tenantId, workspaceId, cancellationToken);
+        return leads
+            .Where(lead => PhoneNumbers.SameNumber(lead.Phone ?? lead.ContactInfo, phone))
+            .OrderByDescending(lead => lead.LastInteractionAt ?? lead.CreatedAt ?? DateTimeOffset.MinValue)
+            .FirstOrDefault();
     }
 
     private static Guid DeterministicId(string tenantId, string workspaceId, string leadId)
