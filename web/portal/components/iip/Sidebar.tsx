@@ -22,6 +22,10 @@ import { openFirstRunOrientation } from "./FirstRunOrientation";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 
 const EXPANDED_STORAGE_KEY = "iip.sidebar.expanded";
+const HOVER_STORAGE_KEY = "iip.sidebar.expandOnHover";
+// How long the pointer may be away before a peeking sidebar closes, so brushing past its edge does
+// not make it flicker.
+const PEEK_CLOSE_DELAY_MS = 180;
 
 // Grouped rail destinations (navigation model §5.2, amended, see
 // docs/03-design-architecture/iip_ux_cognitive_load_and_navigation_model.md §5.2 for why: the
@@ -143,11 +147,18 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const userInitials = runtimeInitials(displayName);
   const userId = runtimeContext?.userId ?? "unknown-user";
 
-  const [expanded, setExpanded] = useState(true);
+  // `pinned` is the saved choice (expanded or the 64px rail). `peek` is a temporary opening of the
+  // rail while the pointer is over it, so the page does not shift. `expanded` is what is drawn.
+  const [pinned, setExpanded] = useState(true);
+  const [peek, setPeek] = useState(false);
+  const [expandOnHover, setExpandOnHover] = useState(true);
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const asideRef = useRef<HTMLElement>(null);
   const [expandedLoaded, setExpandedLoaded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const expanded = pinned || peek;
   const [searchQuery, setSearchQuery] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const [scrollClipped, setScrollClipped] = useState<{ top: boolean; bottom: boolean }>({ top: false, bottom: false });
@@ -162,6 +173,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
     try {
       const stored = window.localStorage.getItem(EXPANDED_STORAGE_KEY);
       if (stored !== null) setExpanded(stored === "true");
+      setExpandOnHover(window.localStorage.getItem(HOVER_STORAGE_KEY) !== "false");
     } catch {
       // Private browsing / blocked storage, keep the default.
     }
@@ -179,6 +191,46 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
       return next;
     });
   }
+
+  function toggleExpandOnHover() {
+    setExpandOnHover((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(HOVER_STORAGE_KEY, String(next));
+      } catch {
+        // Not persisted this session, still applied to the live view.
+      }
+      if (!next) setPeek(false);
+      return next;
+    });
+  }
+
+  function openPeek() {
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+    if (expandOnHover && !pinned) setPeek(true);
+  }
+
+  function closePeekSoon() {
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+    peekTimer.current = setTimeout(() => setPeek(false), PEEK_CLOSE_DELAY_MS);
+  }
+
+  // A menu, the search box or the settings dialog opened from the sidebar sits outside it, so the
+  // pointer leaving must not close the sidebar underneath it. A click anywhere else closes at once.
+  const holdingOpen = profileOpen || searchOpen || settingsOpen;
+  useEffect(() => {
+    if (!peek) return;
+    function onPointerDown(event: PointerEvent) {
+      if (holdingOpen) return;
+      if (asideRef.current && !asideRef.current.contains(event.target as Node)) setPeek(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [peek, holdingOpen]);
+
+  useEffect(() => () => {
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+  }, []);
 
   // Clipping-fade affordance (blueprint §10.4): only shown when the destination list is actually
   // taller than its scroll container, so a short list never shows a fade with nothing to reveal.
@@ -232,12 +284,22 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   }
 
   return (
+    // The wrapper keeps the page's share of the width at the pinned size; the sidebar itself is
+    // positioned over the page, so a peek slides over the content instead of pushing it.
+    <div className={cn("relative h-full shrink-0 transition-[width] duration-dls-panel ease-dls", pinned ? "w-60" : "w-16", !expandedLoaded && "invisible")}>
     <aside
+      ref={asideRef}
       aria-label="Primary navigation"
+      onPointerEnter={(event) => { if (event.pointerType === "mouse") openPeek(); }}
+      onPointerLeave={(event) => { if (event.pointerType === "mouse" && !holdingOpen) closePeekSoon(); }}
+      onFocusCapture={openPeek}
+      onBlurCapture={(event) => {
+        if (!holdingOpen && !event.currentTarget.contains(event.relatedTarget as Node | null)) closePeekSoon();
+      }}
       className={cn(
-        "flex h-full shrink-0 flex-col border-r border-dls-border-subtle bg-dls-surface py-3.5 transition-[width] duration-dls-panel ease-dls",
+        "absolute inset-y-0 left-0 z-30 flex flex-col border-r border-dls-border-subtle bg-dls-surface py-3.5 transition-[width,box-shadow] duration-dls-panel ease-dls",
         expanded ? "w-60 items-stretch px-3" : "w-16 items-center",
-        !expandedLoaded && "invisible", // avoid a flash of the wrong width before localStorage loads
+        peek && !pinned && "shadow-dls-popover",
       )}
     >
       <div className={cn("mb-[18px] flex shrink-0 items-center", expanded ? "justify-between px-0.5" : "justify-center")}>
@@ -371,6 +433,18 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
                 <Settings className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Settings
               </button>
             )}
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={expandOnHover}
+              onClick={toggleExpandOnHover}
+              className="flex w-full items-center justify-between gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page"
+            >
+              <span className="flex items-center gap-2.5"><ChevronsRight className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Open sidebar on hover</span>
+              <span className={cn("inline-flex h-4 w-7 shrink-0 items-center rounded-full border p-0.5 transition-colors duration-dls-fast", expandOnHover ? "border-dls-primary bg-dls-primary" : "border-dls-border-input bg-dls-surface")} aria-hidden="true">
+                <span className={cn("h-2.5 w-2.5 rounded-full transition-transform duration-dls-fast", expandOnHover ? "translate-x-3 bg-dls-surface" : "translate-x-0 bg-dls-text-faint")} />
+              </span>
+            </button>
             {integrationsAvailable && (
               <Link to="/app/integrations" onClick={() => setProfileOpen(false)} role="menuitem" className="flex items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
                 <Plug className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Integrations
@@ -443,5 +517,6 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
       </div>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </aside>
+    </div>
   );
 }
