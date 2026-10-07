@@ -13,7 +13,10 @@ import AgentsTab from "@/components/acquisition/tabs/AgentsTab";
 import ChannelIntelligenceTab from "@/components/acquisition/tabs/ChannelIntelligenceTab";
 import EscalationsTab from "@/components/acquisition/tabs/EscalationsTab";
 import ScoresTab from "@/components/acquisition/tabs/ScoresTab";
+import CountUp from "@/components/cip/CountUp";
 import { dailyCounts, trendDirection } from "@/components/cip/series";
+import { presentationMode } from "@/lib/config";
+import { useLiveProspects } from "@/lib/lovable-parity/useLiveProspects";
 import { Input } from "@/components/ui/Input";
 import { EmptyStateSurface, ErrorStateSurface, LoadingSkeleton, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
 import { LeadCustomerModal, initialsOf } from "@/components/acquisition/LeadCustomerModal";
@@ -104,7 +107,8 @@ function optionLabel(options: { label: string; value: string }[], value: string)
 }
 
 export default function CustomerAcquisition() {
-  const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage } = useSalesLeads();
+  const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, refresh } = useSalesLeads();
+  const live = useLiveProspects(leads, refresh, true, presentationMode ? 3000 : 15000);
   const [tab, setTab] = useState<TabId>("prospects");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [newestFirst, setNewestFirst] = useState(true);
@@ -192,7 +196,7 @@ export default function CustomerAcquisition() {
     // "Down" only means fewer new prospects than earlier in the fortnight, which is not bad news, so the
     // line is drawn in the neutral colour rather than the warning one.
     const direction = trendDirection(series);
-    return { label, value: subset.length.toLocaleString(), sparklineData: series, trendDirection: direction === "down" ? ("flat" as const) : direction };
+    return { label, value: <CountUp value={subset.length} />, sparklineData: series, trendDirection: direction === "down" ? ("flat" as const) : direction };
   };
 
   return (
@@ -200,6 +204,15 @@ export default function CustomerAcquisition() {
       <div>
         <h1 className="m-0 text-[20px] font-semibold tracking-tight text-[#0B1640]">Acquisition dashboard</h1>
         <p className="m-0 mt-0.5 text-[12.5px] text-slate-500">People who might take cover, from WhatsApp conversations, bank lists and your team.</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2" aria-live="polite">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+            <span className="iip-live-dot h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+            Live
+          </span>
+          <span className="text-[12px] text-slate-500">
+            {live.feed[0] ? live.feed[0].text : "Watching for new messages. New people and score changes appear here as they happen."}
+          </span>
+        </div>
       </div>
 
       <AcquisitionTabs tabs={[...TABS]} active={tab} onChange={setTab} chatHref="/app/channels" />
@@ -322,7 +335,7 @@ export default function CustomerAcquisition() {
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {pagedRows.map((row) => (
-                        <tr key={row.leadId} className="cursor-pointer hover:bg-slate-50/70" onClick={() => setOpenLeadId(row.leadId)}>
+                        <tr key={row.leadId} className={`cursor-pointer hover:bg-slate-50/70 ${live.active(row.leadId)?.kind === "new" ? "iip-row-in" : ""}`} onClick={() => setOpenLeadId(row.leadId)}>
                           <td className="min-w-[8.5rem] px-5 py-3.5">
                             <div className="text-[13px] font-semibold text-[#0B1640]">{row.customerName}</div>
                             <div className="mt-0.5 text-[11px] text-slate-500">{row.occupation ?? "Work not known yet"}</div>
@@ -337,12 +350,18 @@ export default function CustomerAcquisition() {
                           <td className="px-3 py-3.5">
                             <CipStatusPill tone={relationshipTone(row.relationship)}>{row.relationshipLabel}</CipStatusPill>
                           </td>
-                          <td className="min-w-[9rem] px-3 py-3.5 text-[12px] text-slate-700">{row.productInterest ?? "Not yet known"}</td>
+                          <td className={`min-w-[9rem] px-3 py-3.5 text-[12px] text-slate-700 ${live.active(row.leadId)?.kind === "interest" ? "iip-flash" : ""}`}>{row.productInterest ?? "Not yet known"}</td>
                           <td className="whitespace-nowrap px-3 py-3.5">
                             <CipStatusPill tone={stageTone(row.stage)}>{row.stageLabel}</CipStatusPill>
                           </td>
-                          <td className="whitespace-nowrap px-3 py-3.5 text-[12px] text-slate-700">
-                            {row.triage ? <span className="font-semibold tabular-nums text-[#0B1640]">{row.triage.score}<span className="ml-1.5 font-normal text-slate-500">{row.triage.bandLabel}</span></span> : <span className="text-slate-400">Not scored</span>}
+                          <td className={`whitespace-nowrap px-3 py-3.5 text-[12px] text-slate-700 ${live.active(row.leadId)?.kind === "scored" ? "iip-flash" : ""}`}>
+                            {live.scoring(row) ? (
+                              <span className="inline-flex items-center gap-1.5 text-slate-500"><span className="iip-shimmer h-2 w-10 rounded-full" aria-hidden />Scoring</span>
+                            ) : row.triage ? (
+                              <span className="font-semibold tabular-nums text-[#0B1640]"><CountUp value={row.triage.score} /><span className="ml-1.5 font-normal text-slate-500">{row.triage.bandLabel}</span></span>
+                            ) : (
+                              <span className="text-slate-400">Not scored</span>
+                            )}
                           </td>
                           <td className="px-3 py-3.5 text-[12px] text-slate-700">{row.assignedOfficerName ?? "Unassigned"}</td>
                           <td className="whitespace-nowrap px-3 py-3.5 text-[12px] text-slate-600">{shortWhen(row.lastInteractionAt)}</td>

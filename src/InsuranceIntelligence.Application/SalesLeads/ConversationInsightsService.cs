@@ -54,7 +54,8 @@ public sealed class ConversationInsightsService(
     IToolCallingChatProvider model,
     IAgentActionLogRepository actionLogRepository,
     IAuditRepository auditRepository,
-    IAgentRunRecorder agentRunRecorder) : IConversationInsightsService
+    IAgentRunRecorder agentRunRecorder,
+    IProspectTriageService? triageService = null) : IConversationInsightsService
 {
     public const string AgentKey = "conversation-insights";
     private const string PromptVersion = "conversation-insights-v1";
@@ -208,6 +209,19 @@ public sealed class ConversationInsightsService(
             Insights = insights with { AgentActionLogId = actionLog.AgentActionLogId },
         };
         await leadWriteRepository.CreateAsync(scope.TenantId, scope.WorkspaceId, updated, cancellationToken);
+
+        // What the customer just said changes what is recorded, so the score moves with it.
+        if (triageService is not null)
+        {
+            try
+            {
+                await triageService.ScoreAsync(scope, updated.LeadId, actorId, cancellationToken);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // The reading is saved; the score is refreshed on the next message or by hand.
+            }
+        }
 
         await auditRepository.WriteAsync(
             new AuditEvent(

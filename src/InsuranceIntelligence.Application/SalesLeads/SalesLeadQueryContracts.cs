@@ -268,6 +268,10 @@ public interface IProspectTriageService
 {
     /// <summary>Scores every prospect in the workspace, or only the one named. Returns how many were scored.</summary>
     Task<TriageRunResult> RunAsync(string? leadId, CancellationToken cancellationToken = default);
+
+    /// <summary>The same scoring for a system caller with no signed-in user, such as the reading of a
+    /// customer's message that has just changed their record.</summary>
+    Task<TriageRunResult> ScoreAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string? leadId, string actorId, CancellationToken cancellationToken = default);
 }
 
 public sealed record TriageRunResult(int Scored, int Skipped, DateTimeOffset RanAt);

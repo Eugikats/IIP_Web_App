@@ -2,11 +2,12 @@
 // Ported from the CIP web app (AcquisitionKpiStrip, sparkline variant): label, then the number with its
 // trend line beside it. A trend is drawn only from a real series, otherwise the card says "No trend".
 
+import type { ReactNode } from "react";
 import CipMetricCard, { type TrendDirection } from "./CipMetricCard";
 
 export type AcquisitionKpiItem = {
   label: string;
-  value: string;
+  value: ReactNode;
   sparklineData?: number[];
   trendDirection?: TrendDirection;
   helper?: string;

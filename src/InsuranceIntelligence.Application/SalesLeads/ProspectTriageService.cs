@@ -5,6 +5,7 @@ using InsuranceIntelligence.Domain.Acquisition;
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Customers;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Policies;
@@ -34,20 +35,38 @@ public sealed class ProspectTriageService(
     {
         await permissionService.RequirePermissionAsync(Permission.ManageSalesLeads, cancellationToken);
         var context = tenantContextAccessor.Current;
+        var result = await ScoreAsync(context.Scope, leadId, context.UserId, cancellationToken);
+
+        await auditWriter.WriteAsync(
+            new AuditEvent(
+                Guid.NewGuid(), context.Scope, CaseId: null, DocumentId: null, UserId: context.UserId, ActorType.User, "prospect_triage.run",
+                result.RanAt, BeforeStatus: null, AfterStatus: null, EvidenceIds: [], ModelProvider: "ProspectTriage",
+                Confidence: null, ValidationResult: "recorded", ApprovalId: null,
+                AuditReason: $"Scored {result.Scored} prospects ({result.Skipped} with too little recorded to rank).",
+                CorrelationId: Guid.NewGuid().ToString("N")),
+            cancellationToken);
+
+        return result;
+    }
+
+    /// <summary>Scores without a signed-in user, for the moment a customer's message changes what is
+    /// recorded about them. Same rules, same stored result; recorded as a run of the agent.</summary>
+    public async Task<TriageRunResult> ScoreAsync(TenantScope scope, string? leadId, string actorId, CancellationToken cancellationToken = default)
+    {
         var now = DateTimeOffset.UtcNow;
 
-        var leads = await readRepository.ListLeadsAsync(context.TenantId, context.WorkspaceId, cancellationToken);
+        var leads = await readRepository.ListLeadsAsync(scope.TenantId, scope.WorkspaceId, cancellationToken);
         if (!string.IsNullOrWhiteSpace(leadId))
         {
             leads = leads.Where(lead => string.Equals(lead.LeadId, leadId.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
         }
 
         var profiles = ProductTargeting.ProfilesFor(KatoBrand.Current.Products);
-        var customers = customerRepository is null ? [] : (await customerRepository.ListAsync(context.Scope, cancellationToken)).ToArray();
-        var policies = policyRepository is null ? [] : (await policyRepository.ListAsync(context.Scope, cancellationToken)).ToArray();
+        var customers = customerRepository is null ? [] : (await customerRepository.ListAsync(scope, cancellationToken)).ToArray();
+        var policies = policyRepository is null ? [] : (await policyRepository.ListAsync(scope, cancellationToken)).ToArray();
         var documents = knowledgeRepository is null
             ? []
-            : (await knowledgeRepository.ListAsync(context.Scope, cancellationToken))
+            : (await knowledgeRepository.ListAsync(scope, cancellationToken))
                 .Where(document => document.IsActiveOn(DateOnly.FromDateTime(now.UtcDateTime)))
                 .ToArray();
 
@@ -86,24 +105,15 @@ public sealed class ProspectTriageService(
                 scored++;
             }
 
-            await writeRepository.CreateAsync(context.TenantId, context.WorkspaceId, lead with { Triage = triage }, cancellationToken);
+            await writeRepository.CreateAsync(scope.TenantId, scope.WorkspaceId, lead with { Triage = triage }, cancellationToken);
         }
-
-        await auditWriter.WriteAsync(
-            new AuditEvent(
-                Guid.NewGuid(), context.Scope, CaseId: null, DocumentId: null, UserId: context.UserId, ActorType.User, "prospect_triage.run",
-                now, BeforeStatus: null, AfterStatus: null, EvidenceIds: [], ModelProvider: "ProspectTriage",
-                Confidence: null, ValidationResult: "recorded", ApprovalId: null,
-                AuditReason: $"Scored {scored} prospects ({skipped} with too little recorded to rank).",
-                CorrelationId: Guid.NewGuid().ToString("N")),
-            cancellationToken);
 
         if (agentRunRecorder is not null)
         {
             await agentRunRecorder.RecordAsync(
-                context.Scope, AgentKey, string.IsNullOrWhiteSpace(leadId) ? "triage_all" : "triage_one",
+                scope, AgentKey, string.IsNullOrWhiteSpace(leadId) ? "triage_all" : "triage_one",
                 string.IsNullOrWhiteSpace(leadId) ? [] : [$"lead:{leadId.Trim()}"], AgentRunStatus.Completed, now,
-                Guid.NewGuid().ToString("N"), context.UserId, caseId: null, cancellationToken: cancellationToken);
+                Guid.NewGuid().ToString("N"), actorId, caseId: null, cancellationToken: cancellationToken);
         }
 
         return new TriageRunResult(scored, skipped, now);

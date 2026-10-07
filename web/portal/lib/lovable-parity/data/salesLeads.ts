@@ -171,14 +171,18 @@ export function useSalesLeads() {
   const [forbidden, setForbidden] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const load = useCallback(async () => {
+  /** `silent` refreshes in place for the live view: no loading state, and a failed poll keeps what is shown. */
+  const load = useCallback(async (silent?: boolean) => {
     if (LOVABLE_VISUAL_PARITY_MODE) return;
-    setLoading(true);
-    setError(null);
-    setForbidden(false);
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+      setForbidden(false);
+    }
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads`, { headers: scopedHeaders(role, ""), cache: "no-store" });
       if (response.status === 403) {
+        if (silent) return;
         setForbidden(true);
         setLeads([]);
         return;
@@ -186,14 +190,16 @@ export function useSalesLeads() {
       if (!response.ok) throw new Error("The prospect list could not be loaded.");
       setLeads((await response.json()) as SalesLeadView[]);
     } catch (err) {
+      if (silent) return;
       setError(err instanceof Error ? err.message : "The prospect list could not be loaded.");
       setLeads([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [role]);
 
   useEffect(() => { void load(); }, [load]);
+  const refresh = useCallback(() => load(true), [load]);
 
   const createLead = useCallback(async (input: CreateLeadInput): Promise<{ ok: boolean; message?: string }> => {
     if (LOVABLE_VISUAL_PARITY_MODE) return { ok: false, message: "Not available in the visual preview." };
@@ -272,7 +278,7 @@ export function useSalesLeads() {
     }
   }, [role, load]);
 
-  return { leads, loading, error, forbidden, creating, reload: load, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  return { leads, loading, error, forbidden, creating, reload: load, refresh, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, parityMode: LOVABLE_VISUAL_PARITY_MODE };
 }
 
 /**

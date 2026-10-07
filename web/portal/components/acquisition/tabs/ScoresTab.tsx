@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Download, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import CipStatusPill from "@/components/cip/CipStatusPill";
+import CountUp from "@/components/cip/CountUp";
 import type { SalesLeadView } from "@/lib/lovable-parity/data/salesLeads";
 import { KpiRow, ReportState, TableCard, downloadCsv, th } from "./ReportParts";
 
@@ -16,9 +17,9 @@ function bandTone(band: string): Tone {
 function ScoreMeter({ score }: { score: number }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-7 text-right text-[13px] font-bold tabular-nums text-[#0B1640]">{score}</span>
+      <span className="w-7 text-right text-[13px] font-bold tabular-nums text-[#0B1640]"><CountUp value={score} /></span>
       <span className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-slate-100 lg:block" aria-hidden>
-        <span className="block h-full rounded-full bg-[#1769FF]" style={{ width: `${Math.min(100, score)}%` }} />
+        <span className="block h-full rounded-full bg-[#1769FF] transition-[width] duration-700 ease-out" style={{ width: `${Math.min(100, score)}%` }} />
       </span>
     </div>
   );
