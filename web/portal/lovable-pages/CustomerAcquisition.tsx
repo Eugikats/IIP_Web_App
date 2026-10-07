@@ -12,6 +12,7 @@ import ProspectCharts from "@/components/cip/ProspectCharts";
 import AgentsTab from "@/components/acquisition/tabs/AgentsTab";
 import ChannelIntelligenceTab from "@/components/acquisition/tabs/ChannelIntelligenceTab";
 import EscalationsTab from "@/components/acquisition/tabs/EscalationsTab";
+import OutreachTab from "@/components/acquisition/tabs/OutreachTab";
 import ScoresTab from "@/components/acquisition/tabs/ScoresTab";
 import CountUp from "@/components/cip/CountUp";
 import { dailyCounts, trendDirection } from "@/components/cip/series";
@@ -41,6 +42,7 @@ const TABS = [
   { id: "prospects", label: "Prospects" },
   { id: "escalations", label: "Escalations" },
   { id: "scores", label: "Scores" },
+  { id: "outreach", label: "Outreach" },
   { id: "agents", label: "Agents" },
   { id: "channels", label: "Channel Intelligence" },
   { id: "charts", label: "Charts" },
@@ -107,7 +109,7 @@ function optionLabel(options: { label: string; value: string }[], value: string)
 }
 
 export default function CustomerAcquisition() {
-  const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, refresh } = useSalesLeads();
+  const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, refresh, draftOutreach, editOutreach, sendOutreach, sendOutreachMany, dismissOutreach } = useSalesLeads();
   const live = useLiveProspects(leads, refresh, true, presentationMode ? 3000 : 15000);
   const [tab, setTab] = useState<TabId>("prospects");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -235,6 +237,8 @@ export default function CustomerAcquisition() {
         <EscalationsTab onOpenLead={setOpenLeadId} />
       ) : tab === "scores" ? (
         <ScoresTab leads={leads} loading={loading} error={error} forbidden={forbidden} reload={reload} runTriage={runTriage} onOpenLead={setOpenLeadId} />
+      ) : tab === "outreach" ? (
+        <OutreachTab leads={leads} loading={loading} error={error} forbidden={forbidden} reload={reload} draftOutreach={draftOutreach} editOutreach={editOutreach} sendOutreach={sendOutreach} sendOutreachMany={sendOutreachMany} dismissOutreach={dismissOutreach} />
       ) : tab === "agents" ? (
         <AgentsTab runTriage={runTriage} />
       ) : tab === "channels" ? (
@@ -318,7 +322,7 @@ export default function CustomerAcquisition() {
               <>
                 {/* Desktop table */}
                 <div className="hidden overflow-x-auto lg:block">
-                  <table className="w-full min-w-[980px] text-left">
+                  <table className="w-full min-w-[1080px] text-left">
                     <thead>
                       <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                         <th className="px-5 py-3 font-semibold">Customer</th>
@@ -328,6 +332,7 @@ export default function CustomerAcquisition() {
                         <th className="px-3 py-3 font-semibold">Product interest</th>
                         <th className="px-3 py-3 font-semibold">Stage</th>
                         <th className="px-3 py-3 font-semibold">Score</th>
+                        <th className="px-3 py-3 font-semibold">Message</th>
                         <th className="px-3 py-3 font-semibold">Assigned officer</th>
                         <th className="px-3 py-3 font-semibold">Last interaction</th>
                         <th className="px-3 py-3 pr-4 font-semibold">Action</th>
@@ -362,6 +367,9 @@ export default function CustomerAcquisition() {
                             ) : (
                               <span className="text-slate-400">Not scored</span>
                             )}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3.5 text-[12px] text-slate-700">
+                            {row.latestOutreach ? <CipStatusPill tone={row.latestOutreach.status === "Sent" ? "success" : row.latestOutreach.status === "Blocked" ? "danger" : row.latestOutreach.status === "DemoSent" ? "info" : "warning"}>{row.latestOutreach.status === "DemoSent" ? "Demo sent" : row.latestOutreach.status === "Blocked" ? "Could not send" : row.latestOutreach.status === "Sent" ? "Sent" : "Ready to review"}</CipStatusPill> : <span className="text-slate-400">None</span>}
                           </td>
                           <td className="px-3 py-3.5 text-[12px] text-slate-700">{row.assignedOfficerName ?? "Unassigned"}</td>
                           <td className="whitespace-nowrap px-3 py-3.5 text-[12px] text-slate-600">{shortWhen(row.lastInteractionAt)}</td>

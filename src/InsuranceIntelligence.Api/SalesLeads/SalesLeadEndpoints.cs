@@ -155,6 +155,43 @@ public static class SalesLeadEndpoints
         CancellationToken cancellationToken) =>
         RunTriage(null, triage, tenantContextAccessor, agentGate, cancellationToken);
 
+    public sealed record DraftOutreachRequest(IReadOnlyList<string>? LeadIds);
+
+    public sealed record EditOutreachRequest(string? Text);
+
+    public sealed record SendOutreachRequest(IReadOnlyList<OutreachRef>? Drafts);
+
+    public static Task<IResult> DraftOutreach(DraftOutreachRequest? request, IOutreachService outreach, CancellationToken cancellationToken) =>
+        OutreachCall(async () => Results.Ok(await outreach.DraftAsync(request?.LeadIds, cancellationToken)));
+
+    public static Task<IResult> SendOutreachMany(SendOutreachRequest request, IOutreachService outreach, CancellationToken cancellationToken) =>
+        OutreachCall(async () => Results.Ok(await outreach.SendManyAsync(request.Drafts ?? [], cancellationToken)));
+
+    public static Task<IResult> SendOutreach(string leadId, Guid draftId, IOutreachService outreach, CancellationToken cancellationToken) =>
+        OutreachCall(async () => Results.Ok(await outreach.SendAsync(leadId, draftId, cancellationToken)));
+
+    public static Task<IResult> EditOutreach(string leadId, Guid draftId, EditOutreachRequest request, IOutreachService outreach, CancellationToken cancellationToken) =>
+        OutreachCall(async () => await outreach.EditAsync(leadId, draftId, request.Text ?? string.Empty, cancellationToken) is { } draft
+            ? Results.Ok(InsuranceIntelligence.Application.SalesLeads.SalesLeadQueryService.OutreachDtoFor(draft))
+            : Results.NotFound(new { message = "This message cannot be edited: it is not in this workspace or has already gone out." }));
+
+    public static Task<IResult> DismissOutreach(string leadId, Guid draftId, IOutreachService outreach, CancellationToken cancellationToken) =>
+        OutreachCall(async () => await outreach.DismissAsync(leadId, draftId, cancellationToken)
+            ? Results.NoContent()
+            : Results.NotFound(new { message = "This message cannot be dismissed: it is not in this workspace or has already gone out." }));
+
+    private static async Task<IResult> OutreachCall(Func<Task<IResult>> call)
+    {
+        try
+        {
+            return await call();
+        }
+        catch (SalesLeadQueryValidationException ex)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { [ex.Field] = [ex.Message] });
+        }
+    }
+
     public static async Task<IResult> GetByThread(string threadId, ISalesLeadQueryService queryService, CancellationToken cancellationToken)
     {
         try

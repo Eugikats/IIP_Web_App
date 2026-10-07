@@ -132,6 +132,9 @@ public sealed record SalesLeadDetailReadModel(
     /// <summary>The latest score and the two covers that fit best, from the triage agent. Null until
     /// the prospect has been scored.</summary>
     public ProspectTriage? Triage { get; init; }
+
+    /// <summary>Messages prepared for this person, newest last, and what became of each.</summary>
+    public IReadOnlyList<OutreachDraft> Outreach { get; init; } = [];
 }
 
 /// <summary>What the conversation insights agent made of a conversation. Every point carries the tags
@@ -201,6 +204,8 @@ public sealed record SalesLeadDetailDto(
 
     public LeadTriageDto? Triage { get; init; }
 
+    public IReadOnlyList<OutreachDraftDto> Outreach { get; init; } = [];
+
     /// <summary>True when the conversation has moved on since the insights were prepared.</summary>
     public bool InsightsStale { get; init; }
 }
@@ -210,6 +215,18 @@ public sealed record LeadFactDto(string Key, string Label, string Value, string 
 public sealed record LeadInterestDto(string Product, string Strength, string StrengthLabel, string Reason, DateTimeOffset RecordedAt);
 
 public sealed record LeadConsentDto(string Status, string StatusLabel, DateTimeOffset? At, string? Wording, string? Channel);
+
+public sealed record OutreachDraftDto(
+    Guid DraftId,
+    string Kind,
+    string Text,
+    string? Product,
+    string? Insurer,
+    string Status,
+    string StatusLabel,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? DecidedAt,
+    string? BlockedReason);
 
 public sealed record LeadFitDto(string Product, string ProductLine, string Insurer, int Score, IReadOnlyList<string> Reasons, string? CitationTitle, Guid? CitationDocumentId);
 
@@ -248,6 +265,10 @@ public sealed record SalesLeadListItemDto(
     public bool? BankCustomer { get; init; }
     public string BankCustomerLabel { get; init; } = "Not known";
     public LeadTriageDto? Triage { get; init; }
+
+    /// <summary>The newest message prepared for this person that has not been dismissed, so the table
+    /// can show what is waiting for approval and what went out.</summary>
+    public OutreachDraftDto? LatestOutreach { get; init; }
 
     /// <summary>The WhatsApp conversation, so a row can open it. Null for leads with no conversation.</summary>
     public string? ConversationId { get; init; }

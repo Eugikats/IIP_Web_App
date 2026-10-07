@@ -127,6 +127,7 @@ public sealed class SalesLeadQueryService(
                     BankCustomerLabel = BankCustomerLabel(lead.BankCustomer),
                     ConversationId = string.IsNullOrWhiteSpace(lead.ThreadId) ? null : lead.ThreadId,
                     Triage = TriageDto(lead.Triage),
+                    LatestOutreach = lead.Outreach.Where(draft => draft.Status != OutreachStatus.Dismissed).OrderByDescending(draft => draft.CreatedAt).Select(OutreachDto).FirstOrDefault(),
                 };
             })
             .ToArray();
@@ -206,9 +207,16 @@ public sealed class SalesLeadQueryService(
             Policies = lookup.PoliciesFor(lead.Phone ?? lead.ContactInfo),
             Insights = lead.Insights,
             Triage = TriageDto(lead.Triage),
+            Outreach = lead.Outreach.OrderByDescending(draft => draft.CreatedAt).Select(OutreachDto).ToArray(),
             InsightsStale = customerTurns > 0 && (lead.Insights is null || lead.Insights.MessageCount < customerTurns),
         };
     }
+
+    public static OutreachDraftDto OutreachDtoFor(OutreachDraft draft) => OutreachDto(draft);
+
+    internal static OutreachDraftDto OutreachDto(OutreachDraft draft) => new(
+        draft.DraftId, draft.Kind.ToString(), draft.Text, draft.Product, draft.Insurer, draft.Status.ToString(),
+        OutreachService.Label(draft.Status), draft.CreatedAt, draft.DecidedAt, draft.BlockedReason);
 
     internal static LeadTriageDto? TriageDto(ProspectTriage? triage) => triage is null
         ? null

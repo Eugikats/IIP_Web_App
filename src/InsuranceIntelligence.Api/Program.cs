@@ -379,6 +379,10 @@ builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IConversationControlService, InsuranceIntelligence.Application.CustomerAssistant.ConversationControlService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
 builder.Services.AddScoped<IProspectTriageService, ProspectTriageService>();
+// A message that cannot reach a real phone may be recorded as a clearly labelled demonstration send, but
+// only where the runtime profile is not protected. In Staging and Production it is blocked, never faked.
+builder.Services.AddSingleton(new OutreachOptions(!AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile)));
+builder.Services.AddScoped<IOutreachService, OutreachService>();
 builder.Services.AddScoped<IAcquisitionReportService, AcquisitionReportService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Brief.IBriefService, InsuranceIntelligence.Application.Brief.BriefService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQueryService, InsuranceIntelligence.Application.Products.ProductQueryService>();
@@ -930,6 +934,16 @@ app.MapGet("/api/v1/acquisition/agents", async (IAcquisitionReportService report
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/acquisition/channel-intelligence", async (IAcquisitionReportService reports, CancellationToken ct) => Results.Ok(await reports.ChannelIntelligenceAsync(ct)))
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapPost("/api/v1/sales-leads/outreach/draft", SalesLeadEndpoints.DraftOutreach)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/outreach/send", SalesLeadEndpoints.SendOutreachMany)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPut("/api/v1/sales-leads/{leadId}/outreach/{draftId:guid}", SalesLeadEndpoints.EditOutreach)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/{leadId}/outreach/{draftId:guid}/send", SalesLeadEndpoints.SendOutreach)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/sales-leads/{leadId}/outreach/{draftId:guid}/dismiss", SalesLeadEndpoints.DismissOutreach)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapPost("/api/v1/sales-leads/triage", SalesLeadEndpoints.RunTriageForAll)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapPost("/api/v1/sales-leads/{leadId}/triage", SalesLeadEndpoints.RunTriageForLead)

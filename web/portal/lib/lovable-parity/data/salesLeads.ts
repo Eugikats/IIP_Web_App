@@ -13,6 +13,21 @@ export type LeadStage = "New" | "GettingToKnow" | "Interested" | "Considering" |
 export type LeadRelationship = "NewToInsurer" | "Registered" | "ExistingCustomer";
 export type ConsentStatus = "NotRecorded" | "Agreed" | "Declined" | "Withdrawn";
 
+export type OutreachStatus = "Draft" | "Edited" | "Sent" | "Blocked" | "DemoSent" | "Dismissed";
+export type OutreachDraft = {
+  draftId: string;
+  kind: string;
+  text: string;
+  product: string | null;
+  insurer: string | null;
+  status: OutreachStatus;
+  statusLabel: string;
+  createdAt: string;
+  decidedAt: string | null;
+  blockedReason: string | null;
+};
+export type OutreachSendResult = { leadId: string; draftId: string; status: string; statusLabel: string; reason: string | null };
+
 export type LeadFit = { product: string; productLine: string; insurer: string; score: number; reasons: string[]; citationTitle: string | null; citationDocumentId: string | null };
 export type LeadTriage = {
   score: number;
@@ -48,6 +63,7 @@ export type SalesLeadView = {
   bankCustomerLabel: string;
   conversationId: string | null;
   triage: LeadTriage | null;
+  latestOutreach: OutreachDraft | null;
 };
 
 export type CreateLeadInput = {
@@ -122,6 +138,7 @@ export type SalesLeadDetail = {
   insights: ConversationInsights | null;
   insightsStale: boolean;
   triage: LeadTriage | null;
+  outreach: OutreachDraft[];
 };
 
 export type LeadResult = { ok: true; detail: SalesLeadDetail } | { ok: false; message: string; status?: number };
@@ -149,6 +166,7 @@ const PARITY: SalesLeadView[] = mockLeads.map((l) => ({
   bankCustomerLabel: "Not known",
   conversationId: null,
   triage: null,
+  latestOutreach: null,
 }));
 
 async function readMessage(response: Response, fallback: string): Promise<string> {
@@ -278,7 +296,36 @@ export function useSalesLeads() {
     }
   }, [role, load]);
 
-  return { leads, loading, error, forbidden, creating, reload: load, refresh, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  const outreachCall = useCallback(async <T,>(path: string, init: RequestInit, fallback: string): Promise<{ ok: true; data: T } | { ok: false; message: string }> => {
+    if (LOVABLE_VISUAL_PARITY_MODE) return { ok: false, message: "Not available in the visual preview." };
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads/${path}`, {
+        ...init,
+        headers: { ...scopedHeaders(role, ""), ...(init.body ? { "Content-Type": "application/json" } : {}) },
+        cache: "no-store",
+      });
+      if (response.status === 403) return { ok: false, message: "You do not have permission to do this." };
+      if (!response.ok) return { ok: false, message: await readMessage(response, fallback) };
+      const data = response.status === 204 ? (null as T) : ((await response.json()) as T);
+      await load(true);
+      return { ok: true, data };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : fallback };
+    }
+  }, [role, load]);
+
+  const draftOutreach = useCallback((leadIds?: string[]) =>
+    outreachCall<{ drafted: number; skipped: number }>("outreach/draft", { method: "POST", body: JSON.stringify({ leadIds: leadIds ?? null }) }, "The messages could not be drafted."), [outreachCall]);
+  const editOutreach = useCallback((leadId: string, draftId: string, text: string) =>
+    outreachCall<OutreachDraft>(`${encodeURIComponent(leadId)}/outreach/${draftId}`, { method: "PUT", body: JSON.stringify({ text }) }, "The message could not be saved."), [outreachCall]);
+  const sendOutreach = useCallback((leadId: string, draftId: string) =>
+    outreachCall<OutreachSendResult>(`${encodeURIComponent(leadId)}/outreach/${draftId}/send`, { method: "POST" }, "The message could not be sent."), [outreachCall]);
+  const sendOutreachMany = useCallback((drafts: { leadId: string; draftId: string }[]) =>
+    outreachCall<OutreachSendResult[]>("outreach/send", { method: "POST", body: JSON.stringify({ drafts }) }, "The messages could not be sent."), [outreachCall]);
+  const dismissOutreach = useCallback((leadId: string, draftId: string) =>
+    outreachCall<null>(`${encodeURIComponent(leadId)}/outreach/${draftId}/dismiss`, { method: "POST" }, "The message could not be dismissed."), [outreachCall]);
+
+  return { leads, loading, error, forbidden, creating, reload: load, refresh, draftOutreach, editOutreach, sendOutreach, sendOutreachMany, dismissOutreach, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, parityMode: LOVABLE_VISUAL_PARITY_MODE };
 }
 
 /**
