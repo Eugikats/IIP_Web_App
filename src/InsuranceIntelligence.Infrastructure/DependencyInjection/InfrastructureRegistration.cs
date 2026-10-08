@@ -328,6 +328,8 @@ public static class InfrastructureRegistration
             EntraAudience = configuration["INSURANCEINTELLIGENCE_ENTRA_AUDIENCE"],
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
             ExternalIdAuthority = configuration["INSURANCEINTELLIGENCE_EXTERNAL_ID_AUTHORITY"],
+            ExternalIdClientId = configuration["INSURANCEINTELLIGENCE_EXTERNAL_ID_CLIENT_ID"],
+            ExternalIdAudience = configuration["INSURANCEINTELLIGENCE_EXTERNAL_ID_AUDIENCE"],
             DataProtectionBlobUri = configuration["INSURANCEINTELLIGENCE_DATAPROTECTION_BLOB_URI"],
             DataProtectionKeyUri = configuration["INSURANCEINTELLIGENCE_DATAPROTECTION_KEY_URI"],
             ClientPortalBaseUrl = configuration["INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL"],

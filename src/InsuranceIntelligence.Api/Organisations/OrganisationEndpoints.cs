@@ -8,7 +8,8 @@ using InsuranceIntelligence.Infrastructure.Configuration;
 
 namespace InsuranceIntelligence.Api.Organisations;
 
-public sealed record CreateOrganisationRequest(string? Name, string? Type);
+public sealed record CreateOrganisationRequest(string? Name, string? Type, string? Product = null);
+public sealed record AdoptTenantRequest(string? Name, string? Type = null, string? Product = null);
 public sealed record InviteRequest(string? Email, string? Role);
 public sealed record AcceptInvitationRequest(string? Token);
 public sealed record LinkRequest(string? OrganisationId);
@@ -36,8 +37,39 @@ public static class OrganisationEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["type"] = ["Choose Insurer or Broker."] });
             }
 
-            var organisation = await service.CreateAsync(userId, request.Name ?? string.Empty, type, CorrelationId(httpContext), cancellationToken);
+            var product = OrganisationProduct.Insurance;
+            if (!string.IsNullOrWhiteSpace(request.Product) && !Enum.TryParse(request.Product, ignoreCase: true, out product))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["product"] = ["Choose Insurance or Bancassurance."] });
+            }
+
+            var organisation = await service.CreateAsync(userId, request.Name ?? string.Empty, type, CorrelationId(httpContext), cancellationToken, product);
             return Results.Created($"/api/v1/organisations/{organisation.OrganisationId}", Describe(organisation));
+        });
+
+    /// <summary>Registers the workspace the caller is signed in to as an organisation, keeping all its data in
+    /// place. Used once, when a deployment that predates organisations switches to multi-tenant mode.</summary>
+    public static Task<IResult> AdoptCurrentTenant(
+        AdoptTenantRequest request, OrganisationService service, InsuranceIntelligence.Application.Core.ITenantContextAccessor tenantContext,
+        HttpContext httpContext, CancellationToken cancellationToken) =>
+        Run(async () =>
+        {
+            var type = OrganisationType.Insurer;
+            if (!string.IsNullOrWhiteSpace(request.Type) && !Enum.TryParse(request.Type, ignoreCase: true, out type))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["type"] = ["Choose Insurer or Broker."] });
+            }
+
+            var product = OrganisationProduct.Insurance;
+            if (!string.IsNullOrWhiteSpace(request.Product) && !Enum.TryParse(request.Product, ignoreCase: true, out product))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["product"] = ["Choose Insurance or Bancassurance."] });
+            }
+
+            var context = tenantContext.Current;
+            var organisation = await service.AdoptExistingTenantAsync(
+                context.Scope, context.UserId, request.Name ?? string.Empty, type, product, CorrelationId(httpContext), cancellationToken);
+            return Results.Ok(Describe(organisation));
         });
 
     /// <summary>The organisations this person can act in: their own, and insurers their broker works with.</summary>
@@ -211,6 +243,7 @@ public static class OrganisationEndpoints
         type = organisation.Type.ToString(),
         workspaceId = organisation.DefaultWorkspaceId,
         organisation.PlanId,
+        product = organisation.Product.ToString(),
     };
 
     private static string CorrelationId(HttpContext httpContext) => httpContext.TraceIdentifier;

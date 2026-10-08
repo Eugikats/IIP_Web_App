@@ -168,6 +168,13 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
+                    b.Property<string>("Product")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Insurance");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)

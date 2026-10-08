@@ -26,6 +26,20 @@ public sealed record InfrastructureOptions
     /// https://contoso.ciamlogin.com/{tenant-id}/v2.0. Used when AuthMode is EntraExternalId.</summary>
     public string? ExternalIdAuthority { get; init; }
 
+    /// <summary>The app registration in the External ID tenant (its client id, which is also the token
+    /// audience unless ExternalIdAudience says otherwise). When this and ExternalIdAuthority are set while
+    /// AuthMode is Entra, people can sign in with a work account or through External ID (Google, email code),
+    /// as CIP does.</summary>
+    public string? ExternalIdClientId { get; init; }
+
+    public string? ExternalIdAudience { get; init; }
+
+    /// <summary>True when both kinds of sign-in are accepted: Microsoft work accounts and External ID.</summary>
+    public bool AcceptsExternalIdAlongsideEntra =>
+        AuthMode.Equals("Entra", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(ExternalIdAuthority)
+        && !string.IsNullOrWhiteSpace(ExternalIdClientId);
+
     /// <summary>Where the key ring that encrypts stored credentials lives (an Azure Blob URI), and the
     /// Key Vault key that wraps it. With both set, every instance shares one ring and no key sits on
     /// the web server's disk. Required in multi-tenant mode.</summary>

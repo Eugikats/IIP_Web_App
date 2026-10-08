@@ -19,6 +19,7 @@ public sealed class EfOrganisationRepository(InsuranceIntelligenceDbContext db) 
             CreatedByUserId = organisation.CreatedByUserId,
             CreatedAt = organisation.CreatedAt,
             MarketplaceSubscriptionId = organisation.MarketplaceSubscriptionId,
+            Product = organisation.Product.ToString(),
         });
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -145,7 +146,8 @@ public sealed class EfOrganisationRepository(InsuranceIntelligenceDbContext db) 
 
     private static Organisation ToDomain(OrganisationEntity e) => new(
         e.OrganisationId, e.Name, Enum.Parse<OrganisationType>(e.Type), e.DefaultWorkspaceId, e.Status, e.PlanId,
-        e.CreatedByUserId, e.CreatedAt, e.MarketplaceSubscriptionId);
+        e.CreatedByUserId, e.CreatedAt, e.MarketplaceSubscriptionId,
+        Enum.TryParse<OrganisationProduct>(e.Product, out var product) ? product : OrganisationProduct.Insurance);
 
     private static OrganisationInvitationEntity ToEntity(OrganisationInvitation i) => new()
     {

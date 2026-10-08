@@ -218,6 +218,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
             entity.Property(item => item.PlanId).HasMaxLength(60).IsRequired();
             entity.Property(item => item.CreatedByUserId).HasMaxLength(240).IsRequired();
             entity.Property(item => item.MarketplaceSubscriptionId).HasMaxLength(120);
+            entity.Property(item => item.Product).HasMaxLength(30).IsRequired().HasDefaultValue("Insurance");
             entity.HasIndex(item => item.OrganisationId).IsUnique();
             entity.HasIndex(item => item.CreatedByUserId);
             entity.HasIndex(item => item.MarketplaceSubscriptionId);

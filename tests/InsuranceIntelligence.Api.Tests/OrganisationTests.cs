@@ -208,4 +208,44 @@ public sealed class OrganisationTests : IDisposable
         UpdatedAt = DateTimeOffset.UtcNow,
         CorrelationId = "c",
     };
+
+    [Fact]
+    public async Task SigningUp_ForBancassurance_KeepsTheProduct_AndItReadsBack()
+    {
+        var organisation = await service.CreateAsync("owner-bank", "Mavuno Test Bank", OrganisationType.Insurer, "corr", default, OrganisationProduct.Bancassurance);
+
+        var stored = await new EfOrganisationRepository(db).GetAsync(organisation.OrganisationId);
+        Assert.Equal(OrganisationProduct.Bancassurance, stored!.Product);
+    }
+
+    [Fact]
+    public async Task SigningUp_WithoutAProduct_IsInsurance()
+    {
+        var organisation = await NewInsurerAsync();
+
+        Assert.Equal(OrganisationProduct.Insurance, (await new EfOrganisationRepository(db).GetAsync(organisation.OrganisationId))!.Product);
+    }
+
+    [Fact]
+    public async Task AnExistingTenant_IsAdoptedUnderItsOwnId_InItsOwnWorkspace_AndAdoptingAgainChangesNothing()
+    {
+        var scope = TenantScope.Create("dcb0b132-fb9e-475c-a68e-b0671222e8d8", "workspace-operations");
+
+        var first = await service.AdoptExistingTenantAsync(scope, "admin-1", "Otic Demo", OrganisationType.Insurer, OrganisationProduct.Bancassurance, "corr");
+        var second = await service.AdoptExistingTenantAsync(scope, "admin-1", "Another name", OrganisationType.Broker, OrganisationProduct.Insurance, "corr");
+
+        Assert.Equal(scope.TenantId, first.OrganisationId);
+        Assert.Equal("workspace-operations", first.DefaultWorkspaceId);
+        Assert.Equal(OrganisationProduct.Bancassurance, first.Product);
+        Assert.Equal("Otic Demo", second.Name);
+        Assert.Single(await db.Organisations.ToListAsync());
+    }
+
+    [Fact]
+    public async Task AdoptingATenant_NeedsAName()
+    {
+        var scope = TenantScope.Create("tenant-x", "main");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => service.AdoptExistingTenantAsync(scope, "admin-1", " ", OrganisationType.Insurer, OrganisationProduct.Insurance, "corr"));
+    }
 }

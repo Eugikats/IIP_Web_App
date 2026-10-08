@@ -12,6 +12,7 @@ public sealed class OrganisationEntity
     public string CreatedByUserId { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; }
     public string? MarketplaceSubscriptionId { get; set; }
+    public string Product { get; set; } = nameof(InsuranceIntelligence.Domain.Organisations.OrganisationProduct.Insurance);
 }
 
 public sealed class OrganisationInvitationEntity

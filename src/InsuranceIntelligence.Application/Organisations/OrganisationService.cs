@@ -63,7 +63,8 @@ public sealed class OrganisationService(
     // ---- Sign-up
 
     public async Task<Organisation> CreateAsync(
-        string userId, string name, OrganisationType type, string correlationId, CancellationToken cancellationToken = default)
+        string userId, string name, OrganisationType type, string correlationId, CancellationToken cancellationToken = default,
+        OrganisationProduct product = OrganisationProduct.Insurance)
     {
         RequireUser(userId);
         var cleanName = string.Join(' ', (name ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim();
@@ -80,11 +81,43 @@ public sealed class OrganisationService(
         var now = DateTimeOffset.UtcNow;
         var organisation = new Organisation(
             $"org-{Guid.NewGuid():N}"[..16], cleanName, type, Organisation.DefaultWorkspace,
-            Organisation.ActiveStatus, Organisation.TrialPlan, userId, now);
+            Organisation.ActiveStatus, Organisation.TrialPlan, userId, now, Product: product);
         await repository.AddAsync(organisation, cancellationToken);
         await membershipWriter.GrantMembershipAsync(
             organisation.OrganisationId, organisation.DefaultWorkspaceId, userId, nameof(PlatformRole.Admin), cancellationToken);
-        await AuditAsync(organisation.Scope, userId, "organisation.created", [organisation.OrganisationId], $"{type} organisation created.", correlationId, cancellationToken);
+        await AuditAsync(organisation.Scope, userId, "organisation.created", [organisation.OrganisationId], $"{type} organisation created for IIP for {product}.", correlationId, cancellationToken);
+        return organisation;
+    }
+
+    /// <summary>
+    /// Makes a tenant that existed before organisations (the field-test workspace) into an organisation,
+    /// without moving or copying any data: the organisation's id is the tenant id its records are already
+    /// stored under. Safe to run again. Existing memberships keep working because they are already stored
+    /// against that tenant.
+    /// </summary>
+    public async Task<Organisation> AdoptExistingTenantAsync(
+        TenantScope scope, string userId, string name, OrganisationType type, OrganisationProduct product, string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        RequireUser(userId);
+        var existing = await repository.GetAsync(scope.TenantId, cancellationToken);
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var cleanName = string.Join(' ', (name ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim();
+        if (cleanName.Length is < 2 or > 100 || cleanName.Any(char.IsControl))
+        {
+            throw OrganisationException.Invalid("Give the organisation a name of 2 to 100 characters.");
+        }
+
+        var organisation = new Organisation(
+            scope.TenantId, cleanName, type, scope.WorkspaceId, Organisation.ActiveStatus, Organisation.TrialPlan, userId,
+            DateTimeOffset.UtcNow, Product: product);
+        await repository.AddAsync(organisation, cancellationToken);
+        await AuditAsync(scope, userId, "organisation.adopted_existing_tenant", [organisation.OrganisationId],
+            $"Existing tenant registered as the organisation '{cleanName}'. No data was moved.", correlationId, cancellationToken);
         return organisation;
     }
 

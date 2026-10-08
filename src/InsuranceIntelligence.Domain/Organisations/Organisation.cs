@@ -8,6 +8,14 @@ public enum OrganisationType
     Broker,
 }
 
+/// <summary>Which IIP product an organisation signed up for. Both run on the same platform today; the
+/// choice is kept so the product can be shaped for each later.</summary>
+public enum OrganisationProduct
+{
+    Insurance,
+    Bancassurance,
+}
+
 /// <summary>
 /// An insurer or a broker that signed up. Its id is the tenant id everything it owns is stored
 /// under, so "which organisation is this?" and "which tenant is this?" are the same question.
@@ -21,7 +29,8 @@ public sealed record Organisation(
     string PlanId,
     string CreatedByUserId,
     DateTimeOffset CreatedAt,
-    string? MarketplaceSubscriptionId = null)
+    string? MarketplaceSubscriptionId = null,
+    OrganisationProduct Product = OrganisationProduct.Insurance)
 {
     public const string ActiveStatus = "Active";
     public const string SuspendedStatus = "Suspended";

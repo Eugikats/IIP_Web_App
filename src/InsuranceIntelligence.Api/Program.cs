@@ -138,7 +138,9 @@ if (infrastructureOptions.MultiTenant && !infrastructureOptions.AuthMode.Equals(
             options.ForwardDefaultSelector = context =>
                 context.Request.Headers.ContainsKey(InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.HeaderName)
                     ? InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.Scheme
-                    : JwtBearerDefaults.AuthenticationScheme;
+                    : infrastructureOptions.AcceptsExternalIdAlongsideEntra && InsuranceIntelligence.Api.Auth.TokenIssuer.IsExternalId(context)
+                        ? InsuranceIntelligence.Api.Auth.TokenIssuer.ExternalIdScheme
+                        : JwtBearerDefaults.AuthenticationScheme;
         })
         .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler>(
             InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.Scheme, _ => { });
@@ -260,6 +262,29 @@ else if (infrastructureOptions.AuthMode.Equals("EntraExternalId", StringComparis
 else
 {
     builder.Services.AddAuthentication();
+}
+
+// Work accounts and External ID (Google, email code) side by side, as CIP does: the External ID tenant's
+// tokens are checked against that tenant's own metadata under a second scheme, and the routing above sends
+// each token to the scheme of the directory that issued it. Work-account checking is unchanged.
+if (infrastructureOptions.AcceptsExternalIdAlongsideEntra)
+{
+    var externalIdClientId = infrastructureOptions.ExternalIdClientId!;
+    var externalIdAudience = string.IsNullOrWhiteSpace(infrastructureOptions.ExternalIdAudience) ? externalIdClientId : infrastructureOptions.ExternalIdAudience;
+    builder.Services
+        .AddAuthentication()
+        .AddJwtBearer(InsuranceIntelligence.Api.Auth.TokenIssuer.ExternalIdScheme, jwt =>
+        {
+            jwt.Authority = infrastructureOptions.ExternalIdAuthority;
+            jwt.Audience = externalIdAudience;
+            jwt.RequireHttpsMetadata = true;
+            jwt.TokenValidationParameters.ValidateIssuer = true;
+            jwt.TokenValidationParameters.ValidateAudience = true;
+            jwt.TokenValidationParameters.ValidAudiences = new[] { externalIdAudience, externalIdClientId }.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            jwt.TokenValidationParameters.ValidateLifetime = true;
+            jwt.TokenValidationParameters.ValidateIssuerSigningKey = true;
+            jwt.TokenValidationParameters.ClockSkew = TimeSpan.FromMinutes(2);
+        });
 }
 
 // In-memory storage is permitted only for developer-machine execution, so the team can run
@@ -733,6 +758,8 @@ app.MapGet("/api/v1/me", RuntimeContextEndpoints.GetMe);
 
 // SaaS: sign-up, invitations, broker/insurer links. See docs/01-strategy-requirements-roadmap/IIP_SAAS_BUILD_PLAN.md.
 app.MapPost("/api/v1/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Create).RequireRateLimiting("signup");
+app.MapPost("/api/v1/admin/organisations/adopt-current-tenant", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.AdoptCurrentTenant)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/me/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Mine);
 app.MapPost("/api/v1/invitations/accept", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Accept).RequireRateLimiting("join");
 app.MapGet("/api/v1/organisation/invitations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ListInvitations);
