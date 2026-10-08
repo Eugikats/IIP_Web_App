@@ -4,6 +4,8 @@ Everything the code can do without a cloud account is built and tested locally o
 
 ## 1. Environment (new, separate from the field test `rg-iip-dev`)
 
+> Update 2026-10-08: the owner has decided to reuse the resources in `rg-iip-dev` instead of creating new ones. The plan, its risks and the order of work are in `IIP_SAAS_CUTOVER_ON_EXISTING_RESOURCES.md`. The list below still describes what a clean environment would need.
+
 - [ ] New Azure subscription or resource group, region chosen against Uganda data-residency advice (section 7).
 - [ ] Azure SQL (pooled, one database for all organisations), App Service or Container App for the API, hosting for the portal, Functions app for timers, Application Insights.
 - [ ] Run the migrations on the new database (`dotnet ef database update` from the Api project, or the generated script reviewed first).
