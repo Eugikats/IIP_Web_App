@@ -5,7 +5,7 @@ import { ArrowRight, AlertTriangle, Check, Loader2, LockKeyhole, ShieldCheck } f
 import { useNavigate } from "@/components/iip/NextRouterCompat";
 import iipLogo from "@/assets/iip-logo";
 import { canUseEntraBrowserAuth, canUseLocalTestDoubles, runtimeProfile } from "@/lib/config";
-import { getEntraApiAccessToken } from "@/lib/entraAuth";
+import { describeSignInError, getEntraApiAccessToken } from "@/lib/entraAuth";
 
 function environmentLabel() {
   if (runtimeProfile.toLowerCase() === "managedapplicationreviewer") return "Reviewer environment";
@@ -27,8 +27,8 @@ export default function Login() {
       }
       const token = await getEntraApiAccessToken();
       if (token) navigate("/app");
-    } catch {
-      setError("Sign-in could not be completed. Try again or contact your IIP administrator.");
+    } catch (failure) {
+      setError(describeSignInError(failure));
       setSigningIn(false);
     }
   }
