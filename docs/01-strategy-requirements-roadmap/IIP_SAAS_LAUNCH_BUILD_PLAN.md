@@ -6,6 +6,8 @@ The landing page comes first: without it there is nothing to sign up from.
 
 ## Phase 1: landing page and the two front doors
 
+Status 2026-10-08: done.
+
 1. **Landing page at `/`**, built from CIP's marketing components (navigation, footer, section headings, reveal animation, container) with IIP wording. Sections: what IIP does, the two products, how it works, why it is safe, and a final sign-up prompt.
 2. **Two products on the page and at sign-up:** IIP for Insurance (claims, documents, service standards, fraud signals, audit) and IIP for Bancassurance (prospect scoring, recommended covers, approved outreach, follow-ups). For now both sign up into the same system.
 3. **Sign-up page at `/signup`:** the person picks Insurance or Bancassurance, and the choice is carried into sign-in and, in Phase 2, onto the organisation.
@@ -15,6 +17,8 @@ The landing page comes first: without it there is nothing to sign up from.
 7. **Checked:** type check, lint, production build, and the page opened in a browser at desktop and phone width.
 
 ## Phase 2: sign-in and sign-up that work end to end
+
+Status 2026-10-09: built in code and tested; needs the sign-in directory set up before it works live. See `docs/05-deployment-release-enablement/IIP_SAAS_ACTIVATION_CHECKLIST.md`.
 
 1. **Sign-in options:** Microsoft (work accounts), Google and email code, by porting CIP's sign-in code (`lib/auth/*` and its login screen). CIP uses Microsoft Entra for work accounts and an Entra External ID directory for Google and email.
 2. **One sign-in directory for both products:** an IIP app registration in the same External ID directory CIP uses. This needs someone with admin rights in that directory.
