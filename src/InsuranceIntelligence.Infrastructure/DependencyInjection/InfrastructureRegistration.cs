@@ -245,7 +245,8 @@ public static class InfrastructureRegistration
         // Single-tenant deployments never read the organisations table on the sign-in path, so the code can be
         // deployed before its migration is applied.
         services.AddScoped<IPermissionReadRepository>(provider => new EfPermissionReadRepository(
-            provider.GetRequiredService<InsuranceIntelligenceDbContext>(), checkOrganisationStatus: options.MultiTenant));
+            provider.GetRequiredService<InsuranceIntelligenceDbContext>(),
+            checkOrganisationStatus: provider.GetRequiredService<InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions>().MultiTenant));
         services.AddScoped<IAuditEventRepository, EfAuditEventRepository>();
         services.AddScoped<IClaimsReadRepository, EfClaimsReadRepository>();
         // W2.5: read-side adapters backing the Phase 2 query services. Channels and Sales Leads
