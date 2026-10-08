@@ -44,7 +44,18 @@ Detailed in `docs/05-deployment-release-enablement/IIP_SAAS_CUTOVER_ON_EXISTING_
 3. Hostnames and managed certificates bound to the apps; sign-in redirect and Meta callback updated.
 4. A last check that `app.insuranceintelligenceplatform.com` signs up, signs in and opens the workspace.
 
+## Phase 5: pricing, AI credits and the paywall
+
+A licence per organisation with seats included, AI credits spent per AI call, a free trial allowance and a paywall when it runs out, with a credit meter in settings. Full design, Marketplace rules and build order in `IIP_PRICING_AND_CREDITS_PLAN.md`.
+
+## Phase 6: CIP interface parity
+
+The workspace adopts CIP's shell: a short sidebar, a settings modal holding every settings page, and a Command Center that answers questions with figures, charts and links and exports them. Integration differences are in `docs/03-design-architecture/IIP_CIP_INTEGRATION_DIFFERENCES.md`.
+
 ## Decisions taken
+
+- Replace: the SaaS build runs on the existing dev API and portal web apps (done 2026-10-09; data unchanged: 46 prospects, 68 customers, 265 claims, 18 conversations, 4 course prices before and after).
+- Domain: `app.` and `api.insuranceintelligenceplatform.com`, bound with managed certificates on 2026-10-09.
 
 - Region: `westus2` (owner, 2026-10-08).
 - Today's field-test tenant becomes the first organisation (recommended, 2026-10-08).
@@ -52,5 +63,4 @@ Detailed in `docs/05-deployment-release-enablement/IIP_SAAS_CUTOVER_ON_EXISTING_
 
 ## Open
 
-- Replace the Managed App code on the existing two web apps, or run the SaaS app beside it (recommendation: replace).
 - Who creates the IIP registration in the External ID directory, and the Key Vault permission.
