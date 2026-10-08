@@ -84,6 +84,8 @@ public sealed class MarketplaceFulfillmentTests : IDisposable
         microsoft.Subscription = Sub("sub-1", "insurer-starter", MarketplaceSubscriptionInfo.Suspended);
         Assert.Equal("updated", await service.SyncAsync("sub-1", "c"));
         Assert.Null(await new EfPermissionReadRepository(db).GetEffectiveMembershipAsync("buyer", null, null));
+        // A single-tenant deployment never reads organisations on the sign-in path (it may not have the table yet).
+        Assert.NotNull(await new EfPermissionReadRepository(db, checkOrganisationStatus: false).GetEffectiveMembershipAsync("buyer", null, null));
 
         microsoft.Subscription = Sub("sub-1", "insurer-starter", MarketplaceSubscriptionInfo.Subscribed);
         Assert.Equal("updated", await service.SyncAsync("sub-1", "c"));

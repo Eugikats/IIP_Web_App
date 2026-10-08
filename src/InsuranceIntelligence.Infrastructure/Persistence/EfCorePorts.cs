@@ -10,7 +10,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InsuranceIntelligence.Infrastructure.Persistence;
 
-public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext dbContext) : IPermissionReadRepository
+/// <param name="checkOrganisationStatus">Multi-tenant mode only. A single-tenant deployment has no organisations
+/// and may not yet have their table, so it never looks.</param>
+public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext dbContext, bool checkOrganisationStatus = true) : IPermissionReadRepository
 {
     private EffectivePermissionCache? _effectivePermissionCache;
 
@@ -108,8 +110,9 @@ public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext db
         // A suspended, cancelled or closed organisation is a tenant nobody can enter, whatever
         // memberships remain. Deployments with no organisations (Managed Application) have no row
         // here and are unaffected.
-        var organisation = await dbContext.Organisations.AsNoTracking()
-            .FirstOrDefaultAsync(o => o.OrganisationId == scope.TenantId, cancellationToken);
+        var organisation = checkOrganisationStatus
+            ? await dbContext.Organisations.AsNoTracking().FirstOrDefaultAsync(o => o.OrganisationId == scope.TenantId, cancellationToken)
+            : null;
         if (organisation is not null && organisation.Status != "Active")
         {
             return null;
