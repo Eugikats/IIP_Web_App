@@ -64,7 +64,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               Retry access check
             </button>
             <Link
-              href="/"
+              href="/login"
               className="rounded-dls-control border border-dls-border-input px-4 py-2 text-sm font-semibold text-dls-text-primary dls-focus-outline"
             >
               Return to sign in

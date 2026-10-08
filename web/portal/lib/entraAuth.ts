@@ -109,7 +109,8 @@ function getClient(): Promise<PublicClientApplication> {
 }
 
 function redirectUri() {
-  return entraRedirectUri || window.location.origin + "/";
+  // Sign-in returns to the workspace, which finishes it; "/" is the public landing page.
+  return entraRedirectUri || window.location.origin + "/app";
 }
 
 function getRedirectResult(msal: PublicClientApplication): Promise<AuthenticationResult | null> {

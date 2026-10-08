@@ -449,3 +449,31 @@ textarea:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .iip-row-in, .iip-flash, .iip-shimmer, .iip-live-dot { animation: none; }
 }
+
+/* Public marketing pages (landing, sign-up). Same structure as CIP's marketing pages, in IIP's own design
+   rules: hairline borders instead of glow, no gradients or glass, motion that respects reduced-motion. */
+.iip-marketing {
+  --mkt-brand: #1769ff;
+  --mkt-brand-soft: rgba(23, 105, 255, 0.07);
+  --mkt-ink: #0b1640;
+  --mkt-fg: #0b1640;
+  --mkt-muted: #5b6478;
+  --mkt-muted-bg: #f5f7fb;
+  --mkt-border: #e6eaf2;
+  font-family: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+  color: var(--mkt-fg);
+}
+.iip-marketing .mkt-card {
+  background: #fff;
+  border: 1px solid var(--mkt-border);
+  border-radius: 16px;
+  transition: border-color 0.2s ease;
+}
+.iip-marketing .mkt-card:hover {
+  border-color: rgba(23, 105, 255, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .iip-marketing .mkt-card {
+    transition: none;
+  }
+}
