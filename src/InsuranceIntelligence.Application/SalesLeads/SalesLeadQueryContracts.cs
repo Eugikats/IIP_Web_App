@@ -1,3 +1,5 @@
+using InsuranceIntelligence.Domain.Acquisition;
+
 namespace InsuranceIntelligence.Application.SalesLeads;
 
 public interface ISalesLeadQueryService
@@ -7,6 +9,12 @@ public interface ISalesLeadQueryService
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<SalesLeadListItemDto>> ListLeadsAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The prospect behind a WhatsApp conversation, or null when the person is not one yet
+    /// (they wrote in but have not asked about a cover).</summary>
+    Task<SalesLeadDetailDto?> GetLeadByThreadAsync(
+        string threadId,
         CancellationToken cancellationToken = default);
 }
 
@@ -21,6 +29,12 @@ public interface ISalesLeadCommandService
     Task<SalesLeadDetailDto> CreateLeadAsync(
         CreateSalesLeadRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>False when the lead is not in this workspace.</summary>
+    Task<bool> AddNoteAsync(string leadId, AddLeadNoteRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>False when the lead is not in this workspace. A null user id unassigns.</summary>
+    Task<bool> AssignAsync(string leadId, AssignLeadRequest request, CancellationToken cancellationToken = default);
 }
 
 public interface ISalesLeadReadRepository
@@ -39,13 +53,34 @@ public interface ISalesLeadReadRepository
 
 public interface ISalesLeadWriteRepository
 {
+    /// <summary>Saves the lead, replacing any earlier version with the same lead id.</summary>
     Task CreateAsync(
         string tenantId,
         string workspaceId,
         SalesLeadDetailReadModel lead,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Removes a lead. Used only to merge duplicates of the same person into one record.</summary>
+    Task DeleteAsync(
+        string tenantId,
+        string workspaceId,
+        string leadId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The lead for this phone number in the workspace, if there is one. One prospect per
+    /// person: a second conversation from the same number updates this record.</summary>
+    Task<SalesLeadDetailReadModel?> FindByPhoneAsync(
+        string tenantId,
+        string workspaceId,
+        string phone,
+        CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// The stored lead, which is IIP's prospect record. The positional fields are the original Gate 0
+/// lead; the properties after them were added for acquisition and are optional, so leads saved before
+/// them still read back.
+/// </summary>
 public sealed record SalesLeadDetailReadModel(
     string LeadId,
     string LeadSource,
@@ -60,7 +95,70 @@ public sealed record SalesLeadDetailReadModel(
     string CustomerName = "",
     string? ContactInfo = null,
     DateTimeOffset? CreatedAt = null,
-    string? CreatedBy = null);
+    string? CreatedBy = null)
+{
+    /// <summary>Digits only, international form, for example 256776678989.</summary>
+    public string? Phone { get; init; }
+
+    public string? PrimaryChannel { get; init; }
+
+    /// <summary>The WhatsApp conversation, when the lead came from one.</summary>
+    public string? ThreadId { get; init; }
+
+    public DateTimeOffset? LastInteractionAt { get; init; }
+
+    public IReadOnlyList<ProspectFact> Facts { get; init; } = [];
+
+    public IReadOnlyList<ProspectInterest> Interests { get; init; } = [];
+
+    public ContactConsent? Consent { get; init; }
+
+    public IReadOnlyList<ProspectNote> Notes { get; init; } = [];
+
+    public IReadOnlyList<ProspectActivity> Activity { get; init; } = [];
+
+    /// <summary>The cover applied for, once they apply.</summary>
+    public string? AppliedFor { get; init; }
+
+    /// <summary>Set when Kato handed the conversation to a person.</summary>
+    public DateTimeOffset? HandedToPersonAt { get; init; }
+
+    public ConversationInsights? Insights { get; init; }
+
+    /// <summary>Whether the person already banks with the partner bank (bancassurance). Null when
+    /// nobody has said: shown as "Not known", never guessed. Set by staff or by an imported bank list.</summary>
+    public bool? BankCustomer { get; init; }
+
+    /// <summary>The latest score and the two covers that fit best, from the triage agent. Null until
+    /// the prospect has been scored.</summary>
+    public ProspectTriage? Triage { get; init; }
+
+    /// <summary>Messages prepared for this person, newest last, and what became of each.</summary>
+    public IReadOnlyList<OutreachDraft> Outreach { get; init; } = [];
+}
+
+/// <summary>What the conversation insights agent made of a conversation. Every point carries the tags
+/// of the messages it came from; a point without one is never stored.</summary>
+public sealed record ConversationInsights(
+    DateTimeOffset GeneratedAt,
+    int MessageCount,
+    bool EnoughConversation,
+    InsightPoint? Summary,
+    IReadOnlyList<InsightInterest> Interests,
+    IReadOnlyList<InsightPoint> Problems,
+    IReadOnlyList<InsightPoint> Objections,
+    string? Tone,
+    IReadOnlyList<string> Unknowns,
+    InsightPoint? NextStep,
+    IReadOnlyList<InsightSource> Sources,
+    Guid? AgentActionLogId = null);
+
+public sealed record InsightPoint(string Text, IReadOnlyList<string> Refs);
+
+public sealed record InsightInterest(string Product, string Strength, string Text, IReadOnlyList<string> Refs);
+
+/// <summary>A message an insight can cite: M3 is the third customer message in the conversation.</summary>
+public sealed record InsightSource(string Tag, Guid TurnId, DateTimeOffset At, string Excerpt);
 
 public sealed record SalesLeadDetailDto(
     string LeadId,
@@ -76,7 +174,73 @@ public sealed record SalesLeadDetailDto(
     string CustomerName = "",
     string? ContactInfo = null,
     DateTimeOffset? CreatedAt = null,
-    string? CreatedBy = null);
+    string? CreatedBy = null)
+{
+    public string MaskedContact { get; init; } = "Hidden";
+    public string? PrimaryChannel { get; init; }
+    public DateTimeOffset? LastInteractionAt { get; init; }
+    public string Stage { get; init; } = nameof(LeadStage.New);
+    public string StageLabel { get; init; } = "New";
+    public string Relationship { get; init; } = nameof(ProspectRelationship.NewToInsurer);
+    public string RelationshipLabel { get; init; } = "New to insurer";
+    public string? AssignedOfficerName { get; init; }
+    public string? Occupation { get; init; }
+    public string? ProductInterest { get; init; }
+    public string? AppliedFor { get; init; }
+    public bool? BankCustomer { get; init; }
+    public string BankCustomerLabel { get; init; } = "Not known";
+    public bool HasConversation { get; init; }
+
+    /// <summary>The WhatsApp conversation, so the screen can open it. Not shown as text.</summary>
+    public string? ConversationId { get; init; }
+    public LeadConsentDto Consent { get; init; } = new("NotRecorded", "Not recorded", null, null, null);
+    public IReadOnlyList<LeadFactDto> Facts { get; init; } = [];
+    public IReadOnlyList<string> Missing { get; init; } = [];
+    public IReadOnlyList<LeadInterestDto> Interests { get; init; } = [];
+    public IReadOnlyList<ProspectNote> Notes { get; init; } = [];
+    public IReadOnlyList<ProspectActivity> Activity { get; init; } = [];
+    public IReadOnlyList<LeadPolicyDto> Policies { get; init; } = [];
+    public ConversationInsights? Insights { get; init; }
+
+    public LeadTriageDto? Triage { get; init; }
+
+    public IReadOnlyList<OutreachDraftDto> Outreach { get; init; } = [];
+
+    /// <summary>True when the conversation has moved on since the insights were prepared.</summary>
+    public bool InsightsStale { get; init; }
+}
+
+public sealed record LeadFactDto(string Key, string Label, string Value, string Source, DateTimeOffset RecordedAt);
+
+public sealed record LeadInterestDto(string Product, string Strength, string StrengthLabel, string Reason, DateTimeOffset RecordedAt);
+
+public sealed record LeadConsentDto(string Status, string StatusLabel, DateTimeOffset? At, string? Wording, string? Channel);
+
+public sealed record OutreachDraftDto(
+    Guid DraftId,
+    string Kind,
+    string Text,
+    string? Product,
+    string? Insurer,
+    string Status,
+    string StatusLabel,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? DecidedAt,
+    string? BlockedReason);
+
+public sealed record LeadFitDto(string Product, string ProductLine, string Insurer, int Score, IReadOnlyList<string> Reasons, string? CitationTitle, Guid? CitationDocumentId);
+
+public sealed record LeadTriageDto(
+    int Score,
+    string Band,
+    string BandLabel,
+    string Confidence,
+    DateTimeOffset ScoredAt,
+    IReadOnlyList<LeadFitDto> Fits,
+    IReadOnlyList<string> Signals,
+    IReadOnlyList<string> Missing);
+
+public sealed record LeadPolicyDto(string PolicyNumber, string ProductLine, DateOnly? EffectiveTo);
 
 public sealed record SalesLeadListItemDto(
     string LeadId,
@@ -85,7 +249,30 @@ public sealed record SalesLeadListItemDto(
     string ProductFit,
     string QuoteStatus,
     string? AssignedSalesOfficer,
-    DateTimeOffset? CreatedAt);
+    DateTimeOffset? CreatedAt)
+{
+    public string MaskedContact { get; init; } = "Hidden";
+    public string? Occupation { get; init; }
+    public string Relationship { get; init; } = nameof(ProspectRelationship.NewToInsurer);
+    public string RelationshipLabel { get; init; } = "New to insurer";
+    public string? PrimaryChannel { get; init; }
+    public string? ProductInterest { get; init; }
+    public string Stage { get; init; } = nameof(LeadStage.New);
+    public string StageLabel { get; init; } = "New";
+    public string? AssignedOfficerName { get; init; }
+    public DateTimeOffset? LastInteractionAt { get; init; }
+    public string ConsentStatus { get; init; } = nameof(ContactConsentStatus.NotRecorded);
+    public bool? BankCustomer { get; init; }
+    public string BankCustomerLabel { get; init; } = "Not known";
+    public LeadTriageDto? Triage { get; init; }
+
+    /// <summary>The newest message prepared for this person that has not been dismissed, so the table
+    /// can show what is waiting for approval and what went out.</summary>
+    public OutreachDraftDto? LatestOutreach { get; init; }
+
+    /// <summary>The WhatsApp conversation, so a row can open it. Null for leads with no conversation.</summary>
+    public string? ConversationId { get; init; }
+}
 
 public sealed record CreateSalesLeadRequest(
     string? CustomerName,
@@ -93,7 +280,26 @@ public sealed record CreateSalesLeadRequest(
     string? CustomerNeed,
     string? ProductFit,
     string? AssignedSalesOfficer,
-    string? ContactInfo);
+    string? ContactInfo,
+    bool? BankCustomer = null);
+
+/// <summary>Scores prospects and picks the two covers that fit each. Runs over the whole workspace or
+/// one prospect; the result is stored on the prospect so every screen shows the same reading.</summary>
+public interface IProspectTriageService
+{
+    /// <summary>Scores every prospect in the workspace, or only the one named. Returns how many were scored.</summary>
+    Task<TriageRunResult> RunAsync(string? leadId, CancellationToken cancellationToken = default);
+
+    /// <summary>The same scoring for a system caller with no signed-in user, such as the reading of a
+    /// customer's message that has just changed their record.</summary>
+    Task<TriageRunResult> ScoreAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string? leadId, string actorId, CancellationToken cancellationToken = default);
+}
+
+public sealed record TriageRunResult(int Scored, int Skipped, DateTimeOffset RanAt);
+
+public sealed record AddLeadNoteRequest(string? Text);
+
+public sealed record AssignLeadRequest(string? UserId);
 
 public sealed class SalesLeadQueryValidationException(string field, string message) : InvalidOperationException(message)
 {

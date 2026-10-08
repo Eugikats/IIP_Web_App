@@ -1,7 +1,9 @@
 using System.Text.Json;
 using InsuranceIntelligence.Application.Ai;
+using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.Cases;
 using InsuranceIntelligence.Application.CommandCenter;
+using InsuranceIntelligence.Domain.Acquisition;
 using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -30,7 +32,7 @@ public sealed partial class CustomerAssistantService
     private static readonly JsonSerializerOptions ToolJson = new(JsonSerializerDefaults.Web);
 
     private async Task<AssistantOutcome?> RunAgentAsync(
-        TenantScope scope, string original, string english, string waId, CustomerConversationTurn[] thread,
+        TenantScope scope, string original, string english, string waId, string threadId, Guid turnId, CustomerConversationTurn[] thread,
         Domain.Translation.SupportedLanguageCode replyLanguage,
         CustomerOwnWords? ownWords, string correlationId, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -39,7 +41,12 @@ public sealed partial class CustomerAssistantService
             return null;
         }
 
-        var run = new AgentRun(scope, waId, original, english, ownWords, correlationId, now);
+        var run = new AgentRun(scope, waId, original, english, ownWords, correlationId, now)
+        {
+            ThreadId = threadId,
+            TurnId = turnId,
+            PreviousReply = thread.LastOrDefault(turn => !string.IsNullOrWhiteSpace(turn.OutboundReplyText))?.OutboundReplyText,
+        };
         var messages = new List<AgentChatMessage> { AgentChatMessage.System(await AgentSystemPromptAsync(run, replyLanguage, cancellationToken)) };
         foreach (var turn in thread.TakeLast(AgentHistoryTurns))
         {
@@ -84,16 +91,60 @@ public sealed partial class CustomerAssistantService
         return null;
     }
 
+    /// <summary>
+    /// What is already known about this person and the next few things worth finding out, so Kato can aim
+    /// his questions at the gaps instead of guessing. One read of the person's record, no extra model call,
+    /// so the reply stays as fast as before. The answers are recorded afterwards by the insights agent,
+    /// which keeps only facts the customer actually said.
+    /// </summary>
+    private async Task<string> ProfileGuidanceAsync(AgentRun run, KatoBrand brand, CancellationToken cancellationToken)
+    {
+        SalesLeadDetailReadModel? lead = null;
+        try
+        {
+            lead = await salesLeadWriteRepository.FindByPhoneAsync(run.Scope.TenantId, run.Scope.WorkspaceId, run.WaId, cancellationToken);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Without the record Kato still talks; he simply has no list of gaps this turn.
+        }
+
+        var facts = lead?.Facts ?? [];
+        var known = facts.Count == 0
+            ? "Nothing is recorded about them yet."
+            : string.Join("; ", facts.Select(fact => $"{ProspectFacts.Label(fact.Key).ToLowerInvariant()}: {fact.Value}"));
+        var gaps = ProspectFacts.Missing(facts).Select(field => field.Label.ToLowerInvariant()).ToList();
+        if (brand.IsBancassurance && lead?.BankCustomer is null && !facts.Any(fact => fact.Key is "branch" or "bank_products"))
+        {
+            // For a person who wrote in cold, whether they already bank with us is worth knowing early.
+            gaps.Insert(Math.Min(2, gaps.Count), $"whether they already bank with {brand.ShortName} and at which branch");
+        }
+
+        var next = gaps.Count == 0
+            ? "Everything you normally ask about is recorded, so concentrate on helping them decide."
+            : $"Still to find out, most useful first: {string.Join("; ", gaps.Take(4))}.";
+        return $"""
+            What is already recorded about this person (do not ask for any of it again): {known}
+            {next}
+            """;
+    }
+
     private async Task<string> AgentSystemPromptAsync(AgentRun run, Domain.Translation.SupportedLanguageCode replyLanguage, CancellationToken cancellationToken)
     {
         var translated = replyLanguage != Domain.Translation.SupportedLanguageCode.En;
         var sender = await IdentifySenderAsync(run.Scope, run.WaId, cancellationToken);
         var knownName = sender?.FirstName ?? contactFirstName;
         var demoPhone = demoSession?.IsDemoPhone(run.WaId) == true;
+        var brand = KatoBrand.Current;
+        var profileBlock = await ProfileGuidanceAsync(run, brand, cancellationToken);
+        var org = brand.ShortName;
+        var who = brand.IsBancassurance
+            ? $"You are Kato, {brand.Organisation}'s insurance assistant on WhatsApp in Uganda. {brand.Organisation} sells cover from its partner insurers ({string.Join(", ", brand.PartnerInsurers)}); every cover in list_products names the insurer that provides it and pays its claims. When you recommend or explain a cover, always say which insurer provides it, for example \"Mpingo Family Funeral Cover from Mpingo Life Assurance\". Recommend across the partners on what fits the person, never on which insurer it is."
+            : $"You are Kato, {brand.Organisation}'s assistant on WhatsApp in Uganda.";
         return $"""
             {AgentBehaviourComposer.PlatformPreamble}
 
-            You are Kato, Nile Shield Assurance's assistant on WhatsApp in Uganda. You talk with ordinary people: boda boda riders, shop and boutique owners, market vendors, salon owners, families. Many write in a second language. Be warm, respectful and practical, like a helpful person at an insurance office counter who actually gets things done.
+            {who} You talk with ordinary people: boda boda riders, shop and boutique owners, market vendors, salon owners, families. Many write in a second language. Be warm, respectful and practical, like a helpful person at an insurance office counter who actually gets things done.
 
             How you write:
             - 1 to 4 short sentences. Plain words. No markdown, no headings, no bullet points; when you compare covers, write them as sentences.
@@ -101,9 +152,9 @@ public sealed partial class CustomerAssistantService
             - Always call a cover by its full name from list_products (for example "Small Business Shop Cover", "Goods in Transit", "Mama Care Maternity"), never a short form such as "the shop cover", so the name stays the same in every language.
             - Use the customer's first name when you know it{(knownName is null ? "" : $" (you know them as {knownName})")}. Never call anyone "Customer".
             - Never start with "Sorry, I didn't understand". If a message is unclear, make your best guess from the conversation and ask one short question.
-            - Answer greetings warmly and ask how you can help. Only say "you're welcome" when someone thanks you. The first time you speak to someone, say you are Kato from Nile Shield.
+            - Answer greetings warmly and ask how you can help. Only say "you're welcome" when someone thanks you. The first time you speak to someone, say you are Kato from {org}.
 
-            You are also Nile Shield's salesperson, the good kind: someone people are glad they spoke to. Most people who write have never had insurance and do not see why they need it. Your goal is that they leave protected, because they understood for themselves what could go wrong and how cheaply they can be covered, not because you pushed.
+            You are also {org}'s salesperson, the good kind: someone people are glad they spoke to. Most people who write have never had insurance and do not see why they need it. Your goal is that they leave protected, because they understood for themselves what could go wrong and how cheaply they can be covered, not because you pushed.
 
             How you sell:
             - Be curious about them first. Ask about their work and their life the way a friendly person at the counter would, one or two questions at a time, never as a form, and use what they already told you. For a business: what they sell, how they sell it (a lockable shop, a market stall, from home, by delivery), roughly what their stock is worth, and whether they carry stock from suppliers such as Kikuubo or Owino. For a boda boda rider: whether they own the motorcycle or ride for an owner, how many days a week they ride, and who depends on their income. For anyone: what would hurt most if it happened tomorrow, and who depends on them.
@@ -116,12 +167,22 @@ public sealed partial class CustomerAssistantService
             - Ask for the decision naturally once they see the value ("shall I set it up for you now?"). If they say no or not now, respect it warmly, leave the door open, and do not ask again in the same conversation unless they bring it up.
             - Never pressure, never invent urgency or discounts, never promise that a claim will be paid. If they ask directly for prices or the list of covers, answer first and then carry on the conversation.
 
+            Getting to know them is part of every reply, because what they tell you becomes their profile and saves your team from chasing them later. {profileBlock}
+            - Your very first reply to someone new is a warm greeting that says who you are, then asks what they do: "Hi Eugene, I'm Kato from {org}. How can I help today? And what do you do for work, or do you run a business?" Do not say "you're welcome" or "welcome here" unless they thanked you. If you already know their work, ask the next thing still to find out instead.
+            - In every later reply, answer what they asked and then add ONE short, friendly question about the first thing still to find out. After that, ask one, at most two, per reply. Tie each question to what they just said ("You mentioned the shop: is it in Kalerwe or somewhere else?") and never write them as a list or a form.
+            - Skip the question when they are upset, in a hurry, reporting a claim, asking for a person, or have just said no. Never ask something already recorded above. If they answer, acknowledge it in a few words before moving on; if they dodge a question, drop it.
+            - The things worth finding out are their work and what they sell, where they live or work, roughly what they earn or turn over, who depends on them, any cover they already have, what worries them, what they could pay a month, and when they would want cover. Ask first about the things that matter for the cover they are leaning toward. Never ask about religion, tribe, health conditions, disability or politics; if they mention their health because of a medical or maternity cover, talk about the cover, not the condition.
+
+            You decide and recommend yourself. Recommend the cover that fits from what they told you and say why, plainly. Never pass a question to "the team" that list_products or search_policy_information can answer, and never stall with "let me check with my colleagues".
+
+            When someone is interested but has not decided, ask once, in your own words, whether {org} may send them a WhatsApp message later about cover. When they answer that question, call record_contact_consent with their answer. Never ask again in the same conversation, and never ask someone who has just applied.
+
             What you can do, always through your tools (never invent a price, policy, claim or rule):
             - Explain covers: list_products for prices, levels and what each pays; search_policy_information for detailed terms.
             - Register a new customer: use what they already told you anywhere in the conversation (a first name and surname is a full name; "I sell shoes" is their work; "a shop in Kalerwe" is their area). If you have their name, call register_customer straight away and fill in the rest from the conversation; ask only for what is truly missing, in one short question. Never ask again for something they already said.
             - Sell a cover: as soon as they agree to a cover ("yes", "ok", "that one", "the boda one"), call apply_for_cover straight away with the level that fits (cover_amount_ugx); do not ask them to confirm again. Register them first if they are not yet registered.{(demoPhone ? " On this test phone, applications are approved immediately as demo policies and no money is collected; tell them so plainly." : " The application is confirmed by a licensed person, who will also explain payment.")}
             - When someone told you about a loss and then took a cover, once the cover is active always offer to report that loss as a claim too, in the same message; the claims team will look at the dates.
-            - Someone with no cover who reports an accident or a loss: be kind, say they do not have cover with Nile Shield yet, and offer to register them and set up the right cover now. Once the cover is active, take the claim as below; the claims team decides whether it is covered, so do not tell them it will or will not be.
+            - Someone with no cover who reports an accident or a loss: be kind, say they do not have cover with {org} yet, and offer to register them and set up the right cover now. Once the cover is active, take the claim as below; the claims team decides whether it is covered, so do not tell them it will or will not be.
             - Report a claim: call get_my_account first. Find out what happened, when and where, and which cover it falls under, using everything already said in the conversation; if you already have all of it, read it back straight away. Read it back in one or two sentences and ask them to reply YES. Only after they reply yes, call file_claim. Never ask for photos, IDs or papers in the chat: papers go only through the secure link that file_claim returns.
             - Claim status and their covers: get_my_account. A secure link to upload papers for an open claim: send_claim_link.
             - Paying and getting paid: premiums are paid monthly by mobile money (MTN or Airtel). An approved claim is paid by mobile money to the phone number on the policy, usually within 10 working days of receiving all the papers. Answer these yourself; do not hand over for them.
@@ -130,8 +191,9 @@ public sealed partial class CustomerAssistantService
             Rules you never break:
             - Never say a claim will be paid, approved or rejected, or how much it will pay out, and never tell someone a loss is "not covered": that is a claim decision, and people make it. If a waiting period or exclusion may matter, mention it as information, offer to report the claim anyway, and say the claims team will look at it.
             - Never say "I will ask my team" or "a human needs to confirm this" unless you have just called hand_to_person. If search_policy_information does not cover a detail, say what you do know and offer the next useful step.
-            - Nile Shield sells Motor, Medical and other covers too, but you can only take applications for the microinsurance covers in list_products. For anything else, explain briefly and offer hand_to_person.
-            - If someone sincerely asks whether they are talking to a person, say you are Kato, Nile Shield's digital assistant, and that someone from the team can take over whenever they like. Do not bring this up otherwise, and never claim to be human.
+            - {org} also offers Motor, Medical and other covers through its staff, but you can only take applications for the microinsurance covers in list_products. For anything else, explain briefly, say "We will get back to you shortly", and call hand_to_person.
+            - If someone sincerely asks whether they are talking to a person, say you are Kato, {org}'s digital assistant, and that if they would like a colleague to follow up, they only need to say so and "we will get back to you shortly". Never claim to be human.
+            - Never offer, suggest or mention talking to a person, a team member, "our team", an agent or a callback, and never tell the customer to reply with a word such as PERSON, unless the customer has asked for one. When they do ask, or when you call hand_to_person, say only that "we will get back to you shortly" and stop there.
             - Only this phone number's own records exist for you. Never discuss anyone else's policy or claim, even if they type a policy number.
 
             Today is {run.Now:dddd d MMMM yyyy}.
@@ -144,10 +206,10 @@ public sealed partial class CustomerAssistantService
             "The person writing: whether they are registered, their name, their covers (policy number, product, dates, monthly price) and their claims with status. Always call this before talking about their own policies or claims.",
             new { type = "object", properties = new { }, additionalProperties = false }),
         new("list_products",
-            "The microinsurance covers Kato can sell: who each is for, what it pays, monthly price, waiting period and papers needed for a claim.",
+            "The covers Kato can sell: the insurer that provides each one, who it is for, what it pays, monthly price, waiting period and papers needed for a claim.",
             new { type = "object", properties = new { }, additionalProperties = false }),
         new("search_policy_information",
-            "Search Nile Shield's approved policy wordings and product information for detailed terms (exclusions, how to join, how to pay, how claims are paid).",
+            "Search the approved policy wordings and product information for detailed terms (exclusions, how to join, how to pay, how claims are paid).",
             new
             {
                 type = "object",
@@ -160,7 +222,7 @@ public sealed partial class CustomerAssistantService
                 additionalProperties = false,
             }),
         new("register_customer",
-            "Register the person writing as a Nile Shield customer on this phone number.",
+            "Register the person writing as a customer on this phone number.",
             new
             {
                 type = "object",
@@ -203,8 +265,17 @@ public sealed partial class CustomerAssistantService
         new("send_claim_link",
             "A secure link for the person writing to upload papers and follow their latest open claim.",
             new { type = "object", properties = new { }, additionalProperties = false }),
+        new("record_contact_consent",
+            "Record the customer's answer to your question about whether we may message them later about cover. Call it only in reply to their answer to that question.",
+            new
+            {
+                type = "object",
+                properties = new { agreed = new { type = "boolean", description = "True when they said yes, false when they said no." } },
+                required = new[] { "agreed" },
+                additionalProperties = false,
+            }),
         new("hand_to_person",
-            "Hand the conversation to a person on the Nile Shield team.",
+            "Hand the conversation to a person on the team.",
             new
             {
                 type = "object",
@@ -228,6 +299,7 @@ public sealed partial class CustomerAssistantService
             "file_claim" => await ToolFileClaimAsync(run, Arg(args, "product_or_policy_number"), Arg(args, "what_happened"), Arg(args, "when_it_happened"), cancellationToken),
             "send_claim_link" => await ToolSendLinkAsync(run, cancellationToken),
             "hand_to_person" => await ToolHandToPersonAsync(run, Arg(args, "reason"), cancellationToken),
+            "record_contact_consent" => await ToolRecordConsentAsync(run, BoolArg(args, "agreed"), cancellationToken),
             _ => Json(new { error = "unknown_tool" }),
         };
     }
@@ -272,9 +344,10 @@ public sealed partial class CustomerAssistantService
     }
 
     private static string ToolListProducts() =>
-        Json(MicroinsuranceCatalog.All.Select(p => new
+        Json(KatoBrand.Current.Products.Select(p => new
         {
             name = p.Name,
+            insurer = p.Insurer,
             product = p.ProductLine,
             who_it_is_for = p.WhoItIsFor,
             what_it_pays = p.Explanation,
@@ -292,7 +365,7 @@ public sealed partial class CustomerAssistantService
             ? [micro.ProductLine]
             : !string.IsNullOrWhiteSpace(product)
                 ? [product.Trim()]
-                : MicroinsuranceCatalog.All.Select(p => p.ProductLine).ToArray();
+                : KatoBrand.Current.Products.Select(p => p.ProductLine).ToArray();
 
         var found = new List<(string Document, string Text)>();
         foreach (var line in lines)
@@ -345,14 +418,20 @@ public sealed partial class CustomerAssistantService
         var profile = await IdentifySenderAsync(run.Scope, run.WaId, cancellationToken);
         run.LeadId ??= await CreateLeadAsync(
             run.Scope, $"Registered on WhatsApp. Work: {occupation ?? "not given"}. Area: {area ?? "not given"}.", run.WaId, profile,
-            "WhatsApp - Kato registration", run.CorrelationId, cancellationToken, productFit: "To be chosen", occupation: occupation);
+            "WhatsApp - Kato registration", run.CorrelationId, cancellationToken, productFit: "To be chosen", occupation: occupation,
+            change: lead => lead with
+            {
+                CustomerName = name,
+                ThreadId = run.ThreadId ?? lead.ThreadId,
+                Facts = ProspectFacts.Merge(lead.Facts, CustomerFacts(run, ("occupation", occupation), ("area", area))),
+            });
         return Json(new { registered = true, name, next = "Offer the covers from list_products that fit their work, and ask which they want." });
     }
 
     private async Task<string> ToolApplyAsync(AgentRun run, string? productName, decimal? coverAmount, CancellationToken cancellationToken)
     {
         var product = MicroinsuranceCatalog.FindByLineOrName(productName);
-        if (product is null)
+        if (product is null || !KatoBrand.Current.Products.Contains(product))
         {
             return Json(new { error = "unknown_product", instruction = "Use a product from list_products, or offer hand_to_person for other covers." });
         }
@@ -373,12 +452,14 @@ public sealed partial class CustomerAssistantService
         {
             run.LeadId = await CreateLeadAsync(
                 run.Scope, $"Applied on WhatsApp for {product.Name}.", run.WaId, sender, "WhatsApp - cover application",
-                run.CorrelationId, cancellationToken, productFit: product.Name);
+                run.CorrelationId, cancellationToken, productFit: product.Name,
+                change: lead => lead with { AppliedFor = product.Name, ThreadId = run.ThreadId ?? lead.ThreadId });
             return Json(new
             {
                 status = "application_received",
                 product = product.Name,
-                next = "A licensed person from Nile Shield confirms the application and explains how to pay by mobile money. Nothing is charged until then.",
+                insurer = product.Insurer,
+                next = $"A licensed person from {KatoBrand.Current.ShortName} confirms the application with {product.Insurer} and explains how to pay by mobile money. Nothing is charged until then.",
             });
         }
 
@@ -386,10 +467,10 @@ public sealed partial class CustomerAssistantService
         // once so a participant can finish the journey. Marked as a demo policy everywhere.
         var level = product.LevelFor(coverAmount);
         var today = DateOnly.FromDateTime(run.Now.UtcDateTime);
-        var policyNumber = $"NSA/{product.Code}/{today.Year}/{Random.Shared.Next(10000, 99999)}";
+        var policyNumber = $"{product.PolicyPrefix}/{product.Code}/{today.Year}/{Random.Shared.Next(10000, 99999)}";
         var policy = new Policy(
             Guid.NewGuid().ToString(), run.Scope.TenantId, run.Scope.WorkspaceId, policyNumber, product.ProductLine,
-            $"{product.Name}, cover up to UGX {level.SumInsured:N0}, UGX {level.MonthlyPremium:N0} a month (demo policy, field test)",
+            $"{product.Name} from {product.Insurer}, cover up to UGX {level.SumInsured:N0}, UGX {level.MonthlyPremium:N0} a month (demo policy, field test)",
             customers[0].CustomerId, null, today, today.AddYears(1), level.MonthlyPremium * 12m, "UGX", level.SumInsured);
         await policyRepository.UpsertAsync(policy, cancellationToken);
         await auditRepository.WriteAsync(
@@ -400,11 +481,16 @@ public sealed partial class CustomerAssistantService
                 run.CorrelationId),
             cancellationToken);
         run.PolicyNumber = policyNumber;
+        run.LeadId = await CreateLeadAsync(
+            run.Scope, $"Took {product.Name} on WhatsApp (demo policy {policyNumber}).", run.WaId, sender, "WhatsApp - cover application",
+            run.CorrelationId, cancellationToken, productFit: product.Name,
+            change: lead => lead with { AppliedFor = product.Name, ThreadId = run.ThreadId ?? lead.ThreadId });
         return Json(new
         {
             status = "active_demo_policy",
             policy_number = policyNumber,
             product = product.Name,
+            insurer = product.Insurer,
             cover_up_to_ugx = level.SumInsured,
             monthly_price_ugx = level.MonthlyPremium,
             starts = today.ToString("d MMMM yyyy"),
@@ -571,10 +657,66 @@ public sealed partial class CustomerAssistantService
         var sender = await IdentifySenderAsync(run.Scope, run.WaId, cancellationToken);
         run.LeadId = await CreateLeadAsync(
             run.Scope, $"{reason ?? "Asked for a person"}. Customer said: {Trim(run.English, 300)}", run.WaId, sender,
-            "WhatsApp - human requested", run.CorrelationId, cancellationToken);
+            "WhatsApp - human requested", run.CorrelationId, cancellationToken,
+            change: lead => lead with { HandedToPersonAt = run.Now, ThreadId = run.ThreadId ?? lead.ThreadId },
+            // Asking for a person is not buying interest: someone complaining about a claim is not a
+            // prospect. An existing prospect is marked as being with a person.
+            createIfMissing: false) ?? run.LeadId;
         run.Escalated = true;
         return Json(new { handed_over = true, note = "Tell them someone from the team will reply here soon." });
     }
+
+    private async Task<string> ToolRecordConsentAsync(AgentRun run, bool? agreed, CancellationToken cancellationToken)
+    {
+        // The wording stored is what the customer was actually asked: Kato's previous message, not the
+        // model's account of it. An answer is accepted only when the customer's own message says it.
+        if (agreed is null || string.IsNullOrWhiteSpace(run.PreviousReply))
+        {
+            return Json(new { error = "ask_first", instruction = "Ask them first; record their answer when they reply." });
+        }
+
+        var saidYes = KatoWords.IsYes(run.Original, run.English);
+        var saidNo = KatoWords.IsNo(run.Original, run.English);
+        if ((agreed.Value && !saidYes) || (!agreed.Value && !saidNo))
+        {
+            return Json(new { error = "not_their_answer", instruction = "Their message does not answer your question. Carry on the conversation." });
+        }
+
+        var sender = await IdentifySenderAsync(run.Scope, run.WaId, cancellationToken);
+        var status = agreed.Value ? ContactConsentStatus.Agreed : ContactConsentStatus.Declined;
+        run.LeadId = await CreateLeadAsync(
+            run.Scope, run.English, run.WaId, sender, agreed.Value ? "WhatsApp - agreed to follow-up" : "WhatsApp - declined follow-up",
+            run.CorrelationId, cancellationToken,
+            change: lead => lead with
+            {
+                ThreadId = run.ThreadId ?? lead.ThreadId,
+                Consent = new ContactConsent(status, run.Now, run.PreviousReply!, "WhatsApp", run.TurnId),
+            });
+        await auditRepository.WriteAsync(
+            new AuditEvent(
+                Guid.NewGuid(), run.Scope, null, null, SystemActorId, ActorType.Integration, "sales_lead.contact_consent_recorded", run.Now,
+                null, status.ToString(), [run.LeadId!], "CustomerAssistant", null, "recorded", null,
+                "Customer answered whether they may be contacted later about cover; the question asked is kept with the answer.",
+                run.CorrelationId),
+            cancellationToken);
+        return Json(new { recorded = true, note = agreed.Value ? "Thank them briefly and carry on." : "Respect it warmly and carry on; do not ask again." });
+    }
+
+    private static IEnumerable<ProspectFact> CustomerFacts(AgentRun run, params (string Key, string? Value)[] values) =>
+        values
+            .Where(item => !string.IsNullOrWhiteSpace(item.Value) && ProspectFacts.Find(item.Key) is not null)
+            .Select(item => new ProspectFact(item.Key, item.Value!.Trim(), ProspectFactSource.Customer, run.Now, run.TurnId, "Kato"));
+
+    private static bool? BoolArg(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value)
+            ? value.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
+                _ => null,
+            }
+            : null;
 
     private async Task<Customer[]> CustomersOnThisPhoneAsync(AgentRun run, CancellationToken cancellationToken) =>
         (await customerRepository.ListAsync(run.Scope, cancellationToken))
@@ -628,6 +770,11 @@ public sealed partial class CustomerAssistantService
         public string? LeadId { get; set; }
         public string? PolicyNumber { get; set; }
         public bool Escalated { get; set; }
+        public string? ThreadId { get; init; }
+        public Guid? TurnId { get; init; }
+
+        /// <summary>Kato's last message before this one: the question a consent answer replies to.</summary>
+        public string? PreviousReply { get; init; }
 
         public AssistantOutcome Finish(string reply) => AssistantOutcome.Of(
             reply,

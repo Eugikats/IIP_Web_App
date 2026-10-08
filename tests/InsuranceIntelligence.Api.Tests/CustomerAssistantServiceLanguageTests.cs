@@ -169,7 +169,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(TranslationStatus.FellBackToEnglish, turn.InboundTranslationStatus);
         Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("someone from our team", sent.CustomerSafeBody);
+        Assert.Contains("get back to you shortly", sent.CustomerSafeBody);
         Assert.Equal("en", sent.Language);
         var audit = Assert.Single(fixture.Audit.Written);
         Assert.Equal("customer_assistant.translation_failed", audit.ActionName);

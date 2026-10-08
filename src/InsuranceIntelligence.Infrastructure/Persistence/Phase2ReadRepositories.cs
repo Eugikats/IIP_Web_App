@@ -221,7 +221,12 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
             .Select(Deserialize<ClaimCase>)
             .ToArray();
 
+        // The same person can be on file more than once (a demonstration list loaded again, or a customer
+        // added by hand and later by WhatsApp). One row per person: the email if there is one, else the
+        // phone number, else the record itself. The earliest-created record is kept so links stay stable.
         return customers
+            .GroupBy(customer => IdentityKey(customer), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderBy(customer => customer.CustomerId, StringComparer.Ordinal).First())
             .OrderBy(customer => customer.FullName, StringComparer.OrdinalIgnoreCase)
             .Select(customer => new CustomerListItemDto(
                 customer.CustomerId,
@@ -230,6 +235,17 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
                 customer.Phone,
                 claims.Count(claim => MatchesCustomer(claim, customer) && IsOpenClaim(claim))))
             .ToArray();
+    }
+
+    private static string IdentityKey(Customer customer)
+    {
+        if (!string.IsNullOrWhiteSpace(customer.Email))
+        {
+            return $"email:{customer.Email.Trim()}";
+        }
+
+        var phone = NormalizePhone(customer.Phone ?? string.Empty);
+        return phone.Length >= 9 ? $"phone:{phone}" : $"id:{customer.CustomerId}";
     }
 
     private static bool IsOpenClaim(ClaimCase claim) =>
@@ -396,15 +412,21 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
         // fell through to "general_service" for every thread and showed WhatsApp's delivery state
         // as though it were a work state, so an officer could not see which conversations were
         // new claims, and a reply held for human approval looked identical to one already sent.
-        var latestTurnByThread = (await Scoped(DbContext.CustomerConversationTurns.AsNoTracking(), scope)
+        var turnsByThread = (await Scoped(DbContext.CustomerConversationTurns.AsNoTracking(), scope)
                 .Select(record => record.PayloadJson)
                 .ToArrayAsync(cancellationToken))
             .Select(Deserialize<CustomerConversationTurn>)
             .GroupBy(turn => turn.ThreadId, StringComparer.Ordinal)
-            .ToDictionary(
-                group => group.Key,
-                group => group.OrderByDescending(turn => turn.OccurredAt).First(),
-                StringComparer.Ordinal);
+            .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
+        // Who is answering is a conversation-level state, so it reads every turn; the customer-facing
+        // classification below uses the latest one that is not just a control event.
+        var latestTurnByThread = turnsByThread.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value
+                .Where(turn => turn.Outcome is not (CustomerAssistantOutcome.HumanTookOver or CustomerAssistantOutcome.HandedBackToKato or CustomerAssistantOutcome.HumanReplied or CustomerAssistantOutcome.HeldForPerson))
+                .OrderByDescending(turn => turn.OccurredAt)
+                .FirstOrDefault(),
+            StringComparer.Ordinal);
 
         var cases = (await Scoped(DbContext.Cases.AsNoTracking(), scope)
                 .Select(record => record.PayloadJson)
@@ -425,6 +447,19 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
             .GroupBy(customer => PhoneNumbers.Digits(customer.Phone))
             .ToDictionary(group => group.Key, group => group.First());
 
+        // A prospect who has not become a customer still has a name worth showing: the one a person
+        // typed, an imported list gave, or the customer told Kato. Generic placeholders are skipped.
+        var prospectNamesByPhoneDigits = (await Scoped(DbContext.SalesLeads.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<InsuranceIntelligence.Application.SalesLeads.SalesLeadDetailReadModel>)
+            .Where(lead => !string.IsNullOrWhiteSpace(lead.CustomerName)
+                && !string.Equals(lead.CustomerName, "WhatsApp customer", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(lead.CustomerName, "WhatsApp contact", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(lead.Phone ?? lead.ContactInfo))
+            .GroupBy(lead => PhoneNumbers.Digits(lead.Phone ?? lead.ContactInfo))
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(lead => lead.CreatedAt).First().CustomerName);
+
         var whatsAppRows = whatsAppMessages
             .GroupBy(message => message.ThreadId, StringComparer.Ordinal)
             .Select(group => group.OrderByDescending(message => message.CreatedAt).First())
@@ -436,9 +471,10 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                     : null;
                 var turn = latestTurnByThread.GetValueOrDefault(message.ThreadId);
                 var language = ConversationLanguageNote.For(turn);
+                var controlMode = ConversationControl.ModeOf(turnsByThread.GetValueOrDefault(message.ThreadId) ?? [], DateTimeOffset.UtcNow);
                 return new ChannelConversationReadModel(
                     message.ThreadId,
-                    claimCase?.CustomerName ?? matchedCustomer?.FullName ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
+                    claimCase?.CustomerName ?? matchedCustomer?.FullName ?? prospectNamesByPhoneDigits.GetValueOrDefault(PhoneNumbers.Digits(message.ContactWaId)) ?? $"WhatsApp contact …{message.ContactWaId[^Math.Min(4, message.ContactWaId.Length)..]}",
                     ChannelValues.WhatsApp,
                     DetectedIntentFor(turn),
                     RoutingFor(turn, claimCase is not null),
@@ -449,7 +485,10 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                     message.CreatedAt,
                     claimCase?.CustomerPhone ?? message.ContactWaId,
                     language.Language,
-                    language.Note);
+                    language.Note)
+                {
+                    ControlMode = controlMode.ToString(),
+                };
             });
 
         var emailRows = emailMessages.Select(message =>

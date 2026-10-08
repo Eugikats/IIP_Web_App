@@ -34,10 +34,13 @@ export type WhatsAppMessage = {
   createdAt: string;
   updatedAt: string;
   safeError?: string | null;
+  /** The staff member who sent an outgoing message, or a system id ("system:...") for Kato. */
+  sentByUserId?: string | null;
 };
 
 export type SendWhatsAppInput = {
-  caseId: string;
+  /** A claim is optional: staff also reply to prospects who have reported nothing. */
+  caseId?: string | null;
   recipientWaId: string;
   customerSafeBody: string;
   purpose: string;
@@ -61,6 +64,7 @@ type OverviewRow = {
   customerContact?: string | null;
   customerLanguage?: string | null;
   languageNote?: string | null;
+  controlMode?: string | null;
 };
 
 const CHANNEL_MAP: Record<string, Channel> = {
@@ -124,6 +128,7 @@ function mapRow(row: OverviewRow): ChannelConversation {
     customerContact: row.customerContact ?? null,
     language: row.customerLanguage ?? null,
     languageNote: row.languageNote ?? null,
+    controlMode: channel === "WhatsApp" ? (row.controlMode === "Person" ? "Person" : "Kato") : undefined,
   };
 }
 
@@ -217,4 +222,65 @@ export function useWhatsAppThread(threadId?: string | null) {
   }, [load, role, threadId]);
 
   return { messages, loading, error, reload: load, send };
+}
+
+export type ConversationControl = {
+  mode: "Kato" | "Person";
+  modeLabel: string;
+  since: string | null;
+  byName: string | null;
+};
+
+/** Who is answering one WhatsApp conversation, and the switch to take it or hand it back. */
+export function useConversationControl(threadId?: string | null) {
+  const { roleDef } = useUI();
+  const role = roleDef.key;
+  const [control, setControl] = useState<ConversationControl | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!threadId || LOVABLE_VISUAL_PARITY_MODE) {
+      setControl(null);
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/channels/whatsapp/threads/${encodeURIComponent(threadId)}/control`, { headers: scopedHeaders(role, ""), cache: "no-store" });
+      setControl(response.ok ? ((await response.json()) as ConversationControl) : null);
+    } catch {
+      setControl(null);
+    }
+  }, [role, threadId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const set = useCallback(async (mode: "person" | "kato") => {
+    if (!threadId) return false;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/channels/whatsapp/threads/${encodeURIComponent(threadId)}/control`, {
+        method: "PUT",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      if (response.status === 403) {
+        setError("You do not have permission to change who answers this conversation.");
+        return false;
+      }
+      if (!response.ok) {
+        setError("The change could not be saved. Try again.");
+        return false;
+      }
+      setControl((await response.json()) as ConversationControl);
+      return true;
+    } catch {
+      setError("The change could not be saved. Try again.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [role, threadId]);
+
+  return { control, saving, error, reload: load, takeOver: () => set("person"), handBack: () => set("kato") };
 }

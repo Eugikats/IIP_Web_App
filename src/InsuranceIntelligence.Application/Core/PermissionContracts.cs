@@ -54,14 +54,25 @@ public sealed class PermissionService(
     ITenantContextAccessor tenantContextAccessor,
     IPermissionReadRepository permissionReadRepository) : IPermissionService
 {
+    // Scoped to one request, so the user's stored permissions are read once per request rather than
+    // once per check: a single screen load made several identical SQL round trips before.
+    private (string Key, IReadOnlyCollection<Permission> Permissions)? cached;
+
     public async Task<bool> HasPermissionAsync(Permission permission, CancellationToken cancellationToken = default)
     {
         var context = tenantContextAccessor.Current;
-        var persistedPermissions = await permissionReadRepository.GetPermissionsAsync(
-            context.TenantId,
-            context.WorkspaceId,
-            context.UserId,
-            cancellationToken);
+        var key = $"{context.TenantId}|{context.WorkspaceId}|{context.UserId}";
+        if (cached is not { } hit || hit.Key != key)
+        {
+            var loaded = await permissionReadRepository.GetPermissionsAsync(
+                context.TenantId,
+                context.WorkspaceId,
+                context.UserId,
+                cancellationToken);
+            cached = hit = (key, loaded);
+        }
+
+        var persistedPermissions = hit.Permissions;
 
         if (persistedPermissions.Contains(permission))
         {

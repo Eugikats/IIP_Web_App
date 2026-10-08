@@ -226,6 +226,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Customers.IContactDetailChangeRequestRepository, EfContactDetailChangeRequestRepository>();
         services.AddScoped<ICommunicationRepository, EfCommunicationRepository>();
         services.AddScoped<ITenantConfigurationRepository, EfTenantConfigurationRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Academy.IAcademyPricingRepository, EfAcademyPricingRepository>();
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
         services.AddScoped<IMailboxConnectionRepository, EfMailboxConnectionRepository>();
         services.AddScoped<IInboundEmailRepository, EfInboundEmailRepository>();
@@ -264,6 +265,7 @@ public static class InfrastructureRegistration
         services.AddScoped<ICommandCenterConversationRepository, EfCommandCenterConversationRepository>();
         services.AddScoped<IWhatsAppMessageRepository, EfWhatsAppMessageRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerConversationRepository, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfCustomerConversationRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.SalesLeads.IConversationActivityReader, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfConversationActivityReader>();
         services.AddScoped<InsuranceIntelligence.Domain.Compliance.IConsentRepository, InsuranceIntelligence.Infrastructure.Compliance.EfConsentRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Translation.ICustomerLanguagePreferenceRepository, InsuranceIntelligence.Infrastructure.Translation.EfCustomerLanguagePreferenceRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Retention.IRetentionReminderRepository, InsuranceIntelligence.Infrastructure.Retention.EfRetentionReminderRepository>();
@@ -278,6 +280,8 @@ public static class InfrastructureRegistration
         services.AddSingleton<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerIntentClassifier, InsuranceIntelligence.Domain.CustomerAssistant.KeywordCustomerIntentClassifier>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.DemoSeeding.IDemoDataPurgeService, InsuranceIntelligence.Infrastructure.DemoSeeding.EfDemoDataPurgeService>();
         services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.DemoSeedService>();
+        services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.BankCustomerDemoSeeder>();
+        services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.DemoConversationSeeder>();
         // W1.3: use the SQL-aware health check (wraps AzureProviderHealthCheck and adds a real
         // Azure SQL connectivity probe). The other three Core ports (ITenantContextAccessor,
         // IPermissionService, IAuditWriter) are already correctly implemented via the hexagonal

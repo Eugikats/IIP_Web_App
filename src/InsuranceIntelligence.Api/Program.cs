@@ -361,6 +361,7 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
     builder.Services.AddSingleton<IEmbeddingProvider, AzureOpenAiEmbeddingProvider>();
     builder.Services.AddScoped<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
     builder.Services.AddScoped<IToolCallingChatProvider, AzureOpenAiToolCallingChatProvider>();
+    builder.Services.AddScoped<IConversationInsightsService, ConversationInsightsService>();
 }
 else
 {
@@ -436,7 +437,15 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Policies.IPolicyImp
 builder.Services.AddScoped<InsuranceIntelligence.Application.Customers.ICustomerConsentService, InsuranceIntelligence.Application.Customers.CustomerConsentService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Retention.IRetentionWatchService, InsuranceIntelligence.Application.Retention.RetentionWatchService>();
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IConversationControlService, InsuranceIntelligence.Application.CustomerAssistant.ConversationControlService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
+builder.Services.AddScoped<IProspectTriageService, ProspectTriageService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
+// A message that cannot reach a real phone may be recorded as a clearly labelled demonstration send, but
+// only where the runtime profile is not protected. In Staging and Production it is blocked, never faked.
+builder.Services.AddSingleton(new OutreachOptions(!AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile)));
+builder.Services.AddScoped<IOutreachService, OutreachService>();
+builder.Services.AddScoped<IAcquisitionReportService, AcquisitionReportService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Brief.IBriefService, InsuranceIntelligence.Application.Brief.BriefService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQueryService, InsuranceIntelligence.Application.Products.ProductQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCommandService, InsuranceIntelligence.Application.Products.ProductCommandService>();
@@ -487,6 +496,9 @@ builder.Services.AddScoped<ICommandCenterActionService, CommandCenterActionServi
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.IClaimTriageQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>());
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ClaimTriageWorker>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>();
+builder.Services.AddSingleton<IConversationInsightsQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>());
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ConversationInsightsWorker>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantQueue>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Integrations.IWhatsAppAssistantQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantQueue>());
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantWorker>();
@@ -539,6 +551,13 @@ builder.Configuration["INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER"] ??= "Mock";
 builder.Configuration["INSURANCEINTELLIGENCE_COMMUNICATION_PROVIDER"] ??= "Mock";
 builder.Configuration["INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_MAX_BYTES"] ??= DocumentEndpoints.MaxLocalMockFileSizeBytes.ToString();
 builder.Configuration["INSURANCEINTELLIGENCE_LOCAL_KNOWLEDGE_MAX_BYTES"] ??= KnowledgeEndpoints.MaxKnowledgeFileSizeBytes.ToString();
+
+// Whose assistant Kato is: Nile Shield Assurance unless configured for a bank selling its partner
+// insurers' covers (Assistant:Organisation, Assistant:ShortName, Assistant:PartnerInsurers).
+InsuranceIntelligence.Application.CustomerAssistant.KatoBrand.Current = InsuranceIntelligence.Application.CustomerAssistant.KatoBrand.FromSettings(
+    builder.Configuration["Assistant:Organisation"],
+    builder.Configuration["Assistant:ShortName"],
+    builder.Configuration["Assistant:PartnerInsurers"]);
 
 var app = builder.Build();
 
@@ -985,6 +1004,8 @@ app.MapPost("/api/v1/admin/demo-seed", InsuranceIntelligence.Api.Admin.DemoSeedE
 app.MapPost("/api/v1/admin/demo-seed/policyholders", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedPolicyholders);
 app.MapPost("/api/v1/admin/demo-seed/test-policyholder", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedTestPolicyholder);
 app.MapPost("/api/v1/admin/demo-seed/microinsurance", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedMicroinsurance);
+app.MapPost("/api/v1/admin/demo-seed/bank-customers", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedBankCustomers);
+app.MapPost("/api/v1/admin/demo-seed/conversations", InsuranceIntelligence.Api.Admin.DemoSeedEndpoints.SeedConversations);
 app.MapPost("/api/v1/admin/db-migrate", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ApplyPending);
 app.MapPost("/api/v1/admin/db-migrate/reconcile-history", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ReconcileHistory);
 app.MapPost("/api/v1/admin/db-migrate/force-reconcile-schema", InsuranceIntelligence.Api.Admin.DatabaseMigrationEndpoints.ForceReconcileSchema);
@@ -1014,14 +1035,45 @@ app.MapPost("/api/v1/customers/{customerId}/consent/withdraw", InsuranceIntellig
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 // Names for ids, for any staff member who can see claims or customers; also feeds the assignment picker.
 app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEndpoints.ListPeople)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers));
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers, Permission.ViewSalesLeads));
 app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBrief)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);
+app.MapPut("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.SavePricing)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapPost("/api/v1/sales-leads", SalesLeadEndpoints.CreateLead)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/{leadId}/notes", SalesLeadEndpoints.AddNote)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPut("/api/v1/sales-leads/{leadId}/assignee", SalesLeadEndpoints.Assign)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/{leadId}/insights/refresh", SalesLeadEndpoints.RefreshInsights)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapGet("/api/v1/acquisition/escalations", async (IAcquisitionReportService reports, CancellationToken ct) => Results.Ok(await reports.EscalationsAsync(ct)))
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapGet("/api/v1/acquisition/agents", async (IAcquisitionReportService reports, CancellationToken ct) => Results.Ok(await reports.AgentOperationsAsync(ct)))
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapGet("/api/v1/acquisition/channel-intelligence", async (IAcquisitionReportService reports, CancellationToken ct) => Results.Ok(await reports.ChannelIntelligenceAsync(ct)))
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapPost("/api/v1/sales-leads/outreach/draft", SalesLeadEndpoints.DraftOutreach)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/outreach/follow-ups", SalesLeadEndpoints.DraftFollowUps)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/outreach/send", SalesLeadEndpoints.SendOutreachMany)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPut("/api/v1/sales-leads/{leadId}/outreach/{draftId:guid}", SalesLeadEndpoints.EditOutreach)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/{leadId}/outreach/{draftId:guid}/send", SalesLeadEndpoints.SendOutreach)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/sales-leads/{leadId}/outreach/{draftId:guid}/dismiss", SalesLeadEndpoints.DismissOutreach)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/triage", SalesLeadEndpoints.RunTriageForAll)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/{leadId}/triage", SalesLeadEndpoints.RunTriageForLead)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 
 // Product configuration, the spine everything else in claim handling reads from (blueprint
@@ -1260,6 +1312,14 @@ app.MapGet("/api/v1/admin/tenant-policy", InsuranceIntelligence.Api.Administrati
 app.MapPost("/api/v1/integrations/sms/status/{pathSecret}", SmsIntegrationEndpoints.ReceiveDeliveryStatus);
 app.MapGet("/api/v1/channels/whatsapp/threads/{threadId}", WhatsAppIntegrationEndpoints.GetThread)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapGet("/api/v1/channels/whatsapp/threads/{threadId}/control", ConversationControlEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications, Permission.ViewSalesLeads, Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPut("/api/v1/channels/whatsapp/threads/{threadId}/control", ConversationControlEndpoints.Set)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapGet("/api/v1/channels/whatsapp/threads/{threadId}/prospect", SalesLeadEndpoints.GetByThread)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
+app.MapPost("/api/v1/admin/sales-leads/merge-duplicates", SalesLeadEndpoints.MergeDuplicates)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapPost("/api/v1/channels/whatsapp/threads/{threadId}/messages", WhatsAppIntegrationEndpoints.SendMessage)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.SendCustomerUpdate));
 app.MapPost("/api/v1/communications/send-email", CommunicationEndpoints.SendEmail)

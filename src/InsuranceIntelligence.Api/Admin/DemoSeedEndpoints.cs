@@ -210,6 +210,93 @@ public static class DemoSeedEndpoints
 
         return Results.Ok(new { catalogue, policyholder });
     }
+
+    /// <summary>Loads an invented bank customer list (39 people) as prospects, for the bancassurance
+    /// demonstration. Idempotent; same Demo-only gate as every other seed route.</summary>
+    public static async Task<IResult> SeedBankCustomers(
+        InsuranceIntelligence.Application.DemoSeeding.BankCustomerDemoSeeder seeder,
+        InsuranceIntelligence.Application.SalesLeads.IProspectTriageService triage,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        IWebHostEnvironment environment,
+        CancellationToken cancellationToken)
+    {
+        var runtimeProfile = AzureProviderStartupValidator.ResolveRuntimeProfile(options, environment.EnvironmentName);
+        if (AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile))
+        {
+            return Results.Problem(
+                $"Demo data seeding is not available under the '{runtimeProfile}' runtime profile.",
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!InsuranceIntelligence.Api.Workflow.WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var seeded = await seeder.SeedAsync(scope, cancellationToken);
+
+        // Score the people just loaded so the Scores tab and the recommended covers are not empty.
+        try
+        {
+            await triage.RunAsync(null, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Seeding succeeded; scoring can be run from the Scores tab.
+        }
+
+        return Results.Ok(seeded);
+    }
+
+    /// <summary>Gives four of the invented bank customers a WhatsApp conversation with Kato, with the
+    /// assistant's reading of each, so the chat screen has activity. Run after bank-customers. Idempotent;
+    /// same Demo-only gate.</summary>
+    public static async Task<IResult> SeedConversations(
+        InsuranceIntelligence.Application.DemoSeeding.DemoConversationSeeder seeder,
+        InsuranceIntelligence.Application.SalesLeads.IProspectTriageService triage,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        IWebHostEnvironment environment,
+        CancellationToken cancellationToken)
+    {
+        var runtimeProfile = AzureProviderStartupValidator.ResolveRuntimeProfile(options, environment.EnvironmentName);
+        if (AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile))
+        {
+            return Results.Problem(
+                $"Demo data seeding is not available under the '{runtimeProfile}' runtime profile.",
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!InsuranceIntelligence.Api.Workflow.WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var seeded = await seeder.SeedAsync(scope, cancellationToken);
+
+        // Score the people just loaded so the Scores tab and the recommended covers are not empty.
+        try
+        {
+            await triage.RunAsync(null, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Seeding succeeded; scoring can be run from the Scores tab.
+        }
+
+        return Results.Ok(seeded);
+    }
 }
 
 public sealed record MicroinsuranceSeedRequest(string? Phone);

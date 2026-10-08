@@ -15,12 +15,16 @@ Visual reference for the language: [`docs/03-design-architecture/reference/bevay
 
 ## The direction, in short
 
-A calm, border-led, light-first insurance operations console. One violet accent (`#5B2AE8`) used only to mark the next action. Inter throughout. Hairline borders instead of shadows. Colour rationed to 6px status dots and single figures. A 64px icon rail, a contextual panel, and a left-aligned content column. It should read as **a precise instrument, not a product tour.**
+A calm, border-led, light-first insurance operations console. One blue accent (`#1769FF`, the same blue as the CIP platform) used only to mark the next action. Inter throughout. Hairline borders instead of shadows. Colour rationed to 6px status dots and single figures. A 64px icon rail, a contextual panel, and a left-aligned content column. It should read as **a precise instrument, not a product tour.**
+
+## Accent colour decision (2026-10-07)
+
+IIP is CIP's sister product and shares its look, so the accent changed from violet `#5B2AE8` to CIP's blue `#1769FF` across the portal. It is a token change (`--color-primary` and its tints in `app/globals.css`, `--violet` in `app/lovable.css`), so a component that uses the tokens follows it. The acquisition dashboard and the inbox are ported from CIP's own components (`components/cip/`) and use CIP's tinted status pills; every other screen keeps the neutral pill. The longer-term plan to write one shared design language for both products is outcome O of `docs/01-strategy-requirements-roadmap/IIP_BANCASSURANCE_ACQUISITION_BUILD_PROMPT.md`. The older documents linked above still describe violet; where they disagree with this section, this section wins until they are rewritten.
 
 ## The rules that are never waived
 
 1. **No emoji anywhere** — UI, code, chat output, commit messages, docs. Guardrails §3.
-2. **One violet primary action per screen region.** Violet marks what to do next; it never decorates.
+2. **One primary action per screen region, in the accent blue.** The accent marks what to do next; it never decorates.
 3. **Gradients in exactly two places** — the Assistant orb and chart bars. Nowhere else.
 4. **Borders, not shadows.** Static cards carry `box-shadow: none`. Shadow is only for genuinely floating surfaces.
 5. **Status is a neutral pill plus a 6px coloured dot plus a word.** Never colour alone, never a tinted pill, never coloured pill text.

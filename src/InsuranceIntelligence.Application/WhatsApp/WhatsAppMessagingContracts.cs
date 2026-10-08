@@ -4,7 +4,7 @@ using InsuranceIntelligence.Domain.Integrations;
 namespace InsuranceIntelligence.Application.WhatsApp;
 
 public sealed record SendWhatsAppMessageCommand(
-    Guid CaseId,
+    Guid? CaseId,
     string ThreadId,
     string RecipientWaId,
     string CustomerSafeBody,
@@ -23,16 +23,17 @@ public sealed record WhatsAppMessageDto(
     string ThreadId,
     string BusinessPhoneNumberId,
     string ContactWaId,
-    WhatsAppMessageDirection Direction,
-    WhatsAppContentType ContentType,
+    [property: System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))] WhatsAppMessageDirection Direction,
+    [property: System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))] WhatsAppContentType ContentType,
     string CustomerSafeBody,
     string? ProviderMessageId,
     string? TemplateName,
     string? Language,
-    WhatsAppDeliveryState DeliveryState,
+    [property: System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))] WhatsAppDeliveryState DeliveryState,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    string? SafeError);
+    string? SafeError,
+    string? SentByUserId = null);
 
 public sealed class WhatsAppPolicyException(string code, string message) : InvalidOperationException(message)
 {

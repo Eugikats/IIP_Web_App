@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Domain.Acquisition;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.Notifications;
@@ -116,7 +117,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(CustomerAssistantOutcome.Declined, turn.Outcome);
         Assert.Null(turn.CaseId);
         Assert.Empty(await fixture.Cases.ListAsync(fixture.Scope));
-        Assert.Contains("PERSON", turn.OutboundReplyText);
+        Assert.DoesNotContain("PERSON", turn.OutboundReplyText);
         Assert.DoesNotContain("policy number", turn.OutboundReplyText, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -305,7 +306,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(CustomerAssistantOutcome.AwaitingMoreInformation, turn.Outcome);
         Assert.StartsWith("Hello, Sarah. I'm Kato, Nile Shield's helper", turn.OutboundReplyText);
         Assert.Contains("get your money", turn.OutboundReplyText);
-        Assert.Contains("PERSON", turn.OutboundReplyText);
+        Assert.DoesNotContain("PERSON", turn.OutboundReplyText);
         Assert.DoesNotContain("voice note", turn.OutboundReplyText); // voice is not offered until it works
         Assert.Empty(fixture.SalesLeads.Created);
     }
@@ -335,7 +336,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal(CustomerIntent.GeneralQuestion, turn.ClassifiedIntent);
         Assert.Equal(CustomerAssistantOutcome.QueuedForHumanApproval, turn.Outcome);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("asked our team", sent.CustomerSafeBody);
+        Assert.Contains("get back to you shortly", sent.CustomerSafeBody);
     }
 
     [Fact]
@@ -381,7 +382,7 @@ public sealed partial class CustomerAssistantServiceTests
         // The held AI answer never reaches the customer; only the fixed holding message does.
         var sent = Assert.Single(fixture.Outbound.SentRequests);
         Assert.DoesNotContain("own damage", sent.CustomerSafeBody);
-        Assert.Contains("asked our team to check", sent.CustomerSafeBody);
+        Assert.Contains("get back to you shortly", sent.CustomerSafeBody);
     }
 
     [Fact]
@@ -701,12 +702,16 @@ public sealed partial class CustomerAssistantServiceTests
     [Fact]
     public async Task VoiceNote_ThatCannotBeHeard_GetsAWrittenReply_NeverSilence()
     {
-        var fixture = Fixture.Create(voice: new FakeVoiceNoteTranscriber(null));
+        var voice = new FakeVoiceNoteTranscriber(null);
+        var fixture = Fixture.Create(voice: voice);
 
         await fixture.HandleVoiceAsync();
 
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("can't listen to voice notes yet", sent.CustomerSafeBody);
+        // Voice notes work here, so the customer is told this one could not be made out, never that Kato cannot listen.
+        Assert.DoesNotContain("can't listen", sent.CustomerSafeBody);
+        Assert.Contains("could not make out that voice note", sent.CustomerSafeBody);
+        Assert.Equal(2, voice.Attempts); // tried again once before giving up
     }
 
     [Fact]
@@ -735,11 +740,14 @@ public sealed partial class CustomerAssistantServiceTests
     {
         public string? LastMediaId { get; private set; }
 
+        public int Attempts { get; private set; }
+
         public Task<bool> IsAvailableAsync(TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public Task<string?> TranscribeAsync(TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, string? businessPhoneNumberId = null, CancellationToken cancellationToken = default)
         {
             LastMediaId = mediaId;
+            Attempts++;
             return Task.FromResult(transcript);
         }
     }
@@ -849,7 +857,124 @@ public sealed partial class CustomerAssistantServiceTests
 
         Assert.Empty(fixture.Policies.Policies);
         Assert.Contains("application_received", model.ToolResults[1]);
-        Assert.Contains(fixture.SalesLeads.Created, lead => lead.LeadSource == "WhatsApp - cover application");
+        // One person, one prospect record: registering created it and the application updated it.
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.Equal("Grace Nakato", lead.CustomerName);
+        Assert.Equal(MicroinsuranceCatalog.FindByLineOrName("Small Business Shop")!.Name, lead.AppliedFor);
+        Assert.Contains(lead.Activity, entry => entry.Text.StartsWith("Applied for", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Agent_OnePersonIsOneProspect_HowEverManyTimesTheyWrite()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("register_customer", """{"full_name":"Grace Nakato","occupation":"I sell shoes","area":"Kalerwe"}""")
+            .Says("You are registered, Grace.")
+            .Calls("hand_to_person", """{"reason":"Wants to talk about Motor cover"}""")
+            .Says("Someone from the team will reply here soon.");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleAsync("I am Grace Nakato, I sell shoes in Kalerwe");
+        await fixture.HandleAsync("Can I talk to someone about motor insurance?");
+
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.Equal("Grace Nakato", lead.CustomerName);
+        Assert.NotNull(lead.HandedToPersonAt);
+        Assert.Equal("I sell shoes", lead.Facts.Single(fact => fact.Key == "occupation").Value);
+        Assert.Equal("Kalerwe", lead.Facts.Single(fact => fact.Key == "area").Value);
+        Assert.All(lead.Facts, fact => Assert.Equal(ProspectFactSource.Customer, fact.Source));
+        Assert.Equal(["Registered on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
+        Assert.NotNull(lead.ThreadId);
+    }
+
+    [Fact]
+    public async Task Agent_AskingForAPersonAlone_DoesNotMakeSomeoneAProspect()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("hand_to_person", """{"reason":"Unhappy about how long a claim is taking"}""")
+            .Says("Someone from the team will reply here soon.");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleAsync("I want to talk to a manager about my claim");
+
+        Assert.Empty(fixture.SalesLeads.Created);
+    }
+
+    [Fact]
+    public async Task Agent_RecordsContactConsent_WithTheExactQuestionAsked()
+    {
+        const string question = "Would you like Nile Shield to send you a WhatsApp message later about shop cover?";
+        var model = new ScriptedAgentModel()
+            .Says(question)
+            .Calls("record_contact_consent", """{"agreed":true}""")
+            .Says("Thank you, we will.");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleAsync("I am thinking about shop cover");
+        await fixture.HandleAsync("Yes please");
+
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.NotNull(lead.Consent);
+        Assert.Equal(ContactConsentStatus.Agreed, lead.Consent!.Status);
+        Assert.Equal(question, lead.Consent.Wording);
+        Assert.Equal("WhatsApp", lead.Consent.Channel);
+        Assert.Contains(fixture.Audit.Written, entry => entry.ActionName == "sales_lead.contact_consent_recorded");
+    }
+
+    [Fact]
+    public async Task Agent_DoesNotRecordConsent_WhenTheCustomerDidNotAnswerTheQuestion()
+    {
+        var model = new ScriptedAgentModel()
+            .Says("Would you like Nile Shield to message you later about cover?")
+            .Calls("record_contact_consent", """{"agreed":true}""")
+            .Says("Shop cover is UGX 15,000 a month.");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleAsync("I am thinking about shop cover");
+        await fixture.HandleAsync("How much does it cost?");
+
+        Assert.Contains("not_their_answer", model.ToolResults[0]);
+        Assert.Empty(fixture.SalesLeads.Created);
+    }
+
+    [Fact]
+    public async Task WhileAPersonHasTheConversation_KatoStaysSilent_ButRecordsAndReadsTheMessage()
+    {
+        var model = new ScriptedAgentModel().Says("This must never be sent.");
+        var fixture = Fixture.Create(agent: model);
+        var threadId = InsuranceIntelligence.Application.WhatsApp.WhatsAppMessagingService.BuildThreadId("phone-1", "256772118001");
+        await fixture.Conversations.SaveAsync(new CustomerConversationTurn
+        {
+            TurnId = Guid.NewGuid(),
+            Scope = fixture.Scope,
+            ThreadId = threadId,
+            ContactWaId = "256772118001",
+            InboundMessageText = string.Empty,
+            ClassifiedIntent = CustomerIntent.Unknown,
+            Outcome = CustomerAssistantOutcome.HumanTookOver,
+            OccurredAt = DateTimeOffset.UtcNow.AddMinutes(-2),
+            CorrelationId = "takeover",
+        });
+
+        await fixture.HandleAsync("Is the shop cover still UGX 15,000?");
+
+        Assert.Empty(fixture.Outbound.SentRequests);
+        Assert.Empty(model.Conversations);
+        var turns = await fixture.Conversations.ListForThreadAsync(fixture.Scope, threadId);
+        Assert.Contains(turns, turn => turn.Outcome == CustomerAssistantOutcome.HeldForPerson && turn.InboundMessageText.Contains("shop cover"));
+        Assert.Single(fixture.InsightsQueue.Requests);
+    }
+
+    [Fact]
+    public async Task Agent_AsksForTheConversationToBeReadAgain_AfterEveryReply()
+    {
+        var model = new ScriptedAgentModel().Says("Hello, I am Kato from Nile Shield.");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleAsync("Hello");
+
+        var request = Assert.Single(fixture.InsightsQueue.Requests);
+        Assert.Equal("256772118001", request.WaId);
     }
 
     [Fact]
@@ -1095,7 +1220,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         var reply = Assert.Single(fixture.Conversations.Saved).OutboundReplyText!;
         Assert.Contains("I'm not a person myself", reply);
-        Assert.Contains("PERSON", reply);
+        Assert.DoesNotContain("PERSON", reply);
     }
 
     [Fact]
@@ -1160,7 +1285,7 @@ public sealed partial class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.Escalated, turn.Outcome);
         var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("someone from our team", sent.CustomerSafeBody);
+        Assert.Contains("get back to you shortly", sent.CustomerSafeBody);
         var audit = Assert.Single(fixture.Audit.Written);
         Assert.Equal("customer_assistant.processing_failed", audit.ActionName);
     }
@@ -1282,6 +1407,7 @@ public sealed partial class CustomerAssistantServiceTests
             var agentGate = agentEnabled ? new LocalTestAgentGate() : new LocalTestAgentGate("customer-assistant");
             var linkIssuer = new FakeAccessLinkIssuer();
             var languagePreferences = new InMemoryCustomerLanguagePreferenceRepository();
+            var insightsQueue = new RecordingInsightsQueue();
             IChatCompletionProvider? model = modelThrows
                 ? new FakeChatCompletionProvider(null)
                 : modelAnswer is null ? null : new FakeChatCompletionProvider(modelAnswer);
@@ -1314,16 +1440,20 @@ public sealed partial class CustomerAssistantServiceTests
                     new DemoSessionSettings(true, demoPhone), customers, policies, cases, languagePreferences, audit),
                 voice,
                 speaker,
-                agent);
+                agent,
+                insightsQueue);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {
                 LinkIssuer = linkIssuer,
                 LanguagePreferences = languagePreferences,
+                InsightsQueue = insightsQueue,
             };
         }
 
         public InMemoryCustomerLanguagePreferenceRepository LanguagePreferences { get; private init; } = new();
+
+        public RecordingInsightsQueue InsightsQueue { get; private init; } = new();
 
         public Task<IReadOnlyList<Guid>> HandleFromAsync(string text, string waId) =>
             Service.HandleInboundMessagesAsync(
@@ -1480,14 +1610,44 @@ public sealed partial class CustomerAssistantServiceTests
                 : Task.FromResult(new ChatCompletionResult(answer, "Fake", null, DateTimeOffset.UtcNow));
     }
 
+    /// <summary>Behaves like the real store: a save replaces the lead with the same id. Created is the
+    /// latest version of each lead, in the order the leads were first saved; Saves is every write.</summary>
     private sealed class FakeSalesLeadWriteRepository : ISalesLeadWriteRepository
     {
         public List<SalesLeadDetailReadModel> Created { get; } = [];
+        public List<SalesLeadDetailReadModel> Saves { get; } = [];
+
         public Task CreateAsync(string tenantId, string workspaceId, SalesLeadDetailReadModel lead, CancellationToken cancellationToken = default)
         {
-            Created.Add(lead);
+            Saves.Add(lead);
+            var index = Created.FindIndex(existing => existing.LeadId == lead.LeadId);
+            if (index >= 0)
+            {
+                Created[index] = lead;
+            }
+            else
+            {
+                Created.Add(lead);
+            }
+
             return Task.CompletedTask;
         }
+
+        public Task DeleteAsync(string tenantId, string workspaceId, string leadId, CancellationToken cancellationToken = default)
+        {
+            Created.RemoveAll(lead => lead.LeadId == leadId);
+            return Task.CompletedTask;
+        }
+
+        public Task<SalesLeadDetailReadModel?> FindByPhoneAsync(string tenantId, string workspaceId, string phone, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Created.LastOrDefault(lead => InsuranceIntelligence.Domain.Customers.PhoneNumbers.SameNumber(lead.Phone ?? lead.ContactInfo, phone)));
+    }
+
+    private sealed class RecordingInsightsQueue : IConversationInsightsQueue
+    {
+        public List<(string WaId, string ThreadId)> Requests { get; } = [];
+
+        public void Enqueue(TenantScope scope, string waId, string threadId, string correlationId) => Requests.Add((waId, threadId));
     }
 
     private sealed class FakeWhatsAppOutboundProvider : IWhatsAppOutboundProvider

@@ -26,7 +26,11 @@ public sealed record ChannelConversationReadModel(
     DateTimeOffset LastActivityAt,
     string? CustomerContact = null,
     string? CustomerLanguage = null,
-    string? LanguageNote = null);
+    string? LanguageNote = null)
+{
+    /// <summary>Who is answering a WhatsApp conversation: "Kato" or "Person".</summary>
+    public string ControlMode { get; init; } = "Kato";
+}
 
 public sealed record ChannelConversationRowDto(
     string Id,
@@ -41,7 +45,10 @@ public sealed record ChannelConversationRowDto(
     string LastActivityAt,
     string? CustomerContact = null,
     string? CustomerLanguage = null,
-    string? LanguageNote = null);
+    string? LanguageNote = null)
+{
+    public string ControlMode { get; init; } = "Kato";
+}
 
 public static class ChannelValues
 {

@@ -1,3 +1,5 @@
+using InsuranceIntelligence.Application.CustomerAssistant;
+using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Application.Core;
@@ -187,6 +189,7 @@ public static class WhatsAppIntegrationEndpoints
         string threadId,
         SendWhatsAppMessageRequest request,
         IWhatsAppMessagingService service,
+        IConversationControlService? control,
         CancellationToken cancellationToken)
     {
         try
@@ -196,6 +199,12 @@ public static class WhatsAppIntegrationEndpoints
                 request.Purpose, request.ConsentBasis, request.Language, request.TemplateName,
                 request.HumanApproved, request.IdempotencyKey, request.ReplyToProviderMessageId,
                 request.TemplateParameters), cancellationToken);
+            // A reply sent by a person is what keeps Kato quiet on this conversation.
+            if (control is not null && message.DeliveryState != WhatsAppDeliveryState.Failed)
+            {
+                await control.RecordReplyAsync(threadId, request.CustomerSafeBody.Trim(), cancellationToken);
+            }
+
             return message.DeliveryState switch
             {
                 WhatsAppDeliveryState.Failed => Results.BadRequest(message),
@@ -215,8 +224,37 @@ public static class WhatsAppIntegrationEndpoints
     }
 }
 
+public sealed record ConversationControlRequest(string? Mode);
+
+public static class ConversationControlEndpoints
+{
+    public static async Task<IResult> Get(string threadId, IConversationControlService service, CancellationToken cancellationToken)
+    {
+        try { return Results.Ok(await service.GetAsync(threadId, cancellationToken)); }
+        catch (PermissionDeniedException) { return Results.StatusCode(StatusCodes.Status403Forbidden); }
+    }
+
+    public static async Task<IResult> Set(string threadId, ConversationControlRequest request, IConversationControlService service, CancellationToken cancellationToken)
+    {
+        var mode = request.Mode?.Trim().ToLowerInvariant() switch
+        {
+            "person" => (ConversationMode?)ConversationMode.Person,
+            "kato" => ConversationMode.Kato,
+            _ => null,
+        };
+        if (mode is null)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["mode"] = ["Mode must be \"person\" or \"kato\"."] });
+        }
+
+        try { return Results.Ok(await service.SetAsync(threadId, mode.Value, cancellationToken)); }
+        catch (PermissionDeniedException) { return Results.StatusCode(StatusCodes.Status403Forbidden); }
+        catch (ArgumentException error) { return Results.NotFound(new { message = error.Message }); }
+    }
+}
+
 public sealed record SendWhatsAppMessageRequest(
-    Guid CaseId,
+    Guid? CaseId,
     string RecipientWaId,
     string CustomerSafeBody,
     string Purpose,

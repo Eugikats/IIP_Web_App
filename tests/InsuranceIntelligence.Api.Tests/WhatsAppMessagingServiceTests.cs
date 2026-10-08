@@ -75,6 +75,31 @@ public sealed class WhatsAppMessagingServiceTests
     }
 
     [Fact]
+    public async Task SendAsync_WithNoClaim_ReachesAProspectWhoHasWrittenIn()
+    {
+        // Staff reply to prospects and to people who have reported nothing, so a claim is optional.
+        var fixture = await Fixture.CreateAsync();
+        await fixture.Repository.SaveAsync(fixture.InboundMessage(DateTimeOffset.UtcNow.AddMinutes(-5)) with { CaseId = null });
+
+        var sent = await fixture.Service.SendAsync(fixture.SendRequest("send-no-case") with { CaseId = null });
+
+        Assert.Equal(WhatsAppDeliveryState.ProviderAccepted, sent.DeliveryState);
+        Assert.Null(sent.CaseId);
+    }
+
+    [Fact]
+    public async Task SendAsync_NamingAClaimFromAnotherWorkspace_IsStillRefused()
+    {
+        var fixture = await Fixture.CreateAsync();
+        await fixture.Repository.SaveAsync(fixture.InboundMessage(DateTimeOffset.UtcNow.AddMinutes(-5)));
+
+        var error = await Assert.ThrowsAsync<WhatsAppPolicyException>(
+            () => fixture.Service.SendAsync(fixture.SendRequest("send-foreign-case") with { CaseId = Guid.NewGuid() }));
+
+        Assert.Equal("CaseNotFound", error.Code);
+    }
+
+    [Fact]
     public async Task SendAsync_NoInboundMessageFromThisContactOnTheThread_IsRefused()
     {
         var fixture = await Fixture.CreateAsync();

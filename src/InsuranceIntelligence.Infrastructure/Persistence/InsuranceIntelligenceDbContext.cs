@@ -16,6 +16,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedContactDetailChangeRequest> ContactDetailChangeRequests => Set<PersistedContactDetailChangeRequest>();
     public DbSet<PersistedCommunication> Communications => Set<PersistedCommunication>();
     public DbSet<PersistedTenantConfiguration> TenantConfigurations => Set<PersistedTenantConfiguration>();
+    public DbSet<PersistedAcademyPricing> AcademyPricings => Set<PersistedAcademyPricing>();
     public DbSet<PersistedUserAccount> UserAccounts => Set<PersistedUserAccount>();
     public DbSet<PersistedMailboxConnection> MailboxConnections => Set<PersistedMailboxConnection>();
     public DbSet<PersistedInboundEmail> InboundEmails => Set<PersistedInboundEmail>();
@@ -90,6 +91,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedCommunication>(), "Communications", "CommunicationId");
         modelBuilder.Entity<PersistedCommunication>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedTenantConfiguration>(), "TenantConfigurations", "ConfigurationId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedAcademyPricing>(), "AcademyPricings", "AcademyPricingId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedUserAccount>(), "UserAccounts", "UserAccountKey");
         ConfigureScopedJson(modelBuilder.Entity<PersistedMailboxConnection>(), "MailboxConnections", "MailboxConnectionId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedInboundEmail>(), "InboundEmails", "MessageId");
@@ -367,6 +369,7 @@ public sealed class PersistedClaimReviewRequest : PersistedScopedJson { public G
 public sealed class PersistedContactDetailChangeRequest : PersistedScopedJson { public Guid? CaseId { get; set; } }
 public sealed class PersistedCommunication : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedTenantConfiguration : PersistedScopedJson;
+public sealed class PersistedAcademyPricing : PersistedScopedJson;
 public sealed class PersistedUserAccount : PersistedScopedJson { public string UserId { get; set; } = string.Empty; }
 public sealed class PersistedMailboxConnection : PersistedScopedJson;
 public sealed class PersistedInboundEmail : PersistedScopedJson;

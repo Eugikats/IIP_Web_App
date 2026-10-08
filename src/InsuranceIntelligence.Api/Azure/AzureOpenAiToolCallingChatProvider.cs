@@ -32,7 +32,7 @@ public sealed class AzureOpenAiToolCallingChatProvider(
             throw new InvalidOperationException("Azure OpenAI is not configured for tool calling.");
         }
 
-        var body = BuildRequestBody(messages, tools);
+        var body = BuildRequestBody(messages, tools, options.AzureOpenAI.AgentReasoningEffort);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
             $"{options.AzureOpenAI.Endpoint!.TrimEnd('/')}/openai/deployments/{Uri.EscapeDataString(options.AzureOpenAI.ChatDeployment!)}/chat/completions?api-version={Uri.EscapeDataString(options.AzureOpenAI.ApiVersion)}")
@@ -55,7 +55,7 @@ public sealed class AzureOpenAiToolCallingChatProvider(
         return ParseStep(json);
     }
 
-    public static JsonObject BuildRequestBody(IReadOnlyList<AgentChatMessage> messages, IReadOnlyList<AgentToolSpec> tools)
+    public static JsonObject BuildRequestBody(IReadOnlyList<AgentChatMessage> messages, IReadOnlyList<AgentToolSpec> tools, string? reasoningEffort = null)
     {
         var messageArray = new JsonArray();
         foreach (var message in messages)
@@ -92,6 +92,11 @@ public sealed class AzureOpenAiToolCallingChatProvider(
             // Room for the model's own reasoning as well as a short reply.
             ["max_completion_tokens"] = 4000,
         };
+
+        if (!string.IsNullOrWhiteSpace(reasoningEffort))
+        {
+            body["reasoning_effort"] = reasoningEffort.Trim().ToLowerInvariant();
+        }
 
         if (tools.Count > 0)
         {

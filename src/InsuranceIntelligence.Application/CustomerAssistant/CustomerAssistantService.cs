@@ -8,6 +8,7 @@ using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Domain.Agents;
+using InsuranceIntelligence.Domain.Acquisition;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -122,6 +123,8 @@ public sealed partial class CustomerAssistantService(
     // Optional: Kato as an agent that holds the conversation and acts through tools. Without it,
     // or when the model fails, the rule-based replies below answer instead.
     IToolCallingChatProvider? agentModel = null,
+    // Optional: reads the conversation again once it goes quiet and keeps the prospect record current.
+    IConversationInsightsQueue? insightsQueue = null,
     // Optional: per-organisation plan limits. Over the monthly ceiling the AI agent steps aside and
     // the plain rule-based replies answer, so no organisation can run up the platform's AI cost.
     InsuranceIntelligence.Domain.Usage.IUsageMeter? usageMeter = null) : ICustomerAssistantService
@@ -132,7 +135,7 @@ public sealed partial class CustomerAssistantService(
     // Per batch: whether a voice note would actually be understood, so Kato only invites them then.
     private bool voiceNotesAvailable;
 
-    private const string SystemActorId = "system:customer-assistant";
+    internal const string SystemActorId = "system:customer-assistant";
     private const string AgentKey = "customer-assistant";
     private const string GroundingAgentKey = "policy-intelligence"; // the same grounded-answer capability, reused for customers
 
@@ -238,9 +241,37 @@ public sealed partial class CustomerAssistantService(
             return null;
         }
 
-        // Transcription can take a while on a cold start; the customer sees "typing..." meanwhile.
+        // Transcription can take a while on a cold start; the customer sees "typing..." meanwhile. The speech
+        // service sometimes fails its first request after a quiet spell, so one more try is made before giving up.
         using var typing = StartTypingIndicator(inbound, cancellationToken);
-        return await voiceTranscriber.TranscribeAsync(scope, inbound.MediaId, preferredLanguage: null, inbound.BusinessPhoneNumberId, cancellationToken);
+        var preferred = await RememberedSpokenLanguageAsync(scope, NormalizeWaId(inbound.SenderWaId), cancellationToken);
+        var heard = await voiceTranscriber.TranscribeAsync(scope, inbound.MediaId, preferred, inbound.BusinessPhoneNumberId, cancellationToken);
+        if (heard is null)
+        {
+            heard = await voiceTranscriber.TranscribeAsync(scope, inbound.MediaId, preferred, inbound.BusinessPhoneNumberId, cancellationToken);
+        }
+
+        return heard;
+    }
+
+    /// <summary>Kiswahili is passed to the speech engine only for a customer who chose it; everyone else is
+    /// transcribed as Luganda, which also writes English speech down as English.</summary>
+    private async Task<SupportedLanguageCode?> RememberedSpokenLanguageAsync(TenantScope scope, string waId, CancellationToken cancellationToken)
+    {
+        if (languageResolution is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var remembered = await languageResolution.ResolveAsync(scope, waId, string.Empty, false, cancellationToken);
+            return remembered.Language == SupportedLanguageCode.Sw ? SupportedLanguageCode.Sw : null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     private async Task ReplyCannotListenAsync(TenantScope scope, WhatsAppInboundMessage inbound, string correlationId, CancellationToken cancellationToken)
@@ -249,7 +280,11 @@ public sealed partial class CustomerAssistantService(
         var threadId = WhatsAppMessagingService.BuildThreadId(inbound.BusinessPhoneNumberId, waId);
         await RecordConsentAsync(scope, waId, threadId, correlationId, cancellationToken);
         var sender = await IdentifySenderAsync(scope, waId, cancellationToken);
-        var reply = KatoReplies.CannotListenYet(sender?.FirstName ?? contactFirstName);
+        // Only say voice notes are unsupported when they are. When the speech service is connected and this clip
+        // could not be made out, say that instead: telling someone Kato cannot listen when he can is untrue.
+        var reply = voiceNotesAvailable
+            ? KatoReplies.CouldNotHearVoiceNote(sender?.FirstName ?? contactFirstName)
+            : KatoReplies.CannotListenYet(sender?.FirstName ?? contactFirstName);
         await SendReplyAsync(scope, inbound, threadId, waId, reply, caseId: null, cancellationToken);
         await conversationRepository.SaveAsync(new CustomerConversationTurn
         {
@@ -540,6 +575,28 @@ public sealed partial class CustomerAssistantService(
             return null;
         }
 
+        // A person has taken this conversation: record what the customer wrote and say nothing. This
+        // runs before the typing indicator so the customer never sees Kato typing while a person is
+        // the one answering.
+        var heldThread = await CurrentThreadAsync(scope, threadId, cancellationToken);
+        if (ConversationControl.ModeOf(heldThread, DateTimeOffset.UtcNow) == ConversationMode.Person)
+        {
+            await conversationRepository.SaveAsync(new CustomerConversationTurn
+            {
+                TurnId = Guid.NewGuid(),
+                Scope = scope,
+                ThreadId = threadId,
+                ContactWaId = waId,
+                InboundMessageText = text,
+                ClassifiedIntent = CustomerIntent.Unknown,
+                Outcome = CustomerAssistantOutcome.HeldForPerson,
+                OccurredAt = DateTimeOffset.UtcNow,
+                CorrelationId = correlationId,
+            }, cancellationToken);
+            await NoteProspectActivityAsync(scope, waId, threadId, correlationId, cancellationToken);
+            return null;
+        }
+
         // From here on the customer always gets a reply (an answer, a holding message, a language
         // question or a hand-off to a person), so show them "typing..." while it is prepared. It stops
         // when this method returns, whatever path it takes.
@@ -615,6 +672,7 @@ public sealed partial class CustomerAssistantService(
         // A claim read back to the customer waits for their answer: yes opens it, no starts it
         // again, anything else is a correction. Nothing binding happens on the first telling.
         AssistantOutcome? outcome = null;
+        var turnId = Guid.NewGuid();
         if (agentModel is not null
             && (usageMeter is null
                 || (await usageMeter.TryConsumeAsync(scope, InsuranceIntelligence.Domain.Usage.UsageKind.AssistantTurn, cancellationToken)).Allowed))
@@ -622,7 +680,7 @@ public sealed partial class CustomerAssistantService(
             try
             {
                 outcome = await RunAgentAsync(
-                    scope, original, text, waId, thread, language.Reply,
+                    scope, original, text, waId, threadId, turnId, thread, language.Reply,
                     understood.Status == TranslationStatus.Translated ? new CustomerOwnWords(original, SupportedLanguage.For(language.Inbound).Iso) : null,
                     correlationId, now, cancellationToken);
             }
@@ -679,7 +737,7 @@ public sealed partial class CustomerAssistantService(
 
         await conversationRepository.SaveAsync(new CustomerConversationTurn
         {
-            TurnId = Guid.NewGuid(),
+            TurnId = turnId,
             Scope = scope,
             ThreadId = threadId,
             ContactWaId = waId,
@@ -715,7 +773,31 @@ public sealed partial class CustomerAssistantService(
                 correlationId),
             cancellationToken);
 
+        await NoteProspectActivityAsync(scope, waId, threadId, correlationId, cancellationToken);
+
         return outcome.OpenedCase ? outcome.CaseId : null;
+    }
+
+    /// <summary>After the reply has gone: keep the person's prospect record (if they have one) pointing
+    /// at this conversation and its last message, and ask for the conversation to be read again once it
+    /// goes quiet. Never fails the customer's turn.</summary>
+    private async Task NoteProspectActivityAsync(TenantScope scope, string waId, string threadId, string correlationId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var lead = await salesLeadWriteRepository.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, waId, cancellationToken);
+            if (lead is not null)
+            {
+                await salesLeadWriteRepository.CreateAsync(scope.TenantId, scope.WorkspaceId,
+                    lead with { ThreadId = threadId, LastInteractionAt = DateTimeOffset.UtcNow }, cancellationToken);
+            }
+
+            insightsQueue?.Enqueue(scope, waId, threadId, correlationId);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // The customer already has their answer; the record catches up on the next message.
+        }
     }
 
     private async Task<AssistantOutcome> DecideAsync(
@@ -1305,31 +1387,78 @@ public sealed partial class CustomerAssistantService(
             CustomerIntent.HumanRequested, CustomerAssistantOutcome.Escalated, leadId: leadId);
     }
 
-    private async Task<string> CreateLeadAsync(
+    /// <summary>
+    /// The person's prospect record: updated when this phone number already has one, created when it
+    /// does not. One record per person, however many times they write; each call adds a line to its
+    /// activity so the record shows what happened and when.
+    /// </summary>
+    private async Task<string?> CreateLeadAsync(
         TenantScope scope, string text, string waId, SenderProfile? sender, string leadSource, string correlationId, CancellationToken cancellationToken,
-        string? productFit = null, string? occupation = null)
+        string? productFit = null, string? occupation = null, Func<SalesLeadDetailReadModel, SalesLeadDetailReadModel>? change = null,
+        bool createIfMissing = true)
     {
         var now = DateTimeOffset.UtcNow;
-        var leadId = $"LEAD-{now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
-        var lead = new SalesLeadDetailReadModel(
-            LeadId: leadId,
-            LeadSource: leadSource,
-            CustomerNeed: text,
-            ConversationSummary: occupation is null
-                ? $"Captured automatically from an inbound WhatsApp message on {now:yyyy-MM-dd}."
-                : $"Captured by Kato on WhatsApp on {now:yyyy-MM-dd}. Work described by the customer: \"{occupation}\". Products explained (not sold): {productFit}.",
-            ProductFit: productFit ?? "To be assessed",
-            QuoteStatus: "New",
-            RequiredInformation: ["Confirm contact details", "Confirm insurable interest", "Capture risk details for quote"],
-            FollowUpActions: ["Contact customer to confirm details", "Prepare indicative quote for human review"],
-            AssignedSalesOfficer: null,
-            ConversionProbability: null,
-            CustomerName: sender?.FullName ?? "WhatsApp customer",
-            ContactInfo: $"+{waId}",
-            CreatedAt: now,
-            CreatedBy: SystemActorId);
+        var digits = NormalizeWaId(waId);
+        var activity = new ProspectActivity(now, LeadActivityText(leadSource, productFit), "Kato");
+        var existing = await salesLeadWriteRepository.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, digits, cancellationToken);
+
+        if (existing is null && !createIfMissing)
+        {
+            return null;
+        }
+
+        SalesLeadDetailReadModel lead;
+        if (existing is not null)
+        {
+            var assessed = productFit is not null && !string.Equals(productFit, "To be chosen", StringComparison.OrdinalIgnoreCase);
+            lead = existing with
+            {
+                CustomerName = sender?.FullName is { Length: > 0 } known && existing.CustomerName is "WhatsApp customer" or "" ? known : existing.CustomerName,
+                ProductFit = assessed ? productFit! : existing.ProductFit,
+                Phone = existing.Phone ?? digits,
+                PrimaryChannel = existing.PrimaryChannel ?? "WhatsApp",
+                LastInteractionAt = now,
+                Activity = [.. existing.Activity, activity],
+            };
+        }
+        else
+        {
+            lead = new SalesLeadDetailReadModel(
+                LeadId: $"LEAD-{now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
+                LeadSource: leadSource,
+                CustomerNeed: text,
+                ConversationSummary: occupation is null
+                    ? $"Captured automatically from an inbound WhatsApp message on {now:yyyy-MM-dd}."
+                    : $"Captured by Kato on WhatsApp on {now:yyyy-MM-dd}. Work described by the customer: \"{occupation}\". Products explained (not sold): {productFit}.",
+                ProductFit: productFit ?? "To be assessed",
+                QuoteStatus: "New",
+                RequiredInformation: ["Confirm contact details", "Confirm insurable interest", "Capture risk details for quote"],
+                FollowUpActions: ["Contact customer to confirm details", "Prepare indicative quote for human review"],
+                AssignedSalesOfficer: null,
+                ConversionProbability: null,
+                CustomerName: sender?.FullName ?? "WhatsApp customer",
+                ContactInfo: $"+{digits}",
+                CreatedAt: now,
+                CreatedBy: SystemActorId)
+            {
+                Phone = digits,
+                PrimaryChannel = "WhatsApp",
+                LastInteractionAt = now,
+                Activity = [activity],
+            };
+        }
+
+        if (change is not null)
+        {
+            lead = change(lead);
+        }
 
         await salesLeadWriteRepository.CreateAsync(scope.TenantId, scope.WorkspaceId, lead, cancellationToken);
+        var leadId = lead.LeadId;
+        if (existing is not null)
+        {
+            return leadId;
+        }
 
         if (teamsNotificationQueue is not null)
         {
@@ -1352,6 +1481,16 @@ public sealed partial class CustomerAssistantService(
 
         return leadId;
     }
+
+    private static string LeadActivityText(string leadSource, string? productFit) => leadSource switch
+    {
+        "WhatsApp - human requested" => "Asked to speak to a person",
+        "WhatsApp - cover application" => productFit is null ? "Applied for cover" : $"Applied for {productFit}",
+        "WhatsApp - Kato registration" => "Registered on WhatsApp",
+        "WhatsApp - Kato cover suggestion" => "Kato suggested covers that fit their work",
+        "WhatsApp" => "Asked about cover",
+        _ => leadSource,
+    };
 
     /// <summary>
     /// Recognises a customer by the number WhatsApp delivered their message from. WhatsApp itself
@@ -1800,6 +1939,10 @@ public sealed partial class CustomerAssistantService(
         // Product names are names: "Small Business Shop Cover" once came back as "picture of the shop".
         literals.AddRange(MicroinsuranceCatalog.All.SelectMany(p => new[] { p.Name, p.Name.Replace("Nile Shield ", string.Empty, StringComparison.Ordinal), p.ProductLine }));
         literals.Add("Nile Shield");
+        literals.Add(KatoBrand.Current.Organisation);
+        literals.Add(KatoBrand.Current.ShortName);
+        literals.AddRange(KatoBrand.Current.PartnerInsurers);
+        literals.AddRange(MicroinsuranceCatalog.All.Select(p => p.Insurer).Distinct());
         var outcome = await translationService!.TranslateAsync(english, SupportedLanguageCode.En, reply, scope, cancellationToken, literals);
         if (!outcome.Translated)
         {

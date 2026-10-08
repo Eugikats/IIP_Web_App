@@ -10,14 +10,14 @@
      ================================================================ */
 
   /* ---- Brand ---- */
-  --color-primary:            91 42 232;    /* #5B2AE8  primary action, link, active nav, focus */
-  --color-primary-hover:      76 34 201;    /* #4C22C9 */
-  --color-primary-active:     60 26 163;    /* #3C1AA3 */
-  --color-primary-accent:     124 87 238;   /* #7C57EE  active tab/filter text and counts */
-  --color-primary-soft:       241 236 254;  /* #F1ECFE  selected nav, agent chip, AI avatar tile */
-  --color-primary-soft-alt:   245 243 255;  /* #F5F3FF  selected settings row, active filter tab */
-  --color-primary-border:     220 209 251;  /* #DCD1FB  border of an active filter tab */
-  --color-primary-idle:       228 225 247;  /* #E4E1F7  composer send button while the field is empty (§8.17) */
+  --color-primary:            23 105 255;    /* #1769FF  primary action, link, active nav, focus */
+  --color-primary-hover:      18 88 214;    /* #1258D6 */
+  --color-primary-active:     14 71 173;    /* #0E47AD */
+  --color-primary-accent:     23 105 255;   /* #1769FF  active tab/filter text and counts */
+  --color-primary-soft:       238 244 255;  /* #EEF4FF  selected nav, agent chip, AI avatar tile */
+  --color-primary-soft-alt:   245 249 255;  /* #F5F9FF  selected settings row, active filter tab */
+  --color-primary-border:     191 214 255;  /* #BFD6FF  border of an active filter tab */
+  --color-primary-idle:       220 231 251;  /* #DCE7FB  composer send button while the field is empty (§8.17) */
 
   /* ---- Neutrals ---- */
   --color-text-primary:       16 24 40;     /* #101828  headings, body, stat numbers */
@@ -96,9 +96,9 @@
 
   /* AI-specific surfaces, retired as a separate accent; AI provenance now
      uses the same violet family as --color-primary-soft (step 1). */
-  --color-surface-ai: 245 243 255;        /* -> --color-primary-soft-alt */
-  --color-surface-ai-strong: 241 236 254; /* -> --color-primary-soft */
-  --color-surface-ai-border: 220 209 251; /* -> --color-primary-border */
+  --color-surface-ai: 245 249 255;        /* -> --color-primary-soft-alt */
+  --color-surface-ai-strong: 238 244 255; /* -> --color-primary-soft */
+  --color-surface-ai-border: 191 214 255; /* -> --color-primary-border */
 
   /* Overlay / backdrop */
   --color-backdrop: 16 24 40;           /* -> --color-scrim */
@@ -107,7 +107,7 @@
   --color-line: 236 238 242;            /* -> --color-border-subtle */
   --color-line-soft: 245 246 248;       /* -> --color-bg-page */
   --color-line-strong: 203 208 218;     /* -> --color-border-strong */
-  --color-line-focus: 91 42 232;        /* -> --color-primary */
+  --color-line-focus: 23 105 255;        /* -> --color-primary */
 
   /* Typography Colors */
   --color-ink: 16 24 40;                /* -> --color-text-primary */
@@ -118,16 +118,16 @@
   --color-inverse: 255 255 255;         /* -> --color-text-inverse (unchanged) */
 
   /* Brand / Accents */
-  --color-primary: 91 42 232;           /* -> --color-primary (violet, step 1) */
-  --color-primary-hover: 76 34 201;     /* -> --color-primary-hover */
-  --color-primary-soft: 241 236 254;    /* -> --color-primary-soft */
-  --color-primary-border: 220 209 251;  /* -> --color-primary-border */
+  --color-primary: 23 105 255;           /* -> --color-primary (violet, step 1) */
+  --color-primary-hover: 18 88 214;     /* -> --color-primary-hover */
+  --color-primary-soft: 238 244 255;    /* -> --color-primary-soft */
+  --color-primary-border: 191 214 255;  /* -> --color-primary-border */
 
   /* AI accent, retired; same violet as primary (step 1) */
-  --color-ai: 91 42 232;                /* -> --color-primary */
-  --color-ai-hover: 76 34 201;          /* -> --color-primary-hover */
-  --color-ai-soft: 241 236 254;         /* -> --color-primary-soft */
-  --color-ai-border: 220 209 251;       /* -> --color-primary-border */
+  --color-ai: 23 105 255;                /* -> --color-primary */
+  --color-ai-hover: 18 88 214;          /* -> --color-primary-hover */
+  --color-ai-soft: 238 244 255;         /* -> --color-primary-soft */
+  --color-ai-border: 191 214 255;       /* -> --color-primary-border */
 
   /* Semantic UI & Status Tokens */
   --color-success: 6 118 71;            /* -> --color-success-text */
@@ -166,7 +166,7 @@
   --color-workflow-pending: 181 71 8;   /* -> --color-warning-text */
   --color-workflow-approved: 6 118 71;  /* -> --color-success-text */
   --color-workflow-rejected: 217 45 32; /* -> --color-danger-text */
-  --color-workflow-escalated: 91 42 232; /* -> --color-primary */
+  --color-workflow-escalated: 23 105 255; /* -> --color-primary */
 
   /* Shadows, legacy names kept (step 1 is colour-only); retoned neutral in
      step 3 below and the two permitted gradients are declared there too. */
@@ -176,7 +176,7 @@
   --shadow-card: none;
   --shadow-popover: 0 20px 40px -12px rgb(16 24 40 / 0.22);
   --shadow-drawer: 0 24px 60px -12px rgb(16 24 40 / 0.35);
-  --shadow-focus: 0 0 0 3px rgb(91 42 232 / 0.12);
+  --shadow-focus: 0 0 0 3px rgb(23 105 255 / 0.14);
 
   --shadow-l1: none;
   --shadow-l2: none;
@@ -188,11 +188,11 @@
      the Assistant empty-state orb and chart bars. The legacy gradient
      utility classes below (.gradient-primary etc.) are NOT used by any new
      step-4/5 code; they remain only for not-yet-migrated consumers. */
-  --gradient-orb: radial-gradient(circle at 32% 28%, #BCACF9, #5B2AE8 55%, #3C1AA3);
-  --gradient-chart-bar: linear-gradient(180deg, #8D6BF1, #5B2AE8);
-  --gradient-primary: linear-gradient(135deg, #5B2AE8 0%, #5B2AE8 100%);
-  --gradient-secondary: linear-gradient(135deg, #5B2AE8 0%, #5B2AE8 100%);
-  --gradient-tertiary: linear-gradient(135deg, #5B2AE8 0%, #5B2AE8 100%);
+  --gradient-orb: radial-gradient(circle at 32% 28%, #A9C7FF, #1769FF 55%, #0E47AD);
+  --gradient-chart-bar: linear-gradient(180deg, #5B95FF, #1769FF);
+  --gradient-primary: linear-gradient(135deg, #1769FF 0%, #1769FF 100%);
+  --gradient-secondary: linear-gradient(135deg, #1769FF 0%, #1769FF 100%);
+  --gradient-tertiary: linear-gradient(135deg, #1769FF 0%, #1769FF 100%);
   --gradient-ambient: none;
 
   /* Radii, design language §6.2 */
@@ -422,4 +422,30 @@ textarea:focus-visible {
   .hover-lift:hover {
     transform: none;
   }
+}
+
+/* The live acquisition view: a new prospect slides in, a changed cell flashes, and a score that is
+   still being worked out shimmers. Each one marks something that really changed in the record. */
+@keyframes iip-row-in {
+  from { opacity: 0; transform: translateY(-10px); background-color: rgba(23, 105, 255, 0.14); }
+  to { opacity: 1; transform: none; background-color: transparent; }
+}
+@keyframes iip-flash {
+  0% { background-color: rgba(23, 105, 255, 0.22); }
+  100% { background-color: transparent; }
+}
+@keyframes iip-breathe {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@keyframes iip-pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  50% { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); }
+}
+.iip-row-in { animation: iip-row-in 1.6s ease-out both; }
+.iip-flash { animation: iip-flash 2.4s ease-out both; }
+.iip-shimmer { background-color: #e2e8f0; animation: iip-breathe 1.2s ease-in-out infinite; }
+.iip-live-dot { animation: iip-pulse-dot 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .iip-row-in, .iip-flash, .iip-shimmer, .iip-live-dot { animation: none; }
 }

@@ -100,8 +100,8 @@ export default function Executive() {
                 <BarChart data={summary.claimsByStatus}>
                   <defs>
                     <linearGradient id="executive-claims-bar" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8D6BF1" />
-                      <stop offset="100%" stopColor="#5B2AE8" />
+                      <stop offset="0%" stopColor="#5B95FF" />
+                      <stop offset="100%" stopColor="#1769FF" />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="label" tick={{ fill: "#6B7280", fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} interval={0} />

@@ -18,7 +18,8 @@ public sealed class OutboundWebhookTests : IDisposable
 {
     private static readonly TenantScope Acme = TenantScope.Create("org-acme", "main");
     private static readonly TenantScope Baraka = TenantScope.Create("org-baraka", "main");
-    private static readonly DateTimeOffset Now = new(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
+    // Relative to the real clock: the publisher stamps events with the current time, so a fixed date made these tests expire.
+    private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow.AddMinutes(1);
 
     private readonly InsuranceIntelligenceDbContext db = new(
         new DbContextOptionsBuilder<InsuranceIntelligenceDbContext>().UseInMemoryDatabase($"webhooks-{Guid.NewGuid():N}").Options);

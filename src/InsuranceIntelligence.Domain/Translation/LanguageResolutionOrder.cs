@@ -30,6 +30,8 @@ public static class LanguageResolutionOrder
 
     private const double DetectionConfidenceThreshold = 0.5;
     private const double OverrideRememberedConfidenceThreshold = 0.8;
+    private const double LocalOverrideConfidence = 0.45;
+    private const double ShortMessageOverrideConfidence = 0.66;
 
     public static LanguageResolution Resolve(
         string messageText,
@@ -57,11 +59,17 @@ public static class LanguageResolutionOrder
 
         if (rememberedPreference is not null && now - rememberedPreference.SetAt <= PreferenceFreshness)
         {
-            var detectionStronglyDisagrees = !isShortMessage
-                && detected.Confidence >= OverrideRememberedConfidenceThreshold
-                && detected.Language != rememberedPreference.Language;
+            // A remembered language is a default, not a lock. What the customer has just written wins when it
+            // clearly differs: a Luganda or Kiswahili sentence needs only moderate evidence, a short message
+            // needs a strong non-English signal ("Webale nnyo"), and a switch back to English needs a long,
+            // plain English message so one "ok" never flips anyone.
+            var differs = detected.Language != rememberedPreference.Language;
+            var toLocal = detected.Language != SupportedLanguageCode.En;
+            var detectionOverrides = differs && (isShortMessage
+                ? toLocal && CountWords(messageText) >= 2 && detected.Confidence >= ShortMessageOverrideConfidence
+                : detected.Confidence >= (toLocal ? LocalOverrideConfidence : OverrideRememberedConfidenceThreshold));
 
-            return detectionStronglyDisagrees
+            return detectionOverrides
                 ? detected
                 : new LanguageResolution(rememberedPreference.Language, LanguageResolutionSource.RememberedPreference, 1.0);
         }

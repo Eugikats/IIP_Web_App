@@ -40,6 +40,11 @@ public static class LanguageWordListScorer
     private const double NoSignalConfidence = 0.0;
     private const double EnglishFallbackConfidence = 0.6;
 
+    // A longer message with no Luganda or Kiswahili in it that reads as plain English is English with
+    // confidence: this is what lets a customer who wrote in Luganda go back to English.
+    private const double LongEnglishConfidence = 0.85;
+    private const int LongEnglishWords = 4;
+
     public static LanguageResolution Score(string text)
     {
         var words = Tokenize(text);
@@ -53,7 +58,8 @@ public static class LanguageWordListScorer
 
         if (lugandaHits == 0 && kiswahiliHits == 0)
         {
-            var confidence = TranslationQualityJudge.LooksLikeEnglish(text) ? EnglishFallbackConfidence : NoSignalConfidence;
+            var looksEnglish = TranslationQualityJudge.LooksLikeEnglish(text);
+            var confidence = !looksEnglish ? NoSignalConfidence : words.Length >= LongEnglishWords ? LongEnglishConfidence : EnglishFallbackConfidence;
             return new LanguageResolution(SupportedLanguageCode.En, LanguageResolutionSource.Detected, confidence);
         }
 

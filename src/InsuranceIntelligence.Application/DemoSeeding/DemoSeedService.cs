@@ -727,7 +727,9 @@ public sealed class DemoSeedService(
         var fullName = $"{first} {last}";
         var email = $"{first.ToLowerInvariant()}.{last.ToLowerInvariant()}{index}@example.ug";
         var phone = $"+2567{rng.Next(0, 10)}{rng.Next(1000000, 9999999)}";
-        return new Customer(Guid.NewGuid().ToString(), scope.TenantId, scope.WorkspaceId, fullName, email, phone);
+        // The same demonstration person always gets the same record, so loading the demo again updates it
+        // instead of adding another copy of them.
+        return new Customer(DeterministicGuid($"{scope.TenantId}:{scope.WorkspaceId}:demo-customer:{email}").ToString(), scope.TenantId, scope.WorkspaceId, fullName, email, phone);
     }
 
     private static (Policy Policy, Coverage Coverage) BuildPolicy(

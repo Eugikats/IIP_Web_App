@@ -67,6 +67,20 @@ public enum CustomerAssistantOutcome
 
     /// <summary>A customer with no policy was asked what they do for a living.</summary>
     AwaitingOccupation,
+
+    /// <summary>A person took the conversation. Kato stays silent until it is handed back or the
+    /// person stops replying. Appended last so stored values keep their meaning.</summary>
+    HumanTookOver,
+
+    /// <summary>The person handed the conversation back to Kato.</summary>
+    HandedBackToKato,
+
+    /// <summary>A person replied to the customer from the portal. The reply text is the turn's
+    /// outbound text, so Kato can read it if he answers later.</summary>
+    HumanReplied,
+
+    /// <summary>The customer wrote while a person had the conversation: recorded, not answered by Kato.</summary>
+    HeldForPerson,
 }
 
 public sealed record CustomerConversationTurn
@@ -82,6 +96,9 @@ public sealed record CustomerConversationTurn
     public IReadOnlyCollection<string> CitationTitles { get; init; } = [];
     public Guid? CaseId { get; init; }
     public string? LeadId { get; init; }
+
+    /// <summary>The staff member behind a take-over, hand-back or reply. Null for Kato's own turns.</summary>
+    public string? HumanUserId { get; init; }
 
     /// <summary>The policy this turn concerned, once known (chosen by the customer, matched from
     /// their phone number, or typed). Carries a policy choice forward to the next message of a
