@@ -452,6 +452,7 @@ builder.Services.AddSingleton<IAiOutputValidator, DeterministicAiOutputValidator
 builder.Services.AddSingleton<IIntentClassifier, DeterministicThenAiIntentClassifier>();
 builder.Services.AddSingleton<IProviderRequirementResolver, ProviderRequirementResolver>();
 builder.Services.AddScoped<INotificationDraftService, CustomerUpdateNotificationDraftService>();
+builder.Services.AddScoped<ICommandCenterAnalyst, CommandCenterAnalyst>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
 builder.Services.AddScoped<ICommandCenterConversationService, CommandCenterConversationService>();
 builder.Services.AddScoped<IConversationGroundingService, ConversationGroundingService>();

@@ -9,7 +9,8 @@ namespace InsuranceIntelligence.Application.CommandCenter;
 public sealed record CommandCenterQueryRequest(
     string? Question,
     Guid? ConversationId = null,
-    Guid? ClientRequestId = null);
+    Guid? ClientRequestId = null,
+    int? TimeZoneOffsetMinutes = null);
 
 /// <summary>
 /// Governed response envelope for the chat-first Command Center query endpoint.
@@ -52,7 +53,23 @@ public sealed record CommandCenterQueryResponse(
 [JsonDerivedType(typeof(EvidenceListBlock), "evidence_list")]
 [JsonDerivedType(typeof(NotConfiguredBlock), "not_configured")]
 [JsonDerivedType(typeof(ErrorBlock), "error")]
+[JsonDerivedType(typeof(ChartBlock), "chart")]
+[JsonDerivedType(typeof(LinkBlock), "link")]
 public abstract record CommandCenterResponseBlock;
+
+/// <summary>A chart drawn from counted workspace records. <see cref="Kind"/> is "line" (a series over
+/// days) or "bar" (a breakdown). Every point is a real count; nothing is estimated.</summary>
+public sealed record ChartBlock(
+    string Title,
+    string Kind,
+    IReadOnlyList<ChartPoint> Points,
+    string Unit,
+    string? Summary = null) : CommandCenterResponseBlock;
+
+public sealed record ChartPoint(string Label, decimal Value);
+
+/// <summary>A button to the screen where the answer's records live.</summary>
+public sealed record LinkBlock(string Label, string Href, string? Description = null) : CommandCenterResponseBlock;
 
 /// <summary>One-paragraph narration over the data blocks. Never the sole content of a data answer.</summary>
 public sealed record TextBlock(string Markdown) : CommandCenterResponseBlock;

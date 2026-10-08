@@ -43,7 +43,8 @@ public sealed class CommandCenterQueryService(
     IAgentGate agentGate,
     IAgentRunRecorder agentRunRecorder,
     Agents.Tools.IAgentToolRegistry agentToolRegistry,
-    ICommandCenterActionService? actionService = null) : ICommandCenterQueryService
+    ICommandCenterActionService? actionService = null,
+    ICommandCenterAnalyst? analyst = null) : ICommandCenterQueryService
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
@@ -102,6 +103,14 @@ public sealed class CommandCenterQueryService(
         await permissionService.RequirePermissionAsync(Permission.ViewCommandCenter, cancellationToken);
 
         var context = tenantContextAccessor.Current;
+
+        // Counting, trend and breakdown questions ("how many prospects came in today", "chart claims
+        // over the past week") go to the analyst, which answers from the workspace's own records.
+        if (analyst is not null && analyst.Handles(question))
+        {
+            return await BuildAnalystResponseAsync(question, request.TimeZoneOffsetMinutes, context, correlationId, cancellationToken);
+        }
+
         var intent = await intentClassifier.ClassifyAsync(
             question,
             context.TenantId,
@@ -268,6 +277,67 @@ public sealed class CommandCenterQueryService(
             correlationId,
             ModelProvider,
             PromptVersion,
+            Visibility,
+            CanTriggerDecision: false,
+            now);
+    }
+
+    private async Task<CommandCenterQueryResponse> BuildAnalystResponseAsync(
+        string question,
+        int? timeZoneOffsetMinutes,
+        TenantContext context,
+        string correlationId,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var gate = await agentGate.CheckAsync("command-center", cancellationToken);
+        if (!gate.Enabled)
+        {
+            await agentRunRecorder.RecordAsync(context.Scope, "command-center", "command_center_query", [SummarizeInput(question)],
+                AgentRunStatus.Refused, now, correlationId, context.UserId, caseId: null, "agent_disabled", cancellationToken: cancellationToken);
+            return await BuildAgentDisabledResponseAsync(question, context, gate, correlationId, now, cancellationToken);
+        }
+
+        // A browser reports its offset; anything outside real time zones is ignored rather than trusted.
+        var offset = timeZoneOffsetMinutes is { } minutes && minutes is >= -720 and <= 840
+            ? TimeSpan.FromMinutes(minutes)
+            : TimeSpan.Zero;
+        var answer = await analyst!.AnswerAsync(question, offset, correlationId, cancellationToken);
+
+        var actionLog = new AgentActionLog
+        {
+            AgentActionLogId = Guid.NewGuid(),
+            Scope = context.Scope,
+            CaseId = null,
+            UserId = context.UserId,
+            AgentName = "CommandCenterAnalyst",
+            AssistantMode = AssistantMode.OperationalSummary,
+            InputSummary = SummarizeInput(question),
+            RetrievedSources = Array.Empty<SourceCitation>(),
+            ModelOutput = answer.Summary,
+            ConfidenceScore = AiConfidenceScore.Create(1.0m),
+            RiskFlag = "none",
+            HumanOverride = false,
+            CreatedAt = now,
+            CorrelationId = correlationId,
+            ModelProvider = answer.UsedModel ? "AzureOpenAI" : ModelProvider,
+            ModelDeployment = null,
+            PromptVersion = "command-center-analyst-v1",
+            Visibility = Visibility,
+            CanTriggerDecision = false,
+        };
+
+        await actionLogRepository.SaveAsync(actionLog, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.CommandCenterAssistantAnswered(actionLog), cancellationToken);
+        await agentRunRecorder.RecordAsync(context.Scope, "command-center", "command_center_query", [SummarizeInput(question)],
+            AgentRunStatus.Completed, now, correlationId, context.UserId, caseId: null, cancellationToken: cancellationToken);
+
+        return new CommandCenterQueryResponse(
+            answer.Blocks,
+            actionLog.AgentActionLogId,
+            correlationId,
+            actionLog.ModelProvider,
+            actionLog.PromptVersion,
             Visibility,
             CanTriggerDecision: false,
             now);
