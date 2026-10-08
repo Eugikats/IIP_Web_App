@@ -32,14 +32,14 @@ function readStoredRole(): Role {
 
 export function UIStateProvider({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [copilotOpen, setCopilotOpen] = useState(true);
+  const [copilotOpen, setCopilotOpen] = useState(false);
   const [role, setRole] = useState<Role>("Admin");
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const mobileViewport = window.matchMedia("(max-width: 767px)").matches;
     setSidebarOpen(mobileViewport ? false : readLS("iip.sidebarOpen", true));
-    setCopilotOpen(readLS("iip.copilotOpen", true));
+    setCopilotOpen(readLS("iip.copilotOpen", false));
     setRole(readStoredRole());
     setHydrated(true);
   }, []);

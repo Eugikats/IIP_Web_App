@@ -52,6 +52,26 @@ public static class SalesLeadEndpoints
         }
     }
 
+    /// <summary>Loads an uploaded customer list as prospects. The file is read in the browser; only the
+    /// matched rows arrive here.</summary>
+    public static async Task<IResult> ImportList(
+        ImportListRequest request,
+        IProspectListImportService importService,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await importService.ImportAsync(request, cancellationToken));
+        }
+        catch (SalesLeadQueryValidationException ex)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [ex.Field] = [ex.Message]
+            });
+        }
+    }
+
     public static Task<IResult> AddNote(
         string leadId,
         AddLeadNoteRequest request,

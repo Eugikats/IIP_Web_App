@@ -1,5 +1,10 @@
-import Component from "@/lovable-pages/Brief";
+import { Suspense } from "react";
+import Component from "@/lovable-pages/AIConversations";
 
 export default function Page() {
-  return <Component />;
+  return (
+    <Suspense fallback={null}>
+      <Component />
+    </Suspense>
+  );
 }

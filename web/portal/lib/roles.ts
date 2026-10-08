@@ -150,6 +150,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   // Every authenticated user reaches their own profile/settings, it has no admin-only content.
   { path: "/app/settings", requiredAny: [] },
   { path: "/app/assistant", requiredAny: ["ViewCommandCenter"] },
+  { path: "/app/brief", requiredAny: ["ViewCommandCenter"] },
   { path: "/app", requiredAny: ["ViewCommandCenter"], exact: true },
 ];
 

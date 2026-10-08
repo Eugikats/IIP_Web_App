@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  Bot, CreditCard, FolderOpen, GraduationCap, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Smartphone, Users, type LucideIcon,
+  ArrowLeft, Bot, CreditCard, FolderOpen, GraduationCap, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Settings, Smartphone, User, Users, X, type LucideIcon,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
@@ -17,43 +18,64 @@ import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { COURSES } from "@/lib/academy/courses";
 import { formatPrice, useAcademyPricing } from "@/lib/academy/pricing";
+import ProfileSettings from "@/lovable-pages/Settings";
+import AgentsPanel from "@/lovable-pages/admin/Agents";
+import BillingPanel from "@/lovable-pages/admin/Billing";
+import ConnectionsPanel from "@/lovable-pages/admin/ConnectionSettings";
+import EmailInboxPanel from "@/lovable-pages/admin/EmailInbox";
+import PolicyImportPanel from "@/lovable-pages/admin/PolicyImport";
+import ProductsPanel from "@/lovable-pages/admin/Products";
+import TenantPolicyPanel from "@/lovable-pages/admin/TenantPolicy";
+import UsersPanel from "@/lovable-pages/admin/Users";
+import WhatsAppPanel from "@/lovable-pages/admin/WhatsAppSettings";
 
-// Settings as one place: integrations first (what the platform supports, what is connected and what is
-// is not), then the existing administration screens grouped under it. Every status here is read from
-// the API; a card is "Connected" only when the provider validated the saved connection. File sources
-// without a connection screen say "Not connected" and why, so nobody expects them to work.
+// Settings as a window over whatever screen the person is on, laid out as in CIP: a list of sections on
+// the left, the section's title and description on top, and the content beneath. Every settings screen
+// lives here, so nothing opens as a full page. Integrations come first: what the platform supports, what
+// is connected and what is not. A card is "Connected" only when the provider validated the saved
+// connection; file sources that cannot be connected yet say "Not connected" and why.
 
-type Section = "integrations" | "agents" | "team" | "products" | "academy" | "billing";
+export type SettingsSection = "profile" | "integrations" | "agents" | "team" | "products" | "academy" | "billing";
 
-const SECTIONS: { key: Section; label: string; icon: LucideIcon }[] = [
-  { key: "integrations", label: "Integrations", icon: Plug },
-  { key: "agents", label: "Agent rules", icon: Bot },
-  { key: "team", label: "Team and access", icon: Users },
-  { key: "products", label: "Products", icon: Package },
-  { key: "academy", label: "IIP Academy", icon: GraduationCap },
-  { key: "billing", label: "Usage and billing", icon: CreditCard },
+const SECTIONS: { key: SettingsSection; label: string; title: string; description: string; icon: LucideIcon }[] = [
+  { key: "integrations", label: "Integrations", title: "Integrations", description: "What the platform can connect to, and what is connected.", icon: Plug },
+  { key: "agents", label: "Agent rules", title: "Agent rules", description: "What each agent may do, how Kato speaks, and the switch that turns each agent off.", icon: Bot },
+  { key: "team", label: "Team and access", title: "Team and access", description: "Who can sign in, what they can see and do, and the rules everyone in this workspace follows.", icon: Users },
+  { key: "products", label: "Products", title: "Products", description: "The covers sold, their documents and claim stages, and policy imports.", icon: Package },
+  { key: "academy", label: "IIP Academy", title: "IIP Academy prices", description: "What each course costs a learner.", icon: GraduationCap },
+  { key: "billing", label: "Usage and billing", title: "Usage and billing", description: "How much the platform has been used, the plan, and AI credits.", icon: CreditCard },
+  { key: "profile", label: "Profile", title: "Profile", description: "Who you are signed in as, and the workspace you are working in.", icon: User },
 ];
 
 type CardState = { tone: PillTone; label: string; detail: string | null; connected: boolean };
+
+type PanelKey = "whatsapp" | "connections" | "mailbox";
 
 type Integration = {
   key: string;
   name: string;
   description: string;
   icon: LucideIcon;
-  /** Where to set it up. Absent for a file source that cannot be connected from here yet. */
-  setupHref?: string;
+  /** The settings panel that sets it up, shown inside this window. Absent for a source that cannot be connected yet. */
+  panel?: PanelKey;
   note?: string;
 };
 
+const PANELS: Record<PanelKey, { title: string; Component: ComponentType }> = {
+  whatsapp: { title: "WhatsApp Business", Component: WhatsAppPanel },
+  connections: { title: "SMS, email and translation", Component: ConnectionsPanel },
+  mailbox: { title: "Claims mailbox", Component: EmailInboxPanel },
+};
+
 const CATALOG: Integration[] = [
-  { key: "whatsapp", name: "WhatsApp Business", description: "Customers write to Kato and staff reply, on the insurer's own WhatsApp number.", icon: MessageCircle, setupHref: "/app/admin/whatsapp" },
-  { key: "sms", name: "SMS", description: "Text messages to customers through the insurer's SMS gateway.", icon: Smartphone, setupHref: "/app/admin/connections" },
-  { key: "email", name: "Email", description: "Send customer email and collect claims mail from a shared mailbox.", icon: Mail, setupHref: "/app/admin/connections" },
-  { key: "sharepoint", name: "SharePoint", description: "Pick a customer list from a SharePoint library.", icon: FolderOpen, note: "Needs a Microsoft app registration set up by your administrator. Upload a CSV or Excel file in the meantime." },
-  { key: "onedrive", name: "OneDrive", description: "Pick a customer list from OneDrive.", icon: HardDrive, note: "Needs a Microsoft app registration set up by your administrator. Upload a CSV or Excel file in the meantime." },
-  { key: "gdrive", name: "Google Drive", description: "Pick a customer list from Google Drive.", icon: HardDrive, note: "Needs a Google app registration set up by your administrator. Upload a CSV or Excel file in the meantime." },
-  { key: "translation", name: "Local-language translation", description: "Lets Kato talk with customers in Luganda and Kiswahili.", icon: Languages, setupHref: "/app/admin/connections" },
+  { key: "whatsapp", name: "WhatsApp Business", description: "Customers write to Kato and staff reply, on the insurer's own WhatsApp number.", icon: MessageCircle, panel: "whatsapp" },
+  { key: "sms", name: "SMS", description: "Text messages to customers through the insurer's SMS gateway.", icon: Smartphone, panel: "connections" },
+  { key: "email", name: "Email", description: "Send customer email from the insurer's own address.", icon: Mail, panel: "connections" },
+  { key: "mailbox", name: "Claims mailbox", description: "Collect claims mail from a shared mailbox and turn it into claims.", icon: Mail, panel: "mailbox" },
+  { key: "translation", name: "Local-language translation", description: "Lets Kato talk with customers in Luganda and Kiswahili.", icon: Languages, panel: "connections" },
+  { key: "gdrive", name: "Google Drive", description: "Pick a customer list or claim documents from Google Drive, and save exports there.", icon: HardDrive, note: "Not connected. A Google app registration has not been set up for this workspace yet. Upload a CSV file in the meantime." },
+  { key: "onedrive", name: "OneDrive", description: "Pick a customer list or claim documents from OneDrive, and save exports there.", icon: HardDrive, note: "Not connected. A Microsoft app registration has not been set up for this workspace yet. Upload a CSV file in the meantime." },
+  { key: "sharepoint", name: "SharePoint", description: "Pick files from a SharePoint library, and save exports there.", icon: FolderOpen, note: "Not connected. A Microsoft app registration has not been set up for this workspace yet. Upload a CSV file in the meantime." },
 ];
 
 type ConnectionDto = { connected?: boolean; providerKey?: string | null; lastValidatedAt?: string | null; lastValidationStatus?: string | null; businessDisplayName?: string | null };
@@ -80,118 +102,205 @@ function stateFrom(result: { status: number; body: unknown }, label: string): Ca
   return { tone: "success", label: "Connected", detail: [who, validated].filter(Boolean).join(". ") || null, connected: true };
 }
 
-export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [section, setSection] = useState<Section>("integrations");
+export function SettingsModal({
+  open,
+  section,
+  onSectionChange,
+  onClose,
+}: {
+  open: boolean;
+  section: SettingsSection;
+  onSectionChange: (section: SettingsSection) => void;
+  onClose: () => void;
+}) {
   const reduceMotion = useReducedMotion();
+  const pathname = usePathname();
+  const meta = SECTIONS.find((item) => item.key === section) ?? SECTIONS[0];
+
+  // A link inside a panel that opens a full screen (a product's editor) takes the person there, so the
+  // window must not stay open over it.
+  const [openedAt, setOpenedAt] = useState(pathname);
+  useEffect(() => {
+    if (open) setOpenedAt(pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  useEffect(() => {
+    if (open && pathname !== openedAt) onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   return (
-    <Modal open={open} title="Settings" onClose={onClose} width={1040}>
-      <div className="flex max-h-[calc(100vh-9rem)] min-h-[28rem] flex-col md:flex-row">
-        <nav aria-label="Settings sections" className="flex shrink-0 gap-1 overflow-x-auto border-b border-dls-border-subtle bg-dls-surface p-3 md:w-60 md:flex-col md:overflow-visible md:border-b-0 md:border-r">
-          {SECTIONS.map((item) => {
-            const Icon = item.icon;
-            const active = section === item.key;
-            return (
+    <Modal open={open} title="Settings" onClose={onClose} width={960} bare>
+      <div className="flex h-[min(720px,calc(100dvh-3rem))] flex-col sm:flex-row">
+        <div className="hidden w-52 shrink-0 flex-col border-r border-gray-100 bg-gray-50 sm:flex">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
+            <Settings className="h-4 w-4 text-gray-500" aria-hidden="true" />
+            <span className="text-sm font-semibold text-gray-900">Settings</span>
+          </div>
+          <nav aria-label="Settings sections" className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
+            {SECTIONS.map((item) => {
+              const Icon = item.icon;
+              const active = section === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => onSectionChange(item.key)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
+                    active ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-white hover:text-gray-900",
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-7 sm:py-5">
+            <div className="min-w-0">
+              <h2 className="m-0 truncate text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">{meta.title}</h2>
+              <p className="m-0 mt-1 hidden text-sm text-slate-500 sm:block">{meta.description}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              aria-label="Close settings"
+              title="Close settings (Esc)"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-gray-100 bg-gray-50 px-3 py-2 sm:hidden">
+            {SECTIONS.map((item) => (
               <button
                 key={item.key}
                 type="button"
-                onClick={() => setSection(item.key)}
-                aria-current={active ? "page" : undefined}
+                onClick={() => onSectionChange(item.key)}
+                aria-current={section === item.key ? "page" : undefined}
                 className={cn(
-                  "dls-focus-outline inline-flex shrink-0 items-center gap-2.5 rounded-dls-control px-3 py-2.5 text-left text-[14px] font-semibold transition-colors duration-dls-fast",
-                  active ? "bg-dls-primary-soft-alt text-dls-primary-accent" : "text-dls-text-secondary hover:bg-dls-bg-page hover:text-dls-text-primary",
+                  "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                  section === item.key ? "bg-blue-600 text-white" : "bg-white text-gray-600 ring-1 ring-gray-200",
                 )}
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
                 {item.label}
               </button>
-            );
-          })}
-        </nav>
-        <div className="min-w-0 flex-1 overflow-y-auto p-5 sm:p-6">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={section}
-              initial={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: reduceMotion ? 0 : 0.15 }}
-            >
-              {section === "integrations" ? <IntegrationsSection onNavigate={onClose} /> : null}
-              {section === "agents" ? (
-                <LinkSection
-                  onNavigate={onClose}
-                  title="Agent rules"
-                  intro="What each agent may do, how Kato speaks, and the kill switch for every agent."
-                  links={[
-                    { href: "/app/admin/agents", label: "Agents", detail: "Switch an agent on or off, read its run history, and open its behaviour settings (tone, scope and voice)." },
-                  ]}
-                />
-              ) : null}
-              {section === "team" ? (
-                <LinkSection
-                  onNavigate={onClose}
-                  title="Team and access"
-                  intro="Who can sign in and what they can see and do."
-                  links={[
-                    { href: "/app/admin/users", label: "Users and roles", detail: "Invite people and set their role." },
-                    { href: "/app/admin/tenant-policy", label: "Workspace policy", detail: "Rules that apply to everyone in this workspace." },
-                  ]}
-                />
-              ) : null}
-              {section === "products" ? (
-                <LinkSection
-                  onNavigate={onClose}
-                  title="Products"
-                  intro="The covers sold, their documents and claim stages."
-                  links={[
-                    { href: "/app/admin/products", label: "Products", detail: "Edit a product, its claim stages and required documents." },
-                    { href: "/app/admin/policy-import", label: "Import policies", detail: "Upload a file of existing policies." },
-                  ]}
-                />
-              ) : null}
-              {section === "academy" ? <AcademyPricingSection /> : null}
-              {section === "billing" ? (
-                <LinkSection
-                  onNavigate={onClose}
-                  title="Usage and billing"
-                  intro="How much the platform has been used and what it costs."
-                  links={[{ href: "/app/admin/billing", label: "Billing", detail: "Usage against the plan, and invoices." }]}
-                />
-              ) : null}
-            </motion.div>
-          </AnimatePresence>
+            ))}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-7 sm:py-5">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={section}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.15 }}
+              >
+                <Suspense fallback={<LoadingSkeleton rows={4} />}>
+                  {section === "integrations" ? <IntegrationsSection /> : null}
+                  {section === "agents" ? <AgentsSection /> : null}
+                  {section === "team" ? (
+                    <Tabbed
+                      tabs={[
+                        { key: "users", label: "Users and roles", Component: UsersPanel },
+                        { key: "policy", label: "Workspace policy", Component: TenantPolicyPanel },
+                      ]}
+                    />
+                  ) : null}
+                  {section === "products" ? (
+                    <Tabbed
+                      tabs={[
+                        { key: "products", label: "Products", Component: ProductsPanel },
+                        { key: "import", label: "Import policies", Component: PolicyImportPanel },
+                      ]}
+                    />
+                  ) : null}
+                  {section === "academy" ? <AcademyPricingSection /> : null}
+                  {section === "billing" ? <BillingSection /> : null}
+                  {section === "profile" ? <Embedded><ProfileSettings /></Embedded> : null}
+                </Suspense>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </Modal>
   );
 }
 
-function LinkSection({ title, intro, links, onNavigate }: { title: string; intro: string; links: { href: string; label: string; detail: string }[]; onNavigate: () => void }) {
+/** Screens built as full pages are shown inside the window; their own page titles are scaled down to fit. */
+function Embedded({ children }: { children: React.ReactNode }) {
+  return <div className="[&_h1]:text-[17px] [&_h1]:leading-snug">{children}</div>;
+}
+
+function Tabbed({ tabs }: { tabs: { key: string; label: string; Component: ComponentType }[] }) {
+  const [active, setActive] = useState(tabs[0].key);
+  const current = tabs.find((tab) => tab.key === active) ?? tabs[0];
   return (
     <div>
-      <h3 className="m-0 text-[18px] font-bold text-dls-text-primary">{title}</h3>
-      <p className="m-0 mt-1 text-[13.5px] text-dls-text-secondary">{intro}</p>
-      <ul className="m-0 mt-5 space-y-3 p-0">
-        {links.map((link) => (
-          <li key={link.href} className="list-none">
-            <Link href={link.href} onClick={onNavigate} className="dls-focus-outline block rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 hover:border-dls-primary">
-              <div className="text-[14.5px] font-bold text-dls-text-primary">{link.label}</div>
-              <div className="mt-0.5 text-[13px] text-dls-text-secondary">{link.detail}</div>
-            </Link>
-          </li>
+      <div role="tablist" aria-label="Section views" className="mb-5 inline-flex rounded-full border border-gray-200 bg-white p-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={active === tab.key}
+            onClick={() => setActive(tab.key)}
+            className={cn(
+              "rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors",
+              active === tab.key ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:text-gray-900",
+            )}
+          >
+            {tab.label}
+          </button>
         ))}
-      </ul>
+      </div>
+      <Embedded><current.Component /></Embedded>
     </div>
   );
 }
 
-function IntegrationsSection({ onNavigate }: { onNavigate: () => void }) {
+function AgentsSection() {
+  return (
+    <Embedded>
+      <AgentsPanel />
+    </Embedded>
+  );
+}
+
+function BillingSection() {
+  return (
+    <div>
+      <section className="mb-5 rounded-xl border border-gray-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="m-0 text-[14px] font-bold text-slate-900">AI credits</h3>
+          <StatusPill tone="neutral" label="Not connected" />
+        </div>
+        <p className="m-0 mt-1.5 text-[13px] leading-5 text-slate-500">
+          Credit metering is not connected yet, so no credits are being counted or charged. When it is, this shows the credits used this month, the cost, and the plan allowance.
+        </p>
+      </section>
+      <Embedded>
+        <BillingPanel />
+      </Embedded>
+    </div>
+  );
+}
+
+function IntegrationsSection() {
   const { roleDef } = useUI();
   const role = roleDef.key;
   const [view, setView] = useState<"catalog" | "yours">("catalog");
   const [query, setQuery] = useState("");
   const [states, setStates] = useState<Record<string, CardState> | null>(null);
+  const [panel, setPanel] = useState<PanelKey | null>(null);
 
   const load = useCallback(async () => {
     if (LOVABLE_VISUAL_PARITY_MODE) {
@@ -212,12 +321,14 @@ function IntegrationsSection({ onNavigate }: { onNavigate: () => void }) {
     });
   }, [role]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (panel === null) void load(); }, [load, panel]);
 
-  const stateOf = (item: Integration): CardState =>
-    item.setupHref
+  const stateOf = (item: Integration): CardState => {
+    if (item.key === "mailbox") return { tone: "neutral", label: "Open to check", detail: null, connected: false };
+    return item.panel
       ? states?.[item.key] ?? { tone: "neutral", label: "Checking", detail: null, connected: false }
       : { tone: "neutral", label: "Not connected", detail: item.note ?? null, connected: false };
+  };
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -227,13 +338,28 @@ function IntegrationsSection({ onNavigate }: { onNavigate: () => void }) {
     });
   }, [query, view, states]);
 
+  if (panel) {
+    const { title, Component } = PANELS[panel];
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setPanel(null)}
+          className="mb-4 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] font-semibold text-blue-700 transition-colors hover:bg-blue-50"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          All integrations
+        </button>
+        <h3 className="m-0 mb-3 text-[16px] font-bold text-slate-900">{title}</h3>
+        <Embedded><Component /></Embedded>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <h3 className="m-0 text-[18px] font-bold text-dls-text-primary">Integrations</h3>
-      <p className="m-0 mt-1 text-[13.5px] text-dls-text-secondary">What the platform can connect to. Status is read from your workspace; nothing is shown as connected unless the provider confirmed it.</p>
-
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="inline-flex shrink-0 rounded-dls-pill border border-dls-border-input bg-dls-surface p-1" role="tablist" aria-label="Integration views">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="inline-flex shrink-0 rounded-full border border-gray-200 bg-white p-1" role="tablist" aria-label="Integration views">
           {([["catalog", "Catalog"], ["yours", "Yours"]] as const).map(([key, label]) => (
             <button
               key={key}
@@ -242,8 +368,8 @@ function IntegrationsSection({ onNavigate }: { onNavigate: () => void }) {
               aria-selected={view === key}
               onClick={() => setView(key)}
               className={cn(
-                "dls-focus-outline rounded-dls-pill px-4 py-1.5 text-[13px] font-semibold transition-colors duration-dls-fast",
-                view === key ? "bg-dls-primary-soft-alt text-dls-primary-accent" : "text-dls-text-secondary hover:text-dls-text-primary",
+                "rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors",
+                view === key ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:text-gray-900",
               )}
             >
               {label}
@@ -260,7 +386,7 @@ function IntegrationsSection({ onNavigate }: { onNavigate: () => void }) {
         {states === null ? (
           <LoadingSkeleton rows={4} />
         ) : shown.length === 0 ? (
-          <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6 text-[13.5px] text-dls-text-secondary">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-[13.5px] text-slate-500">
             {view === "yours" && query.length === 0
               ? "Nothing is connected yet. Open the Catalog to see what can be."
               : "No integration matches your search."}
@@ -273,30 +399,30 @@ function IntegrationsSection({ onNavigate }: { onNavigate: () => void }) {
               return (
                 <motion.li
                   key={item.key}
-                  className="list-none rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.15, delay: Math.min(index, 8) * 0.03 }}
+                  className="list-none rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-blue-200"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.03 }}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-dls-control bg-dls-primary-soft text-dls-primary-accent">
+                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#1769FF]">
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h4 className="m-0 text-[14.5px] font-bold text-dls-text-primary">{item.name}</h4>
+                        <h4 className="m-0 text-[14.5px] font-bold text-slate-900">{item.name}</h4>
                         <StatusPill tone={state.tone} label={state.label} confirmed={state.connected && state.tone === "success"} />
                       </div>
-                      <p className="m-0 mt-1 text-[13px] leading-5 text-dls-text-secondary">{item.description}</p>
-                      {state.detail ? <p className="m-0 mt-2 text-[12.5px] leading-5 text-dls-text-muted">{state.detail}</p> : null}
-                      {item.setupHref ? (
-                        <Link
-                          href={item.setupHref}
-                          onClick={onNavigate}
-                          className="dls-focus-outline mt-3 inline-flex min-h-9 items-center rounded-dls-control border border-dls-border-input bg-dls-surface px-3 text-[13px] font-semibold text-dls-text-primary hover:bg-dls-bg-page"
+                      <p className="m-0 mt-1 text-[13px] leading-5 text-slate-500">{item.description}</p>
+                      {state.detail ? <p className="m-0 mt-2 text-[12.5px] leading-5 text-slate-400">{state.detail}</p> : null}
+                      {item.panel ? (
+                        <button
+                          type="button"
+                          onClick={() => setPanel(item.panel!)}
+                          className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                         >
                           {state.connected ? "Manage" : "Set up"}
-                        </Link>
+                        </button>
                       ) : null}
                     </div>
                   </div>
@@ -309,7 +435,6 @@ function IntegrationsSection({ onNavigate }: { onNavigate: () => void }) {
     </div>
   );
 }
-
 
 function AcademyPricingSection() {
   const { prices, currency, loading, error, save } = useAcademyPricing();

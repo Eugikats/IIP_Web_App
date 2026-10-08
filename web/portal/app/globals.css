@@ -477,3 +477,45 @@ textarea:focus-visible {
     transition: none;
   }
 }
+
+/* Command Center, the CIP look: a soft light wash, a serif greeting, and a typing indicator. */
+.cip-cc {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 100% 50% at 50% 120%, rgba(120, 150, 255, 0.14), transparent 55%),
+    radial-gradient(ellipse 60% 35% at 12% 100%, rgba(180, 160, 255, 0.1), transparent 50%),
+    radial-gradient(ellipse 60% 35% at 88% 100%, rgba(100, 170, 255, 0.1), transparent 50%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 50%, #f4f7fb 100%);
+}
+
+.cip-cc-serif {
+  font-family: var(--font-cc-serif), "Source Serif 4", Georgia, "Times New Roman", serif;
+}
+
+.cip-cc-composer input::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cip-cc-typing-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #94a3b8;
+  animation: cip-cc-typing 1.2s ease-in-out infinite;
+}
+
+.cip-cc-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.cip-cc-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes cip-cc-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cip-cc-typing-dot { animation: none; opacity: 0.7; }
+}

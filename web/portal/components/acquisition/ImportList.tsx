@@ -1,13 +1,28 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { apiBaseUrl, scopedHeaders } from "@/lib/config";
+import { getEntraApiAccessToken } from "@/lib/entraAuth";
+import { useUI } from "@/context/UIStateContext";
+import { readListFile } from "@/lib/acquisition/readSpreadsheet";
 import Link from "next/link";
 import { ArrowLeft, Cloud, FileSpreadsheet, Mail, Upload } from "lucide-react";
 import CipStatusPill from "@/components/cip/CipStatusPill";
 
-// Bringing a customer list into IIP. Choosing a file and mapping its columns works in the browser, so a
-// person can see exactly what would be imported. Loading the list into the workspace, and reading a
-// list from Drive or Outlook, are not connected yet, and the page says so instead of pretending.
+// Bringing a customer list into IIP. A CSV or Excel file is read and its columns are matched in the browser,
+// so a person sees exactly what would be imported before anything is sent. Pressing Import loads the people
+// into the workspace as prospects. Reading a list from Drive or Outlook is not connected yet, and the page
+// says so instead of pretending.
+
+type ImportResult = {
+  listName: string;
+  created: number;
+  withConsent: number;
+  alreadyKnown: number;
+  invalid: number;
+  problems: { row: number; reason: string }[];
+};
 
 const FIELDS = [
   { key: "name", label: "Full name", required: true, hints: ["name", "customer", "full"] },
@@ -20,37 +35,12 @@ const FIELDS = [
 ] as const;
 
 const SOURCES = [
-  { id: "file", label: "Upload a file", note: "CSV from your computer", icon: Upload, available: true, reason: "" },
-  { id: "excel", label: "Excel workbook", note: "Save as CSV first", icon: FileSpreadsheet, available: false, reason: "Excel files are not read yet. Save the sheet as CSV and upload that." },
+  { id: "file", label: "Upload a CSV file", note: "From your computer", icon: Upload, available: true, reason: "" },
+  { id: "excel", label: "Excel workbook", note: "An .xlsx file from your computer", icon: FileSpreadsheet, available: true, reason: "" },
   { id: "drive", label: "Google Drive", note: "Pick a sheet from Drive", icon: Cloud, available: false, reason: "Not connected. A Drive connection has not been set up for this workspace." },
   { id: "onedrive", label: "OneDrive", note: "Pick a workbook from OneDrive", icon: Cloud, available: false, reason: "Not connected. A OneDrive connection has not been set up for this workspace." },
   { id: "outlook", label: "Outlook", note: "Read a list sent by email", icon: Mail, available: false, reason: "Not connected. Email is not configured for this workspace." },
 ] as const;
-
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (quoted) {
-      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
-      else if (ch === '"') quoted = false;
-      else cell += ch;
-    } else if (ch === '"') quoted = true;
-    else if (ch === ",") { row.push(cell); cell = ""; }
-    else if (ch === "\n" || ch === "\r") {
-      if (ch === "\r" && text[i + 1] === "\n") i++;
-      row.push(cell); cell = "";
-      if (row.some((value) => value.trim() !== "")) rows.push(row);
-      row = [];
-    } else cell += ch;
-  }
-  row.push(cell);
-  if (row.some((value) => value.trim() !== "")) rows.push(row);
-  return rows;
-}
 
 export default function ImportList() {
   const input = useRef<HTMLInputElement>(null);
@@ -59,6 +49,9 @@ export default function ImportList() {
   const [mapping, setMapping] = useState<Record<string, number>>({});
   const [problem, setProblem] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const { roleDef } = useUI();
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<ImportResult | null>(null);
 
   const headers = rows[0] ?? [];
   const body = useMemo(() => rows.slice(1), [rows]);
@@ -66,15 +59,22 @@ export default function ImportList() {
   const load = async (file: File) => {
     setProblem(null);
     setNotice(null);
-    if (!/\.csv$/i.test(file.name)) {
-      setProblem("Only CSV files can be read here. Save your sheet as CSV and try again.");
-      return;
-    }
+    setResult(null);
     if (file.size > 5 * 1024 * 1024) {
       setProblem("That file is larger than 5 MB. Split the list and upload it in parts.");
       return;
     }
-    const parsed = parseCsv(await file.text());
+    let parsed: string[][];
+    try {
+      parsed = await readListFile(file);
+    } catch (reason) {
+      setProblem(reason instanceof Error ? reason.message : "That file could not be read.");
+      return;
+    }
+    if (parsed.length > 5001) {
+      setProblem("A list can hold up to 5,000 people at a time. Split it and upload it in parts.");
+      return;
+    }
     if (parsed.length < 2) {
       setProblem("The file has no rows under its headings.");
       return;
@@ -92,6 +92,43 @@ export default function ImportList() {
   const missingRequired = FIELDS.filter((field) => field.required && mapping[field.key] === undefined);
   const preview = useMemo(() => body.slice(0, 5), [body]);
   const mapped = FIELDS.filter((field) => mapping[field.key] !== undefined);
+
+  const runImport = async () => {
+    setImporting(true);
+    setProblem(null);
+    try {
+      const token = await getEntraApiAccessToken();
+      const cell = (row: string[], key: string) => (mapping[key] === undefined ? undefined : row[mapping[key]]?.trim() || undefined);
+      const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads/import`, {
+        method: "POST",
+        headers: { ...scopedHeaders(roleDef.key, ""), "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          listName: (fileName ?? "Uploaded list").replace(/\.[^.]+$/, ""),
+          rows: body.map((row) => ({
+            name: cell(row, "name"),
+            phone: cell(row, "phone"),
+            occupation: cell(row, "occupation"),
+            area: cell(row, "area"),
+            branch: cell(row, "branch"),
+            bankProducts: cell(row, "bank_products"),
+            consent: cell(row, "consent"),
+          })),
+        }),
+      });
+      if (response.status === 401) { setProblem("Your sign-in has expired. Sign in again to continue."); return; }
+      if (response.status === 403) { setProblem("Your role cannot import customer lists."); return; }
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { errors?: Record<string, string[]>; message?: string };
+        setProblem(Object.values(data.errors ?? {})[0]?.[0] ?? data.message ?? "The list could not be imported. Nothing was changed.");
+        return;
+      }
+      setResult((await response.json()) as ImportResult);
+    } catch {
+      setProblem("The list could not be imported. Check your connection and try again. Nothing was changed.");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   return (
     <div className="cip-acq space-y-4">
@@ -129,9 +166,9 @@ export default function ImportList() {
         <input
           ref={input}
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="sr-only"
-          aria-label="Choose a CSV file"
+          aria-label="Choose a CSV or Excel file"
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) void load(file);
@@ -191,10 +228,42 @@ export default function ImportList() {
             <p className="m-0 mt-3 text-[12.5px] text-amber-700">Match {missingRequired.map((field) => field.label.toLowerCase()).join(" and ")} to continue.</p>
           ) : null}
           <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
-            <button type="button" disabled className="inline-flex h-9 cursor-not-allowed items-center rounded-lg bg-[#1769FF] px-4 text-[13px] font-semibold text-white opacity-50">
+            <button
+              type="button"
+              disabled={missingRequired.length > 0 || importing || result !== null}
+              onClick={() => void runImport()}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1769FF] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#1258d6] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               Import {body.length.toLocaleString()} people
             </button>
-            <p className="m-0 text-[12px] text-slate-500">Loading a list into the workspace is not connected yet. Nothing has been imported or sent.</p>
+            <p className="m-0 text-[12px] text-slate-500">
+              {result ? "Done. Nothing has been sent to anyone." : "Nothing is sent to anyone. People are added as prospects."}
+            </p>
+          </div>
+        </section>
+      ) : null}
+
+      {result ? (
+        <section role="status" className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 text-[13px] text-slate-700 sm:p-5">
+          <h2 className="m-0 text-[14px] font-bold text-[#0B1640]">{result.created.toLocaleString()} {result.created === 1 ? "person" : "people"} added from {result.listName}</h2>
+          <ul className="m-0 mt-2 list-disc space-y-0.5 pl-5">
+            <li>{result.withConsent.toLocaleString()} agreed to be contacted, so {result.withConsent === 1 ? "they" : "they"} can be messaged. Everyone else is kept but cannot be messaged.</li>
+            {result.alreadyKnown > 0 ? <li>{result.alreadyKnown.toLocaleString()} {result.alreadyKnown === 1 ? "was" : "were"} already on record or listed twice, and {result.alreadyKnown === 1 ? "was" : "were"} left as {result.alreadyKnown === 1 ? "it is" : "they are"}.</li> : null}
+            {result.invalid > 0 ? <li>{result.invalid.toLocaleString()} {result.invalid === 1 ? "row" : "rows"} could not be read (no name or no usable phone number).</li> : null}
+          </ul>
+          {result.problems.length > 0 ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-[12.5px] font-semibold text-slate-600">See the rows that were skipped</summary>
+              <ul className="m-0 mt-2 list-none space-y-0.5 p-0 text-[12.5px] text-slate-600">
+                {result.problems.map((item) => <li key={`${item.row}-${item.reason}`}>Row {item.row}: {item.reason}</li>)}
+              </ul>
+            </details>
+          ) : null}
+          <div className="mt-4">
+            <Link href="/app/acquisition" className="inline-flex h-9 items-center rounded-lg bg-[#1769FF] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#1258d6]">
+              Open the acquisition dashboard
+            </Link>
           </div>
         </section>
       ) : null}
@@ -204,7 +273,7 @@ export default function ImportList() {
         <ol className="m-0 mt-2 list-decimal space-y-1 pl-5">
           <li>Each person becomes a prospect, marked as coming from the list.</li>
           <li>Anyone without a recorded agreement to be contacted is kept, but cannot be messaged.</li>
-          <li>The triage agent scores each person and recommends two covers, with reasons from what the list says.</li>
+          <li>Run the triage agent from the acquisition dashboard to score each person and recommend two covers, with reasons from what the list says.</li>
           <li>The outreach agent drafts a personal message. A person reads, changes and approves each one.</li>
         </ol>
       </section>

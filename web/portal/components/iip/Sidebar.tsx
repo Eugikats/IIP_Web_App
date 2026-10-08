@@ -7,7 +7,7 @@ import {
   MessageSquare, ListChecks, FileSearch, Inbox, GraduationCap, FileText, GitBranch, LineChart,
   Users, Building2, Mail, BookOpen, ShieldAlert, Gavel, ScrollText,
   Search, LogOut, ShieldCheck, Plug, LifeBuoy, Settings,
-  ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw,
+  ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw, MonitorDot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
@@ -19,7 +19,8 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Popover, PopoverGroupLabel } from "@/components/ui/Popover";
 import RoleSwitcher from "./RoleSwitcher";
 import { openFirstRunOrientation } from "./FirstRunOrientation";
-import { SettingsModal } from "@/components/settings/SettingsModal";
+import { SettingsModal, type SettingsSection } from "@/components/settings/SettingsModal";
+import RecentChats from "./RecentChats";
 
 const EXPANDED_STORAGE_KEY = "iip.sidebar.expanded";
 const HOVER_STORAGE_KEY = "iip.sidebar.expandOnHover";
@@ -36,45 +37,57 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
   {
     label: "Work",
     items: [
-      { to: "/app", label: "Brief", icon: Home },
-      { to: "/app/assistant", label: "Assistant", icon: MessageSquare },
-      { to: "/app/work-items", label: "My work", icon: ListChecks },
+      { to: "/app", label: "Command Center", icon: MonitorDot },
       { to: "/app/claims", label: "Claims", icon: FileSearch },
-      { to: "/app/channels", label: "Inbox", icon: Inbox },
-      { to: "/app/academy", label: "IIP Academy", icon: GraduationCap },
-    ],
-  },
-  {
-    label: "Customers",
-    items: [
-      { to: "/app/customers", label: "Customers", icon: Users },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
-      { to: "/app/communications", label: "Communications", icon: Mail },
-      { to: "/app/retention", label: "Retention", icon: RefreshCw },
+      { to: "/app/channels", label: "Inbox", icon: Inbox },
     ],
   },
   {
-    label: "Intelligence",
-    items: [
-      { to: "/app/documents", label: "Documents", icon: FileText },
-      { to: "/app/knowledge", label: "Knowledge", icon: BookOpen },
-      { to: "/app/policy", label: "Policy", icon: ScrollText },
-      { to: "/app/fraud", label: "Fraud", icon: ShieldAlert },
-      { to: "/app/underwriting", label: "Underwriting", icon: Gavel },
-    ],
+    label: "Data",
+    items: [{ to: "/app/knowledge", label: "Data Hub", icon: BookOpen }],
   },
-  {
-    label: "Operations",
-    items: [
-      { to: "/app/flows", label: "Automation", icon: GitBranch },
-      { to: "/app/executive", label: "Insights", icon: LineChart },
-      { to: "/app/audit", label: "Audit", icon: ShieldCheck },
-    ],
-  },
+];
+
+// Everything else is one step away in the profile menu, so the rail stays short (as in CIP) and no
+// screen is unreachable.
+const MORE_DESTINATIONS: { to: string; label: string; icon: typeof MessageSquare }[] = [
+  { to: "/app/brief", label: "My day", icon: Home },
+  { to: "/app/work-items", label: "My work", icon: ListChecks },
+  { to: "/app/customers", label: "Customers", icon: Users },
+  { to: "/app/communications", label: "Communications", icon: Mail },
+  { to: "/app/retention", label: "Retention", icon: RefreshCw },
+  { to: "/app/documents", label: "Documents", icon: FileText },
+  { to: "/app/policy", label: "Policy", icon: ScrollText },
+  { to: "/app/fraud", label: "Fraud", icon: ShieldAlert },
+  { to: "/app/underwriting", label: "Underwriting", icon: Gavel },
+  { to: "/app/flows", label: "Automation", icon: GitBranch },
+  { to: "/app/executive", label: "Insights", icon: LineChart },
+  { to: "/app/audit", label: "Audit", icon: ShieldCheck },
+  { to: "/app/academy", label: "IIP Academy", icon: GraduationCap },
 ];
 
 function isActive(pathname: string, to: string) {
   return to === "/app" ? pathname === "/app" : pathname === to || pathname.startsWith(to + "/");
+}
+
+function ModalRailButton({ label, icon: Icon, expanded, onClick }: { label: string; icon: typeof MessageSquare; expanded: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={expanded ? undefined : label}
+      aria-label={label}
+      aria-haspopup="dialog"
+      className={cn(
+        "group relative flex h-10 shrink-0 items-center gap-2.5 rounded-dls-control transition-colors duration-dls-fast ease-dls hover:bg-dls-bg-page dls-focus-outline",
+        expanded ? "w-full px-2.5" : "w-10 justify-center",
+      )}
+    >
+      <Icon className="h-[19px] w-[19px] shrink-0 text-dls-text-secondary" strokeWidth={1.8} aria-hidden="true" />
+      {expanded && <span className="animate-label-in truncate text-[13px] font-semibold text-dls-text-secondary">{label}</span>}
+    </button>
+  );
 }
 
 function RailButton({
@@ -159,6 +172,8 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("integrations");
+  const openSettings = (section: SettingsSection) => { setSettingsSection(section); setSettingsOpen(true); };
   const expanded = pinned || peek;
   const [searchQuery, setSearchQuery] = useState("");
   const [signingOut, setSigningOut] = useState(false);
@@ -173,7 +188,9 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(EXPANDED_STORAGE_KEY);
+      // Narrow screens start with the 64px rail so the page keeps its width; a saved choice always wins.
       if (stored !== null) setExpanded(stored === "true");
+      else if (window.matchMedia("(max-width: 1023px)").matches) setExpanded(false);
       setExpandOnHover(window.localStorage.getItem(HOVER_STORAGE_KEY) !== "false");
     } catch {
       // Private browsing / blocked storage, keep the default.
@@ -347,13 +364,13 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
         {expanded && <span className="animate-label-in truncate text-dls-text-primary">{workspaceName}</span>}
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         {scrollClipped.top && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-4 bg-gradient-to-b from-dls-surface to-transparent" aria-hidden="true" />
         )}
         <nav
           ref={navRef}
-          className={cn("flex h-full flex-col overflow-y-auto", expanded ? "items-stretch gap-4" : "items-center gap-1")}
+          className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", expanded ? "items-stretch gap-4" : "items-center gap-1")}
         >
           {groups.map((group) => (
             <div key={group.label} className={cn("flex flex-col", expanded ? "gap-0.5" : "contents")}>
@@ -369,6 +386,15 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
             </div>
           ))}
         </nav>
+        <div className={cn("mt-2 flex shrink-0 flex-col border-t border-dls-border-subtle pt-2", expanded ? "items-stretch gap-0.5" : "items-center gap-1")}>
+          {integrationsAvailable && (
+            <ModalRailButton label="Integrations" icon={Plug} expanded={expanded} onClick={() => openSettings("integrations")} />
+          )}
+          {settingsAvailable && (
+            <ModalRailButton label="Settings" icon={Settings} expanded={expanded} onClick={() => openSettings("team")} />
+          )}
+        </div>
+        <RecentChats expanded={expanded} onNavigate={onNavigate} />
         {scrollClipped.bottom && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-4 bg-gradient-to-t from-dls-surface to-transparent" aria-hidden="true" />
         )}
@@ -430,7 +456,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
               </button>
             )}
             {settingsAvailable && (
-              <button type="button" onClick={() => { setProfileOpen(false); setSettingsOpen(true); }} role="menuitem" className="flex w-full items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
+              <button type="button" onClick={() => { setProfileOpen(false); openSettings("team"); }} role="menuitem" className="flex w-full items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
                 <Settings className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Settings
               </button>
             )}
@@ -446,11 +472,16 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
                 <span className={cn("h-2.5 w-2.5 rounded-full transition-transform duration-dls-fast", expandOnHover ? "translate-x-3 bg-dls-surface" : "translate-x-0 bg-dls-text-faint")} />
               </span>
             </button>
-            {integrationsAvailable && (
-              <Link to="/app/integrations" onClick={() => setProfileOpen(false)} role="menuitem" className="flex items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
-                <Plug className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Integrations
-              </Link>
-            )}
+            <div className="my-1 border-t border-dls-border-subtle" role="separator" />
+            <div className="px-3 pb-1 pt-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-dls-text-muted">More screens</div>
+            <div className="grid max-h-56 grid-cols-2 gap-x-1 overflow-y-auto px-1">
+              {MORE_DESTINATIONS.filter((item) => can(item.to)).map((item) => (
+                <Link key={item.to} to={item.to} onClick={() => setProfileOpen(false)} role="menuitem" className="flex items-center gap-2 rounded-dls-control px-2 py-1.5 text-[12.5px] text-dls-text-primary hover:bg-dls-bg-page">
+                  <item.icon className="h-3.5 w-3.5 shrink-0 text-dls-text-muted" aria-hidden="true" /> <span className="truncate">{item.label}</span>
+                </Link>
+              ))}
+            </div>
+            <div className="my-1 border-t border-dls-border-subtle" role="separator" />
             {supportAvailable && (
               <Link to="/app/support" onClick={() => setProfileOpen(false)} role="menuitem" className="flex items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
                 <LifeBuoy className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Support
@@ -516,7 +547,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
           </Popover>
         )}
       </div>
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal open={settingsOpen} section={settingsSection} onSectionChange={setSettingsSection} onClose={() => setSettingsOpen(false)} />
     </aside>
     </div>
   );

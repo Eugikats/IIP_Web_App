@@ -22,12 +22,15 @@ export function Modal({
   children,
   onClose,
   width = 960,
+  bare = false,
 }: {
   open: boolean;
   title: string;
   children: ReactNode;
   onClose: () => void;
   width?: number;
+  /** The caller draws its own header and close button (the settings window). The dialog is then named by `title`. */
+  bare?: boolean;
 }) {
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -112,26 +115,29 @@ export function Modal({
             ref={panelRef}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="dls-modal-title"
+            aria-labelledby={bare ? undefined : "dls-modal-title"}
+            aria-label={bare ? title : undefined}
             tabIndex={-1}
-            className="relative z-[41] flex w-full flex-col overflow-hidden rounded-dls-card border border-dls-border-subtle bg-dls-bg-page shadow-dls-modal"
+            className={`relative z-[41] flex w-full flex-col overflow-hidden border border-dls-border-subtle shadow-dls-modal ${bare ? "rounded-2xl bg-white" : "rounded-dls-card bg-dls-bg-page"}`}
             style={{ maxWidth: `min(${width}px, 100%)` }}
             initial={{ opacity: 0, y: rise }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: rise }}
             transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.2, 0, 0, 1] }}
           >
-            <div className="flex items-center justify-between gap-4 border-b border-dls-border-subtle bg-dls-surface px-6 py-4">
-              <h2 id="dls-modal-title" className="m-0 text-[15px] font-bold text-dls-text-primary">{title}</h2>
-              <button
-                type="button"
-                onClick={close}
-                aria-label="Close"
-                className="dls-focus-outline inline-flex h-9 w-9 items-center justify-center rounded-dls-control border border-dls-border-input bg-dls-surface text-dls-text-secondary hover:text-dls-text-primary"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
+            {bare ? null : (
+              <div className="flex items-center justify-between gap-4 border-b border-dls-border-subtle bg-dls-surface px-6 py-4">
+                <h2 id="dls-modal-title" className="m-0 text-[15px] font-bold text-dls-text-primary">{title}</h2>
+                <button
+                  type="button"
+                  onClick={close}
+                  aria-label="Close"
+                  className="dls-focus-outline inline-flex h-9 w-9 items-center justify-center rounded-dls-control border border-dls-border-input bg-dls-surface text-dls-text-secondary hover:text-dls-text-primary"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
             {children}
           </motion.div>
         </div>

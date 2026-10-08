@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Inter } from "next/font/google";
+import { IBM_Plex_Mono, Inter, Source_Serif_4 } from "next/font/google";
 import { Toaster } from "sonner";
 import LovableVisualParityGate from "@/components/iip/LovableVisualParityGate";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -9,6 +9,12 @@ import "./lovable.css";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+const sourceSerif = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-cc-serif",
   display: "swap",
 });
 
@@ -30,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${ibmPlexMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${ibmPlexMono.variable} ${sourceSerif.variable}`}>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ThemeProvider>
           <LovableVisualParityGate>{children}</LovableVisualParityGate>

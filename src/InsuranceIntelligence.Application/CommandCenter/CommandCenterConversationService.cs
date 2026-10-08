@@ -201,6 +201,27 @@ public sealed class CommandCenterConversationService(
         if (normalized.Contains("approval")) return "Review pending approvals";
         if (normalized.Contains("attention") || normalized.Contains("priority")) return "Review claims needing attention";
         if (normalized.Contains("customer") && normalized.Contains("update")) return "Prepare customer update";
+
+        // A counting question is titled by what it counts and over what period, never by its wording.
+        var counted = CommandCenterAnalytics.Parse(question ?? string.Empty);
+        if (counted is not null)
+        {
+            var subject = char.ToUpperInvariant(CommandCenterAnalytics.Noun(counted.Entity, 2)[0]) + CommandCenterAnalytics.Noun(counted.Entity, 2)[1..];
+            if (counted.BreakdownBy is not null) return $"{subject} by {counted.BreakdownBy}";
+            var when = counted.Period switch
+            {
+                "today" => "today",
+                "yesterday" => "yesterday",
+                "this_week" => "this week",
+                "last_7_days" => "over 7 days",
+                "last_30_days" => "over 30 days",
+                "this_month" => "this month",
+                "last_month" => "last month",
+                _ => null,
+            };
+            return when is null ? $"{subject} in total" : $"{subject} {when}";
+        }
+
         return "Command Center investigation";
     }
 

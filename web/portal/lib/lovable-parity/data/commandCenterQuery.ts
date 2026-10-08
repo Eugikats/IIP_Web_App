@@ -22,6 +22,8 @@ export type CommandCenterBlock =
   | { type: "evidence_list"; sources: { label: string; documentName: string; ref: string }[] }
   | { type: "not_configured"; provider: string; adminAction: string }
   | { type: "error"; code: string; safeMessage: string; correlationId: string }
+  | { type: "chart"; title: string; kind: string; points: { label: string; value: number }[]; unit: string; summary?: string | null }
+  | { type: "link"; label: string; href: string; description?: string | null }
   | { type: string; [k: string]: unknown };
 
 export type CommandCenterAnswer = {
@@ -73,7 +75,7 @@ export function useCommandCenterQuery() {
       const response = await fetch(`${apiBaseUrl}/api/v1/command-center/query`, {
         method: "POST",
         headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, conversationId: conversationId || null, clientRequestId: clientRequestId || null }),
+        body: JSON.stringify({ question: q, conversationId: conversationId || null, clientRequestId: clientRequestId || null, timeZoneOffsetMinutes: -new Date().getTimezoneOffset() }),
       });
       if (response.status === 403) {
         const message = "You do not have permission to query the Command Center.";

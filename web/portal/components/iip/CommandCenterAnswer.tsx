@@ -1,5 +1,6 @@
 "use client";
 import { ArrowRight, FileText, Sparkles } from "lucide-react";
+import ChartCard from "@/components/command-center/ChartCard";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { MarkdownText } from "@/components/iip/MarkdownText";
 import type { CommandCenterBlock } from "@/lib/lovable-parity/data/commandCenterQuery";
@@ -238,6 +239,20 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
     case "not_configured": {
       const b = block as Extract<CommandCenterBlock, { type: "not_configured" }>;
       return <NotConfiguredStateSurface what={`${b.provider}. ${b.adminAction}`} />;
+    }
+    case "chart":
+      return <ChartCard block={block as Extract<CommandCenterBlock, { type: "chart" }>} />;
+    case "link": {
+      const b = block as Extract<CommandCenterBlock, { type: "link" }>;
+      return (
+        <Link
+          to={safeInternalWorkHref(b.href, "/app")}
+          className="group inline-flex items-center gap-2 rounded-full bg-[#1769FF] px-4 py-2 text-[13px] font-semibold text-white shadow-[0_6px_16px_rgba(23,105,255,0.3)] transition-colors hover:bg-[#1258d6]"
+        >
+          {b.label}
+          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        </Link>
+      );
     }
     case "error": {
       const b = block as Extract<CommandCenterBlock, { type: "error" }>;
