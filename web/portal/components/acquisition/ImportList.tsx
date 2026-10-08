@@ -248,7 +248,7 @@ export default function ImportList() {
         <section role="status" className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 text-[13px] text-slate-700 sm:p-5">
           <h2 className="m-0 text-[14px] font-bold text-[#0B1640]">{result.created.toLocaleString()} {result.created === 1 ? "person" : "people"} added from {result.listName}</h2>
           <ul className="m-0 mt-2 list-disc space-y-0.5 pl-5">
-            <li>{result.withConsent.toLocaleString()} agreed to be contacted, so {result.withConsent === 1 ? "they" : "they"} can be messaged. Everyone else is kept but cannot be messaged.</li>
+            <li>{result.withConsent.toLocaleString()} agreed to be contacted, so they can be messaged. Everyone else is kept but cannot be messaged.</li>
             {result.alreadyKnown > 0 ? <li>{result.alreadyKnown.toLocaleString()} {result.alreadyKnown === 1 ? "was" : "were"} already on record or listed twice, and {result.alreadyKnown === 1 ? "was" : "were"} left as {result.alreadyKnown === 1 ? "it is" : "they are"}.</li> : null}
             {result.invalid > 0 ? <li>{result.invalid.toLocaleString()} {result.invalid === 1 ? "row" : "rows"} could not be read (no name or no usable phone number).</li> : null}
           </ul>

@@ -98,7 +98,7 @@ export default function Login() {
 
           <div className="mt-8 space-y-3">
             {([
-              { method: "microsoft", label: canUseLocalTestDoubles ? "Enter local workspace" : "Continue with Microsoft", note: "Work or school account", available: signInAvailable },
+              { method: "microsoft", label: canUseLocalTestDoubles ? "Enter local workspace" : "Continue with Microsoft", note: "Work or school account, checked by Microsoft Entra ID", available: signInAvailable },
               { method: "google", label: "Continue with Google", note: "Any Google account", available: canUseLocalTestDoubles || canUseExternalIdSignIn },
               { method: "email", label: "Continue with an email code", note: "We email you a one-time code", available: canUseLocalTestDoubles || canUseExternalIdSignIn },
             ] as { method: SignInMethod; label: string; note: string; available: boolean }[])
