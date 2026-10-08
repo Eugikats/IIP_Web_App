@@ -27,6 +27,11 @@ public static class OrganisationEndpoints
         CreateOrganisationRequest request, OrganisationService service, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
         Run(async () =>
         {
+            if (SignUpClosed(options) is { } closed)
+            {
+                return closed;
+            }
+
             if (SignedInUser(httpContext, options) is not { } userId)
             {
                 return Results.Unauthorized();
@@ -83,6 +88,11 @@ public static class OrganisationEndpoints
         AcceptInvitationRequest request, OrganisationService service, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
         Run(async () =>
         {
+            if (SignUpClosed(options) is { } closed)
+            {
+                return closed;
+            }
+
             if (SignedInUser(httpContext, options) is not { } userId)
             {
                 return Results.Unauthorized();
@@ -249,6 +259,17 @@ public static class OrganisationEndpoints
     private static string CorrelationId(HttpContext httpContext) => httpContext.TraceIdentifier;
 
     /// <summary>The signed-in person, whether or not they belong to any organisation yet.</summary>
+    /// <summary>
+    /// Creating organisations and joining by invitation are open only in multi-tenant mode, where each
+    /// organisation's data, credentials and channels are kept apart. In a single-tenant deployment (the
+    /// Managed App, or the SaaS build before it is switched on) they stay shut, so nobody who can sign in can
+    /// found an organisation there. Local development is allowed for testing.
+    /// </summary>
+    public static IResult? SignUpClosed(InfrastructureOptions options) =>
+        options.MultiTenant || options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : Results.Json(new { message = "Sign-up for IIP is not open yet. Contact info@oticgroup.net to get started." }, statusCode: StatusCodes.Status403Forbidden);
+
     private static string? SignedInUser(HttpContext httpContext, InfrastructureOptions options)
     {
         var development = options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase);
