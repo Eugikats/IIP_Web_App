@@ -467,6 +467,9 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.I
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
 builder.Services.AddScoped<IProspectTriageService, ProspectTriageService>();
 builder.Services.AddScoped<IProspectListImportService, ProspectListImportService>();
+builder.Services.AddSingleton(InsuranceIntelligence.Infrastructure.Connections.FileProviderOptions.From(builder.Configuration));
+builder.Services.AddHttpClient(InsuranceIntelligence.Infrastructure.Connections.UserFileService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IUserFileService, InsuranceIntelligence.Infrastructure.Connections.UserFileService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
 // A message that cannot reach a real phone may be recorded as a clearly labelled demonstration send, but
 // only where the runtime profile is not protected. In Staging and Production it is blocked, never faked.
@@ -763,6 +766,14 @@ app.MapPost("/api/v1/organisations", InsuranceIntelligence.Api.Organisations.Org
 app.MapPost("/api/v1/admin/organisations/adopt-current-tenant", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.AdoptCurrentTenant)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/me/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Mine);
+// A person's own Google Drive and OneDrive connection: self-scoped, no organisation permission.
+app.MapGet("/api/v1/me/file-connections", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Status);
+app.MapPost("/api/v1/me/file-connections/{provider}/start", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Start);
+app.MapPost("/api/v1/me/file-connections/{provider}/exchange", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Exchange);
+app.MapDelete("/api/v1/me/file-connections/{provider}", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Disconnect);
+app.MapGet("/api/v1/me/file-connections/{provider}/files", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Browse);
+app.MapGet("/api/v1/me/file-connections/{provider}/files/{fileId}/content", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Content);
+app.MapGet("/api/v1/me/file-connections/google/picker", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Picker);
 app.MapPost("/api/v1/invitations/accept", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Accept).RequireRateLimiting("join");
 app.MapGet("/api/v1/organisation/invitations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ListInvitations);
 app.MapPost("/api/v1/organisation/invitations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Invite);
