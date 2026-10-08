@@ -1,6 +1,6 @@
 "use client";
 import { useLocation, Navigate } from "@/components/iip/NextRouterCompat";
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Sidebar from "./Sidebar";
 import FirstRunOrientation from "./FirstRunOrientation";
@@ -12,7 +12,8 @@ import NotificationBell from "./NotificationBell";
 import { UIStateProvider, useUI } from "@/context/UIStateContext";
 import { canAccess, canAccessWithPermissions, firstAccessibleRoute, previewLandingRoute } from "@/lib/roles";
 import { RuntimeContextProvider, useRuntimeContext } from "@/lib/runtimeContext";
-import { canUseLocalTestDoubles } from "@/lib/config";
+import { apiBaseUrl, canUseLocalTestDoubles } from "@/lib/config";
+import { getEntraApiAccessToken } from "@/lib/entraAuth";
 import { Loader2, PanelRightOpen, PanelRightClose, ShieldAlert } from "lucide-react";
 
 // Design language v2 §3: 64px rail (Sidebar) + an optional contextual panel + a left-aligned
@@ -32,8 +33,35 @@ function ShellInner({ children }: { children: ReactNode }) {
   const { copilotOpen, toggleCopilot, roleDef } = useUI();
   const { runtimeContext, loading, error, parityMode, refresh } = useRuntimeContext();
   const loc = useLocation();
+  const [checkingSignUp, setCheckingSignUp] = useState(false);
 
-  if (!canUseLocalTestDoubles && !parityMode && loading) {
+  // Signed in, but not a member of any organisation: a new person. Send them to set one up instead of
+  // showing "access unavailable". Anyone who does belong somewhere sees the access message as before.
+  const noWorkspace = !canUseLocalTestDoubles && !parityMode && !loading && !runtimeContext && Boolean(error);
+  useEffect(() => {
+    if (!noWorkspace) return;
+    let cancelled = false;
+    setCheckingSignUp(true);
+    void (async () => {
+      try {
+        const token = await getEntraApiAccessToken();
+        if (!token) return;
+        const response = await fetch(`${apiBaseUrl}/api/v1/me/organisations`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!cancelled && response.ok && ((await response.json()) as unknown[]).length === 0) {
+          window.location.replace("/welcome");
+          return;
+        }
+      } catch {
+        // Fall through to the access message.
+      }
+      if (!cancelled) setCheckingSignUp(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [noWorkspace]);
+
+  if (!canUseLocalTestDoubles && !parityMode && (loading || checkingSignUp)) {
     return (
       <main className="grid min-h-screen place-items-center bg-dls-surface px-6 text-dls-text-primary">
         <div className="flex items-center gap-3 text-sm text-dls-text-secondary">

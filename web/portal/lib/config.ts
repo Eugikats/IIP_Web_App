@@ -23,6 +23,16 @@ export const entraClientId =
 export const entraApiScope = process.env.NEXT_PUBLIC_ENTRA_API_SCOPE || "";
 export const entraRedirectUri = process.env.NEXT_PUBLIC_ENTRA_REDIRECT_URI || "";
 
+/** "organizations" lets work accounts from any company sign in (the SaaS product); otherwise only IIP's own
+ *  directory. Needs the app registration set to accept accounts from any organisation. */
+export const entraAuthorityTenant = process.env.NEXT_PUBLIC_ENTRA_AUTHORITY_TENANT || entraTenantId;
+
+/** Entra External ID, for Google and email-code sign-in (as CIP). For example
+ *  https://contoso.ciamlogin.com/{tenant-id}. Absent: only Microsoft work accounts can sign in. */
+export const externalIdAuthority = (process.env.NEXT_PUBLIC_EXTERNAL_ID_AUTHORITY || "").replace(/\/$/, "");
+export const externalIdClientId = process.env.NEXT_PUBLIC_EXTERNAL_ID_CLIENT_ID || "";
+export const externalIdApiScope = process.env.NEXT_PUBLIC_EXTERNAL_ID_API_SCOPE || "";
+
 export const isDevelopmentAuth = authMode.toLowerCase() === "development";
 export const isDeployedRuntime = ["staging", "production", "managedapplicationreviewer"].includes(
   runtimeProfile.toLowerCase()
@@ -30,6 +40,8 @@ export const isDeployedRuntime = ["staging", "production", "managedapplicationre
 export const canUseLocalTestDoubles = !isDeployedRuntime && isDevelopmentAuth;
 export const canUseEntraBrowserAuth =
   !isDevelopmentAuth && Boolean(entraTenantId && entraClientId && entraApiScope);
+export const canUseExternalIdSignIn =
+  !isDevelopmentAuth && Boolean(externalIdAuthority && externalIdClientId && externalIdApiScope);
 
 let apiAccessToken = "";
 

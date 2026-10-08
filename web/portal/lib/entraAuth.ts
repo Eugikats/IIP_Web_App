@@ -8,17 +8,63 @@ import {
 } from "@azure/msal-browser";
 import {
   canUseEntraBrowserAuth,
+  canUseExternalIdSignIn,
   entraApiScope,
+  entraAuthorityTenant,
   entraClientId,
   entraRedirectUri,
-  entraTenantId,
+  externalIdApiScope,
+  externalIdAuthority,
+  externalIdClientId,
   setApiAccessToken,
 } from "@/lib/config";
 
+/** Which directory a person signs in through: Microsoft work accounts, or External ID (Google, email code). */
+export type SignInProvider = "work" | "external";
+export type SignInMethod = "microsoft" | "google" | "email";
+
+const PROVIDER_KEY = "iip-sign-in-provider";
+
+function currentProvider(): SignInProvider {
+  try {
+    return window.localStorage.getItem(PROVIDER_KEY) === "external" && canUseExternalIdSignIn ? "external" : "work";
+  } catch {
+    return "work";
+  }
+}
+
+function rememberProvider(provider: SignInProvider) {
+  try {
+    window.localStorage.setItem(PROVIDER_KEY, provider);
+  } catch {
+    // Storage can be blocked; work accounts are the default.
+  }
+}
+
+function scopeFor(provider: SignInProvider) {
+  return provider === "external" ? externalIdApiScope : entraApiScope;
+}
+
+/** Starts sign-in with the chosen method. Google and email go through External ID, as in CIP. */
+export async function startSignIn(method: SignInMethod): Promise<void> {
+  const provider: SignInProvider = method === "microsoft" ? "work" : "external";
+  if (provider === "external" && !canUseExternalIdSignIn) {
+    throw Object.assign(new Error("not_configured"), { errorCode: "not_configured" });
+  }
+
+  rememberProvider(provider);
+  const msal = await getClient(provider);
+  await msal.loginRedirect({
+    scopes: [scopeFor(provider)],
+    redirectUri: redirectUri(),
+    prompt: method === "email" ? "login" : "select_account",
+    // Capital G: External ID rejects a lowercase "google" hint (CIP found this the hard way).
+    ...(method === "google" ? { extraQueryParameters: { domain_hint: "Google" } } : {}),
+  });
+}
+
 const postLogoutPath = "/";
 
-let client: PublicClientApplication | null = null;
-let initialized: Promise<PublicClientApplication> | null = null;
 let redirectResult: Promise<AuthenticationResult | null> | null = null;
 
 /**
@@ -70,6 +116,9 @@ export function describeSignInError(error: unknown): string {
   if (/interaction_in_progress/.test(text)) {
     return "An earlier sign-in is still open in another tab. Close the other IIP tabs and try again.";
   }
+  if (/not_configured/.test(text)) {
+    return "This way of signing in has not been set up yet. Use Continue with Microsoft.";
+  }
   if (/network|timed_out|Failed to fetch/i.test(text)) {
     return "Could not reach Microsoft sign-in. Check your connection and try again.";
   }
@@ -92,7 +141,8 @@ async function getEntraApiAccessTokenOnce(): Promise<string | null> {
     return null;
   }
 
-  const msal = await getClient();
+  const provider = currentProvider();
+  const msal = await getClient(provider);
   const redirected = await getRedirectResult(msal);
   const account =
     redirected?.account ??
@@ -102,7 +152,7 @@ async function getEntraApiAccessTokenOnce(): Promise<string | null> {
 
   if (!account) {
     await msal.loginRedirect({
-      scopes: [entraApiScope],
+      scopes: [scopeFor(provider)],
       redirectUri: redirectUri(),
     });
     return null;
@@ -113,7 +163,7 @@ async function getEntraApiAccessTokenOnce(): Promise<string | null> {
   try {
     const result = await msal.acquireTokenSilent({
       account,
-      scopes: [entraApiScope],
+      scopes: [scopeFor(provider)],
     });
     setApiAccessToken(result.accessToken);
     return result.accessToken;
@@ -121,7 +171,7 @@ async function getEntraApiAccessTokenOnce(): Promise<string | null> {
     if (error instanceof InteractionRequiredAuthError) {
       await msal.acquireTokenRedirect({
         account,
-        scopes: [entraApiScope],
+        scopes: [scopeFor(provider)],
         redirectUri: redirectUri(),
       });
       return null;
@@ -144,7 +194,7 @@ export async function signOut(): Promise<void> {
     return;
   }
 
-  const msal = await getClient();
+  const msal = await getClient(currentProvider());
   const account = msal.getActiveAccount() ?? msal.getAllAccounts()[0] ?? null;
   setApiAccessToken(null);
   await msal.logoutRedirect({
@@ -153,15 +203,20 @@ export async function signOut(): Promise<void> {
   });
 }
 
-function getClient(): Promise<PublicClientApplication> {
-  if (initialized) {
-    return initialized;
+const clients = new Map<SignInProvider, Promise<PublicClientApplication>>();
+
+function getClient(provider: SignInProvider): Promise<PublicClientApplication> {
+  const existing = clients.get(provider);
+  if (existing) {
+    return existing;
   }
 
-  client = new PublicClientApplication({
+  const external = provider === "external";
+  const instance = new PublicClientApplication({
     auth: {
-      clientId: entraClientId,
-      authority: `https://login.microsoftonline.com/${entraTenantId}`,
+      clientId: external ? externalIdClientId : entraClientId,
+      authority: external ? externalIdAuthority : `https://login.microsoftonline.com/${entraAuthorityTenant}`,
+      ...(external ? { knownAuthorities: [new URL(externalIdAuthority).host] } : {}),
       redirectUri: typeof window === "undefined" ? undefined : redirectUri(),
     },
     cache: {
@@ -169,8 +224,9 @@ function getClient(): Promise<PublicClientApplication> {
     },
   });
 
-  initialized = client.initialize().then(() => client!);
-  return initialized;
+  const ready = instance.initialize().then(() => instance);
+  clients.set(provider, ready);
+  return ready;
 }
 
 function redirectUri() {

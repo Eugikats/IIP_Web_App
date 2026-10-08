@@ -4,8 +4,8 @@ import { useState } from "react";
 import { ArrowRight, AlertTriangle, Check, Loader2, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useNavigate } from "@/components/iip/NextRouterCompat";
 import iipLogo from "@/assets/iip-logo";
-import { canUseEntraBrowserAuth, canUseLocalTestDoubles, runtimeProfile } from "@/lib/config";
-import { describeSignInError, getEntraApiAccessToken } from "@/lib/entraAuth";
+import { canUseEntraBrowserAuth, canUseExternalIdSignIn, canUseLocalTestDoubles, runtimeProfile } from "@/lib/config";
+import { describeSignInError, startSignIn, type SignInMethod } from "@/lib/entraAuth";
 
 function environmentLabel() {
   if (runtimeProfile.toLowerCase() === "managedapplicationreviewer") return "Reviewer environment";
@@ -14,22 +14,25 @@ function environmentLabel() {
 
 export default function Login() {
   const navigate = useNavigate();
-  const [signingIn, setSigningIn] = useState(false);
+  const [signingIn, setSigningIn] = useState<SignInMethod | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function signIn() {
-    setSigningIn(true);
+  // Arriving from the sign-up page carries the product the person chose.
+  const signingUp = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("signup") : null;
+  const signUpProduct = signingUp === "bancassurance" ? "IIP for Bancassurance" : signingUp === "insurance" ? "IIP for Insurance" : null;
+
+  async function signIn(method: SignInMethod) {
+    setSigningIn(method);
     setError(null);
     try {
       if (canUseLocalTestDoubles) {
         navigate("/app");
         return;
       }
-      const token = await getEntraApiAccessToken();
-      if (token) navigate("/app");
+      await startSignIn(method);
     } catch (failure) {
       setError(describeSignInError(failure));
-      setSigningIn(false);
+      setSigningIn(null);
     }
   }
 
@@ -86,29 +89,41 @@ export default function Login() {
             <span className="text-sm font-medium text-ink-soft">Staff access</span>
             <span className="text-xs text-muted">{environmentLabel()}</span>
           </div>
-          <h2 className="text-3xl font-semibold leading-tight text-ink">Sign in to IIP Operations</h2>
+          <h2 className="text-3xl font-semibold leading-tight text-ink">{signUpProduct ? "Create your account" : "Sign in to IIP"}</h2>
           <p className="mt-3 text-sm leading-6 text-muted">
-            Use your organization account. Your tenant, workspace, role, and permissions are resolved securely after sign-in.
+            {signUpProduct
+              ? `You chose ${signUpProduct}. Sign in with Microsoft, Google or an email code, and then name your organisation.`
+              : "Use the account you signed up with. Your organisation, role and permissions are worked out securely after sign-in."}
           </p>
 
-          <div className="mt-8 flex items-start gap-3 border-y border-line py-4">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
-            <div>
-              <div className="text-sm font-medium text-ink">Microsoft Entra ID</div>
-              <div className="mt-1 text-xs leading-5 text-muted">Single sign-on and your organization&apos;s access policies apply.</div>
-            </div>
+          <div className="mt-8 space-y-3">
+            {([
+              { method: "microsoft", label: canUseLocalTestDoubles ? "Enter local workspace" : "Continue with Microsoft", note: "Work or school account", available: signInAvailable },
+              { method: "google", label: "Continue with Google", note: "Any Google account", available: canUseLocalTestDoubles || canUseExternalIdSignIn },
+              { method: "email", label: "Continue with an email code", note: "We email you a one-time code", available: canUseLocalTestDoubles || canUseExternalIdSignIn },
+            ] as { method: SignInMethod; label: string; note: string; available: boolean }[])
+              .filter((option) => !canUseLocalTestDoubles || option.method === "microsoft")
+              .map((option) => (
+                <button
+                  key={option.method}
+                  type="button"
+                  onClick={() => void signIn(option.method)}
+                  disabled={signingIn !== null || !option.available}
+                  className={`inline-flex min-h-12 w-full items-center gap-3 rounded-md px-5 py-3 text-left text-sm font-semibold transition-colors focus-ring disabled:cursor-not-allowed disabled:opacity-55 ${
+                    option.method === "microsoft" ? "bg-primary text-white shadow-l2 hover:bg-primary/90" : "border border-line bg-white text-ink hover:bg-surface"
+                  }`}
+                >
+                  {signingIn === option.method ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
+                  <span className="flex-1">
+                    <span className="block">{signingIn === option.method ? "Connecting" : option.label}</span>
+                    <span className={`block text-xs font-normal ${option.method === "microsoft" ? "text-white/75" : "text-muted"}`}>
+                      {option.available ? option.note : "Not set up yet"}
+                    </span>
+                  </span>
+                  {signingIn !== option.method && <ArrowRight className="h-4 w-4" />}
+                </button>
+              ))}
           </div>
-
-          <button
-            type="button"
-            onClick={signIn}
-            disabled={signingIn || !signInAvailable}
-            className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white shadow-l2 transition-colors hover:bg-primary/90 focus-ring disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            {signingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
-            <span>{signingIn ? "Connecting to Microsoft" : canUseLocalTestDoubles ? "Enter local workspace" : "Continue with Microsoft"}</span>
-            {!signingIn && <ArrowRight className="h-4 w-4" />}
-          </button>
 
           {!signInAvailable && (
             <div className="mt-5 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-3 text-xs leading-5 text-ink-soft">
