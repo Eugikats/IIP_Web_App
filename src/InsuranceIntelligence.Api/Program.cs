@@ -382,10 +382,17 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
     // Scoped, not Singleton: both now depend on the scoped IAgentBehaviourProfileRepository
     // (blueprint §6.3) to compose the tenant's configured system prompt on every call. Embeddings
     // carry no per-call prompt, so that one stays Singleton.
-    builder.Services.AddScoped<IAiAssistantProvider, AzureOpenAiAssistantProvider>();
+    // Each model call is wrapped so it is checked against the month's AI credits first and counted after.
+    builder.Services.AddScoped<AzureOpenAiAssistantProvider>();
+    builder.Services.AddScoped<IAiAssistantProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedAiAssistantProvider(
+        sp.GetRequiredService<AzureOpenAiAssistantProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
     builder.Services.AddSingleton<IEmbeddingProvider, AzureOpenAiEmbeddingProvider>();
-    builder.Services.AddScoped<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
-    builder.Services.AddScoped<IToolCallingChatProvider, AzureOpenAiToolCallingChatProvider>();
+    builder.Services.AddScoped<AzureOpenAiChatCompletionProvider>();
+    builder.Services.AddScoped<IChatCompletionProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedChatCompletionProvider(
+        sp.GetRequiredService<AzureOpenAiChatCompletionProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
+    builder.Services.AddScoped<AzureOpenAiToolCallingChatProvider>();
+    builder.Services.AddScoped<IToolCallingChatProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedToolCallingChatProvider(
+        sp.GetRequiredService<AzureOpenAiToolCallingChatProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
     builder.Services.AddScoped<IConversationInsightsService, ConversationInsightsService>();
 }
 else
@@ -453,6 +460,7 @@ builder.Services.AddSingleton<IIntentClassifier, DeterministicThenAiIntentClassi
 builder.Services.AddSingleton<IProviderRequirementResolver, ProviderRequirementResolver>();
 builder.Services.AddScoped<INotificationDraftService, CustomerUpdateNotificationDraftService>();
 builder.Services.AddScoped<ICommandCenterAnalyst, CommandCenterAnalyst>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IAiCreditsSummaryService, InsuranceIntelligence.Application.Billing.AiCreditsSummaryService>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
 builder.Services.AddScoped<ICommandCenterConversationService, CommandCenterConversationService>();
 builder.Services.AddScoped<IConversationGroundingService, ConversationGroundingService>();
@@ -627,6 +635,20 @@ if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.Or
 app.UseExceptionHandler();
 
 app.UseCors();
+
+// When the month's AI credits are used up, an endpoint that needed the model says so plainly (402) instead of failing.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (InsuranceIntelligence.Application.Billing.AiCreditsExhaustedException) when (!context.Response.HasStarted)
+    {
+        context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
+        await context.Response.WriteAsJsonAsync(new { code = "credits_exhausted", message = "AI credits for this month are used up. Ask your administrator to add credits." });
+    }
+});
 
 // Swagger UI + JSON contract document, Development/LocalTest only (secure baseline).
 if (developmentDiagnosticsEnabled)
@@ -1243,6 +1265,9 @@ app.MapGet("/api/v1/agent-work-items/{workItemId:guid}", InsuranceIntelligence.A
 app.MapPost("/api/v1/agent-work-items/{workItemId:guid}/decision", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.DecideWorkItem)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ReviewAgentWorkItems));
 // Initiative LP: Billing & entitlements, default package + real usage meters (ADR-0003).
+// The credit meter: anyone who can use the workspace sees credits used against the plan; cost is for billing viewers.
+app.MapGet("/api/v1/billing/credits", InsuranceIntelligence.Api.Admin.Billing.BillingEndpoints.GetCredits)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
 app.MapGet("/api/v1/admin/billing", InsuranceIntelligence.Api.Admin.Billing.BillingEndpoints.GetSummary)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
 // Initiative LP: cross-case document library.

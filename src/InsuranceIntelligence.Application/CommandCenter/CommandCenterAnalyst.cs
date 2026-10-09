@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using InsuranceIntelligence.Application.Ai;
+using InsuranceIntelligence.Application.Billing;
 using InsuranceIntelligence.Application.Channels;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.SalesLeads;
@@ -36,7 +37,8 @@ public sealed class CommandCenterAnalyst(
     ICaseRepository cases,
     ICustomerRepository customers,
     IChannelReadRepository channels,
-    IToolCallingChatProvider? chat = null) : ICommandCenterAnalyst
+    IToolCallingChatProvider? chat = null,
+    InsuranceIntelligence.Application.Billing.IAiCreditGate? creditGate = null) : ICommandCenterAnalyst
 {
     private const int MaxModelSteps = 5;
 
@@ -50,7 +52,14 @@ public sealed class CommandCenterAnalyst(
         var produced = new List<CommandCenterResponseBlock>();
         var touched = new List<AnalyticsEntity>();
 
-        if (chat is not null)
+        var creditsUsedUp = false;
+        if (chat is not null && creditGate is not null
+            && (await creditGate.StatusAsync(tenantContextAccessor.Current.Scope, cancellationToken)).Exhausted)
+        {
+            creditsUsedUp = true;
+        }
+
+        if (chat is not null && !creditsUsedUp)
         {
             try
             {
@@ -70,6 +79,12 @@ public sealed class CommandCenterAnalyst(
             catch (PermissionDeniedException)
             {
                 throw;
+            }
+            catch (AiCreditsExhaustedException)
+            {
+                creditsUsedUp = true;
+                produced.Clear();
+                touched.Clear();
             }
             catch (Exception) when (!cancellationToken.IsCancellationRequested)
             {
@@ -94,7 +109,20 @@ public sealed class CommandCenterAnalyst(
             await BreakdownAsync(parsed.Entity, parsed.BreakdownBy, parsed.Period, now, utcOffset, produced, touched, cancellationToken);
         }
 
-        return Assemble(string.Join(" ", sentences), produced, touched, usedModel: false);
+        var answer = Assemble(string.Join(" ", sentences), produced, touched, usedModel: false);
+        if (!creditsUsedUp)
+        {
+            return answer;
+        }
+
+        // The counts are free; only the model's reading of them is paused. Say so, and say who can add credits.
+        var canAdd = await permissionService.HasPermissionAsync(Permission.ViewBilling, cancellationToken);
+        var notice = new CreditsNoticeBlock(
+            canAdd
+                ? "AI credits for this month are used up, so this shows the figures only. You can add credits in Settings, under Usage and billing."
+                : "AI credits for this month are used up, so this shows the figures only. Ask your administrator to add credits.",
+            canAdd);
+        return answer with { Blocks = [.. answer.Blocks, notice] };
     }
 
     private static AnalystAnswer Assemble(string text, List<CommandCenterResponseBlock> produced, List<AnalyticsEntity> touched, bool usedModel)

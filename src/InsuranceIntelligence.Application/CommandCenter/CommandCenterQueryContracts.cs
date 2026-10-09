@@ -55,6 +55,7 @@ public sealed record CommandCenterQueryResponse(
 [JsonDerivedType(typeof(ErrorBlock), "error")]
 [JsonDerivedType(typeof(ChartBlock), "chart")]
 [JsonDerivedType(typeof(LinkBlock), "link")]
+[JsonDerivedType(typeof(CreditsNoticeBlock), "credits_notice")]
 public abstract record CommandCenterResponseBlock;
 
 /// <summary>A chart drawn from counted workspace records. <see cref="Kind"/> is "line" (a series over
@@ -67,6 +68,9 @@ public sealed record ChartBlock(
     string? Summary = null) : CommandCenterResponseBlock;
 
 public sealed record ChartPoint(string Label, decimal Value);
+
+/// <summary>Said plainly when the month's AI credits are used up: what still works, and who can add credits.</summary>
+public sealed record CreditsNoticeBlock(string Message, bool CanAddCredits) : CommandCenterResponseBlock;
 
 /// <summary>A button to the screen where the answer's records live.</summary>
 public sealed record LinkBlock(string Label, string Href, string? Description = null) : CommandCenterResponseBlock;

@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { disconnectFileProvider, FileConnectionError, getFileConnectionStatus, startFileConnection, type FileConnectionStatus, type FileProviderKey } from "@/lib/files/fileConnections";
 import { COURSES } from "@/lib/academy/courses";
 import { formatPrice, useAcademyPricing } from "@/lib/academy/pricing";
+import CreditMeter from "@/components/billing/CreditMeter";
 import ProfileSettings from "@/lovable-pages/Settings";
 import AgentsPanel from "@/lovable-pages/admin/Agents";
 import BillingPanel from "@/lovable-pages/admin/Billing";
@@ -281,15 +282,7 @@ function AgentsSection() {
 function BillingSection() {
   return (
     <div>
-      <section className="mb-5 rounded-xl border border-gray-200 bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="m-0 text-[14px] font-bold text-slate-900">AI credits</h3>
-          <StatusPill tone="neutral" label="Not connected" />
-        </div>
-        <p className="m-0 mt-1.5 text-[13px] leading-5 text-slate-500">
-          Credit metering is not connected yet, so no credits are being counted or charged. When it is, this shows the credits used this month, the cost, and the plan allowance.
-        </p>
-      </section>
+      <CreditMeter />
       <Embedded>
         <BillingPanel />
       </Embedded>

@@ -7,6 +7,11 @@ namespace InsuranceIntelligence.Api.Admin.Billing;
 
 public static class BillingEndpoints
 {
+    public static async Task<IResult> GetCredits(
+        IAiCreditsSummaryService service,
+        CancellationToken cancellationToken) =>
+        Results.Ok(await service.GetAsync(cancellationToken));
+
     public static async Task<IResult> GetSummary(
         IBillingQueryService service,
         CancellationToken cancellationToken)

@@ -613,6 +613,7 @@ public sealed class CommandCenterQueryEndpointsTests
                 new CommandCenterQueryRequest(question),
                 conversationService,
                 TenantContextAccessor,
+                new AllowAllPermissions(),
                 _options,
                 ScopedContext(),
                 CancellationToken.None);
@@ -661,6 +662,7 @@ public sealed class CommandCenterQueryEndpointsTests
                 new CommandCenterQueryRequest(question),
                 conversationService,
                 TenantContextAccessor,
+                new AllowAllPermissions(),
                 _options,
                 ScopedContext(spoofedScope, "spoofed-command-user"),
                 CancellationToken.None);
@@ -796,5 +798,12 @@ public sealed class CommandCenterQueryEndpointsTests
                 [chunk],
                 [citation]));
         }
+    }
+
+    private sealed class AllowAllPermissions : InsuranceIntelligence.Application.Core.IPermissionService
+    {
+        public Task<bool> HasPermissionAsync(InsuranceIntelligence.Domain.Administration.Permission permission, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+        public Task RequirePermissionAsync(InsuranceIntelligence.Domain.Administration.Permission permission, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

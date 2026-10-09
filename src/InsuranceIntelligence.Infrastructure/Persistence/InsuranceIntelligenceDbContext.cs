@@ -58,6 +58,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedCaseReview> CaseReviews => Set<PersistedCaseReview>();
     public DbSet<PersistedIntegrationConnection> IntegrationConnections => Set<PersistedIntegrationConnection>();
     public DbSet<PersistedUserFileConnection> UserFileConnections => Set<PersistedUserFileConnection>();
+    public DbSet<PersistedAiUsageRecord> AiUsageRecords => Set<PersistedAiUsageRecord>();
     public DbSet<PersistedAgentBehaviourProfile> AgentBehaviourProfiles => Set<PersistedAgentBehaviourProfile>();
     public DbSet<PersistedCustomerConversationTurn> CustomerConversationTurns => Set<PersistedCustomerConversationTurn>();
     public DbSet<PersistedConsentRecord> ConsentRecords => Set<PersistedConsentRecord>();
@@ -174,6 +175,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedCaseReview>(), "CaseReviews", "CaseReviewId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedIntegrationConnection>(), "IntegrationConnections", "ConnectionId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedUserFileConnection>(), "UserFileConnections", "ConnectionId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedAiUsageRecord>(), "AiUsageRecords", "UsageId");
+        modelBuilder.Entity<PersistedAiUsageRecord>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.OccurredAt });
         ConfigureScopedJson(modelBuilder.Entity<PersistedOutboundWebhookSubscription>(), "OutboundWebhookSubscriptions", "SubscriptionId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedOutboundDelivery>(), "OutboundDeliveries", "DeliveryId");
         modelBuilder.Entity<PersistedOutboundDelivery>().Property(entity => entity.Status).HasMaxLength(20).IsRequired();
@@ -453,6 +456,7 @@ public sealed class PersistedClaimantPortalSession : PersistedScopedJson
 public sealed class PersistedWhatsAppChannelConfiguration : PersistedScopedJson;
 public sealed class PersistedIntegrationConnection : PersistedScopedJson;
 public sealed class PersistedUserFileConnection : PersistedScopedJson;
+public sealed class PersistedAiUsageRecord : PersistedScopedJson { public DateTimeOffset OccurredAt { get; set; } }
 public sealed class PersistedOutboundWebhookSubscription : PersistedScopedJson;
 
 public sealed class PersistedOutboundDelivery : PersistedScopedJson

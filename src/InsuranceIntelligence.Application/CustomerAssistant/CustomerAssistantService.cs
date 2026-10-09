@@ -127,7 +127,8 @@ public sealed partial class CustomerAssistantService(
     IConversationInsightsQueue? insightsQueue = null,
     // Optional: per-organisation plan limits. Over the monthly ceiling the AI agent steps aside and
     // the plain rule-based replies answer, so no organisation can run up the platform's AI cost.
-    InsuranceIntelligence.Domain.Usage.IUsageMeter? usageMeter = null) : ICustomerAssistantService
+    InsuranceIntelligence.Domain.Usage.IUsageMeter? usageMeter = null,
+    InsuranceIntelligence.Application.Billing.IAiUsageContext? usageContext = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
@@ -159,6 +160,7 @@ public sealed partial class CustomerAssistantService(
         CancellationToken cancellationToken = default)
     {
         var opened = new List<Guid>();
+        using var usage = usageContext?.Use("kato", scope);
         try
         {
             voiceNotesAvailable = voiceTranscriber is not null && await voiceTranscriber.IsAvailableAsync(scope, cancellationToken);

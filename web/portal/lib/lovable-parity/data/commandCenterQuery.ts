@@ -24,6 +24,7 @@ export type CommandCenterBlock =
   | { type: "error"; code: string; safeMessage: string; correlationId: string }
   | { type: "chart"; title: string; kind: string; points: { label: string; value: number }[]; unit: string; summary?: string | null }
   | { type: "link"; label: string; href: string; description?: string | null }
+  | { type: "credits_notice"; message: string; canAddCredits: boolean }
   | { type: string; [k: string]: unknown };
 
 export type CommandCenterAnswer = {

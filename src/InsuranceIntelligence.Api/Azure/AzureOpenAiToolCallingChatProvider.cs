@@ -143,6 +143,14 @@ public sealed class AzureOpenAiToolCallingChatProvider(
             }
         }
 
-        return new AgentChatStep(content, calls);
+        int? promptTokens = null, completionTokens = null;
+        if (document.RootElement.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
+        {
+            promptTokens = usage.TryGetProperty("prompt_tokens", out var p) && p.TryGetInt32(out var pv) ? pv : null;
+            completionTokens = usage.TryGetProperty("completion_tokens", out var c) && c.TryGetInt32(out var cv) ? cv : null;
+        }
+
+        var model = document.RootElement.TryGetProperty("model", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
+        return new AgentChatStep(content, calls, promptTokens, completionTokens, model);
     }
 }

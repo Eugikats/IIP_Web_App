@@ -399,7 +399,8 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
     ILogger<AzureOpenAiCustomerUpdateDraftingProvider> logger,
     IAgentBehaviourProfileRepository? behaviourProfileRepository = null,
     HttpClient? httpClient = null,
-    TokenCredential? tokenCredential = null) : ICustomerUpdateDraftingProvider
+    TokenCredential? tokenCredential = null,
+    InsuranceIntelligence.Application.Billing.IAiUsageRecorder? usageRecorder = null) : ICustomerUpdateDraftingProvider
 {
     private const string CognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
     private const string DefaultSystemPrompt = "You draft short insurance customer updates for human-supervised claim workflows. Use only the supplied case facts. Do not deny claims, approve settlements, accuse fraud, promise payment, disclose internal notes, disclose reserves, or make final insurance decisions. If facts are insufficient, ask for a human-prepared update.";
@@ -490,6 +491,11 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
 
         try
         {
+            if (usageRecorder is not null)
+            {
+                await usageRecorder.EnsureCreditsAsync(cancellationToken);
+            }
+
             var systemPrompt = await AgentBehaviourResolution.ResolveSystemPromptAsync(
                 behaviourProfileRepository, claimCase.Scope.TenantId, claimCase.Scope.WorkspaceId, AgentKey, DefaultSystemPrompt, cancellationToken);
 
@@ -525,6 +531,11 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
             response.EnsureSuccessStatusCode();
             var payload = await response.Content.ReadFromJsonAsync<ChatCompletionResponse>(cancellationToken: cancellationToken)
                 ?? throw new InvalidOperationException("Azure OpenAI response was empty.");
+            if (usageRecorder is not null)
+            {
+                await usageRecorder.RecordAsync("AzureOpenAI", payload.Model, payload.Usage?.PromptTokens, payload.Usage?.CompletionTokens, "customer_updates", cancellationToken);
+            }
+
             var content = payload.Choices.FirstOrDefault()?.Message.Content;
             if (string.IsNullOrWhiteSpace(content))
             {

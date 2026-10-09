@@ -44,7 +44,8 @@ public sealed class CommandCenterQueryService(
     IAgentRunRecorder agentRunRecorder,
     Agents.Tools.IAgentToolRegistry agentToolRegistry,
     ICommandCenterActionService? actionService = null,
-    ICommandCenterAnalyst? analyst = null) : ICommandCenterQueryService
+    ICommandCenterAnalyst? analyst = null,
+    InsuranceIntelligence.Application.Billing.IAiUsageContext? usageContext = null) : ICommandCenterQueryService
 {
     private const string ModelProvider = "Deterministic";
     private const string PromptVersion = "command-center-query-v1";
@@ -103,6 +104,7 @@ public sealed class CommandCenterQueryService(
         await permissionService.RequirePermissionAsync(Permission.ViewCommandCenter, cancellationToken);
 
         var context = tenantContextAccessor.Current;
+        using var usage = usageContext?.Use("command_center", context.Scope, context.UserId);
 
         // Counting, trend and breakdown questions ("how many prospects came in today", "chart claims
         // over the past week") go to the analyst, which answers from the workspace's own records.

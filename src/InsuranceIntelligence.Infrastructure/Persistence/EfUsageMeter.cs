@@ -60,6 +60,37 @@ public sealed class EfUsageMeter(InsuranceIntelligenceDbContext db, IOrganisatio
         return new UsageDecision(false, limit, limit);
     }
 
+    public async Task AddAsync(TenantScope scope, UsageKind kind, int amount, CancellationToken cancellationToken = default)
+    {
+        if (amount <= 0)
+        {
+            return;
+        }
+
+        var period = CurrentPeriod();
+        for (var attempt = 0; attempt < Attempts; attempt++)
+        {
+            var counter = await db.UsageCounters.FirstOrDefaultAsync(
+                c => c.TenantId == scope.TenantId && c.Period == period && c.Kind == kind.ToString(), cancellationToken);
+            if (counter is null)
+            {
+                counter = new UsageCounterEntity { Id = Guid.NewGuid(), TenantId = scope.TenantId, Period = period, Kind = kind.ToString(), Count = 0 };
+                db.UsageCounters.Add(counter);
+            }
+
+            counter.Count = (int)Math.Min((long)counter.Count + amount, int.MaxValue);
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+                return;
+            }
+            catch (DbUpdateException)
+            {
+                db.ChangeTracker.Clear();
+            }
+        }
+    }
+
     public async Task<UsageSnapshot?> GetAsync(TenantScope scope, CancellationToken cancellationToken = default)
     {
         var organisation = await organisations.GetAsync(scope.TenantId, cancellationToken);

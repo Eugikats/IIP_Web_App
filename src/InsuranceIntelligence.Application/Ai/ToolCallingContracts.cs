@@ -21,7 +21,12 @@ public sealed record AgentChatMessage(
 }
 
 /// <summary>What the model did next: asked for tools to be run, or answered.</summary>
-public sealed record AgentChatStep(string? Content, IReadOnlyList<AgentToolCall> ToolCalls);
+public sealed record AgentChatStep(
+    string? Content,
+    IReadOnlyList<AgentToolCall> ToolCalls,
+    int? PromptTokens = null,
+    int? CompletionTokens = null,
+    string? Model = null);
 
 /// <summary>A chat model that can call tools. Separate from <see cref="IChatCompletionProvider"/>,
 /// which takes one prompt and returns one answer.</summary>

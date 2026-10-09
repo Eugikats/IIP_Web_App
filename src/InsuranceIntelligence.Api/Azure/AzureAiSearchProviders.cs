@@ -47,7 +47,8 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
             chunkText = chunk.Content,
             sourceUri = document.ObjectKey,
             pageNumber = 0,
-            sectionTitle = chunk.SourceReference.ObjectKey
+            // The heading the text sits under, so a citation can name it. (This field used to hold the file path.)
+            sectionTitle = chunk.Section ?? string.Empty
         });
 
         logger.LogInformation("Indexing approved knowledge document into Azure AI Search. Tenant={TenantId} Workspace={WorkspaceId} KnowledgeDocumentId={KnowledgeDocumentId}",
@@ -58,13 +59,30 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
     public async Task RemoveAsync(Guid knowledgeDocumentId, TenantScope scope, CancellationToken cancellationToken = default)
     {
         var client = SearchClient();
-        var chunks = await SearchAsync(scope, knowledgeDocumentId.ToString(), null, cancellationToken);
-        if (chunks.Count == 0)
+        // Found by the document's id field, not by searching the text for its id (which matches nothing, so a removed
+        // or replaced policy used to stay in the index and keep answering questions).
+        var options = new SearchOptions
+        {
+            Filter = BuildDocumentFilter(scope, knowledgeDocumentId),
+            Size = 1000,
+        };
+        options.Select.Add("chunkId");
+        var response = await client.SearchAsync<SearchDocument>("*", options, cancellationToken);
+        var ids = new List<string>();
+        await foreach (var result in response.Value.GetResultsAsync())
+        {
+            if (result.Document.TryGetValue("chunkId", out var chunkId) && chunkId?.ToString() is { Length: > 0 } value)
+            {
+                ids.Add(SafeKey(value));
+            }
+        }
+
+        if (ids.Count == 0)
         {
             return;
         }
 
-        await client.DeleteDocumentsAsync("id", chunks.Select(chunk => SafeKey(chunk.ChunkId)), cancellationToken: cancellationToken);
+        await client.DeleteDocumentsAsync("id", ids, cancellationToken: cancellationToken);
     }
 
     public async Task RebuildAsync(TenantScope scope, IReadOnlyCollection<KnowledgeDocument> approvedDocuments, CancellationToken cancellationToken = default)
@@ -139,9 +157,18 @@ public sealed class AzureAiSearchKnowledgeIndexProvider(InfrastructureOptions op
         return new SearchClient(new Uri(options.AzureAiSearch.Endpoint!), options.AzureAiSearch.IndexName!, AzureProviderSupport.Credential());
     }
 
-    public static string BuildSearchFilter(TenantScope scope, string? productLine)
+    public static string BuildDocumentFilter(TenantScope scope, Guid knowledgeDocumentId) =>
+        $"tenantId eq '{Escape(scope.TenantId)}' and workspaceId eq '{Escape(scope.WorkspaceId)}' and knowledgeDocId eq '{knowledgeDocumentId}'";
+
+    public static string BuildSearchFilter(TenantScope scope, string? productLine) => BuildSearchFilter(scope, productLine, DateTimeOffset.UtcNow);
+
+    /// <summary>Only wording that is in force today answers: not before its effective date and not after it expires. Dates are
+    /// stored as yyyy-MM-dd text, which compares correctly as text; a document with no date is always in force.</summary>
+    public static string BuildSearchFilter(TenantScope scope, string? productLine, DateTimeOffset now)
     {
-        var filter = $"tenantId eq '{Escape(scope.TenantId)}' and workspaceId eq '{Escape(scope.WorkspaceId)}' and approvalStatus eq 'Approved' and indexedStatus eq 'Indexed'";
+        var today = now.ToString("yyyy-MM-dd");
+        var filter = $"tenantId eq '{Escape(scope.TenantId)}' and workspaceId eq '{Escape(scope.WorkspaceId)}' and approvalStatus eq 'Approved' and indexedStatus eq 'Indexed'"
+            + $" and (effectiveDate eq null or effectiveDate le '{today}') and (expiryDate eq null or expiryDate ge '{today}')";
         if (!string.IsNullOrWhiteSpace(productLine))
         {
             filter += $" and productLine eq '{Escape(productLine)}'";

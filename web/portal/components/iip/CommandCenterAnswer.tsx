@@ -242,6 +242,15 @@ function Block({ block, historical = false }: { block: CommandCenterBlock; histo
     }
     case "chart":
       return <ChartCard block={block as Extract<CommandCenterBlock, { type: "chart" }>} />;
+    case "credits_notice": {
+      const b = block as Extract<CommandCenterBlock, { type: "credits_notice" }>;
+      return (
+        <div role="status" className="rounded-xl border border-amber-100 bg-amber-50 px-3.5 py-3 text-[13px] leading-5 text-amber-900">
+          <p className="m-0 font-semibold">AI credits are used up</p>
+          <p className="m-0 mt-0.5">{b.message}</p>
+        </div>
+      );
+    }
     case "link": {
       const b = block as Extract<CommandCenterBlock, { type: "link" }>;
       return (

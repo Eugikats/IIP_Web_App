@@ -18,6 +18,7 @@ public static class CommandCenterQueryEndpoints
         CommandCenterQueryRequest request,
         ICommandCenterConversationService conversationService,
         ITenantContextSetter tenantContextSetter,
+        InsuranceIntelligence.Application.Core.IPermissionService permissionService,
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken)
@@ -30,6 +31,18 @@ public static class CommandCenterQueryEndpoints
         try
         {
             return Results.Ok(await conversationService.QueryAsync(request, GetCorrelationId(httpContext), cancellationToken));
+        }
+        catch (InsuranceIntelligence.Application.Billing.AiCreditsExhaustedException)
+        {
+            // The question needed the model and the month's credits are used up. Say so as an answer, not an error.
+            var canAdd = await permissionService.HasPermissionAsync(InsuranceIntelligence.Domain.Administration.Permission.ViewBilling, cancellationToken);
+            return Results.Ok(new CommandCenterQueryResponse(
+                [new CreditsNoticeBlock(
+                    canAdd
+                        ? "AI credits for this month are used up, so this question cannot be answered now. Questions that only count your records still work. You can add credits in Settings, under Usage and billing."
+                        : "AI credits for this month are used up, so this question cannot be answered now. Questions that only count your records still work. Ask your administrator to add credits.",
+                    canAdd)],
+                Guid.Empty, GetCorrelationId(httpContext), "None", "credits-notice-v1", "Internal", CanTriggerDecision: false, DateTimeOffset.UtcNow));
         }
         catch (CommandCenterValidationException ex)
         {

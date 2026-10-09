@@ -394,19 +394,12 @@ public static class KnowledgeEndpoints
             return Array.Empty<KnowledgeChunk>();
         }
 
-        var normalized = string.Join(' ', storageResult.ExtractedText.Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries)).Trim();
-        if (normalized.Length == 0)
-        {
-            return Array.Empty<KnowledgeChunk>();
-        }
-
+        // Cut at paragraphs and sentences, keeping the heading each piece sits under, so an answer can cite a
+        // section and a rule is not split from the sentence that introduces it.
         var chunks = new List<KnowledgeChunk>();
-        var chunkSize = 600;
         var index = 0;
-
-        for (var start = 0; start < normalized.Length; start += chunkSize)
+        foreach (var piece in InsuranceIntelligence.Application.Knowledge.KnowledgeChunker.Chunk(storageResult.ExtractedText))
         {
-            var content = normalized.Substring(start, Math.Min(chunkSize, normalized.Length - start));
             var chunkId = $"{documentId:N}-{index}";
             chunks.Add(new KnowledgeChunk
             {
@@ -417,7 +410,8 @@ public static class KnowledgeEndpoints
                 ProductLine = metadata.ProductLine,
                 Version = metadata.Version,
                 ChunkIndex = index,
-                Content = content,
+                Content = piece.Content,
+                Section = piece.Section,
                 SourceReference = new KnowledgeSourceReference(
                     documentId,
                     chunkId,
@@ -427,7 +421,6 @@ public static class KnowledgeEndpoints
                     storageResult.ObjectKey)
             });
             index++;
-
         }
 
         return chunks;

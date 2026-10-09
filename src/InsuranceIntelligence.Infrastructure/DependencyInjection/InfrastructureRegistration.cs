@@ -98,6 +98,11 @@ public static class InfrastructureRegistration
         // IIntegrationConnectionRepository, which is DbContext-backed.
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IIntegrationConnectionRepository, InsuranceIntelligence.Infrastructure.Connections.EfIntegrationConnectionRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IUserFileConnectionRepository, InsuranceIntelligence.Infrastructure.Connections.EfUserFileConnectionRepository>();
+        services.AddSingleton(InsuranceIntelligence.Application.Billing.AiCreditPricing.Default);
+        services.AddScoped<InsuranceIntelligence.Application.Billing.IAiUsageContext, InsuranceIntelligence.Application.Billing.AiUsageContext>();
+        services.AddScoped<InsuranceIntelligence.Application.Billing.IAiUsageRepository, InsuranceIntelligence.Infrastructure.Billing.EfAiUsageRepository>();
+        services.AddScoped<InsuranceIntelligence.Application.Billing.IAiCreditGate, InsuranceIntelligence.Infrastructure.Billing.AiCreditGate>();
+        services.AddScoped<InsuranceIntelligence.Application.Billing.IAiUsageRecorder, InsuranceIntelligence.Infrastructure.Billing.AiUsageRecorder>();
         services.AddScoped<InsuranceIntelligence.Domain.Agents.IAgentBehaviourProfileRepository, InsuranceIntelligence.Infrastructure.Agents.EfAgentBehaviourProfileRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Products.IProductRepository, InsuranceIntelligence.Infrastructure.Products.EfProductRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Workflow.ICommunicationTemplateRepository, InsuranceIntelligence.Infrastructure.Workflow.EfCommunicationTemplateRepository>();
