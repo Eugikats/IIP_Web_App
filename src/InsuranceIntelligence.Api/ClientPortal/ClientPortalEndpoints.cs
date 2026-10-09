@@ -627,7 +627,7 @@ public static class ClientPortalEndpoints
             [
                 "Upload the remaining required documents.",
                 "Our team will review the information received.",
-                "We will share the next update through your configured contact channel."
+                "We will message you with the next update."
             ];
         }
 
@@ -635,7 +635,7 @@ public static class ClientPortalEndpoints
         [
             "No required documents are missing right now.",
             "Our team will complete the claim review.",
-            "We will share the decision with you through your configured contact channel."
+            "We will message you with the decision."
         ];
     }
 

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Loader2, ShieldCheck } from "lucide-react";
 import iipLogo from "@/assets/iip-logo";
-import { redeemMagicLink, storeSession } from "@/lib/clientPortal";
+import { redeemMagicLink, storePortalScope, storeSession } from "@/lib/clientPortal";
 
 // Claimant-facing (tier 6, stricter rules). This screen renders only the redeem-result error
 // message (already sanitised at the source, see AGENTS.md) or a generic "verifying" state,
@@ -24,6 +24,10 @@ export default function ClaimAccessVerify() {
       setError("This link is missing its access token. Request a new one.");
       return;
     }
+
+    const tenantId = searchParams.get("t");
+    const workspaceId = searchParams.get("w");
+    if (tenantId && workspaceId) storePortalScope({ tenantId, workspaceId });
 
     void (async () => {
       const result = await redeemMagicLink(token);

@@ -21,6 +21,30 @@ import { downscalePhotoIfNeeded } from "@/lib/photoDownscale";
 
 const SOMETHING_ELSE_KEY = "__something_else__";
 
+// "LastExpenseClaim" is a stored name; a person reads "Last expense claim".
+function plainClaimType(value: string): string {
+  const spaced = value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").trim();
+  return spaced.length > 0 ? spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase() : spaced;
+}
+
+// What the person sees as the state of their claim. Plain words for a customer: the staff vocabulary and the
+// raw state name stay inside the platform, and nothing here suggests a decision before one is made.
+function customerStatus(status: string): string {
+  switch (status) {
+    case "New": return "We have your claim";
+    case "Assigned": return "Someone is looking at it";
+    case "InReview": return "Being reviewed";
+    case "MissingDocuments": return "We need more from you";
+    case "ReadyForReview": return "Ready for our team to review";
+    case "PendingApproval": return "With our team";
+    case "ReadyForExport": return "With our team";
+    case "Escalated": return "With a senior team member";
+    case "Settled": return "Settled";
+    case "Closed": return "Closed";
+    default: return status.replace(/([a-z])([A-Z])/g, "$1 $2");
+  }
+}
+
 function formatDate(value: string | null) {
   if (!value) return null;
   try {
@@ -44,6 +68,7 @@ export default function ClaimAccessStatus() {
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [uploadFailed, setUploadFailed] = useState(false);
   const [reviewReason, setReviewReason] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
@@ -88,11 +113,16 @@ export default function ClaimAccessStatus() {
     const result = await uploadClaimDocuments(session, files, documentTypeKey === SOMETHING_ELSE_KEY ? undefined : documentTypeKey);
     setBusyKey(null);
     if (!result.ok) {
+      setUploadFailed(true);
       setUploadNotice(result.error);
+      // The file may have arrived even though the answer did not: show what is really on the claim.
+      const fresh = await getClaim(session);
+      if (fresh.ok) setClaim(fresh.claim);
       return;
     }
+    setUploadFailed(false);
     setClaim(result.claim);
-    setUploadNotice(`${label} sent.`);
+    setUploadNotice(`${label} sent. Thank you.`);
   }
 
   async function onRemove(documentTypeKey: string, label: string) {
@@ -102,9 +132,11 @@ export default function ClaimAccessStatus() {
     const result = await removeClaimDocument(session, documentTypeKey);
     setBusyKey(null);
     if (!result.ok) {
+      setUploadFailed(true);
       setUploadNotice(result.error);
       return;
     }
+    setUploadFailed(false);
     setClaim(result.claim);
     setUploadNotice(`${label} removed.`);
   }
@@ -132,6 +164,11 @@ export default function ClaimAccessStatus() {
   }
 
   if (!session) return null;
+
+  const requiredList = claim?.requiredDocuments.filter((doc) => doc.required) ?? [];
+  const requiredTotal = requiredList.length;
+  const requiredSent = requiredList.filter((doc) => doc.uploaded).length;
+  const stillNeeded = requiredList.filter((doc) => !doc.uploaded).map((doc) => doc.label);
 
   return (
     <main className="min-h-screen bg-dls-bg-page text-dls-text-primary">
@@ -185,8 +222,8 @@ export default function ClaimAccessStatus() {
             <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">{claim.productLine} · {claim.claimType}</div>
-                  <div className="mt-1 text-2xl font-bold text-dls-text-primary">{claim.status.replace(/([a-z])([A-Z])/g, "$1 $2")}</div>
+                  <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">{claim.productLine} · {plainClaimType(claim.claimType)}</div>
+                  <div className="mt-1 text-2xl font-bold text-dls-text-primary">{customerStatus(claim.status)}</div>
                 </div>
                 <div className="text-right text-xs text-dls-text-muted">
                   <div>Policy {claim.policyNumber}</div>
@@ -195,12 +232,12 @@ export default function ClaimAccessStatus() {
               </div>
               <div className="mt-5">
                 <div className="flex items-center justify-between text-xs text-dls-text-muted">
-                  <span>Completeness</span>
-                  <span>{Math.round(claim.completenessScore)}%</span>
+                  <span>Documents we asked for</span>
+                  <span>{requiredTotal > 0 ? `${requiredSent} of ${requiredTotal} sent` : `${Math.round(claim.completenessScore)}%`}</span>
                 </div>
                 {/* Flat fill, not a gradient, §4.5 restricts gradients to the orb and chart bars. */}
                 <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-dls-bg-page">
-                  <div className="h-full rounded-full bg-dls-primary" style={{ width: `${Math.min(100, Math.max(0, claim.completenessScore))}%` }} />
+                  <div className="h-full rounded-full bg-dls-primary" style={{ width: `${requiredTotal > 0 ? Math.round((requiredSent / requiredTotal) * 100) : Math.min(100, Math.max(0, claim.completenessScore))}%` }} />
                 </div>
               </div>
             </div>
@@ -237,6 +274,11 @@ export default function ClaimAccessStatus() {
             <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6">
               <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">Documents</div>
               <p className="mt-1 text-xs leading-5 text-dls-text-muted">Send each document below. You can replace or remove anything you send.</p>
+              {requiredTotal > 0 && claim.status !== "Settled" && claim.status !== "Closed" ? (
+                <p className={`mt-3 rounded-dls-control px-3 py-2 text-xs font-semibold leading-5 ${stillNeeded.length === 0 ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-warning-tint text-dls-warning-text"}`}>
+                  {stillNeeded.length === 0 ? "Everything we asked for has been sent. Our team will let you know if they need anything else." : `Still needed: ${stillNeeded.join(", ")}.`}
+                </p>
+              ) : null}
               <ul className="mt-3 divide-y divide-dls-border-subtle">
                 {claim.requiredDocuments.map((doc) => (
                   <li key={doc.documentTypeKey} className="py-3">
@@ -264,7 +306,7 @@ export default function ClaimAccessStatus() {
                     )}
 
                     <div className="mt-2 ml-5.5 flex items-center gap-2">
-                      <label className="dls-focus-outline inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
+                      <label className="dls-focus-outline focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-dls-primary inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
                         {busyKey === doc.documentTypeKey ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                         ) : doc.uploaded ? (
@@ -276,7 +318,7 @@ export default function ClaimAccessStatus() {
                         <input
                           type="file"
                           accept="image/*,application/pdf"
-                          className="hidden"
+                          className="sr-only"
                           disabled={busyKey !== null}
                           onChange={(event) => onUpload(event, doc.documentTypeKey, doc.label)}
                         />
@@ -303,14 +345,14 @@ export default function ClaimAccessStatus() {
                     </div>
                   </div>
                   <div className="mt-2 ml-5.5">
-                    <label className="dls-focus-outline inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
+                    <label className="dls-focus-outline focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-dls-primary inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
                       {busyKey === SOMETHING_ELSE_KEY ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />}
                       Upload
                       <input
                         type="file"
                         multiple
                         accept="image/*,application/pdf"
-                        className="hidden"
+                        className="sr-only"
                         disabled={busyKey !== null}
                         onChange={(event) => onUpload(event, SOMETHING_ELSE_KEY, "Document")}
                       />
@@ -318,7 +360,9 @@ export default function ClaimAccessStatus() {
                   </div>
                 </li>
               </ul>
-              {uploadNotice && <p className="mt-3 text-xs leading-5 text-dls-text-muted">{uploadNotice}</p>}
+              <p role={uploadFailed ? "alert" : "status"} aria-live="polite" className={`mt-3 text-xs leading-5 ${uploadNotice ? (uploadFailed ? "font-semibold text-dls-danger-text" : "text-dls-text-secondary") : "sr-only"}`}>
+                {uploadNotice ?? ""}
+              </p>
             </div>
 
             {claim.messages.length > 0 && (

@@ -335,7 +335,8 @@ public static class ClaimantAuthenticationEndpoints
         var baseUrl = string.IsNullOrWhiteSpace(options.ClientPortalBaseUrl)
             ? "http://localhost:3000"
             : options.ClientPortalBaseUrl!.TrimEnd('/');
-        var link = $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}";
+        // The link names the organisation it is for, so one shared portal knows whose claim this is.
+        var link = $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}&t={Uri.EscapeDataString(scope.TenantId)}&w={Uri.EscapeDataString(scope.WorkspaceId)}";
         var messageBody = caseId is null
             ? $"Use this secure link to start your claim on policy {policyNumber}. It expires in 15 minutes and can only be used once: {link}"
             : $"Use this secure link to view your claim. It expires in 15 minutes and can only be used once: {link}";

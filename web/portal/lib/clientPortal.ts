@@ -3,6 +3,7 @@
 import { apiBaseUrl, defaultTenantId, defaultWorkspaceId } from "@/lib/config";
 
 const SESSION_STORAGE_KEY = "iip.client-portal-session";
+const SCOPE_STORAGE_KEY = "iip.client-portal-scope";
 
 export type ClientPortalSession = {
   sessionToken: string;
@@ -75,10 +76,36 @@ export type ClientPortalClaim = {
  */
 export function clientPortalHeaders(sessionToken?: string | null): Record<string, string> {
   const headers: Record<string, string> = {};
-  if (defaultTenantId) headers["X-Tenant-Id"] = defaultTenantId;
-  if (defaultWorkspaceId) headers["X-Workspace-Id"] = defaultWorkspaceId;
+  // A single-insurer deployment is configured with its scope. The shared product is not: there the link the
+  // customer opened names the organisation, and it is kept for the rest of the visit.
+  const stored = loadPortalScope();
+  const tenantId = defaultTenantId || stored?.tenantId;
+  const workspaceId = defaultWorkspaceId || stored?.workspaceId;
+  if (tenantId) headers["X-Tenant-Id"] = tenantId;
+  if (workspaceId) headers["X-Workspace-Id"] = workspaceId;
   if (sessionToken) headers["X-Client-Portal-Session"] = sessionToken;
   return headers;
+}
+
+export function storePortalScope(scope: { tenantId: string; workspaceId: string }) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(SCOPE_STORAGE_KEY, JSON.stringify(scope));
+  } catch {
+    // Without storage the customer opens their link again.
+  }
+}
+
+export function loadPortalScope(): { tenantId: string; workspaceId: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(SCOPE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { tenantId?: string; workspaceId?: string };
+    return parsed.tenantId && parsed.workspaceId ? { tenantId: parsed.tenantId, workspaceId: parsed.workspaceId } : null;
+  } catch {
+    return null;
+  }
 }
 
 export function loadStoredSession(): ClientPortalSession | null {

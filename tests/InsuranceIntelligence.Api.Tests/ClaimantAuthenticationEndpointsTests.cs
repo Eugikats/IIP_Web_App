@@ -46,6 +46,8 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var sent = Assert.Single(communications.EmailsSent);
         Assert.Equal("sarah@example.com", sent.Recipient);
         Assert.Contains("/access/verify?token=", sent.MessageBody);
+        // The link names the organisation it is for, so one shared portal knows whose claim it is opening.
+        Assert.Matches(@"&t=[^&\s]+&w=[^&\s]+", sent.MessageBody);
         Assert.True(sent.Approved);
         Assert.True(sent.LowRisk);
 
@@ -370,7 +372,7 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var index = messageBody.IndexOf(marker, StringComparison.Ordinal);
         Assert.True(index >= 0, "Message body did not contain a token.");
         var start = index + marker.Length;
-        var end = messageBody.IndexOfAny([' ', '\r', '\n'], start);
+        var end = messageBody.IndexOfAny([' ', '\r', '\n', '&'], start);
         return end < 0 ? messageBody[start..] : messageBody[start..end];
     }
 

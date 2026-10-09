@@ -72,7 +72,8 @@ public sealed class WhatsAppClaimantAccessLinkIssuer(
             DeliveryStatus = "SentInWhatsAppConversation",
         }, cancellationToken);
 
-        return $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}";
+        // The link names the organisation it is for, so one shared portal knows whose claim this is.
+        return $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}&t={Uri.EscapeDataString(scope.TenantId)}&w={Uri.EscapeDataString(scope.WorkspaceId)}";
     }
 
     // Development falls back to the local portal, the same rule the magic-link page applies; any
