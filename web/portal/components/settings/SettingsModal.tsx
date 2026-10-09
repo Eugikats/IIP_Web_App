@@ -16,6 +16,7 @@ import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { disconnectFileProvider, FileConnectionError, getFileConnectionStatus, startFileConnection, type FileConnectionStatus, type FileProviderKey } from "@/lib/files/fileConnections";
 import { COURSES } from "@/lib/academy/courses";
 import { formatPrice, useAcademyPricing } from "@/lib/academy/pricing";
 import ProfileSettings from "@/lovable-pages/Settings";
@@ -58,6 +59,8 @@ type Integration = {
   icon: LucideIcon;
   /** The settings panel that sets it up, shown inside this window. Absent for a source that cannot be connected yet. */
   panel?: PanelKey;
+  /** A file service each person connects their own account to, from this card. */
+  fileProvider?: FileProviderKey;
   note?: string;
 };
 
@@ -73,8 +76,8 @@ const CATALOG: Integration[] = [
   { key: "email", name: "Email", description: "Send customer email from the insurer's own address.", icon: Mail, panel: "connections" },
   { key: "mailbox", name: "Claims mailbox", description: "Collect claims mail from a shared mailbox and turn it into claims.", icon: Mail, panel: "mailbox" },
   { key: "translation", name: "Local-language translation", description: "Lets Kato talk with customers in Luganda and Kiswahili.", icon: Languages, panel: "connections" },
-  { key: "gdrive", name: "Google Drive", description: "Pick a customer list or claim documents from Google Drive, and save exports there.", icon: HardDrive, note: "Not connected. A Google app registration has not been set up for this workspace yet. Upload a CSV file in the meantime." },
-  { key: "onedrive", name: "OneDrive", description: "Pick a customer list or claim documents from OneDrive, and save exports there.", icon: HardDrive, note: "Not connected. A Microsoft app registration has not been set up for this workspace yet. Upload a CSV file in the meantime." },
+  { key: "gdrive", name: "Google Drive", description: "Pick a customer list from your own Google Drive. IIP can only open the files you choose.", icon: HardDrive, fileProvider: "google" },
+  { key: "onedrive", name: "OneDrive", description: "Pick a customer list from your own OneDrive. It is your account, so IIP sees only what you can open.", icon: HardDrive, fileProvider: "microsoft" },
   { key: "sharepoint", name: "SharePoint", description: "Pick files from a SharePoint library, and save exports there.", icon: FolderOpen, note: "Not connected. A Microsoft app registration has not been set up for this workspace yet. Upload a CSV file in the meantime." },
 ];
 
@@ -301,6 +304,47 @@ function IntegrationsSection() {
   const [query, setQuery] = useState("");
   const [states, setStates] = useState<Record<string, CardState> | null>(null);
   const [panel, setPanel] = useState<PanelKey | null>(null);
+  const [fileStates, setFileStates] = useState<Record<FileProviderKey, FileConnectionStatus | "error"> | null>(null);
+  const [fileProblem, setFileProblem] = useState<string | null>(null);
+  const [busyProvider, setBusyProvider] = useState<FileProviderKey | null>(null);
+
+  const loadFiles = useCallback(async () => {
+    if (LOVABLE_VISUAL_PARITY_MODE) {
+      setFileStates(null);
+      return;
+    }
+    try {
+      const list = await getFileConnectionStatus(role);
+      const byKey = Object.fromEntries(list.map((item) => [item.provider, item])) as Record<FileProviderKey, FileConnectionStatus>;
+      setFileStates({ google: byKey.google ?? "error", microsoft: byKey.microsoft ?? "error" });
+    } catch {
+      setFileStates({ google: "error", microsoft: "error" });
+    }
+  }, [role]);
+
+  const connectFiles = async (provider: FileProviderKey) => {
+    setBusyProvider(provider);
+    setFileProblem(null);
+    try {
+      await startFileConnection(provider, window.location.pathname, role);
+    } catch (reason) {
+      setFileProblem(reason instanceof FileConnectionError ? reason.message : "The connection could not be started.");
+      setBusyProvider(null);
+    }
+  };
+
+  const disconnectFiles = async (provider: FileProviderKey) => {
+    setBusyProvider(provider);
+    setFileProblem(null);
+    try {
+      await disconnectFileProvider(provider, role);
+      await loadFiles();
+    } catch (reason) {
+      setFileProblem(reason instanceof FileConnectionError ? reason.message : "The account could not be disconnected.");
+    } finally {
+      setBusyProvider(null);
+    }
+  };
 
   const load = useCallback(async () => {
     if (LOVABLE_VISUAL_PARITY_MODE) {
@@ -321,10 +365,18 @@ function IntegrationsSection() {
     });
   }, [role]);
 
-  useEffect(() => { if (panel === null) void load(); }, [load, panel]);
+  useEffect(() => { if (panel === null) { void load(); void loadFiles(); } }, [load, loadFiles, panel]);
 
   const stateOf = (item: Integration): CardState => {
     if (item.key === "mailbox") return { tone: "neutral", label: "Open to check", detail: null, connected: false };
+    if (item.fileProvider) {
+      const status = fileStates?.[item.fileProvider];
+      if (status === undefined) return { tone: "neutral", label: "Checking", detail: null, connected: false };
+      if (status === "error") return { tone: "warning", label: "Could not check", detail: "The status could not be read just now.", connected: false };
+      if (!status.configured) return { tone: "neutral", label: "Not connected", detail: `${status.reason ?? "Sign-in has not been set up for IIP yet."} Upload a CSV or Excel file in the meantime.`, connected: false };
+      if (!status.connected) return { tone: "neutral", label: "Not connected", detail: "Connect your own account to pick files from it.", connected: false };
+      return { tone: "success", label: "Connected", detail: status.accountEmail ? `Your account: ${status.accountEmail}` : "Your account is connected.", connected: true };
+    }
     return item.panel
       ? states?.[item.key] ?? { tone: "neutral", label: "Checking", detail: null, connected: false }
       : { tone: "neutral", label: "Not connected", detail: item.note ?? null, connected: false };
@@ -333,10 +385,12 @@ function IntegrationsSection() {
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return CATALOG.filter((item) => {
-      if (view === "yours" && !(states?.[item.key]?.connected ?? false)) return false;
+      const fileStatus = item.fileProvider ? fileStates?.[item.fileProvider] : undefined;
+      const isConnected = item.fileProvider ? typeof fileStatus === "object" && fileStatus.connected : (states?.[item.key]?.connected ?? false);
+      if (view === "yours" && !isConnected) return false;
       return !q || `${item.name} ${item.description}`.toLowerCase().includes(q);
     });
-  }, [query, view, states]);
+  }, [query, view, states, fileStates]);
 
   if (panel) {
     const { title, Component } = PANELS[panel];
@@ -382,6 +436,8 @@ function IntegrationsSection() {
         </label>
       </div>
 
+      {fileProblem ? <p role="alert" className="m-0 mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[12.5px] text-red-700">{fileProblem}</p> : null}
+
       <div className="mt-5">
         {states === null ? (
           <LoadingSkeleton rows={4} />
@@ -415,6 +471,16 @@ function IntegrationsSection() {
                       </div>
                       <p className="m-0 mt-1 text-[13px] leading-5 text-slate-500">{item.description}</p>
                       {state.detail ? <p className="m-0 mt-2 text-[12.5px] leading-5 text-slate-400">{state.detail}</p> : null}
+                      {item.fileProvider && typeof fileStates?.[item.fileProvider] === "object" && (fileStates[item.fileProvider] as FileConnectionStatus).configured ? (
+                        <button
+                          type="button"
+                          disabled={busyProvider !== null}
+                          onClick={() => void (state.connected ? disconnectFiles(item.fileProvider!) : connectFiles(item.fileProvider!))}
+                          className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          {state.connected ? "Disconnect" : "Connect"}
+                        </button>
+                      ) : null}
                       {item.panel ? (
                         <button
                           type="button"

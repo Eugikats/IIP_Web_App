@@ -149,6 +149,8 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/admin", requiredAny: ["ManageTenantSettings"], exact: true },
   // Every authenticated user reaches their own profile/settings, it has no admin-only content.
   { path: "/app/settings", requiredAny: [] },
+  // Where Google or Microsoft returns a person after they connect their own files.
+  { path: "/app/connect", requiredAny: [] },
   { path: "/app/assistant", requiredAny: ["ViewCommandCenter"] },
   { path: "/app/brief", requiredAny: ["ViewCommandCenter"] },
   { path: "/app", requiredAny: ["ViewCommandCenter"], exact: true },

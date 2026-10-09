@@ -35,7 +35,17 @@ IIP's organisation model is stricter and stays. What IIP lacks is CIP's second l
 - Microsoft Marketplace fulfilment (SaaS subscriptions) and the Managed Application edition.
 - Policy administration system lookup behind `IPolicyLookupProvider`.
 
-## 4. What to build in IIP, in order
+## 4. Status on 2026-10-09
+
+| Step | State |
+|---|---|
+| 1. List import end to end | Built and tested: `POST /api/v1/sales-leads/import`, CSV and Excel read in the browser, consent only as the file states it, duplicates left alone, audit holds counts only. |
+| 2. Per-person connections | Built and tested (`/api/v1/me/file-connections`, encrypted refresh token, migration `AddUserFileConnections`). Waits for the Google and Microsoft app registrations: see `IIP_FILE_CONNECTIONS_SETUP.md`. Until then every card says "Not connected" and why. |
+| 3. Pick from Drive or OneDrive | Built: Google's own picker and an in-page OneDrive browser on the import page. Not yet exercised against the real providers. |
+| 4. Save exports to Drive or OneDrive | Not built. Exports download to the computer today. |
+| 5. Organisation folder sync, 6. Teams bot, web chat, Power BI | Not started. |
+
+## 5. What to build in IIP, in order
 
 1. **Customer list import, end to end (no OAuth needed).** `POST /api/v1/sales-leads/import` taking the mapped rows from the existing import page; creates prospects marked "from list", keeps consent as recorded, refuses rows without name and phone, de-duplicates by phone, audits the import, returns created, skipped and why. Excel (.xlsx) reading added on the server. The page's disabled Import button becomes real.
 2. **Per-person connections, copied from CIP's `UserConnectionService`.** Same endpoints (`/api/v1/me/connections/...`), same minimal scopes (`drive.file` for Google; `Files.ReadWrite` for OneDrive; `Sites.Selected` for SharePoint with admin consent), tokens encrypted with IIP's existing Data Protection key ring. Needs: a Google Cloud OAuth client for Drive (the owner is creating it) and Graph delegated permissions added to the IIP portal app registration.

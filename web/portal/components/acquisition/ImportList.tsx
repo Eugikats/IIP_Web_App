@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { getEntraApiAccessToken } from "@/lib/entraAuth";
 import { useUI } from "@/context/UIStateContext";
 import { readListFile } from "@/lib/acquisition/readSpreadsheet";
+import { downloadFile, FileConnectionError, getFileConnectionStatus, startFileConnection, type FileConnectionStatus, type FileProviderKey } from "@/lib/files/fileConnections";
+import { OneDrivePicker, pickFromGoogleDrive } from "@/components/files/FilePicker";
 import Link from "next/link";
 import { ArrowLeft, Cloud, FileSpreadsheet, Mail, Upload } from "lucide-react";
 import CipStatusPill from "@/components/cip/CipStatusPill";
@@ -37,8 +39,8 @@ const FIELDS = [
 const SOURCES = [
   { id: "file", label: "Upload a CSV file", note: "From your computer", icon: Upload, available: true, reason: "" },
   { id: "excel", label: "Excel workbook", note: "An .xlsx file from your computer", icon: FileSpreadsheet, available: true, reason: "" },
-  { id: "drive", label: "Google Drive", note: "Pick a sheet from Drive", icon: Cloud, available: false, reason: "Not connected. A Drive connection has not been set up for this workspace." },
-  { id: "onedrive", label: "OneDrive", note: "Pick a workbook from OneDrive", icon: Cloud, available: false, reason: "Not connected. A OneDrive connection has not been set up for this workspace." },
+  { id: "drive", label: "Google Drive", note: "Pick a sheet from your Drive", icon: Cloud, available: false, reason: "" },
+  { id: "onedrive", label: "OneDrive", note: "Pick a workbook from your OneDrive", icon: Cloud, available: false, reason: "" },
   { id: "outlook", label: "Outlook", note: "Read a list sent by email", icon: Mail, available: false, reason: "Not connected. Email is not configured for this workspace." },
 ] as const;
 
@@ -52,6 +54,54 @@ export default function ImportList() {
   const { roleDef } = useUI();
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [fileStates, setFileStates] = useState<Record<string, FileConnectionStatus> | null>(null);
+  const [oneDriveOpen, setOneDriveOpen] = useState(false);
+  const [busySource, setBusySource] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getFileConnectionStatus(roleDef.key)
+      .then((list) => { if (!cancelled) setFileStates(Object.fromEntries(list.map((item) => [item.provider, item]))); })
+      .catch(() => { if (!cancelled) setFileStates({}); });
+    return () => { cancelled = true; };
+  }, [roleDef.key]);
+
+  const cloudSource = async (provider: FileProviderKey) => {
+    const status = fileStates?.[provider];
+    const name = provider === "google" ? "Google Drive" : "OneDrive";
+    setNotice(null);
+    if (!status) {
+      setNotice(`${name} could not be checked just now. Upload the file from your computer instead.`);
+      return;
+    }
+    if (!status.configured) {
+      setNotice(`Not connected. ${status.reason ?? `${name} sign-in has not been set up for IIP yet.`} Upload a CSV or Excel file from your computer in the meantime.`);
+      return;
+    }
+    if (!status.connected) {
+      setBusySource(provider);
+      try {
+        await startFileConnection(provider, "/app/acquisition/import", roleDef.key);
+      } catch (reason) {
+        setProblem(reason instanceof FileConnectionError ? reason.message : "The connection could not be started.");
+        setBusySource(null);
+      }
+      return;
+    }
+    if (provider === "microsoft") {
+      setOneDriveOpen(true);
+      return;
+    }
+    setBusySource(provider);
+    try {
+      const fileId = await pickFromGoogleDrive(roleDef.key);
+      if (fileId) await load(await downloadFile("google", fileId, roleDef.key));
+    } catch (reason) {
+      setProblem(reason instanceof Error ? reason.message : "The file could not be read from Google Drive.");
+    } finally {
+      setBusySource(null);
+    }
+  };
 
   const headers = rows[0] ?? [];
   const body = useMemo(() => rows.slice(1), [rows]);
@@ -130,6 +180,9 @@ export default function ImportList() {
     }
   };
 
+  const cloudConnected = (id: string) =>
+    (id === "drive" && fileStates?.google?.connected === true) || (id === "onedrive" && fileStates?.microsoft?.connected === true);
+
   return (
     <div className="cip-acq space-y-4">
       <div>
@@ -150,12 +203,17 @@ export default function ImportList() {
             <li key={source.id}>
               <button
                 type="button"
-                onClick={() => (source.available ? input.current?.click() : setNotice(source.reason))}
-                className={`flex h-full w-full flex-col items-start gap-1.5 rounded-xl border p-3.5 text-left ${source.available ? "border-[#1769FF]/40 bg-[#F5F8FF] hover:bg-[#EEF4FF]" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+                onClick={() => {
+                  if (source.id === "drive") void cloudSource("google");
+                  else if (source.id === "onedrive") void cloudSource("microsoft");
+                  else if (source.available) input.current?.click();
+                  else setNotice(source.reason);
+                }}
+                className={`flex h-full w-full flex-col items-start gap-1.5 rounded-xl border p-3.5 text-left transition-colors ${source.available || cloudConnected(source.id) ? "border-[#1769FF]/40 bg-[#F5F8FF] hover:bg-[#EEF4FF]" : "border-slate-200 bg-white hover:bg-slate-50"}`}
               >
                 <span className="inline-flex w-full items-center justify-between">
-                  <source.icon className={`h-5 w-5 ${source.available ? "text-[#1769FF]" : "text-slate-400"}`} aria-hidden />
-                  {source.available ? null : <CipStatusPill tone="neutral">Not connected</CipStatusPill>}
+                  <source.icon className={`h-5 w-5 ${source.available || cloudConnected(source.id) ? "text-[#1769FF]" : "text-slate-400"}`} aria-hidden />
+                  {source.available || cloudConnected(source.id) ? null : <CipStatusPill tone="neutral">Not connected</CipStatusPill>}
                 </span>
                 <span className="text-[13px] font-semibold text-[#0B1640]">{source.label}</span>
                 <span className="text-[11.5px] text-slate-500">{source.note}</span>
@@ -277,6 +335,15 @@ export default function ImportList() {
           <li>The outreach agent drafts a personal message. A person reads, changes and approves each one.</li>
         </ol>
       </section>
+      {oneDriveOpen ? (
+        <OneDrivePicker
+          onClose={() => setOneDriveOpen(false)}
+          onPicked={(file) => {
+            setOneDriveOpen(false);
+            void load(file);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

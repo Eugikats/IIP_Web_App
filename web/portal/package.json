@@ -22,7 +22,8 @@
     "build-storybook": "storybook build",
     "start": "next start",
     "lint": "next lint",
-    "test:visual": "playwright test -c tests/visual/playwright.config.ts"
+    "test:visual": "playwright test -c tests/visual/playwright.config.ts",
+    "test:workspace": "playwright test -c playwright.workspace.config.ts"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.14.0",

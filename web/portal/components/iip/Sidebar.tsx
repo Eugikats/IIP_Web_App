@@ -310,7 +310,8 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
       aria-label="Primary navigation"
       onPointerEnter={(event) => { if (event.pointerType === "mouse") openPeek(); }}
       onPointerLeave={(event) => { if (event.pointerType === "mouse" && !holdingOpen) closePeekSoon(); }}
-      onFocusCapture={openPeek}
+      // Keyboard focus opens the rail; a tap does not, or the icons would move under a finger mid-tap.
+      onFocusCapture={(event) => { if ((event.target as HTMLElement).matches(":focus-visible")) openPeek(); }}
       onBlurCapture={(event) => {
         if (!holdingOpen && !event.currentTarget.contains(event.relatedTarget as Node | null)) closePeekSoon();
       }}
