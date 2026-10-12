@@ -27,6 +27,10 @@ test("The sidebar groups its destinations and keeps them reachable in a short wi
   }
   await expect(sidebar.getByRole("link", { name: "Command Center" })).toBeVisible();
   await expect(sidebar.getByRole("link", { name: "Claims" })).toBeVisible();
+  // The Academy is one click away, directly under Inbox, not tucked into the profile menu.
+  const inbox = await sidebar.getByRole("link", { name: "Inbox" }).boundingBox();
+  const academy = await sidebar.getByRole("link", { name: "IIP Academy" }).boundingBox();
+  expect(inbox && academy && academy.y > inbox.y && academy.y - inbox.y < 60).toBe(true);
   await expect(sidebar.getByRole("button", { name: "Integrations" })).toBeVisible();
   await expect(sidebar.getByRole("button", { name: "Settings" })).toBeVisible();
 });

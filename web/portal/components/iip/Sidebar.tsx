@@ -41,6 +41,7 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
       { to: "/app/claims", label: "Claims", icon: FileSearch },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
       { to: "/app/channels", label: "Inbox", icon: Inbox },
+      { to: "/app/academy", label: "IIP Academy", icon: GraduationCap },
     ],
   },
   {
@@ -64,7 +65,6 @@ const MORE_DESTINATIONS: { to: string; label: string; icon: typeof MessageSquare
   { to: "/app/flows", label: "Automation", icon: GitBranch },
   { to: "/app/executive", label: "Insights", icon: LineChart },
   { to: "/app/audit", label: "Audit", icon: ShieldCheck },
-  { to: "/app/academy", label: "IIP Academy", icon: GraduationCap },
 ];
 
 function isActive(pathname: string, to: string) {
