@@ -38,15 +38,23 @@ test("Choosing a category narrows the courses, and the back link returns to all 
   await expect(page.locator("[data-testid^='course-']")).toHaveCount(9);
 });
 
-test("A course whose lessons are being written shows its outline and says it cannot be started", async ({ page }) => {
+test("A new programme course shows its eight lessons, starts, and ends in a check", async ({ page }) => {
   await page.goto("/app/academy/ai-agentic-insurance");
 
   await expect(page.getByRole("heading", { level: 1, name: "AI & Agentic AI for Insurance" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Course outline" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Course content" })).toBeVisible();
   await expect(page.getByText("AI, generative AI and agentic AI in plain words", { exact: true })).toBeVisible();
-  await expect(page.getByTestId("lessons-in-preparation")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start course" })).toHaveCount(0);
   await expect(page.getByText("UGX 500,000")).toBeVisible();
+  await expect(page.getByTestId("lessons-in-preparation")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Start course" }).click();
+  await expect(page.getByText("Predictive AI: scores and classifies").first()).toBeVisible();
+});
+
+test("No course is marked as lessons in preparation now that every course has lessons", async ({ page }) => {
+  await page.goto("/app/academy");
+  await expect(page.getByText("Lessons in preparation")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Start course" })).toHaveCount(9);
 });
 
 test("A course with lessons still starts as before", async ({ page }) => {

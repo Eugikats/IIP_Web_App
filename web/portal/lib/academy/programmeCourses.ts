@@ -1,6 +1,6 @@
-// The IIP Academy programme: five courses for insurers and bancassurance teams. Each is described and outlined
-// here; a course with an outline and no lessons yet is listed as such and cannot be started (see isReady in
-// courses.ts). The lessons themselves are added course by course.
+// The IIP Academy programme: five courses for insurers and bancassurance teams. Each is described here; its
+// lessons and check questions are in lessons/. A course with no lessons yet would carry an outline and be listed
+// as not startable (see isReady in courses.ts).
 //
 // The same honesty rules as the hands-on courses apply: only features IIP really has are described as IIP
 // features; figures about the market are attributed and dated; forecasts are called forecasts; what a law or a
@@ -8,6 +8,11 @@
 // certificate is a certificate of completion, not an accredited qualification.
 
 import type { Course } from "@/lib/academy/courses";
+import { AI_AGENTIC_MODULES, AI_AGENTIC_QUIZ } from "@/lib/academy/lessons/aiAgentic";
+import { CLAIMS_FRAUD_MODULES, CLAIMS_FRAUD_QUIZ } from "@/lib/academy/lessons/claimsFraud";
+import { UNDERWRITING_RISK_MODULES, UNDERWRITING_RISK_QUIZ } from "@/lib/academy/lessons/underwritingRisk";
+import { SALES_DISTRIBUTION_MODULES, SALES_DISTRIBUTION_QUIZ } from "@/lib/academy/lessons/salesDistribution";
+import { AGENTIC_SYSTEMS_MODULES, AGENTIC_SYSTEMS_QUIZ } from "@/lib/academy/lessons/agenticSystems";
 
 export const PROGRAMME_COURSES: Course[] = [
   {
@@ -29,18 +34,8 @@ export const PROGRAMME_COURSES: Course[] = [
       "Name the main ways an agent fails, using the OWASP Top 10 for LLM Applications (2025)",
       "Choose a first use case and say how its results will be measured honestly",
     ],
-    outline: [
-      { title: "AI, generative AI and agentic AI in plain words", goal: "Tell the three apart, with insurance examples of each, and know what each cannot do." },
-      { title: "The insurance value chain and where AI fits", goal: "Walk from acquisition to underwriting, service, claims and retention, and mark where AI helps and where a person must decide." },
-      { title: "How an AI agent works", goal: "See the loop: a question, a model, the tools the agent may call, the answer, and the person who reviews it." },
-      { title: "Grounding: answers from approved sources", goal: "Understand retrieval in plain words, why every claim about cover needs a citation, and what an assistant should say when it has no source." },
-      { title: "Human-supervised AI", goal: "Separate what AI prepares (summaries, drafts, signals) from what a person decides (claims, premiums, underwriting, fraud findings), and see how IIP records both." },
-      { title: "A guided tour of IIP", goal: "Use the Command Center, the WhatsApp assistant, Claims, the Data Hub and Audit to see each idea working on synthetic data." },
-      { title: "Where agents fail", goal: "Recognise hallucination, prompt injection, leaked instructions and excessive authority, and the controls that answer each." },
-      { title: "Starting well", goal: "Pick a first use case, set a baseline, decide who approves, and report results as measured, never as promised." },
-    ],
-    modules: [],
-    quiz: [],
+    modules: AI_AGENTIC_MODULES,
+    quiz: AI_AGENTIC_QUIZ,
   },
   {
     id: "ai-claims-fraud",
@@ -62,18 +57,8 @@ export const PROGRAMME_COURSES: Course[] = [
       "Track each claim against the regulator's service standards and act before one is missed",
       "Draft customer updates that a person reviews and approves before they are sent",
     ],
-    outline: [
-      { title: "The claims journey and where AI helps", goal: "See the whole path from notice to payment and the steps where waiting, re-keying and chasing documents cost the most time." },
-      { title: "Intake from WhatsApp, branch and email", goal: "Capture the same facts however the customer reports the loss, and link every message and document to one claim." },
-      { title: "Document intelligence", goal: "Classify each document, read its fields with a confidence the reviewer can see, and list exactly what is still missing." },
-      { title: "Assessment support", goal: "Prepare a summary of what happened, what the file holds, what is missing and what to watch, each line tied to its source, for a person to decide on." },
-      { title: "Fraud intelligence", goal: "Understand signals such as inconsistent dates, repeated details and identity mismatches, and how a person disposes of each one with a recorded reason." },
-      { title: "Workflow automation and the service clocks", goal: "Use the regulator's standards (acknowledge in 3 working days, payment in 10, 15 or 20 working days by amount) to see which claims are about to breach." },
-      { title: "Settlement and customer communication", goal: "Draft clear, honest updates in the customer's language, keep a person's approval on everything that is sent, and record what was said." },
-      { title: "Measuring a claims operation", goal: "Choose turnaround, completeness and complaint measures, set a baseline first, and report only what was measured." },
-    ],
-    modules: [],
-    quiz: [],
+    modules: CLAIMS_FRAUD_MODULES,
+    quiz: CLAIMS_FRAUD_QUIZ,
   },
   {
     id: "ai-underwriting-risk",
@@ -95,18 +80,8 @@ export const PROGRAMME_COURSES: Course[] = [
       "Refer to an underwriter with a complete file, and record the decision and its reason",
       "Check a model for fairness and for drift, and explain a decision to the customer",
     ],
-    outline: [
-      { title: "How underwriting works and where AI fits", goal: "Follow an application from submission to decision, and mark the steps that are reading and chasing, not judgement." },
-      { title: "Submission triage", goal: "Read the documents, extract the facts, list what is missing and ask for exactly that, before the file reaches an underwriter." },
-      { title: "Risk profiling from the record", goal: "Draw a profile from the customer's own record, with every point linked to the fact behind it." },
-      { title: "Pricing intelligence", goal: "Use data and models to inform a price, and be clear that setting the premium, and approving a rate, stays with a person." },
-      { title: "Portfolio analysis", goal: "Read concentration by product, region and channel, and spot trends early using the Insights views." },
-      { title: "Decision support, not decisions", goal: "Refer to the underwriter with a file ready to decide, record the decision and the reason, and keep the AI's part and the person's part apart in the audit trail." },
-      { title: "Fairness, explanation and regulation", goal: "Test for unfair patterns, explain an outcome in plain words, and know the references: the NAIC model bulletin on AI (2023), the IAIS application paper on supervising AI (2025) and Uganda's Data Protection and Privacy Act 2019, each to be confirmed with legal and compliance for your case." },
-      { title: "Keeping a model honest over time", goal: "Monitor accuracy and drift, review overrides, and decide when a model or a rule is retired." },
-    ],
-    modules: [],
-    quiz: [],
+    modules: UNDERWRITING_RISK_MODULES,
+    quiz: UNDERWRITING_RISK_QUIZ,
   },
   {
     id: "ai-sales-distribution",
@@ -128,18 +103,8 @@ export const PROGRAMME_COURSES: Course[] = [
       "Serve customers in their own language, and say when a translation has not been checked",
       "Measure conversion and service quality without overstating results",
     ],
-    outline: [
-      { title: "The customer journey on WhatsApp and digital channels", goal: "Map how customers actually reach an insurer, and where an assistant helps and where a person must step in." },
-      { title: "Lead capture and qualification", goal: "Collect the details that matter, classify the need, score interest, and route the lead to the right person." },
-      { title: "Policy and product enquiries", goal: "Answer from approved sources, cite them, and say clearly when the answer needs a person." },
-      { title: "Quotes and applications in conversation", goal: "Guide a customer through an application and prepare it for review, while binding cover and final premiums stay with a person." },
-      { title: "Renewals, cross-selling and retention", goal: "Time reminders, suggest relevant cover, and respect consent and opt-out in every message." },
-      { title: "Language, tone and experience", goal: "Reply in the customer's language, keep the tone of the bank or insurer, and label machine translation honestly." },
-      { title: "Rules of the channel", goal: "Respect consent, data protection and Meta's WhatsApp Business terms, which since 15 January 2026 do not allow general-purpose AI assistants on the platform but do allow customer-service use; confirm details with legal and compliance." },
-      { title: "Measuring sales and service", goal: "Track response time, conversion and satisfaction against a baseline, and report only what was measured." },
-    ],
-    modules: [],
-    quiz: [],
+    modules: SALES_DISTRIBUTION_MODULES,
+    quiz: SALES_DISTRIBUTION_QUIZ,
   },
   {
     id: "agentic-systems",
@@ -161,17 +126,7 @@ export const PROGRAMME_COURSES: Course[] = [
       "Put human approval, evidence and audit into the design, not on top of it",
       "Test and monitor agents, and deploy and operate them in production",
     ],
-    outline: [
-      { title: "Anatomy of an agent", goal: "Model, tools, loop and state: how a request becomes a sequence of tool calls, and where to put hard limits." },
-      { title: "Retrieval-augmented generation", goal: "Chunk and index approved knowledge, retrieve with filters (product, effective date, tenant), and return every answer with its sources." },
-      { title: "Workflow orchestration", goal: "Use queues, retries and idempotency so a webhook delivered twice does not answer twice or lose a message." },
-      { title: "APIs and integrations", goal: "Connect policy administration, claims, WhatsApp Cloud API and email behind interfaces, with synthetic providers for development." },
-      { title: "Security", goal: "Isolate tenants, keep secrets out of code, give each tool the least authority, and defend against the risks in the OWASP Top 10 for LLM Applications (2025), including prompt injection and excessive agency." },
-      { title: "Governance by design", goal: "Add approval gates, evidence links and an audit trail to every consequential action, so the record of who decided what is complete." },
-      { title: "Evaluation and testing", goal: "Build fixed test sets, regression tests and red-team cases, and measure answers against their sources." },
-      { title: "Production operations", goal: "Observe, control cost, handle incidents and roll out changes safely, using IIP's own deployment as the reference." },
-    ],
-    modules: [],
-    quiz: [],
+    modules: AGENTIC_SYSTEMS_MODULES,
+    quiz: AGENTIC_SYSTEMS_QUIZ,
   },
 ];

@@ -29,7 +29,7 @@ export default function AcademyCatalogue() {
           IIP Academy
         </h1>
         <p className="m-0 mt-0.5 max-w-3xl text-[12.5px] text-slate-500">
-          Courses on AI and agentic AI for insurers and bancassurance teams, taught with the real IIP screens. Choose a category, open a course for its outline, and finish with a certificate of completion.
+          Courses on AI and agentic AI for insurers and bancassurance teams, taught with the real IIP screens. Choose a category, open a course to see its lessons, and finish with a certificate of completion.
         </p>
       </div>
 
