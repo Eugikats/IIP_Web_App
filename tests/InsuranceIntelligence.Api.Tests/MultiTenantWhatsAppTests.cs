@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using InsuranceIntelligence.Api.Integrations;
+using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -205,6 +206,109 @@ public sealed class MultiTenantWhatsAppTests
             {
                 Content = new StringContent("""{"messages":[{"id":"wamid.out"}]}""", Encoding.UTF8, "application/json"),
             });
+        }
+    }
+
+    // Regression for the live outage that began when per-insurer routing shipped: a plain text message has
+    // no attachment, so the document step reports "Ignored" for it, and the webhook returned on that. Meta got
+    // a 200 and nothing was saved or answered, for every text.
+    [Fact]
+    public async Task ASignedTextMessageForAnInsurersNumber_IsSavedAndHandedToTheAssistant_NotDropped()
+    {
+        var (provider, _) = await TwoInsurersAsync();
+        var (messaging, queue) = (new RecordingMessaging(), new RecordingQueue());
+
+        var status = await ReceiveAsync(provider, Webhook("phone-baraka"), "secret-baraka", messaging, queue);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal(Baraka, messaging.IngestedFor.Single());
+        Assert.Equal(1, messaging.IngestedCount);
+        var handed = Assert.Single(queue.Requests);
+        Assert.Equal(Baraka, handed.Scope);
+        Assert.Single(handed.Messages);
+    }
+
+    [Fact]
+    public async Task ATextMessageForANumberNoInsurerHolds_IsAcceptedButNothingIsSavedOrAnswered()
+    {
+        var (provider, _) = await TwoInsurersAsync();
+        var (messaging, queue) = (new RecordingMessaging(), new RecordingQueue());
+
+        var status = await ReceiveAsync(provider, Webhook("phone-unknown"), "secret-baraka", messaging, queue);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Empty(messaging.IngestedFor);
+        Assert.Empty(queue.Requests);
+    }
+
+    [Fact]
+    public async Task ATextMessageSignedWithTheWrongSecret_IsRefusedAndNothingIsSaved()
+    {
+        var (provider, _) = await TwoInsurersAsync();
+        var (messaging, queue) = (new RecordingMessaging(), new RecordingQueue());
+
+        var status = await ReceiveAsync(provider, Webhook("phone-baraka"), "secret-acme", messaging, queue);
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, status);
+        Assert.Empty(messaging.IngestedFor);
+        Assert.Empty(queue.Requests);
+    }
+
+    private static async Task<int> ReceiveAsync(
+        WhatsAppRuntimeSettingsProvider provider, string body, string signedWith, RecordingMessaging messaging, RecordingQueue queue)
+    {
+        var options = new InfrastructureOptions { MultiTenant = true, ChannelProvider = "Disabled" };
+        var inbound = new WhatsAppCloudApiInboundProvider(provider, NullLogger<WhatsAppCloudApiInboundProvider>.Instance);
+        var ingestion = new WhatsAppInboundDocumentIngestionService(
+            options, provider, inbound, new NeverMatches(), new NoAttachments(),
+            new InMemoryCaseRepository(), new InMemoryCaseDocumentRepository(), new InMemoryAuditRepository(),
+            NullLogger<WhatsAppInboundDocumentIngestionService>.Instance);
+
+        var http = new DefaultHttpContext();
+        http.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
+        http.Request.Headers["X-Hub-Signature-256"] = Sign(signedWith, body);
+        http.RequestServices = new ServiceCollection().AddLogging().AddProblemDetails().BuildServiceProvider();
+        http.Response.Body = new MemoryStream();
+
+        var result = await WhatsAppIntegrationEndpoints.ReceiveWebhook(
+            http.Request, ingestion, messaging, queue,
+            http.RequestServices.GetRequiredService<IServiceScopeFactory>(), provider, options,
+            NullLogger<WhatsAppCustomerAssistantLogMarker>.Instance, CancellationToken.None);
+
+        await result.ExecuteAsync(http);
+        return http.Response.StatusCode;
+    }
+
+    private sealed class RecordingMessaging : IWhatsAppMessagingService
+    {
+        public List<TenantScope> IngestedFor { get; } = [];
+        public int IngestedCount { get; private set; }
+
+        public Task<IReadOnlyList<WhatsAppMessageDto>> GetThreadAsync(string threadId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<WhatsAppMessageDto> SendAsync(SendWhatsAppMessageCommand command, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<WhatsAppInboundMessage>> IngestInboundAsync(
+            TenantScope scope, IReadOnlyList<WhatsAppInboundMessage> messages, CancellationToken cancellationToken = default)
+        {
+            IngestedFor.Add(scope);
+            IngestedCount += messages.Count;
+            return Task.FromResult(messages);
+        }
+
+        public Task<int> ApplyDeliveryEventsAsync(TenantScope scope, IReadOnlyList<WhatsAppDeliveryEvent> events, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    }
+
+    private sealed class RecordingQueue : IWhatsAppAssistantQueue
+    {
+        public List<WhatsAppAssistantRequest> Requests { get; } = [];
+
+        public int Pending => 0;
+
+        public bool TryEnqueue(WhatsAppAssistantRequest request)
+        {
+            Requests.Add(request);
+            return true;
         }
     }
 

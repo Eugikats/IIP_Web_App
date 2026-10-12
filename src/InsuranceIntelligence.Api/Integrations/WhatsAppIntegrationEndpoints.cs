@@ -98,11 +98,10 @@ public static class WhatsAppIntegrationEndpoints
         }
         if (result.Status == "InvalidSignature") return Results.Unauthorized();
 
-        if (result.Status == "Ignored")
-        {
-            return Results.Ok(new { status = "Ignored" });
-        }
-
+        // "Ignored" only says the document pipeline had nothing to store: a plain text message has no
+        // attachment, so every text arrived here as "Ignored". Returning on it dropped every text a
+        // customer sent (the webhook answered 200 and nothing was saved or answered). Numbers that belong to
+        // no insurer here are skipped in the loop below, so there is nothing to short-cut.
         if (!settingsProvider.AnyConfigured)
         {
             return Results.Problem(
