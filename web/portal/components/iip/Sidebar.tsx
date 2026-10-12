@@ -386,16 +386,25 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
               {!expanded && <div className="my-1 h-px w-6 bg-dls-border-subtle" aria-hidden="true" />}
             </div>
           ))}
+          {integrationsAvailable || settingsAvailable ? (
+            <div className={cn("flex flex-col", expanded ? "gap-0.5" : "contents")}>
+              {expanded && (
+                <div className="animate-label-in px-2.5 pb-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-dls-text-muted">
+                  Manage
+                </div>
+              )}
+              {integrationsAvailable && (
+                <ModalRailButton label="Integrations" icon={Plug} expanded={expanded} onClick={() => openSettings("integrations")} />
+              )}
+              {settingsAvailable && (
+                <ModalRailButton label="Settings" icon={Settings} expanded={expanded} onClick={() => openSettings("team")} />
+              )}
+            </div>
+          ) : null}
+          {/* Inside the same scrolling column as the destinations, so a long chat list or a short window scrolls
+              instead of squeezing the destinations down to a sliver. */}
+          <RecentChats expanded={expanded} onNavigate={onNavigate} />
         </nav>
-        <div className={cn("mt-2 flex shrink-0 flex-col border-t border-dls-border-subtle pt-2", expanded ? "items-stretch gap-0.5" : "items-center gap-1")}>
-          {integrationsAvailable && (
-            <ModalRailButton label="Integrations" icon={Plug} expanded={expanded} onClick={() => openSettings("integrations")} />
-          )}
-          {settingsAvailable && (
-            <ModalRailButton label="Settings" icon={Settings} expanded={expanded} onClick={() => openSettings("team")} />
-          )}
-        </div>
-        <RecentChats expanded={expanded} onNavigate={onNavigate} />
         {scrollClipped.bottom && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-4 bg-gradient-to-t from-dls-surface to-transparent" aria-hidden="true" />
         )}

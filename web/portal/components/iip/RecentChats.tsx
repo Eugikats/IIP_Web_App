@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MessageSquarePlus } from "lucide-react";
+import { ChevronDown, MessageSquarePlus } from "lucide-react";
 import { Link, useLocation } from "@/components/iip/NextRouterCompat";
 import { listConversations, type ConversationSummary } from "@/lib/lovable-parity/data/commandCenterConversations";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
@@ -10,6 +10,7 @@ import { useUI } from "@/context/UIStateContext";
 import { cn } from "@/lib/utils";
 
 const VISIBLE = 6;
+const COLLAPSED_STORAGE_KEY = "iip.sidebar.recentChatsCollapsed";
 
 function relative(value: string): string {
   const then = new Date(value).getTime();
@@ -30,7 +31,29 @@ export default function RecentChats({ expanded, onNavigate }: { expanded: boolea
   const [items, setItems] = useState<ConversationSummary[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const userId = runtimeContext?.userId;
+
+  // The choice is remembered on this device, so a person who keeps the list closed does not reopen it every visit.
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem(COLLAPSED_STORAGE_KEY) === "true");
+    } catch {
+      // Storage can be blocked; the list simply starts open.
+    }
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(COLLAPSED_STORAGE_KEY, String(next));
+      } catch {
+        // Not remembered this session, still applied to the live view.
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (LOVABLE_VISUAL_PARITY_MODE || !userId) {
@@ -70,9 +93,19 @@ export default function RecentChats({ expanded, onNavigate }: { expanded: boolea
   const hidden = (items?.length ?? 0) - shown.length;
 
   return (
-    <div className="mt-3 flex min-h-0 flex-col border-t border-dls-border-subtle pt-3">
-      <div className="mb-1.5 flex h-6 items-center justify-between px-2.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Recent chats</span>
+    <div className="flex shrink-0 flex-col border-t border-dls-border-subtle pt-3">
+      <div className="mb-1.5 flex h-6 items-center justify-between px-1">
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-controls="recent-chats-list"
+          className="dls-focus-outline inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+        >
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", collapsed && "-rotate-90")} aria-hidden="true" />
+          Recent chats
+          {collapsed && items && items.length > 0 ? <span className="font-medium normal-case tracking-normal">({items.length})</span> : null}
+        </button>
         <Link
           to="/app"
           onClick={onNavigate}
@@ -84,14 +117,14 @@ export default function RecentChats({ expanded, onNavigate }: { expanded: boolea
           New
         </Link>
       </div>
-      {items === null ? (
-        <p className="m-0 px-2.5 text-xs text-slate-400">Loading chats...</p>
+      {collapsed ? null : items === null ? (
+        <p id="recent-chats-list" className="m-0 px-2.5 text-xs text-slate-400">Loading chats...</p>
       ) : failed ? (
         <p className="m-0 px-2.5 text-xs text-slate-400">Chats could not be loaded.</p>
       ) : items.length === 0 ? (
         <p className="m-0 px-2.5 text-xs text-slate-400">No conversations yet</p>
       ) : (
-        <div className="min-h-0 space-y-0.5 overflow-y-auto">
+        <div id="recent-chats-list" className="space-y-0.5">
           {shown.map((conversation) => {
             const active = loc.pathname === `/app/conversations/${conversation.conversationId}`;
             return (
