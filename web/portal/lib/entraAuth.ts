@@ -53,6 +53,9 @@ export async function startSignIn(method: SignInMethod): Promise<void> {
   }
 
   rememberProvider(provider);
+  // Pressing the button is a fresh, deliberate sign-in: an earlier one that was abandoned (back button, closed
+  // tab) must not block it.
+  clearStaleInteraction();
   const msal = await getClient(provider);
   await msal.loginRedirect({
     scopes: [scopeFor(provider)],
@@ -79,18 +82,23 @@ export async function getEntraApiAccessToken(): Promise<string | null> {
       throw error;
     }
 
-    for (const store of [window.sessionStorage, window.localStorage]) {
-      try {
-        for (const key of Object.keys(store)) {
-          if (key.includes("interaction.status")) store.removeItem(key);
-        }
-      } catch {
-        // Storage can be blocked; the retry below will report the problem.
-      }
-    }
-
+    clearStaleInteraction();
     redirectResult = null;
     return getEntraApiAccessTokenOnce();
+  }
+}
+
+/** Removes MSAL's "interaction in progress" marker, left behind when a sign-in was interrupted. */
+function clearStaleInteraction() {
+  if (typeof window === "undefined") return;
+  for (const store of [window.sessionStorage, window.localStorage]) {
+    try {
+      for (const key of Object.keys(store)) {
+        if (key.includes("interaction.status")) store.removeItem(key);
+      }
+    } catch {
+      // Storage can be blocked; the attempt that follows will report the problem.
+    }
   }
 }
 
