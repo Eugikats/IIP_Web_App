@@ -12,12 +12,16 @@ public sealed record CoursePrice(string CourseId, decimal Amount, string Currenc
 /// </summary>
 public sealed record AcademyPricing(TenantScope Scope, IReadOnlyList<CoursePrice> Prices, DateTimeOffset? UpdatedAt = null, string? UpdatedBy = null)
 {
-    public const string Currency = "USD";
-    public const decimal SeedPrice = 50m;
-    public const decimal MaxPrice = 10_000m;
+    public const string Currency = "UGX";
+    public const decimal SeedPrice = 500_000m;
+    public const decimal MaxPrice = 100_000_000m;
 
     /// <summary>The courses IIP Academy offers. A price for any other id is rejected.</summary>
-    public static readonly IReadOnlyList<string> CourseIds = ["claims", "underwriting", "fraud-identity", "governance"];
+    public static readonly IReadOnlyList<string> CourseIds =
+    [
+        "ai-agentic-insurance", "ai-claims-fraud", "ai-underwriting-risk", "ai-sales-distribution", "agentic-systems",
+        "claims", "underwriting", "fraud-identity", "governance",
+    ];
 
     public static AcademyPricing Seed(TenantScope scope) =>
         new(scope, CourseIds.Select(id => new CoursePrice(id, SeedPrice)).ToArray());

@@ -24,8 +24,21 @@ public sealed class AcademyPricingServiceTests
         var pricing = await service.GetAsync();
 
         Assert.Equal(AcademyPricing.CourseIds.Count, pricing.Prices.Count);
-        Assert.All(pricing.Prices, price => Assert.Equal(50m, price.Amount));
-        Assert.All(pricing.Prices, price => Assert.Equal("USD", price.Currency));
+        Assert.All(pricing.Prices, price => Assert.Equal(500_000m, price.Amount));
+        Assert.All(pricing.Prices, price => Assert.Equal("UGX", price.Currency));
+    }
+
+    [Fact]
+    public async Task Every_course_the_academy_offers_has_a_price_including_the_five_programme_courses()
+    {
+        var (service, _, _) = Build();
+
+        var ids = (await service.GetAsync()).Prices.Select(price => price.CourseId).ToArray();
+
+        foreach (var id in new[] { "ai-agentic-insurance", "ai-claims-fraud", "ai-underwriting-risk", "ai-sales-distribution", "agentic-systems", "claims", "underwriting", "fraud-identity", "governance" })
+        {
+            Assert.Contains(id, ids);
+        }
     }
 
     [Fact]
@@ -33,18 +46,18 @@ public sealed class AcademyPricingServiceTests
     {
         var (service, repo, audit) = Build();
 
-        await service.SaveAsync([new CoursePrice("claims", 75m)]);
+        await service.SaveAsync([new CoursePrice("claims", 750_000m)]);
         var again = await service.GetAsync();
 
-        Assert.Equal(75m, again.Prices.Single(price => price.CourseId == "claims").Amount);
-        Assert.Equal(50m, again.Prices.Single(price => price.CourseId == "governance").Amount);
+        Assert.Equal(750_000m, again.Prices.Single(price => price.CourseId == "claims").Amount);
+        Assert.Equal(500_000m, again.Prices.Single(price => price.CourseId == "governance").Amount);
         Assert.NotNull(repo.Saved);
         Assert.Contains(audit.Events, entry => entry.ActionName == "academy.pricing_changed");
     }
 
     [Theory]
     [InlineData("claims", -1)]
-    [InlineData("claims", 10001)]
+    [InlineData("claims", 100_000_001)]
     [InlineData("claims", 10.555)]
     [InlineData("not-a-course", 20)]
     public async Task A_price_that_is_out_of_range_or_for_an_unknown_course_is_refused(string course, double amount)

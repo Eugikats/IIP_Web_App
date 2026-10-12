@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import Academy from "@/components/academy/AcademyCatalogue";
 
 export default function Page() {
-  return <Academy />;
+  return (
+    <Suspense fallback={null}>
+      <Academy />
+    </Suspense>
+  );
 }

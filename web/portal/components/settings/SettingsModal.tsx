@@ -523,7 +523,7 @@ function AcademyPricingSection() {
     <div>
       <h3 className="m-0 text-[16px] font-bold text-dls-text-primary">IIP Academy prices</h3>
       <p className="m-0 mt-1 max-w-2xl text-[13px] text-dls-text-secondary">
-        What each course costs a learner, in US dollars. Learners see the price on the course page. Every course starts at {formatPrice(50)}. Payment is not connected yet, so nobody is charged.
+        What each course costs a learner, in Ugandan shillings. Learners see the price on the course page. Every course starts at {formatPrice(500_000)}. Payment is not connected yet, so nobody is charged.
       </p>
       {loading && !prices ? <div className="mt-4"><LoadingSkeleton rows={4} /></div> : null}
       {error ? <p role="alert" className="m-0 mt-4 text-[13px] text-red-700">{error}</p> : null}
@@ -536,7 +536,7 @@ function AcademyPricingSection() {
                 <span className="block text-[12px] text-dls-text-muted">Course {course.number}, {course.duration}</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="text-[13px] text-dls-text-secondary" aria-hidden>{currency === "USD" ? "$" : currency}</span>
+                <span className="text-[13px] text-dls-text-secondary" aria-hidden>{currency}</span>
                 <Input
                   inputMode="decimal"
                   value={draft[course.id] ?? ""}
@@ -556,7 +556,7 @@ function AcademyPricingSection() {
             >
               {saving ? "Saving" : "Save prices"}
             </button>
-            {invalid ? <span className="text-[12.5px] text-amber-700">Enter a price from 0 to 10,000. Use 0 for a free course.</span> : null}
+            {invalid ? <span className="text-[12.5px] text-amber-700">Enter a price from 0 to 100,000,000. Use 0 for a free course.</span> : null}
             {message ? <span role="status" className={cn("text-[12.5px]", message.tone === "ok" ? "text-emerald-700" : "text-red-700")}>{message.text}</span> : null}
           </div>
         </div>

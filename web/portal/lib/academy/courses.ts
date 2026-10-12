@@ -6,6 +6,8 @@
 // accredited qualification; percentages are targets, never measured results; obligations under law or
 // regulation are "to be confirmed with legal and compliance". All examples are synthetic.
 
+import { PROGRAMME_COURSES } from "@/lib/academy/programmeCourses";
+
 export type Screen =
   | { file: string; caption: string; callouts: string[] }
   | { missing: string };
@@ -36,11 +38,22 @@ export type Course = {
   aim: string;
   iipAreas: string[];
   criteria: string[];
+  /** The category the catalogue files the course under (see categories.ts). */
+  category: string;
+  /** What a learner can do at the end, in the course's own words. Shown on the course page. */
+  outcomes?: string[];
+  /** The planned lessons, shown on the course page while the lessons themselves are being written. A course
+   * with an outline and no modules is listed honestly as such: it cannot be started. */
+  outline?: { title: string; goal: string }[];
   modules: Module[];
   quiz: Question[];
 };
 
-export const COURSES: Course[] = [
+/** A course whose lessons are written and can be taken. */
+export const isReady = (course: Course) => course.modules.length > 0;
+
+// The four hands-on courses taught against the real IIP screens.
+const HANDS_ON: Omit<Course, "category">[] = [
   {
     id: "claims",
     number: 2,
@@ -402,5 +415,18 @@ export const COURSES: Course[] = [
     ],
   },
 ];
+
+const HANDS_ON_CATEGORY: Record<string, string> = {
+  claims: "claims-fraud",
+  "fraud-identity": "claims-fraud",
+  underwriting: "underwriting-risk",
+  governance: "build-govern",
+};
+
+// The programme courses first, then the hands-on ones, numbered in the order the catalogue shows them.
+export const COURSES: Course[] = [
+  ...PROGRAMME_COURSES,
+  ...HANDS_ON.map((course) => ({ ...course, category: HANDS_ON_CATEGORY[course.id] ?? "build-govern" })),
+].map((course, index) => ({ ...course, number: index + 1 }));
 
 export const getCourse = (id: string) => COURSES.find((course) => course.id === id) ?? null;

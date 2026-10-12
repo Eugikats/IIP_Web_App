@@ -4,25 +4,28 @@ import { useCallback, useEffect, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
+import { COURSES } from "@/lib/academy/courses";
 
 // What each IIP Academy course costs, set in Settings. Prices are shown to learners. Collecting payment
 // is not connected, so nobody is charged: the pages say so.
 
 export type PriceMap = Record<string, number>;
 
-const SEED_PRICE = 50;
-const SEED_IDS = ["claims", "underwriting", "fraud-identity", "governance"];
+const SEED_PRICE = 500_000;
+const SEED_IDS = COURSES.map((course) => course.id);
 
-export function formatPrice(amount: number, currency = "USD"): string {
+export function formatPrice(amount: number, currency = "UGX"): string {
   if (amount === 0) return "Free";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: Number.isInteger(amount) ? 0 : 2 }).format(amount);
+  // Shillings have no cents; other currencies show them only when the amount has some.
+  const digits = currency === "UGX" || Number.isInteger(amount) ? 0 : 2;
+  return new Intl.NumberFormat("en-US", { style: "currency", currency, currencyDisplay: "code", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(amount).replace(/ /g, " ");
 }
 
 export function useAcademyPricing() {
   const { roleDef } = useUI();
   const role = roleDef.key;
   const [prices, setPrices] = useState<PriceMap | null>(LOVABLE_VISUAL_PARITY_MODE ? Object.fromEntries(SEED_IDS.map((id) => [id, SEED_PRICE])) : null);
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("UGX");
   const [loading, setLoading] = useState(!LOVABLE_VISUAL_PARITY_MODE);
   const [error, setError] = useState<string | null>(null);
 
