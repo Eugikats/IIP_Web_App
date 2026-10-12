@@ -2,8 +2,7 @@ import Link from "next/link";
 import { MarketingBrandLink } from "./MarketingNav";
 import { MarketingContainer } from "./motion";
 
-// Ported from CIP's MarketingFooter. Legal pages are added once they have been reviewed, so they are not
-// linked here yet.
+// Ported from CIP's MarketingFooter, with the legal pages (terms and privacy) linked in their own column.
 
 export default function MarketingFooter() {
   return (
@@ -25,11 +24,18 @@ export default function MarketingFooter() {
               <li><Link href="/#trust" className="hover:text-[var(--mkt-brand)]">Security</Link></li>
             </ul>
           </div>
-          <div className="md:col-span-4">
+          <div className="md:col-span-2">
             <h3 className="m-0 text-xs font-bold uppercase tracking-wider text-[var(--mkt-fg)]">Account</h3>
             <ul className="m-0 mt-3 list-none space-y-2 p-0 text-sm text-[var(--mkt-muted)]">
               <li><Link href="/login" className="hover:text-[var(--mkt-brand)]">Sign in</Link></li>
               <li><Link href="/signup" className="hover:text-[var(--mkt-brand)]">Sign up</Link></li>
+            </ul>
+          </div>
+          <div className="md:col-span-2">
+            <h3 className="m-0 text-xs font-bold uppercase tracking-wider text-[var(--mkt-fg)]">Legal</h3>
+            <ul className="m-0 mt-3 list-none space-y-2 p-0 text-sm text-[var(--mkt-muted)]">
+              <li><Link href="/privacy" className="hover:text-[var(--mkt-brand)]">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:text-[var(--mkt-brand)]">Terms and Conditions</Link></li>
             </ul>
           </div>
         </div>

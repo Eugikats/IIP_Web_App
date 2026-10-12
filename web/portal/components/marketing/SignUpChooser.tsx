@@ -114,6 +114,12 @@ export default function SignUpChooser() {
               Already have an account?{" "}
               <Link href="/login" className="font-semibold text-[var(--mkt-brand)] hover:underline">Sign in</Link>
             </p>
+            <p className="m-0 text-xs text-[var(--mkt-muted)]">
+              By creating an account you agree to the{" "}
+              <Link href="/terms" className="font-medium text-[var(--mkt-brand)] hover:underline">Terms and Conditions</Link>
+              {" "}and the{" "}
+              <Link href="/privacy" className="font-medium text-[var(--mkt-brand)] hover:underline">Privacy Policy</Link>.
+            </p>
           </div>
         </MarketingContainer>
       </main>
