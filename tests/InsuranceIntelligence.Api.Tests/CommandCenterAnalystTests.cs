@@ -186,7 +186,14 @@ public sealed class CommandCenterAnalystTests
         IToolCallingChatProvider? chat = null,
         IPermissionService? permissions = null) =>
         new(new FixedContext(), permissions ?? new Only(Permission.ViewSalesLeads, Permission.ViewAllClaims, Permission.ViewCustomers, Permission.ViewChannels),
-            new Leads(leads), new NoCases(), new NoCustomers(), new NoChannels(), chat);
+            new Leads(leads), new NoCases(), new NoCustomers(), new NoChannels(), chat, clock: new FixedClock(Now));
+
+    // The analyst reads "today" from a clock; the records and expectations here are dated 9 October, so the
+    // clock is held there. Without it these tests only passed on the day they were written.
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
 
     private sealed class ScriptedChat(params AgentChatStep[] steps) : IToolCallingChatProvider
     {

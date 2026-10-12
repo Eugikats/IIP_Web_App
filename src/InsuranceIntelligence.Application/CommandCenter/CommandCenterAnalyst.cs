@@ -38,7 +38,8 @@ public sealed class CommandCenterAnalyst(
     ICustomerRepository customers,
     IChannelReadRepository channels,
     IToolCallingChatProvider? chat = null,
-    InsuranceIntelligence.Application.Billing.IAiCreditGate? creditGate = null) : ICommandCenterAnalyst
+    InsuranceIntelligence.Application.Billing.IAiCreditGate? creditGate = null,
+    TimeProvider? clock = null) : ICommandCenterAnalyst
 {
     private const int MaxModelSteps = 5;
 
@@ -48,7 +49,7 @@ public sealed class CommandCenterAnalyst(
 
     public async Task<AnalystAnswer> AnswerAsync(string question, TimeSpan utcOffset, string correlationId, CancellationToken cancellationToken = default)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = (clock ?? TimeProvider.System).GetUtcNow();
         var produced = new List<CommandCenterResponseBlock>();
         var touched = new List<AnalyticsEntity>();
 
