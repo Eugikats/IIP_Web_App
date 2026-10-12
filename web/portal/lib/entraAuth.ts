@@ -230,8 +230,14 @@ function getClient(provider: SignInProvider): Promise<PublicClientApplication> {
 }
 
 function redirectUri() {
-  // Sign-in returns to the workspace, which finishes it; "/" is the public landing page.
-  return entraRedirectUri || window.location.origin + "/app";
+  // Come back to the address the person started on. The sign-in's state is kept per address, so returning to a
+  // different one (the old and new addresses of the same site) loses it and the sign-in begins again, over and over.
+  if (!entraRedirectUri) return window.location.origin + "/app";
+  try {
+    return window.location.origin + new URL(entraRedirectUri).pathname;
+  } catch {
+    return entraRedirectUri;
+  }
 }
 
 function getRedirectResult(msal: PublicClientApplication): Promise<AuthenticationResult | null> {
