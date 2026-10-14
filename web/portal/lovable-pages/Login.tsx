@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, AlertTriangle, Check, Loader2, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useNavigate } from "@/components/iip/NextRouterCompat";
 import iipLogo from "@/assets/iip-logo";
 import { canUseEntraBrowserAuth, canUseExternalIdSignIn, canUseLocalTestDoubles, runtimeProfile } from "@/lib/config";
-import { describeSignInError, startSignIn, type SignInMethod } from "@/lib/entraAuth";
+import { describeSignInError, finishReturningSignIn, startSignIn, type SignInMethod } from "@/lib/entraAuth";
 import { EmailCodeIcon, GoogleIcon, MicrosoftIcon } from "@/components/brand/ProviderIcons";
 
 function environmentLabel() {
@@ -17,6 +17,25 @@ export default function Login() {
   const navigate = useNavigate();
   const [signingIn, setSigningIn] = useState<SignInMethod | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [finishing, setFinishing] = useState(canUseEntraBrowserAuth);
+
+  // Microsoft has just returned the person to this page with their sign-in waiting to be finished: finish it and go in.
+  useEffect(() => {
+    let cancelled = false;
+    void finishReturningSignIn().then((outcome) => {
+      if (cancelled) return;
+      if (outcome.signedIn) {
+        window.location.replace("/app");
+        return;
+      }
+
+      if (outcome.error) setError(outcome.error);
+      setFinishing(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Arriving from the sign-up page carries the product the person chose.
   const signingUp = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("signup") : null;
@@ -109,7 +128,7 @@ export default function Login() {
                   key={option.method}
                   type="button"
                   onClick={() => void signIn(option.method)}
-                  disabled={signingIn !== null || !option.available}
+                  disabled={signingIn !== null || finishing || !option.available}
                   className="inline-flex min-h-12 w-full items-center gap-3 rounded-md border border-line bg-white px-5 py-3 text-left text-sm font-semibold text-ink transition-colors hover:bg-surface focus-ring disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   {signingIn === option.method ? (

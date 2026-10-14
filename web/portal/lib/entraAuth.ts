@@ -60,6 +60,10 @@ export async function startSignIn(method: SignInMethod): Promise<void> {
   await msal.loginRedirect({
     scopes: [scopeFor(provider)],
     redirectUri: redirectUri(),
+    // MSAL returns the person to the page the sign-in started on and expects that page to finish it. This started on the
+    // sign-in page, which finishes nothing, so people were sent back to it signed in but stranded. Starting "at" the
+    // address Microsoft returns to makes MSAL finish the sign-in right there.
+    redirectStartPage: redirectUri(),
     prompt: method === "email" ? "login" : "select_account",
     // Capital G: External ID rejects a lowercase "google" hint (CIP found this the hard way).
     ...(method === "google" ? { extraQueryParameters: { domain_hint: "Google" } } : {}),
@@ -85,6 +89,22 @@ export async function getEntraApiAccessToken(): Promise<string | null> {
     clearStaleInteraction();
     redirectResult = null;
     return getEntraApiAccessTokenOnce();
+  }
+}
+
+/**
+ * Finishes a sign-in that Microsoft has just returned the person from, if one is waiting. Called by the sign-in page so
+ * that however MSAL arrives there, the person is taken on to the app instead of being shown the buttons again.
+ * Never starts a sign-in and never redirects an already signed-in person who simply opened the page.
+ */
+export async function finishReturningSignIn(): Promise<{ signedIn: boolean; error: string | null }> {
+  if (!canUseEntraBrowserAuth || typeof window === "undefined") return { signedIn: false, error: null };
+  try {
+    const msal = await getClient(currentProvider());
+    const result = await getRedirectResult(msal);
+    return { signedIn: Boolean(result?.account), error: null };
+  } catch (failure) {
+    return { signedIn: false, error: describeSignInError(failure) };
   }
 }
 
