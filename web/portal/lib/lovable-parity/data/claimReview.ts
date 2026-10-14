@@ -536,6 +536,24 @@ export function useClaimReview(claimId: string) {
     }
   }, [claimId, role]);
 
+  // Saves an exported pack into the signed-in person's own Google Drive or OneDrive through their own connection.
+  // Only offered after they have exported it and chosen a destination; the server records who sent it and where.
+  const saveExportedAuditPack = useCallback(async (objectKey: string, provider: "google" | "microsoft"): Promise<{ ok: boolean; name?: string; webUrl?: string | null; message?: string }> => {
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/compliance/cases/${claimId}/audit-pack/export/save`, {
+        method: "POST",
+        headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+        body: JSON.stringify({ objectKey, provider }),
+      });
+      if (res.status === 403) return { ok: false, message: "You do not have permission to save evidence packs." };
+      if (!res.ok) return { ok: false, message: await readSafeApiError(res, "The pack could not be saved to your storage.") };
+      const body = (await res.json()) as { saved?: { name?: string; webUrl?: string | null } };
+      return { ok: true, name: body.saved?.name, webUrl: body.saved?.webUrl };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "The pack could not be saved to your storage." };
+    }
+  }, [claimId, role]);
+
   // Outcome O: "when a claim closes, ask one satisfaction question." No path in this codebase
   // ever wrote CaseStatus.Settled/Closed before this action existed (see
   // ClaimResolutionEndpoints.cs), which also drafts the satisfaction question behind the scenes.
@@ -607,6 +625,7 @@ export function useClaimReview(claimId: string) {
     resolveReviewRequest,
     exportEvidencePack,
     downloadExportedAuditPack,
+    saveExportedAuditPack,
     requestSupervisorReview,
     confirmClaim,
     resolveClaim,

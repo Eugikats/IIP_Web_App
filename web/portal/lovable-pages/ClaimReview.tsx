@@ -38,6 +38,7 @@ import { useRuntimeContext } from "@/lib/runtimeContext";
 import { channelLabel, claimReference, formatDate } from "@/lib/format";
 import { usePeople } from "@/lib/people";
 import AssignClaimControl from "@/components/iip/AssignClaimControl";
+import { getFileConnectionStatus, type FileConnectionStatus } from "@/lib/files/fileConnections";
 
 const POLICY_SOURCE_LABEL: Record<string, string> = {
   Manual: "Entered manually",
@@ -95,6 +96,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     resolveReviewRequest,
     exportEvidencePack,
     downloadExportedAuditPack,
+    saveExportedAuditPack,
     requestSupervisorReview,
     confirmClaim,
     resolveClaim,
@@ -173,6 +175,9 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     : hasPermission(runtimeContext?.permissions ?? [], "ApproveSettlementWorkflowStep");
   const [pendingCustomerUpdateAction, setPendingCustomerUpdateAction] = useState<PendingCustomerUpdateAction | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  // Where the person also wants a copy of the pack kept, in their own storage. Never chosen for them.
+  const [saveTo, setSaveTo] = useState<"none" | "google" | "microsoft">("none");
+  const [fileStatus, setFileStatus] = useState<FileConnectionStatus[] | null>(null);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmCorrections, setConfirmCorrections] = useState<ConfirmClaimCorrections>({});
@@ -324,6 +329,12 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     }
   }
 
+  useEffect(() => {
+    if (!exportDialogOpen) return;
+    setSaveTo("none");
+    getFileConnectionStatus(roleDef.key).then(setFileStatus).catch(() => setFileStatus([]));
+  }, [exportDialogOpen, roleDef.key]);
+
   async function handleExportEvidencePack(auditReason: string) {
     const res = await exportEvidencePack(auditReason);
     if (!res.ok) {
@@ -341,6 +352,17 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
         ? "Download started."
         : `Stored as ${res.objectKey}, but the download could not start: ${downloadResult.message ?? "unknown error"}.`,
     });
+
+    // The person chose, in the export dialog, to also keep a copy in their own storage.
+    if (saveTo !== "none") {
+      const saved = await saveExportedAuditPack(res.objectKey, saveTo);
+      const where = saveTo === "google" ? "Google Drive" : "OneDrive";
+      if (saved.ok) {
+        toast.success(`Saved to your ${where}`, { description: saved.name ? `${saved.name}, in the folder "IIP exports".` : 'In the folder "IIP exports".' });
+      } else {
+        toast.error(`Not saved to your ${where}`, { description: saved.message ?? "The pack could not be saved." });
+      }
+    }
   }
 
   function openConfirmDialog() {
@@ -956,6 +978,19 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               <ExportEvidenceItem label="Customer updates" value={String(customerUpdates.length)} />
               <ExportEvidenceItem label="Timeline events" value={String(timeline.length)} />
             </dl>
+            <fieldset className="mt-4 border-t border-dls-border-subtle pt-3">
+              <legend className="text-[12.5px] font-semibold text-dls-text-primary">Also keep a copy in your own storage</legend>
+              <div className="mt-2 flex flex-col gap-1.5">
+                {([["none", "Download only", true, null], ["microsoft", "Save to my OneDrive", fileStatus?.find((s) => s.provider === "microsoft")?.connected ?? false, "microsoft"], ["google", "Save to my Google Drive", fileStatus?.find((s) => s.provider === "google")?.connected ?? false, "google"]] as const).map(([value, label, available]) => (
+                  <label key={value} className={`flex items-center gap-2 text-[13px] ${available ? "text-dls-text-primary" : "text-dls-text-muted"}`}>
+                    <input type="radio" name="save-to" value={value} checked={saveTo === value} disabled={!available} onChange={() => setSaveTo(value)} />
+                    {label}
+                    {!available && fileStatus !== null ? <span className="text-[12px]">(connect your account in Settings, Integrations first)</span> : null}
+                  </label>
+                ))}
+              </div>
+              <p className="m-0 mt-2 text-[12px] text-dls-text-muted">It goes to the folder &quot;IIP exports&quot; in your own account. The export is recorded on this claim with where it was sent, never its contents.</p>
+            </fieldset>
           </div>
         }
         onClose={() => setExportDialogOpen(false)}
