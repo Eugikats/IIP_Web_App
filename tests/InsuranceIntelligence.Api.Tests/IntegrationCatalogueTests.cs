@@ -41,7 +41,7 @@ public sealed class IntegrationCatalogueTests
     {
         var card = Build(WhatsApp()).Single(c => c.Key == "whatsapp");
         Assert.Equal(IntegrationCardState.Connected, card.State);
-        Assert.Contains("No customer message has arrived yet", card.Summary);
+        Assert.Contains("No customer message has been recorded yet", card.Summary);
     }
 
     [Fact]

@@ -21,6 +21,7 @@ import { COURSES } from "@/lib/academy/courses";
 import { formatPrice, useAcademyPricing } from "@/lib/academy/pricing";
 import CreditMeter from "@/components/billing/CreditMeter";
 import SecuritySection from "@/components/security/SecuritySection";
+import TestSend from "@/components/settings/TestSend";
 import { IntegrationBrandIcon } from "@/components/brand/ProviderIcons";
 import ProfileSettings from "@/lovable-pages/Settings";
 import AgentsPanel from "@/lovable-pages/admin/Agents";
@@ -530,6 +531,7 @@ function IntegrationsSection() {
                           {state.connected ? "Manage" : "Set up"}
                         </button>
                       ) : null}
+                      {(item.key === "email" || item.key === "sms") && state.connected ? <TestSend channel={item.key} role={role} name={item.name} /> : null}
                     </div>
                   </div>
                 </motion.li>

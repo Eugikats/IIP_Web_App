@@ -38,7 +38,7 @@ test("A WhatsApp number whose calls are being refused needs attention, and says 
             summary: "4 call(s) from Meta were refused in the last day and none was accepted since. Check the app secret.",
             setupHint: "Settings, Connections, WhatsApp",
             checks: [
-              { name: "Messages from customers", passed: false, note: "No customer message has arrived yet.", blocking: false },
+              { name: "Messages from customers", passed: false, note: "No customer message has been recorded yet.", blocking: false },
               { name: "Meta's calls are accepted", passed: false, note: "4 call(s) from Meta were refused in the last day and none was accepted since. Check the app secret.", blocking: true },
             ],
           },
@@ -93,4 +93,54 @@ test("When the catalogue cannot be read, Teams says it could not check and nothi
   const teams = dialog.locator("li", { hasText: "Microsoft Teams" }).first();
   await expect(teams.getByText("Could not check", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Connected", { exact: true })).toHaveCount(0);
+});
+
+test("A connected email card can send a test, and says in words whether the provider accepted it", async ({ page }) => {
+  await page.route("**/api/v1/integrations/catalogue", (route) =>
+    route.fulfill({
+      json: {
+        checkedAt: new Date().toISOString(),
+        cards: [{ key: "email", name: "Email", group: "Channels", state: "Connected", stateLabel: "Connected", summary: "Connected through Graph.", setupHint: null, checks: [] }],
+      },
+    }));
+  let posted: unknown = null;
+  await page.route("**/api/v1/integrations/email/test-send", async (route) => {
+    posted = route.request().postDataJSON();
+    await route.fulfill({ json: { channel: "email", accepted: true, deliveryStatus: "Sent", message: "The provider accepted the test email. Check that it arrived." } });
+  });
+
+  const dialog = await openIntegrations(page);
+  const email = dialog.locator("li", { hasText: "Send customer email" }).first();
+  await email.getByRole("button", { name: "Send a test email" }).click();
+  const form = email.getByTestId("test-send-email");
+  await expect(form.getByRole("button", { name: "Send test" })).toBeDisabled();
+  await form.getByLabel(/Send the test email to/).fill("aisha@example.test");
+  await form.getByRole("button", { name: "Send test" }).click();
+
+  await expect(form.getByRole("status")).toContainText("The provider accepted the test email");
+  expect(posted).toEqual({ recipient: "aisha@example.test" });
+});
+
+test("A test the provider does not take is reported plainly, and a card that is not connected offers no test", async ({ page }) => {
+  await page.route("**/api/v1/integrations/catalogue", (route) =>
+    route.fulfill({
+      json: {
+        checkedAt: new Date().toISOString(),
+        cards: [
+          { key: "email", name: "Email", group: "Channels", state: "Connected", stateLabel: "Connected", summary: "Connected through Graph.", setupHint: null, checks: [] },
+          { key: "sms", name: "SMS", group: "Channels", state: "NotConnected", stateLabel: "Not connected", summary: "Not connected.", setupHint: null, checks: [] },
+        ],
+      },
+    }));
+  await page.route("**/api/v1/integrations/email/test-send", (route) =>
+    route.fulfill({ json: { channel: "email", accepted: false, deliveryStatus: "Failed", message: "The provider or mailbox refused the message." } }));
+
+  const dialog = await openIntegrations(page);
+  await expect(dialog.locator("li", { hasText: "Text messages to customers" }).first().getByRole("button", { name: "Send a test message" })).toHaveCount(0);
+
+  const email = dialog.locator("li", { hasText: "Send customer email" }).first();
+  await email.getByRole("button", { name: "Send a test email" }).click();
+  await email.getByLabel(/Send the test email to/).fill("aisha@example.test");
+  await email.getByRole("button", { name: "Send test" }).click();
+  await expect(email.getByRole("status")).toContainText("refused");
 });

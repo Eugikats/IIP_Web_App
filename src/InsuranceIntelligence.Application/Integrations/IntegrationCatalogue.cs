@@ -93,7 +93,7 @@ public static class IntegrationCatalogueBuilder
         if (w.Configured)
         {
             checks.Add(new IntegrationCheck("Messages from customers", w.LastAcceptedAt is not null,
-                w.LastAcceptedAt is { } accepted ? $"The last message arrived {Ago(facts.Now, accepted)}." : "No customer message has arrived yet.", Blocking: false));
+                w.LastAcceptedAt is { } accepted ? $"The last message arrived {Ago(facts.Now, accepted)}." : "No customer message has been recorded yet.", Blocking: false));
             checks.Add(new IntegrationCheck("Meta's calls are accepted", w.RefusedInLastDay == 0 || (w.LastAcceptedAt is { } a && w.LastReceiptAt is { } r && a >= r),
                 w.RefusedInLastDay == 0 ? "No call from Meta was refused in the last day." : $"{w.RefusedInLastDay} call(s) from Meta were refused in the last day and none was accepted since. Check the app secret.", Blocking: true));
             checks.Add(new IntegrationCheck("IIP's public address is known", w.PublicAddressKnown,
@@ -103,7 +103,7 @@ public static class IntegrationCatalogueBuilder
         var state = IntegrationCardRules.Decide(platformAvailable: true, connected: w.Configured, checks);
         var summary = state switch
         {
-            IntegrationCardState.Connected => w.LastAcceptedAt is { } last ? $"Connected. The last customer message arrived {Ago(facts.Now, last)}." : "Connected. No customer message has arrived yet.",
+            IntegrationCardState.Connected => w.LastAcceptedAt is { } last ? $"Connected. The last customer message arrived {Ago(facts.Now, last)}." : "Connected. No customer message has been recorded yet.",
             IntegrationCardState.NeedsAttention => "Connected, but a check is failing. The checks below say what to fix.",
             _ => "No WhatsApp number is connected for this organisation.",
         };
