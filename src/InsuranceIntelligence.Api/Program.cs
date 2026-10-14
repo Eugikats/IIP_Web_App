@@ -546,6 +546,10 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.ClaimsSummary.IClai
 // Customer 360 briefing, chat instructions, and the automatic review every new claim receives.
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Knowledge.IKnowledgeIngestionSink, InsuranceIntelligence.Application.Knowledge.KnowledgeIngestionService>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorFileSource, InsuranceIntelligence.Infrastructure.Connectors.MicrosoftGraphFileSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorFileSource, InsuranceIntelligence.Infrastructure.Connectors.GoogleDriveFileSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Connectors.IConnectorSyncService, InsuranceIntelligence.Application.Connectors.ConnectorSyncService>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Connectors.ConnectorSyncWorker>();
 // JSON lists are large and the people reading them are far from the data centre; compressing them costs a little CPU
 // and saves far more waiting. Brotli at its fastest level is the cheap setting on a small plan.
 builder.Services.AddResponseCompression(options =>
@@ -1385,6 +1389,22 @@ app.MapGet("/api/v1/integrations/email/messages/{messageId:guid}", EmailIntegrat
 app.MapPost("/api/v1/integrations/email/graph/webhook", EmailIntegrationEndpoints.GraphWebhook);
 app.MapPost("/api/v1/integrations/{channel}/test-send", InsuranceIntelligence.Api.Integrations.IntegrationTestSendEndpoints.Send)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/connectors", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPost("/api/v1/connectors", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Create)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPut("/api/v1/connectors/{connectorId:guid}/folders", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.ReplaceFolders)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPost("/api/v1/connectors/{connectorId:guid}/sync", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.SyncNow)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPost("/api/v1/connectors/{connectorId:guid}/pause", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Pause)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPost("/api/v1/connectors/{connectorId:guid}/resume", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Resume)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapDelete("/api/v1/connectors/{connectorId:guid}", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Delete)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapGet("/api/v1/connectors/{connectorId:guid}/items", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Items)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
 app.MapGet("/api/v1/integrations/catalogue", InsuranceIntelligence.Api.Integrations.IntegrationCatalogueEndpoints.Get)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/health", WhatsAppIntegrationEndpoints.GetHealth)

@@ -254,6 +254,20 @@ public sealed class ConnectorSyncServiceTests
         Assert.Equal(ConnectorStatus.Paused, (await rig.Connectors.GetAsync(Scope, rig.Connector.ConnectorId))!.Status);
     }
 
+    [Fact]
+    public async Task AFolderChangeMadeWhileARunIsInProgress_IsNotUndoneByTheRunsOwnSave()
+    {
+        var rig = await Rig.CreateAsync(Wordings);
+        rig.Source.Set(Wordings, Remote("a.txt", "One.", "v1"));
+        rig.Source.OnList = () => rig.Connectors.SaveAsync(rig.Connector with { Folders = [Wordings, Faqs] }).GetAwaiter().GetResult();
+
+        await rig.SyncAsync();
+
+        var stored = (await rig.Connectors.GetAsync(Scope, rig.Connector.ConnectorId))!;
+        Assert.Equal(2, stored.Folders.Count);
+        Assert.NotNull(stored.LastRunAt);
+    }
+
     private static RemoteFile Remote(string name, string content, string version, ConnectorFolder? folder = null) =>
         new(name, name, (folder ?? Wordings).FolderId, "text/plain", Encoding.UTF8.GetByteCount(content), new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero), version);
 
@@ -314,6 +328,7 @@ public sealed class ConnectorSyncServiceTests
 
         public FileProvider Provider => FileProvider.Microsoft;
         public int Downloads { get; private set; }
+        public Action? OnList { get; set; }
 
         public void Set(ConnectorFolder folder, params RemoteFile[] files) => folders[folder.FolderId] = ([.. files], false, null);
 
@@ -325,6 +340,7 @@ public sealed class ConnectorSyncServiceTests
 
         public Task<ConnectorListing> ListAsync(string accessToken, ConnectorFolder folder, CancellationToken cancellationToken = default)
         {
+            OnList?.Invoke();
             var entry = folders[folder.FolderId];
             if (entry.Throws is not null) return Task.FromException<ConnectorListing>(entry.Throws);
             foreach (var file in entry.Files) contents[file.ExternalId] = $"{file.Name} {file.Version}. Cover details.";

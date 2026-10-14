@@ -8,7 +8,8 @@ public sealed record RemoteFile(
     string? MimeType,
     long Size,
     DateTimeOffset? ModifiedAt,
-    string? Version);
+    string? Version,
+    string? DriveId = null);
 
 /// <summary>
 /// What a provider said a folder (or a picked file) holds right now. <c>EmptyIsAuthoritative</c> is true only when the

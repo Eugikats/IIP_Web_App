@@ -222,8 +222,15 @@ public sealed class ConnectorSyncService(
         var now = clock.GetUtcNow();
         var finished = run with { FinishedAt = now, Outcome = outcome, ErrorCode = errorCode, SafeError = safeError };
         await runs.SaveAsync(finished, cancellationToken);
-        // A paused connector stays paused; a run it was given by hand does not switch it back on.
-        await connectors.SaveAsync(connector with { Status = connector.Status == ConnectorStatus.Paused ? ConnectorStatus.Paused : status, LastRunAt = now, LastRunOutcome = outcome }, cancellationToken);
+        // Reload before saving: a person may have changed the folders, paused it or deleted it while this ran, and a run must
+        // only record its own result, never put back an older copy of what they changed.
+        var latest = await connectors.GetAsync(connector.Scope, connector.ConnectorId, cancellationToken);
+        if (latest is not null)
+        {
+            // A paused connector stays paused; a run it was given by hand does not switch it back on.
+            await connectors.SaveAsync(latest with { Status = latest.Status == ConnectorStatus.Paused ? ConnectorStatus.Paused : status, LastRunAt = now, LastRunOutcome = outcome }, cancellationToken);
+        }
+
         await audit.WriteAsync(
             new AuditEvent(
                 Guid.NewGuid(), connector.Scope, null, null, Actor, ActorType.System, "connector.synced", now, null, null, [], "Connectors", null,
