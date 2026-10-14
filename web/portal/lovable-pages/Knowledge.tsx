@@ -13,6 +13,8 @@ import { BookOpen, Search, Upload, RefreshCw, Loader2, AlertTriangle, ChevronDow
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import PolicyQuestionPanel from "@/components/PolicyQuestionPanel";
+import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
+import ConnectedFolders from "@/components/connectors/ConnectedFolders";
 
 // "violet" is Badge's legacy tone alias, it degrades to "info" internally (design language §8.7:
 // violet marks actions, not status), so customer_confidential uses "info" directly in new code.
@@ -175,6 +177,8 @@ export default function Knowledge() {
       )}
 
       <div className="mb-4"><PolicyQuestionPanel /></div>
+
+      {LOVABLE_VISUAL_PARITY_MODE ? null : <ConnectedFolders />}
 
       {showUpload && (
         <GlassCard className="mb-4">
