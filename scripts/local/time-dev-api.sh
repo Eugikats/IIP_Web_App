@@ -5,7 +5,7 @@
 set -euo pipefail
 T=$(az account get-access-token --resource api://d55fe46b-1fba-4c5b-81e1-4ee1918ecf73 --query accessToken -o tsv)
 A=https://app-api-dev-h5girbnzrayqe.azurewebsites.net
-for path in /health /api/v1/sales-leads /api/v1/customers /api/v1/cases /api/v1/acquisition/channel-intelligence /api/v1/acquisition/escalations /api/v1/brief /api/v1/academy/pricing; do
+for path in /health /api/v1/sales-leads /api/v1/customers /api/v1/cases /api/v1/claims /api/v1/acquisition/channel-intelligence /api/v1/acquisition/escalations /api/v1/brief /api/v1/academy/pricing; do
   ts=""
   for i in 1 2 3 4 5; do ts="$ts $(curl -s -o /dev/null -w '%{time_total}' -H "Authorization: Bearer $T" $A$path)"; done
   echo "$path: $ts" | awk '{printf "%-48s", $1; m=0; s=0; for(i=2;i<=NF;i++){s+=$i; if($i>m)m=$i}; printf "avg %.2fs max %.2fs\n", s/(NF-1), m}'

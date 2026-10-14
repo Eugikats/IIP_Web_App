@@ -151,6 +151,6 @@ Changes shipped: the claims list reads documents and audit trails in two queries
 | Channel intelligence | 4.1 s | 1.6 s |
 | Health | 1.8 s to 7 s | 1.9 s |
 
-Still over target: the claims list (7 s against under 2 s). It still loads every claim and returns about 330 KB. Next step is paging with a limit of 50 and a slim row, as in Phase 1.
+Two claims routes exist and they are not the same. The portal's claims screen calls `/api/v1/claims` (a slim row, 50 by default): 1.6 s warm on B1, already under target, 25 KB. `/api/v1/cases` is the older inbox route that returns every claim with a checklist and audit summary (about 330 KB); no portal screen lists from it, only tests and integrations do. It went from 40 to 56 s down to about 7 s with the batched reads, and paging it is optional. The timing script now times both.
 
 Deploy note: on B1 the API takes longer than the CLI's wait to start, so `az webapp deploy` can report failure after Azure has recorded "Deployment successful". Check `az webapp log deployment show` and `/health/ready` before retrying.
