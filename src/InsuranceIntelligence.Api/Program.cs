@@ -155,7 +155,10 @@ builder.Services.AddRateLimiter(limits =>
     limits.AddPolicy("join", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 20, TimeSpan.FromMinutes(10)));
     limits.AddPolicy("marketplace", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("webhook", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 3000, TimeSpan.FromMinutes(1)));
-    limits.AddPolicy("mfa", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(5)));
+    // Per signed-in person in a deployment. Local development has no signed-in person (a header stands in), so
+    // everything shares one bucket there and the limit is relaxed to keep tests and demos from tripping it.
+    limits.AddPolicy("mfa", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+        context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 2000 : 30, TimeSpan.FromMinutes(5)));
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -485,6 +488,12 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPri
 builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PlatformMfaOptions());
 builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPlatformMfaService, InsuranceIntelligence.Application.Security.PlatformMfaService>();
+// Passkeys work only on the portal addresses listed here (Security:WebAuthnOrigins, comma separated).
+builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PasskeyOptions(
+    (builder.Configuration["Security:WebAuthnOrigins"]
+        ?? "https://app.insuranceintelligenceplatform.com,https://app-portal-dev-h5girbnzrayqe.azurewebsites.net,http://localhost:3000,http://127.0.0.1:3000")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
+builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPasskeyService, InsuranceIntelligence.Infrastructure.Security.PasskeyService>();
 // A message that cannot reach a real phone may be recorded as a clearly labelled demonstration send, but
 // only where the runtime profile is not protected. In Staging and Production it is blocked, never faked.
 builder.Services.AddSingleton(new OutreachOptions(!AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile)));
@@ -1123,6 +1132,10 @@ app.MapPost("/api/v1/security/mfa/codes/send", PlatformMfaEndpoints.SendCode).Re
 app.MapPost("/api/v1/security/mfa/codes/confirm", PlatformMfaEndpoints.ConfirmCode).RequireRateLimiting("mfa");
 app.MapDelete("/api/v1/security/mfa/channels/{channel}", PlatformMfaEndpoints.DisableChannel);
 app.MapPost("/api/v1/security/mfa/verify", PlatformMfaEndpoints.Verify).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/passkey/register/options", PlatformMfaEndpoints.PasskeyRegistrationOptions).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/passkey/register/result", PlatformMfaEndpoints.PasskeyRegistrationResult).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/passkey/assert/options", PlatformMfaEndpoints.PasskeyAssertionOptions).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/passkey/assert/result", PlatformMfaEndpoints.PasskeyAssertionResult).RequireRateLimiting("mfa");
 app.MapPost("/api/v1/security/mfa/snooze", PlatformMfaEndpoints.Snooze);
 app.MapPost("/api/v1/security/mfa/sign-out", PlatformMfaEndpoints.SignOut);
 app.MapGet("/api/v1/security/mfa/policy", PlatformMfaEndpoints.GetPolicy);

@@ -51,7 +51,7 @@ const OTHER_ADMIN = { ...HEADERS, "X-User-Id": "user-admin-2" };
 test.beforeEach(async ({ request }) => {
   await request.put(`${API}/api/v1/security/mfa/policy`, {
     headers: OTHER_ADMIN,
-    data: { required: false, allowSnooze: true, minMethods: 1, enabledMethods: ["totp", "email_otp", "sms_otp", "backup_codes"] },
+    data: { required: false, allowSnooze: true, minMethods: 1, enabledMethods: ["totp", "passkey", "email_otp", "sms_otp", "backup_codes"] },
   });
   await request.post(`${API}/api/v1/security/mfa/users/user-1/reset`, { headers: OTHER_ADMIN });
 });
@@ -60,7 +60,7 @@ test.afterAll(async ({ request }) => {
   // Leave the shared in-memory API as the other specs expect it: nothing required.
   await request.put(`${API}/api/v1/security/mfa/policy`, {
     headers: OTHER_ADMIN,
-    data: { required: false, allowSnooze: true, minMethods: 1, enabledMethods: ["totp", "email_otp", "sms_otp", "backup_codes"] },
+    data: { required: false, allowSnooze: true, minMethods: 1, enabledMethods: ["totp", "passkey", "email_otp", "sms_otp", "backup_codes"] },
   });
   await request.post(`${API}/api/v1/security/mfa/users/user-1/reset`, { headers: OTHER_ADMIN });
 });
@@ -121,7 +121,7 @@ test("When an organisation requires it, a signed-out person is sent to verify an
 
   const policy = await request.put(`${API}/api/v1/security/mfa/policy`, {
     headers: HEADERS,
-    data: { required: true, allowSnooze: true, minMethods: 1, enabledMethods: ["totp", "email_otp", "sms_otp", "backup_codes"] },
+    data: { required: true, allowSnooze: true, minMethods: 1, enabledMethods: ["totp", "passkey", "email_otp", "sms_otp", "backup_codes"] },
   });
   expect(policy.status()).toBe(200);
 
@@ -147,6 +147,38 @@ test("When an organisation requires it, a signed-out person is sent to verify an
   // The code for the next 30 seconds is also valid and has not been used, so the test need not wait.
   await page.getByLabel("Verification code").fill(codeFor(secret, Date.now() + 30_000));
   await page.getByRole("button", { name: "Verify" }).click();
+  await page.waitForURL(/\/app/);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+});
+
+test("A passkey is made and then used to get back in, using a virtual authenticator", async ({ page, context, request }) => {
+  // Chromium's built-in virtual authenticator stands in for a phone or a security key, so a real key pair is made
+  // and a real signature checked by the API.
+  const client = await context.newCDPSession(page);
+  await client.send("WebAuthn.enable");
+  await client.send("WebAuthn.addVirtualAuthenticator", {
+    options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+
+  const dialog = await openSecurity(page);
+  await dialog.getByTestId("mfa-card-passkey").getByRole("button", { name: "Set up" }).click();
+  const setup = page.getByRole("dialog", { name: "Add a passkey or security key" });
+  await setup.getByLabel("Name for this passkey").fill("Test key");
+  await setup.getByRole("button", { name: "Create passkey" }).click();
+  await expect(setup).toBeHidden();
+  await expect(dialog.getByTestId("mfa-card-passkey").getByText("Active")).toBeVisible();
+  await expect(dialog.getByTestId("mfa-card-passkey").getByText("Test key", { exact: true })).toBeVisible();
+
+  const policy = await request.put(`${API}/api/v1/security/mfa/policy`, {
+    headers: HEADERS,
+    data: { required: true, allowSnooze: true, minMethods: 1, enabledMethods: ["totp", "passkey", "email_otp", "sms_otp", "backup_codes"] },
+  });
+  expect(policy.status()).toBe(200);
+
+  await request.post(`${API}/api/v1/security/mfa/sign-out`, { headers: HEADERS });
+  await page.goto("/app").catch(() => undefined);
+  await page.waitForURL(/\/security\/verify/);
+  await page.getByRole("button", { name: "Use my passkey" }).click();
   await page.waitForURL(/\/app/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });

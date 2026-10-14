@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 import { METHOD_LABELS, MfaError, sendMfaCode, verifyMfa, type MfaMethod, type MfaStatus } from "@/lib/security/mfa";
+import { passkeyCancelled, passkeysSupported, verifyWithPasskey } from "@/lib/security/passkeys";
 
 // Prove it is you with a method you set up: an authenticator code, a code sent to you, or a backup code. Used on
 // the verify page and inside Settings when a change needs a recent check. Passkeys verify through the browser's own
@@ -16,6 +17,7 @@ const LOGOS: Partial<Record<MfaMethod, string>> = {
   email_otp: "/logos/mfa/email.svg",
   sms_otp: "/logos/mfa/sms.svg",
   backup_codes: "/logos/mfa/backup-codes.svg",
+  passkey: "/logos/mfa/passkey.svg",
 };
 
 const HINTS: Partial<Record<MfaMethod, string>> = {
@@ -23,10 +25,11 @@ const HINTS: Partial<Record<MfaMethod, string>> = {
   email_otp: "We will email a six digit code to your sign-in address.",
   sms_otp: "We will text a six digit code to the number you saved.",
   backup_codes: "Type one of the backup codes you saved. Each works once.",
+  passkey: "Use the passkey or security key you set up. Your device will ask you to confirm.",
 };
 
 export function usableMethods(status: MfaStatus): MfaMethod[] {
-  return status.enrolledMethods.filter((method) => method !== "passkey" && status.offeredMethods.includes(method));
+  return status.enrolledMethods.filter((method) => status.offeredMethods.includes(method) && (method !== "passkey" || passkeysSupported()));
 }
 
 export default function VerifyForm({ status, onVerified, role }: { status: MfaStatus; onVerified: () => void; role?: string }) {
@@ -58,6 +61,18 @@ export default function VerifyForm({ status, onVerified, role }: { status: MfaSt
     } catch (failure) {
       setError(failure instanceof MfaError ? failure.message : "The code could not be sent.");
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function usePasskey() {
+    setBusy(true);
+    setError(null);
+    try {
+      await verifyWithPasskey(role);
+      onVerified();
+    } catch (failure) {
+      setError(passkeyCancelled(failure) ? "The passkey prompt was closed. Try again." : failure instanceof MfaError ? failure.message : "That did not work. Try again.");
       setBusy(false);
     }
   }
@@ -99,7 +114,12 @@ export default function VerifyForm({ status, onVerified, role }: { status: MfaSt
 
       <p className="m-0 text-[13px] text-dls-text-secondary">{HINTS[method]}</p>
 
-      {needsSend && !sent ? (
+      {method === "passkey" ? (
+        <Button variant="primary" className="mt-3" disabled={busy} onClick={() => void usePasskey()}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+          Use my passkey
+        </Button>
+      ) : needsSend && !sent ? (
         <Button variant="secondary" className="mt-3" disabled={busy || status.lockedOut} onClick={() => void send()}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
           Send me a code

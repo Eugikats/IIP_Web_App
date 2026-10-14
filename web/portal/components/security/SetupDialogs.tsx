@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 import { beginTotp, confirmMfaCode, confirmTotp, MfaError, rotateBackupCodes, sendMfaCode } from "@/lib/security/mfa";
+import { passkeyCancelled, registerPasskey } from "@/lib/security/passkeys";
 
 // The set-up steps for each method. An authenticator app shows its QR code and its secret once; email and SMS
 // send a code to type back; backup codes are shown once and never again.
@@ -293,6 +294,51 @@ export function BackupCodesDialog({ open, onClose, onDone, role }: { open: boole
       )}
       {error ? <p role="alert" className="m-0 mt-3 text-[12.5px] text-dls-danger-text">{error}</p> : null}
     </div>
+    </Modal>
+  );
+}
+
+export function PasskeySetupDialog({ open, onClose, onDone, role }: { open: boolean; onClose: () => void; onDone: Done; role?: string }) {
+  const [nickname, setNickname] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setNickname("");
+      setError(null);
+      setBusy(false);
+    }
+  }, [open]);
+
+  async function create() {
+    setBusy(true);
+    setError(null);
+    try {
+      await registerPasskey(nickname.trim() || "Passkey", role);
+      onDone();
+      onClose();
+    } catch (failure) {
+      setError(passkeyCancelled(failure) ? "The prompt was closed before a passkey was made. Try again." : errorText(failure, "The passkey could not be made."));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open={open} title="Add a passkey or security key" onClose={onClose} width={480}>
+      <div className="p-6">
+        <p className="m-0 text-[13px] text-dls-text-secondary">
+          Your device will ask you to confirm with your fingerprint, face or screen lock, or to touch a security key. The secret stays on your device; IIP keeps only a public key.
+        </p>
+        <div className="mt-3 w-72">
+          <Input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="A name, for example My phone" aria-label="Name for this passkey" maxLength={60} />
+        </div>
+        <Button variant="primary" className="mt-3" disabled={busy} onClick={() => void create()}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+          Create passkey
+        </Button>
+        {error ? <p role="alert" className="m-0 mt-3 text-[12.5px] text-dls-danger-text">{error}</p> : null}
+      </div>
     </Modal>
   );
 }

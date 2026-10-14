@@ -24,7 +24,8 @@ import {
   type MfaStatus,
 } from "@/lib/security/mfa";
 import VerifyForm from "./VerifyForm";
-import { BackupCodesDialog, CodeSetupDialog, TotpSetupDialog } from "./SetupDialogs";
+import { BackupCodesDialog, CodeSetupDialog, PasskeySetupDialog, TotpSetupDialog } from "./SetupDialogs";
+import { passkeysSupported } from "@/lib/security/passkeys";
 
 // Settings, Security: how this person proves it is them after signing in, and (for an administrator) whether the
 // organisation requires it. Modelled on CIP's Settings, Security. Off for an organisation until an administrator
@@ -34,6 +35,7 @@ type CardSpec = { method: MfaMethod; logo: string; title: string; text: string }
 
 const CARDS: CardSpec[] = [
   { method: "totp", logo: "/logos/mfa/microsoft-authenticator.svg", title: "Authenticator app", text: "Microsoft Authenticator or Google Authenticator on your phone shows a new code every 30 seconds." },
+  { method: "passkey", logo: "/logos/mfa/passkey.svg", title: "Passkey or security key", text: "Use your fingerprint, face or screen lock, or a security key, instead of typing a code." },
   { method: "email_otp", logo: "/logos/mfa/email.svg", title: "Email codes", text: "A six digit code is emailed to the address you sign in with." },
   { method: "sms_otp", logo: "/logos/mfa/sms.svg", title: "SMS codes", text: "A six digit code is texted to your mobile number." },
   { method: "backup_codes", logo: "/logos/mfa/backup-codes.svg", title: "Backup codes", text: "Eight one-time codes for when you cannot use your other methods." },
@@ -49,7 +51,7 @@ export default function SecuritySection() {
   const isAdmin = (runtimeContext?.permissions ?? []).some((permission) => String(permission) === "ManageTenantSettings");
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<"totp" | "email" | "sms" | "backup" | null>(null);
+  const [dialog, setDialog] = useState<"totp" | "passkey" | "email" | "sms" | "backup" | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -141,6 +143,7 @@ export default function SecuritySection() {
                   </div>
                   <p className="m-0 mt-1 text-[12.5px] leading-relaxed text-dls-text-secondary">{card.text}</p>
                   {detail ? <p className="m-0 mt-1 text-[12px] text-dls-text-muted">{detail}</p> : null}
+                  {card.method === "passkey" && !passkeysSupported() && offered ? <p className="m-0 mt-1 text-[12px] text-dls-text-muted">This browser cannot make passkeys.</p> : null}
                   {card.method === "backup_codes" && !hasAnotherMethod && offered ? <p className="m-0 mt-1 text-[12px] text-dls-text-muted">Set up another method first. These are for when you cannot use it.</p> : null}
                 </div>
               </div>
@@ -148,14 +151,14 @@ export default function SecuritySection() {
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Button
                     variant={enrolled ? "secondary" : "primary"}
-                    disabled={needsVerifyToChange || (card.method === "backup_codes" && !hasAnotherMethod)}
-                    onClick={() => setDialog(card.method === "totp" ? "totp" : card.method === "email_otp" ? "email" : card.method === "sms_otp" ? "sms" : "backup")}
+                    disabled={needsVerifyToChange || (card.method === "backup_codes" && !hasAnotherMethod) || (card.method === "passkey" && !passkeysSupported())}
+                    onClick={() => setDialog(card.method === "totp" ? "totp" : card.method === "passkey" ? "passkey" : card.method === "email_otp" ? "email" : card.method === "sms_otp" ? "sms" : "backup")}
                   >
                     {card.method === "backup_codes" ? (enrolled ? "Make new codes" : "Make codes") : enrolled ? "Add another" : "Set up"}
                   </Button>
-                  {enrolled && card.method === "totp"
+                  {enrolled && (card.method === "totp" || card.method === "passkey")
                     ? credentials.map((credential) => (
-                        <Button key={credential.id} variant="destructive" disabled={needsVerifyToChange} onClick={() => void run(() => removeCredential("totp", credential.id, role), "Authenticator removed.")}>
+                        <Button key={credential.id} variant="destructive" disabled={needsVerifyToChange} onClick={() => void run(() => removeCredential(card.method, credential.id, role), `${card.title} removed.`)}>
                           Remove {credential.label}
                         </Button>
                       ))
@@ -177,6 +180,7 @@ export default function SecuritySection() {
       ) : null}
 
       <TotpSetupDialog open={dialog === "totp"} role={role} onClose={() => setDialog(null)} onDone={() => { setNotice({ tone: "ok", text: "Authenticator app turned on." }); void load(); }} />
+      <PasskeySetupDialog open={dialog === "passkey"} role={role} onClose={() => setDialog(null)} onDone={() => { setNotice({ tone: "ok", text: "Passkey added." }); void load(); }} />
       <CodeSetupDialog open={dialog === "email"} channel="email" role={role} onClose={() => setDialog(null)} onDone={() => { setNotice({ tone: "ok", text: "Email codes turned on." }); void load(); }} />
       <CodeSetupDialog open={dialog === "sms"} channel="sms" role={role} onClose={() => setDialog(null)} onDone={() => { setNotice({ tone: "ok", text: "SMS codes turned on." }); void load(); }} />
       <BackupCodesDialog open={dialog === "backup"} role={role} onClose={() => setDialog(null)} onDone={() => void load()} />
@@ -283,7 +287,7 @@ function PolicyPanel({ role, onChanged }: { role?: string; onChanged: () => void
         <fieldset className="rounded-xl border border-dls-border-subtle bg-dls-surface px-4 py-3">
           <legend className="px-1 text-[14px] font-semibold text-dls-text-primary">Methods you offer</legend>
           <div className="mt-1 flex flex-wrap gap-x-5 gap-y-2">
-            {(["totp", "email_otp", "sms_otp", "backup_codes"] as MfaMethod[]).map((method) => (
+            {(["totp", "passkey", "email_otp", "sms_otp", "backup_codes"] as MfaMethod[]).map((method) => (
               <label key={method} className="inline-flex items-center gap-2 text-[13px] text-dls-text-secondary">
                 <input type="checkbox" checked={draft.enabledMethods.includes(method)} onChange={() => toggleMethod(method)} />
                 {METHOD_LABELS[method]}

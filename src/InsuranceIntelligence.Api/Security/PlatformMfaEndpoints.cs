@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Security;
 
@@ -22,6 +23,31 @@ public static class PlatformMfaEndpoints
     public sealed record VerifyRequest(string? Method, string? Code);
 
     public sealed record PolicyRequest(bool Required, bool AllowSnooze, int MinMethods, IReadOnlyList<string>? EnabledMethods);
+
+    public sealed record PasskeyResultRequest(JsonElement Response, string? Nickname);
+
+    // ---- passkeys. The browser's Origin header names the portal address the passkey belongs to.
+
+    public static async Task<IResult> PasskeyRegistrationOptions(HttpContext http, IPasskeyService passkeys, ITenantContextAccessor tenant, CancellationToken cancellationToken)
+    {
+        var result = await passkeys.RegistrationOptionsAsync(Origin(http), AccountName(http), http.User.FindFirst("name")?.Value ?? AccountName(http), cancellationToken);
+        return RespondRaw(result);
+    }
+
+    public static async Task<IResult> PasskeyRegistrationResult(PasskeyResultRequest request, HttpContext http, IPasskeyService passkeys, CancellationToken cancellationToken) =>
+        Respond(await passkeys.RegistrationResultAsync(Origin(http), request.Response.GetRawText(), request.Nickname, cancellationToken), _ => new { ok = true });
+
+    public static async Task<IResult> PasskeyAssertionOptions(HttpContext http, IPasskeyService passkeys, CancellationToken cancellationToken) =>
+        RespondRaw(await passkeys.AssertionOptionsAsync(Origin(http), cancellationToken));
+
+    public static async Task<IResult> PasskeyAssertionResult(PasskeyResultRequest request, HttpContext http, IPasskeyService passkeys, CancellationToken cancellationToken) =>
+        Respond(await passkeys.AssertionResultAsync(Origin(http), request.Response.GetRawText(), cancellationToken), _ => new { ok = true });
+
+    private static string Origin(HttpContext http) => http.Request.Headers.Origin.ToString();
+
+    /// <summary>The options are already JSON, so they are returned as they are rather than quoted a second time.</summary>
+    private static IResult RespondRaw(MfaResult<string> result) =>
+        result.Ok ? Results.Content(result.Value!, "application/json") : Respond(result, value => value);
 
     public static async Task<IResult> GetStatus(IPlatformMfaService service, CancellationToken cancellationToken) =>
         Results.Ok(await service.GetStatusAsync(cancellationToken));
