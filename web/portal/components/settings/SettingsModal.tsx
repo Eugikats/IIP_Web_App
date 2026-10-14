@@ -5,7 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState, type ComponentType
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowLeft, Bot, CreditCard, FolderOpen, GraduationCap, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Settings, Smartphone, User, Users, X, type LucideIcon,
+  ArrowLeft, Bot, CreditCard, ShieldCheck, FolderOpen, GraduationCap, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Settings, Smartphone, User, Users, X, type LucideIcon,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
@@ -20,6 +20,7 @@ import { disconnectFileProvider, FileConnectionError, getFileConnectionStatus, s
 import { COURSES } from "@/lib/academy/courses";
 import { formatPrice, useAcademyPricing } from "@/lib/academy/pricing";
 import CreditMeter from "@/components/billing/CreditMeter";
+import SecuritySection from "@/components/security/SecuritySection";
 import ProfileSettings from "@/lovable-pages/Settings";
 import AgentsPanel from "@/lovable-pages/admin/Agents";
 import BillingPanel from "@/lovable-pages/admin/Billing";
@@ -37,7 +38,7 @@ import WhatsAppPanel from "@/lovable-pages/admin/WhatsAppSettings";
 // is connected and what is not. A card is "Connected" only when the provider validated the saved
 // connection; file sources that cannot be connected yet say "Not connected" and why.
 
-export type SettingsSection = "profile" | "integrations" | "agents" | "team" | "products" | "academy" | "billing";
+export type SettingsSection = "profile" | "integrations" | "agents" | "team" | "products" | "academy" | "billing" | "security";
 
 const SECTIONS: { key: SettingsSection; label: string; title: string; description: string; icon: LucideIcon }[] = [
   { key: "integrations", label: "Integrations", title: "Integrations", description: "What the platform can connect to, and what is connected.", icon: Plug },
@@ -46,6 +47,7 @@ const SECTIONS: { key: SettingsSection; label: string; title: string; descriptio
   { key: "products", label: "Products", title: "Products", description: "The covers sold, their documents and claim stages, and policy imports.", icon: Package },
   { key: "academy", label: "IIP Academy", title: "IIP Academy prices", description: "What each course costs a learner.", icon: GraduationCap },
   { key: "billing", label: "Usage and billing", title: "Usage and billing", description: "How much the platform has been used, the plan, and AI credits.", icon: CreditCard },
+  { key: "security", label: "Security", title: "Security", description: "How you prove it is you after signing in, and whether your organisation requires it.", icon: ShieldCheck },
   { key: "profile", label: "Profile", title: "Profile", description: "Who you are signed in as, and the workspace you are working in.", icon: User },
 ];
 
@@ -227,6 +229,7 @@ export function SettingsModal({
                     />
                   ) : null}
                   {section === "academy" ? <AcademyPricingSection /> : null}
+                  {section === "security" ? <SecuritySection /> : null}
                   {section === "billing" ? <BillingSection /> : null}
                   {section === "profile" ? <Embedded><ProfileSettings /></Embedded> : null}
                 </Suspense>
@@ -507,7 +510,7 @@ function AcademyPricingSection() {
 
   const invalid = COURSES.some((course) => {
     const value = draft[course.id];
-    return value === undefined || value.trim() === "" || Number.isNaN(Number(value)) || Number(value) < 0 || Number(value) > 10000;
+    return value === undefined || value.trim() === "" || Number.isNaN(Number(value)) || Number(value) < 0 || Number(value) > 100000000;
   });
   const changed = !!prices && COURSES.some((course) => Number(draft[course.id]) !== prices[course.id]);
 

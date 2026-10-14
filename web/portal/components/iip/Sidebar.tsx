@@ -15,6 +15,7 @@ import { runtimeInitials, useRuntimeContext } from "@/lib/runtimeContext";
 import { canAccess, canAccessWithPermissions } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { signOut } from "@/lib/entraAuth";
+import { signOutMfa } from "@/lib/security/mfa";
 import { Avatar } from "@/components/ui/Avatar";
 import { Popover, PopoverGroupLabel } from "@/components/ui/Popover";
 import RoleSwitcher from "./RoleSwitcher";
@@ -174,6 +175,16 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("integrations");
   const openSettings = (section: SettingsSection) => { setSettingsSection(section); setSettingsOpen(true); };
+
+  // Other parts of the app (the set-up prompt for a second step) ask for a Settings section to be opened.
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const section = (event as CustomEvent<{ section?: SettingsSection }>).detail?.section;
+      if (section) { setSettingsSection(section); setSettingsOpen(true); }
+    };
+    window.addEventListener("iip:open-settings", onOpen);
+    return () => window.removeEventListener("iip:open-settings", onOpen);
+  }, []);
   const expanded = pinned || peek;
   const [searchQuery, setSearchQuery] = useState("");
   const [signingOut, setSigningOut] = useState(false);
@@ -295,6 +306,8 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   async function handleSignOut() {
     setSigningOut(true);
     try {
+      // Ends the verified state on the server first, so the next sign-in on any device asks again.
+      await signOutMfa().catch(() => undefined);
       await signOut();
     } finally {
       setSigningOut(false);

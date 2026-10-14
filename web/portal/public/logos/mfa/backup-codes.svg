@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="Backup codes">
+  <rect width="48" height="48" rx="12" fill="#FFF4E8"/>
+  <circle cx="17" cy="24" r="6.25" stroke="#EA580C" stroke-width="2.25"/>
+  <circle cx="17" cy="24" r="2.1" fill="#EA580C"/>
+  <path stroke="#EA580C" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" d="M23 24h12.5"/>
+  <path stroke="#EA580C" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" d="M32.5 24v4M36 24v5.5"/>
+</svg>

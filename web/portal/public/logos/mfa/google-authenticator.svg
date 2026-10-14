@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Google Authenticator">
+  <rect width="48" height="48" rx="12" fill="#F8F9FA"/>
+  <g transform="translate(24,24)">
+    <rect x="-2.2" y="-14" width="4.4" height="11" rx="2.2" fill="#4285F4"/>
+    <rect x="-2.2" y="-14" width="4.4" height="11" rx="2.2" fill="#EA4335" transform="rotate(60)"/>
+    <rect x="-2.2" y="-14" width="4.4" height="11" rx="2.2" fill="#FBBC04" transform="rotate(120)"/>
+    <rect x="-2.2" y="-14" width="4.4" height="11" rx="2.2" fill="#34A853" transform="rotate(180)"/>
+    <rect x="-2.2" y="-14" width="4.4" height="11" rx="2.2" fill="#4285F4" transform="rotate(240)"/>
+    <rect x="-2.2" y="-14" width="4.4" height="11" rx="2.2" fill="#EA4335" transform="rotate(300)"/>
+  </g>
+</svg>

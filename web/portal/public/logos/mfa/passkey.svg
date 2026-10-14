@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Passkey biometric">
+  <!-- Soft lavender squircle matching the card tile -->
+  <rect x="5" y="5" width="90" height="90" rx="24" fill="#f0f2fe" />
+
+  <g fill="none" stroke="#3b3db6" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Fingerprint arcs -->
+    <path d="M 18,52 A 32,32 0 0,1 62,24" />
+    <path d="M 15,62 A 38,38 0 0,1 68,18" />
+    <path d="M 23,73 A 40,40 0 0,1 74,13" />
+    <path d="M 33,83 A 42,42 0 0,1 80,10" />
+    <path d="M 23,45 A 24,24 0 0,1 54,31" />
+    <path d="M 28,39 A 16,16 0 0,1 46,36" />
+    <!-- Base fragments -->
+    <path d="M 13,48 C 11,54 11,62 14,68" />
+    <path d="M 17,75 C 22,81 28,84 34,87" />
+    <!-- Shield masks ridges underneath -->
+    <path
+      d="M 64,48 C 55,47 48,51 43,53 C 41,69 49,81 64,88 C 79,81 87,69 85,53 C 80,51 73,47 64,48 Z"
+      fill="#f0f2fe"
+      stroke-width="5"
+    />
+  </g>
+</svg>

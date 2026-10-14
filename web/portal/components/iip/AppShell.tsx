@@ -9,6 +9,7 @@ import AssistantBar from "./AssistantBar";
 import CopilotPanel from "./CopilotPanel";
 import EnvironmentBanner from "./EnvironmentBanner";
 import NotificationBell from "./NotificationBell";
+import MfaGate from "@/components/security/MfaGate";
 import { UIStateProvider, useUI } from "@/context/UIStateContext";
 import { canAccess, canAccessWithPermissions, firstAccessibleRoute, previewLandingRoute } from "@/lib/roles";
 import { RuntimeContextProvider, useRuntimeContext } from "@/lib/runtimeContext";
@@ -127,6 +128,7 @@ function ShellInner({ children }: { children: ReactNode }) {
             `ready` gates it on permissions having resolved -- a step must never be shown or dropped
             on the basis of access that was still unknown. */}
         <FirstRunOrientation userId={runtimeContext?.userId ?? null} ready={!loading} pathname={loc.pathname} />
+        <MfaGate />
 
         <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">
