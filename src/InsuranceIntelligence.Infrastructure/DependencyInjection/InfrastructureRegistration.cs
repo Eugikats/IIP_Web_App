@@ -26,6 +26,7 @@ using InsuranceIntelligence.Infrastructure.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace InsuranceIntelligence.Infrastructure.DependencyInjection;
@@ -193,7 +194,14 @@ public static class InfrastructureRegistration
         // reported). ChannelProvider itself is untouched and still governs the separate
         // AzureProviderStartupValidator fail-closed check for Staging/Production.
         services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
-        services.AddHttpClient<IWhatsAppOutboundProvider, WhatsAppCloudApiOutboundProvider>();
+        // Everything that leaves for a customer passes the content guard and the per-number rate limit first.
+        services.AddHttpClient<WhatsAppCloudApiOutboundProvider>();
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<OutboundRateLimiter>();
+        services.AddTransient<IWhatsAppOutboundProvider>(provider => new GuardedWhatsAppOutboundProvider(
+            provider.GetRequiredService<WhatsAppCloudApiOutboundProvider>(),
+            provider.GetRequiredService<OutboundRateLimiter>(),
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GuardedWhatsAppOutboundProvider>>()));
         services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
 
         services.AddScoped<IWhatsAppToCaseMatcher, RuleBasedWhatsAppToCaseMatcher>();

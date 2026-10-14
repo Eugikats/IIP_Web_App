@@ -58,6 +58,9 @@ public sealed class CommunicationProviderRegistrationTests
         var services = new ServiceCollection();
         services.AddInsuranceIntelligenceInfrastructure(configuration, new TestEnvironment("Development"));
         services.AddDataProtection();
+        services.AddLogging();
+        services.AddMemoryCache();
+        services.AddSingleton<IConfiguration>(configuration);
 
         Assert.Contains(
             services,
@@ -66,7 +69,8 @@ public sealed class CommunicationProviderRegistrationTests
 
         using var provider = services.BuildServiceProvider();
         Assert.IsType<WhatsAppCloudApiInboundProvider>(provider.GetRequiredService<IWhatsAppInboundProvider>());
-        Assert.IsType<WhatsAppCloudApiOutboundProvider>(provider.GetRequiredService<IWhatsAppOutboundProvider>());
+        // Every send passes the content guard and the per-number rate limit before the live sender.
+        Assert.IsType<GuardedWhatsAppOutboundProvider>(provider.GetRequiredService<IWhatsAppOutboundProvider>());
     }
 
     private static ServiceProvider BuildProvider(string communicationProvider)
