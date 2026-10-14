@@ -1,6 +1,6 @@
-# Channels and integrations: build plan to close the gaps with CIP
+# Channels, integrations and security: build plan to close the gaps with CIP
 
-Written 2026-10-12. Scope: everything CIP (the banking product) connects to or receives from, that IIP
+Written 2026-10-12. Security workstreams (S1 to S6) added 2026-10-14 after reading CIP's security code. Scope: everything CIP (the banking product) connects to or receives from, that IIP
 does not yet, with the weight on channels and on data access through Drive, OneDrive and SharePoint.
 Customer acquisition has its own analysis (`IIP_ACQUISITION_GAP_ANALYSIS_VS_CIP.md`); this plan points to it
 where the two meet instead of repeating it.
@@ -206,17 +206,122 @@ the gate. "Gate" is what must be true and shown before the next workstream start
 - Gate for each chosen item: a written scope, the data classification under the data boundary (control plane
   versus customer data), and a synthetic provider first.
 
+## Security workstreams (added 2026-10-14)
+
+CIP's security code was read at the same commit (`1a4be27`). Its design note
+`docs/security/CIP_Platform_MFA_Implementation_Plan.md` is headed "Draft, no implementation yet", but the code
+and tests below exist, so the note's status line is stale and the code is the reference. IIP was searched for
+each capability on the SaaS branch at `cc3ce0c`: it has no second factor of any kind, no webhook replay
+protection, no legal hold and no security screen in Settings. It does have encrypted connection secrets
+(`IConnectionSecretProtector`), retention policies and consent records, named rate limits on sign-up, invitation,
+Marketplace and webhook routes, API keys and an audit trail.
+
+### S1. Platform sign-in verification (two-factor), the headline gap
+
+- Gap: after Microsoft or Google sign-in, IIP asks for nothing more. CIP adds its own second step that works the
+  same whichever provider the person signed in with.
+- What CIP has, all under `apps/credit-api/Services/Security/`:
+  - Methods: authenticator app codes (standard TOTP, so Microsoft Authenticator and Google Authenticator both scan
+    the same QR code; library `Otp.NET` 1.4.0), passkeys and security keys (WebAuthn; library `Fido2` 3.0.1),
+    email codes, SMS codes (EGO SMS), and one-time backup codes stored as hashes.
+  - `PlatformMfaEnrollmentService.cs` (906), `PlatformMfaWebAuthnService.cs` (540), `PlatformMfaLoginService.cs`
+    (488), `PlatformMfaStatusService.cs` (171), `PlatformMfaSessionService.cs` (143),
+    `PlatformMfaPolicyService.cs` (124), `PlatformMfaAdminService.cs` (233),
+    `PlatformMfaEnforcementMiddleware.cs` (133), `PlatformMfaSecretProtector.cs` (60),
+    `PlatformMfaEmailCopy.cs`, `PlatformMfaEmailSignInBootstrap.cs`, `Controllers/PlatformMfaAuthController.cs`,
+    the MFA routes in `OfficerSettingsController.cs`, `Services/Sms/SmsOtpService.cs` (306).
+  - Policy per organisation: `require_platform_mfa`, `allow_snooze`, `min_methods_required`.
+  - Enforcement: middleware answers 403 `MFA_ENROLL_REQUIRED` or `MFA_REQUIRED` on every API route except an
+    allowlist. Verification lasts until sign-out, an administrator reset, or a newer interactive sign-in
+    (compared by the identity provider's `auth_time`, not token issue time, so silent token renewal does not
+    force a new code).
+  - Email code defaults: 6 digits, valid 30 minutes, 5 attempts, 60 seconds between sends.
+  - Administrator tools: set the policy, reset a person's methods, see enrolment figures.
+  - Web: `app/security/verify/page.tsx` (777), `PlatformMfaLoginGate.tsx`, `PlatformMfaNudgeHost.tsx` (273),
+    `settings/V2SecurityView.tsx` (457) and `settings/mfa/*` (Microsoft and Google authenticator setup, passkey,
+    SMS, email, backup codes, method cards, admin panel), `lib/auth/platform-mfa-rechallenge.ts`,
+    `lib/auth/platform-session.ts`.
+  - Tests: `PlatformMfaEnrollmentServiceTests` (378), `PlatformMfaPhase34Tests` (201),
+    `PlatformMfaStatusServiceTests` (111), `PlatformMfaOnboardingLogoTests`, `SmsOtpServiceTests` (290).
+- IIP today: nothing. No tables, no routes, no screen. Settings has no Security section.
+- Adapt: tables gain workspace as well as tenant; secrets go through `IConnectionSecretProtector` with keys in Key
+  Vault; SMS codes use IIP's existing SMS providers, and email codes need W4 step one (email is Disabled live
+  today), so the first release ships authenticator app, passkey and backup codes, with email and SMS codes
+  switched on when those channels are live; the WebAuthn relying party is the portal's own domain; the policy
+  and reset actions need `ManageTenantSettings` and are audited; the allowlist is rewritten for IIP's routes
+  (health, sign-in, the verification routes, and the public claimant and webhook routes, which have their own
+  authentication).
+- Gate: enrol Microsoft Authenticator and Google Authenticator from the same QR code; a signed-in session
+  without verification gets 403 on a protected route and the portal shows the verify screen; a wrong code five
+  times locks the challenge; a backup code works once; an administrator reset forces re-enrolment; with the
+  policy off nothing changes for existing users; CIP's tests pass in IIP.
+
+### S2. Security section in Settings and the first-run prompt
+
+- CIP evidence: `V2SecurityView.tsx` (three tabs: platform verification, security posture, sign-in provider),
+  `PlatformMfaNudgeHost.tsx` (a prompt after sign-up, a banner after a snooze, optional hard gate),
+  `OfficerSecuritySummaryService.cs`.
+- Adapt: add a `security` section to `SettingsModal`. Copy the method cards and wizards. Do **not** copy the
+  posture text as written: CIP's summary states "AES-256" and "TLS 1.3 with mutual authentication" as fixed
+  copy. IIP shows only what a real check returned, or "Not configured".
+- Gate: the six UI states exist; a new organisation's creator is prompted once and can snooze within policy.
+
+### S3. Webhook replay protection and rate limiting
+
+- CIP evidence: `Services/WebhookSecurity/WhatsAppWebhookReplayProtectionService.cs` (65),
+  `WebhookRateLimitingMiddleware.cs` (66).
+- IIP today: signature check and a named "webhook" rate limit exist; no replay protection. Duplicate messages are
+  ignored by message id after they are accepted.
+- Build with W7 (same routes, same tests).
+- Gate: a correctly signed webhook replayed outside the allowed window is refused and appears in the receipt log.
+
+### S4. Field encryption with Key Vault keys
+
+- CIP evidence: `Services/Encryption/FieldEncryptionService.cs` (142), `KeyVaultEncryptionKeyProvider.cs` (136).
+  Its `NoOpEncryptionProvider.cs` is **not** copied.
+- IIP today: connection secrets are protected with ASP.NET Data Protection. Whether its key ring is itself
+  wrapped by a Key Vault key was not checked; check before deciding the size of this item.
+- Gate: a written list of which fields are encrypted at field level, and key rotation exercised once on dev.
+
+### S5. Retention, legal hold and redaction
+
+- CIP evidence: `Services/Retention/` (`MessageRetentionService` 245, `RetentionPolicyService` 140,
+  `LegalHoldService` 107, `RetentionBackgroundService`), report and Teams redaction services (W4, W5).
+- IIP today: retention policies and consent records exist; no legal hold; one redaction use.
+- Insurance note: a claim under dispute or litigation must not be purged, so legal hold matters more here than in
+  CIP. Confirm periods with legal and compliance.
+- Gate: a conversation under legal hold survives a retention run; the hold and its release are audited.
+
+### S6. Security monitoring and self-audit
+
+- CIP evidence: `Services/Audit/SecurityAuditService.cs` (620), `ComplianceAuditService.cs` (653),
+  `Services/EnterpriseSecurity/SecurityMonitoringService.cs` (148), `EnterpriseSecurityComplianceService.cs`
+  (585), `Services/ConnectorSecurityService.cs` (186, connector access evidence, used by W2).
+- Not read in depth. Before copying, read what each check actually verifies; a check that always passes is worse
+  than none.
+- Gate: every check shown to an administrator is backed by a real test of the live system.
+
+### Not in CIP either (decide whether IIP wants them)
+
+Searched for and not found in CIP's code: idle session timeout, IP allowlists, SCIM provisioning, trusted
+devices, sign-in lockout beyond code attempts, SAML. None is a CIP gap. Entra Conditional Access can supply
+several of these for Microsoft work accounts without code.
+
 ## Order and dependencies
 
-1. W0 and W1 (settings; prove the existing pick). No code, unblocks demos.
-2. W7 gaps B and C, and W9 status checks (small, protect everything after them).
-3. W4 step one (switch on and verify email, Teams webhooks, SMS) since most of it is configuration.
-4. W2 (folder connectors) with W3 behind it, because export reuses the same tokens and pickers.
-5. W6 (web chat) and W4 step two (email to lead), which close the acquisition gaps K1 and K2.
-6. W5 (Teams bot), then W7 gap A (egress guard).
-7. W10 items as decided.
+1. W0 and W1 (registrations and settings; prove the existing file pick). No code, unblocks demos.
+2. S1 and S2 first release: authenticator app, passkey and backup codes, policy off by default. It depends on
+   nothing else in this plan and protects everything built after it.
+3. W7 gaps B and C with S3, and W9 status checks (small, protect everything after them).
+4. W4 step one (switch on and verify email, Teams webhooks, SMS), then switch on email and SMS codes in S1.
+5. W2 (folder connectors) with W3 behind it, because export reuses the same tokens and pickers.
+6. W6 (web chat) and W4 step two (email to lead), which close the acquisition gaps K1 and K2.
+7. W5 (Teams bot), then W7 gap A (egress guard).
+8. S5 (legal hold), then S4 and S6 after the checks named in them.
+9. W10 items as decided.
 
 W2, W6 and W5 are independent of one another once the common seams exist, so they can run as parallel tracks.
+S1 can run in parallel with W0 and W1.
 
 ## Required for every workstream before it is called done
 
@@ -245,3 +350,9 @@ W2, W6 and W5 are independent of one another once the common seams exist, so the
 3. Should W2 sync only folders an administrator picks, or let each person connect their own? CIP supports both; the
    safer default is administrator-picked folders with a person's approval before anything reaches retrieval.
 4. W10: which of the candidate connectors are wanted for the next customer?
+5. Two-factor: required for every organisation from the start, or off by default with each organisation's
+   administrator switching it on? CIP supports both through `require_platform_mfa`.
+6. Two-factor: which methods in the first release? Recommended: authenticator app, passkey and backup codes,
+   with email and SMS codes once those channels are live.
+7. Two-factor: may a person snooze the setup prompt, and for how long?
+8. Does two-factor also apply to email and password sign-in from the claims-core branch, when that merges?
