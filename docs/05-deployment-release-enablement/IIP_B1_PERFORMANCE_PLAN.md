@@ -137,3 +137,20 @@ What this shows:
 - Nothing here suggests the database is the limit.
 
 The target figures in section 5 stand. Start with the claims list.
+
+## 10. Measured after the first fixes (2026-10-14, B1, same script, after warm-up)
+
+Changes shipped: the claims list reads documents and audit trails in two queries instead of two per claim; the customers list counts open claims through an index; the prospect list finds each person's customer record through an index on the last nine digits of the number; JSON responses are compressed; the portal's Node memory is capped at 384 MB; .NET tiered PGO and concurrent GC are off on the API. CIP runs on the same B1 size with the same shape of app (one .NET API, one Next.js app) and uses response compression and an in-memory cache; the difference was how IIP reads its data, not the plan.
+
+| Call | Before (B1) | After (B1) |
+|---|---|---|
+| Prospects list | 39 s average (during load) | 3.0 s |
+| Customers list | 3.8 s to 9.3 s | 1.4 s |
+| Claims list | 33 s to 56 s | 7 s (warm), 8.6 s average |
+| Today's brief | 2.8 s | 2.1 s |
+| Channel intelligence | 4.1 s | 1.6 s |
+| Health | 1.8 s to 7 s | 1.9 s |
+
+Still over target: the claims list (7 s against under 2 s). It still loads every claim and returns about 330 KB. Next step is paging with a limit of 50 and a slim row, as in Phase 1.
+
+Deploy note: on B1 the API takes longer than the CLI's wait to start, so `az webapp deploy` can report failure after Azure has recorded "Deployment successful". Check `az webapp log deployment show` and `/health/ready` before retrying.
