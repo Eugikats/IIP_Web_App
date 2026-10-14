@@ -106,7 +106,7 @@ export default function SecuritySection() {
       </p>
 
       {status.shouldPrompt ? (
-        <p role="status" className="m-0 mt-3 rounded-xl border border-dls-warning-border bg-dls-warning-bg px-4 py-3 text-[13px] text-dls-text-primary">
+        <p role="status" className="m-0 mt-3 rounded-xl border border-dls-warning-dot bg-dls-warning-tint px-4 py-3 text-[13px] text-dls-text-primary">
           Your organisation requires a verification method. Set up at least {status.minMethods === 1 ? "one" : status.minMethods} below.
         </p>
       ) : null}

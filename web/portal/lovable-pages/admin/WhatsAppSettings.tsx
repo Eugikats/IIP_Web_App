@@ -15,6 +15,7 @@ import {
   saveWhatsAppConfiguration,
   testWhatsAppConfiguration,
 } from "@/lib/whatsappSettings";
+import DeliveryPanel from "@/components/whatsapp/DeliveryPanel";
 
 // No verify-token field: IIP generates that itself and registers it with Meta directly (blueprint
 // §4.3), the operator never types or stores it.
@@ -166,6 +167,8 @@ export default function WhatsAppSettings() {
                 </div>
               )}
             </div>
+
+            {status.connected ? <DeliveryPanel role={role} /> : null}
 
             {testResult && (
               <div className={`mt-4 flex items-start gap-2 rounded-dls-control p-3 text-[12px] ${testResult.success ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-danger-tint text-dls-danger-text"}`}>

@@ -100,6 +100,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IUserFileConnectionRepository, InsuranceIntelligence.Infrastructure.Connections.EfUserFileConnectionRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Security.IUserSecurityRepository, InsuranceIntelligence.Infrastructure.Security.EfUserSecurityRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Security.IMfaPolicyRepository, InsuranceIntelligence.Infrastructure.Security.EfMfaPolicyRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppWebhookReceiptRepository, InsuranceIntelligence.Infrastructure.WhatsApp.EfWhatsAppWebhookReceiptRepository>();
         services.AddSingleton(InsuranceIntelligence.Application.Billing.AiCreditPricing.Default);
         services.AddScoped<InsuranceIntelligence.Application.Billing.IAiUsageContext, InsuranceIntelligence.Application.Billing.AiUsageContext>();
         services.AddScoped<InsuranceIntelligence.Application.Billing.IAiUsageRepository, InsuranceIntelligence.Infrastructure.Billing.EfAiUsageRepository>();

@@ -107,6 +107,74 @@ public sealed class MetaGraphWhatsAppValidationClient(HttpClient httpClient) : I
         }
     }
 
+    public async Task<WhatsAppMetaFacts> ReadDeliverySetupAsync(
+        string graphBaseUrl,
+        string phoneNumberId,
+        string wabaId,
+        string accessToken,
+        int timeoutSeconds,
+        CancellationToken cancellationToken = default)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 5, 30)));
+        var baseUrl = graphBaseUrl.TrimEnd('/');
+
+        async Task<(bool Ok, string Body, System.Net.HttpStatusCode Status)> Get(string path)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/{path}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            using var response = await httpClient.SendAsync(request, timeout.Token);
+            return (response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync(timeout.Token), response.StatusCode);
+        }
+
+        static WhatsAppMetaFacts Failed(string message) => new(message, null, null, null, null, null, []);
+
+        try
+        {
+            var phone = await Get($"{Uri.EscapeDataString(phoneNumberId)}?fields=status,account_mode,webhook_configuration");
+            if (!phone.Ok) return Failed(SafeErrorFrom(phone.Body, phone.Status));
+            var apps = await Get($"{Uri.EscapeDataString(wabaId)}/subscribed_apps");
+            if (!apps.Ok) return Failed(SafeErrorFrom(apps.Body, apps.Status));
+
+            using var phoneJson = JsonDocument.Parse(phone.Body);
+            using var appsJson = JsonDocument.Parse(apps.Body);
+            string? Text(JsonElement element, string name) => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+            string? phoneLevel = null, accountLevel = null, appLevel = null;
+            if (phoneJson.RootElement.TryGetProperty("webhook_configuration", out var configuration) && configuration.ValueKind == JsonValueKind.Object)
+            {
+                phoneLevel = Text(configuration, "phone_number");
+                accountLevel = Text(configuration, "whatsapp_business_account");
+                appLevel = Text(configuration, "application");
+            }
+
+            var subscribed = new List<WhatsAppSubscribedApp>();
+            if (appsJson.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in data.EnumerateArray())
+                {
+                    var api = entry.TryGetProperty("whatsapp_business_api_data", out var d) && d.ValueKind == JsonValueKind.Object ? d : default;
+                    var id = api.ValueKind == JsonValueKind.Object ? Text(api, "id") : null;
+                    subscribed.Add(new WhatsAppSubscribedApp(id ?? "unknown", api.ValueKind == JsonValueKind.Object ? Text(api, "name") : null, Text(entry, "override_callback_uri")));
+                }
+            }
+
+            return new WhatsAppMetaFacts(null, Text(phoneJson.RootElement, "status"), Text(phoneJson.RootElement, "account_mode"), phoneLevel, accountLevel, appLevel, subscribed);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return Failed("Meta did not respond in time. Try again.");
+        }
+        catch (HttpRequestException)
+        {
+            return Failed("Could not reach the Meta Graph API. Check connectivity and try again.");
+        }
+        catch (JsonException)
+        {
+            return Failed("Meta returned a response IIP could not parse.");
+        }
+    }
+
     private static string SafeWebhookErrorFrom(string body, System.Net.HttpStatusCode statusCode)
     {
         try

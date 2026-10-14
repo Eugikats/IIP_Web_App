@@ -254,9 +254,43 @@ public sealed class MultiTenantWhatsAppTests
         Assert.Empty(queue.Requests);
     }
 
-    private static async Task<int> ReceiveAsync(
-        WhatsAppRuntimeSettingsProvider provider, string body, string signedWith, RecordingMessaging messaging, RecordingQueue queue)
+    [Fact]
+    public async Task Every_call_to_the_webhook_for_an_insurers_number_leaves_a_receipt_with_counts_and_no_message_text()
     {
+        var (provider, _) = await TwoInsurersAsync();
+        var (messaging, queue, receipts) = (new RecordingMessaging(), new RecordingQueue(), new RecordingReceipts());
+
+        await ReceiveAsync(provider, Webhook("phone-baraka"), "secret-baraka", messaging, queue, receipts);
+        await ReceiveAsync(provider, Webhook("phone-baraka"), "secret-acme", messaging, queue, receipts);
+        await ReceiveAsync(provider, Webhook("phone-unknown"), "secret-baraka", messaging, queue, receipts);
+
+        Assert.Equal(2, receipts.Items.Count); // the call about a number nobody here owns is not recorded
+        var accepted = receipts.Items.Single(r => r.Outcome == "accepted");
+        Assert.Equal(Baraka, accepted.Scope);
+        Assert.Equal("phone-baraka", accepted.PhoneNumberId);
+        Assert.Equal(1, accepted.MessagesInCall);
+        Assert.Equal(1, accepted.MessagesNew);
+        var refused = receipts.Items.Single(r => r.Outcome == "refused_signature");
+        Assert.Equal(Baraka, refused.Scope);
+        Assert.Equal(0, refused.MessagesNew);
+    }
+
+    [Fact]
+    public async Task A_failure_to_record_a_receipt_never_fails_the_webhook()
+    {
+        var (provider, _) = await TwoInsurersAsync();
+        var (messaging, queue) = (new RecordingMessaging(), new RecordingQueue());
+
+        var status = await ReceiveAsync(provider, Webhook("phone-baraka"), "secret-baraka", messaging, queue, new RecordingReceipts { Throw = true });
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Single(queue.Requests); // the customer is still answered
+    }
+
+    private static async Task<int> ReceiveAsync(
+        WhatsAppRuntimeSettingsProvider provider, string body, string signedWith, RecordingMessaging messaging, RecordingQueue queue, RecordingReceipts? receipts = null)
+    {
+        receipts ??= new RecordingReceipts();
         var options = new InfrastructureOptions { MultiTenant = true, ChannelProvider = "Disabled" };
         var inbound = new WhatsAppCloudApiInboundProvider(provider, NullLogger<WhatsAppCloudApiInboundProvider>.Instance);
         var ingestion = new WhatsAppInboundDocumentIngestionService(
@@ -272,7 +306,7 @@ public sealed class MultiTenantWhatsAppTests
 
         var result = await WhatsAppIntegrationEndpoints.ReceiveWebhook(
             http.Request, ingestion, messaging, queue,
-            http.RequestServices.GetRequiredService<IServiceScopeFactory>(), provider, options,
+            http.RequestServices.GetRequiredService<IServiceScopeFactory>(), provider, options, receipts,
             NullLogger<WhatsAppCustomerAssistantLogMarker>.Instance, CancellationToken.None);
 
         await result.ExecuteAsync(http);
@@ -297,6 +331,22 @@ public sealed class MultiTenantWhatsAppTests
         }
 
         public Task<int> ApplyDeliveryEventsAsync(TenantScope scope, IReadOnlyList<WhatsAppDeliveryEvent> events, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    }
+
+    private sealed class RecordingReceipts : IWhatsAppWebhookReceiptRepository
+    {
+        public List<WhatsAppWebhookReceipt> Items { get; } = [];
+        public bool Throw { get; set; }
+
+        public Task AddAsync(WhatsAppWebhookReceipt receipt, CancellationToken cancellationToken = default)
+        {
+            if (Throw) throw new InvalidOperationException("storage is down");
+            Items.Add(receipt);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<WhatsAppWebhookReceipt>> ListAsync(TenantScope scope, int limit, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<WhatsAppWebhookReceipt>>(Items.Where(item => item.Scope == scope).Take(limit).ToArray());
     }
 
     private sealed class RecordingQueue : IWhatsAppAssistantQueue

@@ -111,3 +111,38 @@ export async function deleteWhatsAppConfiguration(role: string, auditReason: str
     return { ok: false, error: safeNetworkFailure(reason, "The connection could not be removed.") };
   }
 }
+
+export type WhatsAppReceipt = {
+  receivedAt: string;
+  phoneNumberId: string;
+  outcome: "accepted" | "duplicate_only" | "refused_signature" | "no_messages" | string;
+  messagesInCall: number;
+  messagesNew: number;
+  deliveryUpdates: number;
+};
+
+export type WhatsAppReceipts = { lastCallAt: string | null; lastMessageAt: string | null; receipts: WhatsAppReceipt[] };
+
+/** The recent calls Meta made to IIP's webhook: counts and an outcome, never message text. */
+export async function getWhatsAppReceipts(role: string): Promise<WhatsAppResult<WhatsAppReceipts>> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/integrations/whatsapp/receipts?limit=20`, { headers: scopedHeaders(role, ""), cache: "no-store" });
+    if (!response.ok) return { ok: false, error: await safeError(response, "The recent messages could not be loaded.") };
+    return { ok: true, value: (await response.json()) as WhatsAppReceipts };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "The recent messages could not be loaded.") };
+  }
+}
+
+export type DeliveryFinding = { level: "ok" | "warning" | "problem"; text: string };
+
+/** Asks Meta, read-only, where it sends this number's messages. */
+export async function checkWhatsAppWithMeta(role: string): Promise<WhatsAppResult<{ checkedAt: string; findings: DeliveryFinding[] }>> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/integrations/whatsapp/configuration/meta-check`, { method: "POST", headers: scopedHeaders(role, "") });
+    if (!response.ok) return { ok: false, error: await safeError(response, "Meta could not be checked.") };
+    return { ok: true, value: await response.json() };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "Meta could not be checked.") };
+  }
+}

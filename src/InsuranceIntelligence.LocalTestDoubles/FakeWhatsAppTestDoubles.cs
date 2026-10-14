@@ -28,6 +28,13 @@ public sealed class FakeWhatsAppGraphValidationClient(
     public List<(string PhoneNumberId, string AccessToken)> Calls { get; } = [];
     public List<(string WabaId, string CallbackUrl, string VerifyToken)> WebhookRegistrationCalls { get; } = [];
 
+    /// <summary>What the fake reports Meta says about delivery. A healthy, unremarkable setup by default.</summary>
+    public WhatsAppMetaFacts MetaFacts { get; set; } = new(null, "CONNECTED", "LIVE", null, null, null, []);
+
+    public Task<WhatsAppMetaFacts> ReadDeliverySetupAsync(
+        string graphBaseUrl, string phoneNumberId, string wabaId, string accessToken, int timeoutSeconds, CancellationToken cancellationToken = default) =>
+        Task.FromResult(MetaFacts);
+
     public Task<WhatsAppGraphValidationResult> ValidateAsync(
         string graphBaseUrl, string phoneNumberId, string accessToken, int timeoutSeconds, CancellationToken cancellationToken = default)
     {

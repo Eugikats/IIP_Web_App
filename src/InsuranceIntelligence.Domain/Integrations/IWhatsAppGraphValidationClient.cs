@@ -28,6 +28,17 @@ public interface IWhatsAppGraphValidationClient
         string verifyToken,
         int timeoutSeconds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Reads, with the connection's own token, where Meta sends this number's messages: the number's own
+    /// webhook setting, the account's subscribed apps and each app's override. Read-only. A failure is returned in
+    /// the facts, not thrown.</summary>
+    Task<WhatsAppMetaFacts> ReadDeliverySetupAsync(
+        string graphBaseUrl,
+        string phoneNumberId,
+        string wabaId,
+        string accessToken,
+        int timeoutSeconds,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record WhatsAppGraphValidationResult(bool Success, string? DisplayPhoneNumber, string? VerifiedName, string? SafeError);

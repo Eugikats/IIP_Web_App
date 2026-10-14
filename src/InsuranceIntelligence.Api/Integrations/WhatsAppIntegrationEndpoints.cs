@@ -79,6 +79,7 @@ public static class WhatsAppIntegrationEndpoints
         IServiceScopeFactory scopeFactory,
         IWhatsAppRuntimeSettingsProvider settingsProvider,
         InfrastructureOptions options,
+        IWhatsAppWebhookReceiptRepository receipts,
         ILogger<WhatsAppCustomerAssistantLogMarker> logger,
         CancellationToken cancellationToken)
     {
@@ -96,7 +97,11 @@ public static class WhatsAppIntegrationEndpoints
                 title: "Not configured",
                 detail: result.SafeError ?? "WhatsApp inbound is not configured.");
         }
-        if (result.Status == "InvalidSignature") return Results.Unauthorized();
+        if (result.Status == "InvalidSignature")
+        {
+            await RecordRefusedAsync(rawBody, settingsProvider, receipts, logger, cancellationToken);
+            return Results.Unauthorized();
+        }
 
         // "Ignored" only says the document pipeline had nothing to store: a plain text message has no
         // attachment, so every text arrived here as "Ignored". Returning on it dropped every text a
@@ -137,7 +142,12 @@ public static class WhatsAppIntegrationEndpoints
                     .ToArray();
                 var newInbound = await messagingService.IngestInboundAsync(scope, inbound, cancellationToken);
                 messagesSaved += newInbound.Count;
-                deliveryUpdates += await messagingService.ApplyDeliveryEventsAsync(scope, statuses, cancellationToken);
+                var updates = await messagingService.ApplyDeliveryEventsAsync(scope, statuses, cancellationToken);
+                deliveryUpdates += updates;
+                await RecordAsync(
+                    receipts, scope, phoneNumberId,
+                    newInbound.Count > 0 ? "accepted" : inbound.Length > 0 ? "duplicate_only" : "no_messages",
+                    inbound.Length, newInbound.Count, updates, logger, cancellationToken);
                 if (newInbound.Count > 0)
                 {
                     // The messages are already durably saved above, so Meta is answered now and the
@@ -172,6 +182,68 @@ public static class WhatsAppIntegrationEndpoints
         {
             return Results.BadRequest(new { message = "WhatsApp webhook payload was not valid JSON." });
         }
+    }
+
+    /// <summary>Keeps a line for each call, so an administrator can see whether Meta is reaching IIP at all. Counts and an
+    /// outcome only, never message content. A failure to record must never fail the webhook itself.</summary>
+    private static async Task RecordAsync(
+        IWhatsAppWebhookReceiptRepository receipts, TenantScope scope, string phoneNumberId, string outcome,
+        int messagesInCall, int messagesNew, int deliveryUpdates, ILogger logger, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await receipts.AddAsync(new WhatsAppWebhookReceipt
+            {
+                Id = WhatsAppWebhookReceipt.NewKey(scope),
+                Scope = scope,
+                ReceivedAt = DateTimeOffset.UtcNow,
+                PhoneNumberId = phoneNumberId,
+                Outcome = outcome,
+                MessagesInCall = messagesInCall,
+                MessagesNew = messagesNew,
+                DeliveryUpdates = deliveryUpdates,
+            }, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "A WhatsApp webhook receipt could not be recorded");
+        }
+    }
+
+    private static async Task RecordRefusedAsync(
+        byte[] rawBody, IWhatsAppRuntimeSettingsProvider settingsProvider, IWhatsAppWebhookReceiptRepository receipts,
+        ILogger logger, CancellationToken cancellationToken)
+    {
+        try
+        {
+            foreach (var phoneNumberId in WhatsAppWebhookParser.ReadPhoneNumberIds(System.Text.Encoding.UTF8.GetString(rawBody)))
+            {
+                if (settingsProvider.ForPhoneNumberId(phoneNumberId) is { } settings)
+                {
+                    await RecordAsync(receipts, TenantScope.Create(settings.TenantId, settings.WorkspaceId), phoneNumberId, "refused_signature", 0, 0, 0, logger, cancellationToken);
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "A refused WhatsApp webhook could not be recorded");
+        }
+    }
+
+    public static async Task<IResult> ListReceipts(
+        IWhatsAppWebhookReceiptRepository receipts,
+        InsuranceIntelligence.Application.Core.ITenantContextAccessor tenant,
+        int? limit,
+        CancellationToken cancellationToken)
+    {
+        var items = await receipts.ListAsync(tenant.Current.Scope, limit ?? 30, cancellationToken);
+        var lastMessage = items.FirstOrDefault(item => item.MessagesNew > 0 || item.MessagesInCall > 0);
+        return Results.Ok(new
+        {
+            lastCallAt = items.FirstOrDefault()?.ReceivedAt,
+            lastMessageAt = lastMessage?.ReceivedAt,
+            receipts = items.Select(item => new { item.ReceivedAt, item.PhoneNumberId, item.Outcome, item.MessagesInCall, item.MessagesNew, item.DeliveryUpdates }),
+        });
     }
 
     public static async Task<IResult> GetThread(

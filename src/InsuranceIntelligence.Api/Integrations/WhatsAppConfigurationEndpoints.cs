@@ -232,6 +232,43 @@ public static class WhatsAppConfigurationEndpoints
         return Results.Ok(new { success = validation.Success, message = validation.SafeError, verifiedName = validation.VerifiedName });
     }
 
+    /// <summary>Asks Meta, read-only, where it sends this number's messages, and says in plain words whether that is IIP.
+    /// The reason it exists: on 12 October 2026 a connection looked healthy while Meta's messages went elsewhere.</summary>
+    public static async Task<IResult> CheckWithMeta(
+        IWhatsAppChannelConfigurationRepository repository,
+        IWhatsAppCredentialProtector protector,
+        IWhatsAppGraphValidationClient validationClient,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var configuration = await repository.GetAsync(scope, cancellationToken);
+        if (configuration is null)
+        {
+            return Results.NotFound(new { message = "No WhatsApp connection is saved for this workspace yet." });
+        }
+
+        var facts = await validationClient.ReadDeliverySetupAsync(
+            options.WhatsApp.GraphBaseUrl,
+            configuration.PhoneNumberId,
+            configuration.WabaId ?? string.Empty,
+            protector.Unprotect(configuration.EncryptedAccessToken),
+            options.WhatsApp.RequestTimeoutSeconds,
+            cancellationToken);
+        var findings = WhatsAppDeliveryAnalysis.Analyse(configuration.WebhookCallbackUrl ?? BuildCallbackUrl(options), facts);
+        return Results.Ok(new { checkedAt = DateTimeOffset.UtcNow, findings });
+    }
+
     public static async Task<IResult> DeleteConfiguration(
         IWhatsAppChannelConfigurationRepository repository,
         IWhatsAppRuntimeSettingsProvider settingsProvider,
