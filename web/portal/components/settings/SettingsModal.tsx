@@ -52,7 +52,16 @@ const SECTIONS: { key: SettingsSection; label: string; title: string; descriptio
   { key: "profile", label: "Profile", title: "Profile", description: "Who you are signed in as, and the workspace you are working in.", icon: User },
 ];
 
-type CardState = { tone: PillTone; label: string; detail: string | null; connected: boolean };
+type CardState = { tone: PillTone; label: string; detail: string | null; connected: boolean; checks?: CatalogueCheck[] };
+
+// The Integration Center's own read of each integration: one of four states, each earned by a check on the server.
+type CatalogueCheck = { name: string; passed: boolean; note: string; blocking: boolean };
+type CatalogueCard = { key: string; state: "Connected" | "NeedsAttention" | "NotConnected" | "NotConfigured"; stateLabel: string; summary: string; checks: CatalogueCheck[] };
+
+function cardStateFromCatalogue(card: CatalogueCard): CardState {
+  const tone: PillTone = card.state === "Connected" ? "success" : card.state === "NeedsAttention" ? "warning" : "neutral";
+  return { tone, label: card.stateLabel, detail: card.summary, connected: card.state === "Connected" || card.state === "NeedsAttention", checks: card.checks };
+}
 
 type PanelKey = "whatsapp" | "connections" | "mailbox";
 
@@ -78,6 +87,7 @@ const CATALOG: Integration[] = [
   { key: "whatsapp", name: "WhatsApp Business", description: "Customers write to Kato and staff reply, on the insurer's own WhatsApp number.", icon: MessageCircle, panel: "whatsapp" },
   { key: "sms", name: "SMS", description: "Text messages to customers through the insurer's SMS gateway.", icon: Smartphone, panel: "connections" },
   { key: "email", name: "Email", description: "Send customer email from the insurer's own address.", icon: Mail, panel: "connections" },
+  { key: "teams", name: "Microsoft Teams", description: "Alerts about claims waiting for approval post to a Teams channel.", icon: Users },
   { key: "mailbox", name: "Claims mailbox", description: "Collect claims mail from a shared mailbox and turn it into claims.", icon: Mail, panel: "mailbox" },
   { key: "translation", name: "Local-language translation", description: "Lets Kato talk with customers in Luganda and Kiswahili.", icon: Languages, panel: "connections" },
   { key: "gdrive", name: "Google Drive", description: "Pick a customer list from your own Google Drive. IIP can only open the files you choose.", icon: HardDrive, fileProvider: "google" },
@@ -300,6 +310,7 @@ function IntegrationsSection() {
   const [view, setView] = useState<"catalog" | "yours">("catalog");
   const [query, setQuery] = useState("");
   const [states, setStates] = useState<Record<string, CardState> | null>(null);
+  const [catalogue, setCatalogue] = useState<Record<string, CatalogueCard> | "error" | "forbidden" | null>(null);
   const [panel, setPanel] = useState<PanelKey | null>(null);
   const [fileStates, setFileStates] = useState<Record<FileProviderKey, FileConnectionStatus | "error"> | null>(null);
   const [fileProblem, setFileProblem] = useState<string | null>(null);
@@ -348,12 +359,17 @@ function IntegrationsSection() {
       setStates({});
       return;
     }
-    const [whatsapp, sms, email, translation] = await Promise.all([
+    const [whatsapp, sms, email, translation, summary] = await Promise.all([
       readJson("/api/v1/integrations/whatsapp/configuration", role),
       readJson("/api/v1/integrations/connections/sms", role),
       readJson("/api/v1/integrations/connections/email", role),
       readJson("/api/v1/integrations/connections/translation", role),
+      readJson("/api/v1/integrations/catalogue", role),
     ]);
+    if (summary.status === 403) setCatalogue("forbidden");
+    else if (summary.status === 200 && summary.body && Array.isArray((summary.body as { cards?: unknown }).cards)) {
+      setCatalogue(Object.fromEntries(((summary.body as { cards: CatalogueCard[] }).cards).map((card) => [card.key, card])));
+    } else setCatalogue("error");
     setStates({
       whatsapp: stateFrom(whatsapp, "WhatsApp"),
       sms: stateFrom(sms, "SMS"),
@@ -374,6 +390,14 @@ function IntegrationsSection() {
       if (!status.connected) return { tone: "neutral", label: "Not connected", detail: "Connect your own account to pick files from it.", connected: false };
       return { tone: "success", label: "Connected", detail: status.accountEmail ? `Your account: ${status.accountEmail}` : "Your account is connected.", connected: true };
     }
+    // The server's own read of the integration comes first: its state is earned by checks, not by a saved setting.
+    const earned = typeof catalogue === "object" && catalogue !== null ? catalogue[item.key] : undefined;
+    if (earned) return cardStateFromCatalogue(earned);
+    if (item.key === "teams") {
+      return catalogue === null
+        ? { tone: "neutral", label: "Checking", detail: null, connected: false }
+        : { tone: "warning", label: "Could not check", detail: "The status could not be read just now.", connected: false };
+    }
     return item.panel
       ? states?.[item.key] ?? { tone: "neutral", label: "Checking", detail: null, connected: false }
       : { tone: "neutral", label: "Not connected", detail: item.note ?? null, connected: false };
@@ -383,11 +407,14 @@ function IntegrationsSection() {
     const q = query.trim().toLowerCase();
     return CATALOG.filter((item) => {
       const fileStatus = item.fileProvider ? fileStates?.[item.fileProvider] : undefined;
-      const isConnected = item.fileProvider ? typeof fileStatus === "object" && fileStatus.connected : (states?.[item.key]?.connected ?? false);
+      const earned = typeof catalogue === "object" && catalogue !== null ? catalogue[item.key] : undefined;
+      const isConnected = item.fileProvider
+        ? typeof fileStatus === "object" && fileStatus.connected
+        : earned ? earned.state === "Connected" || earned.state === "NeedsAttention" : (states?.[item.key]?.connected ?? false);
       if (view === "yours" && !isConnected) return false;
       return !q || `${item.name} ${item.description}`.toLowerCase().includes(q);
     });
-  }, [query, view, states, fileStates]);
+  }, [query, view, states, fileStates, catalogue]);
 
   if (panel) {
     const { title, Component } = PANELS[panel];
@@ -473,7 +500,17 @@ function IntegrationsSection() {
                         <StatusPill tone={state.tone} label={state.label} confirmed={state.connected && state.tone === "success"} />
                       </div>
                       <p className="m-0 mt-1 text-[13px] leading-5 text-slate-500">{item.description}</p>
-                      {state.detail ? <p className="m-0 mt-2 text-[12.5px] leading-5 text-slate-400">{state.detail}</p> : null}
+                      {state.detail ? <p className="m-0 mt-2 text-[12.5px] leading-5 text-slate-500">{state.detail}</p> : null}
+                      {state.checks && state.checks.length > 0 ? (
+                        <ul className="m-0 mt-2 space-y-1 p-0" aria-label={`${item.name} checks`}>
+                          {state.checks.map((check) => (
+                            <li key={check.name} className="flex list-none items-start gap-2 text-[12px] leading-5 text-slate-500">
+                              <span className={cn("mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full", check.passed ? "bg-emerald-500" : check.blocking ? "bg-amber-500" : "bg-slate-300")} aria-hidden="true" />
+                              <span><span className="font-medium text-slate-600">{check.name}.</span> {check.note}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                       {item.fileProvider && typeof fileStates?.[item.fileProvider] === "object" && (fileStates[item.fileProvider] as FileConnectionStatus).configured ? (
                         <button
                           type="button"
