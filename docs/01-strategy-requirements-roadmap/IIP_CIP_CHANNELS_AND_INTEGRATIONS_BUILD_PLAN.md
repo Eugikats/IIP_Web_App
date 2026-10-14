@@ -369,6 +369,49 @@ several of these for Microsoft work accounts without code.
 W2, W6 and W5 are independent of one another once the common seams exist, so they can run as parallel tracks.
 S1 can run in parallel with W0 and W1.
 
+## Execution order (the build, as one ordered run, set 2026-10-14)
+
+Supersedes the shorter list above for sequencing. Built on the SaaS branch. Anything that needs an owner registration is
+built and tested against a stub at the HTTP boundary, then switched to the real provider when the settings arrive, so
+no step waits on a registration to be written.
+
+**Done before this run:** S1, S2, W7 gaps A, B and C, legal hold, the list speed fixes, the go-live.
+
+| Step | Build | Reuse from CIP | Gate before the next step |
+|---|---|---|---|
+| 0 | Browser pass on the live site (sign-in with two-factor off, Settings Security, pricing, claims list). Page the claims list (50 rows, slim row, load more). | none | Claims list under 2 s warm on B1; the browser pass recorded |
+| 1 | The common seams: token layer with refresh (`GetAccessTokenAsync(scope, user, provider)`), `IKnowledgeIngestionSink` into pending Knowledge, connector entities with tenant and workspace columns plus one migration, the hourly renewal hosted service, the copied integration UI components restyled to IIP tokens | `UserTokenProvider`, `ConnectorSyncCursor` and the connector entities, `ChangeSubscriptionManager` pattern, `V2IntegrationsView` family | CIP's token refresh and revocation tests ported and passing; a tenant isolation test on every new table |
+| 2 | W9 catalogue: grouped cards, setup progress, per-card status from real checks, send-a-test, six page states | `IntegrationCenterService`, `OfficerIntegrationsCatalogService`, `IntegrationSendTestService`, the `lib/integration-*` files | Every card shows one of Connected, Not connected, Needs attention, Not configured, each backed by a check |
+| 3 | W4 step one: organisation switch for Outlook and Gmail, verify email, Teams webhook and SMS end to end; turn on email and SMS codes for two-factor | `IntegrationSuiteConnectionService`, `GraphMailSender`, `OutlookConnectTests` | One test send per channel with a named approver; two-factor email and SMS cards stop saying not connected |
+| 4 | W2 folder connectors: Google Drive and Shared Drives, OneDrive and SharePoint; administrator-picked folders; sensitivity default per folder, never approved; pending Knowledge documents; admin screen (connectors, folders, last run, errors, files awaiting approval); removal drops files from retrieval at once; an expired sign-in fails the run instead of purging | `GoogleDriveConnectorService`, `BankDocumentConnectorService`, `GoogleChangesService`, `GraphDeltaService`, `ConnectorSecurityService`, about fourteen connector tests | The W2 gate in this document, with the providers stubbed; live once registrations exist |
+| 5 | W3 export to Drive, OneDrive and SharePoint: evidence pack, claim and audit exports; a named person sends; audit records destination and file name, never contents | `CloudExportService`, `IntegrationDestinationPickerService`, `DestinationPickerList` | One evidence pack exported to a stub destination, audit entry shows who, what and where |
+| 6 | W6 web chat widget (parallel with 7): site keys, origin allowlist, rate limits, session tokens, widget served from the portal origin, Inbox filter, same Kato pipeline and hand-over as WhatsApp. Then W4 step two: email from a stranger becomes a profiled lead with redaction before any report is mailed | `WebChatIngestionService`, `WebChatAdminService`, `widget.js`, `InboxEmailRelay`, `OutlookEmailRedactionService` | Embed on a test page, a visitor creates a lead and an Inbox conversation, an origin off the allowlist is refused |
+| 7 | W5 Teams bot with IIP event types (claim awaiting approval, service clock at risk, fraud signal escalated, document needs review, lead needs a person), redaction, deep links | `Services/Teams/*` | A redacted approval request in a mapped channel; the deep link opens the claim |
+| 8 | S6 security self-audit page; S4 key ring in Key Vault once the Azure work is done | `ConnectorSecurityEvidence` pattern | Self-audit reads real settings; a secret saved before the move still opens after it |
+| 9 | W10 connectors, each only once decided, each starting with a written scope, data classification and a synthetic provider | `StructuredBankConnectorService` pattern | Per item |
+
+### Rules for every step
+
+- **A release must not outrun its migration.** On 14 October a new check read a table the migration had not yet
+  created and every signed-in route returned 500 until it was applied. Every new read on a request path tolerates a
+  missing table (treats it as empty or off), and migrations are applied immediately after the deploy that carries them.
+- Before each deploy: full backend tests, portal lint, build and the Playwright specs; after it, check
+  `/health/ready` and `az webapp log deployment show` (on B1 the CLI can report failure after Azure has succeeded).
+- Nothing a connector brings in is approved knowledge. Secrets are write-only from the browser, encrypted with
+  `IConnectionSecretProtector`. Audit entries carry no file contents.
+- Each step ends with a commit on the branch, a deploy, live verification, and a short report of what was checked and
+  what was not.
+
+### What the owner supplies, and what each unblocks
+
+| Owner action | Unblocks | Until then |
+|---|---|---|
+| Google Cloud project, OAuth client, Picker key; Microsoft "IIP Files" app; Search Console verification | Live file pick, W2 and W3 against real accounts | Built against stubs; cards read Not configured |
+| Azure: blob container, Key Vault key, two app settings | S4 | Saved secrets rely on the web server's disk key ring |
+| Admin consent for mail and Teams permissions; Teams app upload | W4 live, W5 | Stubs; cards read Not connected |
+| DNS for the widget origin | W6 live | Served from the portal origin |
+| Decisions: SharePoint scope, W10 connectors, recovery for a locked-out sole administrator | Steps 4 and 9 | Defaults: administrator-picked folders, OneDrive and Drive first, no W10 |
+
 ## Required for every workstream before it is called done
 
 - CIP's own tests for the copied code, run in IIP and passing, plus new tests for the seams.
