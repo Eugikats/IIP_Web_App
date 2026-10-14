@@ -6,6 +6,7 @@ import { useNavigate } from "@/components/iip/NextRouterCompat";
 import iipLogo from "@/assets/iip-logo";
 import { canUseEntraBrowserAuth, canUseExternalIdSignIn, canUseLocalTestDoubles, runtimeProfile } from "@/lib/config";
 import { describeSignInError, startSignIn, type SignInMethod } from "@/lib/entraAuth";
+import { EmailCodeIcon, GoogleIcon, MicrosoftIcon } from "@/components/brand/ProviderIcons";
 
 function environmentLabel() {
   if (runtimeProfile.toLowerCase() === "managedapplicationreviewer") return "Reviewer environment";
@@ -109,15 +110,23 @@ export default function Login() {
                   type="button"
                   onClick={() => void signIn(option.method)}
                   disabled={signingIn !== null || !option.available}
-                  className={`inline-flex min-h-12 w-full items-center gap-3 rounded-md px-5 py-3 text-left text-sm font-semibold transition-colors focus-ring disabled:cursor-not-allowed disabled:opacity-55 ${
-                    option.method === "microsoft" ? "bg-primary text-white shadow-l2 hover:bg-primary/90" : "border border-line bg-white text-ink hover:bg-surface"
-                  }`}
+                  className="inline-flex min-h-12 w-full items-center gap-3 rounded-md border border-line bg-white px-5 py-3 text-left text-sm font-semibold text-ink transition-colors hover:bg-surface focus-ring disabled:cursor-not-allowed disabled:opacity-55"
                 >
-                  {signingIn === option.method ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
+                  {signingIn === option.method ? (
+                    <Loader2 className="h-[18px] w-[18px] animate-spin" />
+                  ) : option.method === "microsoft" && !canUseLocalTestDoubles ? (
+                    <MicrosoftIcon />
+                  ) : option.method === "google" ? (
+                    <GoogleIcon />
+                  ) : option.method === "email" ? (
+                    <EmailCodeIcon />
+                  ) : (
+                    <LockKeyhole className="h-4 w-4" />
+                  )}
                   <span className="flex-1">
                     <span className="block">{signingIn === option.method ? "Connecting" : option.label}</span>
-                    <span className={`block text-xs font-normal ${option.method === "microsoft" ? "text-white/75" : "text-muted"}`}>
-                      {option.available ? option.note : "Not set up yet"}
+                    <span className="block text-xs font-normal text-muted">
+                      {option.available ? option.note : "Not configured"}
                     </span>
                   </span>
                   {signingIn !== option.method && <ArrowRight className="h-4 w-4" />}

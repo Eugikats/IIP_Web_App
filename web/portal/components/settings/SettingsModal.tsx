@@ -21,6 +21,7 @@ import { COURSES } from "@/lib/academy/courses";
 import { formatPrice, useAcademyPricing } from "@/lib/academy/pricing";
 import CreditMeter from "@/components/billing/CreditMeter";
 import SecuritySection from "@/components/security/SecuritySection";
+import { IntegrationBrandIcon } from "@/components/brand/ProviderIcons";
 import ProfileSettings from "@/lovable-pages/Settings";
 import AgentsPanel from "@/lovable-pages/admin/Agents";
 import BillingPanel from "@/lovable-pages/admin/Billing";
@@ -457,9 +458,15 @@ function IntegrationsSection() {
                   transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.03 }}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#1769FF]">
-                      <Icon className="h-5 w-5" aria-hidden="true" />
-                    </span>
+                    <IntegrationBrandIcon
+                      id={item.key}
+                      className="!h-10 !w-10"
+                      fallback={
+                        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#1769FF]">
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                      }
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h4 className="m-0 text-[14.5px] font-bold text-slate-900">{item.name}</h4>
