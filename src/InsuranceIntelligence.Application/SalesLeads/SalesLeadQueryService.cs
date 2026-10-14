@@ -261,9 +261,38 @@ public sealed class SalesLeadQueryService(
         return new LeadLookup(customers.ToArray(), policies.ToArray(), users.ToDictionary(user => user.UserId, user => user.Name, StringComparer.OrdinalIgnoreCase));
     }
 
-    private sealed class LeadLookup(Customer[] customers, Policy[] policies, IReadOnlyDictionary<string, string> userNames)
+    private sealed class LeadLookup
     {
         public static readonly LeadLookup Empty = new([], [], new Dictionary<string, string>());
+
+        private readonly Policy[] policies;
+        private readonly IReadOnlyDictionary<string, string> userNames;
+
+        // Customers indexed by the last nine digits of their number, which is where a local number (0776678989) and its
+        // international form (256776678989) agree. A lookup then confirms with PhoneNumbers.SameNumber, so the answer is
+        // the same as comparing every customer, without the pass over all of them for each prospect.
+        private readonly Dictionary<string, List<Customer>> customersByTail;
+        private readonly HashSet<string> customerIdsWithPolicies;
+
+        public LeadLookup(Customer[] customers, Policy[] policies, IReadOnlyDictionary<string, string> userNames)
+        {
+            this.policies = policies;
+            this.userNames = userNames;
+            customersByTail = [];
+            foreach (var customer in customers)
+            {
+                var digits = PhoneNumbers.Digits(customer.Phone);
+                if (digits.Length < 7) continue;
+                var tail = PhoneNumbers.Tail(digits);
+                if (!customersByTail.TryGetValue(tail, out var bucket)) customersByTail[tail] = bucket = [];
+                bucket.Add(customer);
+            }
+
+            customerIdsWithPolicies = policies
+                .Where(policy => policy.CustomerId is not null)
+                .Select(policy => policy.CustomerId!)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
 
         public ProspectRelationship RelationshipFor(string? phone)
         {
@@ -274,7 +303,7 @@ public sealed class SalesLeadQueryService(
             }
 
             var ids = onPhone.Select(customer => customer.CustomerId).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            return policies.Any(policy => policy.CustomerId is not null && ids.Contains(policy.CustomerId))
+            return ids.Any(customerIdsWithPolicies.Contains)
                 ? ProspectRelationship.ExistingCustomer
                 : ProspectRelationship.Registered;
         }
@@ -293,9 +322,12 @@ public sealed class SalesLeadQueryService(
         public string? NameOf(string? officer) =>
             string.IsNullOrWhiteSpace(officer) ? null : userNames.TryGetValue(officer, out var name) ? name : officer;
 
-        private Customer[] CustomersOn(string? phone) =>
-            string.IsNullOrWhiteSpace(phone)
-                ? []
-                : customers.Where(customer => PhoneNumbers.SameNumber(customer.Phone, phone)).ToArray();
+        private Customer[] CustomersOn(string? phone)
+        {
+            if (string.IsNullOrWhiteSpace(phone)) return [];
+            var digits = PhoneNumbers.Digits(phone);
+            if (digits.Length < 7 || !customersByTail.TryGetValue(PhoneNumbers.Tail(digits), out var candidates)) return [];
+            return candidates.Where(customer => PhoneNumbers.SameNumber(customer.Phone, phone)).ToArray();
+        }
     }
 }

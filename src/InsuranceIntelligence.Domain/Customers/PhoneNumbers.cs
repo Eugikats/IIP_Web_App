@@ -39,6 +39,12 @@ public static class PhoneNumbers
         && international.Length >= 11
         && international.EndsWith(local[1..], StringComparison.Ordinal);
 
+    /// <summary>
+    /// The last nine digits, which is where a local number and its international form agree. Two numbers that
+    /// <see cref="SameNumber"/> always share a tail, so numbers can be indexed by it and only candidates compared.
+    /// </summary>
+    public static string Tail(string digits) => digits.Length <= 9 ? digits : digits[^9..];
+
     public static string Digits(string? value) =>
         value is null ? string.Empty : new string(value.Where(char.IsDigit).ToArray());
 

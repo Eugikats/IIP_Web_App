@@ -221,6 +221,28 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
             .Select(Deserialize<ClaimCase>)
             .ToArray();
 
+        // Open claims indexed once by email, phone and name, so each customer's count is a lookup and not a pass over
+        // every claim (customers times claims gets slow quickly on a small plan). The same matching rules as
+        // MatchesCustomer, and a claim that matches by both email and phone is still counted once.
+        var open = claims.Where(IsOpenClaim).ToArray();
+        var openByEmail = open.Where(claim => !string.IsNullOrWhiteSpace(claim.CustomerEmail))
+            .ToLookup(claim => claim.CustomerEmail!, StringComparer.OrdinalIgnoreCase);
+        var openByPhone = open.Where(claim => !string.IsNullOrWhiteSpace(claim.CustomerPhone))
+            .ToLookup(claim => NormalizePhone(claim.CustomerPhone!), StringComparer.Ordinal);
+        var openByName = open.Where(claim => claim.CustomerName is not null)
+            .ToLookup(claim => claim.CustomerName, StringComparer.OrdinalIgnoreCase);
+
+        int OpenClaimCount(Customer customer)
+        {
+            var hasEmail = !string.IsNullOrWhiteSpace(customer.Email);
+            var hasPhone = !string.IsNullOrWhiteSpace(customer.Phone);
+            var matched = new HashSet<Guid>();
+            if (hasEmail) matched.UnionWith(openByEmail[customer.Email!].Select(claim => claim.CaseId));
+            if (hasPhone) matched.UnionWith(openByPhone[NormalizePhone(customer.Phone!)].Select(claim => claim.CaseId));
+            if (!hasEmail && !hasPhone && customer.FullName is not null) matched.UnionWith(openByName[customer.FullName].Select(claim => claim.CaseId));
+            return matched.Count;
+        }
+
         // The same person can be on file more than once (a demonstration list loaded again, or a customer
         // added by hand and later by WhatsApp). One row per person: the email if there is one, else the
         // phone number, else the record itself. The earliest-created record is kept so links stay stable.
@@ -233,7 +255,7 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
                 customer.FullName,
                 customer.Email,
                 customer.Phone,
-                claims.Count(claim => MatchesCustomer(claim, customer) && IsOpenClaim(claim))))
+                OpenClaimCount(customer)))
             .ToArray();
     }
 
