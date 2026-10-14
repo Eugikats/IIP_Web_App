@@ -309,6 +309,7 @@ public sealed class ConnectorEndpointsTests
         public Task<FileBrowseResult> BrowseAsync(FileProvider provider, string? folderId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<DownloadedFile> DownloadAsync(FileProvider provider, string fileId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<GooglePickerSession> PickerSessionAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<SavedFile> UploadAsync(FileProvider provider, string fileName, string contentType, byte[] content, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<string> GetAccessTokenAsync(TenantScope scope, string userId, FileProvider provider, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 

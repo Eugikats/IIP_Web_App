@@ -197,6 +197,101 @@ public sealed class UserFileServiceTests
     }
 
     [Fact]
+    public async Task A_small_file_is_saved_to_the_persons_own_OneDrive_in_the_exports_folder_and_audited_without_its_contents()
+    {
+        var rig = new Rig(Configured);
+        await rig.ConnectAsync(FileProvider.Microsoft);
+        rig.Http.Respond("https://login.microsoftonline.com/common/oauth2/v2.0/token", new { access_token = "fresh" });
+        rig.Http.Respond("https://graph.microsoft.com/v1.0/me/drive/root:/IIP exports/pack.zip:/content", new { name = "pack.zip", webUrl = "https://onedrive.example.test/pack.zip" });
+
+        var saved = await rig.Service.UploadAsync(FileProvider.Microsoft, "pack.zip", "application/zip", new byte[] { 1, 2, 3 });
+
+        Assert.Equal(("pack.zip", "https://onedrive.example.test/pack.zip", "microsoft"), (saved.Name, saved.WebUrl, saved.Provider));
+        var put = Assert.Single(rig.Http.Sent, s => s.Method == HttpMethod.Put);
+        Assert.Contains("conflictBehavior=rename", put.Uri);
+        Assert.Equal("Bearer fresh", put.Authorization);
+        var audit = Assert.Single(rig.Audit.Events, e => e.ActionName == "file_connection.file_saved");
+        Assert.DoesNotContain("pack.zip", audit.AuditReason ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task A_large_file_goes_to_OneDrive_in_chunks_without_the_sign_in_header_on_the_session_address()
+    {
+        var rig = new Rig(Configured);
+        await rig.ConnectAsync(FileProvider.Microsoft);
+        rig.Http.Respond("https://login.microsoftonline.com/common/oauth2/v2.0/token", new { access_token = "fresh" });
+        rig.Http.Respond("https://graph.microsoft.com/v1.0/me/drive/root:/IIP exports/big.zip:/createUploadSession", new { uploadUrl = "https://upload.example.test/session-1" });
+        rig.Http.Respond("https://upload.example.test/session-1", new { name = "big.zip", webUrl = "https://onedrive.example.test/big.zip" });
+        var content = new byte[9 * 1024 * 1024];
+
+        var saved = await rig.Service.UploadAsync(FileProvider.Microsoft, "big.zip", "application/zip", content);
+
+        Assert.Equal("big.zip", saved.Name);
+        var chunks = rig.Http.Sent.Where(s => s.Uri == "https://upload.example.test/session-1").ToArray();
+        Assert.Equal(3, chunks.Length);
+        Assert.All(chunks, c => Assert.Null(c.Authorization));
+        Assert.StartsWith("bytes 0-", chunks[0].Range);
+        Assert.EndsWith($"/{content.Length}", chunks[^1].Range);
+    }
+
+    [Fact]
+    public async Task A_file_is_saved_to_Google_Drive_through_a_resumable_upload_that_carries_the_name()
+    {
+        var rig = new Rig(Configured);
+        await rig.ConnectAsync(FileProvider.Google);
+        rig.Http.Respond("https://oauth2.googleapis.com/token", new { access_token = "fresh" });
+        rig.Http.RespondLocation("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable", "https://upload.example.test/google-session");
+        rig.Http.Respond("https://upload.example.test/google-session", new { id = "g1", name = "pack.zip", webViewLink = "https://drive.example.test/g1" });
+
+        var saved = await rig.Service.UploadAsync(FileProvider.Google, "pack.zip", "application/zip", new byte[] { 1, 2, 3 });
+
+        Assert.Equal(("pack.zip", "https://drive.example.test/g1", "google"), (saved.Name, saved.WebUrl, saved.Provider));
+        Assert.Equal(2, rig.Http.Sent.Count(s => s.Uri.Contains("google-session") || s.Uri.Contains("uploadType=resumable")));
+    }
+
+    [Fact]
+    public async Task Saving_needs_the_persons_own_connection_and_never_reaches_anyone_elses()
+    {
+        var rig = new Rig(Configured);
+
+        var error = await Assert.ThrowsAsync<FileConnectionException>(() => rig.Service.UploadAsync(FileProvider.Microsoft, "pack.zip", "application/zip", new byte[] { 1 }));
+
+        Assert.Equal("not_connected", error.Code);
+        Assert.Empty(rig.Http.Sent);
+    }
+
+    [Theory]
+    [InlineData(0, "bad_request")]
+    [InlineData(26 * 1024 * 1024, "too_large")]
+    public async Task An_empty_file_or_one_over_25_MB_is_refused_before_anything_is_sent(int size, string code)
+    {
+        var rig = new Rig(Configured);
+        await rig.ConnectAsync(FileProvider.Microsoft);
+
+        var error = await Assert.ThrowsAsync<FileConnectionException>(() => rig.Service.UploadAsync(FileProvider.Microsoft, "pack.zip", "application/zip", new byte[size]));
+
+        Assert.Equal(code, error.Code);
+        Assert.Empty(rig.Http.Sent);
+    }
+
+    [Theory]
+    [InlineData("../../etc/passwd", "passwd")]
+    [InlineData("C:\\temp\\pack.zip", "pack.zip")]
+    [InlineData("a:b*c?.zip", "a-b-c-.zip")]
+    [InlineData("   ", "export")]
+    [InlineData("...", "export")]
+    public void File_names_are_made_safe_for_both_providers(string given, string expected) =>
+        Assert.Equal(expected, UserFileService.SafeName(given));
+
+    [Fact]
+    public void A_very_long_name_is_shortened_but_keeps_its_extension()
+    {
+        var name = UserFileService.SafeName(new string('a', 300) + ".zip");
+        Assert.True(name.Length <= 150);
+        Assert.EndsWith(".zip", name);
+    }
+
+    [Fact]
     public async Task Disconnecting_removes_the_connection_and_is_audited()
     {
         var rig = new Rig(Configured);
@@ -244,6 +339,16 @@ public sealed class UserFileServiceTests
 
         public List<(string Uri, string? Authorization)> Requests { get; } = [];
 
+        public List<(HttpMethod Method, string Uri, string? Authorization, string? Range, long? Length)> Sent { get; } = [];
+
+        public void RespondLocation(string prefix, string location) =>
+            routes.Insert(0, (prefix, () =>
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+                response.Headers.Location = new Uri(location);
+                return response;
+            }));
+
         public void Respond(string prefix, object body, HttpStatusCode status = HttpStatusCode.OK) =>
             routes.Insert(0, (prefix, () => new HttpResponseMessage(status) { Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json") }));
 
@@ -254,12 +359,14 @@ public sealed class UserFileServiceTests
         {
             routes.Clear();
             Requests.Clear();
+            Sent.Clear();
         }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var uri = request.RequestUri!.ToString();
             Requests.Add((uri, request.Headers.Authorization?.ToString()));
+            Sent.Add((request.Method, uri, request.Headers.Authorization?.ToString(), request.Content?.Headers.ContentRange?.ToString(), request.Content?.Headers.ContentLength));
             var route = routes.FirstOrDefault(r => uri.StartsWith(r.Prefix, StringComparison.Ordinal));
             return Task.FromResult(route.Make is null ? new HttpResponseMessage(HttpStatusCode.NotFound) : route.Make());
         }

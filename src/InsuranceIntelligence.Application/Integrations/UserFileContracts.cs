@@ -17,6 +17,9 @@ public sealed record FileBrowseResult(string? FolderId, IReadOnlyList<FileItem> 
 
 public sealed record DownloadedFile(string Name, byte[] Content, string ContentType);
 
+/// <summary>A file IIP saved to a person's own cloud storage. The address opens it in the provider, for that person.</summary>
+public sealed record SavedFile(string Name, string? WebUrl, string Provider);
+
 /// <summary>What the browser needs to open Google's own file picker: a short-lived token for the
 /// person's account, and the project the picker shares the chosen files with.</summary>
 public sealed record GooglePickerSession(string AccessToken, string AppId, string? DeveloperKey, string? AccountEmail);
@@ -46,6 +49,12 @@ public interface IUserFileService : IFileAccessTokenProvider
     Task<DownloadedFile> DownloadAsync(FileProvider provider, string fileId, CancellationToken cancellationToken = default);
 
     Task<GooglePickerSession> PickerSessionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Saves a file into the signed-in person's own storage, in a folder called "IIP exports". The provider keeps both
+    /// copies if the name is taken. Only ever the person's own account: nobody else's storage is reachable from here.
+    /// </summary>
+    Task<SavedFile> UploadAsync(FileProvider provider, string fileName, string contentType, byte[] content, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

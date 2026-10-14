@@ -273,6 +273,125 @@ public sealed class UserFileService(
         return new DownloadedFile(name, buffer.ToArray(), response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream");
     }
 
+    public const long MaxUploadBytes = 25 * 1024 * 1024;
+    private const int SimpleUploadLimit = 4 * 1024 * 1024;
+    private const int UploadChunk = 12 * 320 * 1024;
+    public const string ExportFolder = "IIP exports";
+
+    public async Task<SavedFile> UploadAsync(FileProvider provider, string fileName, string contentType, byte[] content, CancellationToken cancellationToken = default)
+    {
+        if (content.Length == 0)
+        {
+            throw new FileConnectionException("bad_request", "There is nothing to save.");
+        }
+
+        if (content.Length > MaxUploadBytes)
+        {
+            throw new FileConnectionException("too_large", "That file is larger than 25 MB, so it cannot be saved to your storage from here. Download it instead.");
+        }
+
+        var name = SafeName(fileName);
+        var access = await AccessTokenAsync(provider, cancellationToken);
+        var client = httpClientFactory.CreateClient(HttpClientName);
+        var saved = provider == FileProvider.Microsoft
+            ? await UploadToMicrosoftAsync(client, access, name, contentType, content, cancellationToken)
+            : await UploadToGoogleAsync(client, access, name, contentType, content, cancellationToken);
+        await AuditAsync("file_connection.file_saved", Key(provider), $"A file was saved to {Name(provider)} ({content.Length} bytes).", cancellationToken);
+        return saved;
+    }
+
+    private async Task<SavedFile> UploadToMicrosoftAsync(HttpClient client, string access, string name, string contentType, byte[] content, CancellationToken cancellationToken)
+    {
+        var path = $"{Graph}/me/drive/root:/{Uri.EscapeDataString(ExportFolder)}/{Uri.EscapeDataString(name)}:";
+        if (content.Length <= SimpleUploadLimit)
+        {
+            using var put = new HttpRequestMessage(HttpMethod.Put, $"{path}/content?@microsoft.graph.conflictBehavior=rename");
+            put.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access);
+            put.Content = new ByteArrayContent(content);
+            put.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            using var response = await client.SendAsync(put, cancellationToken);
+            await EnsureSuccessAsync(response, FileProvider.Microsoft, cancellationToken);
+            return ReadSaved(await response.Content.ReadAsStringAsync(cancellationToken), name, "webUrl", FileProvider.Microsoft);
+        }
+
+        using var create = new HttpRequestMessage(HttpMethod.Post, $"{path}/createUploadSession");
+        create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access);
+        create.Content = new StringContent("{\"item\":{\"@microsoft.graph.conflictBehavior\":\"rename\"}}", System.Text.Encoding.UTF8, "application/json");
+        using var session = await client.SendAsync(create, cancellationToken);
+        await EnsureSuccessAsync(session, FileProvider.Microsoft, cancellationToken);
+        using var sessionDocument = JsonDocument.Parse(await session.Content.ReadAsStringAsync(cancellationToken));
+        var uploadUrl = sessionDocument.RootElement.GetProperty("uploadUrl").GetString()
+            ?? throw new FileConnectionException("provider_error", "Microsoft did not start the upload.");
+
+        // The session address already carries its own authorisation, so no sign-in header goes with these requests.
+        for (var offset = 0; offset < content.Length; offset += UploadChunk)
+        {
+            var length = Math.Min(UploadChunk, content.Length - offset);
+            using var chunk = new HttpRequestMessage(HttpMethod.Put, uploadUrl) { Content = new ByteArrayContent(content, offset, length) };
+            chunk.Content.Headers.ContentRange = new ContentRangeHeaderValue(offset, offset + length - 1, content.Length);
+            using var response = await client.SendAsync(chunk, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new FileConnectionException("provider_error", "Microsoft could not finish saving the file. Try again in a moment.");
+            }
+
+            if (offset + length >= content.Length)
+            {
+                return ReadSaved(await response.Content.ReadAsStringAsync(cancellationToken), name, "webUrl", FileProvider.Microsoft);
+            }
+        }
+
+        throw new FileConnectionException("provider_error", "Microsoft could not finish saving the file. Try again in a moment.");
+    }
+
+    private async Task<SavedFile> UploadToGoogleAsync(HttpClient client, string access, string name, string contentType, byte[] content, CancellationToken cancellationToken)
+    {
+        // Resumable upload: one request to start it with the name, one to send the bytes.
+        using var start = new HttpRequestMessage(HttpMethod.Post, "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,name,webViewLink");
+        start.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access);
+        start.Headers.Add("X-Upload-Content-Type", contentType);
+        start.Content = new StringContent(JsonSerializer.Serialize(new { name }), System.Text.Encoding.UTF8, "application/json");
+        using var started = await client.SendAsync(start, cancellationToken);
+        await EnsureSuccessAsync(started, FileProvider.Google, cancellationToken);
+        var location = started.Headers.Location?.ToString()
+            ?? throw new FileConnectionException("provider_error", "Google did not start the upload.");
+
+        using var send = new HttpRequestMessage(HttpMethod.Put, location) { Content = new ByteArrayContent(content) };
+        send.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access);
+        send.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        using var response = await client.SendAsync(send, cancellationToken);
+        await EnsureSuccessAsync(response, FileProvider.Google, cancellationToken);
+        return ReadSaved(await response.Content.ReadAsStringAsync(cancellationToken), name, "webViewLink", FileProvider.Google);
+    }
+
+    private static SavedFile ReadSaved(string body, string fallbackName, string linkProperty, FileProvider provider)
+    {
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+        return new SavedFile(
+            root.TryGetProperty("name", out var n) ? n.GetString() ?? fallbackName : fallbackName,
+            root.TryGetProperty(linkProperty, out var link) ? link.GetString() : null,
+            Key(provider));
+    }
+
+    /// <summary>A file name that is safe in either provider: no path, no reserved characters, a sensible length.</summary>
+    public static string SafeName(string? fileName)
+    {
+        // Not Path.GetFileName: it treats "a:b" as a drive on Windows and not on Linux, and the answer must not depend on the host.
+        var raw = (fileName ?? string.Empty).Replace('\\', '/');
+        var name = raw[(raw.LastIndexOf('/') + 1)..];
+        foreach (var bad in "\"*:<>?|#%".ToCharArray()) name = name.Replace(bad, '-');
+        name = name.Trim().Trim('.');
+        if (name.Length == 0) name = "export";
+        if (name.Length > 150)
+        {
+            var extension = Path.GetExtension(name);
+            name = name[..(150 - Math.Min(extension.Length, 20))] + (extension.Length <= 20 ? extension : string.Empty);
+        }
+
+        return name;
+    }
+
     public async Task<GooglePickerSession> PickerSessionAsync(CancellationToken cancellationToken = default)
     {
         var access = await AccessTokenAsync(FileProvider.Google, cancellationToken);

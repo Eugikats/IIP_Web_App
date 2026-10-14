@@ -1342,6 +1342,8 @@ app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack", ComplianceEndpoi
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export", ComplianceEndpoints.ExportAuditPack)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/save", InsuranceIntelligence.Api.Compliance.EvidencePackSaveEndpoints.Save)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/download", ComplianceEndpoints.DownloadAuditPackExport)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/compliance/retention/policies", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.ListPolicies)
