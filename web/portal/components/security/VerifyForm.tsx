@@ -65,7 +65,7 @@ export default function VerifyForm({ status, onVerified, role }: { status: MfaSt
     }
   }
 
-  async function usePasskey() {
+  async function signInWithPasskey() {
     setBusy(true);
     setError(null);
     try {
@@ -115,7 +115,7 @@ export default function VerifyForm({ status, onVerified, role }: { status: MfaSt
       <p className="m-0 text-[13px] text-dls-text-secondary">{HINTS[method]}</p>
 
       {method === "passkey" ? (
-        <Button variant="primary" className="mt-3" disabled={busy} onClick={() => void usePasskey()}>
+        <Button variant="primary" className="mt-3" disabled={busy} onClick={() => void signInWithPasskey()}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
           Use my passkey
         </Button>
