@@ -69,6 +69,21 @@ public sealed class EfCaseDocumentRepository(InsuranceIntelligenceDbContext dbCo
             .Where(record => record.CaseId == caseId)
             .Select(record => Deserialize<CaseDocument>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyCollection<CaseDocument>>> ListForCasesAsync(
+        IReadOnlyCollection<Guid> caseIds, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var ids = caseIds.Distinct().ToArray();
+        var rows = ids.Length == 0
+            ? []
+            : await Scoped(DbContext.CaseDocuments.AsNoTracking(), scope)
+                .Where(record => ids.Contains(record.CaseId))
+                .Select(record => new { record.CaseId, record.PayloadJson })
+                .ToArrayAsync(cancellationToken);
+        var grouped = rows.GroupBy(row => row.CaseId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyCollection<CaseDocument>)group.Select(row => Deserialize<CaseDocument>(row.PayloadJson)).ToArray());
+        return ids.ToDictionary(id => id, id => grouped.TryGetValue(id, out var found) ? found : []);
+    }
 }
 
 public sealed class EfCaseReviewRepository(InsuranceIntelligenceDbContext dbContext)
@@ -159,6 +174,25 @@ public sealed class EfAuditRepository(
         }
 
         return await query.Select(record => Deserialize<AuditEvent>(record.PayloadJson)).ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyCollection<AuditEvent>>> ListForCasesAsync(
+        IReadOnlyCollection<Guid> caseIds, CancellationToken cancellationToken = default)
+    {
+        var ids = caseIds.Distinct().ToArray();
+        var query = DbContext.AuditEvents.AsNoTracking().Where(record => record.CaseId != null && ids.Contains(record.CaseId.Value));
+        if (tenantContext is { HasCurrent: true })
+        {
+            var current = tenantContext.Current;
+            query = query.Where(record => record.TenantId == current.TenantId && record.WorkspaceId == current.WorkspaceId);
+        }
+
+        var rows = ids.Length == 0
+            ? []
+            : await query.Select(record => new { record.CaseId, record.PayloadJson }).ToArrayAsync(cancellationToken);
+        var grouped = rows.GroupBy(row => row.CaseId!.Value)
+            .ToDictionary(group => group.Key, group => (IReadOnlyCollection<AuditEvent>)group.Select(row => Deserialize<AuditEvent>(row.PayloadJson)).ToArray());
+        return ids.ToDictionary(id => id, id => grouped.TryGetValue(id, out var found) ? found : []);
     }
 
     public async Task<IReadOnlyCollection<AuditEvent>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>

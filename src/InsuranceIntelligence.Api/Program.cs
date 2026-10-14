@@ -544,6 +544,16 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgent
 builder.Services.AddScoped<InsuranceIntelligence.Application.ClaimsSummary.IClaimsSummaryService, InsuranceIntelligence.Application.ClaimsSummary.ClaimsSummaryService>();
 // Customer 360 briefing, chat instructions, and the automatic review every new claim receives.
 builder.Services.AddMemoryCache();
+// JSON lists are large and the people reading them are far from the data centre; compressing them costs a little CPU
+// and saves far more waiting. Brotli at its fastest level is the cheap setting on a small plan.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerSummary.ICustomerSummaryService, InsuranceIntelligence.Application.CustomerSummary.CustomerSummaryService>();
 builder.Services.AddScoped<ICommandCenterActionService, CommandCenterActionService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>();
@@ -648,6 +658,8 @@ if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.Or
 
 // Always return a generic RFC 7807 response. Exception details and request headers stay server-side.
 app.UseExceptionHandler();
+
+app.UseResponseCompression();
 
 app.UseCors();
 

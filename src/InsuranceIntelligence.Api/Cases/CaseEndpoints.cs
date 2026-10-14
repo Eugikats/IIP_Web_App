@@ -445,11 +445,16 @@ public static class CaseEndpoints
             await caseRepository.ListAsync(scope, cancellationToken));
         var responses = new List<ClaimInboxItemResponse>();
 
+        // Two reads for the whole list, not two per case: with 50 cases that is the difference between 3 queries and 100.
+        var caseIds = cases.Select(claimCase => claimCase.CaseId).ToArray();
+        var documentsByCase = await documentRepository.ListForCasesAsync(caseIds, scope, cancellationToken);
+        var auditByCase = await auditRepository.ListForCasesAsync(caseIds, cancellationToken);
+
         foreach (var claimCase in cases)
         {
-            var documents = await documentRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken);
+            var documents = documentsByCase.TryGetValue(claimCase.CaseId, out var caseDocuments) ? caseDocuments : [];
             var checklist = await checklistProvider.BuildChecklistAsync(claimCase, documents, cancellationToken);
-            var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);
+            var auditEvents = auditByCase.TryGetValue(claimCase.CaseId, out var caseAudit) ? caseAudit : [];
             var lastEvent = auditEvents.OrderByDescending(auditEvent => auditEvent.Timestamp).FirstOrDefault();
             var documentStatus = documents.Count == 0
                 ? "New"
