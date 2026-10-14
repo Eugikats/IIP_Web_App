@@ -206,6 +206,23 @@ public sealed class PlatformMfaTests
         Assert.True((await h.Service.VerifyAsync(MfaMethods.Totp, h.NextCode())).Ok);
     }
 
+    [Fact]
+    public async Task A_secret_that_can_no_longer_be_decrypted_fails_the_check_instead_of_crashing_and_backup_codes_still_work()
+    {
+        var h = new Harness();
+        await h.EnrolAdminWithAuthenticatorAsync();
+        var codes = (await h.Service.RotateBackupCodesAsync()).Value!;
+        await h.Service.SignOutAsync();
+
+        // The encryption key was lost, so every saved secret now fails to open.
+        h.Protector.Broken = true;
+        h.Clock.Advance(TimeSpan.FromSeconds(31));
+        var result = await h.Service.VerifyAsync(MfaMethods.Totp, h.NextCode());
+
+        Assert.Equal("invalid_code", result.Code);
+        Assert.True((await h.Service.VerifyAsync(MfaMethods.BackupCodes, codes[0])).Ok); // hashed, not encrypted
+    }
+
     // ---------------------------------------------------------------- backup codes
 
     [Fact]
@@ -528,8 +545,10 @@ public sealed class PlatformMfaTests
 
     private sealed class FakeProtector : IConnectionSecretProtector
     {
+        public bool Broken { get; set; }
+
         public string Protect(string plaintext) => "enc:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(new string(plaintext.Reverse().ToArray())));
-        public string Unprotect(string ciphertext) => new string(Encoding.UTF8.GetString(Convert.FromBase64String(ciphertext["enc:".Length..])).Reverse().ToArray());
+        public string Unprotect(string ciphertext) => Broken ? throw new System.Security.Cryptography.CryptographicException("The key was not found.") : new string(Encoding.UTF8.GetString(Convert.FromBase64String(ciphertext["enc:".Length..])).Reverse().ToArray());
     }
 
     private sealed class FakeSms : ISmsProvider

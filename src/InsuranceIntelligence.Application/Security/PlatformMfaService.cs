@@ -232,7 +232,7 @@ public sealed class PlatformMfaService(
         var authenticator = profile.Authenticators.FirstOrDefault(a => a.Id == id && a.ConfirmedAt is null);
         if (authenticator is null) return MfaResult<bool>.Fail("not_found", "That set-up was not found. Start again.");
 
-        var step = Totp.Verify(protector.Unprotect(authenticator.ProtectedSecret), code, Now, authenticator.LastUsedStep);
+        var step = TryVerifyTotp(authenticator, code);
         if (step is null) return await FailAsync(context, profile, "totp_enrol", cancellationToken);
 
         var hadAMethod = profile.EnrolledMethods.Count > 0;
@@ -332,7 +332,9 @@ public sealed class PlatformMfaService(
         else
         {
             if (!profile.SmsEnrolled || profile.ProtectedSmsNumber is null) return MfaResult<MfaCodeSent>.Fail("not_enrolled", "SMS codes are not set up for you.");
-            recipient = protector.Unprotect(profile.ProtectedSmsNumber);
+            var saved = TryUnprotect(profile.ProtectedSmsNumber);
+            if (saved is null) return MfaResult<MfaCodeSent>.Fail("not_enrolled", "Your saved number cannot be read. Ask an administrator to reset your methods.");
+            recipient = saved;
         }
 
         var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
@@ -453,7 +455,7 @@ public sealed class PlatformMfaService(
             {
                 foreach (var authenticator in profile.ConfirmedAuthenticators)
                 {
-                    var step = Totp.Verify(protector.Unprotect(authenticator.ProtectedSecret), code, Now, authenticator.LastUsedStep);
+                    var step = TryVerifyTotp(authenticator, code);
                     if (step is null) continue;
                     var updated = MarkVerified(ClearFailures(profile with
                     {
@@ -631,6 +633,23 @@ public sealed class PlatformMfaService(
     }
 
     // ---------------------------------------------------------------- helpers
+
+    /// <summary>A saved secret that can no longer be read (the encryption key was lost or replaced) is treated as
+    /// "does not match", never as a crash. The person falls back to a backup code, or an administrator resets them.</summary>
+    private string? TryUnprotect(string protectedValue)
+    {
+        try
+        {
+            return protector.Unprotect(protectedValue);
+        }
+        catch (Exception exception) when (exception is CryptographicException or FormatException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private long? TryVerifyTotp(TotpAuthenticator authenticator, string code) =>
+        TryUnprotect(authenticator.ProtectedSecret) is { } secret ? Totp.Verify(secret, code, Now, authenticator.LastUsedStep) : null;
 
     private async Task<UserSecurityProfile> LoadAsync(TenantContext context, CancellationToken cancellationToken) =>
         await profiles.GetAsync(context.Scope, context.UserId, cancellationToken) ?? UserSecurityProfile.Empty(context.Scope, context.UserId, Now);

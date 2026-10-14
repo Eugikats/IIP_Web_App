@@ -10,6 +10,51 @@ The method is reuse. CIP and IIP belong to the same organisation and the IIP por
 to copy, where they land in IIP, and which seams must be rewired. It does not propose rewriting anything CIP
 already does.
 
+## Status at 2026-10-14 (read this first)
+
+Built and committed on `saas/merge-v2-2026-10-08`. **Nothing below is deployed.** The live site still runs the build
+from 2026-10-12. Deploy with `scripts/local/deploy-dev-api.sh` (it runs the whole test suite first) and
+`scripts/local/deploy-dev-portal.sh`, then apply the two new migrations through `POST /api/v1/admin/db-migrate`.
+
+| Item | State | How it was verified |
+|---|---|---|
+| S1 two-factor: authenticator app, backup codes, email and SMS codes, per-organisation policy (off by default), gate, lockout, snooze for 24 hours up to seven times, administrator reset | Built | 33 unit tests; browser tests set up an authenticator, turn the policy on, sign out, get sent to verify and get back in |
+| S1 passkeys and security keys (Fido2, as CIP) | Built | A real key pair made and used in Chromium's virtual authenticator, signature checked by the API. Not yet tried on a real phone or hardware key |
+| S1 email and SMS codes | Built, **not live** | Unit tests with fake providers. Both channels are Disabled on the live site, so the cards say "not connected" until W4 configures them |
+| S2 Security section in Settings, verify page, first-run prompt | Built | Browser tests at 1280 and 768 wide; looked at in a browser |
+| Icons: Microsoft and Google marks on the sign-in buttons, CIP's logos on the Settings integration cards | Built | Looked at in a browser |
+| W7 B and C: webhook receipt log, last-message time, Check with Meta | Built | Unit tests (the 12 October facts replayed); browser tests with canned Meta answers. Never run against real Meta |
+| Academy: five courses with lessons, categories, UGX 500,000 | Built and **already deployed** on 2026-10-12 | Browser tests; the Settings price box was fixed afterwards (it still refused anything above 10,000) and that fix is not deployed |
+| S3 webhook replay protection | **Not built, on purpose** | Messages are already stored once by their id and delivery updates are idempotent, so a replayed signed call changes nothing. A time window would risk refusing Meta's own legitimate retries |
+| S4 key ring in Key Vault | **Finding, not built** | The live API has neither `DataProtectionBlobUri` nor `DataProtectionKeyUri` set, so the encryption key ring is a file on the web server's disk. See below |
+| S5 legal hold, S6 security self-audit | Not built | |
+| W0 registrations, W1 file pick, W2 to W6, W9, W10 | Not built | W0 and W1 wait on the owner's Google and Microsoft registrations |
+
+Migrations added: `AddPlatformMfa` (UserSecurityProfiles, MfaPolicies) and `AddWhatsAppWebhookReceipts`.
+New package: `Fido2` 3.0.1 in Infrastructure. New portal package: `qrcode`.
+
+### Things the next session must know
+
+- **Key ring (S4).** Saved secrets (WhatsApp token and app secret, file-connection refresh tokens, and now authenticator
+  secrets and SMS numbers) are encrypted with ASP.NET Data Protection. On the live API that key ring lives on the web
+  server's disk, which survives restarts but not loss of that disk. The code now treats a secret it cannot open as a
+  failed check, not a crash, and backup codes (hashed, not encrypted) still work. The fix is Azure work: a blob
+  container for the ring, a Key Vault key to wrap it, the API identity given access to both, and the two settings
+  `INSURANCEINTELLIGENCE_DATAPROTECTION_BLOB_URI` and `INSURANCEINTELLIGENCE_DATAPROTECTION_KEY_URI` (read from
+  `InfrastructureRegistration.BindOptions`; confirm the blob one there before setting it). Do it before many customers rely on two-factor.
+- **A person who loses every method.** An administrator resets them (Settings, Security, "Someone lost their phone?").
+  Nobody can reset themselves. If the only administrator is locked out, there is no in-product recovery; it takes a
+  database edit of that person's `UserSecurityProfiles` row. Decide whether that is acceptable before requiring it.
+- **Verification length.** A verified person stays verified for 12 hours or until they sign out, held on the server
+  per person, not per device. A second device signed in within those 12 hours is not asked again. CIP ties it to the
+  identity provider's `auth_time`; that claim is not in the access tokens IIP receives, so it was not copied.
+- **Live changes made on 2026-10-14** (outside the code): the temporary video copy was deleted (two web apps and its
+  database), its three sign-in addresses were removed from the app registration, the App Service plan was scaled back
+  to B1, and `WEBSITES_CONTAINER_START_TIME_LIMIT=600` was set on the live API because the container failed its start
+  probe on B1 and Azure stopped the site.
+- **Local servers.** The browser tests need the offline API (`scripts/local/run-offline.sh`, port 5167). The Playwright
+  workspace config starts the portal itself. A stale `web/portal/.next-dev.lock` stops the portal starting; delete it.
+
 ## How this was done, and what was not checked
 
 CIP was read from the local copy of `github.com/Otic-Group/CIP_Web_App` (branch `main`, last commit 2026-10-06,
