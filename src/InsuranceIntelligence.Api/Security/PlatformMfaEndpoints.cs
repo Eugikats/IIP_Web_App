@@ -170,5 +170,6 @@ public sealed class PlatformMfaEnforcementMiddleware(RequestDelegate next)
         path.StartsWithSegments("/api/v1/security/mfa")
         || path.StartsWithSegments("/api/v1/me")
         || path.StartsWithSegments("/api/v1/organisations")
-        || path.StartsWithSegments("/api/v1/invitations");
+        || path.StartsWithSegments("/api/v1/invitations")
+        || path.StartsWithSegments("/api/v1/admin/db-migrate");
 }

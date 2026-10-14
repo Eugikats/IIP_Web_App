@@ -38,9 +38,19 @@ public sealed class EfMfaPolicyRepository(InsuranceIntelligenceDbContext dbConte
     public async Task<MfaPolicy?> GetAsync(TenantScope scope, CancellationToken cancellationToken = default)
     {
         var id = MfaPolicy.StorageKey(scope);
-        var record = await Scoped(DbContext.MfaPolicies.AsNoTracking(), scope)
-            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
-        return record is null ? null : Deserialize<MfaPolicy>(record.PayloadJson);
+        try
+        {
+            var record = await Scoped(DbContext.MfaPolicies.AsNoTracking(), scope)
+                .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            return record is null ? null : Deserialize<MfaPolicy>(record.PayloadJson);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException failure) when (failure.Number == 208)
+        {
+            // The table is created by the AddPlatformMfa migration. Until it is applied there is no policy, which means the
+            // default (off), so a release that ships ahead of its migration cannot lock everyone out, including the
+            // administrator who needs to apply it.
+            return null;
+        }
     }
 
     public Task SaveAsync(MfaPolicy policy, CancellationToken cancellationToken = default) =>
