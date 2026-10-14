@@ -12,9 +12,11 @@ already does.
 
 ## Status at 2026-10-14 (read this first)
 
-Built and committed on `saas/merge-v2-2026-10-08`. **Nothing below is deployed.** The live site still runs the build
-from 2026-10-12. Deploy with `scripts/local/deploy-dev-api.sh` (it runs the whole test suite first) and
-`scripts/local/deploy-dev-portal.sh`, then apply the two new migrations through `POST /api/v1/admin/db-migrate`.
+Built and committed on `saas/merge-v2-2026-10-08`. Deployed to the dev environment on 2026-10-14: everything in the table
+marked "Built" except where a row says otherwise, with its migrations applied (`AddPlatformMfa`, `AddWhatsAppWebhookReceipts`,
+`AddLegalHold`, `AddDataConnectors`). Deploy with `scripts/local/deploy-dev-api.sh` (it runs the whole test suite first) and
+`scripts/local/deploy-dev-portal.sh`, then apply new migrations through `POST /api/v1/admin/db-migrate` straight away. On
+B1 the CLI can report a failed deploy after Azure has recorded success; check `/health/ready` before retrying.
 
 | Item | State | How it was verified |
 |---|---|---|
@@ -29,9 +31,15 @@ from 2026-10-12. Deploy with `scripts/local/deploy-dev-api.sh` (it runs the whol
 | S4 key ring in Key Vault | **Finding, not built** | The live API has neither `DataProtectionBlobUri` nor `DataProtectionKeyUri` set, so the encryption key ring is a file on the web server's disk. See below |
 | S5 legal hold | Built, workspace-wide (Settings, Security, Legal hold): while on, retention deletes nothing and its audit entry says "held". Reason required to place or release, both audited | 3 new retention tests, a browser test. A hold on one claim or conversation is a later refinement |
 | S6 security self-audit | Not built | Read CIP's checks first; a check that always passes is worse than none |
-| W0 registrations, W1 file pick, W2 to W6, W9, W10 | Not built | W0 and W1 wait on the owner's Google and Microsoft registrations |
+| W7 A outbound guard | Built | Every outbound WhatsApp message passes a content guard (no storage address, key, token, or request for a PIN, password or one-time code) and a per-number rate limit (60 an hour, 300 a day). A refusal comes back as a failed send with a plain reason. 17 tests. Not yet seen on a live send. CIP's approval and score wording block was deliberately not copied: IIP tells customers true outcomes a person decided |
+| W9 Integration Center | Built | `GET /api/v1/integrations/catalogue`: Connected, Needs attention, Not connected or Not configured, each earned by a check on stored facts, no provider called. WhatsApp whose calls from Meta are being refused shows Needs attention. 15 rule tests, 6 browser tests. Live: reads honestly (email and SMS Not connected, Teams and the file providers Not configured) |
+| W4 step one: test send | Built | Email and SMS "Send a test" on a connected card, through the same provider real messages use, fixed text, three an hour, audited with a masked recipient. 17 tests, 2 browser tests. Teams test send, the organisation-level Outlook and Gmail consent switch, and email-to-lead (step two) are not built: they need the Graph app registration and a decision on per-organisation consent |
+| W2 folder connectors | Built, not run against real accounts | Sync engine with every safety rule as a test (15), provider sources against canned Google and Graph answers (18), admin endpoints (15), scheduled worker, Connected folders on the Data Hub (16 browser tests). Google syncs picked files, not folders, as CIP does. Needs the owner's registrations to run live. See `IIP_CONNECTORS_SETUP.md` |
+| Seams | Built | `IKnowledgeIngestionSink` (the one way a file becomes a pending document), `IFileAccessTokenProvider` (a token for a named person without a request; a revoked sign-in is `sign_in_expired` and removes nothing), connector tables |
+| W3 export, W4 step two, W5 Teams bot, W6 web chat, W10 | Not built | In build order |
+| W0 registrations, W1 file pick | Not done | Wait on the owner's Google and Microsoft registrations |
 
-Migrations added: `AddPlatformMfa` (UserSecurityProfiles, MfaPolicies), `AddWhatsAppWebhookReceipts` and `AddLegalHold`.
+Migrations added: `AddPlatformMfa` (UserSecurityProfiles, MfaPolicies), `AddWhatsAppWebhookReceipts`, `AddLegalHold` and `AddDataConnectors` (DataConnectors, ConnectorRuns, ConnectorItems).
 New package: `Fido2` 3.0.1 in Infrastructure. New portal package: `qrcode`.
 
 ### Things the next session must know
