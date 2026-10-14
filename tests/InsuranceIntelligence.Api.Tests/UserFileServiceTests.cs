@@ -145,6 +145,36 @@ public sealed class UserFileServiceTests
     }
 
     [Fact]
+    public async Task A_background_sync_with_a_revoked_sign_in_fails_with_its_own_code_and_removes_nothing()
+    {
+        var rig = new Rig(Configured);
+        await rig.ConnectAsync(FileProvider.Google);
+        rig.Http.Respond("https://oauth2.googleapis.com/token", new { error = "invalid_grant" }, HttpStatusCode.BadRequest);
+        var scope = new InsuranceIntelligence.Domain.Common.TenantScope("tenant-demo", "workspace-operations");
+
+        var error = await Assert.ThrowsAsync<FileConnectionException>(() => rig.Service.GetAccessTokenAsync(scope, "user-1", FileProvider.Google));
+
+        Assert.Equal("sign_in_expired", error.Code);
+        Assert.Single(rig.Repository.All);
+    }
+
+    [Fact]
+    public async Task A_background_sync_gets_a_token_only_for_the_person_it_names()
+    {
+        var rig = new Rig(Configured);
+        await rig.ConnectAsync(FileProvider.Google);
+        rig.Http.Respond("https://oauth2.googleapis.com/token", new { access_token = "fresh" });
+        var scope = new InsuranceIntelligence.Domain.Common.TenantScope("tenant-demo", "workspace-operations");
+
+        Assert.Equal("fresh", await rig.Service.GetAccessTokenAsync(scope, "user-1", FileProvider.Google));
+        var colleague = await Assert.ThrowsAsync<FileConnectionException>(() => rig.Service.GetAccessTokenAsync(scope, "user-2", FileProvider.Google));
+        Assert.Equal("not_connected", colleague.Code);
+        var otherOrganisation = await Assert.ThrowsAsync<FileConnectionException>(
+            () => rig.Service.GetAccessTokenAsync(new InsuranceIntelligence.Domain.Common.TenantScope("tenant-other", "workspace-operations"), "user-1", FileProvider.Google));
+        Assert.Equal("not_connected", otherOrganisation.Code);
+    }
+
+    [Fact]
     public async Task Microsoft_folders_list_first_and_the_newest_refresh_token_is_kept()
     {
         var rig = new Rig(Configured);

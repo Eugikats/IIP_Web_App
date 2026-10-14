@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Integrations;
 
 namespace InsuranceIntelligence.Application.Integrations;
@@ -30,7 +31,7 @@ public sealed class FileConnectionException(string code, string message) : Inval
 /// to save exports. Every call acts as the signed-in person through their own connection. Nothing here
 /// reads another person's files, and the tokens never reach the browser.
 /// </summary>
-public interface IUserFileService
+public interface IUserFileService : IFileAccessTokenProvider
 {
     Task<IReadOnlyList<FileConnectionStatus>> StatusAsync(CancellationToken cancellationToken = default);
 
@@ -45,4 +46,16 @@ public interface IUserFileService
     Task<DownloadedFile> DownloadAsync(FileProvider provider, string fileId, CancellationToken cancellationToken = default);
 
     Task<GooglePickerSession> PickerSessionAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// A short-lived access token for one named person's connection, for work that runs without a signed-in request
+/// (a connector sync). It never changes what that person can open: the token is theirs. Failures keep their cause
+/// apart, so a caller can tell a sign-in that has expired or been revoked (code <c>sign_in_expired</c>, the person must
+/// reconnect, and nothing already synced is removed) from a missing connection (<c>not_connected</c>) and from a
+/// temporary provider problem (<c>provider_error</c>, try again later).
+/// </summary>
+public interface IFileAccessTokenProvider
+{
+    Task<string> GetAccessTokenAsync(TenantScope scope, string userId, FileProvider provider, CancellationToken cancellationToken = default);
 }

@@ -680,9 +680,10 @@ public sealed class KnowledgeAssistantEndpointsTests
 
     private static async Task<IResult> UploadKnowledgeAsync(Dependencies dependencies) =>
         await KnowledgeEndpoints.UploadKnowledgeDocument(
-            dependencies.KnowledgeRepository,
-            dependencies.StorageProvider,
-            dependencies.AuditRepository,
+            new InsuranceIntelligence.Application.Knowledge.KnowledgeIngestionService(
+                dependencies.KnowledgeRepository,
+                dependencies.StorageProvider,
+                dependencies.AuditRepository),
             KnowledgeUploadContext(),
             CancellationToken.None);
 

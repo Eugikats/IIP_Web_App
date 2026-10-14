@@ -61,6 +61,9 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedUserSecurityProfile> UserSecurityProfiles => Set<PersistedUserSecurityProfile>();
     public DbSet<PersistedMfaPolicy> MfaPolicies => Set<PersistedMfaPolicy>();
     public DbSet<PersistedLegalHold> LegalHolds => Set<PersistedLegalHold>();
+    public DbSet<PersistedDataConnector> DataConnectors => Set<PersistedDataConnector>();
+    public DbSet<PersistedConnectorRun> ConnectorRuns => Set<PersistedConnectorRun>();
+    public DbSet<PersistedConnectorItem> ConnectorItems => Set<PersistedConnectorItem>();
     public DbSet<PersistedWhatsAppWebhookReceipt> WhatsAppWebhookReceipts => Set<PersistedWhatsAppWebhookReceipt>();
     public DbSet<PersistedAiUsageRecord> AiUsageRecords => Set<PersistedAiUsageRecord>();
     public DbSet<PersistedAgentBehaviourProfile> AgentBehaviourProfiles => Set<PersistedAgentBehaviourProfile>();
@@ -182,6 +185,11 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedUserSecurityProfile>(), "UserSecurityProfiles", "ProfileId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedMfaPolicy>(), "MfaPolicies", "PolicyId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedLegalHold>(), "LegalHolds", "HoldId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedDataConnector>(), "DataConnectors", "ConnectorId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedConnectorRun>(), "ConnectorRuns", "RunId");
+        modelBuilder.Entity<PersistedConnectorRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ConnectorId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedConnectorItem>(), "ConnectorItems", "ItemId");
+        modelBuilder.Entity<PersistedConnectorItem>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ConnectorId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedWhatsAppWebhookReceipt>(), "WhatsAppWebhookReceipts", "ReceiptId");
         modelBuilder.Entity<PersistedWhatsAppWebhookReceipt>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ReceivedAt });
         ConfigureScopedJson(modelBuilder.Entity<PersistedAiUsageRecord>(), "AiUsageRecords", "UsageId");
@@ -468,6 +476,9 @@ public sealed class PersistedUserFileConnection : PersistedScopedJson;
 public sealed class PersistedUserSecurityProfile : PersistedScopedJson;
 public sealed class PersistedMfaPolicy : PersistedScopedJson;
 public sealed class PersistedLegalHold : PersistedScopedJson;
+public sealed class PersistedDataConnector : PersistedScopedJson;
+public sealed class PersistedConnectorRun : PersistedScopedJson { public Guid ConnectorId { get; set; } }
+public sealed class PersistedConnectorItem : PersistedScopedJson { public Guid ConnectorId { get; set; } }
 public sealed class PersistedWhatsAppWebhookReceipt : PersistedScopedJson { public DateTimeOffset ReceivedAt { get; set; } }
 public sealed class PersistedAiUsageRecord : PersistedScopedJson { public DateTimeOffset OccurredAt { get; set; } }
 public sealed class PersistedOutboundWebhookSubscription : PersistedScopedJson;

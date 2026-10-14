@@ -11,20 +11,10 @@ namespace InsuranceIntelligence.Api.Knowledge;
 
 public static class KnowledgeEndpoints
 {
-    public const long MaxKnowledgeFileSizeBytes = 10 * 1024 * 1024;
-
-    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".txt",
-        ".md",
-        ".pdf",
-        ".docx"
-    };
+    public const long MaxKnowledgeFileSizeBytes = InsuranceIntelligence.Application.Knowledge.KnowledgeIngestionLimits.MaxFileSizeBytes;
 
     public static async Task<IResult> UploadKnowledgeDocument(
-        IKnowledgeDocumentRepository repository,
-        IKnowledgeStorageProvider storageProvider,
-        IAuditRepository auditRepository,
+        InsuranceIntelligence.Application.Knowledge.IKnowledgeIngestionSink ingestion,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -65,44 +55,12 @@ public static class KnowledgeEndpoints
         }
 
         var correlationId = GetCorrelationId(httpContext);
-        var documentId = Guid.NewGuid();
         await using var stream = file.OpenReadStream();
-        var storageResult = await storageProvider.StoreAsync(
-            new KnowledgeStorageRequest(
-                documentId,
-                scope,
-                file.FileName,
-                NormalizeContentType(file),
-                file.Length,
-                stream),
+        var document = await ingestion.IngestPendingAsync(
+            new InsuranceIntelligence.Application.Knowledge.KnowledgeIngestionRequest(
+                scope, userId, metadata.DocumentName, metadata.ProductLine, metadata.DocumentType, metadata.Version,
+                metadata.EffectiveDate, metadata.ExpiryDate, file.FileName, NormalizeContentType(file), file.Length, stream, correlationId),
             cancellationToken);
-
-        var now = DateTimeOffset.UtcNow;
-        var document = new KnowledgeDocument
-        {
-            KnowledgeDocumentId = documentId,
-            Scope = scope,
-            DocumentName = metadata.DocumentName,
-            ProductLine = metadata.ProductLine,
-            DocumentType = metadata.DocumentType,
-            Version = metadata.Version,
-            EffectiveDate = metadata.EffectiveDate,
-            ExpiryDate = metadata.ExpiryDate,
-            OriginalFileName = Path.GetFileName(file.FileName),
-            ContentType = storageResult.ContentType,
-            FileSizeBytes = storageResult.FileSizeBytes,
-            ObjectKey = storageResult.ObjectKey,
-            ApprovalStatus = KnowledgeDocumentStatus.Draft,
-            IndexedStatus = KnowledgeIndexedStatus.NotIndexed,
-            Chunks = BuildChunks(documentId, scope, metadata, storageResult),
-            UploadedByUserId = userId,
-            CreatedAt = now,
-            UpdatedAt = now,
-            CorrelationId = correlationId
-        };
-
-        await repository.SaveAsync(document, cancellationToken);
-        await auditRepository.WriteAsync(AuditEvent.KnowledgeUploaded(document, userId, correlationId), cancellationToken);
 
         return Results.Created($"/api/v1/knowledge-documents/{document.KnowledgeDocumentId}", KnowledgeMapper.ToResponse(document));
     }
@@ -383,49 +341,6 @@ public static class KnowledgeEndpoints
         return Results.Ok(new { indexedDocumentCount = approved.Length });
     }
 
-    private static IReadOnlyCollection<KnowledgeChunk> BuildChunks(
-        Guid documentId,
-        TenantScope scope,
-        KnowledgeMetadata metadata,
-        KnowledgeStorageResult storageResult)
-    {
-        if (string.IsNullOrWhiteSpace(storageResult.ExtractedText))
-        {
-            return Array.Empty<KnowledgeChunk>();
-        }
-
-        // Cut at paragraphs and sentences, keeping the heading each piece sits under, so an answer can cite a
-        // section and a rule is not split from the sentence that introduces it.
-        var chunks = new List<KnowledgeChunk>();
-        var index = 0;
-        foreach (var piece in InsuranceIntelligence.Application.Knowledge.KnowledgeChunker.Chunk(storageResult.ExtractedText))
-        {
-            var chunkId = $"{documentId:N}-{index}";
-            chunks.Add(new KnowledgeChunk
-            {
-                ChunkId = chunkId,
-                KnowledgeDocumentId = documentId,
-                Scope = scope,
-                DocumentName = metadata.DocumentName,
-                ProductLine = metadata.ProductLine,
-                Version = metadata.Version,
-                ChunkIndex = index,
-                Content = piece.Content,
-                Section = piece.Section,
-                SourceReference = new KnowledgeSourceReference(
-                    documentId,
-                    chunkId,
-                    metadata.DocumentName,
-                    metadata.ProductLine,
-                    metadata.Version,
-                    storageResult.ObjectKey)
-            });
-            index++;
-        }
-
-        return chunks;
-    }
-
     private static IResult? ValidateMetadata(IFormCollection form, out KnowledgeMetadata metadata)
     {
         metadata = default!;
@@ -485,26 +400,8 @@ public static class KnowledgeEndpoints
         return false;
     }
 
-    private static string? ValidateFile(IFormFile file)
-    {
-        if (file.Length <= 0)
-        {
-            return "Uploaded knowledge documents cannot be empty.";
-        }
-
-        if (file.Length > MaxKnowledgeFileSizeBytes)
-        {
-            return "Uploaded knowledge documents cannot exceed 10 MB.";
-        }
-
-        var extension = Path.GetExtension(file.FileName);
-        if (!SupportedExtensions.Contains(extension))
-        {
-            return "Unsupported file type. Supported knowledge types are TXT, MD, PDF, and DOCX.";
-        }
-
-        return null;
-    }
+    private static string? ValidateFile(IFormFile file) =>
+        InsuranceIntelligence.Application.Knowledge.KnowledgeIngestionLimits.WhyNot(file.FileName, file.Length);
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]>

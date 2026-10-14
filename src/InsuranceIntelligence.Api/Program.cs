@@ -484,6 +484,7 @@ builder.Services.AddScoped<IProspectListImportService, ProspectListImportService
 builder.Services.AddSingleton(InsuranceIntelligence.Infrastructure.Connections.FileProviderOptions.From(builder.Configuration));
 builder.Services.AddHttpClient(InsuranceIntelligence.Infrastructure.Connections.UserFileService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IUserFileService, InsuranceIntelligence.Infrastructure.Connections.UserFileService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IFileAccessTokenProvider>(provider => provider.GetRequiredService<InsuranceIntelligence.Application.Integrations.IUserFileService>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
 builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PlatformMfaOptions());
@@ -544,6 +545,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgent
 builder.Services.AddScoped<InsuranceIntelligence.Application.ClaimsSummary.IClaimsSummaryService, InsuranceIntelligence.Application.ClaimsSummary.ClaimsSummaryService>();
 // Customer 360 briefing, chat instructions, and the automatic review every new claim receives.
 builder.Services.AddMemoryCache();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Knowledge.IKnowledgeIngestionSink, InsuranceIntelligence.Application.Knowledge.KnowledgeIngestionService>();
 // JSON lists are large and the people reading them are far from the data centre; compressing them costs a little CPU
 // and saves far more waiting. Brotli at its fastest level is the cheap setting on a small plan.
 builder.Services.AddResponseCompression(options =>

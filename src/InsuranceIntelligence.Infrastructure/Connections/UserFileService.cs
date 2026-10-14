@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Domain.Common;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -285,11 +286,22 @@ public sealed class UserFileService(
         return new GooglePickerSession(access, options.GoogleAppId, options.GoogleDeveloperKey, connection?.AccountEmail);
     }
 
-    private async Task<string> AccessTokenAsync(FileProvider provider, CancellationToken cancellationToken)
+    private Task<string> AccessTokenAsync(FileProvider provider, CancellationToken cancellationToken)
+    {
+        var context = tenantContextAccessor.Current;
+        return AccessTokenCoreAsync(context.Scope, context.UserId, provider, interactive: true, cancellationToken);
+    }
+
+    public Task<string> GetAccessTokenAsync(TenantScope scope, string userId, FileProvider provider, CancellationToken cancellationToken = default) =>
+        AccessTokenCoreAsync(scope, userId, provider, interactive: false, cancellationToken);
+
+    // Interactive callers (a person at the screen) have a revoked connection forgotten so they are asked to connect
+    // again. A background sync must not do that: a revoked sign-in fails the run and leaves the connection record, and
+    // everything already synced, exactly as it was, until the person reconnects.
+    private async Task<string> AccessTokenCoreAsync(TenantScope scope, string userId, FileProvider provider, bool interactive, CancellationToken cancellationToken)
     {
         RequireConfigured(provider);
-        var context = tenantContextAccessor.Current;
-        var connection = await repository.GetAsync(context.Scope, context.UserId, provider, cancellationToken)
+        var connection = await repository.GetAsync(scope, userId, provider, cancellationToken)
             ?? throw new FileConnectionException("not_connected", $"Connect your {Name(provider)} account first.");
 
         string refreshToken;
@@ -300,8 +312,8 @@ public sealed class UserFileService(
         catch (Exception)
         {
             // The key ring changed, so the saved connection can no longer be read. Ask for a fresh sign-in.
-            await repository.DeleteAsync(context.Scope, context.UserId, provider, cancellationToken);
-            throw new FileConnectionException("not_connected", $"Your {Name(provider)} connection needs to be set up again.");
+            if (interactive) await repository.DeleteAsync(scope, userId, provider, cancellationToken);
+            throw new FileConnectionException(interactive ? "not_connected" : "sign_in_expired", $"Your {Name(provider)} connection needs to be set up again.");
         }
 
         TokenResponse token;
@@ -316,8 +328,8 @@ public sealed class UserFileService(
         catch (FileConnectionException ex) when (ex.Code == "invalid_grant")
         {
             // The person revoked access (or it expired). The saved connection is no longer any use.
-            await repository.DeleteAsync(context.Scope, context.UserId, provider, cancellationToken);
-            throw new FileConnectionException("not_connected", $"{Name(provider)} no longer allows IIP to read your files. Connect your account again.");
+            if (interactive) await repository.DeleteAsync(scope, userId, provider, cancellationToken);
+            throw new FileConnectionException(interactive ? "not_connected" : "sign_in_expired", $"{Name(provider)} no longer allows IIP to read your files. Connect your account again.");
         }
 
         // Microsoft rotates the refresh token on use; keep the newest one.
