@@ -46,13 +46,43 @@ public sealed record KnowledgeIngestionRequest(
 public interface IKnowledgeIngestionSink
 {
     Task<KnowledgeDocument> IngestPendingAsync(KnowledgeIngestionRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Takes a document out of use at once: archived, removed from the search index, audited with the reason. Used when
+    /// the file it came from is gone, changed or no longer in a synced folder, so nothing stale keeps answering.
+    /// </summary>
+    Task RetireAsync(TenantScope scope, Guid knowledgeDocumentId, string actor, string reason, string correlationId, CancellationToken cancellationToken = default);
 }
 
 public sealed class KnowledgeIngestionService(
     IKnowledgeDocumentRepository repository,
     IKnowledgeStorageProvider storageProvider,
-    IAuditRepository auditRepository) : IKnowledgeIngestionSink
+    IAuditRepository auditRepository,
+    IKnowledgeIndexProvider? indexProvider = null) : IKnowledgeIngestionSink
 {
+    public async Task RetireAsync(TenantScope scope, Guid knowledgeDocumentId, string actor, string reason, string correlationId, CancellationToken cancellationToken = default)
+    {
+        var document = await repository.GetAsync(knowledgeDocumentId, scope, cancellationToken);
+        if (document is null || document.ApprovalStatus == KnowledgeDocumentStatus.Archived)
+        {
+            return;
+        }
+
+        if (indexProvider is not null)
+        {
+            await indexProvider.RemoveAsync(knowledgeDocumentId, scope, cancellationToken);
+        }
+
+        var archived = document with
+        {
+            ApprovalStatus = KnowledgeDocumentStatus.Archived,
+            IndexedStatus = KnowledgeIndexedStatus.NotIndexed,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+        await repository.SaveAsync(archived, cancellationToken);
+        await auditRepository.WriteAsync(AuditEvent.KnowledgeArchived(archived, actor, correlationId, reason), cancellationToken);
+    }
+
     public async Task<KnowledgeDocument> IngestPendingAsync(KnowledgeIngestionRequest request, CancellationToken cancellationToken = default)
     {
         var documentId = Guid.NewGuid();

@@ -19,6 +19,8 @@ public sealed class InMemoryKnowledgeIndexProvider : IKnowledgeIndexProvider
         return Task.CompletedTask;
     }
 
+    public bool IsIndexed(Guid knowledgeDocumentId) => indexedDocuments.ContainsKey(knowledgeDocumentId);
+
     public Task RemoveAsync(Guid knowledgeDocumentId, TenantScope scope, CancellationToken cancellationToken = default)
     {
         indexedDocuments.TryRemove(knowledgeDocumentId, out _);

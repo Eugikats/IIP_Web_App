@@ -40,13 +40,18 @@ public enum ConnectorItemState
     Failed,
 }
 
-/// <summary>A folder an administrator chose to sync, and what files from it are filed as. Never an approval.</summary>
+/// <summary>
+/// A folder an administrator chose to sync, and what files from it are filed as. Never an approval. For Google Drive,
+/// where the narrow permission IIP asks for cannot list a folder, the entry is one picked file (<c>IsFile</c>) and
+/// <c>FolderId</c> holds that file's id.
+/// </summary>
 public sealed record ConnectorFolder(
     string FolderId,
     string DisplayName,
     string? DriveId,
     string ProductLine,
-    KnowledgeDocumentType DocumentType);
+    KnowledgeDocumentType DocumentType,
+    bool IsFile = false);
 
 /// <summary>
 /// A standing link from a folder in someone's Google Drive, OneDrive or SharePoint to the Data Hub. Reads use the
