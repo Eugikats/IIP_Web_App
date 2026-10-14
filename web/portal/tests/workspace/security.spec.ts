@@ -54,6 +54,8 @@ test.beforeEach(async ({ request }) => {
     data: { required: false, allowSnooze: true, minMethods: 1, enabledMethods: ["totp", "passkey", "email_otp", "sms_otp", "backup_codes"] },
   });
   await request.post(`${API}/api/v1/security/mfa/users/user-1/reset`, { headers: OTHER_ADMIN });
+  // A legal hold left on by an earlier run is released (a 400 when none is in place is fine).
+  await request.put(`${API}/api/v1/compliance/legal-hold`, { headers: OTHER_ADMIN, data: { active: false, reason: "test reset" } });
 });
 
 test.afterAll(async ({ request }) => {
@@ -181,4 +183,21 @@ test("A passkey is made and then used to get back in, using a virtual authentica
   await page.getByRole("button", { name: "Use my passkey" }).click();
   await page.waitForURL(/\/app/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+});
+
+test("An administrator can place and release a legal hold, and must say why", async ({ page }) => {
+  const dialog = await openSecurity(page);
+  const panel = dialog.getByTestId("legal-hold");
+  await expect(panel.getByText("Not in place", { exact: true })).toBeVisible();
+
+  const button = panel.getByRole("button", { name: "Place a legal hold" });
+  await expect(button).toBeDisabled(); // no reason yet
+  await panel.getByLabel("Reason").fill("Disputed motor claim");
+  await button.click();
+  await expect(panel.getByText("In place", { exact: true })).toBeVisible();
+  await expect(panel.getByText("Disputed motor claim")).toBeVisible();
+
+  await panel.getByLabel("Reason").fill("Dispute settled");
+  await panel.getByRole("button", { name: "Release the hold" }).click();
+  await expect(panel.getByText("Not in place", { exact: true })).toBeVisible();
 });

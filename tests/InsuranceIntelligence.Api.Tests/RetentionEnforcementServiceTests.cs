@@ -88,6 +88,58 @@ public sealed class RetentionEnforcementServiceTests
         Assert.Contains("1 record(s) deleted", auditEvent.AuditReason);
     }
 
+    [Fact]
+    public async Task EnforceAsync_UnderALegalHold_DeletesNothingAndSaysSoInTheAuditTrail()
+    {
+        var conversations = new FakeConversationRepository();
+        await conversations.SaveAsync(Turn(DateTimeOffset.UtcNow.AddDays(-400))); // long expired
+        var audit = new FakeAuditRepository();
+        var holds = new FakeLegalHoldRepository(new LegalHold { Scope = Scope, Active = true, Reason = "Disputed motor claim", PlacedBy = "legal-1", PlacedAt = DateTimeOffset.UtcNow });
+        var service = new RetentionEnforcementService(new FakePolicyRepository(), conversations, audit, holds);
+
+        var results = await service.EnforceAsync(Scope, "corr-retention-hold");
+
+        Assert.Equal(0, Assert.Single(results).RecordsDeleted);
+        Assert.Single(conversations.Saved); // the expired turn is still there
+        var auditEvent = Assert.Single(audit.Events);
+        Assert.Equal("held", auditEvent.ValidationResult);
+        Assert.Contains("legal hold", auditEvent.AuditReason);
+    }
+
+    [Fact]
+    public async Task EnforceAsync_AfterTheHoldIsReleased_DeletesAgain()
+    {
+        var conversations = new FakeConversationRepository();
+        await conversations.SaveAsync(Turn(DateTimeOffset.UtcNow.AddDays(-400)));
+        var holds = new FakeLegalHoldRepository(new LegalHold { Scope = Scope, Active = false, ReleasedBy = "legal-1", ReleasedAt = DateTimeOffset.UtcNow });
+        var service = new RetentionEnforcementService(new FakePolicyRepository(), conversations, new FakeAuditRepository(), holds);
+
+        var results = await service.EnforceAsync(Scope, "corr-retention-released");
+
+        Assert.Equal(1, Assert.Single(results).RecordsDeleted);
+        Assert.Empty(conversations.Saved);
+    }
+
+    [Fact]
+    public async Task EnforceAsync_AHoldInAnotherWorkspaceDoesNotProtectThisOne()
+    {
+        var conversations = new FakeConversationRepository();
+        await conversations.SaveAsync(Turn(DateTimeOffset.UtcNow.AddDays(-400)));
+        var other = TenantScope.Create("another-insurer", "workspace-claims");
+        var holds = new FakeLegalHoldRepository(new LegalHold { Scope = other, Active = true, Reason = "Not ours" });
+        var service = new RetentionEnforcementService(new FakePolicyRepository(), conversations, new FakeAuditRepository(), holds);
+
+        Assert.Equal(1, Assert.Single(await service.EnforceAsync(Scope, "corr-retention-other")).RecordsDeleted);
+    }
+
+    private sealed class FakeLegalHoldRepository(LegalHold hold) : ILegalHoldRepository
+    {
+        public Task<LegalHold?> GetAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<LegalHold?>(hold.Scope.Matches(scope) ? hold : null);
+
+        public Task SaveAsync(LegalHold updated, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
     private static CustomerConversationTurn Turn(DateTimeOffset occurredAt) => new()
     {
         TurnId = Guid.NewGuid(),

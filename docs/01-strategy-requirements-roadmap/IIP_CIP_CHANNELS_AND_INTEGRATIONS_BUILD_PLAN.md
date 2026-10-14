@@ -27,10 +27,11 @@ from 2026-10-12. Deploy with `scripts/local/deploy-dev-api.sh` (it runs the whol
 | Academy: five courses with lessons, categories, UGX 500,000 | Built and **already deployed** on 2026-10-12 | Browser tests; the Settings price box was fixed afterwards (it still refused anything above 10,000) and that fix is not deployed |
 | S3 webhook replay protection | **Not built, on purpose** | Messages are already stored once by their id and delivery updates are idempotent, so a replayed signed call changes nothing. A time window would risk refusing Meta's own legitimate retries |
 | S4 key ring in Key Vault | **Finding, not built** | The live API has neither `DataProtectionBlobUri` nor `DataProtectionKeyUri` set, so the encryption key ring is a file on the web server's disk. See below |
-| S5 legal hold, S6 security self-audit | Not built | |
+| S5 legal hold | Built, workspace-wide (Settings, Security, Legal hold): while on, retention deletes nothing and its audit entry says "held". Reason required to place or release, both audited | 3 new retention tests, a browser test. A hold on one claim or conversation is a later refinement |
+| S6 security self-audit | Not built | Read CIP's checks first; a check that always passes is worse than none |
 | W0 registrations, W1 file pick, W2 to W6, W9, W10 | Not built | W0 and W1 wait on the owner's Google and Microsoft registrations |
 
-Migrations added: `AddPlatformMfa` (UserSecurityProfiles, MfaPolicies) and `AddWhatsAppWebhookReceipts`.
+Migrations added: `AddPlatformMfa` (UserSecurityProfiles, MfaPolicies), `AddWhatsAppWebhookReceipts` and `AddLegalHold`.
 New package: `Fido2` 3.0.1 in Infrastructure. New portal package: `qrcode`.
 
 ### Things the next session must know

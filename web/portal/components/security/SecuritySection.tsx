@@ -24,6 +24,7 @@ import {
   type MfaStatus,
 } from "@/lib/security/mfa";
 import VerifyForm from "./VerifyForm";
+import LegalHoldPanel from "./LegalHoldPanel";
 import { BackupCodesDialog, CodeSetupDialog, PasskeySetupDialog, TotpSetupDialog } from "./SetupDialogs";
 import { passkeysSupported } from "@/lib/security/passkeys";
 
@@ -186,6 +187,7 @@ export default function SecuritySection() {
       <BackupCodesDialog open={dialog === "backup"} role={role} onClose={() => setDialog(null)} onDone={() => void load()} />
 
       {isAdmin ? <PolicyPanel role={role} onChanged={() => void load()} /> : null}
+      {isAdmin ? <LegalHoldPanel role={role ?? "ClaimsOfficer"} /> : null}
     </div>
   );
 }

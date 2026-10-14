@@ -112,6 +112,50 @@ public static class RetentionEndpoints
             result.RunAt)).ToArray());
     }
 
+    public sealed record LegalHoldRequest(bool Active, string? Reason);
+
+    public static async Task<IResult> GetLegalHold(
+        ILegalHoldRepository holds, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden) return forbidden;
+        if (!TryRequireTenantContext(httpContext, out var tenantContext)) return Validation("tenantScope", "Server-resolved tenant context is required.");
+        var hold = await holds.GetAsync(tenantContext.Scope, cancellationToken);
+        return Results.Ok(new { active = hold?.Active ?? false, reason = hold?.Reason, placedBy = hold?.PlacedBy, placedAt = hold?.PlacedAt, releasedBy = hold?.ReleasedBy, releasedAt = hold?.ReleasedAt });
+    }
+
+    /// <summary>Places or releases the hold. Both need a reason, both are audited, and neither deletes anything.</summary>
+    public static async Task<IResult> SetLegalHold(
+        LegalHoldRequest request, ILegalHoldRepository holds, InsuranceIntelligence.Application.Core.IAuditWriter audit,
+        InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ManageTenantSettings) is { } forbidden) return forbidden;
+        if (!TryRequireTenantContext(httpContext, out var tenantContext)) return Validation("tenantScope", "Server-resolved tenant context is required.");
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 5)
+        {
+            return Validation("reason", "Say why: a legal hold is placed or released for a stated reason.");
+        }
+
+        var scope = tenantContext.Scope;
+        var now = DateTimeOffset.UtcNow;
+        var current = await holds.GetAsync(scope, cancellationToken);
+        if ((current?.Active ?? false) == request.Active)
+        {
+            return Validation("active", request.Active ? "A legal hold is already in place." : "There is no legal hold to release.");
+        }
+
+        var updated = request.Active
+            ? new LegalHold { Scope = scope, Active = true, Reason = request.Reason.Trim(), PlacedBy = tenantContext.UserId, PlacedAt = now }
+            : (current ?? new LegalHold { Scope = scope }) with { Active = false, ReleasedBy = tenantContext.UserId, ReleasedAt = now };
+        await holds.SaveAsync(updated, cancellationToken);
+        await audit.WriteAsync(
+            new InsuranceIntelligence.Domain.Audit.AuditEvent(
+                Guid.NewGuid(), scope, null, null, tenantContext.UserId, InsuranceIntelligence.Domain.Audit.ActorType.User,
+                request.Active ? "retention.legal_hold_placed" : "retention.legal_hold_released", now, null, null, [], "Compliance", null,
+                "recorded", null, request.Reason.Trim(), WorkflowEndpoints.GetCorrelationId(httpContext)),
+            cancellationToken);
+        return Results.Ok(new { active = updated.Active, reason = updated.Reason, placedBy = updated.PlacedBy, placedAt = updated.PlacedAt, releasedBy = updated.ReleasedBy, releasedAt = updated.ReleasedAt });
+    }
+
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });
 

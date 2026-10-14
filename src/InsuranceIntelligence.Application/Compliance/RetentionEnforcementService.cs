@@ -23,7 +23,8 @@ public interface IRetentionEnforcementService
 public sealed class RetentionEnforcementService(
     IRetentionPolicyRepository policyRepository,
     ICustomerConversationRepository conversationRepository,
-    IAuditRepository auditRepository) : IRetentionEnforcementService
+    IAuditRepository auditRepository,
+    ILegalHoldRepository? legalHolds = null) : IRetentionEnforcementService
 {
     private const string SystemActorId = "system:retention-enforcement";
 
@@ -33,6 +34,7 @@ public sealed class RetentionEnforcementService(
         CancellationToken cancellationToken = default)
     {
         var results = new List<RetentionEnforcementResult>();
+        var hold = legalHolds is null ? null : await legalHolds.GetAsync(scope, cancellationToken);
 
         foreach (var dataClass in Enum.GetValues<RetentionDataClass>())
         {
@@ -41,11 +43,14 @@ public sealed class RetentionEnforcementService(
             var now = DateTimeOffset.UtcNow;
             var cutoff = now.AddDays(-retentionDays);
 
-            var deletion = dataClass switch
-            {
-                RetentionDataClass.CustomerConversationTurns => await conversationRepository.DeleteOlderThanAsync(scope, cutoff, cancellationToken),
-                _ => RetentionDeletionSummary.None,
-            };
+            // A legal hold means nothing is deleted, and the run says so, so a held period is provable.
+            var deletion = hold is { Active: true }
+                ? RetentionDeletionSummary.None
+                : dataClass switch
+                {
+                    RetentionDataClass.CustomerConversationTurns => await conversationRepository.DeleteOlderThanAsync(scope, cutoff, cancellationToken),
+                    _ => RetentionDeletionSummary.None,
+                };
 
             var result = new RetentionEnforcementResult(
                 dataClass, retentionDays, deletion.Count, deletion.OldestOccurredAt, deletion.NewestOccurredAt, now);
@@ -56,10 +61,12 @@ public sealed class RetentionEnforcementService(
                     Guid.NewGuid(), scope, null, null, SystemActorId, ActorType.Integration,
                     "retention.enforced", now,
                     null, null, [], "RetentionEnforcementService", null,
-                    deletion.Count > 0 ? "deleted" : "no_expired_records",
+                    hold is { Active: true } ? "held" : deletion.Count > 0 ? "deleted" : "no_expired_records",
                     null,
-                    $"Retention enforcement for {dataClass} (retention {retentionDays} days, cutoff {cutoff:O}): {deletion.Count} record(s) deleted"
-                    + (deletion.Count > 0 ? $" (oldest {deletion.OldestOccurredAt:O}, newest {deletion.NewestOccurredAt:O})." : "."),
+                    hold is { Active: true }
+                        ? $"Retention enforcement for {dataClass} did not run: a legal hold is in place."
+                        : $"Retention enforcement for {dataClass} (retention {retentionDays} days, cutoff {cutoff:O}): {deletion.Count} record(s) deleted"
+                          + (deletion.Count > 0 ? $" (oldest {deletion.OldestOccurredAt:O}, newest {deletion.NewestOccurredAt:O})." : "."),
                     correlationId),
                 cancellationToken);
         }

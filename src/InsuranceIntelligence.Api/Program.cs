@@ -1330,6 +1330,10 @@ app.MapGet("/api/v1/compliance/retention/policies", InsuranceIntelligence.Api.Co
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPost("/api/v1/compliance/retention/policies", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.SavePolicy)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/compliance/legal-hold", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.GetLegalHold)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPut("/api/v1/compliance/legal-hold", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.SetLegalHold)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPost("/api/v1/compliance/retention/enforce", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.EnforceRetention)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 // Follow-through (outcome G): missing-document reminders and pre-breach SLA warnings, the same

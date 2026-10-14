@@ -60,6 +60,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedUserFileConnection> UserFileConnections => Set<PersistedUserFileConnection>();
     public DbSet<PersistedUserSecurityProfile> UserSecurityProfiles => Set<PersistedUserSecurityProfile>();
     public DbSet<PersistedMfaPolicy> MfaPolicies => Set<PersistedMfaPolicy>();
+    public DbSet<PersistedLegalHold> LegalHolds => Set<PersistedLegalHold>();
     public DbSet<PersistedWhatsAppWebhookReceipt> WhatsAppWebhookReceipts => Set<PersistedWhatsAppWebhookReceipt>();
     public DbSet<PersistedAiUsageRecord> AiUsageRecords => Set<PersistedAiUsageRecord>();
     public DbSet<PersistedAgentBehaviourProfile> AgentBehaviourProfiles => Set<PersistedAgentBehaviourProfile>();
@@ -180,6 +181,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedUserFileConnection>(), "UserFileConnections", "ConnectionId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedUserSecurityProfile>(), "UserSecurityProfiles", "ProfileId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedMfaPolicy>(), "MfaPolicies", "PolicyId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedLegalHold>(), "LegalHolds", "HoldId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedWhatsAppWebhookReceipt>(), "WhatsAppWebhookReceipts", "ReceiptId");
         modelBuilder.Entity<PersistedWhatsAppWebhookReceipt>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ReceivedAt });
         ConfigureScopedJson(modelBuilder.Entity<PersistedAiUsageRecord>(), "AiUsageRecords", "UsageId");
@@ -465,6 +467,7 @@ public sealed class PersistedIntegrationConnection : PersistedScopedJson;
 public sealed class PersistedUserFileConnection : PersistedScopedJson;
 public sealed class PersistedUserSecurityProfile : PersistedScopedJson;
 public sealed class PersistedMfaPolicy : PersistedScopedJson;
+public sealed class PersistedLegalHold : PersistedScopedJson;
 public sealed class PersistedWhatsAppWebhookReceipt : PersistedScopedJson { public DateTimeOffset ReceivedAt { get; set; } }
 public sealed class PersistedAiUsageRecord : PersistedScopedJson { public DateTimeOffset OccurredAt { get; set; } }
 public sealed class PersistedOutboundWebhookSubscription : PersistedScopedJson;
