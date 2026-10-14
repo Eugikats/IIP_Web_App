@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using InsuranceIntelligence.Api.Security;
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Azure;
@@ -153,6 +155,7 @@ builder.Services.AddRateLimiter(limits =>
     limits.AddPolicy("join", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 20, TimeSpan.FromMinutes(10)));
     limits.AddPolicy("marketplace", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("webhook", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 3000, TimeSpan.FromMinutes(1)));
+    limits.AddPolicy("mfa", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(5)));
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -479,6 +482,9 @@ builder.Services.AddSingleton(InsuranceIntelligence.Infrastructure.Connections.F
 builder.Services.AddHttpClient(InsuranceIntelligence.Infrastructure.Connections.UserFileService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IUserFileService, InsuranceIntelligence.Infrastructure.Connections.UserFileService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PlatformMfaOptions());
+builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPlatformMfaService, InsuranceIntelligence.Application.Security.PlatformMfaService>();
 // A message that cannot reach a real phone may be recorded as a clearly labelled demonstration send, but
 // only where the runtime profile is not protected. In Staging and Production it is blocked, never faked.
 builder.Services.AddSingleton(new OutreachOptions(!AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile)));
@@ -769,6 +775,9 @@ app.Use(async (context, next) =>
 
     await next();
 });
+
+// The second step after sign-in. A no-op unless the organisation turned it on (Settings, Security).
+app.UseMiddleware<InsuranceIntelligence.Api.Security.PlatformMfaEnforcementMiddleware>();
 
 app.MapGet("/health", (InfrastructureOptions options) => Results.Ok(new
 {
@@ -1102,6 +1111,26 @@ app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBr
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);
 app.MapPut("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.SavePricing)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+
+// Second step after sign-in (two-factor). See IIP_CIP_CHANNELS_AND_INTEGRATIONS_BUILD_PLAN.md, workstream S1.
+app.MapGet("/api/v1/security/mfa/status", PlatformMfaEndpoints.GetStatus);
+app.MapPost("/api/v1/security/mfa/totp/begin", PlatformMfaEndpoints.BeginTotp).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/totp/confirm", PlatformMfaEndpoints.ConfirmTotp).RequireRateLimiting("mfa");
+app.MapDelete("/api/v1/security/mfa/credentials/{method}/{id:guid}", PlatformMfaEndpoints.RemoveCredential);
+app.MapPost("/api/v1/security/mfa/backup-codes/rotate", PlatformMfaEndpoints.RotateBackupCodes).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/codes/send", PlatformMfaEndpoints.SendCode).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/codes/confirm", PlatformMfaEndpoints.ConfirmCode).RequireRateLimiting("mfa");
+app.MapDelete("/api/v1/security/mfa/channels/{channel}", PlatformMfaEndpoints.DisableChannel);
+app.MapPost("/api/v1/security/mfa/verify", PlatformMfaEndpoints.Verify).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/snooze", PlatformMfaEndpoints.Snooze);
+app.MapPost("/api/v1/security/mfa/sign-out", PlatformMfaEndpoints.SignOut);
+app.MapGet("/api/v1/security/mfa/policy", PlatformMfaEndpoints.GetPolicy);
+app.MapPut("/api/v1/security/mfa/policy", PlatformMfaEndpoints.SetPolicy)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/security/mfa/users/{userId}/reset", PlatformMfaEndpoints.ResetUser)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/security/mfa/metrics", PlatformMfaEndpoints.GetMetrics)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
