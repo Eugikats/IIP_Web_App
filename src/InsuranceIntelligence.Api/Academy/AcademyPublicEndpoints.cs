@@ -63,6 +63,7 @@ public static class AcademyPublicEndpoints
         status = course.IsReady ? "ready" : "coming_soon",
         modules = course.Modules.Count,
         lessons = course.AllLessons.Count(),
+        lessonIds = course.AllLessons.Select(lesson => lesson.Id),
         minutes = course.AllLessons.Sum(lesson => lesson.Minutes),
         price = PriceOf(prices, course.Id),
         currency = AcademyPricing.Currency,

@@ -1,0 +1,51 @@
+/* Additions to the design, kept apart from the generated stylesheet. Same tokens, same look. */
+
+/* "Back to IIP" in the top bar */
+.iipa .backiip{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 10px;border-radius:12px;border:1px solid var(--line);background:#fff;color:var(--navy);font-weight:700;font-size:13.5px;white-space:nowrap;transition:.15s}
+.iipa .backiip:hover{border-color:#C9D5EE;background:#F8FAFE}
+.iipa .backiip img{height:24px;width:auto;display:block}
+@media (max-width:560px){.iipa .backiip span{display:none}.iipa .backiip{padding:0 10px}}
+
+/* the user menu holds a button as well as links */
+.iipa .menu .menuitem{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:9px;font-weight:500;font-size:14px;width:100%;text-align:left}
+.iipa .menu .menuitem:hover{background:#F2F6FD}
+
+/* states the design does not draw but every page needs: loading, error, not available */
+.iipa .state{text-align:center;color:var(--muted);padding:56px 20px}
+.iipa .state h2{color:var(--navy);font-size:20px;margin-bottom:6px}
+.iipa .state p{max-width:460px;margin:0 auto 16px;line-height:1.6}
+.iipa .skel{background:linear-gradient(90deg,#EDF1F8,#F6F8FC,#EDF1F8);background-size:200% 100%;animation:iipa-skel 1.4s ease-in-out infinite;border-radius:14px}
+@keyframes iipa-skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.iipa .notice{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;background:var(--orange-2);color:#7A4E00;font-size:13.5px;line-height:1.55}
+.iipa .notice .ic{margin-top:2px;flex:none}
+.iipa .notice.blue{background:#F5F8FF;color:#36405f}
+.iipa .field select,.iipa .field textarea{display:block;width:100%;margin-top:6px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;outline:0;font-weight:500;background:#fff}
+.iipa .field textarea{min-height:120px;resize:vertical;line-height:1.6}
+.iipa .field input:focus,.iipa .field select:focus,.iipa .field textarea:focus{border-color:var(--blue)}
+.iipa .field small{display:block;margin-top:6px;font-weight:500;color:var(--muted)}
+.iipa .btn:focus-visible,.iipa .chip:focus-visible,.iipa a:focus-visible,.iipa button:focus-visible{outline:3px solid #9DB8F5;outline-offset:2px}
+.iipa .srcs.lesson .src{cursor:default}
+
+/* the page itself scrolls (the portal otherwise makes the body the scroller) */
+html.iipa-page,body.iipa-page{height:auto;min-height:100%;overflow-x:clip;overflow-y:visible;background:#EEF3FB}
+
+/* lesson content the design does not draw: tables, flows, screens, worked examples, ordered lists */
+.iipa .lcontent .tablewrap{overflow-x:auto;margin:14px 0}
+.iipa .lcontent table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+.iipa .lcontent th,.iipa .lcontent td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top;line-height:1.5}
+.iipa .lcontent th{background:#F5F8FF;color:var(--navy);font-weight:700}
+.iipa .lcontent .olist{list-style:decimal;padding-left:22px;display:grid;gap:8px;margin-top:10px}
+.iipa .lcontent .olist li{display:list-item;line-height:1.55}
+.iipa .flowrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.iipa .flowstep{display:inline-flex;align-items:center;gap:8px;color:var(--muted)}
+.iipa .flowtext{background:var(--blue-2);color:var(--navy);font-weight:600;font-size:13.5px;padding:8px 13px;border-radius:12px}
+.iipa .screenfig{margin:14px 0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}
+.iipa .screenfig img{width:100%;height:auto;display:block}
+.iipa .screenfig figcaption{padding:12px 16px 4px;font-weight:600;color:var(--navy);font-size:14px}
+.iipa .screenfig .callouts{padding:0 16px 14px 38px;color:#37415f;font-size:14px}
+.iipa .exbox{background:#F5F8FF;border:1px solid #D6E2FA;border-radius:16px;padding:16px 18px;margin-top:16px}
+.iipa .exbox b{color:var(--navy);display:block;margin-bottom:6px}
+.iipa .noreel{position:relative;text-align:center;max-width:460px;padding:0 24px;font-size:15px;line-height:1.6}
+.iipa .noreel .ic{margin:0 auto 10px;opacity:.9}
+.iipa .lside .lrow a,.iipa .lside a.lrow{display:flex;gap:12px;align-items:center;width:100%}
+.iipa .lside .mt{margin-top:16px}

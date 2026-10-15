@@ -1139,6 +1139,7 @@ app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEn
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers, Permission.ViewSalesLeads));
 app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBrief)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/academy/me", InsuranceIntelligence.Api.Academy.AcademyMeEndpoint.Get).RequireRateLimiting("academy-public");
 app.MapGet("/api/v1/academy/public/courses", InsuranceIntelligence.Api.Academy.AcademyPublicEndpoints.Courses).RequireRateLimiting("academy-public");
 app.MapGet("/api/v1/academy/public/courses/{courseId}", InsuranceIntelligence.Api.Academy.AcademyPublicEndpoints.Course).RequireRateLimiting("academy-public");
 app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);

@@ -46,7 +46,7 @@ function scopeFor(provider: SignInProvider) {
 }
 
 /** Starts sign-in with the chosen method. Google and email go through External ID, as in CIP. */
-export async function startSignIn(method: SignInMethod): Promise<void> {
+export async function startSignIn(method: SignInMethod, returnTo?: string): Promise<void> {
   const provider: SignInProvider = method === "microsoft" ? "work" : "external";
   if (provider === "external" && !canUseExternalIdSignIn) {
     throw Object.assign(new Error("not_configured"), { errorCode: "not_configured" });
@@ -63,7 +63,7 @@ export async function startSignIn(method: SignInMethod): Promise<void> {
     // MSAL returns the person to the page the sign-in started on and expects that page to finish it. This started on the
     // sign-in page, which finishes nothing, so people were sent back to it signed in but stranded. Starting "at" the
     // address Microsoft returns to makes MSAL finish the sign-in right there.
-    redirectStartPage: redirectUri(),
+    redirectStartPage: returnTo ? window.location.origin + returnTo : redirectUri(),
     prompt: method === "email" ? "login" : "select_account",
     // Capital G: External ID rejects a lowercase "google" hint (CIP found this the hard way).
     ...(method === "google" ? { extraQueryParameters: { domain_hint: "Google" } } : {}),
@@ -78,6 +78,29 @@ let redirectResult: Promise<AuthenticationResult | null> | null = null;
  * A sign-in that was interrupted (a closed tab, the back button) leaves MSAL's "interaction in progress"
  * marker behind, and every later attempt then fails until it is cleared. Clear it and try once more.
  */
+/**
+ * A token for the person if they are already signed in, otherwise null. Unlike getEntraApiAccessToken it never starts a
+ * sign-in, so pages that are open to visitors (the Academy's public pages) can ask who is here without sending anyone
+ * to Microsoft. It still completes a sign-in that Microsoft has just returned the person from.
+ */
+export async function tryGetEntraApiAccessToken(): Promise<string | null> {
+  if (!canUseEntraBrowserAuth || typeof window === "undefined") return null;
+  try {
+    const provider = currentProvider();
+    const msal = await getClient(provider);
+    const redirected = await getRedirectResult(msal);
+    const account = redirected?.account ?? msal.getActiveAccount() ?? msal.getAllAccounts()[0] ?? null;
+    if (!account) return null;
+    msal.setActiveAccount(account);
+    const result = await msal.acquireTokenSilent({ account, scopes: [scopeFor(provider)] });
+    setApiAccessToken(result.accessToken);
+    return result.accessToken;
+  } catch {
+    // Not signed in, or the session needs the person to sign in again: either way they are treated as a visitor here.
+    return null;
+  }
+}
+
 export async function getEntraApiAccessToken(): Promise<string | null> {
   try {
     return await getEntraApiAccessTokenOnce();
@@ -215,10 +238,10 @@ async function getEntraApiAccessTokenOnce(): Promise<string | null> {
  * identity is header-driven per request, there is no browser session to destroy, so
  * this just clears the cached API token and returns to the sign-in landing page.
  */
-export async function signOut(): Promise<void> {
+export async function signOut(returnPath: string = postLogoutPath): Promise<void> {
   if (!canUseEntraBrowserAuth || typeof window === "undefined") {
     setApiAccessToken(null);
-    window.location.assign(postLogoutPath);
+    window.location.assign(returnPath);
     return;
   }
 
@@ -227,7 +250,7 @@ export async function signOut(): Promise<void> {
   setApiAccessToken(null);
   await msal.logoutRedirect({
     account,
-    postLogoutRedirectUri: window.location.origin + postLogoutPath,
+    postLogoutRedirectUri: window.location.origin + returnPath,
   });
 }
 
