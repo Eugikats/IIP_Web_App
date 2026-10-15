@@ -153,6 +153,8 @@ builder.Services.AddRateLimiter(limits =>
     limits.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     limits.AddPolicy("signup", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 10, TimeSpan.FromHours(1)));
     limits.AddPolicy("join", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 20, TimeSpan.FromMinutes(10)));
+    limits.AddPolicy("academy-learner", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+        context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 240, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("academy-public", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 120, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("marketplace", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("webhook", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 3000, TimeSpan.FromMinutes(1)));
@@ -489,6 +491,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IFileA
 builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.IAcademyContentProvider, InsuranceIntelligence.Api.Academy.AcademyContentProvider>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.AcademyOperator>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyLearnerService>();
 builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PlatformMfaOptions());
 builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPlatformMfaService, InsuranceIntelligence.Application.Security.PlatformMfaService>();
@@ -1142,6 +1145,25 @@ app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBr
 app.MapGet("/api/v1/academy/me", InsuranceIntelligence.Api.Academy.AcademyMeEndpoint.Get).RequireRateLimiting("academy-public");
 app.MapGet("/api/v1/academy/public/courses", InsuranceIntelligence.Api.Academy.AcademyPublicEndpoints.Courses).RequireRateLimiting("academy-public");
 app.MapGet("/api/v1/academy/public/courses/{courseId}", InsuranceIntelligence.Api.Academy.AcademyPublicEndpoints.Course).RequireRateLimiting("academy-public");
+app.MapGet("/api/v1/academy/public/certificates/{code}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Verify).RequireRateLimiting("academy-public");
+app.MapGet("/api/v1/academy/learner", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.State).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/learner/profile", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.UpdateProfile).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/learner/notifications/read", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.ReadNotifications).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/learner/certificates/{certificateId}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Certificate).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/enrol", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Enrol).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/lessons/{lessonId}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Lesson).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/lessons/{lessonId}/complete", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Complete).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/courses/{courseId}/lessons/{lessonId}/note", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Note).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/assessments/{assessmentId}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.StartAssessment).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/assessments/{assessmentId}/submit", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.SubmitAssessment).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/final", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.FinalTask).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/courses/{courseId}/final", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.SaveFinalDraft).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/final/submit", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.SubmitFinal).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/operator/finals", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.PendingFinals).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/finals/mark", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.MarkFinal).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/operator/learners", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Learners).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/enrol", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.OperatorEnrol).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/assessments/reset", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.ResetAssessment).RequireRateLimiting("academy-learner");
 app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);
 app.MapPut("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.SavePricing)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));

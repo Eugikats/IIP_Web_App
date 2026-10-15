@@ -61,6 +61,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedUserSecurityProfile> UserSecurityProfiles => Set<PersistedUserSecurityProfile>();
     public DbSet<PersistedMfaPolicy> MfaPolicies => Set<PersistedMfaPolicy>();
     public DbSet<PersistedLegalHold> LegalHolds => Set<PersistedLegalHold>();
+    public DbSet<AcademyRecordEntity> AcademyRecords => Set<AcademyRecordEntity>();
     public DbSet<PersistedDataConnector> DataConnectors => Set<PersistedDataConnector>();
     public DbSet<PersistedConnectorRun> ConnectorRuns => Set<PersistedConnectorRun>();
     public DbSet<PersistedConnectorItem> ConnectorItems => Set<PersistedConnectorItem>();
@@ -185,6 +186,17 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedUserSecurityProfile>(), "UserSecurityProfiles", "ProfileId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedMfaPolicy>(), "MfaPolicies", "PolicyId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedLegalHold>(), "LegalHolds", "HoldId");
+        modelBuilder.Entity<AcademyRecordEntity>(entity =>
+        {
+            entity.ToTable("AcademyRecords");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Kind).HasMaxLength(40).IsRequired();
+            entity.Property(item => item.Owner).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.Key).HasMaxLength(300).IsRequired();
+            entity.Property(item => item.PayloadJson).IsRequired();
+            entity.HasIndex(item => new { item.Kind, item.Owner });
+            entity.HasIndex(item => new { item.Kind, item.UpdatedAt });
+        });
         ConfigureScopedJson(modelBuilder.Entity<PersistedDataConnector>(), "DataConnectors", "ConnectorId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedConnectorRun>(), "ConnectorRuns", "RunId");
         modelBuilder.Entity<PersistedConnectorRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ConnectorId });
@@ -476,6 +488,17 @@ public sealed class PersistedUserFileConnection : PersistedScopedJson;
 public sealed class PersistedUserSecurityProfile : PersistedScopedJson;
 public sealed class PersistedMfaPolicy : PersistedScopedJson;
 public sealed class PersistedLegalHold : PersistedScopedJson;
+
+/// <summary>One Academy record. Not scoped to an insurer's workspace: see EfAcademyRecordStore.</summary>
+public sealed class AcademyRecordEntity
+{
+    public Guid Id { get; set; }
+    public string Kind { get; set; } = string.Empty;
+    public string Owner { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty;
+    public string PayloadJson { get; set; } = string.Empty;
+    public DateTimeOffset UpdatedAt { get; set; }
+}
 public sealed class PersistedDataConnector : PersistedScopedJson;
 public sealed class PersistedConnectorRun : PersistedScopedJson { public Guid ConnectorId { get; set; } }
 public sealed class PersistedConnectorItem : PersistedScopedJson { public Guid ConnectorId { get; set; } }

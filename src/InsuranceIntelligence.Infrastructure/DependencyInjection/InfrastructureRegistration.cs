@@ -102,6 +102,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Security.IUserSecurityRepository, InsuranceIntelligence.Infrastructure.Security.EfUserSecurityRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Security.IMfaPolicyRepository, InsuranceIntelligence.Infrastructure.Security.EfMfaPolicyRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Compliance.ILegalHoldRepository, InsuranceIntelligence.Infrastructure.Compliance.EfLegalHoldRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Academy.IAcademyRecordStore, InsuranceIntelligence.Infrastructure.Academy.EfAcademyRecordStore>();
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IDataConnectorRepository, InsuranceIntelligence.Infrastructure.Connectors.EfDataConnectorRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorRunRepository, InsuranceIntelligence.Infrastructure.Connectors.EfConnectorRunRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorItemRepository, InsuranceIntelligence.Infrastructure.Connectors.EfConnectorItemRepository>();
