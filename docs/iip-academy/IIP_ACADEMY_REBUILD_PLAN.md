@@ -50,7 +50,7 @@ The design is a prototype. Each row is something on a screen that is invented; w
 | Pre-filled progress, certificate `IIP-2026-0481`, activity, notifications | Invented | Nothing until they happen. Every list has an honest empty state in the design's own style |
 | Streak "5 days", weekly minutes, skills chips | Invented numbers | Streak and minutes counted from lessons really completed; skills taken from the outcomes of courses really completed |
 | 10 courses, hours, levels, 10 named instructors | 7 of the 10 have no lesson content, only filler the prototype generates; the people do not exist | Section 5: courses with written lessons are startable; the rest are listed as "Coming soon". The instructor card shows the course author only when one is recorded |
-| Community posts by named people at named insurers, member counts, events with dates | Invented | A real community, empty to begin with (the design's welcome state), with member counts and events entered by administrators |
+| Community posts by named people at named insurers, member counts, events with dates | Invented | A real community shared across organisations, empty to begin with (the design's welcome state), with consent, reporting and moderation (section 3), real member counts, and events entered by the Academy operator |
 | Checkout with MTN MoMo, Airtel Money and card: "No real payment is taken" | Taking no money while saying "You're enrolled" is a pretend sale | Price 0: "Enroll for free". Price above 0 and payments not connected: the same dialog says so plainly and offers administrator enrolment. Real payment is phase 6 |
 | Video player that counts a fake timer | There is no video | A real video player when a lesson has a recording. Without one the same area shows the lesson title and "No recording for this lesson yet. Read it below", and the lesson can still be completed |
 | Zenith answers from canned rules, steps with invented timings | Pretending to search | Zenith answers from the course lessons with a model, steps show what it really did, sources are real lessons, quiz questions are the authored ones |
@@ -60,30 +60,39 @@ The design is a prototype. Each row is something on a screen that is invented; w
 | The waving-hand emoji in the hero | No emoji anywhere | The same spot gets a drawn hand icon, same size, same wave animation |
 | Language list (English, Kiswahili, Luganda, French) | The interface has one language | It sets the language Zenith answers in, using the translation service IIP already has for Luganda and Kiswahili. Languages the service cannot do are not offered |
 
-## 3. Decisions for the owner
+## 3. Decisions (recorded 2026-10-15) and what they require
 
-Each has a recommended default that the plan assumes unless told otherwise.
+1. **Who learns: both.** The Academy is open through the IIP website (a public front door) and through the IIP dashboard
+   (sidebar link). People from insurers and people with no organisation at all both take courses.
+2. **Catalogue: startable courses, the rest "Coming soon".** The nine courses with written lessons can be started; the
+   design's other courses are listed with their outline and cannot be started.
+3. **Community: one shared community across organisations.**
+4. **Zenith: model-backed, grounded in the lessons.**
 
-1. **Who learns and how enrolment works.** Recommended: people with an IIP account in an organisation. Free courses enrol
-   at once; a priced course is enrolled by an administrator until a payment provider is connected. The alternative is open
-   sign-up for the public with card and mobile money, which needs a payment provider chosen and credentials supplied.
-2. **The catalogue.** Recommended: the nine courses with written lessons are startable (five programme courses and four
-   hands-on courses), and the design's other courses that have no lessons yet appear as "Coming soon" with their outline.
-   Alternatives: hide them, or write them first.
-3. **Community scope.** Recommended: each organisation's community is its own. The design says "across institutions";
-   one shared community means one organisation's staff and posts are visible to another's, which needs consent,
-   moderation and terms, and cuts across tenant isolation.
-4. **Zenith.** Recommended: model-backed, grounded in the lessons, using the workspace's AI credits like the rest of IIP.
-   The alternative is rules only (recommend, plan, quiz), with no explanations.
+What these four decisions force, which the plan now assumes:
+
+| Because of | The build must |
+|---|---|
+| Public learners have no organisation | Run the Academy as its **own platform scope**, separate from every insurer's workspace. A learner is identified by their sign-in alone (the same way the API already knows a signed-in person who belongs to no organisation, as `GET /api/v1/me/organisations` does). Learner data, posts, certificates and prices live in that scope. No insurer's customer or claims data is reachable from it, and no learner data is written into an insurer's workspace |
+| Public front door | Signed-out visitors can read **All courses**, each **course page** and the **certificate verification page**; everything else asks them to sign in. The navbar shows "Sign in" in place of the bell and user menu (drawn in the design's style). The IIP website's navigation and landing page gain an Academy link. Signed-in people from insurers land on the same pages |
+| People outside insurers must be able to sign in | Today only Microsoft work or school accounts can sign in. **Google and email-code sign-in, which public learners need, need the Entra External ID setup that is not done yet** (it is on your registrations list). Until it is, the Academy opens to Microsoft work or school accounts only, and the sign-in page says so |
+| Public learners pay | Paid courses need a **payment provider** (mobile money and card). None is chosen. Until one is connected, a priced course shows the checkout dialog in the design's look with "Payments are not connected yet" in place of the Pay button, and an Academy administrator can enrol a person. Free courses enrol at once. Which provider (for example a Ugandan mobile-money aggregator, or MTN and Airtel directly) is a decision still to make |
+| Prices and administration | Prices, groups, events, the Discord link and moderation are managed for the whole Academy by the **Academy operator**: a designated workspace (set by configuration; yours) whose administrators manage it. The per-workspace "IIP Academy prices" screen in Settings is replaced by a single Academy price list in the operator's workspace |
+| Shared community | A person's **name, job title and organisation are visible to every Academy learner** once they post or comment, so the first time they open Community they are shown exactly that and must agree. Report-a-post and remove-a-post for moderators, a posting rate limit, a block-list of words for the worst content, and the Academy terms and privacy notice updated to cover it (Uganda's Data Protection and Privacy Act: purpose, consent, the right to delete). No customer data may be posted; the composer says so. Delete my posts is in Settings |
+| Zenith uses a model | The platform pays for Zenith: a **per-learner daily limit** (default 30 questions) and a **monthly platform budget** with a visible "Zenith is resting" state when the budget is spent, so public use cannot run up cost unseen. Answers come from the course lessons only and cite them. No personal or claims data is sent to the model |
+| Multi-factor | Insurers' two-factor policies apply to their workspaces, not to the Academy. Academy learners are not asked for a second step |
 
 Smaller facts needed: the Discord invite link; confirmation that you hold the rights to the hero photograph in the
-design; whether lesson videos exist (and where they live).
+design; whether lesson videos exist, and where they live; the payment provider.
 
 ## 4. How it is built
 
-- **Its own area, not inside the IIP shell.** New route group `web/portal/app/academy/` with its own layout. It reuses
-  IIP sign-in, the runtime context (who is signed in, which workspace), and the two-factor gate, but not the IIP sidebar
-  or assistant bar. Signed-out, access-unavailable and loading states are drawn in the Academy's look.
+- **Its own area, not inside the IIP shell, and not requiring an organisation.** New route group
+  `web/portal/app/academy/` with its own layout. It reuses IIP sign-in (returning to the page the person started on,
+  as fixed on 15 October) but does not use the IIP runtime context, sidebar or assistant bar, because those assume an
+  organisation. A small Academy identity context asks `GET /api/v1/academy/me` (name, email, whether they also belong to
+  an organisation, whether they operate the Academy). Public pages render without sign-in. Signed-out, loading and
+  error states are drawn in the Academy's look.
 - **The design's CSS, scoped.** `scripts/build-academy-css.mjs` reads the reference file's `<style>`, prefixes every
   selector with `.iipa` and writes `components/academy/academy.css`, so nothing leaks into the IIP screens and nothing
   from Tailwind's reset leaks in. Regenerable from the reference, which stays in the repo.
@@ -111,16 +120,18 @@ labelled, the certificate is a certificate of completion and says it is not an a
 
 ## 6. Data and server
 
-New tables (one migration), all scoped to tenant and workspace, learner data also to the person:
+New tables (one migration), all in the Academy platform scope (a fixed scope reserved for it), keyed by the learner's sign-in identity, never by an insurer's workspace:
 
 | Table | Holds |
 |---|---|
-| `AcademyEnrolments` | person, course, enrolled by (self or administrator), when |
+| `AcademyEnrolments` | person, course, enrolled by (self, an Academy administrator, or the person's organisation), when |
 | `AcademyProgress` | one document per person and course: completed lessons, notes by lesson, last lesson, quiz result, minutes |
 | `AcademyCertificates` | code (unguessable), person, name as printed, course, issued date; the public verify page reads name, course and date only |
 | `AcademyNotifications` | person, text, link, read, created |
 | `AcademyProfiles` | job title, about, daily goal, language, notification switches, display name for certificates |
-| `AcademyPosts` | post, tag, author, comments and likes inside the document; soft-deleted by moderators |
+| `AcademyPosts` | post, tag, author, comments and likes inside the document; reports; soft-deleted by moderators |
+| `AcademyConsents` | who agreed to the community notice, which version, when |
+| `AcademyPrices`, `AcademySettings` | the price list, the Discord link, Zenith limits, the operator workspace |
 | `AcademyGroups`, `AcademyMemberships`, `AcademyEvents`, `AcademyRsvps` | groups and events an administrator creates; who joined and who is going |
 
 Endpoints under `/api/v1/academy/`: catalogue with the person's status, enrol, progress (complete a lesson, save a note,
@@ -128,18 +139,21 @@ record quiz), certificates (list, one, public verify), notifications (list, mark
 (posts, comment, like, delete by moderator), groups (list, join), events (list, RSVP; create by administrators), and
 `zenith` (ask). Course prices stay where they are (Settings, IIP Academy, UGX 500,000 to begin with).
 
-New permissions: every signed-in member may use the Academy; administrators manage it (enrol people, create groups and
-events, moderate posts, set the Discord link) under the existing manage-settings permission.
+Who may do what: anyone may read the public pages; any signed-in person is a learner; the Academy operator's
+administrators manage it (prices, enrol people, groups, events, moderation, the Discord link) under the existing
+manage-settings permission in the operator's workspace. An insurer's administrator cannot manage the Academy from
+their own workspace.
 
 Notifications are generated by real events only: enrolled, certificate earned, someone replied to you, an event you
 RSVPed to is tomorrow. The "weekly summary" and "email notifications" switches are stored but stay inactive until the
 email channel is connected, and say so beside the switch.
 
 One-time import: the old browser-stored completions (`iip-academy:{user}`) become server certificates on first visit
-to the new Academy, then the browser copy is cleared.
+to the new Academy, then the browser copy is cleared. A person who already holds an IIP workspace account and takes a
+course is the same learner (one sign-in identity); their workspace is shown as their organisation in the community, if they agree.
 
 Zenith: `POST /api/v1/academy/zenith` retrieves the lessons of the person's courses (and course outlines), builds a
-grounded prompt, calls the workspace chat provider through the existing AI credits, and returns the answer with the
+grounded prompt, calls the chat provider against the Academy's own monthly budget and the learner's daily limit, and returns the answer with the
 lessons it used as sources and the steps it actually performed. Quiz requests use the authored questions, never invented
 ones. It answers only from the courses: if the lessons do not say, it says so. Recommend-next and plan-my-week are
 computed from real progress, then worded by the model or shown plainly if the model is unavailable. It does not give
@@ -151,13 +165,13 @@ Each phase ends with its gate, a commit, and a deploy to the dev environment wit
 
 | Phase | Build | Gate |
 |---|---|---|
-| 0 Foundation | Reference and logos in the repo (done), hero image extracted to a file, CSS scoping script, icon file, fonts, route group, layout, top bar with Back to IIP, bottom bar, toast, modal host, sign-in and access states | The empty shell matches the reference's chrome at 1280, 768 and 390 px |
-| 1 Read-only screens on real catalogue | Dashboard, courses, course page (both states), lesson page with the lesson mapping, certificates and certificate page, not found, signed-out; content adapter | Every one of these screens matches the reference in the same state, pixel-compared at three widths |
+| 0 Foundation | Reference and logos in the repo (done), hero image extracted to a file, CSS scoping script, icon file, fonts, route group, layout, Academy identity (`/api/v1/academy/me`), top bar with Back to IIP and a signed-out variant, bottom bar, toast, modal host, public and signed-in states | The empty shell matches the reference's chrome at 1280, 768 and 390 px; a signed-out visitor sees the public chrome; a signed-in person with no organisation is recognised |
+| 1 Read-only screens on real catalogue | Dashboard, courses, course page (public, enrolled and coming-soon states), lesson page with the lesson mapping, certificates and certificate page, not found, signed-out; content adapter; the website link to the Academy | Every one of these screens matches the reference in the same state, pixel-compared at three widths |
 | 2 Learner data | Migration, enrolments, progress, notes, quiz, certificates with public verify page, notifications, profile, progress page, settings; browser import; free enrolment and the honest paid state; the checkout and certificate-earned dialogs | Complete a course end to end in the browser and get a verifiable certificate; tenant A cannot see tenant B's learner data |
-| 3 Community | Posts, comments, likes, tabs, groups, events, group picker, moderation, Discord link setting | Post, comment, like and RSVP work; empty state is the design's welcome; another organisation sees nothing |
-| 4 Zenith | Floating panel, full page, grounded answers with sources and real steps, authored quizzes, recommend and plan, credit metering | Answers carry real lesson sources; an unanswerable question says so; credits are used and shown |
+| 3 Community | Consent notice, posts, comments, likes, tabs, groups, events, group picker, report and moderation, rate limits, Discord link setting, terms and privacy updated | Post, comment, like and RSVP work across two different organisations' people; a reported post can be removed by the operator; a person who has not agreed cannot post; delete-my-posts works |
+| 4 Zenith | Floating panel, full page, grounded answers with sources and real steps, authored quizzes, recommend and plan, daily limit and monthly budget with a visible resting state | Answers carry real lesson sources; an unanswerable question says so; the daily limit and the budget stop further questions and say why |
 | 5 Cut-over | Sidebar link, redirects from the old routes, remove old Academy components and tests, docs, live deploy | Click IIP Academy in the sidebar, land on the new dashboard, click Back to IIP, land on the IIP dashboard; old links redirect |
-| 6 Later | A payment provider (mobile money and card), lesson videos, cross-organisation community if chosen, lessons for the "Coming soon" courses | Per item |
+| 6 Later, in this order | A payment provider (mobile money and card) so public learners can buy; Google and email-code sign-in for public learners (External ID); lesson videos; lessons for the "Coming soon" courses | Per item. Payment and public sign-in are what turn "open to the public" from visible to usable |
 
 ## 8. How "exactly the design" is proved
 
