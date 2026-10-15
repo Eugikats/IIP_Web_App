@@ -36,6 +36,7 @@
 
   <ItemGroup>
     <Content Include="Prompts\azure-openai-policy-answer.txt" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Academy\Content\academy-content.json" LogicalName="InsuranceIntelligence.Api.Academy.Content.academy-content.json" />
   </ItemGroup>
 
 </Project>

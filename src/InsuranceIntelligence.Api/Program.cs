@@ -153,6 +153,7 @@ builder.Services.AddRateLimiter(limits =>
     limits.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     limits.AddPolicy("signup", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 10, TimeSpan.FromHours(1)));
     limits.AddPolicy("join", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 20, TimeSpan.FromMinutes(10)));
+    limits.AddPolicy("academy-public", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 120, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("marketplace", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("webhook", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 3000, TimeSpan.FromMinutes(1)));
     // Per signed-in person in a deployment. Local development has no signed-in person (a header stands in), so
@@ -486,6 +487,8 @@ builder.Services.AddHttpClient(InsuranceIntelligence.Infrastructure.Connections.
 builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IUserFileService, InsuranceIntelligence.Infrastructure.Connections.UserFileService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IFileAccessTokenProvider>(provider => provider.GetRequiredService<InsuranceIntelligence.Application.Integrations.IUserFileService>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.IAcademyContentProvider, InsuranceIntelligence.Api.Academy.AcademyContentProvider>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.AcademyOperator>();
 builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PlatformMfaOptions());
 builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPlatformMfaService, InsuranceIntelligence.Application.Security.PlatformMfaService>();
@@ -1136,6 +1139,8 @@ app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEn
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers, Permission.ViewSalesLeads));
 app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBrief)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/academy/public/courses", InsuranceIntelligence.Api.Academy.AcademyPublicEndpoints.Courses).RequireRateLimiting("academy-public");
+app.MapGet("/api/v1/academy/public/courses/{courseId}", InsuranceIntelligence.Api.Academy.AcademyPublicEndpoints.Course).RequireRateLimiting("academy-public");
 app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);
 app.MapPut("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.SavePricing)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
