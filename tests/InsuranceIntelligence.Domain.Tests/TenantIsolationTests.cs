@@ -31,6 +31,7 @@ public sealed class TenantIsolationTests : IDisposable
         ["BrokerLinks"] = "the relationship between two organisations, keyed by both ids",
         ["UsageCounters"] = "carries TenantId; listed for clarity only",
         ["Permissions"] = "the catalogue of permission names, the same for everyone",
+        ["AcademyRecords"] = "IIP Academy learner and community records, owned by a person and not by any organisation; never reachable through an organisation's workspace",
         ["ApiKeys"] = "keyed by OrganisationId; a key acts only in its own organisation and only a hash is stored",
     };
 

@@ -19,8 +19,8 @@ export const PRODUCT_SHORT = "IIP";
 export const LEGAL_CONTACT_EMAIL = "info@oticgroup.net";
 /** Privacy and data protection contact */
 export const PRIVACY_CONTACT_EMAIL = "legal@oticgroup.net";
-export const LEGAL_LAST_UPDATED = "12 October 2026";
-export const PRIVACY_LAST_UPDATED = "12 October 2026";
+export const LEGAL_LAST_UPDATED = "16 October 2026";
+export const PRIVACY_LAST_UPDATED = "16 October 2026";
 
 export type LegalSection = {
   id: string;
@@ -110,6 +110,16 @@ export const TERMS_SECTIONS: LegalSection[] = [
       "IIP operates as a modular platform. Services may include claims management, document intelligence, a WhatsApp assistant, customer and prospect management, outreach, reporting and the IIP Academy.",
       "We may introduce new Modules and Services and may modify, improve, replace or discontinue existing features from time to time.",
       "Access to a particular Module does not automatically provide access to all other IIP Services.",
+    ],
+  },
+  {
+    id: "iip-academy",
+    title: "5A. IIP ACADEMY",
+    paragraphs: [
+      "5A.1 IIP Academy is a learning space for people in insurance. It can be used with or without an IIP workspace. Course content is provided for learning and is not legal, actuarial or insurance advice.",
+      "5A.2 Certificates show that a person completed a course. They are not a professional qualification or a licence, and the IIP Academy team may withdraw a certificate that was obtained by cheating, such as by submitting work that is not the learner's own.",
+      "5A.3 In the community, a person is responsible for what they post. They must not post customer or claim information, anything that identifies a customer, anything unlawful or abusive, or anything their employer treats as confidential. We may hide or remove posts and may remove access for repeated or serious breaches.",
+      "5A.4 Zenith explains lessons using an AI service. Its explanations may be wrong. It teaches and does not decide, and it must not be relied on for a decision about a real claim, policy or customer. Where payment is not yet connected, courses are offered without charge and the price shown is for information.",
     ],
   },
   {
@@ -577,6 +587,19 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
       "12.5 Storage and protection. Sign-in tokens issued by Google or Microsoft are encrypted and are never sent to a browser. File contents are stored on secured cloud infrastructure, separated per organisation, and protected in transit and at rest.",
       "12.6 Retention and deletion. Disconnecting the connection in IIP deletes the stored sign-in tokens. A person can also revoke IIP's access at any time from their Google account (myaccount.google.com/connections) or Microsoft account (myapps.microsoft.com). To have other related data deleted, contact us at the address in section 14.0.",
       "12.7 Google API Services. IIP's use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy (https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.",
+    ],
+  },
+  {
+    id: "iip-academy",
+    title: "12A.0 IIP Academy",
+    paragraphs: [
+      "12A.1 IIP Academy is a learning space that anyone in insurance can use, with or without an IIP workspace. This section explains what it keeps about a learner.",
+      "12A.2 Data kept. When a person signs in to IIP Academy we keep their sign-in identifier, name and email address, and what they choose to add to their profile (job title, organisation, a short description and learning preferences). We also keep the courses they enrol in, their progress, quiz and assessment results, notes they write, any final task they submit and the marks and feedback they receive, their certificates, their notifications, and the minutes they study each day.",
+      "12A.3 The community. Posts, replies, likes, group memberships and event replies in the IIP Academy community are visible to other signed-in learners, who may work for other organisations. A person's name, job title and organisation are shown with what they post, and a person must accept a notice saying so before they post. Learners are asked not to share customer information, and a post that looks like it holds a phone, policy or claim number is refused. Posts that are reported can be hidden and are reviewed by the IIP Academy team.",
+      "12A.4 Certificates. A certificate carries a credential code. Anyone who has the code can check it on a public page, which shows the holder's name, the course and the date of issue. It shows nothing else about the person.",
+      "12A.5 Zenith. Zenith is IIP Academy's assistant. Its recommendations, study plans and practice questions are worked out from the learner's own progress and the course material. For a written explanation, Zenith sends the learner's question, the last few messages of the conversation and short excerpts from the learner's own lessons to the AI service that operates IIP. It does not send the learner's name, email or profile. Answers are checked to cite the lessons they came from, and Zenith keeps a count of how many explanations each person and the platform have used, not the text of the questions or answers.",
+      "12A.6 Separation. IIP Academy records are kept apart from every organisation's workspace data and are never shown to an organisation's administrators. We do not sell this data and we do not use it for advertising.",
+      "12A.7 Deletion. A learner can ask us to delete their IIP Academy records by writing to the address in section 14.0. Certificates already checked by others stop verifying once deleted.",
     ],
   },
   {
