@@ -21,7 +21,7 @@ type CommunityBits = { discordUrl: string | null; groups: { id: string; name: st
 // server has already agreed to give.
 export default function AdminPage() {
   const { me, loadingMe } = useAcademy();
-  const [tab, setTab] = useState<"marking" | "people" | "community">("marking");
+  const [tab, setTab] = useState<"marking" | "people" | "community" | "prices">("marking");
 
   if (loadingMe) return <SkeletonCards count={1} />;
   if (!me?.signedIn) return <SignInCard title="Sign in to manage the Academy" />;
@@ -31,11 +31,11 @@ export default function AdminPage() {
     <>
       <div className="pagehead"><h1>Manage the Academy</h1><p>Mark final tasks, enrol people and run the community.</p></div>
       <div className="tabs chips" style={{ marginBottom: 18 }}>
-        {([["marking", "Final tasks"], ["people", "People"], ["community", "Community"]] as const).map(([id, label]) => (
+        {([["marking", "Final tasks"], ["people", "People"], ["community", "Community"], ["prices", "Prices"]] as const).map(([id, label]) => (
           <button key={id} type="button" className={`chip${tab === id ? " on" : ""}`} onClick={() => setTab(id)} data-testid={`admin-tab-${id}`}>{label}</button>
         ))}
       </div>
-      {tab === "marking" ? <Marking /> : tab === "people" ? <People /> : <CommunityAdmin />}
+      {tab === "marking" ? <Marking /> : tab === "people" ? <People /> : tab === "community" ? <CommunityAdmin /> : <Prices />}
     </>
   );
 }
@@ -270,5 +270,52 @@ function CommunityAdmin() {
         )) : <p style={{ color: "var(--muted)" }}>No reported posts.</p>}
       </section>
     </>
+  );
+}
+
+function Prices() {
+  const { toast, courses } = useAcademy();
+  const { data, problem, load } = useLoad<{ currency: string; prices: { courseId: string; amount: number }[] }>("/pricing");
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const ready = (courses ?? []).filter((item) => item.status === "ready");
+
+  useEffect(() => {
+    if (data) setDraft(Object.fromEntries(data.prices.map((price) => [price.courseId, String(price.amount)])));
+  }, [data]);
+
+  if (problem) return <PageState kind="error" title="Prices could not be loaded" text={problem} />;
+  if (!data) return <SkeletonCards count={1} />;
+
+  const invalid = ready.some((item) => {
+    const value = draft[item.id];
+    return value === undefined || value.trim() === "" || Number.isNaN(Number(value)) || Number(value) < 0 || Number(value) > 100_000_000;
+  });
+  const save = async () => {
+    setBusy(true);
+    try {
+      await academyPut("/pricing", { prices: ready.map((item) => ({ courseId: item.id, amount: Math.round(Number(draft[item.id]) * 100) / 100 })) });
+      toast("Prices saved");
+      await load();
+    } catch (failure) {
+      toast(failure instanceof AcademyApiError ? failure.message : "The prices could not be saved.", "x");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card panel">
+      <h2>Course prices</h2>
+      <p style={{ color: "var(--muted)", marginBottom: 12 }}>Learners see these on the course page. Payment is not connected yet, so nobody is charged. Use 0 for a free course.</p>
+      {ready.map((item) => (
+        <div key={item.id} className="setrow">
+          <div><b>{item.title}</b></div>
+          <span style={{ color: "var(--muted)" }}>{data.currency}</span>
+          <input type="text" inputMode="decimal" value={draft[item.id] ?? ""} onChange={(event) => setDraft({ ...draft, [item.id]: event.target.value })} aria-label={`Price of ${item.title}`} style={{ width: 120, minWidth: 0 }} />
+        </div>
+      ))}
+      <button type="button" className="btn primary" style={{ marginTop: 14 }} disabled={busy || invalid} onClick={() => void save()}>{busy ? "Saving..." : "Save prices"}</button>
+    </section>
   );
 }

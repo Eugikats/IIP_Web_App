@@ -1,4 +1,4 @@
-import type { Module, Question } from "@/lib/academy/courses";
+import type { Module, Question } from "../courses";
 
 // Course: AI for Underwriting & Risk Intelligence. All examples are synthetic. What IIP does today is stated
 // plainly: it reviews and summarises submissions and drafts questions, it shows operational portfolio counts, and

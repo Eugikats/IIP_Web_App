@@ -1,4 +1,4 @@
-import type { Module, Question } from "@/lib/academy/courses";
+import type { Module, Question } from "../courses";
 
 // Course: AI-Powered Claims Management & Fraud Intelligence. All examples are synthetic. The service standards
 // are those used in the hands-on claims course; confirm the current figures with the Insurance Regulatory

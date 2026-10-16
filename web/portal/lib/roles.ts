@@ -112,7 +112,6 @@ type RouteAccessRule = {
 // Put specific child routes before their parent prefix.
 export const ROUTE_ACCESS: RouteAccessRule[] = [
   // Training is open to everyone who can sign in.
-  { path: "/app/academy", requiredAny: [] },
   { path: "/app/conversations", requiredAny: ["ViewCommandCenter"] },
   { path: "/app/search", requiredAny: ["ViewAssignedClaims", "ViewAllClaims"] },
   { path: "/app/claims/new", requiredAny: ["CreateClaim"], exact: true },

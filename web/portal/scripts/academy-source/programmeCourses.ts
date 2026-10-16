@@ -7,12 +7,12 @@
 // regulator requires is "to be confirmed with legal and compliance"; all examples are synthetic; the
 // certificate is a certificate of completion, not an accredited qualification.
 
-import type { Course } from "@/lib/academy/courses";
-import { AI_AGENTIC_MODULES, AI_AGENTIC_QUIZ } from "@/lib/academy/lessons/aiAgentic";
-import { CLAIMS_FRAUD_MODULES, CLAIMS_FRAUD_QUIZ } from "@/lib/academy/lessons/claimsFraud";
-import { UNDERWRITING_RISK_MODULES, UNDERWRITING_RISK_QUIZ } from "@/lib/academy/lessons/underwritingRisk";
-import { SALES_DISTRIBUTION_MODULES, SALES_DISTRIBUTION_QUIZ } from "@/lib/academy/lessons/salesDistribution";
-import { AGENTIC_SYSTEMS_MODULES, AGENTIC_SYSTEMS_QUIZ } from "@/lib/academy/lessons/agenticSystems";
+import type { Course } from "./courses";
+import { AI_AGENTIC_MODULES, AI_AGENTIC_QUIZ } from "./lessons/aiAgentic";
+import { CLAIMS_FRAUD_MODULES, CLAIMS_FRAUD_QUIZ } from "./lessons/claimsFraud";
+import { UNDERWRITING_RISK_MODULES, UNDERWRITING_RISK_QUIZ } from "./lessons/underwritingRisk";
+import { SALES_DISTRIBUTION_MODULES, SALES_DISTRIBUTION_QUIZ } from "./lessons/salesDistribution";
+import { AGENTIC_SYSTEMS_MODULES, AGENTIC_SYSTEMS_QUIZ } from "./lessons/agenticSystems";
 
 export const PROGRAMME_COURSES: Course[] = [
   {

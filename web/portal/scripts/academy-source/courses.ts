@@ -6,7 +6,7 @@
 // accredited qualification; percentages are targets, never measured results; obligations under law or
 // regulation are "to be confirmed with legal and compliance". All examples are synthetic.
 
-import { PROGRAMME_COURSES } from "@/lib/academy/programmeCourses";
+import { PROGRAMME_COURSES } from "./programmeCourses";
 
 export type Screen =
   | { file: string; caption: string; callouts: string[] }

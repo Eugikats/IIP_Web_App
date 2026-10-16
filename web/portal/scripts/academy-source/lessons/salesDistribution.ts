@@ -1,4 +1,4 @@
-import type { Module, Question } from "@/lib/academy/courses";
+import type { Module, Question } from "../courses";
 
 // Course: AI for Insurance Sales, Distribution & Customer Experience. All examples are synthetic. Market figures
 // and platform terms are attributed and dated; legal and regulatory points are to be confirmed with legal and

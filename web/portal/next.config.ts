@@ -42,6 +42,9 @@ export default function portalConfig(phase: string): NextConfig {
     },
     async redirects() {
       return [
+        // The Academy is its own space now. Old links into the workspace version land on the new one.
+        { source: "/app/academy", destination: "/academy", permanent: true },
+        { source: "/app/academy/:courseId", destination: "/academy/courses/:courseId", permanent: true },
         {
           source: "/index",
           destination: "/",

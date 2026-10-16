@@ -4,7 +4,7 @@
 //
 // Sources, none of which are edited:
 //   * docs/iip-academy/academy-content/*.md  : Course 1 research packs, module assessments, final task, Course 2 map.
-//   * lib/academy/*.ts                        : the other courses already written for IIP Academy.
+//   * scripts/academy-source/*.ts                       : the other courses already written for IIP Academy.
 // Output: src/InsuranceIntelligence.Api/Academy/Content/academy-content.json (embedded in the API).
 //
 // The supplied markdown uses em dashes. Nothing shown to a person may contain one, so they are converted here and the
@@ -111,7 +111,7 @@ function lessonsFromModule(courseId, module, moduleIndex) {
 }
 
 function existingCourses() {
-  const { COURSES } = loadTs(path.join(portal, "lib", "academy", "courses.ts"));
+  const { COURSES } = loadTs(path.join(portal, "scripts", "academy-source", "courses.ts"));
   return COURSES.map((course) => {
     const style = CATEGORY_STYLE[course.category] ?? CATEGORY_STYLE["build-govern"];
     return {
@@ -447,7 +447,7 @@ const catalogue = existing.map((c) => (c.id === "ai-agentic-insurance" ? course1
 catalogue.push(course2());
 catalogue.forEach((c, i) => (c.number = i + 1));
 
-const output = { generatedFrom: "docs/iip-academy/academy-content and lib/academy", courses: catalogue };
+const output = { generatedFrom: "docs/iip-academy/academy-content and scripts/academy-source", courses: catalogue };
 const json = JSON.stringify(output, null, 1);
 if (json.includes(EM)) throw new Error("An em dash survived in the content");
 if (/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(json)) throw new Error("An emoji survived in the content");

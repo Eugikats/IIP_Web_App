@@ -1,4 +1,4 @@
-import type { Module, Question } from "@/lib/academy/courses";
+import type { Module, Question } from "../courses";
 
 // Course: AI & Agentic AI for Insurance. All examples are synthetic.
 

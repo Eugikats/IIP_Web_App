@@ -5,7 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState, type ComponentType
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowLeft, Bot, CreditCard, ShieldCheck, FolderOpen, GraduationCap, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Settings, Smartphone, User, Users, X, type LucideIcon,
+  ArrowLeft, Bot, CreditCard, ShieldCheck, FolderOpen, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Settings, Smartphone, User, Users, X, type LucideIcon,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
@@ -17,8 +17,6 @@ import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { disconnectFileProvider, FileConnectionError, getFileConnectionStatus, startFileConnection, type FileConnectionStatus, type FileProviderKey } from "@/lib/files/fileConnections";
-import { COURSES } from "@/lib/academy/courses";
-import { formatPrice, useAcademyPricing } from "@/lib/academy/pricing";
 import CreditMeter from "@/components/billing/CreditMeter";
 import SecuritySection from "@/components/security/SecuritySection";
 import TestSend from "@/components/settings/TestSend";
@@ -40,14 +38,13 @@ import WhatsAppPanel from "@/lovable-pages/admin/WhatsAppSettings";
 // is connected and what is not. A card is "Connected" only when the provider validated the saved
 // connection; file sources that cannot be connected yet say "Not connected" and why.
 
-export type SettingsSection = "profile" | "integrations" | "agents" | "team" | "products" | "academy" | "billing" | "security";
+export type SettingsSection = "profile" | "integrations" | "agents" | "team" | "products" | "billing" | "security";
 
 const SECTIONS: { key: SettingsSection; label: string; title: string; description: string; icon: LucideIcon }[] = [
   { key: "integrations", label: "Integrations", title: "Integrations", description: "What the platform can connect to, and what is connected.", icon: Plug },
   { key: "agents", label: "Agent rules", title: "Agent rules", description: "What each agent may do, how Kato speaks, and the switch that turns each agent off.", icon: Bot },
   { key: "team", label: "Team and access", title: "Team and access", description: "Who can sign in, what they can see and do, and the rules everyone in this workspace follows.", icon: Users },
   { key: "products", label: "Products", title: "Products", description: "The covers sold, their documents and claim stages, and policy imports.", icon: Package },
-  { key: "academy", label: "IIP Academy", title: "IIP Academy prices", description: "What each course costs a learner.", icon: GraduationCap },
   { key: "billing", label: "Usage and billing", title: "Usage and billing", description: "How much the platform has been used, the plan, and AI credits.", icon: CreditCard },
   { key: "security", label: "Security", title: "Security", description: "How you prove it is you after signing in, and whether your organisation requires it.", icon: ShieldCheck },
   { key: "profile", label: "Profile", title: "Profile", description: "Who you are signed in as, and the workspace you are working in.", icon: User },
@@ -240,7 +237,6 @@ export function SettingsModal({
                       ]}
                     />
                   ) : null}
-                  {section === "academy" ? <AcademyPricingSection /> : null}
                   {section === "security" ? <SecuritySection /> : null}
                   {section === "billing" ? <BillingSection /> : null}
                   {section === "profile" ? <Embedded><ProfileSettings /></Embedded> : null}
@@ -544,72 +540,3 @@ function IntegrationsSection() {
   );
 }
 
-function AcademyPricingSection() {
-  const { prices, currency, loading, error, save } = useAcademyPricing();
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
-
-  useEffect(() => {
-    if (prices) setDraft(Object.fromEntries(Object.entries(prices).map(([id, amount]) => [id, String(amount)])));
-  }, [prices]);
-
-  const invalid = COURSES.some((course) => {
-    const value = draft[course.id];
-    return value === undefined || value.trim() === "" || Number.isNaN(Number(value)) || Number(value) < 0 || Number(value) > 100000000;
-  });
-  const changed = !!prices && COURSES.some((course) => Number(draft[course.id]) !== prices[course.id]);
-
-  const onSave = async () => {
-    setSaving(true);
-    setMessage(null);
-    const result = await save(Object.fromEntries(COURSES.map((course) => [course.id, Math.round(Number(draft[course.id]) * 100) / 100])));
-    setSaving(false);
-    setMessage(result.ok ? { tone: "ok", text: "Prices saved." } : { tone: "bad", text: result.message ?? "The prices could not be saved." });
-  };
-
-  return (
-    <div>
-      <h3 className="m-0 text-[16px] font-bold text-dls-text-primary">IIP Academy prices</h3>
-      <p className="m-0 mt-1 max-w-2xl text-[13px] text-dls-text-secondary">
-        What each course costs a learner, in Ugandan shillings. Learners see the price on the course page. Every course starts at {formatPrice(500_000)}. Payment is not connected yet, so nobody is charged.
-      </p>
-      {loading && !prices ? <div className="mt-4"><LoadingSkeleton rows={4} /></div> : null}
-      {error ? <p role="alert" className="m-0 mt-4 text-[13px] text-red-700">{error}</p> : null}
-      {prices ? (
-        <div className="mt-4 space-y-2.5">
-          {COURSES.map((course) => (
-            <label key={course.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dls-border-subtle bg-dls-surface px-4 py-3">
-              <span className="min-w-0">
-                <span className="block text-[14px] font-semibold text-dls-text-primary">{course.title}</span>
-                <span className="block text-[12px] text-dls-text-muted">Course {course.number}, {course.duration}</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="text-[13px] text-dls-text-secondary" aria-hidden>{currency}</span>
-                <Input
-                  inputMode="decimal"
-                  value={draft[course.id] ?? ""}
-                  onChange={(event) => { setDraft({ ...draft, [course.id]: event.target.value }); setMessage(null); }}
-                  aria-label={`Price of ${course.title} in ${currency}`}
-                  className="w-24 text-right"
-                />
-              </span>
-            </label>
-          ))}
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <button
-              type="button"
-              disabled={saving || invalid || !changed}
-              onClick={() => void onSave()}
-              className="inline-flex h-9 items-center rounded-lg bg-dls-primary-accent px-4 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {saving ? "Saving" : "Save prices"}
-            </button>
-            {invalid ? <span className="text-[12.5px] text-amber-700">Enter a price from 0 to 100,000,000. Use 0 for a free course.</span> : null}
-            {message ? <span role="status" className={cn("text-[12.5px]", message.tone === "ok" ? "text-emerald-700" : "text-red-700")}>{message.text}</span> : null}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}

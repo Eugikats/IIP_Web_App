@@ -42,7 +42,7 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
       { to: "/app/claims", label: "Claims", icon: FileSearch },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
       { to: "/app/channels", label: "Inbox", icon: Inbox },
-      { to: "/app/academy", label: "IIP Academy", icon: GraduationCap },
+      { to: "/academy", label: "IIP Academy", icon: GraduationCap },
     ],
   },
   {

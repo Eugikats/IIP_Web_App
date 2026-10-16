@@ -1,4 +1,4 @@
-import type { Module, Question } from "@/lib/academy/courses";
+import type { Module, Question } from "../courses";
 
 // Course: Building Agentic AI Systems for Insurance. A technical course. IIP is used as the working reference:
 // every example describes how IIP is built, with synthetic data. The security list is the OWASP Top 10 for LLM
