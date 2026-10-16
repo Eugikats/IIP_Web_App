@@ -38,7 +38,7 @@ public sealed class ChatZenithModel(IServiceProvider services, AcademyOperator a
     }
 }
 
-public sealed record ZenithSource(string Label, string Href);
+public sealed record ZenithSource(string Label, string Href, int? Number = null);
 
 public sealed record ZenithAction(string Label, string? Href = null, string? Q = null);
 
@@ -463,7 +463,7 @@ public sealed partial class AcademyZenithService(
                 hits.Select(SourceOf));
         }
 
-        return done("model", steps, text, cited.Select(number => SourceOf(hits[number - 1])),
+        return done("model", steps, text, cited.Select(number => SourceOf(hits[number - 1]) with { Number = number }),
             [new ZenithAction("Quiz me", Q: "Quiz me"), new ZenithAction("What should I study next?", Q: "What should I study next?")]);
     }
 

@@ -30,3 +30,21 @@ test("assessment and final task screens", async ({ page, request }, info) => {
   await page.waitForTimeout(1500);
   await page.screenshot({ path: out("lesson"), fullPage: true });
 });
+
+test("zenith panel and page", async ({ page, request }, info) => {
+  const out = (name: string) => `test-results/academy-shots/flow-${name}-${info.project.name}.png`;
+  await request.post(`${API}/courses/ai-sales-distribution/enrol`, { headers: HEADERS, data: {} });
+  const narrow = (page.viewportSize()?.width ?? 1280) <= 860; // the design drops the floating button there; the bottom bar leads to the page
+  if (!narrow) {
+    await page.goto("/academy/courses");
+    await page.getByTestId("zenith-fab").click();
+    await page.getByRole("button", { name: "Plan my study week" }).click();
+    await expect(page.getByText(/5 day plan/)).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: out("zenith-panel") });
+  }
+  await page.goto("/academy/zenith");
+  if (narrow) await page.getByRole("button", { name: /Plan your week/ }).click();
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: out("zenith-page"), fullPage: true });
+});

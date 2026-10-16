@@ -11,6 +11,7 @@ import { academyGet, AcademyApiError } from "@/lib/academy/api";
 import { categoryTitle } from "@/lib/academy/categoryTitles";
 import { formatPrice } from "@/lib/academy/format";
 import { ZENITH_READY } from "@/lib/academy/flags";
+import { askZenith } from "@/lib/academy/zenithStore";
 import type { CourseDetail } from "@/lib/academy/types";
 
 // A course page. Not enrolled: the sales page, with the curriculum, who it is for and the price. Enrolled: the same page with
@@ -89,7 +90,7 @@ export default function CoursePage({ courseId }: { courseId: string }) {
       ) : (
         <Link className="btn primary block" href={`/academy/learn/${course.id}/${nextLesson?.id ?? ""}`} data-testid="continue-course">{percent ? "Continue learning" : "Start course"} <Icon name="arrowR" size={16} /></Link>
       )}
-      {ZENITH_READY ? <button type="button" className="btn ghost block" style={{ marginTop: 10 }} onClick={() => setZenithOpen(true)}><Icon name="sparkle" size={16} />Ask Zenith about this course</button> : null}
+      {ZENITH_READY && signedIn ? <button type="button" className="btn ghost block" style={{ marginTop: 10 }} onClick={() => { setZenithOpen(true); void askZenith(`Summarise ${course.title}`); }}><Icon name="sparkle" size={16} />Ask Zenith about this course</button> : null}
     </section>
   ) : (
     <section className="card pricecard">
@@ -97,7 +98,7 @@ export default function CoursePage({ courseId }: { courseId: string }) {
       <div className="price">UGX {formatPrice(course.price)}</div>
       <p className="pnote">{signedIn ? "Payment is not connected yet, so enrolment is open and nothing is charged." : "Sign in to enrol. Payment is not connected yet, so nothing is charged."}</p>
       <button type="button" className="btn primary block" onClick={enrol} data-testid="enrol">{signedIn ? "Enrol now" : "Sign in to enrol"} <Icon name="arrowR" size={16} /></button>
-      {ZENITH_READY ? <button type="button" className="btn ghost block" style={{ marginTop: 10 }} onClick={() => setZenithOpen(true)}><Icon name="sparkle" size={16} />Ask Zenith about this course</button> : null}
+      {ZENITH_READY && signedIn ? <button type="button" className="btn ghost block" style={{ marginTop: 10 }} onClick={() => { setZenithOpen(true); void askZenith(`Summarise ${course.title}`); }}><Icon name="sparkle" size={16} />Ask Zenith about this course</button> : null}
       <div className="incl">{included.map(([icon, text]) => <div key={text}><Icon name={icon} size={18} /><span>{text}</span></div>)}</div>
     </section>
   );

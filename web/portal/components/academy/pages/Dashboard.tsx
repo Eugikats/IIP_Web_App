@@ -7,6 +7,7 @@ import { Ring } from "@/components/academy/Thumb";
 import { CourseCard } from "@/components/academy/CourseCard";
 import { useAcademy } from "@/components/academy/AcademyProvider";
 import { ZENITH_READY } from "@/lib/academy/flags";
+import { askZenith } from "@/lib/academy/zenithStore";
 import type { CourseSummary } from "@/lib/academy/types";
 import { PageState, SkeletonCards } from "@/components/academy/PageState";
 
@@ -117,7 +118,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <section className="row2" style={ZENITH_READY ? undefined : { gridTemplateColumns: "1fr" }}>
+      <section className="row2" style={ZENITH_READY && signedIn ? undefined : { gridTemplateColumns: "1fr" }}>
         <div className="comm card">
           <div className="ci"><Icon name="users" size={28} /></div>
           <div className="ctx">
@@ -128,11 +129,15 @@ export default function Dashboard() {
             <Link className="btn ghost" href="/academy/community">Go to community <Icon name="arrowR" size={16} /></Link>
           </div>
         </div>
-        {ZENITH_READY ? (
+        {ZENITH_READY && signedIn ? (
           <div className="aimini card" id="aimini">
             <div className="aih"><Icon name="sparkle" size={22} />Zenith</div>
-            <form className="minif" onSubmit={(event) => { event.preventDefault(); setZenithOpen(true); }}>
-              <input placeholder="Ask Zenith anything..." autoComplete="off" />
+            <form className="minif" onSubmit={(event) => {
+              event.preventDefault();
+              const field = event.currentTarget.elements.namedItem("question") as HTMLInputElement;
+              if (field.value.trim()) { setZenithOpen(true); void askZenith(field.value); field.value = ""; }
+            }}>
+              <input name="question" aria-label="Ask Zenith" placeholder="Ask Zenith anything..." autoComplete="off" />
               <button className="send" type="submit" aria-label="Ask Zenith"><Icon name="arrowUR" size={18} /></button>
             </form>
           </div>

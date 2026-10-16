@@ -17,7 +17,7 @@ public static class AcademyZenithEndpoints
                 mode = reply.Mode,
                 steps = reply.Steps,
                 text = reply.Text,
-                sources = reply.Sources.Select(source => new { label = source.Label, href = source.Href }),
+                sources = reply.Sources.Select(source => new { label = source.Label, href = source.Href, number = source.Number }),
                 actions = reply.Actions.Select(action => new { label = action.Label, href = action.Href, q = action.Q }),
                 quiz = reply.Quiz is null ? null : new { courseId = reply.Quiz.CourseId, questionId = reply.Quiz.QuestionId, lessonTitle = reply.Quiz.LessonTitle, q = reply.Quiz.Q, options = reply.Quiz.Options },
                 seconds = reply.Seconds,

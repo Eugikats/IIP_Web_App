@@ -10,6 +10,7 @@ import { PageState, SkeletonCards } from "@/components/academy/PageState";
 import { academyGet, academyPost, academyPut, AcademyApiError } from "@/lib/academy/api";
 import { buildSequence } from "@/lib/academy/sequence";
 import { ZENITH_READY } from "@/lib/academy/flags";
+import { askZenith } from "@/lib/academy/zenithStore";
 import type { CourseDetail, LessonView } from "@/lib/academy/types";
 
 // A lesson, as designed: the player area on top, the lesson beside the course outline, a place for the learner's own
@@ -187,7 +188,7 @@ export default function LessonPage({ courseId, lessonId }: { courseId: string; l
               <textarea id="note" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Write your reflection..." aria-label="Your note for this lesson" />
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                 <button type="button" className="btn soft sm" onClick={() => void saveNote()}>Save note</button>
-                {ZENITH_READY ? <button type="button" className="btn ghost sm" onClick={() => setZenithOpen(true)}><Icon name="sparkle" size={15} />Ask Zenith about this lesson</button> : null}
+                {ZENITH_READY ? <button type="button" className="btn ghost sm" onClick={() => { setZenithOpen(true); void askZenith(`Explain "${lesson.title}" in simple terms`); }}><Icon name="sparkle" size={15} />Ask Zenith about this lesson</button> : null}
               </div>
             </div>
 
