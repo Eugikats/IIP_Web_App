@@ -159,6 +159,8 @@ builder.Services.AddRateLimiter(limits =>
         context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 30, TimeSpan.FromHours(1)));
     limits.AddPolicy("academy-zenith", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
         context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 20, TimeSpan.FromMinutes(1)));
+    limits.AddPolicy("academy-pay", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+        context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 20, TimeSpan.FromMinutes(10)));
     limits.AddPolicy("academy-public", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 120, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("marketplace", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("webhook", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 3000, TimeSpan.FromMinutes(1)));
@@ -499,6 +501,25 @@ builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyLearnerServi
 builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyCommunityService>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.IZenithModel, InsuranceIntelligence.Api.Academy.ChatZenithModel>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyZenithService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademySettingsService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.Payments.IAcademyPriceSource, InsuranceIntelligence.Api.Academy.Payments.AcademyPriceSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentService>();
+builder.Services.AddHttpClient<InsuranceIntelligence.Api.Academy.Payments.FlutterwaveGateway>();
+// Which payment provider is used: the local stand-in only when asked for in development, Flutterwave when its key is set,
+// otherwise none (enrolment stays open and nothing is charged, and the pages say so).
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.Payments.IPaymentGateway>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    if (string.Equals(configuration["Academy:Payments:Provider"], "Fake", StringComparison.OrdinalIgnoreCase)
+        && infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+    {
+        return new InsuranceIntelligence.Api.Academy.Payments.FakePaymentGateway(configuration);
+    }
+
+    var flutterwave = sp.GetRequiredService<InsuranceIntelligence.Api.Academy.Payments.FlutterwaveGateway>();
+    return flutterwave.Configured ? flutterwave : new InsuranceIntelligence.Api.Academy.Payments.NotConfiguredPaymentGateway();
+});
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Academy.Payments.PaymentReconcileWorker>();
 builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PlatformMfaOptions());
 builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPlatformMfaService, InsuranceIntelligence.Application.Security.PlatformMfaService>();
@@ -1190,6 +1211,19 @@ app.MapPost("/api/v1/academy/operator/community/posts/{postId}/hide", InsuranceI
 app.MapGet("/api/v1/academy/zenith/status", InsuranceIntelligence.Api.Academy.AcademyZenithEndpoints.Status).RequireRateLimiting("academy-learner");
 app.MapPost("/api/v1/academy/zenith/ask", InsuranceIntelligence.Api.Academy.AcademyZenithEndpoints.Ask).RequireRateLimiting("academy-zenith");
 app.MapPost("/api/v1/academy/zenith/quiz/answer", InsuranceIntelligence.Api.Academy.AcademyZenithEndpoints.CheckQuiz).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/offer", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Offer).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/checkout", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Checkout).RequireRateLimiting("academy-pay");
+app.MapPost("/api/v1/academy/payments/confirm", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Confirm).RequireRateLimiting("academy-pay");
+app.MapPost("/api/v1/academy/payments/webhook", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Webhook).RequireRateLimiting("webhook");
+app.MapGet("/api/v1/academy/operator/payments", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Orders).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/payments/{reference}/recheck", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Recheck).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/payments/{reference}/refunded", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Refunded).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/operator/settings/payments", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.GetPaymentSettings).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/operator/settings/payments", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.SavePaymentSettings).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/operator/settings/zenith", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.GetZenithSettings).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/operator/settings/zenith", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.SaveZenithSettings).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/final/open", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.FinalOpen).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/assessments/{assessmentId}/leave", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.AssessmentLeave).RequireRateLimiting("academy-learner");
 app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);
 app.MapPut("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.SavePricing)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));

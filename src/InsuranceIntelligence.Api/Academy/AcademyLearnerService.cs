@@ -209,6 +209,48 @@ public sealed class AcademyLearnerService(IAcademyRecordStore store, IAcademyCon
         return true;
     }
 
+    // ---------------------------------------------------------------- sitting: Zenith is off while this holds
+
+    private static readonly TimeSpan AssessmentSitting = TimeSpan.FromMinutes(90);
+    private static readonly TimeSpan FinalTaskSitting = TimeSpan.FromMinutes(5);
+
+    private sealed record Sitting(string What, DateTimeOffset Until);
+
+    /// <summary>What the person is sitting right now (an assessment, or the final task page), or null. Expired sittings do not count.</summary>
+    public async Task<string?> SittingAsync(string userId, CancellationToken ct)
+    {
+        var records = await store.ListByOwnerAsync(AcademyKinds.Sitting, Owner(userId), ct);
+        foreach (var record in records)
+        {
+            var sitting = JsonSerializer.Deserialize<Sitting>(record.Json, Json);
+            if (sitting is not null && sitting.Until > clock.GetUtcNow())
+            {
+                return sitting.What;
+            }
+        }
+
+        return null;
+    }
+
+    private Task BeginSittingAsync(string userId, string key, string what, TimeSpan length, CancellationToken ct) =>
+        WriteAsync(AcademyKinds.Sitting, Owner(userId), key, new Sitting(what, clock.GetUtcNow().Add(length)), ct);
+
+    public Task EndSittingAsync(string userId, string key, CancellationToken ct) => store.DeleteAsync(AcademyKinds.Sitting, Owner(userId), key, ct);
+
+    /// <summary>The final task page calls this every minute or so while it is open.</summary>
+    public async Task FinalTaskOpenAsync(string userId, string courseId, CancellationToken ct)
+    {
+        var course = await EnrolledCourseAsync(userId, courseId, ct);
+        if (course.FinalTask is not null)
+        {
+            await BeginSittingAsync(userId, "final-" + course.Id, "final task", FinalTaskSitting, ct);
+        }
+    }
+
+    /// <summary>Takes a person's access to a course away (a refund). Their progress is kept, so enrolling again restores it.</summary>
+    public async Task UnenrolAsync(string userId, string courseId, CancellationToken ct) =>
+        await store.DeleteAsync(AcademyKinds.Enrolment, Owner(userId), courseId.ToLowerInvariant(), ct);
+
     /// <summary>The courses a person is enrolled in, in the order they enrolled.</summary>
     public async Task<IReadOnlyList<string>> EnrolledCourseIdsAsync(string userId, CancellationToken ct) =>
         (await store.ListByOwnerAsync(AcademyKinds.Enrolment, Owner(userId), ct))
@@ -390,6 +432,8 @@ public sealed class AcademyLearnerService(IAcademyRecordStore store, IAcademyCon
             throw new AcademyRuleException(409, "You have used every attempt. Ask the Academy team to reset this assessment.", "no_attempts");
         }
 
+        await BeginSittingAsync(userId, "assessment-" + found.Assessment.Id, "assessment", AssessmentSitting, ct);
+
         return new
         {
             id = found.Assessment.Id,
@@ -479,6 +523,7 @@ public sealed class AcademyLearnerService(IAcademyRecordStore store, IAcademyCon
         }
 
         await SaveProgressAsync(learner.UserId, progress, ct);
+        await EndSittingAsync(learner.UserId, "assessment-" + assessment.Id, ct);
         if (passed && found.Kind == "quiz")
         {
             (progress, lessonCompleted) = await MarkDoneAsync(learner, course, found.Lesson!, progress, ct);
@@ -810,6 +855,8 @@ public sealed class AcademyLearnerService(IAcademyRecordStore store, IAcademyCon
     }
 
     // ---------------------------------------------------------------- notifications, minutes and activity
+
+    public Task NotifyPaymentAsync(string userId, string text, string href, CancellationToken ct) => NotifyAsync(Owner(userId), text, href, "card", ct);
 
     private async Task NotifyAsync(string owner, string text, string href, string icon, CancellationToken ct)
     {

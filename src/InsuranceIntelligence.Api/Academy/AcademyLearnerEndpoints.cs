@@ -53,9 +53,15 @@ public static class AcademyLearnerEndpoints
             return Results.Ok(await service.StateAsync(learner, ct));
         });
 
-    public static Task<IResult> Enrol(string courseId, HttpContext http, InfrastructureOptions o, ITenantContextAccessor t, AcademyOperator op, AcademyLearnerService service, CancellationToken ct) =>
+    public static Task<IResult> Enrol(string courseId, HttpContext http, InfrastructureOptions o, ITenantContextAccessor t, AcademyOperator op, AcademyLearnerService service, InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentService payments, CancellationToken ct) =>
         Run(http, o, t, op, async learner =>
         {
+            // A priced course is paid for once a payment provider is set up. Until then enrolment is open and nothing is charged.
+            if (await payments.RequiresPaymentAsync(courseId, ct) && !await service.IsEnrolledAsync(learner.UserId, courseId, ct))
+            {
+                throw new AcademyRuleException(402, "This course needs payment. Choose how to pay.", "payment_required");
+            }
+
             await service.ProfileAsync(learner, ct);
             var created = await service.EnrolAsync(learner.UserId, courseId, learner.UserId, learner.Name, ct);
             return Results.Ok(new { enrolled = true, alreadyEnrolled = !created });

@@ -13,6 +13,9 @@ public static class RuntimeHeaderGuard
     private const string AcademyPublicPath = "/api/v1/academy/public";
     private const string AcademyMePath = "/api/v1/academy/me";
 
+    // The payment provider calls this itself and cannot hold a sign-in. It is protected by the provider's secret hash.
+    private const string AcademyPaymentWebhookPath = "/api/v1/academy/payments/webhook";
+
     private static readonly string[] IdentityHeaders =
     [
         "x-demo-role",
@@ -82,7 +85,8 @@ public static class RuntimeHeaderGuard
             || httpContext.Request.Path.StartsWithSegments(WhatsAppWebhookPath, StringComparison.OrdinalIgnoreCase)
             || IsClientPortal(httpContext)
             || httpContext.Request.Path.StartsWithSegments(AcademyPublicPath, StringComparison.OrdinalIgnoreCase)
-            || httpContext.Request.Path.Equals(AcademyMePath, StringComparison.OrdinalIgnoreCase))
+            || httpContext.Request.Path.Equals(AcademyMePath, StringComparison.OrdinalIgnoreCase)
+            || httpContext.Request.Path.Equals(AcademyPaymentWebhookPath, StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }

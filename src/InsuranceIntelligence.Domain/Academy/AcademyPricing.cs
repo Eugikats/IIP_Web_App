@@ -8,13 +8,14 @@ public sealed record CoursePrice(string CourseId, decimal Amount, string Currenc
 /// <summary>
 /// The prices a workspace charges for IIP Academy courses. A course with no saved price costs the seed
 /// price, so a new workspace starts with every course listed at the same amount and can change each one
-/// in Settings. Prices are shown to learners; collecting payment is a separate connection that is not set up.
+/// on the Academy team screen. Prices are shown to learners and are what the payment is worked out from.
 /// </summary>
 public sealed record AcademyPricing(TenantScope Scope, IReadOnlyList<CoursePrice> Prices, DateTimeOffset? UpdatedAt = null, string? UpdatedBy = null)
 {
-    public const string Currency = "UGX";
-    public const decimal SeedPrice = 500_000m;
-    public const decimal MaxPrice = 100_000_000m;
+    /// <summary>Prices are in US dollars. A price saved before that change was in shillings and is not carried over as dollars.</summary>
+    public const string Currency = "USD";
+    public const decimal SeedPrice = 85m;
+    public const decimal MaxPrice = 10_000m;
 
     /// <summary>The courses IIP Academy offers. A price for any other id is rejected.</summary>
     public static readonly IReadOnlyList<string> CourseIds =
@@ -31,7 +32,8 @@ public sealed record AcademyPricing(TenantScope Scope, IReadOnlyList<CoursePrice
         this with
         {
             Prices = CourseIds
-                .Select(id => Prices.FirstOrDefault(price => string.Equals(price.CourseId, id, StringComparison.OrdinalIgnoreCase)) ?? new CoursePrice(id, SeedPrice))
+                .Select(id => Prices.FirstOrDefault(price => string.Equals(price.CourseId, id, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(price.Currency, Currency, StringComparison.OrdinalIgnoreCase)) ?? new CoursePrice(id, SeedPrice))
                 .ToArray(),
         };
 

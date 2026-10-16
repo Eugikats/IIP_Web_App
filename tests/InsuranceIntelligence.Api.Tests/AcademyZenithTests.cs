@@ -66,7 +66,7 @@ public sealed class AcademyZenithTests
         var learners = new AcademyLearnerService(store, Content, TimeProvider.System);
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings ?? []).Build();
         model ??= new FakeModel();
-        return new Rig(new AcademyZenithService(store, Content, learners, model, configuration, TimeProvider.System), learners, model, new AcademyLearner("u1", "Aisha Namutebi", "a@example.test", false, false));
+        return new Rig(new AcademyZenithService(store, Content, learners, model, new AcademySettingsService(store, configuration), TimeProvider.System), learners, model, new AcademyLearner("u1", "Aisha Namutebi", "a@example.test", false, false));
     }
 
     private static async Task<AcademyRuleException> Refused(Func<Task> action) => await Assert.ThrowsAsync<AcademyRuleException>(action);

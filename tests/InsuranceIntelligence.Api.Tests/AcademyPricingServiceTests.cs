@@ -24,8 +24,8 @@ public sealed class AcademyPricingServiceTests
         var pricing = await service.GetAsync();
 
         Assert.Equal(AcademyPricing.CourseIds.Count, pricing.Prices.Count);
-        Assert.All(pricing.Prices, price => Assert.Equal(500_000m, price.Amount));
-        Assert.All(pricing.Prices, price => Assert.Equal("UGX", price.Currency));
+        Assert.All(pricing.Prices, price => Assert.Equal(85m, price.Amount));
+        Assert.All(pricing.Prices, price => Assert.Equal("USD", price.Currency));
     }
 
     [Fact]
@@ -46,18 +46,31 @@ public sealed class AcademyPricingServiceTests
     {
         var (service, repo, audit) = Build();
 
-        await service.SaveAsync([new CoursePrice("claims", 750_000m)]);
+        await service.SaveAsync([new CoursePrice("claims", 120m)]);
         var again = await service.GetAsync();
 
-        Assert.Equal(750_000m, again.Prices.Single(price => price.CourseId == "claims").Amount);
-        Assert.Equal(500_000m, again.Prices.Single(price => price.CourseId == "governance").Amount);
+        Assert.Equal(120m, again.Prices.Single(price => price.CourseId == "claims").Amount);
+        Assert.Equal(85m, again.Prices.Single(price => price.CourseId == "governance").Amount);
         Assert.NotNull(repo.Saved);
         Assert.Contains(audit.Events, entry => entry.ActionName == "academy.pricing_changed");
     }
 
+    [Fact]
+    public async Task A_price_saved_in_shillings_before_the_change_is_not_read_as_dollars()
+    {
+        var (service, repo, _) = Build();
+        var scope = TenantScope.Create("t", "w");
+        await repo.SaveAsync(new AcademyPricing(scope, [new CoursePrice("claims", 500_000m, "UGX")]));
+
+        var claims = (await service.GetAsync()).Prices.Single(price => price.CourseId == "claims");
+
+        Assert.Equal(85m, claims.Amount);
+        Assert.Equal("USD", claims.Currency);
+    }
+
     [Theory]
     [InlineData("claims", -1)]
-    [InlineData("claims", 100_000_001)]
+    [InlineData("claims", 10_001)]
     [InlineData("claims", 10.555)]
     [InlineData("not-a-course", 20)]
     public async Task A_price_that_is_out_of_range_or_for_an_unknown_course_is_refused(string course, double amount)

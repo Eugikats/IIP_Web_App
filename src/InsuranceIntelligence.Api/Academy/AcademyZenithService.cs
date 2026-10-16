@@ -48,7 +48,7 @@ public sealed record ZenithReply(string Mode, IReadOnlyList<string> Steps, strin
 
 public sealed record ZenithTurn(string? Role, string? Text);
 
-public sealed record ZenithStatus(bool Explanations, bool Configured, bool Resting, int DailyLimit, int UsedToday, int RemainingToday);
+public sealed record ZenithStatus(bool Explanations, bool Configured, bool Resting, int DailyLimit, int UsedToday, int RemainingToday, bool Locked = false);
 
 /// <summary>
 /// Zenith, the Academy's assistant. Most of what it does needs no model: recommendations, plans, certificates and practice
@@ -58,16 +58,12 @@ public sealed record ZenithStatus(bool Explanations, bool Configured, bool Resti
 /// the parts that cost nothing.
 /// </summary>
 public sealed partial class AcademyZenithService(
-    IAcademyRecordStore store, IAcademyContentProvider content, AcademyLearnerService learners, IZenithModel model, IConfiguration configuration, TimeProvider clock)
+    IAcademyRecordStore store, IAcademyContentProvider content, AcademyLearnerService learners, IZenithModel model, AcademySettingsService settings, TimeProvider clock)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static ZenithIndex? index;
     private static readonly object IndexLock = new();
     public const int MaxMessageLength = 500;
-
-    private int DailyLimit => Math.Max(1, configuration.GetValue("Academy:ZenithDailyLimit", 30));
-
-    private long MonthlyTokens => Math.Max(1000, configuration.GetValue("Academy:ZenithMonthlyTokens", 2_000_000L));
 
     private ZenithIndex Index
     {
@@ -103,10 +99,28 @@ public sealed partial class AcademyZenithService(
 
     public async Task<ZenithStatus> StatusAsync(string userId, CancellationToken ct)
     {
+        var limits = await settings.ZenithAsync(ct);
         var used = (await ReadAsync<DailyUse>(Owner(userId), Today, ct))?.Count ?? 0;
         var month = await ReadAsync<MonthlyUse>("-", Month, ct);
-        var resting = (month?.Tokens ?? 0) >= MonthlyTokens;
-        return new ZenithStatus(model.Configured && !resting, model.Configured, resting, DailyLimit, used, Math.Max(0, DailyLimit - used));
+        var resting = (month?.Tokens ?? 0) >= limits.MonthlyTokens;
+        var locked = await learners.SittingAsync(userId, ct) is not null;
+        return new ZenithStatus(model.Configured && !resting && !locked, model.Configured, resting, limits.DailyLimit, used, Math.Max(0, limits.DailyLimit - used), locked);
+    }
+
+    /// <summary>What the platform has used this month, for the Academy team screen.</summary>
+    public async Task<object> MonthUsageAsync(CancellationToken ct)
+    {
+        var month = await ReadAsync<MonthlyUse>("-", Month, ct);
+        return new { month = Month, tokens = month?.Tokens ?? 0, explanations = month?.Calls ?? 0 };
+    }
+
+    /// <summary>Zenith is switched off while a person is sitting an assessment or working on a final task, so it cannot be asked for the answers.</summary>
+    private async Task EnsureNotSittingAsync(string userId, CancellationToken ct)
+    {
+        if (await learners.SittingAsync(userId, ct) is not null)
+        {
+            throw new AcademyRuleException(423, "Zenith is switched off while you are taking an assessment or working on your final task. It comes back when you finish or leave the page.", "assessment_lock");
+        }
     }
 
     // ---------------------------------------------------------------- asking
@@ -114,6 +128,7 @@ public sealed partial class AcademyZenithService(
     public async Task<ZenithReply> AskAsync(AcademyLearner learner, string? message, IReadOnlyList<ZenithTurn>? history, CancellationToken ct)
     {
         var watch = Stopwatch.StartNew();
+        await EnsureNotSittingAsync(learner.UserId, ct);
         var question = (message ?? string.Empty).Trim();
         if (question.Length == 0)
         {
@@ -374,6 +389,7 @@ public sealed partial class AcademyZenithService(
 
     public async Task<object> CheckQuizAsync(string userId, string courseId, string questionId, int choice, CancellationToken ct)
     {
+        await EnsureNotSittingAsync(userId, ct);
         var course = content.Course(courseId) ?? throw new AcademyRuleException(404, "That question was not found.");
         var progress = await learners.ProgressOfAsync(userId, course.Id, ct);
         var found = course.AllLessons
@@ -435,7 +451,7 @@ public sealed partial class AcademyZenithService(
         {
             steps.Add("Your daily allowance is used");
             return done("resting", steps,
-                $"You have used your {DailyLimit} written explanations for today. They reset tomorrow. Here are the lessons that cover your question.",
+                $"You have used your {status.DailyLimit} written explanations for today. They reset tomorrow. Here are the lessons that cover your question.",
                 hits.Select(SourceOf));
         }
 

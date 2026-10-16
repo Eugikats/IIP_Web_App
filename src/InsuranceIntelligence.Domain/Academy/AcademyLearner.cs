@@ -41,6 +41,9 @@ public static class AcademyKinds
     public const string ZenithUse = "zenith-use";
     public const string Setting = "setting";
     public const string CertificateCode = "certificate-code";
+    public const string Order = "order";
+    public const string OrderRef = "order-ref";
+    public const string Sitting = "sitting";
 }
 
 public sealed record AcademyEnrolment(string CourseId, DateTimeOffset EnrolledAt, string EnrolledBy);
