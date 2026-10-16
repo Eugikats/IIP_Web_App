@@ -57,15 +57,15 @@ exempt in RuntimeHeaderGuard (tests pin that the rest of the Academy API still n
 `az webapp restart` after deploy before it served the new build. The admin account (OticGroup@...) was enrolled in Course 1
 once while testing Zenith.
 
-## Questions for the owner (asked at the very end)
+## Questions for the owner
 
-1. Discord invite link.
-2. Do you hold the rights to the hero photograph in the design (the woman in the dashboard hero)? It is embedded in the HTML.
-3. Which payment provider for mobile money and card?
-4. Who should be the Academy operators besides platform administrators? (Default: administrators of the platform workspace.)
-5. Seven courses the design lists but the content register does not name: they are not listed now. Add them as "Coming soon" or leave them out?
-6. Payments are not connected, so enrolment is open and charges nothing. Is that right until a provider is chosen?
-7. Zenith limits: 30 written explanations per person per day and 2,000,000 tokens a month for everyone (Academy:ZenithDailyLimit, Academy:ZenithMonthlyTokens). Change?
+Answered 2026-10-17: Discord link is set in the admin screen (built). Hero photo is AI generated (no rights question). Payments:
+Flutterwave, same approach as oticlms. Seven design-only courses: left out. Zenith: 10 a day, 1,000,000 tokens a month.
+Price: USD 85 per course.
+
+Open, see IIP_ACADEMY_PRICING_PAYMENTS_ASSESSMENT_PLAN.md: the other eight courses (short checks only, or full 10/15 banks);
+card plus mobile money with a shilling rate; same or separate Flutterwave account; is 85 dollars tax inclusive; rotate the keys
+found in oticlms/FLUTTERWAVE_INTEGRATION.md. Who the Academy operators are besides platform administrators.
 
 ## Not verified / known gaps
 
