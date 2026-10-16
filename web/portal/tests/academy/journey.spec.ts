@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 // One learner takes Course 1 from enrolment to a verified certificate, in a real browser against the offline API.
-// The browser parts are what a person does; the long middle (every unit quiz and module assessment) goes through the API
+// The browser parts are what a person does; the long middle (every unit quiz and part assessment) goes through the API
 // with the answers read from the course content, so the journey stays quick. Runs once, on the desktop project, because it
 // changes the one local learner's state.
 
@@ -22,9 +22,9 @@ type Course = {
 const content = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../../src/InsuranceIntelligence.Api/Academy/Content/academy-content.json"), "utf8")) as { courses: Course[] };
 const course = content.courses.find((item) => item.id === "ai-agentic-insurance")!;
 const allQuestions = new Map<string, Q>();
-for (const module of course.modules) {
-  for (const lesson of module.lessons) lesson.quiz?.questions.forEach((question) => allQuestions.set(question.q, question));
-  module.assessment?.questions.forEach((question) => allQuestions.set(question.q, question));
+for (const part of course.modules) {
+  for (const lesson of part.lessons) lesson.quiz?.questions.forEach((question) => allQuestions.set(question.q, question));
+  part.assessment?.questions.forEach((question) => allQuestions.set(question.q, question));
 }
 
 async function answerInBrowser(page: Page) {
@@ -121,10 +121,10 @@ test.describe("learner journey", () => {
     await page.getByTestId("read-all").click();
     await expect(page.getByTestId("read-all")).toHaveCount(0);
 
-    // The rest of the course goes through the API: every unit quiz and module assessment.
-    for (const module of course.modules) {
-      for (const lesson of module.lessons) await passAssessment(request, lesson.quiz!);
-      await passAssessment(request, module.assessment!);
+    // The rest of the course goes through the API: every unit quiz and part assessment.
+    for (const part of course.modules) {
+      for (const lesson of part.lessons) await passAssessment(request, lesson.quiz!);
+      await passAssessment(request, part.assessment!);
     }
     const progress = await api(request, "get", "/learner");
     expect(progress.body.certificates).toHaveLength(0);

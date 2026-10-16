@@ -66,9 +66,9 @@ public sealed class AcademyLearnerService(IAcademyRecordStore store, IAcademyCon
         }
 
         var goal = update.Goal ?? current.Goal;
-        if (goal is not ("15" or "30" or "60" or "90"))
+        if (goal is not ("15" or "30" or "45" or "60"))
         {
-            throw new AcademyRuleException(400, "Choose a daily goal of 15, 30, 60 or 90 minutes.");
+            throw new AcademyRuleException(400, "Choose a daily goal of 15, 30, 45 or 60 minutes.");
         }
 
         var updated = current with
