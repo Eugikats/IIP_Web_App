@@ -102,7 +102,7 @@ Use these secret names (a double dash in a name becomes a colon in the API's set
 | `Files--Google--ClientSecret` | Part 2, the OAuth client secret |
 | `Files--Google--DeveloperKey` | Part 2, the Picker API key |
 | `Files--Microsoft--ClientSecret` | Part 3, the client secret value |
-| `Flutterwave--SecretKey`, `Flutterwave--PublicKey`, `Flutterwave--SecretHash` | The payments plan. Use **test** keys first |
+| `Flutterwave--SecretKey`, `Flutterwave--SecretHash` | Payments. The secret key is from Flutterwave, Settings, API keys. The secret hash is any long random string you make up; it is only needed if you also register the webhook. Use the **test** key first |
 
 If you get "forbidden", ask for the role **Key Vault Secrets Officer** on that vault.
 
@@ -117,6 +117,9 @@ Then set the matching app settings on the API app `app-api-dev-h5girbnzrayqe`. T
 | `Files__Google__DeveloperKey` | `@Microsoft.KeyVault(SecretUri=<version-free secret URI>)` |
 | `Files__Microsoft__ClientId` | Part 3 client ID |
 | `Files__Microsoft__ClientSecret` | `@Microsoft.KeyVault(SecretUri=<version-free secret URI>)` |
+| `Flutterwave__SecretKey` | `@Microsoft.KeyVault(SecretUri=<version-free secret URI>)` |
+| `Flutterwave__SecretHash` | `@Microsoft.KeyVault(SecretUri=<version-free secret URI>)` |
+| `Academy__PortalBaseUrl` | `https://app.insuranceintelligenceplatform.com` |
 
 The API's identity already reads other secrets from this vault, so it should already have permission. After saving the settings, restart the API.
 

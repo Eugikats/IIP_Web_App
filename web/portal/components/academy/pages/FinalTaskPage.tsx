@@ -64,6 +64,20 @@ export default function FinalTaskPage({ courseId }: { courseId: string }) {
 
   const count = useMemo(() => words(proposal), [proposal]);
 
+  // While this page is open Zenith is switched off. It tells the server so every minute, and the server keeps it off for
+  // a few minutes after the last signal.
+  const sitting = Boolean(view && !view.locked && view.submission.status !== "submitted" && view.submission.status !== "passed");
+  useEffect(() => {
+    if (!sitting) return;
+    const signal = () => { void academyPost(`/courses/${courseId}/final/open`).catch(() => undefined); };
+    signal();
+    const timer = setInterval(signal, 60_000);
+    return () => {
+      clearInterval(timer);
+      void academyPost(`/courses/${courseId}/final/leave`).catch(() => undefined);
+    };
+  }, [sitting, courseId]);
+
   if (loadingMe) return <SkeletonCards count={1} />;
   if (!me?.signedIn) return <SignInCard title="Sign in to open the final task" text="The final task is for people who have signed in and enrolled." />;
   if (!loadingLearner && learner && !isEnrolled(courseId)) {

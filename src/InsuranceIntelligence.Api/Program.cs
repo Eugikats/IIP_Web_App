@@ -1223,6 +1223,7 @@ app.MapPut("/api/v1/academy/operator/settings/payments", InsuranceIntelligence.A
 app.MapGet("/api/v1/academy/operator/settings/zenith", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.GetZenithSettings).RequireRateLimiting("academy-learner");
 app.MapPut("/api/v1/academy/operator/settings/zenith", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.SaveZenithSettings).RequireRateLimiting("academy-learner");
 app.MapPost("/api/v1/academy/courses/{courseId}/final/open", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.FinalOpen).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/final/leave", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.FinalLeave).RequireRateLimiting("academy-learner");
 app.MapPost("/api/v1/academy/courses/{courseId}/assessments/{assessmentId}/leave", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.AssessmentLeave).RequireRateLimiting("academy-learner");
 app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);
 app.MapPut("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.SavePricing)

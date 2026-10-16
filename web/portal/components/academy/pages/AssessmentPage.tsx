@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/academy/Icon";
 import { useAcademy } from "@/components/academy/AcademyProvider";
 import { PageState, SkeletonCards } from "@/components/academy/PageState";
@@ -50,6 +50,7 @@ export default function AssessmentPage({ courseId, assessmentId }: { courseId: s
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
+  const submittedRef = useRef(false);
 
   const load = useCallback(async () => {
     setStarted(null);
@@ -69,11 +70,19 @@ export default function AssessmentPage({ courseId, assessmentId }: { courseId: s
     if (me?.signedIn) void load();
   }, [me, load]);
 
+  // Leaving without submitting hands Zenith back. (A submission hands it back on the server.)
+  useEffect(() => {
+    return () => {
+      if (!submittedRef.current) void academyPost(`/courses/${courseId}/assessments/${assessmentId}/leave`).catch(() => undefined);
+    };
+  }, [courseId, assessmentId]);
+
   const submit = async () => {
     if (!started) return;
     setBusy(true);
     try {
       const outcome = await academyPost<Result>(`/courses/${courseId}/assessments/${assessmentId}/submit`, { answers });
+      submittedRef.current = true;
       setResult(outcome);
       await refreshLearner();
       if (outcome.certificateIssued) toast("Course complete. Your certificate is ready", "award");

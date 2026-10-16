@@ -65,6 +65,9 @@ public static class AcademyPaymentEndpoints
     public static Task<IResult> FinalOpen(string courseId, HttpContext http, InfrastructureOptions o, ITenantContextAccessor t, AcademyOperator op, AcademyLearnerService learners, CancellationToken ct) =>
         Go(http, o, t, op, async learner => { await learners.FinalTaskOpenAsync(learner.UserId, courseId, ct); return Results.Ok(new { open = true }); });
 
+    public static Task<IResult> FinalLeave(string courseId, HttpContext http, InfrastructureOptions o, ITenantContextAccessor t, AcademyOperator op, AcademyLearnerService learners, CancellationToken ct) =>
+        Go(http, o, t, op, async learner => { await learners.EndSittingAsync(learner.UserId, "final-" + courseId.Trim(), ct); return Results.Ok(new { left = true }); });
+
     public static Task<IResult> AssessmentLeave(string courseId, string assessmentId, HttpContext http, InfrastructureOptions o, ITenantContextAccessor t, AcademyOperator op, AcademyLearnerService learners, CancellationToken ct) =>
         Go(http, o, t, op, async learner => { await learners.EndSittingAsync(learner.UserId, "assessment-" + assessmentId, ct); return Results.Ok(new { left = true }); });
 }

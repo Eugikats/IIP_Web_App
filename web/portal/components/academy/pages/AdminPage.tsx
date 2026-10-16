@@ -6,7 +6,7 @@ import { useAcademy } from "@/components/academy/AcademyProvider";
 import { PageState, SkeletonCards } from "@/components/academy/PageState";
 import { SignInCard } from "@/components/academy/pages/shared";
 import { academyGet, academyPost, academyPut, academyDelete, AcademyApiError } from "@/lib/academy/api";
-import { timeAgo, todayLabel } from "@/lib/academy/format";
+import { formatMoney, timeAgo, todayLabel } from "@/lib/academy/format";
 
 type Submission = {
   userId: string; name: string; email: string | null; courseId: string; courseTitle: string; submittedAt: string;
@@ -21,7 +21,7 @@ type CommunityBits = { discordUrl: string | null; groups: { id: string; name: st
 // server has already agreed to give.
 export default function AdminPage() {
   const { me, loadingMe } = useAcademy();
-  const [tab, setTab] = useState<"marking" | "people" | "community" | "prices">("marking");
+  const [tab, setTab] = useState<"marking" | "people" | "community" | "prices" | "payments" | "zenith">("marking");
 
   if (loadingMe) return <SkeletonCards count={1} />;
   if (!me?.signedIn) return <SignInCard title="Sign in to manage the Academy" />;
@@ -31,11 +31,11 @@ export default function AdminPage() {
     <>
       <div className="pagehead"><h1>Manage the Academy</h1><p>Mark final tasks, enrol people and run the community.</p></div>
       <div className="tabs chips" style={{ marginBottom: 18 }}>
-        {([["marking", "Final tasks"], ["people", "People"], ["community", "Community"], ["prices", "Prices"]] as const).map(([id, label]) => (
+        {([["marking", "Final tasks"], ["people", "People"], ["community", "Community"], ["prices", "Prices"], ["payments", "Payments"], ["zenith", "Zenith"]] as const).map(([id, label]) => (
           <button key={id} type="button" className={`chip${tab === id ? " on" : ""}`} onClick={() => setTab(id)} data-testid={`admin-tab-${id}`}>{label}</button>
         ))}
       </div>
-      {tab === "marking" ? <Marking /> : tab === "people" ? <People /> : tab === "community" ? <CommunityAdmin /> : <Prices />}
+      {tab === "marking" ? <Marking /> : tab === "people" ? <People /> : tab === "community" ? <CommunityAdmin /> : tab === "prices" ? <Prices /> : tab === "payments" ? <Payments /> : <ZenithSettings />}
     </>
   );
 }
@@ -307,7 +307,7 @@ function Prices() {
   return (
     <section className="card panel">
       <h2>Course prices</h2>
-      <p style={{ color: "var(--muted)", marginBottom: 12 }}>Learners see these on the course page. Payment is not connected yet, so nobody is charged. Use 0 for a free course.</p>
+      <p style={{ color: "var(--muted)", marginBottom: 12 }}>Learners see these on the course page. Prices are in US dollars and include any tax. Use 0 for a free course.</p>
       {ready.map((item) => (
         <div key={item.id} className="setrow">
           <div><b>{item.title}</b></div>
@@ -316,6 +316,117 @@ function Prices() {
         </div>
       ))}
       <button type="button" className="btn primary" style={{ marginTop: 14 }} disabled={busy || invalid} onClick={() => void save()}>{busy ? "Saving..." : "Save prices"}</button>
+      <PaymentSettingsForm />
     </section>
   );
 }
+type PaymentSettingsData = { ugxPerUsd: number; cardCurrency: string; taxRatePercent: number };
+
+function PaymentSettingsForm() {
+  const { toast } = useAcademy();
+  const { data, problem, load } = useLoad<PaymentSettingsData>("/operator/settings/payments");
+  const [form, setForm] = useState({ rate: "", card: "USD", tax: "" });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (data) setForm({ rate: String(data.ugxPerUsd), card: data.cardCurrency, tax: String(data.taxRatePercent) });
+  }, [data]);
+
+  if (problem) return <p role="alert" style={{ color: "var(--red)", marginTop: 16 }}>{problem}</p>;
+  if (!data) return null;
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await academyPut("/operator/settings/payments", { ugxPerUsd: Number(form.rate), cardCurrency: form.card, taxRatePercent: Number(form.tax || 0) });
+      toast("Payment settings saved");
+      await load();
+    } catch (failure) {
+      toast(failure instanceof AcademyApiError ? failure.message : "The settings could not be saved.", "x");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 24, borderTop: "1px solid var(--line)", paddingTop: 16 }}>
+      <h2>How learners pay</h2>
+      <div className="setrow"><div><b>Shillings to the dollar</b><small>Mobile money is charged in shillings at this rate, rounded to the nearest 1,000.</small></div><input type="text" inputMode="decimal" value={form.rate} onChange={(event) => setForm({ ...form, rate: event.target.value })} aria-label="Shillings to the dollar" style={{ width: 120, minWidth: 0 }} /></div>
+      <div className="setrow"><div><b>Card currency</b><small>Choose USD only if your payment account can take dollar cards.</small></div>
+        <select value={form.card} onChange={(event) => setForm({ ...form, card: event.target.value })} aria-label="Card currency" style={{ width: 120, minWidth: 0 }}><option>USD</option><option>UGX</option></select></div>
+      <div className="setrow"><div><b>Tax included in the price (percent)</b><small>Leave at 0 until you are registered to charge it. If set, the tax is shown inside the price on receipts.</small></div><input type="text" inputMode="decimal" value={form.tax} onChange={(event) => setForm({ ...form, tax: event.target.value })} aria-label="Tax percent" style={{ width: 120, minWidth: 0 }} /></div>
+      <button type="button" className="btn primary" style={{ marginTop: 10 }} disabled={busy} onClick={() => void save()} data-testid="save-payment-settings">{busy ? "Saving..." : "Save payment settings"}</button>
+    </div>
+  );
+}
+
+type OrderRow = { reference: string; name: string; email: string; courseTitle: string; method: string; currency: string; amount: number; taxAmount: number; status: string; note: string | null; createdAt: string; paidAt: string | null };
+
+function Payments() {
+  const { toast } = useAcademy();
+  const { data, problem, load } = useLoad<{ configured: boolean; provider: string; orders: OrderRow[] }>("/operator/payments");
+  if (problem) return <PageState kind="error" title="Payments could not be loaded" text={problem} />;
+  if (!data) return <SkeletonCards count={1} />;
+
+  const act = async (work: () => Promise<unknown>, done: string) => {
+    try { await work(); toast(done); await load(); } catch (failure) { toast(failure instanceof AcademyApiError ? failure.message : "That did not work.", "x"); }
+  };
+
+  return (
+    <section className="card panel">
+      <h2>Payments</h2>
+      {!data.configured ? <div className="notice" style={{ marginBottom: 12 }}><Icon name="card" size={18} /><span>No payment provider is set up, so enrolment is open and nothing is charged. Payments appear here once one is.</span></div> : <p style={{ color: "var(--muted)", marginBottom: 12 }}>Provider: {data.provider}. Refunds are made in the provider&apos;s dashboard, then recorded here.</p>}
+      {data.orders.length === 0 ? <div className="empty" data-testid="no-orders">No payments yet.</div> : data.orders.map((order) => (
+        <div key={order.reference} className="prow" style={{ alignItems: "flex-start" }} data-testid="order-row">
+          <div className="grow">
+            <b>{order.name || order.email}</b> <span className="pc" style={{ fontSize: 13 }}>{order.courseTitle}</span>
+            <div className="pc" style={{ fontSize: 13 }}>{formatMoney(order.amount, order.currency)} by {order.method === "card" ? "card" : "mobile money"} · {timeAgo(order.createdAt)} · {order.reference}</div>
+            <div style={{ fontSize: 13, marginTop: 4 }}><b data-testid="order-status">{order.status}</b>{order.note ? <span style={{ color: "var(--muted)" }}>. {order.note}</span> : null}</div>
+          </div>
+          {order.status === "pending" || order.status === "mismatch" ? <button type="button" className="btn soft sm" onClick={() => void act(async () => { await academyPost(`/operator/payments/${order.reference}/recheck`); }, "Checked with the provider")}>Check again</button> : null}
+          {order.status === "paid" || order.status === "mismatch" ? <button type="button" className="btn ghost sm" onClick={() => { if (window.confirm("Record this payment as refunded and take the course away from this person?")) void act(async () => { await academyPost(`/operator/payments/${order.reference}/refunded`, { revokeAccess: true }); }, "Marked as refunded"); }}>Mark refunded</button> : null}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function ZenithSettings() {
+  const { toast } = useAcademy();
+  const { data, problem, load } = useLoad<{ limits: { dailyLimit: number; monthlyTokens: number }; usage: { month: string; tokens: number; explanations: number } }>("/operator/settings/zenith");
+  const [form, setForm] = useState({ daily: "", monthly: "" });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (data) setForm({ daily: String(data.limits.dailyLimit), monthly: String(data.limits.monthlyTokens) });
+  }, [data]);
+
+  if (problem) return <PageState kind="error" title="Zenith settings could not be loaded" text={problem} />;
+  if (!data) return <SkeletonCards count={1} />;
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await academyPut("/operator/settings/zenith", { dailyLimit: Number(form.daily), monthlyTokens: Number(form.monthly) });
+      toast("Zenith limits saved");
+      await load();
+    } catch (failure) {
+      toast(failure instanceof AcademyApiError ? failure.message : "The limits could not be saved.", "x");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const percent = Math.min(100, Math.round((data.usage.tokens / data.limits.monthlyTokens) * 100));
+  return (
+    <section className="card panel">
+      <h2>Zenith limits</h2>
+      <p style={{ color: "var(--muted)", marginBottom: 12 }}>These cap Zenith&apos;s written explanations. Recommendations, study plans and practice questions are free and not counted. When the month&apos;s allowance is used, Zenith rests until next month.</p>
+      <div className="setrow"><div><b>Explanations per person per day</b></div><input type="text" inputMode="numeric" value={form.daily} onChange={(event) => setForm({ ...form, daily: event.target.value })} aria-label="Explanations per person per day" style={{ width: 120, minWidth: 0 }} /></div>
+      <div className="setrow"><div><b>Tokens for everyone per month</b><small>Used so far in {data.usage.month}: {data.usage.tokens.toLocaleString("en-US")} ({percent}%), {data.usage.explanations} explanations.</small></div><input type="text" inputMode="numeric" value={form.monthly} onChange={(event) => setForm({ ...form, monthly: event.target.value })} aria-label="Tokens per month" style={{ width: 140, minWidth: 0 }} /></div>
+      <div className="bar" style={{ margin: "10px 0" }}><i style={{ width: `${percent}%` }} /></div>
+      <button type="button" className="btn primary" disabled={busy} onClick={() => void save()} data-testid="save-zenith-limits">{busy ? "Saving..." : "Save limits"}</button>
+    </section>
+  );
+}
+

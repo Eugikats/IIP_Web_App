@@ -1,5 +1,8 @@
 export const formatPrice = (amount: number) => Number(amount).toLocaleString("en-US");
 
+/** An amount with its currency code in front, as the rest of IIP writes money: "USD 85", "UGX 350,000". Zero is "Free". */
+export const formatMoney = (amount: number, currency = "USD") => (Number(amount) === 0 ? "Free" : `${currency} ${Number(amount).toLocaleString("en-US", { maximumFractionDigits: 2 })}`);
+
 export const todayLabel = (iso?: string) =>
   new Date(iso ?? Date.now()).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 

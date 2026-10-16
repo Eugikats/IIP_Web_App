@@ -9,11 +9,11 @@ namespace InsuranceIntelligence.Api.Academy;
 public static class AcademyPublicEndpoints
 {
     public static async Task<IResult> Courses(
-        IAcademyContentProvider content, IAcademyPricingRepository pricing, AcademyOperator academyOperator, HttpContext http, CancellationToken ct)
+        IAcademyContentProvider content, IAcademyPricingRepository pricing, AcademyOperator academyOperator, Payments.IPaymentGateway gateway, HttpContext http, CancellationToken ct)
     {
         var prices = await PricesAsync(pricing, academyOperator, ct);
         http.Response.Headers.CacheControl = "public, max-age=60";
-        return Results.Ok(new { currency = AcademyPricing.Currency, courses = content.Catalogue.Courses.Select(course => Summary(course, prices)) });
+        return Results.Ok(new { currency = AcademyPricing.Currency, paymentsConfigured = gateway.Configured, courses = content.Catalogue.Courses.Select(course => Summary(course, prices)) });
     }
 
     public static async Task<IResult> Course(

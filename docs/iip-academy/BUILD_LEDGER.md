@@ -67,6 +67,13 @@ Open, see IIP_ACADEMY_PRICING_PAYMENTS_ASSESSMENT_PLAN.md: the other eight cours
 card plus mobile money with a shilling rate; same or separate Flutterwave account; is 85 dollars tax inclusive; rotate the keys
 found in oticlms/FLUTTERWAVE_INTEGRATION.md. Who the Academy operators are besides platform administrators.
 
+## 2026-10-17 additions (local, not deployed)
+
+USD 85 pricing, Flutterwave payments behind IPaymentGateway (stand-in for local tests), order records, reconcile worker, Payments
+tab, Zenith lock during assessments and the final task, Zenith limits 10 a day and 1,000,000 tokens, editable settings.
+Browser tests: tests/academy/payments.spec.ts (start the API with scripts/local/run-offline-payments.sh). Needs the owner: the
+Flutterwave keys and a go for the deploy. See IIP_ACADEMY_PRICING_PAYMENTS_ASSESSMENT_PLAN.md.
+
 ## Not verified / known gaps
 
 (none yet)

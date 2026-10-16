@@ -2,6 +2,31 @@
 
 Written 2026-10-17 from the owner's notes. This is a plan, not a build. Nothing in it is live yet.
 
+## Status, 2026-10-17: built and tested locally, not deployed
+
+Decided with you: the other eight courses keep their short end checks; card and mobile money both offered; same Flutterwave
+account as oticlms; USD 85 inclusive of tax with a tax-rate setting you can turn on later; Zenith 10 a day and 1,000,000 tokens.
+
+| Part | State |
+|---|---|
+| A. Dollar pricing (USD 85, editable per course, shillings rate, card currency, tax rate) | Built. 1,502 API tests and 722 domain tests pass. Browser test passes |
+| B. Flutterwave payments (orders, hosted page, server-side confirmation, amount check, reconcile sweep, refund record, Payments tab) | Built against a stand-in provider. Not yet run against Flutterwave itself: it needs the keys below |
+| C. Zenith off during quizzes, assessments and the final task (server enforced, with a release on submit or leaving) | Built and tested, including a second tab |
+| D. Zenith limits 10 a day and 1,000,000 tokens a month, editable on the Zenith tab with usage shown | Built and tested |
+
+Research findings that shaped the build:
+
+- I could not confirm whether one Flutterwave account can hold more than one webhook address. IIP therefore does not depend on a webhook: the learner's return to the site, and a re-check every few minutes, confirm payments on their own. If you do register IIP's webhook (`https://api.insuranceintelligenceplatform.com/api/v1/academy/payments/webhook`), it only needs the secret hash; IIP ignores any payment whose reference does not start with `IIPA-`, which is how oticlms's `OTIC-` payments stay apart.
+- I could not confirm that your Flutterwave account can collect USD cards. If it cannot, set Card currency to UGX on the Prices tab and cards are charged in shillings at your rate.
+- E-learning is generally treated as taxable at 18% VAT in Uganda, but the registration threshold and how it applies to a local company need checking with your accountant or URA. USD 85 is treated as tax inclusive. Set the tax percent on the Prices tab only once Otic is registered; the tax is then shown inside the price on each order.
+
+What is left, all needing you:
+
+1. Rotate the Flutterwave keys and the email password found in `oticlms/FLUTTERWAVE_INTEGRATION.md`.
+2. Put the Flutterwave **test** secret key into Key Vault as `Flutterwave--SecretKey`, and a secret hash of your choice as `Flutterwave--SecretHash` (see `OWNER_SETUP_GOOGLE_MICROSOFT.md`, Part 5). Add app settings `Flutterwave__SecretKey` and `Flutterwave__SecretHash` as Key Vault references.
+3. Tell me to deploy. After that, pay with a Flutterwave test card and a test mobile money number, then switch to the live key.
+4. Check on the Flutterwave dashboard that your account can take Uganda mobile money and, if you want dollar cards, USD.
+
 ## What you decided
 
 | # | Decision |

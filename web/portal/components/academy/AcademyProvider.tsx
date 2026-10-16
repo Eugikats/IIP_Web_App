@@ -16,6 +16,8 @@ type AcademyContextValue = {
   me: Me | null;
   loadingMe: boolean;
   courses: CourseSummary[] | null;
+  /** Whether a payment provider is set up. When false, enrolment is open and nothing is charged. */
+  paymentsConfigured: boolean;
   coursesError: string | null;
   learner: LearnerState | null;
   loadingLearner: boolean;
@@ -51,6 +53,7 @@ export function AcademyProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
+  const [paymentsConfigured, setPaymentsConfigured] = useState(false);
   const [coursesError, setCoursesError] = useState<string | null>(null);
   const [learner, setLearnerState] = useState<LearnerState | null>(null);
   const [loadingLearner, setLoadingLearner] = useState(false);
@@ -66,8 +69,8 @@ export function AcademyProvider({ children }: { children: ReactNode }) {
       .then((result) => { if (!cancelled) setMe(result); })
       .catch(() => { if (!cancelled) setMe({ signedIn: false }); })
       .finally(() => { if (!cancelled) setLoadingMe(false); });
-    academyGet<{ courses: CourseSummary[] }>("/public/courses")
-      .then((result) => { if (!cancelled) setCourses(result.courses); })
+    academyGet<{ courses: CourseSummary[]; paymentsConfigured?: boolean }>("/public/courses")
+      .then((result) => { if (!cancelled) { setCourses(result.courses); setPaymentsConfigured(result.paymentsConfigured === true); } })
       .catch((failure) => { if (!cancelled) setCoursesError(failure instanceof AcademyApiError ? failure.message : "The courses could not be loaded."); });
     return () => { cancelled = true; };
   }, []);
@@ -118,10 +121,10 @@ export function AcademyProvider({ children }: { children: ReactNode }) {
     };
     return {
       signIn,
-      me, loadingMe, courses, coursesError, learner, loadingLearner, learnerReady: learnerSettled, refreshLearner, setLearner: setLearnerState, courseById, isEnrolled, progressOf,
+      me, loadingMe, courses, paymentsConfigured, coursesError, learner, loadingLearner, learnerReady: learnerSettled, refreshLearner, setLearner: setLearnerState, courseById, isEnrolled, progressOf,
       percentOf, statusOf, nextLessonId, hasCertificate, toast, showModal, closeModal, zenithOpen, setZenithOpen,
     };
-  }, [me, loadingMe, courses, coursesError, learner, loadingLearner, learnerSettled, refreshLearner, toast, showModal, closeModal, zenithOpen]);
+  }, [me, loadingMe, courses, paymentsConfigured, coursesError, learner, loadingLearner, learnerSettled, refreshLearner, toast, showModal, closeModal, zenithOpen]);
 
   return (
     <AcademyContext.Provider value={value}>

@@ -163,6 +163,7 @@ export function ZenithChat({ autoFocus = false }: { autoFocus?: boolean }) {
             <div className="aav"><Icon name="sparkle" size={26} /></div>
             <h3>Hi {name}, I am Zenith</h3>
             <p>Your IIP Academy assistant. I can see your courses and progress. Ask me anything about your lessons or try one of these:</p>
+            {status?.locked ? <div className="notice" style={{ margin: "0 0 12px", textAlign: "left" }} data-testid="zenith-locked"><Icon name="lock" size={16} /><span>Zenith is switched off while you are taking an assessment or working on your final task. It comes back when you finish or leave that page.</span></div> : null}
             {status && !status.configured ? <div className="notice" style={{ margin: "0 0 12px", textAlign: "left" }}><Icon name="bulb" size={16} /><span>Written explanations are not set up in this environment. Recommendations, plans and practice questions work.</span></div> : null}
             {status?.resting ? <div className="notice" style={{ margin: "0 0 12px", textAlign: "left" }}><Icon name="bulb" size={16} /><span>Zenith is resting for the rest of this month. Recommendations, plans and practice questions still work.</span></div> : null}
             <div className="chips">

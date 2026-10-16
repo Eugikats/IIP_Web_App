@@ -13,7 +13,7 @@ export type ZenithQuiz = {
   courseId: string; questionId: string; lessonTitle: string; q: string; options: { k: number; text: string }[];
   picked?: number; result?: { right: boolean; correctIndex: number; why: string };
 };
-export type ZenithStatus = { explanations: boolean; configured: boolean; resting: boolean; dailyLimit: number; usedToday: number; remainingToday: number };
+export type ZenithStatus = { explanations: boolean; configured: boolean; resting: boolean; dailyLimit: number; usedToday: number; remainingToday: number; locked: boolean };
 
 export type UserMsg = { role: "user"; text: string };
 export type AgentMsg = {
