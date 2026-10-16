@@ -8,6 +8,11 @@ public static class RuntimeHeaderGuard
     private const string WhatsAppWebhookPath = "/api/v1/integrations/whatsapp/webhook";
     private const string ClientPortalPath = "/api/v1/client-portal";
 
+    // IIP Academy is open to visitors who have not signed in: the course catalogue, certificate checks and "who am I"
+    // (which answers a visitor with "signed out"). Everything else under /api/v1/academy still needs a signed-in person.
+    private const string AcademyPublicPath = "/api/v1/academy/public";
+    private const string AcademyMePath = "/api/v1/academy/me";
+
     private static readonly string[] IdentityHeaders =
     [
         "x-demo-role",
@@ -75,7 +80,9 @@ public static class RuntimeHeaderGuard
         // with 401 in any deployed environment.
         if (httpContext.Request.Path.StartsWithSegments(GraphWebhookPath, StringComparison.OrdinalIgnoreCase)
             || httpContext.Request.Path.StartsWithSegments(WhatsAppWebhookPath, StringComparison.OrdinalIgnoreCase)
-            || IsClientPortal(httpContext))
+            || IsClientPortal(httpContext)
+            || httpContext.Request.Path.StartsWithSegments(AcademyPublicPath, StringComparison.OrdinalIgnoreCase)
+            || httpContext.Request.Path.Equals(AcademyMePath, StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }

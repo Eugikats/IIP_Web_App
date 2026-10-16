@@ -715,12 +715,35 @@ public sealed class SecurityAuthorizationTests
     [InlineData("/api/v1/client-portal/magic-links")]
     [InlineData("/api/v1/client-portal/claims")]
     [InlineData("/api/v1/integrations/whatsapp/webhook")]
+    [InlineData("/api/v1/academy/public/courses")]
+    [InlineData("/api/v1/academy/public/courses/ai-agentic-insurance")]
+    [InlineData("/api/v1/academy/public/certificates/IIPA-AAAA-BBBB-CCCC")]
+    [InlineData("/api/v1/academy/me")]
     public void RuntimeHeaderGuard_AllowsCallersWithoutEntraTokensOnTheirOwnRoutesOutsideDevelopment(string path)
     {
         var context = new DefaultHttpContext();
         context.Request.Path = path;
 
         Assert.Null(RuntimeHeaderGuard.RejectUnauthenticatedApiOutsideDevelopment(context, ProductionOptions));
+    }
+
+    [Theory]
+    [InlineData("/api/v1/academy/learner")]
+    [InlineData("/api/v1/academy/community")]
+    [InlineData("/api/v1/academy/courses/ai-agentic-insurance/enrol")]
+    [InlineData("/api/v1/academy/operator/finals")]
+    [InlineData("/api/v1/academy/zenith/ask")]
+    [InlineData("/api/v1/academy/me/extra")]
+    [InlineData("/api/v1/academy/publicity")]
+    public async Task RuntimeHeaderGuard_StillRequiresSignInForTheRestOfTheAcademyApi(string path)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = path;
+
+        var result = RuntimeHeaderGuard.RejectUnauthenticatedApiOutsideDevelopment(context, ProductionOptions);
+
+        Assert.NotNull(result);
+        Assert.Equal(StatusCodes.Status401Unauthorized, await ExecuteStatusAsync(result!));
     }
 
     [Fact]
