@@ -150,6 +150,8 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/settings", requiredAny: [] },
   // Where Google or Microsoft returns a person after they connect their own files.
   { path: "/app/connect", requiredAny: [] },
+  // IIP Academy is its own space outside /app, open to everyone who can sign in. Listed so the sidebar link shows.
+  { path: "/academy", requiredAny: [] },
   { path: "/app/assistant", requiredAny: ["ViewCommandCenter"] },
   { path: "/app/brief", requiredAny: ["ViewCommandCenter"] },
   { path: "/app", requiredAny: ["ViewCommandCenter"], exact: true },

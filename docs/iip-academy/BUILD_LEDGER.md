@@ -25,22 +25,31 @@ Updated at the end of every iteration. Newest facts win. Keep it short.
 
 | Phase | State |
 |---|---|
-| 0 Content pipeline | not started |
-| 1 Frontend foundation | not started |
-| 2 Read screens on real content | not started |
-| 3 Learner backend | not started |
-| 4 Learner screens live (DEPLOY) | not started |
-| 5 Community (DEPLOY) | not started |
-| 6 Zenith (DEPLOY) | not started |
-| 7 Cut-over, cleanup, final verification (DEPLOY) | not started |
+| 0 Content pipeline | done, committed |
+| 1 Frontend foundation | done, committed |
+| 2 Read screens on real content | done, committed |
+| 3 Learner backend | done, committed (42 Academy backend tests pass) |
+| 4 Learner screens live | built and browser-tested locally; live deploy is the single release below |
+| 5 Community | built and browser-tested locally |
+| 6 Zenith | built and browser-tested locally (no language model offline: explanations say so) |
+| 7 Cut-over | done in code: sidebar link, old routes redirect, old screens and workspace price settings removed |
+| Deploy and live verification | next: one combined release (API, migration AddAcademyRecords, portal) |
 
 ## Done log
 
-(none yet)
+- 2026-10-16: content pipeline (10 courses, 116 lessons, Course 1 exact from the supplied files).
+- 2026-10-16: new Academy frontend from the design (dashboard, courses, course, lesson, quiz, final task, certificates and public
+  verification, profile, progress, settings, notifications, community, Zenith, Academy team screen).
+- 2026-10-16: server-side grading, attempts, certificates, community with consent and reports, Zenith grounded in lessons with
+  daily and monthly limits.
+- 2026-10-16: cut-over: sidebar and website link to /academy, /app/academy redirects, legacy sources moved to
+  web/portal/scripts/academy-source (the content builder reads them).
+- Browser tests (desktop 1280, tablet 768, phone 390): tests/academy/{journey,community,zenith,navigation}.spec.ts.
 
 ## Next
 
-Phase 0, first task: content builder script for Course 1 from the supplied markdown.
+Run the full backend suite, lint and tsc; deploy the API and apply the migration; deploy the portal; verify live (sign-in with a
+real Microsoft account, enrol, quiz, certificate, community, Zenith explanations with the real model); then finish.
 
 ## Questions for the owner (asked at the very end)
 
@@ -48,7 +57,9 @@ Phase 0, first task: content builder script for Course 1 from the supplied markd
 2. Do you hold the rights to the hero photograph in the design (the woman in the dashboard hero)? It is embedded in the HTML.
 3. Which payment provider for mobile money and card?
 4. Who should be the Academy operators besides platform administrators? (Default: administrators of the platform workspace.)
-5. Seven courses the design lists but the content register does not name: keep them as "Coming soon" or remove them?
+5. Seven courses the design lists but the content register does not name: they are not listed now. Add them as "Coming soon" or leave them out?
+6. Payments are not connected, so enrolment is open and charges nothing. Is that right until a provider is chosen?
+7. Zenith limits: 30 written explanations per person per day and 2,000,000 tokens a month for everyone (Academy:ZenithDailyLimit, Academy:ZenithMonthlyTokens). Change?
 
 ## Not verified / known gaps
 

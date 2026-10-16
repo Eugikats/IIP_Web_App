@@ -57,7 +57,7 @@ const capabilities = [
   { title: "Service-standard tracking", description: "Every claim shows which deadline is running and how long is left, so the ones close to breaching are seen first." },
   { title: "Prospect scoring", description: "Each person is scored from what is recorded about them, with the two covers that fit best and the reasons quoted from the record." },
   { title: "Approved outreach", description: "Messages are drafted for each person. A named person reads, edits and approves before anything is sent." },
-  { title: "Training and certificates", description: "IIP Academy teaches staff to use IIP well, in short courses that end with a certificate of completion." },
+  { title: "Training and certificates", description: "IIP Academy is open to anyone in insurance: courses on AI for claims, fraud, underwriting and sales, each ending with a certificate you can verify." },
 ];
 
 const steps = [
@@ -125,6 +125,7 @@ function Hero() {
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </PrimaryCta>
                 <SecondaryCta href="/login">Sign in</SecondaryCta>
+                <SecondaryCta href="/academy">IIP Academy</SecondaryCta>
               </div>
             </div>
           </div>
