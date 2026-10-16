@@ -144,14 +144,18 @@ test.describe("learner journey", () => {
     await page.getByTestId("submit-final").click();
     await expect(page.getByTestId("final-submitted")).toBeVisible();
 
-    const pending = await api(request, "get", "/operator/finals");
-    expect(pending.status, JSON.stringify(pending.body)).toBe(200);
-    expect(pending.body.submissions).toHaveLength(1);
-    const marks = Object.fromEntries(course.finalTask.rubric.map((row) => [row.criterion, row.marks]));
-    const marked = await api(request, "post", "/operator/finals/mark", { userId: pending.body.submissions[0].userId, courseId: course.id, marks, feedback: "Strong, specific work." });
-    expect(marked.status, JSON.stringify(marked.body)).toBe(200);
-    expect(marked.body.certificateIssued).toBe(true);
+    // The Academy team marks it on their own screen.
+    await page.goto("/academy/admin");
+    await expect(page.getByTestId("submissions")).toContainText("Aisha Namutebi");
+    await page.getByTestId("submissions").getByRole("button", { name: "Open" }).click();
+    await page.getByTestId("save-marks").click();
+    await expect(page.locator("#toast")).toContainText("Give");
+    for (const row of course.finalTask.rubric) await page.getByLabel(`Marks for ${row.criterion}`).fill(String(row.marks));
+    await page.getByLabel("Feedback for the learner").fill("Strong, specific work.");
+    await page.getByTestId("save-marks").click();
+    await expect(page.locator("#toast")).toContainText("passed");
 
+    await page.goto(`/academy/final/${course.id}`);
     await page.reload();
     await expect(page.getByTestId("final-marked")).toContainText("You passed the final task");
 
@@ -160,6 +164,7 @@ test.describe("learner journey", () => {
     await expect(page.getByTestId("certificate-card")).toHaveCount(1);
     await page.getByRole("link", { name: "View certificate" }).click();
     await expect(page.getByTestId("certificate")).toContainText("Aisha Namutebi");
+    await expect(page.getByTestId("certificate")).toContainText(/IIPA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/);
     const code = (await page.getByTestId("certificate").innerText()).match(/IIPA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/)![0];
 
     await page.goto(`/academy/verify/${code}`);

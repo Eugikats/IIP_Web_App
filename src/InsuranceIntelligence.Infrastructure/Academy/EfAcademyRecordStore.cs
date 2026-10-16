@@ -33,21 +33,38 @@ public sealed class EfAcademyRecordStore(InsuranceIntelligenceDbContext dbContex
         }
     }
 
+    /// <summary>
+    /// Creates or replaces a record. Two requests can write the same new record at once (the page asks for several things on
+    /// load), so a lost race on insert is retried as an update instead of failing the person's request.
+    /// </summary>
     public async Task SaveAsync(string kind, string owner, string key, string json, CancellationToken cancellationToken = default)
     {
         var id = IdOf(kind, owner, key);
-        var entity = await dbContext.AcademyRecords.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
-        if (entity is null)
+        for (var attempt = 0; ; attempt++)
         {
-            dbContext.AcademyRecords.Add(new AcademyRecordEntity { Id = id, Kind = kind, Owner = owner, Key = key, PayloadJson = json, UpdatedAt = DateTimeOffset.UtcNow });
-        }
-        else
-        {
-            entity.PayloadJson = json;
-            entity.UpdatedAt = DateTimeOffset.UtcNow;
-        }
+            var entity = await dbContext.AcademyRecords.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            var created = entity is null;
+            if (entity is null)
+            {
+                entity = new AcademyRecordEntity { Id = id, Kind = kind, Owner = owner, Key = key, PayloadJson = json, UpdatedAt = DateTimeOffset.UtcNow };
+                dbContext.AcademyRecords.Add(entity);
+            }
+            else
+            {
+                entity.PayloadJson = json;
+                entity.UpdatedAt = DateTimeOffset.UtcNow;
+            }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+                return;
+            }
+            catch (Exception failure) when (created && attempt < 2 && failure is DbUpdateException or ArgumentException or InvalidOperationException)
+            {
+                dbContext.Entry(entity).State = EntityState.Detached;
+            }
+        }
     }
 
     public async Task<IReadOnlyList<AcademyRecord>> ListByOwnerAsync(string kind, string owner, CancellationToken cancellationToken = default)

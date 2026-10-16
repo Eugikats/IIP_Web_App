@@ -29,6 +29,7 @@ export function routeOf(pathname: string): string {
     case "zenith": return "assistant";
     case "certificates": return parts[1] ? "certificate" : "certificates";
     case "signed-out": return "signin";
+    case "admin": return "admin";
     case "verify": return "verify";
     default: return first;
   }
@@ -117,6 +118,7 @@ function Frame({ route, children }: { route: string; children: ReactNode }) {
                     <Link href="/academy/progress"><Icon name="chart" size={18} />My progress</Link>
                     <Link href="/academy/certificates"><Icon name="award" size={18} />Certificates</Link>
                     <Link href="/academy/settings"><Icon name="settings" size={18} />Settings</Link>
+                    {me.isOperator ? <Link href="/academy/admin" data-testid="admin-link"><Icon name="layers" size={18} />Manage the Academy</Link> : null}
                     <a href={backHref}><Icon name="home" size={18} />Back to IIP</a>
                     <hr />
                     <button type="button" className="menuitem" onClick={() => void signOut()}><Icon name="logout" size={18} />Sign out</button>
