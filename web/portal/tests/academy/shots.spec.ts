@@ -9,6 +9,11 @@ const REFERENCE = pathToFileURL(path.resolve(__dirname, "../../../../docs/iip-ac
 const SCREENS: Record<string, { hash: string; url: string }> = {
   dashboard: { hash: "#/dashboard", url: "/academy" },
   courses: { hash: "#/courses/all", url: "/academy/courses" },
+  profile: { hash: "#/profile", url: "/academy/profile" },
+  progress: { hash: "#/progress", url: "/academy/progress" },
+  certificates: { hash: "#/certificates", url: "/academy/certificates" },
+  settings: { hash: "#/settings", url: "/academy/settings" },
+  notifications: { hash: "#/notifications", url: "/academy/notifications" },
 };
 
 for (const name of (process.env.ACADEMY_SHOTS ?? "dashboard").split(",")) {

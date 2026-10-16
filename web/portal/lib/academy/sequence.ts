@@ -5,12 +5,12 @@ export type SequenceItem = { kind: "lesson" | "assessment" | "check" | "final"; 
 /** The order a learner works through a course: each module's lessons, then its assessment, then the course check or final task. */
 export function buildSequence(course: CourseDetail): SequenceItem[] {
   const items: SequenceItem[] = [];
-  for (const module of course.modules) {
-    for (const lesson of module.lessons) {
-      items.push({ kind: "lesson", id: lesson.id, href: `/academy/learn/${course.id}/${lesson.id}`, title: lesson.title, moduleId: module.id });
+  for (const part of course.modules) {
+    for (const lesson of part.lessons) {
+      items.push({ kind: "lesson", id: lesson.id, href: `/academy/learn/${course.id}/${lesson.id}`, title: lesson.title, moduleId: part.id });
     }
-    if (module.assessment) {
-      items.push({ kind: "assessment", id: module.assessment.id, href: `/academy/assessment/${course.id}/${module.assessment.id}`, title: module.assessment.title, moduleId: module.id });
+    if (part.assessment) {
+      items.push({ kind: "assessment", id: part.assessment.id, href: `/academy/assessment/${course.id}/${part.assessment.id}`, title: part.assessment.title, moduleId: part.id });
     }
   }
   if (course.check) items.push({ kind: "check", id: course.check.id, href: `/academy/assessment/${course.id}/${course.check.id}`, title: course.check.title, moduleId: null });

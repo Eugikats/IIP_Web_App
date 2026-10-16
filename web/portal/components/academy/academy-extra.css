@@ -49,3 +49,34 @@ html.iipa-page,body.iipa-page{height:auto;min-height:100%;overflow-x:clip;overfl
 .iipa .noreel .ic{margin:0 auto 10px;opacity:.9}
 .iipa .lside .lrow a,.iipa .lside a.lrow{display:flex;gap:12px;align-items:center;width:100%}
 .iipa .lside .mt{margin-top:16px}
+
+/* assessments and the final task: not drawn in the design, built from its parts */
+.iipa .aq{margin-top:18px}
+.iipa .aq .qq{font-weight:700;color:var(--navy);font-size:16px;line-height:1.5;display:flex;gap:12px;align-items:flex-start}
+.iipa .aq .qn{flex:none;width:28px;height:28px;border-radius:50%;background:var(--blue-2);color:var(--blue);display:grid;place-items:center;font-size:13px;font-weight:800}
+.iipa .aq .quiz{margin-top:12px;margin-left:40px}
+.iipa .qopt{display:block;width:100%;cursor:pointer}
+.iipa button.qopt.sel{border-color:var(--blue);background:#F5F8FF;color:var(--navy);font-weight:600}
+.iipa .qopt .you{margin-left:10px;font-style:normal;font-size:12px;font-weight:700;opacity:.75}
+.iipa .asub{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;flex-wrap:wrap}
+.iipa .asc{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.iipa .asc h1{font-size:26px;color:var(--navy)}
+.iipa .asc p{color:var(--muted);margin-top:6px;line-height:1.6}
+.iipa .ascore{width:112px;height:112px;border-radius:50%;display:grid;place-content:center;text-align:center;flex:none;border:6px solid var(--blue-2)}
+.iipa .ascore b{font-size:30px;color:var(--navy);line-height:1}
+.iipa .ascore small{color:var(--muted);font-size:12.5px;margin-top:4px}
+.iipa .ascore.ok{border-color:var(--green)}
+.iipa .ascore.no{border-color:var(--orange)}
+.iipa .asc-actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.iipa .setrow textarea{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#fff;min-width:260px;font:inherit;resize:vertical}
+@media(max-width:640px){.iipa .aq .quiz{margin-left:0}.iipa .setrow{flex-wrap:wrap}.iipa .setrow select,.iipa .setrow input,.iipa .setrow textarea{min-width:0;width:100%}}
+
+/* the bar holds one more control than the design's (Back to IIP), so nothing in it may wrap */
+.iipa .tnav a{white-space:nowrap;flex:none}
+.iipa .top .logo{flex:none}
+.iipa .top .logo>div{white-space:nowrap}
+.iipa .top .tright{flex:none;display:flex;align-items:center;gap:12px}
+.iipa .user .uname{white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1180px){.iipa .tnav a{padding:11px 11px}.iipa .top .logo small{display:none}}
+.iipa .setrow input[type=text],.iipa .setrow input[type=email],.iipa .setrow select,.iipa .setrow textarea{width:300px;max-width:100%}
+.iipa .setrow input[readonly]{background:#F5F8FF;color:var(--muted)}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/academy/Icon";
 import { LessonBlocks } from "@/components/academy/LessonBlocks";
 import { useAcademy } from "@/components/academy/AcademyProvider";
@@ -32,7 +32,7 @@ export default function LessonPage({ courseId, lessonId }: { courseId: string; l
   }, [courseId]);
 
   const progress = progressOf(courseId);
-  const sequence = course ? buildSequence(course) : [];
+  const sequence = useMemo(() => (course ? buildSequence(course) : []), [course]);
 
   // No lesson named: go to the one the learner is up to.
   useEffect(() => {

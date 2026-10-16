@@ -16,7 +16,7 @@ import type { CourseDetail } from "@/lib/academy/types";
 // A course page. Not enrolled: the sales page, with the curriculum, who it is for and the price. Enrolled: the same page with
 // the person's progress and the way back into the lesson they were on.
 export default function CoursePage({ courseId }: { courseId: string }) {
-  const { me, isEnrolled, progressOf, hasCertificate, showModal, signIn, setZenithOpen } = useAcademy();
+  const { me, learnerReady, isEnrolled, progressOf, hasCertificate, showModal, signIn, setZenithOpen } = useAcademy();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [problem, setProblem] = useState<{ status: number; message: string } | null>(null);
 
@@ -41,7 +41,7 @@ export default function CoursePage({ courseId }: { courseId: string }) {
       ? <PageState kind="notfound" title="Page not found" text="That course does not exist." action={{ label: "All courses", href: "/academy/courses" }} />
       : <PageState kind="error" title="The course could not be loaded" text={problem.message} />;
   }
-  if (!course) return <SkeletonCards count={1} />;
+  if (!course || !learnerReady) return <SkeletonCards count={1} />;
 
   const soon = course.status === "coming_soon";
   const enrolled = isEnrolled(course.id);

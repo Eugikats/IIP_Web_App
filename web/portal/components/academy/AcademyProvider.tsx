@@ -19,6 +19,8 @@ type AcademyContextValue = {
   coursesError: string | null;
   learner: LearnerState | null;
   loadingLearner: boolean;
+  /** True once the person's own state has been asked for, whether or not it came back. A visitor is ready at once. */
+  learnerReady: boolean;
   refreshLearner: () => Promise<void>;
   setLearner: (next: LearnerState) => void;
   courseById: (id: string) => CourseSummary | undefined;
@@ -52,6 +54,7 @@ export function AcademyProvider({ children }: { children: ReactNode }) {
   const [coursesError, setCoursesError] = useState<string | null>(null);
   const [learner, setLearnerState] = useState<LearnerState | null>(null);
   const [loadingLearner, setLoadingLearner] = useState(false);
+  const [learnerSettled, setLearnerSettled] = useState(false);
   const [toastState, setToastState] = useState<{ text: string; icon: string; show: boolean }>({ text: "", icon: "check", show: false });
   const [modal, setModal] = useState<ModalState>(null);
   const [zenithOpen, setZenithOpen] = useState(false);
@@ -70,7 +73,8 @@ export function AcademyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshLearner = useCallback(async () => {
-    if (!me || !me.signedIn) { setLearnerState(null); return; }
+    if (!me) return;
+    if (!me.signedIn) { setLearnerState(null); setLearnerSettled(true); return; }
     setLoadingLearner(true);
     try {
       setLearnerState(await academyGet<LearnerState>("/learner"));
@@ -78,6 +82,7 @@ export function AcademyProvider({ children }: { children: ReactNode }) {
       setLearnerState(null);
     } finally {
       setLoadingLearner(false);
+      setLearnerSettled(true);
     }
   }, [me]);
 
@@ -113,10 +118,10 @@ export function AcademyProvider({ children }: { children: ReactNode }) {
     };
     return {
       signIn,
-      me, loadingMe, courses, coursesError, learner, loadingLearner, refreshLearner, setLearner: setLearnerState, courseById, isEnrolled, progressOf,
+      me, loadingMe, courses, coursesError, learner, loadingLearner, learnerReady: learnerSettled, refreshLearner, setLearner: setLearnerState, courseById, isEnrolled, progressOf,
       percentOf, statusOf, nextLessonId, hasCertificate, toast, showModal, closeModal, zenithOpen, setZenithOpen,
     };
-  }, [me, loadingMe, courses, coursesError, learner, loadingLearner, refreshLearner, toast, showModal, closeModal, zenithOpen]);
+  }, [me, loadingMe, courses, coursesError, learner, loadingLearner, learnerSettled, refreshLearner, toast, showModal, closeModal, zenithOpen]);
 
   return (
     <AcademyContext.Provider value={value}>
