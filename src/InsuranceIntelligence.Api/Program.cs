@@ -157,6 +157,8 @@ builder.Services.AddRateLimiter(limits =>
         context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 240, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("academy-post", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
         context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 30, TimeSpan.FromHours(1)));
+    limits.AddPolicy("academy-zenith", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+        context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 20, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("academy-public", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 120, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("marketplace", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
     limits.AddPolicy("webhook", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 3000, TimeSpan.FromMinutes(1)));
@@ -495,6 +497,8 @@ builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.IAcademyContentP
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.AcademyOperator>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyLearnerService>();
 builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyCommunityService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.IZenithModel, InsuranceIntelligence.Api.Academy.ChatZenithModel>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyZenithService>();
 builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PlatformMfaOptions());
 builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPlatformMfaService, InsuranceIntelligence.Application.Security.PlatformMfaService>();
@@ -1183,6 +1187,9 @@ app.MapPost("/api/v1/academy/operator/community/groups", InsuranceIntelligence.A
 app.MapPut("/api/v1/academy/operator/community/discord", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.SetDiscord).RequireRateLimiting("academy-learner");
 app.MapGet("/api/v1/academy/operator/community/reports", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Reports).RequireRateLimiting("academy-learner");
 app.MapPost("/api/v1/academy/operator/community/posts/{postId}/hide", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Hide).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/zenith/status", InsuranceIntelligence.Api.Academy.AcademyZenithEndpoints.Status).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/zenith/ask", InsuranceIntelligence.Api.Academy.AcademyZenithEndpoints.Ask).RequireRateLimiting("academy-zenith");
+app.MapPost("/api/v1/academy/zenith/quiz/answer", InsuranceIntelligence.Api.Academy.AcademyZenithEndpoints.CheckQuiz).RequireRateLimiting("academy-learner");
 app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);
 app.MapPut("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.SavePricing)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));

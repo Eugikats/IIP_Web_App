@@ -209,6 +209,16 @@ public sealed class AcademyLearnerService(IAcademyRecordStore store, IAcademyCon
         return true;
     }
 
+    /// <summary>The courses a person is enrolled in, in the order they enrolled.</summary>
+    public async Task<IReadOnlyList<string>> EnrolledCourseIdsAsync(string userId, CancellationToken ct) =>
+        (await store.ListByOwnerAsync(AcademyKinds.Enrolment, Owner(userId), ct))
+            .Select(record => JsonSerializer.Deserialize<AcademyEnrolment>(record.Json, Json)!)
+            .OrderBy(item => item.EnrolledAt)
+            .Select(item => item.CourseId)
+            .ToList();
+
+    public Task<AcademyProgress> ProgressOfAsync(string userId, string courseId, CancellationToken ct) => ProgressAsync(userId, courseId, ct);
+
     private async Task<AcademyProgress> ProgressAsync(string userId, string courseId, CancellationToken ct) =>
         await ReadAsync<AcademyProgress>(AcademyKinds.Progress, Owner(userId), courseId.ToLowerInvariant(), ct)
         ?? new AcademyProgress { CourseId = courseId };
