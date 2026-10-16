@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 // One learner takes Course 1 from enrolment to a verified certificate, in a real browser against the offline API.
-// The browser parts are what a person does; the long middle (every unit quiz and part assessment) goes through the API
+// The browser parts are what a person does; the long middle (every unit quiz and module assessment) goes through the API
 // with the answers read from the course content, so the journey stays quick. Runs once, on the desktop project, because it
 // changes the one local learner's state.
 
@@ -121,7 +121,7 @@ test.describe("learner journey", () => {
     await page.getByTestId("read-all").click();
     await expect(page.getByTestId("read-all")).toHaveCount(0);
 
-    // The rest of the course goes through the API: every unit quiz and part assessment.
+    // The rest of the course goes through the API: every unit quiz and module assessment.
     for (const part of course.modules) {
       for (const lesson of part.lessons) await passAssessment(request, lesson.quiz!);
       await passAssessment(request, part.assessment!);
