@@ -33,7 +33,7 @@ Updated at the end of every iteration. Newest facts win. Keep it short.
 | 5 Community | built and browser-tested locally |
 | 6 Zenith | built and browser-tested locally (no language model offline: explanations say so) |
 | 7 Cut-over | done in code: sidebar link, old routes redirect, old screens and workspace price settings removed |
-| Deploy and live verification | next: one combined release (API, migration AddAcademyRecords, portal) |
+| Deploy and live verification | done 2026-10-16: API, migration AddAcademyRecords and portal live; visitor pages checked in a real browser at 1280, 768 and 390; signed-in API checked with a real Microsoft token; a Zenith explanation checked against the live model |
 
 ## Done log
 
@@ -48,8 +48,14 @@ Updated at the end of every iteration. Newest facts win. Keep it short.
 
 ## Next
 
-Run the full backend suite, lint and tsc; deploy the API and apply the migration; deploy the portal; verify live (sign-in with a
-real Microsoft account, enrol, quiz, certificate, community, Zenith explanations with the real model); then finish.
+Nothing is queued. Owner to open https://app.insuranceintelligenceplatform.com/academy while signed in and walk through enrol,
+a unit quiz, the profile and settings, the community and Zenith in the browser (the signed-in screens were verified locally in
+a browser and live through the API, but not live in a browser because that needs a real Microsoft sign-in with two-factor).
+
+Live notes: the deployed API rejected every anonymous call, so the public catalogue, certificate check and who-am-I are now
+exempt in RuntimeHeaderGuard (tests pin that the rest of the Academy API still needs sign-in). The portal needed a manual
+`az webapp restart` after deploy before it served the new build. The admin account (OticGroup@...) was enrolled in Course 1
+once while testing Zenith.
 
 ## Questions for the owner (asked at the very end)
 
