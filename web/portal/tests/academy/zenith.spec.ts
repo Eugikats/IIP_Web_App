@@ -7,18 +7,21 @@ const API = "http://localhost:5167/api/v1/academy";
 const HEADERS = { "X-Tenant-Id": "tenant-demo", "X-Workspace-Id": "workspace-operations", "x-demo-role": "Admin", "x-demo-user-id": "user-1", "X-User-Id": "user-1" };
 
 test.describe("zenith", () => {
-  test.beforeEach(({}, info) => {
-    test.skip(info.project.name !== "desktop", "shares the one local learner, so it runs once");
-  });
-
   test("floating panel and full page", async ({ page, request }) => {
+    const compact = (page.viewportSize()?.width ?? 1280) <= 860;
     await request.post(`${API}/courses/ai-agentic-insurance/enrol`, { headers: HEADERS, data: {} });
     await request.post(`${API}/courses/ai-sales-distribution/enrol`, { headers: HEADERS, data: {} });
 
     await page.goto("/academy/courses");
-    await expect(page.getByTestId("zenith-fab")).toBeVisible();
-    await page.getByTestId("zenith-fab").click();
-    await expect(page.getByTestId("zenith-panel")).toBeVisible();
+    if (compact) {
+      // Compact layouts expose Zenith through the bottom navigation instead of a floating button.
+      await expect(page.getByTestId("zenith-fab")).toBeHidden();
+      await page.locator(".bnav").getByRole("link", { name: "Zenith" }).click();
+    } else {
+      await expect(page.getByTestId("zenith-fab")).toBeVisible();
+      await page.getByTestId("zenith-fab").click();
+      await expect(page.getByTestId("zenith-panel")).toBeVisible();
+    }
     await expect(page.getByRole("heading", { name: /I am Zenith/ })).toBeVisible();
     await expect(page.getByText("Written explanations are not set up")).toBeVisible();
 
@@ -39,7 +42,7 @@ test.describe("zenith", () => {
     await expect(page.getByText(/could not find that in your lessons/)).toBeVisible({ timeout: 15_000 });
 
     // The chat follows the person to the full page, with an activity log, and can be cleared.
-    await page.getByTitle("Open full view").click();
+    if (!compact) await page.getByTitle("Open full view").click();
     await expect(page).toHaveURL(/\/academy\/zenith$/);
     await expect(page.getByText(/could not find that in your lessons/)).toBeVisible();
     await expect(page.getByText("Answer delivered").first()).toBeVisible();

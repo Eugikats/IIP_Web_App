@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
 // The community and the Academy team's screen, in a real browser against the offline API. user-1 is the browser's person and
-// an Academy operator; other people are driven through the API. Runs once, on the desktop project.
+// an Academy operator; other people are driven through the API. Restart the offline API before each spec and viewport to reset learner state.
 
 const API = "http://localhost:5167/api/v1/academy";
 const base = { "X-Tenant-Id": "tenant-demo", "X-Workspace-Id": "workspace-operations" };
@@ -13,10 +13,6 @@ async function call(request: APIRequestContext, user: string, method: "get" | "p
 }
 
 test.describe("community and the Academy team", () => {
-  test.beforeEach(({}, info) => {
-    test.skip(info.project.name !== "desktop", "changes shared local state, so it runs once");
-  });
-
   test("join a group, post after the notice, hear back, manage the Academy", async ({ page, request }) => {
     await page.goto("/academy/community");
     await expect(page.getByRole("heading", { name: /Welcome to the community/ })).toBeVisible();

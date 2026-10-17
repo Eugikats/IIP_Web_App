@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 // The signed-in workspace against a local API in offline mode (scripts/local/run-offline.sh, port 5167).
 // Start the API first; this config starts the portal itself.
+// Run one spec/project pair per invocation and restart the API between pairs to reset the shared learner.
+// payments.spec.ts requires scripts/local/run-offline-payments.sh; other specs use scripts/local/run-offline.sh.
 export default defineConfig({
   testDir: "./tests/academy",
   outputDir: "./test-results/academy",

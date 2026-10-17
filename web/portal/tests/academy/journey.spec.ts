@@ -4,8 +4,7 @@ import path from "node:path";
 
 // One learner takes Course 1 from enrolment to a verified certificate, in a real browser against the offline API.
 // The browser parts are what a person does; the long middle (every unit quiz and module assessment) goes through the API
-// with the answers read from the course content, so the journey stays quick. Runs once, on the desktop project, because it
-// changes the one local learner's state.
+// with the answers read from the course content, so the journey stays quick. Restart the offline API before each spec and viewport to reset learner state.
 
 const API = "http://localhost:5167/api/v1/academy";
 const HEADERS = { "X-Tenant-Id": "tenant-demo", "X-Workspace-Id": "workspace-operations", "x-demo-role": "Admin", "x-demo-user-id": "user-1", "X-User-Id": "user-1" };
@@ -53,10 +52,6 @@ async function passAssessment(request: APIRequestContext, assessment: Assessment
 }
 
 test.describe("learner journey", () => {
-  test.beforeEach(({}, info) => {
-    test.skip(info.project.name !== "desktop", "changes the one local learner, so it runs once");
-  });
-
   test("enrol, take a quiz, edit the profile, finish the course, earn and verify a certificate", async ({ page, request }) => {
     // Enrol from the course page.
     await page.goto(`/academy/courses/${course.id}`);

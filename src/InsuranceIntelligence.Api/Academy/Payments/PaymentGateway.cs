@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
@@ -84,16 +85,29 @@ public sealed class FlutterwaveGateway(HttpClient http, IConfiguration configura
 
         using var response = await http.SendAsync(request, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        if (response.StatusCode != HttpStatusCode.OK)
         {
             throw new AcademyRuleException(502, "The payment page could not be opened. Try again in a moment.", "gateway_error");
         }
 
-        using var document = JsonDocument.Parse(body);
-        var link = document.RootElement.TryGetProperty("data", out var data) && data.TryGetProperty("link", out var value) ? value.GetString() : null;
-        return !string.IsNullOrWhiteSpace(link) && Uri.TryCreate(link, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps
-            ? link
-            : throw new AcademyRuleException(502, "The payment page could not be opened. Try again in a moment.", "gateway_error");
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            if (TrySuccessData(document.RootElement, out var data))
+            {
+                var link = StringProperty(data, "link");
+                if (!string.IsNullOrWhiteSpace(link) && Uri.TryCreate(link, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps)
+                {
+                    return link;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Provider payloads are untrusted. Never return their contents in an error.
+        }
+
+        throw new AcademyRuleException(502, "The payment page could not be opened. Try again in a moment.", "gateway_error");
     }
 
     public async Task<GatewayPayment?> VerifyAsync(string? transactionId, string reference, CancellationToken cancellationToken)
@@ -103,33 +117,57 @@ public sealed class FlutterwaveGateway(HttpClient http, IConfiguration configura
             : $"/v3/transactions/verify_by_reference?tx_ref={Uri.EscapeDataString(reference)}";
         using var request = Request(HttpMethod.Get, path);
         using var response = await http.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        if (response.StatusCode != HttpStatusCode.OK)
         {
             return null;
         }
 
-        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-        var root = document.RootElement;
-        if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object)
+        try
         {
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            if (!TrySuccessData(document.RootElement, out var data))
+            {
+                return null;
+            }
+
+            var status = StringProperty(data, "status");
+            var tx = StringProperty(data, "tx_ref");
+            var currency = StringProperty(data, "currency");
+            if (status is null || string.IsNullOrWhiteSpace(tx) || string.IsNullOrWhiteSpace(currency)
+                || !data.TryGetProperty("id", out var idValue) || idValue.ValueKind != JsonValueKind.Number || !idValue.TryGetInt64(out var id) || id <= 0
+                || !data.TryGetProperty("amount", out var amountValue) || amountValue.ValueKind != JsonValueKind.Number || !amountValue.TryGetDecimal(out var amount) || amount <= 0)
+            {
+                return null;
+            }
+
+            return new GatewayPayment(
+                string.Equals(status, "successful", StringComparison.OrdinalIgnoreCase),
+                status.ToLowerInvariant(), tx, id.ToString(System.Globalization.CultureInfo.InvariantCulture), amount, currency.ToUpperInvariant());
+        }
+        catch (JsonException)
+        {
+            // No usable verification means no enrolment; a later reconcile can try again.
             return null;
         }
-
-        var status = data.TryGetProperty("status", out var statusValue) ? statusValue.GetString() ?? string.Empty : string.Empty;
-        var tx = data.TryGetProperty("tx_ref", out var txValue) ? txValue.GetString() ?? string.Empty : string.Empty;
-        var id = data.TryGetProperty("id", out var idValue) ? idValue.ToString() : null;
-        var amount = data.TryGetProperty("amount", out var amountValue) && amountValue.TryGetDecimal(out var parsed) ? parsed : 0m;
-        var currency = data.TryGetProperty("currency", out var currencyValue) ? currencyValue.GetString() ?? string.Empty : string.Empty;
-        return new GatewayPayment(
-            string.Equals(status, "successful", StringComparison.OrdinalIgnoreCase)
-                && root.TryGetProperty("status", out var outer) && string.Equals(outer.GetString(), "success", StringComparison.OrdinalIgnoreCase),
-            status.ToLowerInvariant(), tx, id, amount, currency.ToUpperInvariant());
     }
 
+    private static string? StringProperty(JsonElement value, string name) =>
+        value.ValueKind == JsonValueKind.Object && value.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString() : null;
+
+    private static bool TrySuccessData(JsonElement root, out JsonElement data)
+    {
+        data = default;
+        return string.Equals(StringProperty(root, "status"), "success", StringComparison.OrdinalIgnoreCase)
+            && root.TryGetProperty("data", out data) && data.ValueKind == JsonValueKind.Object;
+    }
+
+    // This adapter uses v3 Standard: verif-hash is the shared secret itself.
+    // v4's flutterwave-signature is a base64 HMAC of the raw body, a different protocol.
     public bool WebhookAuthentic(string? signatureHeader)
     {
         var secret = SecretHash;
-        if (string.IsNullOrEmpty(secret) || string.IsNullOrEmpty(signatureHeader))
+        if (string.IsNullOrWhiteSpace(secret) || string.IsNullOrEmpty(signatureHeader))
         {
             return false;
         }

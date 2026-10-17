@@ -242,7 +242,7 @@ public sealed class AcademyPaymentService(
         var asked = order.Amount;
         if (!string.Equals(payment.Reference, order.Reference, StringComparison.Ordinal)
             || !string.Equals(payment.Currency, order.Currency, StringComparison.OrdinalIgnoreCase)
-            || payment.Amount + 0.01m < asked)
+            || payment.Amount < asked)
         {
             order = order with
             {

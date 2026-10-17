@@ -206,6 +206,7 @@ public sealed class AcademyPaymentTests
 
     [Theory]
     [InlineData(10, "USD")]
+    [InlineData(84.99, "USD")]
     [InlineData(85, "UGX")]
     public async Task ALessOrDifferentPayment_IsFlaggedForAPerson_AndEnrolsNobody(decimal paid, string currency)
     {
@@ -229,6 +230,19 @@ public sealed class AcademyPaymentTests
         rig.Gateway.Pays(order, status: "failed");
 
         Assert.Equal("failed", (await rig.Payments.ConfirmAsync(rig.Learner, order.Reference, "777", default)).Status);
+        Assert.False(await rig.Learners.IsEnrolledAsync("u1", Course, default));
+    }
+
+    [Fact]
+    public async Task AVerifiedPaymentForAnotherReference_CannotEnrolTheOrderOwner()
+    {
+        var rig = NewRig();
+        await rig.Payments.CheckoutAsync(rig.Learner, Course, "card", default);
+        var order = LastOrder(rig);
+        rig.Gateway.Pays(order);
+        rig.Gateway.Known[order.Reference] = rig.Gateway.Known[order.Reference] with { Reference = "IIPA-another-order" };
+
+        Assert.Equal("mismatch", (await rig.Payments.ConfirmAsync(rig.Learner, order.Reference, "777", default)).Status);
         Assert.False(await rig.Learners.IsEnrolledAsync("u1", Course, default));
     }
 

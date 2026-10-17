@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
 // Buying a course, in a real browser against the offline API started with the local stand-in payment provider
-// (Academy__Payments__Provider=Fake, see scripts/local/run-offline-payments.sh). Runs once, on the desktop project.
+// (Academy__Payments__Provider=Fake, see scripts/local/run-offline-payments.sh). Restart the offline API before each spec and viewport to reset learner state.
 
 const API = "http://localhost:5167/api/v1/academy";
 const HEADERS = { "X-Tenant-Id": "tenant-demo", "X-Workspace-Id": "workspace-operations", "x-demo-role": "Admin", "x-demo-user-id": "user-1", "X-User-Id": "user-1" };
@@ -12,10 +12,6 @@ async function call(request: APIRequestContext, method: "get" | "post" | "put", 
 }
 
 test.describe("buying a course", () => {
-  test.beforeEach(({}, info) => {
-    test.skip(info.project.name !== "desktop", "changes shared local state, so it runs once");
-  });
-
   test("dollar price, choose how to pay, pay, enrolled; unpaid enrolment is refused; the team sees and refunds it", async ({ page, request }) => {
     // The price is in dollars, on the page and in the offer.
     await page.goto("/academy/courses/claims");
