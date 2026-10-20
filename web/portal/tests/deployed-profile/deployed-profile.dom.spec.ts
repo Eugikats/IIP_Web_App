@@ -12,7 +12,6 @@ test.describe("Deployed-profile DOM guardrails", () => {
     await expect(page.getByRole("heading", { name: /Good morning/i })).toBeVisible();
     await expect(page.locator("html")).not.toHaveClass(/dark/);
     await expect(page.getByLabel("Role")).toHaveCount(0);
-    await expect(page.locator("body")).toContainText(/Provider health|providers need attention|not_configured|Not configured/i);
     await expect(page.getByText(prohibitedDeployedTerms)).toHaveCount(0);
   });
 

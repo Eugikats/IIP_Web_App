@@ -308,7 +308,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("get your money", turn.OutboundReplyText);
         Assert.DoesNotContain("PERSON", turn.OutboundReplyText);
         Assert.DoesNotContain("voice note", turn.OutboundReplyText); // voice is not offered until it works
-        Assert.Empty(fixture.SalesLeads.Created);
+        AssertOnlyAFirstContactRecord(fixture);
     }
 
     [Fact]
@@ -385,6 +385,17 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("get back to you shortly", sent.CustomerSafeBody);
     }
 
+    /// <summary>Writing in puts someone in acquisition at once, as a new contact: no interest, no hand-over, only the fact that they wrote.</summary>
+    private static SalesLeadDetailReadModel AssertOnlyAFirstContactRecord(Fixture fixture)
+    {
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.Equal("WhatsApp", lead.LeadSource);
+        Assert.Null(lead.HandedToPersonAt);
+        Assert.Empty(lead.Interests);
+        Assert.Equal("Wrote in on WhatsApp", lead.Activity[0].Text);
+        return lead;
+    }
+
     [Fact]
     public async Task ProductInterest_WithNoCover_AsksWhatWorkTheyDo_ThenExplainsFittingCoverAndCreatesALead()
     {
@@ -392,7 +403,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         await fixture.HandleAsync("I'm interested in getting a quote for insurance");
         Assert.Equal(CustomerAssistantOutcome.AwaitingOccupation, Assert.Single(fixture.Conversations.Saved).Outcome);
-        Assert.Empty(fixture.SalesLeads.Created);
+        var firstContact = AssertOnlyAFirstContactRecord(fixture);
 
         await fixture.HandleAsync("I sell tomatoes in Nakasero market");
 
@@ -404,12 +415,138 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("Hospital Cash", turn.OutboundReplyText);
         Assert.Contains("nothing is sold in this chat", turn.OutboundReplyText);
         var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.Equal(firstContact.LeadId, lead.LeadId);
         Assert.Contains("Market Stall Stock", lead.ProductFit);
 
         // Outcome P: "route it to a licensed person." A lead has no assigned officer at
         // creation, so routing is the same team-broadcast ApprovalRequired already uses.
         var notification = Assert.Single(fixture.TeamsQueue.Enqueued);
         Assert.Equal(TeamsNotificationType.LeadCreated, notification.NotificationType);
+    }
+
+
+    [Fact]
+    public async Task ANewContact_IsInAcquisitionFromTheFirstMessage_UnderTheNameOnTheirWhatsAppProfile()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleNamedAsync("Hello", "Sarah Namukasa");
+
+        var lead = AssertOnlyAFirstContactRecord(fixture);
+        Assert.Equal("Sarah Namukasa", lead.CustomerName);
+        Assert.Equal("Sarah Namukasa", Assert.Single(fixture.Customers.Customers).FullName);
+        Assert.NotNull(lead.ThreadId);
+        Assert.Equal("WhatsApp", lead.PrimaryChannel);
+        Assert.True(InsuranceIntelligence.Domain.Customers.PhoneNumbers.SameNumber("256772118001", lead.Phone));
+    }
+
+    [Fact]
+    public async Task WritingAgain_DoesNotMakeASecondRecord_AndKeepsTheProfileName()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleNamedAsync("Hello", "Sarah Namukasa");
+        await fixture.HandleNamedAsync("What covers do you have?", "Sarah Namukasa");
+
+        Assert.Equal("Sarah Namukasa", Assert.Single(fixture.SalesLeads.Created).CustomerName);
+    }
+
+    [Fact]
+    public async Task WithNoUsableProfileName_TheRecordUsesAPlaceholder_UntilThePersonSaysWhoTheyAre()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleNamedAsync("Hello", "\U0001F600");
+        Assert.Equal("WhatsApp customer", Assert.Single(fixture.SalesLeads.Created).CustomerName);
+
+        await fixture.HandleNamedAsync("My name is Moses Kato", "\U0001F600");
+
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.Equal("Moses Kato", lead.CustomerName);
+        Assert.Contains(lead.Activity, entry => entry.Text == "Told Kato their name");
+        Assert.Equal("Moses Kato", Assert.Single(fixture.Customers.Customers).FullName);
+    }
+
+    [Fact]
+    public async Task ANameThePersonStates_IsBelievedOverTheirProfileName_OnBothRecords()
+    {
+        var fixture = Fixture.Create();
+
+        await fixture.HandleNamedAsync("Hello", "Sam K");
+        await fixture.HandleNamedAsync("call me Samuel Okello", "Sam K");
+
+        Assert.Equal("Samuel Okello", Assert.Single(fixture.SalesLeads.Created).CustomerName);
+        Assert.Equal("Samuel Okello", Assert.Single(fixture.Customers.Customers).FullName);
+    }
+
+    [Fact]
+    public async Task ANameThePersonStates_NeverReplacesANameSomeoneOnTheTeamSet()
+    {
+        var fixture = Fixture.Create();
+        await fixture.HandleNamedAsync("Hello", "Sam K");
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        await fixture.SalesLeads.CreateAsync("tenant-ca", "workspace-ca", lead with { CustomerName = "Samuel Okello (Equator staff list)" });
+
+        await fixture.HandleNamedAsync("my name is Someone Else", "Sam K");
+
+        Assert.Equal("Samuel Okello (Equator staff list)", Assert.Single(fixture.SalesLeads.Created).CustomerName);
+    }
+
+    [Theory]
+    [InlineData("I am hungry")]
+    [InlineData("I'm interested in cover")]
+    [InlineData("This is urgent")]
+    [InlineData("my name is the other one")]
+    public void ASentenceThatIsNotAnIntroduction_IsNotTakenAsAName(string message) =>
+        Assert.Null(CustomerAssistantService.IntroducedName(message));
+
+    [Theory]
+    [InlineData("My name is Grace Nakato", "Grace Nakato")]
+    [InlineData("call me sam", "Sam")]
+    [InlineData("Naitwa Juma", "Juma")]
+    public void AnUnambiguousIntroduction_GivesTheName(string message, string expected) =>
+        Assert.Equal(expected, CustomerAssistantService.IntroducedName(message));
+
+    [Fact]
+    public async Task ACustomerWithCover_IsNotMadeAProspectByWritingIn()
+    {
+        var fixture = Fixture.Create();
+        fixture.SeedPolicyholder("Brian Okello", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleNamedAsync("Hello", "Bee");
+
+        Assert.Empty(fixture.SalesLeads.Created);
+    }
+
+    [Fact]
+    public async Task TheAgent_SavesANameAsSoonAsItHearsOne_WithoutRegisteringThemForCover()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("save_name", """{"full_name":"Aisha Namutebi"}""")
+            .Says("Nice to meet you, Aisha. What do you do for work?");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleNamedAsync("Hi, I'm Aisha Namutebi", "~");
+
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.Equal("Aisha Namutebi", lead.CustomerName);
+        Assert.Equal("Aisha Namutebi", Assert.Single(fixture.Customers.Customers).FullName);
+        Assert.Empty(await fixture.Policies.ListByCustomerAsync(fixture.Customers.Customers[0].CustomerId, fixture.Scope, default));
+        Assert.Contains("saved", model.ToolResults[0]);
+    }
+
+    [Fact]
+    public async Task TheAgent_IsToldWhenWhatItWasGivenIsNotAName()
+    {
+        var model = new ScriptedAgentModel()
+            .Calls("save_name", """{"full_name":"!!"}""")
+            .Says("What would you like me to call you?");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleNamedAsync("hello", "~");
+
+        Assert.Contains("not_a_name", model.ToolResults[0]);
+        Assert.Equal("WhatsApp customer", Assert.Single(fixture.SalesLeads.Created).CustomerName);
     }
 
     [Theory]
@@ -883,12 +1020,12 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal("I sell shoes", lead.Facts.Single(fact => fact.Key == "occupation").Value);
         Assert.Equal("Kalerwe", lead.Facts.Single(fact => fact.Key == "area").Value);
         Assert.All(lead.Facts, fact => Assert.Equal(ProspectFactSource.Customer, fact.Source));
-        Assert.Equal(["Registered on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
+        Assert.Equal(["Wrote in on WhatsApp", "Registered on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
         Assert.NotNull(lead.ThreadId);
     }
 
     [Fact]
-    public async Task Agent_AskingForAPersonAlone_DoesNotMakeSomeoneAProspect()
+    public async Task Agent_AskingForAPersonAlone_MarksTheFirstContactRecordHandedOver_WithoutAnyInterest()
     {
         var model = new ScriptedAgentModel()
             .Calls("hand_to_person", """{"reason":"Unhappy about how long a claim is taking"}""")
@@ -897,7 +1034,10 @@ public sealed partial class CustomerAssistantServiceTests
 
         await fixture.HandleAsync("I want to talk to a manager about my claim");
 
-        Assert.Empty(fixture.SalesLeads.Created);
+        // Asking for a person is not interest in a cover: the first-contact record is marked handed over, and shows no interest.
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.NotNull(lead.HandedToPersonAt);
+        Assert.Empty(lead.Interests);
     }
 
     [Fact]
@@ -934,7 +1074,7 @@ public sealed partial class CustomerAssistantServiceTests
         await fixture.HandleAsync("How much does it cost?");
 
         Assert.Contains("not_their_answer", model.ToolResults[0]);
-        Assert.Empty(fixture.SalesLeads.Created);
+        AssertOnlyAFirstContactRecord(fixture);
     }
 
     [Fact]
@@ -1233,7 +1373,7 @@ public sealed partial class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.AutoReplied, turn.Outcome);
         Assert.Contains("You're welcome", turn.OutboundReplyText);
-        Assert.Empty(fixture.SalesLeads.Created);
+        AssertOnlyAFirstContactRecord(fixture);
     }
 
     [Fact]

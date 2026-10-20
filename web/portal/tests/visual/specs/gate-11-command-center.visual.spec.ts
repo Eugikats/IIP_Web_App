@@ -22,8 +22,6 @@ test("Gate 11 Command Center summarizes implemented workflow state", async ({ pa
   const viewportWidth = page.viewportSize()?.width ?? 0;
   if (viewportWidth >= 1280) {
     await expect(page.getByText("Provider health")).toBeVisible();
-  } else {
-    await expect(page.getByText(/\d+ of \d+ providers need attention/)).toBeVisible();
   }
 
   await testInfo.attach(`gate-11-command-center-${testInfo.project.name}.png`, {

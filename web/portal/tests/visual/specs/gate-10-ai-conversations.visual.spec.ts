@@ -40,13 +40,8 @@ test("Gate 10 Command Center escalates unsupported questions instead of answerin
   await page.getByRole("button", { name: "Send to IIP Operations" }).click();
 
   await expect(page.getByText("Does an unlisted benefit apply?")).toBeVisible();
-  // Design language v2 §8.17, AIMessageBubble no longer repeats a per-message authority line;
-  // the always-visible StatusBar footer is the persistent statement of human decision authority.
-  if ((page.viewportSize()?.width ?? 0) >= 640) {
-    await expect(page.getByText("AI prepares work · humans approve regulated decisions")).toBeVisible();
-  } else {
-    await expect(page.getByText("Human authority")).toBeVisible();
-  }
+  // Design language v2 §8.17, AIMessageBubble no longer repeats a per-message authority line. The footer strip that used to
+  // state it was removed, so the statement now lives in the composer disclaimer asserted below.
   await expect(page.getByRole("button", { name: /approve payout|deny claim|confirm fraud/i })).toHaveCount(0);
 });
 

@@ -4,10 +4,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Sidebar from "./Sidebar";
 import FirstRunOrientation from "./FirstRunOrientation";
-import StatusBar from "./StatusBar";
 import AssistantBar from "./AssistantBar";
 import CopilotPanel from "./CopilotPanel";
-import EnvironmentBanner from "./EnvironmentBanner";
 import NotificationBell from "./NotificationBell";
 import MfaGate from "@/components/security/MfaGate";
 import { UIStateProvider, useUI } from "@/context/UIStateContext";
@@ -116,7 +114,6 @@ function ShellInner({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-dls-bg-page">
-      <EnvironmentBanner />
       <div className="relative flex flex-1 overflow-hidden">
         {/* The rail is always present at every viewport width (navigation model §5.1), it never
             collapses into an off-canvas drawer, so there is no mobile open/close state to manage. */}
@@ -175,7 +172,6 @@ function ShellInner({ children }: { children: ReactNode }) {
           </div>
         </div>
       </div>
-      <StatusBar />
     </div>
   );
 }

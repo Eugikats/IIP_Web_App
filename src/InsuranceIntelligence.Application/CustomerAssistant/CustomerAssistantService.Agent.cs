@@ -179,6 +179,7 @@ public sealed partial class CustomerAssistantService
 
             What you can do, always through your tools (never invent a price, policy, claim or rule):
             - Explain covers: list_products for prices, levels and what each pays; search_policy_information for detailed terms.
+            - Their name: the moment they tell you what to call them ("I am Sarah", "Moses Kato"), call save_name with it, before anything else. This only keeps their name on their record; it does not register them for cover.
             - Register a new customer: use what they already told you anywhere in the conversation (a first name and surname is a full name; "I sell shoes" is their work; "a shop in Kalerwe" is their area). If you have their name, call register_customer straight away and fill in the rest from the conversation; ask only for what is truly missing, in one short question. Never ask again for something they already said.
             - Sell a cover: as soon as they agree to a cover ("yes", "ok", "that one", "the boda one"), call apply_for_cover straight away with the level that fits (cover_amount_ugx); do not ask them to confirm again. Register them first if they are not yet registered.{(demoPhone ? " On this test phone, applications are approved immediately as demo policies and no money is collected; tell them so plainly." : " The application is confirmed by a licensed person, who will also explain payment.")}
             - When someone told you about a loss and then took a cover, once the cover is active always offer to report that loss as a claim too, in the same message; the claims team will look at the dates.
@@ -219,6 +220,15 @@ public sealed partial class CustomerAssistantService
                     product = new { type = "string", description = "Optional product name or line, for example 'Boda Rider Accident', 'Small Business Shop', 'Motor'." },
                 },
                 required = new[] { "question" },
+                additionalProperties = false,
+            }),
+        new("save_name",
+            "Keep the name the person has just told you on their record, so the team sees who they are. Does not register them for cover.",
+            new
+            {
+                type = "object",
+                properties = new { full_name = new { type = "string", description = "The name they gave, as they gave it." } },
+                required = new[] { "full_name" },
                 additionalProperties = false,
             }),
         new("register_customer",
@@ -294,6 +304,7 @@ public sealed partial class CustomerAssistantService
             "get_my_account" => await ToolGetMyAccountAsync(run, cancellationToken),
             "list_products" => ToolListProducts(),
             "search_policy_information" => await ToolSearchAsync(run, Arg(args, "question") ?? run.English, Arg(args, "product"), cancellationToken),
+            "save_name" => await ToolSaveNameAsync(run, Arg(args, "full_name"), cancellationToken),
             "register_customer" => await ToolRegisterAsync(run, Arg(args, "full_name"), Arg(args, "occupation"), Arg(args, "area"), cancellationToken),
             "apply_for_cover" => await ToolApplyAsync(run, Arg(args, "product"), NumberArg(args, "cover_amount_ugx"), cancellationToken),
             "file_claim" => await ToolFileClaimAsync(run, Arg(args, "product_or_policy_number"), Arg(args, "what_happened"), Arg(args, "when_it_happened"), cancellationToken),
@@ -378,6 +389,18 @@ public sealed partial class CustomerAssistantService
         return found.Count == 0
             ? Json(new { found = false, note = "Nothing in the approved documents about this. Say what you do know from list_products, or offer hand_to_person if they want more." })
             : Json(new { found = true, passages = found.Take(6).Select(f => new { document = f.Document, text = f.Text }) });
+    }
+
+    private async Task<string> ToolSaveNameAsync(AgentRun run, string? fullName, CancellationToken cancellationToken)
+    {
+        var name = string.Join(' ', (fullName ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim();
+        if (name.Length is < 2 or > 80 || FirstNameOf(name) is null)
+        {
+            return Json(new { error = "not_a_name", instruction = "Ask what they would like to be called." });
+        }
+
+        await ApplyStatedNameAsync(run.Scope, run.WaId, name, cancellationToken);
+        return Json(new { saved = true, name });
     }
 
     private async Task<string> ToolRegisterAsync(AgentRun run, string? fullName, string? occupation, string? area, CancellationToken cancellationToken)

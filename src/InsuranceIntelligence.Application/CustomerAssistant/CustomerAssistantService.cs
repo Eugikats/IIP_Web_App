@@ -353,10 +353,8 @@ public sealed partial class CustomerAssistantService(
             return;
         }
 
-        var customerId = new Guid(System.Security.Cryptography.MD5.HashData(
-            System.Text.Encoding.UTF8.GetBytes($"{scope.TenantId}:{scope.WorkspaceId}:whatsapp-contact:{waId}"))).ToString();
         await customerRepository.UpsertAsync(
-            new Customer(customerId, scope.TenantId, scope.WorkspaceId, fullName, null, $"+{waId}"), cancellationToken);
+            new Customer(ContactIdFor(scope, waId), scope.TenantId, scope.WorkspaceId, fullName, null, $"+{waId}"), cancellationToken);
     }
 
     private static readonly string[] NamePrefixes =
@@ -623,6 +621,20 @@ public sealed partial class CustomerAssistantService(
             await SaveContactAsync(scope, waId, inbound.ProfileName!, cancellationToken);
         }
 
+        // A person who says their name ("my name is Sarah") is believed over the name on their WhatsApp profile, and the
+        // name follows them to their contact and prospect records at once. Then anyone who is not yet a customer with
+        // cover is shown in acquisition from their first message, under the best name we have.
+        var introduced = IntroducedName(inbound.CustomerSafeBody);
+        if (introduced is not null)
+        {
+            await ApplyStatedNameAsync(scope, waId, introduced, cancellationToken);
+        }
+
+        if (sender is not { Policies.Count: > 0 })
+        {
+            await EnsureProspectAsync(scope, waId, threadId, introduced ?? ProfileFullName(inbound.ProfileName), text, correlationId, cancellationToken);
+        }
+
         // Which language is this customer conversing in? Everything from here on runs on English:
         // the customer's message is translated at the door and the reply is translated on the way
         // out, so no gate, classifier, consent or identity check ever sees anything but English.
@@ -835,7 +847,7 @@ public sealed partial class CustomerAssistantService(
             && intent == CustomerIntent.Unknown
             && GivenName(inbound.CustomerSafeBody) is { } givenName)
         {
-            await SaveContactAsync(scope, waId, givenName, cancellationToken);
+            await ApplyStatedNameAsync(scope, waId, givenName, cancellationToken);
             return AssistantOutcome.Of(KatoReplies.NiceToMeetYou(FirstNameOf(givenName)!), CustomerIntent.Unknown, CustomerAssistantOutcome.AutoReplied);
         }
 
@@ -1397,11 +1409,12 @@ public sealed partial class CustomerAssistantService(
     private async Task<string?> CreateLeadAsync(
         TenantScope scope, string text, string waId, SenderProfile? sender, string leadSource, string correlationId, CancellationToken cancellationToken,
         string? productFit = null, string? occupation = null, Func<SalesLeadDetailReadModel, SalesLeadDetailReadModel>? change = null,
-        bool createIfMissing = true)
+        bool createIfMissing = true, string? displayName = null, string? activityText = null)
     {
         var now = DateTimeOffset.UtcNow;
         var digits = NormalizeWaId(waId);
-        var activity = new ProspectActivity(now, LeadActivityText(leadSource, productFit), "Kato");
+        var knownName = sender?.FullName is { Length: > 0 } onFile ? onFile : displayName;
+        var activity = new ProspectActivity(now, activityText ?? LeadActivityText(leadSource, productFit), "Kato");
         var existing = await salesLeadWriteRepository.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, digits, cancellationToken);
 
         if (existing is null && !createIfMissing)
@@ -1415,7 +1428,7 @@ public sealed partial class CustomerAssistantService(
             var assessed = productFit is not null && !string.Equals(productFit, "To be chosen", StringComparison.OrdinalIgnoreCase);
             lead = existing with
             {
-                CustomerName = sender?.FullName is { Length: > 0 } known && existing.CustomerName is "WhatsApp customer" or "" ? known : existing.CustomerName,
+                CustomerName = knownName is not null && IsPlaceholderName(existing.CustomerName) ? knownName : existing.CustomerName,
                 ProductFit = assessed ? productFit! : existing.ProductFit,
                 Phone = existing.Phone ?? digits,
                 PrimaryChannel = existing.PrimaryChannel ?? "WhatsApp",
@@ -1438,7 +1451,7 @@ public sealed partial class CustomerAssistantService(
                 FollowUpActions: ["Contact customer to confirm details", "Prepare indicative quote for human review"],
                 AssignedSalesOfficer: null,
                 ConversionProbability: null,
-                CustomerName: sender?.FullName ?? "WhatsApp customer",
+                CustomerName: knownName ?? PlaceholderName,
                 ContactInfo: $"+{digits}",
                 CreatedAt: now,
                 CreatedBy: SystemActorId)
@@ -1483,6 +1496,104 @@ public sealed partial class CustomerAssistantService(
 
         return leadId;
     }
+
+    /// <summary>What a prospect is called until the person's own name is known.</summary>
+    internal const string PlaceholderName = "WhatsApp customer";
+
+    private static bool IsPlaceholderName(string? name) =>
+        string.IsNullOrWhiteSpace(name) || name.Trim().Equals(PlaceholderName, StringComparison.OrdinalIgnoreCase) || name.Trim().Equals("WhatsApp contact", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The whole name from a self-chosen WhatsApp profile name, tidied, or null when it does not read as a name
+    /// (symbols only, "Customer", a business tag).</summary>
+    internal static string? ProfileFullName(string? profileName)
+    {
+        if (FirstNameOf(profileName) is null)
+        {
+            return null;
+        }
+
+        var tidy = string.Join(' ', profileName!.Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim();
+        return tidy.Length is > 0 and <= 80 ? tidy : null;
+    }
+
+    /// <summary>The prospect record for someone who has written in but is not a customer with cover: made on their
+    /// first message so staff see them straight away, and kept up to date after. Never fails the customer's turn.</summary>
+    private async Task EnsureProspectAsync(
+        TenantScope scope, string waId, string threadId, string? name, string text, string correlationId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var existing = await salesLeadWriteRepository.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, NormalizeWaId(waId), cancellationToken);
+            if (existing is null)
+            {
+                await CreateLeadAsync(
+                    scope, text, waId, sender: null, "WhatsApp", correlationId, cancellationToken,
+                    change: lead => lead with { ThreadId = threadId },
+                    displayName: name, activityText: "Wrote in on WhatsApp");
+            }
+            else if (name is not null && IsPlaceholderName(existing.CustomerName))
+            {
+                // Their profile name has arrived since the record was made (or the record came from the older rule).
+                await salesLeadWriteRepository.CreateAsync(scope.TenantId, scope.WorkspaceId, existing with { CustomerName = name }, cancellationToken);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // The customer is answered either way; the record is made on their next message.
+        }
+    }
+
+    private static readonly string[] UnambiguousIntroductions = ["my name is ", "call me ", "naitwa ", "jina langu ni ", "erinnya lyange "];
+
+    /// <summary>The name in a message that plainly introduces the writer ("my name is Sarah Namukasa", "call me Sam"), or
+    /// null. Only introductions that cannot mean anything else count: "I am hungry" is not one.</summary>
+    public static string? IntroducedName(string? message)
+    {
+        var text = (message ?? string.Empty).Trim();
+        return UnambiguousIntroductions.Any(prefix => text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) ? GivenName(text) : null;
+    }
+
+    /// <summary>The person told us their name. It goes on their contact record and their prospect record, replacing the
+    /// WhatsApp profile name or a placeholder, but never a name a person on the team set, and never the name of a
+    /// customer who already has cover.</summary>
+    private async Task ApplyStatedNameAsync(TenantScope scope, string waId, string name, CancellationToken cancellationToken)
+    {
+        var fullName = string.Join(' ', name.Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim();
+        if (FirstNameOf(fullName) is null || fullName.Length > 80)
+        {
+            return;
+        }
+
+        var onThisNumber = (await customerRepository.ListAsync(scope, cancellationToken))
+            .Where(customer => PhoneNumbers.SameNumber(customer.Phone, waId))
+            .ToArray();
+        string? previous = null;
+        if (onThisNumber.Length == 0)
+        {
+            await SaveContactAsync(scope, waId, fullName, cancellationToken);
+        }
+        else if (onThisNumber.Length == 1 && onThisNumber[0].CustomerId == ContactIdFor(scope, waId))
+        {
+            previous = onThisNumber[0].FullName;
+            await customerRepository.UpsertAsync(onThisNumber[0] with { FullName = fullName }, cancellationToken);
+        }
+
+        var lead = await salesLeadWriteRepository.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, NormalizeWaId(waId), cancellationToken);
+        if (lead is not null
+            && !string.Equals(lead.CustomerName, fullName, StringComparison.OrdinalIgnoreCase)
+            && (IsPlaceholderName(lead.CustomerName) || (previous is not null && string.Equals(lead.CustomerName, previous, StringComparison.OrdinalIgnoreCase))))
+        {
+            await salesLeadWriteRepository.CreateAsync(scope.TenantId, scope.WorkspaceId, lead with
+            {
+                CustomerName = fullName,
+                Activity = [.. lead.Activity, new ProspectActivity(DateTimeOffset.UtcNow, "Told Kato their name", "Kato")],
+            }, cancellationToken);
+        }
+    }
+
+    private static string ContactIdFor(TenantScope scope, string waId) =>
+        new Guid(System.Security.Cryptography.MD5.HashData(
+            System.Text.Encoding.UTF8.GetBytes($"{scope.TenantId}:{scope.WorkspaceId}:whatsapp-contact:{waId}"))).ToString();
 
     private static string LeadActivityText(string leadSource, string? productFit) => leadSource switch
     {

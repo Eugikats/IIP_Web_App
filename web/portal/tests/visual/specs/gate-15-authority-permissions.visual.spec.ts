@@ -11,7 +11,7 @@ test("signed-in authority stays distinct from staff experience preview", async (
   test.skip((page.viewportSize()?.width ?? 0) < 768, "Role preview is a desktop review control.");
   const preview = page.getByRole("combobox", { name: "Preview staff experience" });
   await expect(preview).toHaveValue("Admin");
-  await expect(page.getByText("Signed in as Workspace Administrator").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Signed in as Workspace Administrator/ })).toBeVisible();
   await preview.selectOption("ClaimsOfficer");
   await expect(page.getByText(/Previewing Claims Officer experience/)).toBeAttached();
 });
@@ -28,7 +28,7 @@ for (const role of STAFF_ROLES) {
     if (role !== "Admin") await preview.selectOption(role);
     const route = previewLandingRoute(role).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     await expect(page).toHaveURL(new RegExp(`${route}$`));
-    const signedAuthority = page.getByText("Signed in as Workspace Administrator").first();
+    const signedAuthority = page.getByRole("button", { name: /Signed in as Workspace Administrator/ });
     const clientError = page.getByRole("heading", { name: /Application error/ });
     await expect(signedAuthority.or(clientError)).toBeVisible();
     expect(pageErrors, `${ROLES[role].label} landing raised a client exception`).toEqual([]);
