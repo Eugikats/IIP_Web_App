@@ -34,6 +34,13 @@ trap 'rm -rf "$WORK"' EXIT
 
 cd "$PORTAL"
 
+# Guard: the "Synthetic demo data" strip and the bottom status bar were removed on purpose and must never ship again.
+# A copy of the code from before the removal (an old branch or folder) would bring them back, so refuse to deploy it.
+if grep -rqs "Synthetic demo data" "$PORTAL/components" "$PORTAL/app" "$PORTAL/lib" "$PORTAL/lovable-pages" 2>/dev/null   || [ -e "$PORTAL/components/iip/EnvironmentBanner.tsx" ] || [ -e "$PORTAL/components/iip/StatusBar.tsx" ]; then
+  echo "ERROR: this copy of the portal still contains the demo-data banner or the status bar. Deploy from a branch that has them removed." >&2
+  exit 1
+fi
+
 if [ "${SKIP_BUILD:-0}" != "1" ]; then
   echo "==> Building (Entra/Demo profile, matching the target App Service settings)"
   # Local-development-only vars are cleared: baked in, they would make the portal attach demo
