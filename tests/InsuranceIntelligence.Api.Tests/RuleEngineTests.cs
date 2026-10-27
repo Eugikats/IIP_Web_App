@@ -111,7 +111,7 @@ public sealed class RuleEngineTests
 
         var provider = new Provider();
         var messages = new Messages();
-        var sender = new TemplateMessageService(templates, channels, messages, provider);
+        var sender = new TemplateMessageService(templates, channels, messages, provider, clock: clock);
         var rules = new RuleService(store, brands, templates, clock);
         var log = new DecisionLog(store);
         var events = new EventService(store, clock);

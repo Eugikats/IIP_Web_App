@@ -36,8 +36,11 @@ public sealed class TemplateMessageService(
     IWhatsAppChannelConfigurationRepository channelConfiguration,
     IWhatsAppMessageRepository messages,
     IWhatsAppOutboundProvider outbound,
-    IConsentRepository? consentRepository = null)
+    IConsentRepository? consentRepository = null,
+    TimeProvider? clock = null)
 {
+    private DateTimeOffset Now => (clock ?? TimeProvider.System).GetUtcNow();
+
     public async Task<TemplateSendResult> SendAsync(TenantScope scope, TemplateSendRequest request, CancellationToken cancellationToken = default)
     {
         var waId = Digits(request.RecipientWaId);
@@ -65,7 +68,7 @@ public sealed class TemplateMessageService(
             }
         }
 
-        if (template.Category == TemplateCategory.Marketing && !OutreachService.WithinSendingHours(DateTimeOffset.UtcNow))
+        if (template.Category == TemplateCategory.Marketing && !OutreachService.WithinSendingHours(Now))
         {
             return TemplateSendResult.Blocked("Outside sending hours: marketing messages go out between 07:00 and 20:00 East Africa time.");
         }
@@ -98,7 +101,7 @@ public sealed class TemplateMessageService(
             return TemplateSendResult.Blocked("WhatsApp outbound is not configured.");
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = Now;
         var pending = new WhatsAppMessage
         {
             MessageId = Guid.NewGuid(),
