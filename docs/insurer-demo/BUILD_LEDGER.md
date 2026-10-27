@@ -61,10 +61,10 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 15 | Onboarding: security screen, storage step | done |
 | 16 | Extraction agent for wordings | done |
 | 17 | "Here is what I found" confirm screen | done |
-| 18 | Managed WhatsApp number flow | next |
-| 19 | Claim by WhatsApp polish and identity check | |
-| 20 | Security pack | |
-| 21 | Rehearsal | |
+| 18 | Managed WhatsApp number flow | partial (tenant request intake and Publisher Support queue; Meta code verification and registration not implemented) |
+| 19 | Claim by WhatsApp polish and identity check | next |
+| 20 | Security pack | done (internal draft, not counsel-approved) |
+| 21 | Rehearsal | done locally with after-hours deferral fallback; full backend suite still has 15 time-window failures to rerun during 07:00-20:00 EAT |
 
 ## Piece 15 completion
 
@@ -85,6 +85,17 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 - Confirmed facts are stored on the versioned Product with their exact source document, chunk, quote, and model confidence. The command service re-checks document workspace/type, chunk and exact quote before saving. Product detail shows the saved evidence.
 - Verification: portal `tsc --noEmit` clean; `pnpm lint` completed with 0 errors and 6 existing image warnings; ProductCommandServiceTests passed 14/14; ProductWordingExtractionTests passed 3/3. Added `wording-setup.spec.ts`, which exercises a test-only source citation, human confirmation, product draft request and success link. Playwright passed at 1280 and 768, plus a focused 390 px run; screenshots reviewed at all three widths. Test data is explicitly a browser fixture. No live extraction call was made because no model provider is configured.
 
+## Pieces 18 and 20 progress
+
+- Piece 18 currently has tenant-scoped WhatsApp number request intake and cancellation, safe metadata audit events, consent timestamp and requester identity, and a Publisher Support-only cross-tenant queue. The queue access uses the existing `ManageTenantOnboarding` permission and returns only the fields needed for support. A workspace read remains scoped. No code or registration PIN is persisted.
+- Piece 18 verification so far: `dotnet build InsuranceIntelligence.sln --no-restore -c Release` succeeded; focused `WhatsAppOnboardingTests` passed 2/2, including support authorization and cross-scope queue visibility; setup browser flow passed at desktop 1280 and tablet 768. Screenshots were reviewed. The full endpoint/UI has not been exercised at 390 px yet.
+- Remaining Piece 18 work: Meta SMS/voice code request, customer code submission, registration and app subscription. The request and queue are not a complete managed number lifecycle. The UI explicitly says Meta verification is Not configured. Do not describe Piece 18 as complete.
+- Piece 20 draft deliverables added: `IIP_BANK_SECURITY_ONE_PAGER.md`, `IIP_BANK_SECURITY_ARCHITECTURE.md`, and `IIP_BANK_QUESTIONNAIRE_RESPONSES.md`. They reflect `SecurityStatements` and the technical questionnaire, preserve known gaps, and are labeled for internal review. No deployment facts are upgraded without evidence.
+- Full backend suite on 2026-10-27: 1,691 passed, 15 failed. All 15 failures are time-dependent `RuleEngineTests` which expect eligible sends during 07:00 to 20:00 East Africa time; this run occurred after the send window. No product code was changed to bypass the send-hours gate. Re-run the full suite during the configured window before closing the rehearsal.
+- Final resumed checks: renewal and claim-rules browser rehearsal passed 2/2 at the mobile project while the send window was closed; assertions confirm the correct outside-hours deferral. The scenario and queue flows had also passed desktop/tablet in the earlier run. `pnpm lint` completed with 0 errors and 6 existing `<img>` warnings, `pnpm exec tsc --noEmit` passed, `pnpm test` passed all runtime, provider, role-route, action-permission, release-gate, trust-truth, and authority-permission checks, and the Development-profile portal production build compiled and prerendered all 76 pages. Latest Release backend build succeeded with 0 errors and 4 existing NU1903 vulnerability warnings. Focused onboarding API tests passed 2/2. These checks do not substitute for an in-hours full backend test run.
+- Mobile support screenshot review found old browser-fixture requests accumulated in the local demo data from earlier runs. They are clearly marked as fixtures, but the captured support queue is noisy; the current test cleans up its own fixture in a `finally` block. No real tenant records were changed.
+- Pieces 18 and 19 remain incomplete. Piece 18 has no Meta code request/verify/register/subscribe adapter or lifecycle. Piece 19 has no SMS identity challenge before claim details or claim creation. The platform SMS provider reports `Not configured` unless configured; no SMS gateway credentials or Meta Business credentials/test number were available. Do not represent either piece as shipped or verified.
+
 ## Verified so far
 
 - Pieces 8 and 9: Api.Tests all pass (RuleEngineTests 46, Kato 119), tsc clean, lint 0 errors. All insurer-demo Playwright specs (demonstrations, templates, bank-events, rules, renewals) pass at 1280 and 768 together: 28 tests. Renewals spec drives Nile Life from policy dates to logged reminders in a browser. Not run at 390 px.
@@ -100,6 +111,9 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 - Build API and portal from this branch, run `db-migrate`, check `/health/ready`, confirm the deploy guard passes (no demo banner).
 - Owner actions: submit templates to Meta, Microsoft and Google app registrations, counsel review of the security pack.
+- Before a complete 21-piece release: implement and locally test the Meta-managed number code/registration lifecycle (Piece 18) and SMS identity check for WhatsApp claim intake/status (Piece 19); configure no secrets in source and keep all capabilities visibly Not configured until credentials exist.
+- Re-run `dotnet test InsuranceIntelligence.sln --no-build -c Release --verbosity normal` during the 07:00-20:00 EAT send window so the time-sensitive RuleEngine tests exercise their intended send path.
+- Review mobile support queue data after removing old local test fixtures; verify no live customer or tenant data was used in the rehearsal.
 
 ## Questions for the owner (asked at the very end)
 
@@ -107,3 +121,4 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 - Owner to upload approved WhatsApp templates.
 - Microsoft and Google app registrations.
 - Confirm which public sample wordings can be used for the extraction rehearsal.
+- Provide/confirm the managed WhatsApp Meta Business credentials and a test number for SMS/voice code and registration rehearsal. Never send codes to an unapproved real number.

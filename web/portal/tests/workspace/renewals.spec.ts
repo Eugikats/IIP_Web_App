@@ -2,6 +2,10 @@ import { expect, test } from "@playwright/test";
 
 const API = "http://localhost:5167";
 let organisationId = "";
+const insideRuleSendingHours = (() => {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Kampala", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+  return hour >= 9 && hour < 18;
+})();
 
 test.beforeAll(async ({ request }) => {
   // A person of its own each run, so each run has a fresh Nile Life organisation.
@@ -37,7 +41,7 @@ test("Nile Life starts with unapproved renewal rules; approving one sends remind
   // Policies ending in 14, 21 and 30 days are within the 30 day window; their holders were offered a reminder.
   for (const name of ["Rose Namatovu", "Isaac Mukiibi", "Beatrice Adong"]) {
     const row = log.getByRole("row").filter({ hasText: name }).first();
-    await expect(row).toContainText("Shown as sent, not delivered");
+    await expect(row).toContainText(insideRuleSendingHours ? "Shown as sent, not delivered" : "Outside sending hours");
   }
   await page.screenshot({ path: `test-results/workspace/renewals-${test.info().project.name}.png`, fullPage: true });
 
@@ -76,7 +80,8 @@ test.describe("Nile General claims", () => {
     await expect(page.getByRole("status").filter({ hasText: /Looked at \d+/ })).toBeVisible();
 
     const log = page.getByRole("table").last();
-    await expect(log.getByRole("row").filter({ hasText: "Tell the claimant where their claim is" }).first()).toContainText("Shown as sent about CLM-");
+    await expect(log.getByRole("row").filter({ hasText: "Tell the claimant where their claim is" }).first())
+      .toContainText(insideRuleSendingHours ? "Shown as sent about CLM-" : "Outside sending hours");
     await page.screenshot({ path: `test-results/workspace/claims-rules-${test.info().project.name}.png`, fullPage: true });
   });
 });
