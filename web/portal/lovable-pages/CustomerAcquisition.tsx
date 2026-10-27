@@ -14,6 +14,7 @@ import AgentsTab from "@/components/acquisition/tabs/AgentsTab";
 import ChannelIntelligenceTab from "@/components/acquisition/tabs/ChannelIntelligenceTab";
 import EscalationsTab from "@/components/acquisition/tabs/EscalationsTab";
 import OutreachTab from "@/components/acquisition/tabs/OutreachTab";
+import EventsTab from "@/components/acquisition/tabs/EventsTab";
 import ScoresTab from "@/components/acquisition/tabs/ScoresTab";
 import CountUp from "@/components/cip/CountUp";
 import { dailyCounts, trendDirection } from "@/components/cip/series";
@@ -43,6 +44,7 @@ const TABS = [
   { id: "prospects", label: "Prospects" },
   { id: "escalations", label: "Escalations" },
   { id: "scores", label: "Scores" },
+  { id: "events", label: "Bank events" },
   { id: "outreach", label: "Outreach" },
   { id: "agents", label: "Agents" },
   { id: "channels", label: "Channel Intelligence" },
@@ -245,6 +247,8 @@ export default function CustomerAcquisition() {
         <EscalationsTab onOpenLead={setOpenLeadId} />
       ) : tab === "scores" ? (
         <ScoresTab leads={leads} loading={loading} error={error} forbidden={forbidden} reload={reload} runTriage={runTriage} onOpenLead={setOpenLeadId} />
+      ) : tab === "events" ? (
+        <EventsTab />
       ) : tab === "outreach" ? (
         <OutreachTab leads={leads} loading={loading} error={error} forbidden={forbidden} reload={reload} draftOutreach={draftOutreach} draftFollowUps={draftFollowUps} editOutreach={editOutreach} sendOutreach={sendOutreach} sendOutreachMany={sendOutreachMany} dismissOutreach={dismissOutreach} />
       ) : tab === "agents" ? (

@@ -1522,6 +1522,14 @@ app.MapPost("/api/v1/templates/{name}/{language}/decision", InsuranceIntelligenc
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/templates/import", InsuranceIntelligence.Api.Templates.TemplateEndpoints.Import)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/events/types", InsuranceIntelligence.Api.BankEvents.EventEndpoints.Types)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/events", InsuranceIntelligence.Api.BankEvents.EventEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/events", InsuranceIntelligence.Api.BankEvents.EventEndpoints.Record)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/events/import", InsuranceIntelligence.Api.BankEvents.EventEndpoints.Import)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapGet("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Get)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPut("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Save)

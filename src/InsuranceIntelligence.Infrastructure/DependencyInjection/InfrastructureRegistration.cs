@@ -106,6 +106,8 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Workspaces.IWorkspaceRecordStore, InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceRecordStore>();
         services.AddScoped<InsuranceIntelligence.Application.Workspaces.WorkspaceBrandService>();
         services.AddScoped<InsuranceIntelligence.Application.Templates.TemplateCatalogService>();
+        services.AddScoped<InsuranceIntelligence.Application.BankEvents.EventService>();
+        services.AddScoped<InsuranceIntelligence.Application.BankEvents.IBankEventFileSink, InsuranceIntelligence.Application.BankEvents.EventFileSink>();
         services.AddScoped<InsuranceIntelligence.Application.Templates.TemplateMessageService>();
         services.AddScoped<InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver>(sp => sp.GetRequiredService<InsuranceIntelligence.Application.Workspaces.WorkspaceBrandService>());
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IDataConnectorRepository, InsuranceIntelligence.Infrastructure.Connectors.EfDataConnectorRepository>();

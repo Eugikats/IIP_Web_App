@@ -36,7 +36,8 @@ public sealed class ConnectorSyncService(
     IDataConnectorRepository connectors,
     IKnowledgeIngestionSink knowledge,
     IAuditRepository audit,
-    TimeProvider clock) : IConnectorSyncService
+    TimeProvider clock,
+    InsuranceIntelligence.Application.BankEvents.IBankEventFileSink? eventSink = null) : IConnectorSyncService
 {
     private const string Actor = "connector-sync";
 
@@ -106,6 +107,64 @@ public sealed class ConnectorSyncService(
                 found++;
                 seen.Add(file.ExternalId);
                 known.TryGetValue(file.ExternalId, out var existing);
+
+                if (folder.Purpose == ConnectorFolderPurpose.BankEvents)
+                {
+                    var notEvents = !string.Equals(Path.GetExtension(file.Name), ".csv", StringComparison.OrdinalIgnoreCase)
+                        ? "Only CSV files are read as bank events."
+                        : file.Size <= 0 || file.Size > InsuranceIntelligence.Application.BankEvents.EventService.MaxImportBytes
+                            ? "A file of events must be between 1 byte and 5 MB."
+                            : eventSink is null ? "Reading bank events from a folder is not available here." : null;
+                    if (notEvents is not null)
+                    {
+                        if (existing is null || existing.State != ConnectorItemState.Skipped || existing.SkipReason != notEvents)
+                        {
+                            await items.SaveAsync(NewItem(connector, file, null, ConnectorItemState.Skipped, notEvents), cancellationToken);
+                        }
+
+                        skipped++;
+                        continue;
+                    }
+
+                    if (existing is { State: ConnectorItemState.Imported } && existing.Version == file.Version && existing.ModifiedAt == file.ModifiedAt)
+                    {
+                        continue;
+                    }
+
+                    byte[] content;
+                    try
+                    {
+                        content = await source.DownloadAsync(token, file, cancellationToken);
+                    }
+                    catch (ConnectorSourceException problem) when (problem.Code == "sign_in_expired")
+                    {
+                        return await FinishAsync(connector, run with { Found = found, Added = added, Updated = updated, Skipped = skipped, Failed = failed },
+                            ConnectorRunOutcome.SignInExpired, ConnectorStatus.NeedsReconnect, problem.Code, problem.Message, correlationId, cancellationToken);
+                    }
+                    catch (ConnectorSourceException problem)
+                    {
+                        failed++;
+                        firstProblem ??= $"{file.Name}: {problem.Message}";
+                        await items.SaveAsync(NewItem(connector, file, null, ConnectorItemState.Failed, problem.Message), cancellationToken);
+                        continue;
+                    }
+
+                    try
+                    {
+                        var imported = await eventSink!.ImportAsync(scope, file.Name, content, connector.OwnerUserId, cancellationToken);
+                        var summary = $"{imported.Created} new events, {imported.Duplicates} already known, {imported.Rejected.Count} refused.";
+                        await items.SaveAsync(NewItem(connector, file, null, ConnectorItemState.Imported, summary), cancellationToken);
+                        if (existing is null) added++; else updated++;
+                    }
+                    catch (InsuranceIntelligence.Application.BankEvents.EventException problem)
+                    {
+                        failed++;
+                        firstProblem ??= $"{file.Name}: {problem.Message}";
+                        await items.SaveAsync(NewItem(connector, file, null, ConnectorItemState.Failed, problem.Message), cancellationToken);
+                    }
+
+                    continue;
+                }
 
                 if (KnowledgeIngestionLimits.WhyNot(file.Name, file.Size) is { } why)
                 {

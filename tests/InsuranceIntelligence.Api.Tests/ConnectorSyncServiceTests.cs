@@ -1,4 +1,5 @@
 using System.Text;
+using InsuranceIntelligence.Application.BankEvents;
 using InsuranceIntelligence.Application.Connectors;
 using InsuranceIntelligence.Application.Integrations;
 using InsuranceIntelligence.Application.Knowledge;
@@ -20,6 +21,7 @@ public sealed class ConnectorSyncServiceTests
 {
     private static readonly TenantScope Scope = new("tenant-a", "workspace-a");
     private static readonly ConnectorFolder Wordings = new("folder-1", "Policy wordings", null, "Motor", KnowledgeDocumentType.PolicyWording);
+    private static readonly ConnectorFolder BankFeed = new("folder-events", "Bank events", null, "Bank events", KnowledgeDocumentType.Other, Purpose: ConnectorFolderPurpose.BankEvents);
     private static readonly ConnectorFolder Faqs = new("folder-2", "FAQs", null, "General", KnowledgeDocumentType.CustomerFaq);
 
     [Fact]
@@ -268,6 +270,107 @@ public sealed class ConnectorSyncServiceTests
         Assert.NotNull(stored.LastRunAt);
     }
 
+    // ---- Folders of bank events
+
+    private sealed class RecordingEventSink : IBankEventFileSink
+    {
+        public List<string> Files { get; } = [];
+        public string? FailOn { get; set; }
+
+        public Task<EventImportResult> ImportAsync(TenantScope scope, string fileName, byte[] content, string actorId, CancellationToken cancellationToken = default)
+        {
+            if (fileName == FailOn)
+            {
+                return Task.FromException<EventImportResult>(new EventException("The file needs a column for phone."));
+            }
+
+            Files.Add(fileName);
+            return Task.FromResult(new EventImportResult(3, 2, 1, [], []));
+        }
+    }
+
+    [Fact]
+    public async Task AnEventFolder_HandsItsCsvToTheEventReader_NeverMakesKnowledge_AndReadsAChangedFileOnceMore()
+    {
+        var sink = new RecordingEventSink();
+        var rig = await Rig.CreateAsync(sink, BankFeed);
+        rig.Source.Set(BankFeed, Remote("events-27-oct.csv", "x", "v1", BankFeed));
+
+        var first = await rig.SyncAsync();
+        var second = await rig.SyncAsync();
+
+        Assert.Equal(ConnectorRunOutcome.Succeeded, first.Outcome);
+        Assert.Equal(1, first.Added);
+        Assert.Equal(0, second.Added);
+        Assert.Equal(["events-27-oct.csv"], sink.Files);
+        Assert.Empty(await rig.Documents());
+        var item = Assert.Single(await rig.Items.ListAsync(Scope, rig.Connector.ConnectorId));
+        Assert.Equal(ConnectorItemState.Imported, item.State);
+        Assert.Contains("2 new events", item.SkipReason);
+
+        rig.Source.Set(BankFeed, Remote("events-27-oct.csv", "x", "v2", BankFeed));
+        var third = await rig.SyncAsync();
+        Assert.Equal(1, third.Updated);
+        Assert.Equal(2, sink.Files.Count);
+    }
+
+    [Fact]
+    public async Task AnEventFolder_SkipsFilesThatAreNotCsv_WithAReason()
+    {
+        var sink = new RecordingEventSink();
+        var rig = await Rig.CreateAsync(sink, BankFeed);
+        rig.Source.Set(BankFeed, Remote("notes.pdf", "x", "v1", BankFeed));
+
+        var run = await rig.SyncAsync();
+
+        Assert.Equal(1, run.Skipped);
+        Assert.Empty(sink.Files);
+        var item = Assert.Single(await rig.Items.ListAsync(Scope, rig.Connector.ConnectorId));
+        Assert.Equal(ConnectorItemState.Skipped, item.State);
+        Assert.Contains("CSV", item.SkipReason);
+    }
+
+    [Fact]
+    public async Task AnEventFolder_WithoutAnEventReader_SaysSoInsteadOfPretending()
+    {
+        var rig = await Rig.CreateAsync(BankFeed);
+        rig.Source.Set(BankFeed, Remote("events.csv", "x", "v1", BankFeed));
+
+        var run = await rig.SyncAsync();
+
+        Assert.Equal(1, run.Skipped);
+        Assert.Contains("not available", (await rig.Items.ListAsync(Scope, rig.Connector.ConnectorId)).Single().SkipReason);
+    }
+
+    [Fact]
+    public async Task AFileTheEventReaderRefuses_IsReportedAsFailed_AndTheOtherFilesStillLoad()
+    {
+        var sink = new RecordingEventSink { FailOn = "bad.csv" };
+        var rig = await Rig.CreateAsync(sink, BankFeed);
+        rig.Source.Set(BankFeed, Remote("bad.csv", "x", "v1", BankFeed), Remote("good.csv", "x", "v1", BankFeed));
+
+        var run = await rig.SyncAsync();
+
+        Assert.Equal(ConnectorRunOutcome.Partial, run.Outcome);
+        Assert.Equal((1, 1), (run.Added, run.Failed));
+        Assert.Equal(["good.csv"], sink.Files);
+    }
+
+    [Fact]
+    public async Task EventsAlreadyReadAreNotTakenBackWhenTheFileLeavesTheFolder()
+    {
+        var sink = new RecordingEventSink();
+        var rig = await Rig.CreateAsync(sink, BankFeed);
+        rig.Source.Set(BankFeed, Remote("events.csv", "x", "v1", BankFeed));
+        await rig.SyncAsync();
+
+        rig.Source.Set(BankFeed, authoritativeEmpty: true);
+        var run = await rig.SyncAsync();
+
+        Assert.Equal(0, run.Removed);
+        Assert.Equal(ConnectorItemState.Imported, (await rig.Items.ListAsync(Scope, rig.Connector.ConnectorId)).Single().State);
+    }
+
     private static RemoteFile Remote(string name, string content, string version, ConnectorFolder? folder = null) =>
         new(name, name, (folder ?? Wordings).FolderId, "text/plain", Encoding.UTF8.GetByteCount(content), new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero), version);
 
@@ -282,7 +385,9 @@ public sealed class ConnectorSyncServiceTests
         public required InMemoryKnowledgeDocumentRepository Knowledge { get; init; }
         public required InMemoryKnowledgeIndexProvider Index { get; init; }
 
-        public static async Task<Rig> CreateAsync(params ConnectorFolder[] folders)
+        public static Task<Rig> CreateAsync(params ConnectorFolder[] folders) => CreateAsync(null, folders);
+
+        public static async Task<Rig> CreateAsync(IBankEventFileSink? events, params ConnectorFolder[] folders)
         {
             var db = new InsuranceIntelligenceDbContext(new DbContextOptionsBuilder<InsuranceIntelligenceDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
             var connectors = new EfDataConnectorRepository(db);
@@ -303,7 +408,7 @@ public sealed class ConnectorSyncServiceTests
             return new Rig
             {
                 Connector = connector, Source = source, Tokens = tokens, Connectors = connectors, Items = items, Knowledge = knowledge, Index = index,
-                Service = new ConnectorSyncService(tokens, [source], items, runs, connectors, sink, audit, TimeProvider.System),
+                Service = new ConnectorSyncService(tokens, [source], items, runs, connectors, sink, audit, TimeProvider.System, events),
             };
         }
 

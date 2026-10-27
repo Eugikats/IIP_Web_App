@@ -5,6 +5,14 @@ using InsuranceIntelligence.Domain.Knowledge;
 
 namespace InsuranceIntelligence.Domain.Integrations;
 
+/// <summary>What a synced folder is for. Knowledge folders hold wordings and guides that wait for a person to approve them;
+/// event folders hold files of bank events that are read as they arrive and never become knowledge.</summary>
+public enum ConnectorFolderPurpose
+{
+    Knowledge,
+    BankEvents,
+}
+
 public enum ConnectorStatus
 {
     Active,
@@ -38,6 +46,9 @@ public enum ConnectorItemState
 
     /// <summary>Could not be read this run. It is tried again next run.</summary>
     Failed,
+
+    /// <summary>A file of bank events, read in full. Nothing is held back for approval; the note says how many events it held.</summary>
+    Imported,
 }
 
 /// <summary>
@@ -51,7 +62,8 @@ public sealed record ConnectorFolder(
     string? DriveId,
     string ProductLine,
     KnowledgeDocumentType DocumentType,
-    bool IsFile = false);
+    bool IsFile = false,
+    ConnectorFolderPurpose Purpose = ConnectorFolderPurpose.Knowledge);
 
 /// <summary>
 /// A standing link from a folder in someone's Google Drive, OneDrive or SharePoint to the Data Hub. Reads use the

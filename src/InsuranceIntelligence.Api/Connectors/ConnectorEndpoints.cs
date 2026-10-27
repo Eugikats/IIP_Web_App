@@ -22,7 +22,7 @@ public static class ConnectorEndpoints
     public const int MaxFolders = 20;
     public static readonly TimeSpan SyncNowCooldown = TimeSpan.FromMinutes(1);
 
-    public sealed record FolderInput(string? FolderId, string? DisplayName, string? DriveId, string? ProductLine, string? DocumentType, bool IsFile);
+    public sealed record FolderInput(string? FolderId, string? DisplayName, string? DriveId, string? ProductLine, string? DocumentType, bool IsFile, string? Purpose = null);
 
     public sealed record CreateRequest(string? Provider, IReadOnlyList<FolderInput>? Folders);
 
@@ -217,7 +217,9 @@ public static class ConnectorEndpoints
             if (provider == FileProvider.Google && !entry.IsFile) { error = "Google Drive files are picked one at a time. Pick files, not a folder."; return false; }
             if (provider == FileProvider.Microsoft && entry.IsFile) { error = "OneDrive and SharePoint are synced by folder. Choose a folder."; return false; }
             if (list.Any(f => f.FolderId == id)) { error = "The same entry is listed twice."; return false; }
-            list.Add(new ConnectorFolder(id, name, string.IsNullOrWhiteSpace(entry.DriveId) ? null : entry.DriveId.Trim(), line, type, entry.IsFile));
+            var purpose = ConnectorFolderPurpose.Knowledge;
+            if (!string.IsNullOrWhiteSpace(entry.Purpose) && !Enum.TryParse(entry.Purpose, true, out purpose)) { error = "A folder is for knowledge or for bank events."; return false; }
+            list.Add(new ConnectorFolder(id, name, string.IsNullOrWhiteSpace(entry.DriveId) ? null : entry.DriveId.Trim(), line, type, entry.IsFile, purpose));
         }
 
         folders = list;
@@ -236,7 +238,7 @@ public static class ConnectorEndpoints
             new AuditEvent(Guid.NewGuid(), context.Scope, null, null, context.UserId, ActorType.User, action, clock.GetUtcNow(), null, null, [], "Connectors", null, "recorded", null, reason, http.TraceIdentifier),
             http.RequestAborted);
 
-    private static object FolderView(ConnectorFolder f) => new { folderId = f.FolderId, name = f.DisplayName, driveId = f.DriveId, productLine = f.ProductLine, documentType = f.DocumentType.ToString(), isFile = f.IsFile };
+    private static object FolderView(ConnectorFolder f) => new { folderId = f.FolderId, name = f.DisplayName, driveId = f.DriveId, productLine = f.ProductLine, documentType = f.DocumentType.ToString(), isFile = f.IsFile, purpose = f.Purpose.ToString() };
 
     private static object RunView(ConnectorRun r) => new
     {
