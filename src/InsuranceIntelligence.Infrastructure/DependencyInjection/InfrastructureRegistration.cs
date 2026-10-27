@@ -203,6 +203,7 @@ public static class InfrastructureRegistration
 
         services.AddScoped<InsuranceIntelligence.Application.Marketplace.MarketplaceFulfillmentService>();
         services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppGraphValidationClient, MetaGraphWhatsAppValidationClient>();
+        services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppPhoneNumberLifecycleClient, MetaPhoneNumberLifecycleClient>();
 
         // The real inbound/outbound providers are registered unconditionally now (blueprint §3.3,
         // §4.4) rather than gated on INSURANCEINTELLIGENCE_CHANNEL_PROVIDER, this was previously
