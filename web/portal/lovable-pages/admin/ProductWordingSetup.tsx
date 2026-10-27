@@ -47,6 +47,7 @@ export default function ProductWordingSetup() {
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
+  const [createdProductId, setCreatedProductId] = useState<string | null>(null);
 
   const loadProposal = useCallback(async (documentId: string) => {
     setLoadingProposal(true);
@@ -128,7 +129,7 @@ export default function ProductWordingSetup() {
       setProblem(created.error);
       return;
     }
-    navigate(`/app/admin/products/${created.value.productId}`);
+    setCreatedProductId(created.value.productId);
   }
 
   const selected = wordings.find((doc) => doc.id === selectedId);
@@ -206,7 +207,10 @@ export default function ProductWordingSetup() {
               <GlassCard>
                 <p className="mb-3 mt-0 text-[12.5px] text-dls-text-secondary">Saving creates a product draft with the facts you include. Add the IRA approval reference and effective date in the next screen, then submit it for a second person's review.</p>
                 {problem ? <p className="mb-3 text-[13px] text-dls-danger-text" role="alert">{problem}</p> : null}
-                <div className="flex flex-wrap items-center gap-2"><Button variant="primary" disabled={saving || !proposal.items.length || items.every((item) => !item.include)} onClick={() => void saveDraft()} icon={saving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ArrowUpRight aria-hidden="true" />}>Create product draft</Button><Link to="/app/admin/products" className="text-[13px] font-semibold text-dls-text-secondary underline">Return to products</Link></div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {createdProductId ? <><p className="m-0 text-[13px] font-semibold text-dls-text-primary" role="status">Product draft created.</p><Link to={`/app/admin/products/${createdProductId}`} className="text-[13px] font-semibold text-dls-text-secondary underline">Open product draft</Link></> : <Button variant="primary" disabled={saving || !proposal.items.length || items.every((item) => !item.include)} onClick={() => void saveDraft()} icon={saving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ArrowUpRight aria-hidden="true" />}>Create product draft</Button>}
+                  <Link to="/app/admin/products" className="text-[13px] font-semibold text-dls-text-secondary underline">Return to products</Link>
+                </div>
               </GlassCard>
             </>
           ) : null}

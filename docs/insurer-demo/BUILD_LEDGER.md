@@ -61,7 +61,7 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 15 | Onboarding: security screen, storage step | done |
 | 16 | Extraction agent for wordings | done |
 | 17 | "Here is what I found" confirm screen | done |
-| 18 | Managed WhatsApp number flow | |
+| 18 | Managed WhatsApp number flow | next |
 | 19 | Claim by WhatsApp polish and identity check | |
 | 20 | Security pack | |
 | 21 | Rehearsal | |
@@ -83,7 +83,7 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 - The Products page links to a wording review screen. It lists only workspace PolicyWording documents, loads saved proposals, and lets a person run extraction, edit values, exclude claims, and confirm name/class before creating a product draft. Not configured and load/error/empty states are explicit. The screen states AI does not set prices or publish and requires the existing IRA and two-person publish controls.
 - Confirmed facts are stored on the versioned Product with their exact source document, chunk, quote, and model confidence. The command service re-checks document workspace/type, chunk and exact quote before saving. Product detail shows the saved evidence.
-- Verification: portal `tsc --noEmit` clean; `pnpm lint` completed with 0 errors and 6 existing image warnings; ProductCommandServiceTests passed 14/14; ProductWordingExtractionTests passed 3/3. Browser opened the screen and confirmed the honest load-error state when the API was unavailable; the page layout was inspected. Full 1280/768/390 browser flow remains to be done with the matching local API and source wording. No extraction call was made because no model provider is configured.
+- Verification: portal `tsc --noEmit` clean; `pnpm lint` completed with 0 errors and 6 existing image warnings; ProductCommandServiceTests passed 14/14; ProductWordingExtractionTests passed 3/3. Added `wording-setup.spec.ts`, which exercises a test-only source citation, human confirmation, product draft request and success link. Playwright passed at 1280 and 768, plus a focused 390 px run; screenshots reviewed at all three widths. Test data is explicitly a browser fixture. No live extraction call was made because no model provider is configured.
 
 ## Verified so far
 
