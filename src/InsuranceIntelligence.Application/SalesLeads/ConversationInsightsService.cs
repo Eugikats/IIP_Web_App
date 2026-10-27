@@ -55,7 +55,8 @@ public sealed class ConversationInsightsService(
     IAgentActionLogRepository actionLogRepository,
     IAuditRepository auditRepository,
     IAgentRunRecorder agentRunRecorder,
-    IProspectTriageService? triageService = null) : IConversationInsightsService
+    IProspectTriageService? triageService = null,
+    InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null) : IConversationInsightsService
 {
     public const string AgentKey = "conversation-insights";
     private const string PromptVersion = "conversation-insights-v1";
@@ -83,6 +84,7 @@ public sealed class ConversationInsightsService(
     private async Task<bool> RefreshAsync(
         TenantScope scope, string waId, string threadId, SalesLeadDetailReadModel? lead, string actorId, string correlationId, CancellationToken cancellationToken)
     {
+        using var workspaceBrand = KatoBrand.Use(brands is null ? KatoBrand.Current : await brands.ResolveAsync(scope, cancellationToken));
         var turns = (await conversationRepository.ListForThreadAsync(scope, threadId, cancellationToken))
             .OrderBy(turn => turn.OccurredAt)
             .ToArray();

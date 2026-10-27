@@ -62,6 +62,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedMfaPolicy> MfaPolicies => Set<PersistedMfaPolicy>();
     public DbSet<PersistedLegalHold> LegalHolds => Set<PersistedLegalHold>();
     public DbSet<AcademyRecordEntity> AcademyRecords => Set<AcademyRecordEntity>();
+    public DbSet<WorkspaceRecordEntity> WorkspaceRecords => Set<WorkspaceRecordEntity>();
     public DbSet<PersistedDataConnector> DataConnectors => Set<PersistedDataConnector>();
     public DbSet<PersistedConnectorRun> ConnectorRuns => Set<PersistedConnectorRun>();
     public DbSet<PersistedConnectorItem> ConnectorItems => Set<PersistedConnectorItem>();
@@ -196,6 +197,18 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
             entity.Property(item => item.PayloadJson).IsRequired();
             entity.HasIndex(item => new { item.Kind, item.Owner });
             entity.HasIndex(item => new { item.Kind, item.UpdatedAt });
+        });
+        modelBuilder.Entity<WorkspaceRecordEntity>(entity =>
+        {
+            entity.ToTable("WorkspaceRecords");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.TenantId).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.WorkspaceId).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Kind).HasMaxLength(40).IsRequired();
+            entity.Property(item => item.Key).HasMaxLength(300).IsRequired();
+            entity.Property(item => item.PayloadJson).IsRequired();
+            entity.HasIndex(item => new { item.TenantId, item.WorkspaceId, item.Kind, item.Key }).IsUnique();
+            entity.HasIndex(item => new { item.TenantId, item.WorkspaceId, item.Kind, item.UpdatedAt });
         });
         ConfigureScopedJson(modelBuilder.Entity<PersistedDataConnector>(), "DataConnectors", "ConnectorId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedConnectorRun>(), "ConnectorRuns", "RunId");
@@ -495,6 +508,18 @@ public sealed class AcademyRecordEntity
     public Guid Id { get; set; }
     public string Kind { get; set; } = string.Empty;
     public string Owner { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty;
+    public string PayloadJson { get; set; } = string.Empty;
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+/// <summary>One small record a workspace keeps about itself (brand, templates, rules, events). Scoped to the
+/// organisation and workspace that own it: see EfWorkspaceRecordStore.</summary>
+public sealed class WorkspaceRecordEntity
+{
+    public Guid Id { get; set; }
+    public string TenantId { get; set; } = string.Empty;
+    public string WorkspaceId { get; set; } = string.Empty;
+    public string Kind { get; set; } = string.Empty;
     public string Key { get; set; } = string.Empty;
     public string PayloadJson { get; set; } = string.Empty;
     public DateTimeOffset UpdatedAt { get; set; }

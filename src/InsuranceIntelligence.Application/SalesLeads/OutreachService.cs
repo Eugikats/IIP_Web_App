@@ -61,7 +61,8 @@ public sealed class OutreachService(
     KatoBrand? brand = null,
     ICustomerRepository? customerRepository = null,
     IPolicyRepository? policyRepository = null,
-    IAgentRunRecorder? agentRunRecorder = null) : IOutreachService
+    IAgentRunRecorder? agentRunRecorder = null,
+    InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null) : IOutreachService
 {
     public const string AgentKey = "outreach";
     public static readonly TimeSpan QuietAfter = TimeSpan.FromDays(3);
@@ -79,6 +80,7 @@ public sealed class OutreachService(
     {
         await permissionService.RequirePermissionAsync(Permission.ManageSalesLeads, cancellationToken);
         var context = tenantContextAccessor.Current;
+        using var workspaceBrand = KatoBrand.Use(brand ?? (brands is null ? KatoBrand.Current : await brands.ResolveAsync(context.Scope, cancellationToken)));
         var now = DateTimeOffset.UtcNow;
         var author = await NameOfAsync(context.UserId, cancellationToken) ?? "A colleague";
         var wanted = leadIds is { Count: > 0 } ? leadIds.ToHashSet(StringComparer.OrdinalIgnoreCase) : null;
@@ -131,6 +133,7 @@ public sealed class OutreachService(
     {
         await permissionService.RequirePermissionAsync(Permission.ManageSalesLeads, cancellationToken);
         var context = tenantContextAccessor.Current;
+        using var workspaceBrand = KatoBrand.Use(brand ?? (brands is null ? KatoBrand.Current : await brands.ResolveAsync(context.Scope, cancellationToken)));
         var now = DateTimeOffset.UtcNow;
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var customers = customerRepository is null ? [] : (await customerRepository.ListAsync(context.Scope, cancellationToken)).ToArray();

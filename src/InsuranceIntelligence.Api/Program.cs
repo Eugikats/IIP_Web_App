@@ -1508,6 +1508,10 @@ app.MapPost("/api/v1/integrations/whatsapp/configuration/test", WhatsAppConfigur
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/whatsapp/configuration/meta-check", WhatsAppConfigurationEndpoints.CheckWithMeta)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPut("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Save)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/receipts", WhatsAppIntegrationEndpoints.ListReceipts)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapDelete("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.DeleteConfiguration)

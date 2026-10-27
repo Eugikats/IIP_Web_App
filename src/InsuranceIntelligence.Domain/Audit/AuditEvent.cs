@@ -622,6 +622,29 @@ public sealed record AuditEvent(
             AuditReason: auditReason,
             CorrelationId: correlationId);
 
+    /// <summary>A governed change to something a workspace keeps about itself: its brand, a template, a rule, an
+    /// event. The record id is the evidence; the content is never copied into the audit trail.</summary>
+    public static AuditEvent WorkspaceSettingChanged(
+        TenantScope scope, string userId, string area, string action, string recordId, string auditReason, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            $"workspace.{area.ToLowerInvariant()}.{action.ToLowerInvariant()}",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: action,
+            EvidenceIds: [recordId],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "recorded",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
     public static AuditEvent WhatsAppConfigurationRemoved(
         TenantScope scope, string userId, string? phoneNumberId, string auditReason, string correlationId) =>
         new(

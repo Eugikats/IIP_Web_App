@@ -46,6 +46,11 @@ public static class MicroinsuranceCatalog
         /// insurers (bancassurance) must always say which one, so every product carries it.</summary>
         public string Insurer { get; init; } = NileShield;
 
+        /// <summary>Life covers pay on death or disability and run for years; every other cover here
+        /// (accident, hospital, maternity, stock, property) is general insurance.</summary>
+        public InsuranceClass InsuranceClass =>
+            ProductLine is LoanProtectorLine or FuneralLine or SchoolFeesLine ? InsuranceClass.Life : InsuranceClass.General;
+
         /// <summary>The insurer's prefix for policy numbers, for example NSA for Nile Shield Assurance.</summary>
         public string PolicyPrefix { get; init; } = "NSA";
         public decimal MonthlyPremium { get; init; }

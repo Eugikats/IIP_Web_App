@@ -27,7 +27,8 @@ public sealed class ProspectTriageService(
     ICustomerRepository? customerRepository = null,
     IPolicyRepository? policyRepository = null,
     IAgentRunRecorder? agentRunRecorder = null,
-    IKnowledgeDocumentRepository? knowledgeRepository = null) : IProspectTriageService
+    IKnowledgeDocumentRepository? knowledgeRepository = null,
+    InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null) : IProspectTriageService
 {
     public const string AgentKey = "prospect-triage";
 
@@ -54,6 +55,7 @@ public sealed class ProspectTriageService(
     public async Task<TriageRunResult> ScoreAsync(TenantScope scope, string? leadId, string actorId, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
+        using var workspaceBrand = KatoBrand.Use(brands is null ? KatoBrand.Current : await brands.ResolveAsync(scope, cancellationToken));
 
         var leads = await readRepository.ListLeadsAsync(scope.TenantId, scope.WorkspaceId, cancellationToken);
         if (!string.IsNullOrWhiteSpace(leadId))

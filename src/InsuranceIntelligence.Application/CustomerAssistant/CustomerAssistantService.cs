@@ -128,7 +128,8 @@ public sealed partial class CustomerAssistantService(
     // Optional: per-organisation plan limits. Over the monthly ceiling the AI agent steps aside and
     // the plain rule-based replies answer, so no organisation can run up the platform's AI cost.
     InsuranceIntelligence.Domain.Usage.IUsageMeter? usageMeter = null,
-    InsuranceIntelligence.Application.Billing.IAiUsageContext? usageContext = null) : ICustomerAssistantService
+    InsuranceIntelligence.Application.Billing.IAiUsageContext? usageContext = null,
+    InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
@@ -161,6 +162,8 @@ public sealed partial class CustomerAssistantService(
     {
         var opened = new List<Guid>();
         using var usage = usageContext?.Use("kato", scope);
+        // Whose assistant Kato is comes from the workspace, so one deployment can speak as an insurer here and a bank there.
+        using var workspaceBrand = KatoBrand.Use(brands is null ? KatoBrand.Current : await brands.ResolveAsync(scope, cancellationToken));
         try
         {
             voiceNotesAvailable = voiceTranscriber is not null && await voiceTranscriber.IsAvailableAsync(scope, cancellationToken);

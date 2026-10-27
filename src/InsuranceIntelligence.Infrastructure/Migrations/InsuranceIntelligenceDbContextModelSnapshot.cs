@@ -2725,6 +2725,49 @@ namespace InsuranceIntelligence.Infrastructure.Migrations
 
                     b.ToTable("UserTenantMemberships", (string)null);
                 });
+
+            modelBuilder.Entity("InsuranceIntelligence.Infrastructure.Persistence.WorkspaceRecordEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("WorkspaceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "Kind", "Key")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "WorkspaceId", "Kind", "UpdatedAt");
+
+                    b.ToTable("WorkspaceRecords", (string)null);
+                });
 #pragma warning restore 612, 618
         }
     }

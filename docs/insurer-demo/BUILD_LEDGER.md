@@ -6,14 +6,18 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 ## Decisions made (owner away, recommended choices)
 
-(none yet)
+- One generic per-workspace store, table `WorkspaceRecords` (tenant, workspace, kind, key, JSON), behind `IWorkspaceRecordStore`. Brand, templates, rules, events, decision log and outcomes use it, so each piece needs no migration of its own. It carries a tenant id, so export and purge cover it automatically. Event volume can move to its own table later if a bank sends large files.
+- Whose assistant Kato is: `KatoBrand.Current` now reads an ambient per-request brand (AsyncLocal, `KatoBrand.Use`) and falls back to the start-up default. Webhook inbound, outreach drafting, triage and conversation insights resolve the workspace brand at their entry points. The `Assistant:*` settings remain the default for workspaces that set nothing.
+- Life versus general is `InsuranceClass` on each product (loan protector, funeral and school fees are life; the rest general) and `LineFocus` on the brand filters products by it.
+- Brand API is `GET/PUT /api/v1/workspace/brand`, ConfigureIntegrations permission, audited (`workspace.brand.saved`). Its screen comes with piece 2 (scenario switch) and piece 14 (company profile).
+- Nile Life needs life covers for an insurer: the catalogue has no Nile Shield life products, so piece 2 adds them (decision there).
 
 ## Piece status
 
 | # | Piece | State |
 |---|---|---|
-| 1 | Per-workspace brand and scenario settings | next |
-| 2 | Demo scenarios and the switch | |
+| 1 | Per-workspace brand and scenario settings | done (backend, API, tests; screen with piece 2) |
+| 2 | Demo scenarios and the switch | next |
 | 3 | Template catalogue | |
 | 4 | Events (store, form, file import) | |
 | 5 | Rules engine | |
@@ -36,7 +40,7 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 ## Verified so far
 
-- Nothing yet.
+- Piece 1: dotnet build clean; full Api.Tests 1575 passed (incl. 12 new in WorkspaceBrandTests: workspace isolation, concurrent brands, line focus); Domain.Tests 722 passed. Migration AddWorkspaceRecords generated, not applied to any database.
 
 ## Deploy checklist (for when the owner says deploy)
 
