@@ -988,6 +988,147 @@ public sealed class RuleEngineTests
         Assert.Empty(elsewhere.Entries);
     }
 
+    // ---- Conversions for the bank's staff
+
+    private static ConversionReportService Report(Rig rig) => new(rig.Log, rig.Outcomes, rig.Leads, rig.Customers, rig.Policies, rig.Brands);
+
+    [Fact]
+    public async Task AnApplicationForTheOfferedInsurersCoverCountsAsAConversion_ByInsurer()
+    {
+        var rig = await OfferedAsync();
+        await rig.Outcomes.RecordReplyAsync(Bank, Phone, "Yes, show me", NoonEat.AddMinutes(5));
+        var lead = (await rig.Leads.FindByPhoneAsync(Bank.TenantId, Bank.WorkspaceId, Phone))!;
+        await rig.Leads.CreateAsync(Bank.TenantId, Bank.WorkspaceId, lead with { AppliedFor = "Mpingo Loan Protector" });
+
+        var report = await Report(rig).BuildAsync(Bank);
+
+        var row = Assert.Single(report.Insurers);
+        Assert.Equal("Mpingo Life Assurance", row.Insurer);
+        Assert.Equal((1, 1, 1, 1), (row.Offers, row.Replied, row.AskedForDetails, row.ConvertedAfterOffer));
+        Assert.Equal(1, report.Total.ConvertedAfterOffer);
+        var person = Assert.Single(report.Converted);
+        Assert.Equal("Eugene Katusiime", person.CustomerName);
+        Assert.Equal("Applied for the cover", person.How);
+        Assert.Equal(1, report.Applications);
+    }
+
+    [Fact]
+    public async Task AnApplicationForADifferentInsurersCoverIsNotCountedAgainstTheOffer()
+    {
+        var rig = await OfferedAsync();
+        var lead = (await rig.Leads.FindByPhoneAsync(Bank.TenantId, Bank.WorkspaceId, Phone))!;
+        await rig.Leads.CreateAsync(Bank.TenantId, Bank.WorkspaceId, lead with { AppliedFor = "Kifaru Home Contents" });
+
+        var report = await Report(rig).BuildAsync(Bank);
+
+        Assert.Equal(0, report.Total.ConvertedAfterOffer);
+        Assert.Empty(report.Converted);
+        Assert.Equal(1, report.Applications);
+    }
+
+    [Fact]
+    public async Task APolicyThatBeganAfterTheOfferCounts_AndOneThatBeganBeforeDoesNot()
+    {
+        var rig = await OfferedAsync();
+        await rig.Customers.UpsertAsync(new InsuranceIntelligence.Domain.Customers.Customer("c1", Bank.TenantId, Bank.WorkspaceId, "Eugene Katusiime", null, $"+{Phone}"));
+        var today = DateOnly.FromDateTime(NoonEat.UtcDateTime);
+        await rig.Policies.UpsertAsync(new Policy("old", Bank.TenantId, Bank.WorkspaceId, "MLA/LP/2025/1", MicroinsuranceCatalog.LoanProtectorLine, null, "c1", null, today.AddDays(-100), today.AddDays(265)));
+
+        Assert.Equal(0, (await Report(rig).BuildAsync(Bank)).Total.ConvertedAfterOffer);
+
+        await rig.Policies.UpsertAsync(new Policy("new", Bank.TenantId, Bank.WorkspaceId, "MLA/LP/2026/2", MicroinsuranceCatalog.LoanProtectorLine, null, "c1", null, today, today.AddDays(364)));
+        var report = await Report(rig).BuildAsync(Bank);
+
+        Assert.Equal(1, report.Total.ConvertedAfterOffer);
+        Assert.Equal("Holds a policy that began after the offer", Assert.Single(report.Converted).How);
+    }
+
+    [Fact]
+    public async Task TheReportSaysPlainlyThatItHoldsNoCommissionRates_AndAnEmptyWorkspaceHasNothingToCount()
+    {
+        var rig = await RigAsync();
+
+        var report = await Report(rig).BuildAsync(Bank);
+
+        Assert.Empty(report.Insurers);
+        Assert.Equal(0, report.Total.Offers);
+        Assert.Contains("does not record rates", report.Note);
+        Assert.DoesNotContain(typeof(InsurerConversion).GetProperties(), property => property.Name.Contains("Commission", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ---- Results by rule
+
+    private static CampaignReportService Campaigns(Rig rig) => new(rig.Rules, rig.Log, rig.Outcomes, Report(rig), rig.Messages);
+
+    [Fact]
+    public async Task DeliveredAndReadComeFromWhatsAppsOwnReports_ForRealSendsOnly()
+    {
+        var rig = await OfferedAsync();
+        var sent = Assert.Single(rig.Messages.Saved);
+
+        var before = Assert.Single(await Campaigns(rig).BuildAsync(Bank));
+        Assert.Equal((1, 1, 0, 0), (before.Considered, before.Sent, before.Delivered, before.Read));
+
+        await rig.Messages.SaveAsync(sent with { DeliveryState = WhatsAppDeliveryState.Delivered });
+        var delivered = Assert.Single(await Campaigns(rig).BuildAsync(Bank));
+        Assert.Equal((1, 0), (delivered.Delivered, delivered.Read));
+
+        await rig.Messages.SaveAsync(sent with { DeliveryState = WhatsAppDeliveryState.Read });
+        var read = Assert.Single(await Campaigns(rig).BuildAsync(Bank));
+        Assert.Equal((1, 1), (read.Delivered, read.Read));
+    }
+
+    [Fact]
+    public async Task AMessageShownAsSentInADemonstrationIsNeverCountedAsDelivered()
+    {
+        var rig = await RigAsync(approveTemplate: false, demonstration: true, connected: false);
+        await LiveRuleAsync(rig);
+        await AddEugeneAsync(rig);
+        await LoanEventAsync(rig);
+        await rig.Engine.RunAsync(Bank, "system");
+
+        var row = Assert.Single(await Campaigns(rig).BuildAsync(Bank));
+
+        Assert.Equal((0, 1, 0, 0), (row.Sent, row.ShownAsSent, row.Delivered, row.Read));
+    }
+
+    [Fact]
+    public async Task EveryoneNotMessagedIsAccountedFor_WithTheReasonCounted_AndAnswersAndConversionsLineUp()
+    {
+        var rig = await RigAsync();
+        await LiveRuleAsync(rig);
+        await AddEugeneAsync(rig);
+        await AddEugeneAsync(rig, ContactConsentStatus.NotRecorded, "256790000002", "No Consent One");
+        await AddEugeneAsync(rig, ContactConsentStatus.NotRecorded, "256790000003", "No Consent Two");
+        await AddEugeneAsync(rig, ContactConsentStatus.Declined, "256790000004", "Said No");
+        foreach (var phone in new[] { Phone, "256790000002", "256790000003", "256790000004" })
+        {
+            await LoanEventAsync(rig, phone: phone);
+        }
+
+        await rig.Engine.RunAsync(Bank, "system");
+        await rig.Outcomes.RecordReplyAsync(Bank, Phone, "Yes, show me", NoonEat.AddMinutes(5));
+        var lead = (await rig.Leads.FindByPhoneAsync(Bank.TenantId, Bank.WorkspaceId, Phone))!;
+        await rig.Leads.CreateAsync(Bank.TenantId, Bank.WorkspaceId, lead with { AppliedFor = "Mpingo Loan Protector" });
+
+        var row = Assert.Single(await Campaigns(rig).BuildAsync(Bank));
+
+        Assert.Equal((4, 1, 3), (row.Considered, row.Sent, row.NotSent));
+        Assert.Equal((1, 1, 1), (row.Answered, row.AskedForDetails, row.ConvertedAfterOffer));
+        Assert.Equal(row.Considered, row.Sent + row.ShownAsSent + row.NotSent + row.Waiting + row.CouldNotSend);
+        Assert.Contains(row.WhyNotSent, item => item.People == 2 && item.Reason.Contains("no recorded agreement", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(row.WhyNotSent, item => item.People == 1 && item.Reason.Contains("asked not to be contacted", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ARuleThatHasLookedAtNobodyIsNotListed()
+    {
+        var rig = await RigAsync();
+        await LiveRuleAsync(rig);
+
+        Assert.Empty(await Campaigns(rig).BuildAsync(Bank));
+    }
+
     [Fact]
     public void TheBankRelationshipNamesKindsOfProductOnly()
     {

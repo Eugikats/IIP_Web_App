@@ -35,6 +35,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 - Claims as rules (piece 10): `CaseSweepService` turns claims into events (claim_received within two days of opening; claim_documents_needed every three days while the status is MissingDocuments, naming the papers from the same `IDocumentChecklistProvider` the claims team sees; claim_status_update once per stage, in words that describe where the claim is and never an outcome, tested against approved, rejected and paid wording). They use a separate gate path: the claimant may be messaged if an agreement is on their record or they wrote to us on WhatsApp, never if they declined or withdrew. Their decisions are `notice` kind so they do not count as a marketing offer. Kato is told to use get_my_account and send_claim_link, never to promise or decide, and not to mention other covers. Nile General seeds three claims (two waiting for papers) so the rules have work. The existing scheduled follow-through service is unchanged.
 - Piece 10 verification: Domain.Tests 731 and Api.Tests 1673 passed, tsc clean, lint 0 errors; renewals.spec.ts (Nile Life renewals, Nile General claims) passes at 1280 and 768. The checklist provider was not exercised against a real product matrix.
 - Demo customer and story (piece 11): `DemoCustomerService` adds a person to a demonstration workspace only (refused otherwise, and under protected profiles), with facts, a stated consent (agreed, never asked, declined; given 30 days ago so the story reads in order) and a loan event "days ago". The Bank events tab has "Add a demonstration customer" (visible only when `GET /api/v1/demo/status` says demonstration) with a "Fill in Eugene's details" button that leaves name and number for the real teammate. `PersonTimelineService` and the "Why this person" drawer (from a decision row or an event row) show consent, the bank event, each rule decision with every check, what went out and their reply, oldest first, from this workspace's records only. Fast-forward is not built: rehearsal uses "when it happened" choices, wait 0 in the demo rules, and policy dates relative to today. The sidebar workspace chip still shows the workspace id.
+- Conversions and results (pieces 12 and 13): a "Conversions" tab in Acquisition for staff only. `ConversionReportService` counts per insurer: offers, answers, details asked, and people converted (applied for a cover of the offered insurer, or hold a policy of that insurer that began after the offer). It holds no commission rate and says so on screen; there is no commission property anywhere. `CampaignReportService` gives results per rule (looked at, sent, shown as sent, delivered and read from WhatsApp's own state for real sends only, answered, converted, and the reasons everyone else was not messaged, which add up to the looked-at count).
+- Verification: Domain.Tests 731, Api.Tests 1688 passed, tsc clean, lint 0 errors; demo-customer.spec.ts (customer, story, conversions, results) passes at 1280 and 768. Delivered and read were tested with fake delivery states; nothing was measured against real WhatsApp.
 
 ## Piece status
 
@@ -51,9 +53,9 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 9 | Renewal and premium flows | done |
 | 10 | Document chasing and claim updates | done (verify with the full run, see note) |
 | 11 | Demo customer and timeline screens | done (no fast-forward) |
-| 12 | Conversion view for bank staff | next |
-| 13 | Campaign reporting | |
-| 14 | Onboarding: company profile, terms, licence | |
+| 12 | Conversion view for bank staff | done |
+| 13 | Campaign reporting | done |
+| 14 | Onboarding: company profile, terms, licence | next |
 | 15 | Onboarding: security screen, storage step | |
 | 16 | Extraction agent for wordings | |
 | 17 | "Here is what I found" confirm screen | |

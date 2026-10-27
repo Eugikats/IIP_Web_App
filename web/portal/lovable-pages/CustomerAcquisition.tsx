@@ -16,6 +16,7 @@ import EscalationsTab from "@/components/acquisition/tabs/EscalationsTab";
 import OutreachTab from "@/components/acquisition/tabs/OutreachTab";
 import EventsTab from "@/components/acquisition/tabs/EventsTab";
 import RulesTab from "@/components/acquisition/tabs/RulesTab";
+import ConversionsTab from "@/components/acquisition/tabs/ConversionsTab";
 import ScoresTab from "@/components/acquisition/tabs/ScoresTab";
 import CountUp from "@/components/cip/CountUp";
 import { dailyCounts, trendDirection } from "@/components/cip/series";
@@ -47,6 +48,7 @@ const TABS = [
   { id: "scores", label: "Scores" },
   { id: "events", label: "Bank events" },
   { id: "rules", label: "Rules" },
+  { id: "conversions", label: "Conversions" },
   { id: "outreach", label: "Outreach" },
   { id: "agents", label: "Agents" },
   { id: "channels", label: "Channel Intelligence" },
@@ -253,6 +255,8 @@ export default function CustomerAcquisition() {
         <EventsTab />
       ) : tab === "rules" ? (
         <RulesTab />
+      ) : tab === "conversions" ? (
+        <ConversionsTab />
       ) : tab === "outreach" ? (
         <OutreachTab leads={leads} loading={loading} error={error} forbidden={forbidden} reload={reload} draftOutreach={draftOutreach} draftFollowUps={draftFollowUps} editOutreach={editOutreach} sendOutreach={sendOutreach} sendOutreachMany={sendOutreachMany} dismissOutreach={dismissOutreach} />
       ) : tab === "agents" ? (

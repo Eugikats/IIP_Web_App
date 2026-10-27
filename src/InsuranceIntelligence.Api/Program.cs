@@ -1559,6 +1559,10 @@ app.MapPost("/api/v1/demo/customers", InsuranceIntelligence.Api.DemoScenarios.De
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapGet("/api/v1/rule-timeline", InsuranceIntelligence.Api.DemoScenarios.DemoCustomerEndpoints.Timeline)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rule-campaigns", InsuranceIntelligence.Api.Rules.RuleEndpoints.Campaigns)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rule-conversions", InsuranceIntelligence.Api.Rules.RuleEndpoints.Conversions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapGet("/api/v1/rule-decisions", InsuranceIntelligence.Api.Rules.RuleEndpoints.Decisions)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapGet("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Get)

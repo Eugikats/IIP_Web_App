@@ -112,6 +112,34 @@ public static class RuleEndpoints
             return (outcomeId, (object)new { done.OutcomeId, done.Done, done.DoneAt, done.DoneBy });
         });
 
+    public static async Task<IResult> Campaigns(CampaignReportService report, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        if (Resolve(httpContext, options, Permission.ManageSalesLeads, out var scope, out _, out _) is { } failed)
+        {
+            return failed;
+        }
+
+        return Results.Ok(await report.BuildAsync(scope, cancellationToken));
+    }
+
+    public static async Task<IResult> Conversions(ConversionReportService report, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        if (Resolve(httpContext, options, Permission.ManageSalesLeads, out var scope, out _, out _) is { } failed)
+        {
+            return failed;
+        }
+
+        var result = await report.BuildAsync(scope, cancellationToken);
+        return Results.Ok(new
+        {
+            result.Insurers,
+            result.Total,
+            converted = result.Converted.Select(person => new { person.CustomerName, phone = Mask(person.Phone), person.Cover, person.Insurer, person.How, person.OfferedAt }),
+            result.Applications,
+            result.Note,
+        });
+    }
+
     public static async Task<IResult> Decisions(
         string? ruleId, string? phone, string? outcome, DecisionLog log, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken)
     {

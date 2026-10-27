@@ -61,6 +61,18 @@ test("Eugene is added, the rule is approved, and the story explains why he was m
   await expect(steps.nth(2)).toContainText("Agreed to be contacted: passed");
   await expect(steps.nth(2)).toContainText("Best-fit cover: passed");
   await page.screenshot({ path: `test-results/workspace/story-${test.info().project.name}.png` });
+  await page.keyboard.press("Escape");
+
+  // The bank's staff see what the offer led to, by insurer, and are told no commission rate is held.
+  await page.getByRole("tab", { name: "Conversions" }).click();
+  await expect(page.getByText(/IIP does not record rates/)).toBeVisible();
+  const insurerRow = page.getByRole("row").filter({ hasText: "Mpingo Life Assurance" });
+  await expect(insurerRow).toContainText("1");
+  // The results by rule account for everyone the rule looked at, and a demonstration send is not counted as delivered.
+  const results = page.getByRole("table", { name: "Results by rule" }).getByRole("row").filter({ hasText: "Loan Protector after a salary loan" });
+  await expect(results.first()).toBeVisible();
+  await expect(page.getByText(/never counted as delivered/)).toBeVisible();
+  await page.screenshot({ path: `test-results/workspace/conversions-${test.info().project.name}.png`, fullPage: true });
 });
 
 test("someone who never agreed is skipped, and the story says exactly that", async ({ page }) => {

@@ -141,6 +141,35 @@ export const getOutcomes = (role: string) => call<OfferOutcomeView[]>(role, "/ap
 export const markOutcomeDone = (role: string, outcomeId: string) =>
   call<{ outcomeId: string; done: boolean }>(role, `/api/v1/rule-outcomes/${encodeURIComponent(outcomeId)}/done`, "POST", undefined, "The reply could not be marked as followed up.");
 
+export type RuleResults = {
+  ruleId: string;
+  ruleName: string;
+  considered: number;
+  sent: number;
+  shownAsSent: number;
+  delivered: number;
+  read: number;
+  answered: number;
+  askedForDetails: number;
+  convertedAfterOffer: number;
+  waiting: number;
+  couldNotSend: number;
+  notSent: number;
+  whyNotSent: { reason: string; people: number }[];
+};
+
+export const getCampaigns = (role: string) => call<RuleResults[]>(role, "/api/v1/rule-campaigns", "GET", undefined, "The results could not be loaded.");
+
+export type ConversionReport = {
+  insurers: { insurer: string; offers: number; replied: number; askedForDetails: number; convertedAfterOffer: number }[];
+  total: { insurer: string; offers: number; replied: number; askedForDetails: number; convertedAfterOffer: number };
+  converted: { customerName: string | null; phone: string; cover: string; insurer: string; how: string; offeredAt: string }[];
+  applications: number;
+  note: string;
+};
+
+export const getConversions = (role: string) => call<ConversionReport>(role, "/api/v1/rule-conversions", "GET", undefined, "The conversions could not be loaded.");
+
 export function ruleSentence(rule: OutreachRule, coverNames: Record<string, string>): string {
   const conditions = [
     rule.minAmount ? `UGX ${rule.minAmount.toLocaleString("en-UG")} or more` : null,
