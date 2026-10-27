@@ -227,7 +227,7 @@ If time is short, the order of value for the meetings is: 1 (templates and sendi
 
 ## 9. Questions for you
 
-1. **When are the meetings?** That decides how much of section 8 we can finish.
+1. (Set aside for now: the meeting dates.)
 2. Will each insurer use **our** WhatsApp number for the demo, or bring their own?
 3. Do you have a **WhatsApp Business account with business verification** already, and which number is the demo number?
 4. Which products or lines should the demo use? One simple line (for example motor) is better than three.
@@ -235,3 +235,167 @@ If time is short, the order of value for the meetings is: 1 (templates and sendi
 6. Who are the **teammates** who will play customers, and have they agreed to be contacted?
 7. Should the renewal conversation end at "request logged for a person", or do you want Kato to take it as far as a payment link? I recommend the first for now.
 8. Anything specific Old Mutual or Britam asked for that is not in section 1?
+
+---
+
+# Addendum (2026-10-27): demo scenarios, the bank first-touch message, and how others do this
+
+Meeting dates are set aside. Three new things to plan for, from your notes.
+
+## 10. A demo switch: Bancassurance (Mavuno Bank) or Insurance (Nile), life or general
+
+### 10.1 What exists today
+
+- **Mavuno Bank is already in the demo data.** There is a "Mavuno Bank customer list (demonstration)" of 22 people. Each has a branch, the bank products they hold (for example "Salary account, school fees loan"), income, dependants, a consent status, and a likely cover.
+- **The partner insurers already split into life and general:** Mpingo Life Assurance and Kifaru General Insurance, alongside Nile Shield Assurance, whose catalogue has the small-business and rider covers.
+- **But the choice of "who Kato speaks as" is fixed when the system starts**, from three settings (`Assistant:Organisation`, `Assistant:ShortName`, `Assistant:PartnerInsurers`). Changing it means changing settings and restarting, and all demo data belongs to one world. That is why a button cannot do it today.
+
+### 10.2 What the switch should change
+
+| Thing | Bancassurance (Mavuno Bank) | Insurance (Nile) |
+|---|---|---|
+| Who Kato is | The bank's insurance assistant | The insurer's own assistant |
+| Covers it can sell | The partners' covers, always naming the insurer | The insurer's own covers |
+| Demo people | Bank customers with accounts and loans, no policies yet | Policyholders with policies, expiry dates and some claims |
+| What the staff screens emphasise | Acquisition: who to offer cover to | Retention and claims: renewals due, claims waiting |
+| First message | The bank's cross-sell template (section 11) | The renewal and claims templates (section 4) |
+| Wordings in the Data Hub | The partners' approved wordings | The insurer's approved wordings |
+
+### 10.3 Life or general, inside each
+
+The two classes need different triggers, so the sub-choice should change the demo and not only the product list.
+
+| | Life | General |
+|---|---|---|
+| Typical covers | Funeral, term life, credit life (loan protector), school fees, savings or endowment | Motor, shop and stock, home contents, goods in transit, personal accident |
+| Policy pattern | Monthly premiums, long term | Annual policies |
+| Main outreach triggers | Premium due or missed, lapse and reinstatement, beneficiary review, life events (new child, new loan) | Expiry renewal at 30 and 7 days, claim documents chasing, add-on cover at renewal |
+| What "closing" means | A new policy or a restored policy | A renewed policy |
+| Bank hook (bancassurance) | A loan or salary account, so credit life or funeral cover | An asset the bank financed (vehicle or equipment), so motor or equipment cover |
+
+### 10.4 How to build it safely
+
+I recommend **one demo workspace per scenario, and a switch that moves between them**, instead of one workspace that is wiped and refilled:
+
+- Three ready-made demo workspaces: **Mavuno Bank**, **Nile Life**, **Nile General**. (Please confirm the names. Today's insurer brand is "Nile Shield Assurance".)
+- A **Demo scenario** control in the admin area, shown only in a demo environment and never in a workspace with real customers. It switches the active workspace, brand and templates in one click, and shows which scenario is active at all times.
+- Switching changes nothing in the other scenarios, so there is no risk of mixing data, and no waiting for a reseed.
+- Each scenario carries its own approved wordings, customers, policies with **dates relative to today** (so a "30 days to expiry" customer is always in range), consent records, and its own outreach rules and templates.
+- The big technical change: the brand is currently a single value for the whole system. It has to become a **per-workspace setting** that Kato, the outreach service and the fixed reply texts read from. This touches several places, so it is real work, but it is also what a real multi-organisation product needs anyway.
+
+Everything on screen stays honest: the scenario is labelled "Demonstration", and the people are teammates who agreed or clearly made-up records that never get a real message.
+
+## 11. The bank's first-touch message: suggest a cover from what we know, and start the conversation
+
+### 11.1 What you described
+
+You put "Eugene" in the system with what he has done with the bank. The agent works out the best cover for him, then messages him:
+
+> "Eugene, we know you have been saving with us and using the salary loan. Did you know you also qualify for X? Here is what it covers and what it costs. Happy to talk about whether it fits you."
+
+### 11.2 How it works step by step
+
+1. **Eligibility first (plain rules).** Which covers can this person have? Age, whether they already hold it, whether there is a loan that needs protecting, and whether the person agreed to be contacted by the bank about insurance.
+2. **Fit ranking second.** Using the bank facts already in IIP (products held, work, dependants, income range), rank the eligible covers. IIP's existing prospect scoring already reads facts like "holds a salary account and a school fees loan" and returns fits with reasons.
+3. **Suppress last.** Do not send if they were contacted recently, have an open complaint, asked not to be contacted, or are mid-way through a claim.
+4. **Choose one cover, the best fit.** One message, one cover. Offering three at once reads like spam.
+5. **Send the opener as a template.** It carries only the hook.
+6. **When they tap "Tell me more", Kato sends the detail**, because a reply opens the 24-hour window and free-form text is allowed. This is where the benefits and the price go.
+7. **Kato handles the conversation** from the approved wording, and when they say yes, takes an application for the insurer to confirm, as it does today in bancassurance mode.
+
+Why the details go in the second message and not the first: a template has to be approved in advance, so it cannot hold a personalised list of benefits and prices. Other companies do it the same way (section 12).
+
+### 11.3 The opener template (marketing)
+
+`bank_cover_intro`:
+
+> Hello {{1}}, this is Kato from {{2}}. As you bank with us ({{3}}), you may qualify for {{4}}. Would you like to see what it covers and what it costs?
+
+Buttons: **Yes, show me** / **Not now** / **Stop messages**.
+
+Example filled in: "Hello Eugene, this is Kato from Mavuno Bank. As you bank with us (a salary account and a loan), you may qualify for Loan Protector. Would you like to see what it covers and what it costs?"
+
+### 11.4 Kato's second message after "Yes, show me" (free-form)
+
+Built from the approved product data, never from memory:
+
+> "Loan Protector from Mpingo Life Assurance pays off your loan balance if you die or are permanently disabled, so your family is not left with the debt. It also pays UGX [amount] towards funeral costs. It costs about UGX [price] a month, which is roughly UGX [per day] a day. There is a waiting period of [period] and it does not cover [main exclusion]. Mpingo pays the claims, and Mavuno Bank offers the cover. Would you like me to explain how it works, or set it up?"
+
+Rules built in:
+- Always name who provides the cover and who pays claims.
+- Say the waiting period and the main exclusion, not only the benefits.
+- No pressure, no invented urgency or discounts, and no promise that a claim will be paid.
+- Offer a person at any time.
+
+### 11.5 Data and consent: a point to settle before you show this
+
+Using a customer's bank history to decide an insurance offer, and then messaging them on WhatsApp, is a use of personal data that needs a clear lawful basis and the customer's agreement to marketing. For a real bank this is a question for the bank's compliance team and counsel, and should be asked in the meeting. In the demo:
+
+- Use only **your own teammates' data, with their agreement**.
+- The message should mention only that they bank with us and which kind of product (not balances or transactions).
+- The consent record must be in the system and visible. IIP already will not send without it.
+
+## 12. How other companies do automated WhatsApp outreach and conversation handling
+
+This is from a quick search, so treat the specifics as leads to verify, not facts. Where a number comes from a vendor or a consultancy, I say so.
+
+### 12.1 The pieces they all use
+
+1. **A WhatsApp Business Platform provider** that connects to Meta. Examples named in the results include [Infobip](https://www.infobip.com/agentos/conversational-ai-insurance) and [Haptik](https://www.haptik.ai/blog/whatsapp-commerce-for-insurance-takeaways-from-webinar). Others in the same space are Yellow.ai, Gupshup and Twilio, but my search did not return details for those two, so I cannot describe how they work.
+2. **A trigger source**: a policy system or CRM saying "this policy ends in 45 days" or "this customer qualifies".
+3. **A campaign layer**: segments, schedules, and a sequence of messages. One vendor blog describes a renewal sequence at about 45 days and again at 21 days before expiry (D7 Networks, a vendor, with a renewal-rate improvement claim that has no source, so I would not quote it).
+4. **Approved templates** to open conversations, with one-tap reply buttons. Spoki, another vendor, describes renewal-time offers for roadside or travel cover answered with a single tap.
+5. **A conversational AI that takes over once the customer replies**, pulls data from the insurer's systems, and hands over to a person with the context when needed. Infobip's insurance page lists proactive outreach for renewals, payments and upsell, across WhatsApp, SMS, voice and web chat.
+6. **Recommendation logic.** Haptik's webinar notes describe a recommendation engine that suggests which products to bundle for cross-selling, and a bot that acts as a virtual adviser by asking questions to understand needs.
+7. **Reporting**: sent, delivered, read, replied, converted.
+
+### 12.2 The rules they have to follow
+
+From a German consultancy's write-up on proactive WhatsApp outreach ([Nordflux](https://nordflux.de/en/insights/whatsapp-ai-agent-customer-outreach)), which matches how we have designed IIP:
+
+- Consent must be collected and documented before messaging.
+- Each message that opens a conversation must be an approved template, classed as marketing or utility, and Meta can reject or later block them.
+- Once the customer replies, a 24-hour window opens for free-form messages.
+- Since July 2025 Meta charges per delivered template rather than per conversation, with the provider's own fees on top. Their cost figures are for Germany and dated, so check Meta's current pricing for Uganda before quoting anything.
+
+### 12.3 How banks pick whom to offer what
+
+- BCG's [article on scaling AI-powered bancassurance](https://www.bcg.com/publications/2023/steps-for-scaling-ai-powered-Bancassurance) says AI-driven personalisation can decide which clients to contact, when, with what message, and on which channel. It estimates conversion gains of three to five times, and up to eight times for high-propensity customers. These are BCG's own estimates, not independently checked.
+- A useful design point from a next-best-action write-up: keep three decisions separate. **Is the customer eligible? How likely are they to respond? Should we make an offer at all (suppression)?** That is the order in section 11.2, and it keeps consent and complaints from being overridden by a high score.
+- A [DataRobot example](https://pathfinder.datarobot.com/use-case/predict-which-insurance-products-to-offer) scores customers with a model and feeds the scores into a rules engine that picks the offer. The dataset is synthetic, so it is only an illustration.
+
+### 12.4 What I could not find
+
+- Details of how Yellow.ai and Gupshup implement template submission and opt-in tracking.
+- Insurance-specific WhatsApp consent rules for Uganda. This needs counsel and the data protection regulator's guidance, not a blog.
+
+### 12.5 Where IIP is already like them, and where it is not
+
+| | IIP today |
+|---|---|
+| Consent gate, sending hours, 24-hour window rule, human approval | Yes, stricter than most vendor tools |
+| Conversation handling grounded in approved wordings, with citations | Yes, a real strength next to generic bots |
+| Local languages and voice notes | Yes |
+| Templates catalogue, campaign rules, sequences | Not yet (sections 3 and 4) |
+| Segments, scheduling and campaign reports | Not yet |
+| Connection to a policy or core banking system for triggers | Not yet. Today the data is loaded, not synced |
+| Scale across a big list | Untested. A new number has low daily limits |
+
+The honest pitch is: we are not a bulk-messaging tool. We are the careful, explainable, insurer-grade version, with the conversation and the controls built in.
+
+## 13. What this changes in the plan
+
+Move up in the order of work, because they frame every demo:
+
+1. **Demo scenarios and the switch** (section 10), with the brand moved from a startup setting to a per-workspace setting.
+2. **The bank first-touch flow** (section 11): the cover recommendation, the `bank_cover_intro` template, and Kato's detail message.
+3. Then the templates catalogue, outreach rules and the demo customer screen from sections 3 and 4.
+
+Add to the templates to submit now: `bank_cover_intro` (marketing).
+
+Add to the questions for you:
+
+9. Confirm the three scenario names: **Mavuno Bank**, and **Nile Life** and **Nile General** (or keep one "Nile" insurer with a life or general choice).
+10. For bancassurance, should "life" mean Mpingo Life and "general" Kifaru General, as the partners are set up today?
+11. For the first-touch demo, which bank facts will you enter for Eugene: products held, a loan, salary, savings? I would keep it to two or three, so the story is easy to follow.
+12. Do you want the bank first-touch to need a person's approval of the message each time, or a rule approved once (as in section 3.3)? For a bank demo I would show the rule approved once.
