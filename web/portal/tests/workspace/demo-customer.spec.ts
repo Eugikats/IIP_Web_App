@@ -11,6 +11,14 @@ test.beforeAll(async ({ request }) => {
   });
   expect(activated.ok()).toBeTruthy();
   organisationId = (await activated.json()).organisationId;
+
+  // The demonstration rules send between 09:00 and 18:00 East Africa time, which is right for people and wrong for a test that
+  // must not depend on the hour it runs. Widen the hours of the rule under test; it stays a draft until the test approves it.
+  const headers = { "x-demo-role": "Admin", "X-User-Id": "spec-demo-customer", "Content-Type": "application/json", "X-Tenant-Id": organisationId, "X-Workspace-Id": "main" };
+  const overview = await (await request.get(`${API}/api/v1/rules`, { headers })).json();
+  const rule = overview.rules.find((item: { name: string }) => item.name === "Loan Protector after a salary loan");
+  const saved = await request.put(`${API}/api/v1/rules/${rule.ruleId}`, { headers, data: { ...rule, fromHour: 0, toHour: 24 } });
+  expect(saved.ok()).toBeTruthy();
 });
 
 test.beforeEach(async ({ page }) => {
