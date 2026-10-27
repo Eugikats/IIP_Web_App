@@ -22,6 +22,16 @@ public sealed class RuleEngineTests
     private static readonly DateTimeOffset NoonEat = new(2026, 10, 27, 9, 0, 0, TimeSpan.Zero);
     private const string Phone = "256790000001";
 
+    private sealed class StubChecklist : InsuranceIntelligence.Domain.Documents.IDocumentChecklistProvider
+    {
+        public Task<InsuranceIntelligence.Domain.Documents.DocumentCompletenessChecklist> BuildChecklistAsync(
+            InsuranceIntelligence.Domain.Cases.ClaimCase claimCase, IReadOnlyCollection<InsuranceIntelligence.Domain.Documents.CaseDocument> documents, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new InsuranceIntelligence.Domain.Documents.DocumentCompletenessChecklist(
+                claimCase.CaseId, claimCase.ProductLine, [], [], [],
+                [new InsuranceIntelligence.Domain.Documents.MissingDocumentRequirement("PoliceAbstract", "the police report", true), new InsuranceIntelligence.Domain.Documents.MissingDocumentRequirement("MedicalReport", "the medical form", true)],
+                new InsuranceIntelligence.Domain.Documents.CompletenessScore(0m, 0, 2)));
+    }
+
     private sealed class MutableClock(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = now;
@@ -72,6 +82,7 @@ public sealed class RuleEngineTests
         public required OutcomeService Outcomes { get; init; }
         public required InMemoryCaseRepository Cases { get; init; }
         public required PolicySweepService Sweep { get; init; }
+        public required InMemoryConsentRepository Consents { get; init; }
     }
 
     private static async Task<Rig> RigAsync(bool approveTemplate = true, bool demonstration = false, bool connected = true)
@@ -110,11 +121,13 @@ public sealed class RuleEngineTests
         var outcomes = new OutcomeService(store, log, leads);
         var cases = new InMemoryCaseRepository();
         var sweep = new PolicySweepService(policies, customers, events, clock);
+        var consentStore = new InMemoryConsentRepository();
+        var caseSweep = new CaseSweepService(cases, new InMemoryCaseDocumentRepository(), new StubChecklist(), events, clock);
         return new Rig
         {
             Clock = clock, Db = db, Rules = rules, Log = log, Events = events, Templates = templates, Brands = brands, Leads = leads, Customers = customers, Policies = policies,
-            Provider = provider, Messages = messages, Outcomes = outcomes, Cases = cases, Sweep = sweep,
-            Engine = new RuleEngine(rules, log, events, brands, templates, sender, leads, customers, policies, messages, clock, outcomes, cases, sweep),
+            Provider = provider, Messages = messages, Outcomes = outcomes, Cases = cases, Sweep = sweep, Consents = consentStore,
+            Engine = new RuleEngine(rules, log, events, brands, templates, sender, leads, customers, policies, messages, clock, outcomes, cases, sweep, caseSweep, consentStore),
         };
     }
 
@@ -410,7 +423,7 @@ public sealed class RuleEngineTests
         var rig = await RigAsync();
 
         await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule(lines: [MicroinsuranceCatalog.BodaAccidentLine]), "w"));
-        await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { TemplateName = "claim_documents_needed" }, "w"));
+        await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { TemplateName = "verify_code" }, "w"));
         await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { TemplateName = "does_not_exist" }, "w"));
         await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { Hours = new RuleHours(18, 9) }, "w"));
         await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { EventType = "nonsense" }, "w"));
@@ -664,7 +677,7 @@ public sealed class RuleEngineTests
         foreach (var id in new[] { InsuranceIntelligence.Application.DemoScenarios.DemoScenarioCatalog.NileLife, InsuranceIntelligence.Application.DemoScenarios.DemoScenarioCatalog.NileGeneral })
         {
             var insurer = InsuranceIntelligence.Application.DemoScenarios.DemoScenarioRules.For(InsuranceIntelligence.Application.DemoScenarios.DemoScenarioCatalog.Find(id)!);
-            Assert.Equal(3, insurer.Count);
+            Assert.Equal(id == InsuranceIntelligence.Application.DemoScenarios.DemoScenarioCatalog.NileLife ? 3 : 6, insurer.Count);
             Assert.All(insurer, rule => Assert.True(BankEventCatalog.Find(rule.EventType)!.IsTimeTrigger));
         }
     }
@@ -771,6 +784,104 @@ public sealed class RuleEngineTests
 
         Assert.Equal(1, run.Skipped);
         Assert.Empty(rig.Provider.Sent);
+    }
+
+    // ---- Claims
+
+    private static InsuranceIntelligence.Domain.Cases.ClaimCase Claim(InsuranceIntelligence.Domain.Cases.CaseStatus status, int createdDaysAgo = 1) => new()
+    {
+        CaseId = Guid.Parse("11111111-2222-3333-4444-555555555555"), Scope = Bank, CustomerName = "Eugene Katusiime", CustomerPhone = $"+{Phone}", PolicyNumber = "P1",
+        ProductLine = "Hospital Cash", ClaimType = "Hospital Cash", Channel = "WhatsApp", IncidentDate = DateOnly.FromDateTime(NoonEat.UtcDateTime), IncidentDescription = "Test",
+        Status = status, CreatedByUserId = "t", CreatedAt = NoonEat.AddDays(-createdDaysAgo), UpdatedAt = NoonEat, CorrelationId = "c",
+        Priority = InsuranceIntelligence.Domain.Workflow.CasePriority.Normal, SlaDueAt = NoonEat.AddDays(5), RiskLevel = "Low", CompletenessScore = 0m,
+    };
+
+    private static async Task ApproveTemplateAsync(Rig rig, string name)
+    {
+        await rig.Templates.SubmitAsync(Bank, name, "en", "admin");
+        await rig.Templates.RecordDecisionAsync(Bank, name, "en", TemplateStatus.Approved, null, "admin");
+    }
+
+    private static OutreachRule ClaimRule(string type, string template) =>
+        new("", type, 0, type, new RuleConditions(), 0, [], template, "en", new RuleHours(0, 24), new RuleLimits(), null, null, RuleStatus.Draft, "w", DateTimeOffset.UnixEpoch);
+
+    [Fact]
+    public async Task AClaimWaitingForPapersIsChased_NamingThePapersFromTheChecklist_AndAgainEveryThreeDays()
+    {
+        var rig = await RigAsync();
+        await ApproveTemplateAsync(rig, "claim_documents_needed");
+        await LiveRuleAsync(rig, ClaimRule("claim_documents_needed", "claim_documents_needed"));
+        await rig.Consents.SaveAsync(new InsuranceIntelligence.Domain.Compliance.ConsentRecord
+        {
+            RecordId = Guid.NewGuid(), Scope = Bank, CustomerIdentifier = Phone, Basis = InsuranceIntelligence.Domain.Compliance.ConsentBasis.CustomerInitiatedConversation,
+            Purpose = InsuranceIntelligence.Domain.Compliance.ConsentPurposes.WhatsApp, Channel = "whatsapp", RecordedByUserId = "customer", RecordedAt = NoonEat.AddDays(-1), CorrelationId = "c",
+        });
+        await rig.Cases.SaveAsync(Claim(InsuranceIntelligence.Domain.Cases.CaseStatus.MissingDocuments));
+
+        var first = await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.Equal(1, first.Sent);
+        var request = Assert.Single(rig.Provider.Sent);
+        Assert.Equal("claim_documents_needed", request.TemplateName);
+        Assert.Equal("Eugene", request.TemplateParameters!["1"]);
+        Assert.Equal("the police report, the medical form", request.TemplateParameters["3"]);
+        Assert.Equal(0, (await rig.Engine.RunAsync(Bank, "system")).Sent);
+
+        rig.Clock.Now = NoonEat.AddDays(3);
+        Assert.Equal(1, (await rig.Engine.RunAsync(Bank, "system")).Sent);
+        Assert.Equal(2, rig.Provider.Sent.Count);
+        Assert.All(await rig.Log.ListAsync(Bank), decision => Assert.Equal("notice", decision.Kind));
+    }
+
+    [Fact]
+    public async Task AClaimantWhoNeverAgreedAndNeverWroteIsNotMessaged()
+    {
+        var rig = await RigAsync();
+        await ApproveTemplateAsync(rig, "claim_documents_needed");
+        await LiveRuleAsync(rig, ClaimRule("claim_documents_needed", "claim_documents_needed"));
+        await rig.Cases.SaveAsync(Claim(InsuranceIntelligence.Domain.Cases.CaseStatus.MissingDocuments));
+
+        var run = await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.Equal(1, run.Skipped);
+        Assert.Empty(rig.Provider.Sent);
+        Assert.Contains("no agreement", (await rig.Log.ListAsync(Bank)).Single().Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AStatusUpdateSaysWhereTheClaimIsAndNeverAnOutcome()
+    {
+        var rig = await RigAsync();
+        await ApproveTemplateAsync(rig, "claim_status_update");
+        await LiveRuleAsync(rig, ClaimRule("claim_status_update", "claim_status_update"));
+        await AddEugeneAsync(rig);
+        await rig.Cases.SaveAsync(Claim(InsuranceIntelligence.Domain.Cases.CaseStatus.InReview, createdDaysAgo: 10));
+
+        await rig.Engine.RunAsync(Bank, "system");
+
+        var request = Assert.Single(rig.Provider.Sent);
+        Assert.Equal("a claims officer is reviewing it", request.TemplateParameters!["3"]);
+        Assert.Contains("CLM-", request.TemplateParameters["2"]);
+        foreach (var status in Enum.GetValues<InsuranceIntelligence.Domain.Cases.CaseStatus>())
+        {
+            var words = CaseSweepService.StatusWords(status);
+            Assert.True(words is null || !new[] { "approved", "rejected", "denied", "will be paid", "paid" }.Any(word => words.Contains(word, StringComparison.OrdinalIgnoreCase)), $"{status}: {words}");
+        }
+    }
+
+    [Fact]
+    public async Task ANewClaimIsAcknowledged_AndAClosedOneOnlyGetsItsStatus()
+    {
+        var rig = await RigAsync();
+        await ApproveTemplateAsync(rig, "claim_received");
+        await LiveRuleAsync(rig, ClaimRule("claim_received", "claim_received"));
+        await AddEugeneAsync(rig);
+        await rig.Cases.SaveAsync(Claim(InsuranceIntelligence.Domain.Cases.CaseStatus.New, createdDaysAgo: 0));
+
+        var run = await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.Equal(1, run.Sent);
+        Assert.Contains("we received your claim", (await rig.Log.GetReasonAsync(Bank, Phone))!.OpeningText);
     }
 
     [Fact]

@@ -25,6 +25,9 @@ public static class BankEventCatalog
         new("policy_ending_7", "Policy ends within 7 days", "A policy is about to end.", "Second renewal reminder", "7 days before", IsTimeTrigger: true),
         new("policy_lapsed", "Policy has just ended", "A policy ended and was not renewed.", "A win-back message", "Within two weeks after", IsTimeTrigger: true),
         new("premium_due", "Premium due soon", "A monthly premium falls due.", "Payment reminder", "3 days before", IsTimeTrigger: true),
+        new("claim_received", "Claim received", "A claim has just arrived and the claimant should know it did.", "An acknowledgement", "Within two days", IsTimeTrigger: true),
+        new("claim_documents_needed", "Claim is waiting for papers", "A claim cannot move until papers arrive.", "A request for the missing papers", "Every three days", IsTimeTrigger: true),
+        new("claim_status_update", "Claim has moved on", "The claimant is waiting to hear where their claim is.", "A plain update", "When the stage changes", IsTimeTrigger: true),
     ];
 
     public static BankEventType? Find(string? codeOrLabel)
@@ -83,7 +86,7 @@ public sealed record WorkspaceEvent(
 {
     /// <summary>The only details an event may carry. Anything else is dropped on the way in and reported.</summary>
     public static readonly IReadOnlySet<string> AllowedDetails =
-        new HashSet<string>(StringComparer.Ordinal) { "amount", "term_months", "product_code", "branch", "policy_number", "product", "product_line", "end_date", "due_date" };
+        new HashSet<string>(StringComparer.Ordinal) { "amount", "term_months", "product_code", "branch", "policy_number", "product", "product_line", "end_date", "due_date", "customer_name", "claim_reference", "documents_needed", "status" };
 
     public decimal? Amount => Details.TryGetValue("amount", out var value) && decimal.TryParse(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var amount) ? amount : null;
 

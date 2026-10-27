@@ -180,7 +180,7 @@ public sealed class RuleService(IWorkspaceRecordStore store, WorkspaceBrandServi
 
         var brand = (await brands.ResolveAsync(scope, cancellationToken));
         var sold = brand.Products.Select(product => product.ProductLine).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (rule.AllowedProductLines.Count == 0)
+        if (rule.AllowedProductLines.Count == 0 && !rule.EventType.StartsWith("claim_", StringComparison.Ordinal))
         {
             throw RuleException.Invalid("Choose at least one cover the rule may offer.");
         }

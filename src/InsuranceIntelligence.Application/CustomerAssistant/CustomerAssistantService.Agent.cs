@@ -154,6 +154,16 @@ public sealed partial class CustomerAssistantService
             return commission.TrimEnd();
         }
 
+        if (reason.EventType.StartsWith("claim_", StringComparison.Ordinal))
+        {
+            return $"""
+                Why this conversation exists: {brand.Organisation} wrote to this person first, on {reason.SentAt:d MMMM}, about their claim ({reason.Cover}): {reason.EventLabel.ToLowerInvariant()}. The message they were sent was: "{reason.OpeningText}"
+                - Use get_my_account for where the claim stands. If papers are missing, tell them which and send a secure link with send_claim_link; never ask for papers in the chat. Photos sent here are not enough on their own.
+                - Never say the claim will be approved, rejected or paid, or how much, and never tell them it is not covered: people make those decisions. If they are upset, or ask for a decision, hand over to a person.
+                - Do not offer or mention any other cover in this conversation.
+                """.TrimEnd();
+        }
+
         if (reason.EventType.StartsWith("policy_", StringComparison.Ordinal) || reason.EventType == "premium_due")
         {
             return $"""

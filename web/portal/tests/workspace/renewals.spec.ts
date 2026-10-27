@@ -45,3 +45,38 @@ test("Nile Life starts with unapproved renewal rules; approving one sends remind
   await page.getByRole("tab", { name: "Bank events" }).click();
   await expect(page.getByText("From policy dates").first()).toBeVisible();
 });
+
+test.describe("Nile General claims", () => {
+  let generalOrganisation = "";
+
+  test.beforeAll(async ({ request }) => {
+    const activated = await request.post(`${API}/api/v1/demo/scenarios/nile-general/activate`, {
+      headers: { "x-demo-role": "Admin", "X-User-Id": `spec-claims-${Date.now()}`, "Content-Type": "application/json", "X-Tenant-Id": "tenant-demo", "X-Workspace-Id": "workspace-operations" },
+    });
+    expect(activated.ok()).toBeTruthy();
+    generalOrganisation = (await activated.json()).organisationId;
+  });
+
+  test("approving the claims rules tells claimants where their claim is, without ever deciding it", async ({ page }) => {
+    await page.addInitScript(([org]) => {
+      window.localStorage.setItem("iip.active-organisation-id", org);
+      window.localStorage.setItem("iip.active-workspace-id", "main");
+    }, [generalOrganisation]);
+    await page.goto("/app/acquisition");
+    await page.getByRole("tab", { name: "Rules" }).click();
+
+    for (const name of ["Tell the claimant their claim arrived", "Tell the claimant where their claim is", "Chase missing claim papers"]) {
+      const card = page.getByRole("listitem").filter({ hasText: name });
+      await expect(card.getByText("Draft, not approved")).toBeVisible();
+      await card.getByRole("button", { name: "Approve this rule" }).click();
+      await expect(card.getByText("Running")).toBeVisible();
+    }
+
+    await page.getByRole("button", { name: "Run the rules now" }).click();
+    await expect(page.getByRole("status").filter({ hasText: /Looked at \d+/ })).toBeVisible();
+
+    const log = page.getByRole("table").last();
+    await expect(log.getByRole("row").filter({ hasText: "Tell the claimant where their claim is" }).first()).toContainText("Shown as sent about CLM-");
+    await page.screenshot({ path: `test-results/workspace/claims-rules-${test.info().project.name}.png`, fullPage: true });
+  });
+});

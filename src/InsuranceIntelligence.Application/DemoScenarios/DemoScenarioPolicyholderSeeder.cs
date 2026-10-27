@@ -13,7 +13,8 @@ namespace InsuranceIntelligence.Application.DemoScenarios;
 /// records and moves their dates to match today.
 /// </summary>
 public sealed class DemoScenarioPolicyholderSeeder(
-    ICustomerRepository customers, IPolicyRepository policies, InsuranceIntelligence.Application.SalesLeads.ISalesLeadWriteRepository? leads = null)
+    ICustomerRepository customers, IPolicyRepository policies, InsuranceIntelligence.Application.SalesLeads.ISalesLeadWriteRepository? leads = null,
+    InsuranceIntelligence.Domain.Cases.ICaseRepository? cases = null)
 {
     public const string Marker = "demonstration";
 
@@ -100,6 +101,37 @@ public sealed class DemoScenarioPolicyholderSeeder(
                     Consent = new InsuranceIntelligence.Domain.Acquisition.ContactConsent(
                         InsuranceIntelligence.Domain.Acquisition.ContactConsentStatus.Agreed, joined, "Agreed to receive reminders about their own policy on WhatsApp when the policy was bought.", "Policy purchase"),
                     Activity = [new InsuranceIntelligence.Domain.Acquisition.ProspectActivity(joined, "Bought " + product.Name, "Demo data")],
+                }, cancellationToken);
+            }
+
+            // The general insurer also has claims in progress, so the claims rules have something to work on: some waiting for papers.
+            if (cases is not null && scenario.LineFocus == LineFocus.General && index is 1 or 4 or 6)
+            {
+                var status = index == 6 ? InsuranceIntelligence.Domain.Cases.CaseStatus.InReview : InsuranceIntelligence.Domain.Cases.CaseStatus.MissingDocuments;
+                var caseId = new Guid(MD5.HashData(Encoding.UTF8.GetBytes($"scenario-claim:{scope.TenantId}:{scope.WorkspaceId}:{phone}")));
+                var opened = DateTimeOffset.UtcNow.AddDays(-4);
+                await cases.SaveAsync(new InsuranceIntelligence.Domain.Cases.ClaimCase
+                {
+                    CaseId = caseId,
+                    Scope = scope,
+                    CustomerName = holder.Name,
+                    CustomerPhone = $"+{phone}",
+                    PolicyNumber = policy.PolicyNumber,
+                    ProductLine = policy.ProductLine,
+                    ClaimType = $"{product.ProductLine} claim reported on WhatsApp",
+                    Channel = "WhatsApp",
+                    IncidentDate = DateOnly.FromDateTime(opened.UtcDateTime).AddDays(-3),
+                    IncidentDescription = "Demonstration claim: the customer reported a loss and is working on the papers.",
+                    ClaimedAmount = 250_000m,
+                    Status = status,
+                    CompletenessScore = 0m,
+                    RiskLevel = "Low",
+                    Priority = InsuranceIntelligence.Domain.Workflow.CasePriority.Normal,
+                    SlaDueAt = DateTimeOffset.UtcNow.AddDays(5),
+                    CreatedByUserId = "system:demo-seed",
+                    CreatedAt = opened,
+                    UpdatedAt = DateTimeOffset.UtcNow,
+                    CorrelationId = $"scenario-claim-{phone}",
                 }, cancellationToken);
             }
 

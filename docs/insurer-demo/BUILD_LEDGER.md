@@ -32,6 +32,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 - Bank first-touch (piece 8): demo rules for Mavuno Bank are seeded as unapproved drafts when a scenario is set up (loan disbursed, salary account opened, school fees paid; wait 0 for rehearsal). A new gate skips someone with an open claim. Eligibility by age is not built because no age is recorded; ranking uses the existing ProspectScoring with no commission input. Eugene himself is added by the demo-customer form (piece 11).
 - Renewals and premiums (piece 9): `PolicySweepService` turns policy dates into events (policy_ending_30, policy_ending_7, policy_lapsed, premium_due for life covers three days ahead) with fixed identities, run at the start of each rule run when a live rule uses one. They go through the same gates; "already holds the cover" and the same-cover limit do not apply to them, and the one-offer-per-person limit applies per rule so a 30 day and a 7 day reminder both go. Values (policy number, end date, due date, amount) come from event details, never invented. Nile demo customers get a contact record with agreement to receive reminders about their own policy. A missed premium is not detected: no payment records exist. Kato is told a colleague completes any renewal or payment.
+- Claims as rules (piece 10): `CaseSweepService` turns claims into events (claim_received within two days of opening; claim_documents_needed every three days while the status is MissingDocuments, naming the papers from the same `IDocumentChecklistProvider` the claims team sees; claim_status_update once per stage, in words that describe where the claim is and never an outcome, tested against approved, rejected and paid wording). They use a separate gate path: the claimant may be messaged if an agreement is on their record or they wrote to us on WhatsApp, never if they declined or withdrew. Their decisions are `notice` kind so they do not count as a marketing offer. Kato is told to use get_my_account and send_claim_link, never to promise or decide, and not to mention other covers. Nile General seeds three claims (two waiting for papers) so the rules have work. The existing scheduled follow-through service is unchanged.
+- Piece 10 verification: Api.Tests 1673 passed before the final full run; renewals.spec.ts (Nile Life renewals and Nile General claims) passes at 1280 and 768. The full solution run, lint and tsc for this piece were pending when this was written because the command runner was failing; rerun them first.
 
 ## Piece status
 
@@ -46,8 +48,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 7 | Outcomes and hand-off, STOP | done |
 | 8 | Bank first-touch flow | done (Eugene in piece 11) |
 | 9 | Renewal and premium flows | done |
-| 10 | Document chasing and claim updates | next |
-| 11 | Demo customer and timeline screens | |
+| 10 | Document chasing and claim updates | done (verify with the full run, see note) |
+| 11 | Demo customer and timeline screens | next |
 | 12 | Conversion view for bank staff | |
 | 13 | Campaign reporting | |
 | 14 | Onboarding: company profile, terms, licence | |

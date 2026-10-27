@@ -35,7 +35,9 @@ public sealed class RuleEngine(
     TimeProvider clock,
     OutcomeService? outcomes = null,
     InsuranceIntelligence.Domain.Cases.ICaseRepository? cases = null,
-    PolicySweepService? sweep = null)
+    PolicySweepService? sweep = null,
+    CaseSweepService? caseSweep = null,
+    InsuranceIntelligence.Domain.Compliance.IConsentRepository? consents = null)
 {
     private static readonly TimeSpan EastAfrica = TimeSpan.FromHours(3);
     public const string DemoNumberId = "demo-number";
@@ -54,6 +56,11 @@ public sealed class RuleEngine(
         if (sweep is not null && liveRules.Any(rule => BankEventCatalog.Find(rule.EventType)?.IsTimeTrigger == true))
         {
             await sweep.SweepAsync(scope, cancellationToken);
+        }
+
+        if (caseSweep is not null && liveRules.Any(rule => rule.EventType.StartsWith("claim_", StringComparison.Ordinal)))
+        {
+            await caseSweep.SweepAsync(scope, cancellationToken);
         }
 
         var brand = await brands.ResolveAsync(scope, cancellationToken);
@@ -228,6 +235,13 @@ public sealed class RuleEngine(
             }
         }
 
+        // A message about a claim goes to the claimant. It is a service message about something they started, so the proof they
+        // may be messaged is the agreement on their record or that they wrote to us on WhatsApp.
+        if (item.EventType.StartsWith("claim_", StringComparison.Ordinal))
+        {
+            return await DecideClaimNoticeAsync(scope, rule, item, brand, demonstration, now, gates, history, cancellationToken);
+        }
+
         // The person
         var lead = await leads.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, item.Phone, cancellationToken);
         if (!Gate("Known customer", lead is not null, lead is null ? "No customer record for this phone number in this workspace." : "Found on the customer list."))
@@ -382,6 +396,99 @@ public sealed class RuleEngine(
         Gate("Template and delivery", false, sendResult.Reason ?? "The message was not sent.");
         return Done(DecisionOutcome.Blocked, sendResult.Reason ?? "The message was not sent.", cover: cover, lead: leadId, name: name);
     }
+
+    private async Task<RuleDecision> DecideClaimNoticeAsync(
+        TenantScope scope, OutreachRule rule, WorkspaceEvent item, KatoBrand brand, bool demonstration, DateTimeOffset now, List<DecisionGate> gates,
+        IEnumerable<RuleDecision> history, CancellationToken cancellationToken)
+    {
+        var reference = item.Details.GetValueOrDefault("claim_reference") ?? "the claim";
+        RuleDecision Done(DecisionOutcome outcome, string reason, DateTimeOffset? notBefore = null, string? lead = null, string? name = null, string? messageId = null) =>
+            new($"{item.EventId}:{rule.RuleId}", rule.RuleId, rule.Name, rule.Version, item.EventId, item.EventType, item.Phone, lead, name ?? item.Details.GetValueOrDefault("customer_name"),
+                gates, outcome, reason, now, notBefore, $"Claim {reference}", brand.Organisation, rule.TemplateName, messageId, Kind: "notice");
+
+        var lead = await leads.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, item.Phone, cancellationToken);
+        var leadAgreed = lead?.Consent?.Status == ContactConsentStatus.Agreed;
+        var declined = lead?.Consent?.Status is ContactConsentStatus.Declined or ContactConsentStatus.Withdrawn;
+        var current = consents is null ? null : await consents.GetCurrentAsync(scope, item.Phone, InsuranceIntelligence.Domain.Compliance.ConsentPurposes.WhatsApp, cancellationToken);
+        var wroteToUs = InsuranceIntelligence.Domain.Compliance.ConsentEnforcementGuard.IsPermitted(current);
+        var allowed = !declined && (leadAgreed || wroteToUs);
+        gates.Add(new DecisionGate("May be messaged", allowed,
+            allowed ? (leadAgreed ? "An agreement to be contacted is on record." : "They wrote to us on WhatsApp about this.")
+                : declined ? "They asked not to be contacted." : "No agreement to be contacted, and they have not written to us on WhatsApp."));
+        if (!allowed)
+        {
+            return Done(DecisionOutcome.Skipped, declined ? "They asked not to be contacted." : "There is no agreement to message them.", lead: lead?.LeadId, name: lead?.CustomerName);
+        }
+
+        var due = item.OccurredAt.AddDays(rule.WaitDays);
+        gates.Add(new DecisionGate("Waited long enough", due <= now, due <= now ? "Nothing to wait for." : $"Due on {(due + EastAfrica):d MMM yyyy HH:mm}."));
+
+        if (due > now)
+        {
+            return Done(DecisionOutcome.Scheduled, $"Waiting until {(due + EastAfrica):d MMM yyyy}.", due, lead?.LeadId, lead?.CustomerName);
+        }
+
+        var local = now + EastAfrica;
+        var inHours = local.Hour >= rule.Hours.FromHour && local.Hour < rule.Hours.ToHour;
+        gates.Add(new DecisionGate("Inside sending hours", inHours, $"{rule.Hours.FromHour:00}:00 to {rule.Hours.ToHour:00}:00 East Africa time; it is {local:HH:mm}."));
+        if (!inHours)
+        {
+            var next = NextWindow(now, rule.Hours.FromHour);
+            return Done(DecisionOutcome.Scheduled, $"Outside sending hours; will go at {(next + EastAfrica):d MMM HH:mm}.", next, lead?.LeadId, lead?.CustomerName);
+        }
+
+        var sentToday = history.Count(decision => decision.RuleId == rule.RuleId && decision.WentOut && (decision.DecidedAt + EastAfrica).Date == (now + EastAfrica).Date);
+        gates.Add(new DecisionGate("Within the daily limit", sentToday < rule.Limits.DailyLimit, $"{sentToday} of {rule.Limits.DailyLimit} sent today."));
+        if (sentToday >= rule.Limits.DailyLimit)
+        {
+            var next = NextWindow(now.AddDays(1), rule.Hours.FromHour);
+            return Done(DecisionOutcome.Scheduled, "The daily limit has been reached; will go tomorrow.", next, lead?.LeadId, lead?.CustomerName);
+        }
+
+        var template = await templates.GetAsync(scope, rule.TemplateName, rule.Language, cancellationToken)
+            ?? await templates.GetAsync(scope, rule.TemplateName, DefaultTemplates.Language, cancellationToken);
+        if (template is null)
+        {
+            gates.Add(new DecisionGate("Template", false, $"There is no template called {rule.TemplateName}."));
+            return Done(DecisionOutcome.Blocked, $"There is no template called {rule.TemplateName}.", lead: lead?.LeadId, name: lead?.CustomerName);
+        }
+
+        var values = template.Parameters.Select(parameter => parameter switch
+        {
+            "customer_name" => item.Details.GetValueOrDefault("customer_name") ?? "there",
+            "organisation" => brand.ShortName,
+            _ => item.Details.GetValueOrDefault(parameter) ?? string.Empty,
+        }).ToArray();
+        var basis = leadAgreed ? $"Agreed to be contacted on {lead!.Consent!.At:yyyy-MM-dd} ({lead.Consent.Channel})" : "The claimant wrote to us on WhatsApp about this claim";
+        var result = await messages.SendAsync(
+            scope,
+            new TemplateSendRequest(rule.TemplateName, rule.Language, item.Phone, values, $"rule:{rule.RuleId}", basis, $"rule:{rule.RuleId}:{item.EventId}", $"rule:{rule.RuleId}"),
+            cancellationToken);
+        if (result.Sent)
+        {
+            gates.Add(new DecisionGate("Template and delivery", true, $"Sent the approved template {rule.TemplateName}."));
+            await RememberClaimAsync(scope, rule, item, brand, result.Text!, demonstration: false, now, cancellationToken);
+            return Done(DecisionOutcome.Sent, $"Told them about {reference} by WhatsApp.", lead: lead?.LeadId, name: lead?.CustomerName, messageId: result.MessageId?.ToString("N"));
+        }
+
+        if (demonstration && IsNotLive(result.Reason) && TryRender(template, values) is { } text)
+        {
+            var messageId = await RecordDemoMessageAsync(scope, item.Phone, text, rule, now, cancellationToken);
+            gates.Add(new DecisionGate("Template and delivery", true, $"Not delivered to a phone ({result.Reason}). Recorded as it would have been sent."));
+            await RememberClaimAsync(scope, rule, item, brand, text, demonstration: true, now, cancellationToken);
+            return Done(DecisionOutcome.DemoSent, $"Shown as sent about {reference}. Not delivered to a phone.", lead: lead?.LeadId, name: lead?.CustomerName, messageId: messageId);
+        }
+
+        gates.Add(new DecisionGate("Template and delivery", false, result.Reason ?? "The message was not sent."));
+        return Done(DecisionOutcome.Blocked, result.Reason ?? "The message was not sent.", lead: lead?.LeadId, name: lead?.CustomerName);
+    }
+
+    private Task RememberClaimAsync(TenantScope scope, OutreachRule rule, WorkspaceEvent item, KatoBrand brand, string text, bool demonstration, DateTimeOffset now, CancellationToken cancellationToken) =>
+        log.SaveReasonAsync(
+            scope,
+            new ConversationReason(item.Phone, rule.RuleId, rule.Name, item.EventType, BankEventCatalog.Find(item.EventType)?.Label ?? item.EventType,
+                $"Claim {item.Details.GetValueOrDefault("claim_reference")}", brand.Organisation, rule.TemplateName, text, now, demonstration),
+            cancellationToken);
 
     private static string? TryRender(MessageTemplate template, string[] values)
     {

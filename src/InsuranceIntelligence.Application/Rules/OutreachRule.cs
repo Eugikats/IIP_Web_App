@@ -93,6 +93,6 @@ public static class RuleValues
 {
     public static readonly IReadOnlySet<string> ForEvents = new HashSet<string>(StringComparer.Ordinal)
     {
-        "customer_name", "organisation", "bank_relationship", "cover_name", "product", "policy_number", "end_date", "due_date", "amount",
+        "customer_name", "organisation", "bank_relationship", "cover_name", "product", "policy_number", "end_date", "due_date", "amount", "claim_reference", "documents_needed", "status",
     };
 }

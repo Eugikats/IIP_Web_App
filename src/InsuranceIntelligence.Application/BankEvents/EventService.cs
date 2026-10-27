@@ -229,7 +229,7 @@ public sealed class EventService(IWorkspaceRecordStore store, TimeProvider clock
         {
             if (WorkspaceEvent.AllowedDetails.Contains(key) && !string.IsNullOrWhiteSpace(value))
             {
-                details[key] = Short(value, key.Replace('_', ' '));
+                details[key] = Clip(value);
             }
         }
 
@@ -276,6 +276,12 @@ public sealed class EventService(IWorkspaceRecordStore store, TimeProvider clock
     {
         var key = $"{type}|{phone}|{occurred:yyyy-MM-dd}|{externalId?.Trim()}";
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)))[..24].ToLowerInvariant();
+    }
+
+    private static string Clip(string value)
+    {
+        var clean = string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return clean.Length <= 200 ? clean : clean[..197] + "...";
     }
 
     private static string Short(string value, string what)

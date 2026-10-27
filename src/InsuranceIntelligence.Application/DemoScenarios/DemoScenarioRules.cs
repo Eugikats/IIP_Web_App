@@ -42,6 +42,9 @@ public static class DemoScenarioRules
             Draft("Renewal reminder, 30 days before", "policy_ending_30", 0, "renewal_30_days", new RuleConditions(), LinesOf(scenario)),
             Draft("Renewal reminder, 7 days before", "policy_ending_7", 0, "renewal_7_days", new RuleConditions(), LinesOf(scenario)),
             Draft("Win-back after a lapse", "policy_lapsed", 0, "policy_lapsed", new RuleConditions(), LinesOf(scenario)),
+            Draft("Chase missing claim papers", "claim_documents_needed", 0, "claim_documents_needed", new RuleConditions()),
+            Draft("Tell the claimant their claim arrived", "claim_received", 0, "claim_received", new RuleConditions()),
+            Draft("Tell the claimant where their claim is", "claim_status_update", 0, "claim_status_update", new RuleConditions()),
         ],
         _ => [],
     };
