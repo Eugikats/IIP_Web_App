@@ -59,6 +59,37 @@ public sealed class OrganisationOnboardingTests : IDisposable
     }
 
     [Fact]
+    public async Task WithTheProfileService_TheChecklistAsksForTheProfileAndTheTermsRightAfterSignUp_AndTicksThemOnlyWhenTheyExist()
+    {
+        var profile = new CompanyProfileService(new EfWorkspaceRecordStore(db), TimeProvider.System);
+        var repository = new EfOrganisationRepository(db);
+        var seeder = new DemoSeedService(
+            cases, new InMemoryCaseDocumentRepository(), new InMemoryApprovalRepository(), new InMemoryAuditRepository(), new InMemoryCustomerRepository(),
+            new InMemoryPolicyRepository(), new InMemoryCoverageRepository(), new InMemoryBranchRepository(), new InMemoryProducerRepository(), products);
+        var withProfile = new OrganisationOnboardingService(
+            repository, whatsApp, products, new InMemoryKnowledgeDocumentRepository(), cases, new EfTenantMembershipWriter(db), seeder, profile);
+        var acme = await organisations.CreateAsync("owner", "Acme Assurance", OrganisationType.Insurer, "c");
+
+        var fresh = await withProfile.ChecklistAsync(acme.OrganisationId);
+
+        Assert.Equal(["organisation", "profile", "terms"], fresh.Steps.Take(3).Select(step => step.Key).ToArray());
+        Assert.Equal(8, fresh.Total);
+        Assert.False(fresh.Steps.Single(step => step.Key == "profile").Done);
+        Assert.False(fresh.Steps.Single(step => step.Key == "terms").Done);
+
+        await profile.SaveProfileAsync(
+            acme.Scope,
+            new CompanyProfile("Acme Assurance Limited", null, LicenceKind.Insurer, "IRA/INS/0001", "", "", "Owner", "owner@acme.example", null, null,
+                "Acme Assurance sells motor and medical cover to businesses in Kampala.", DateTimeOffset.UnixEpoch, "x"),
+            "owner");
+        await profile.AcceptAsync(acme.Scope, "owner", "Owner Person", "Director", true, CompanyProfileService.CurrentTermsVersion, CompanyProfileService.CurrentDataProcessingVersion);
+
+        var done = await withProfile.ChecklistAsync(acme.OrganisationId);
+        Assert.True(done.Steps.Single(step => step.Key == "profile").Done);
+        Assert.True(done.Steps.Single(step => step.Key == "terms").Done);
+    }
+
+    [Fact]
     public async Task TheSandbox_IsASeparateWorkspaceFilledOnce_AndNeverVisitedByScheduledJobs()
     {
         var acme = await organisations.CreateAsync("owner", "Acme Assurance", OrganisationType.Insurer, "c");

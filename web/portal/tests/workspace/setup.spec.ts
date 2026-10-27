@@ -1,0 +1,68 @@
+import { expect, test } from "@playwright/test";
+
+const API = "http://localhost:5167";
+let organisationId = "";
+
+test.beforeAll(async ({ request }) => {
+  const activated = await request.post(`${API}/api/v1/demo/scenarios/mavuno-bank/activate`, {
+    headers: { "x-demo-role": "Admin", "X-User-Id": `spec-setup-${Date.now()}`, "Content-Type": "application/json", "X-Tenant-Id": "tenant-demo", "X-Workspace-Id": "workspace-operations" },
+  });
+  expect(activated.ok()).toBeTruthy();
+  organisationId = (await activated.json()).organisationId;
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(([org]) => {
+    window.localStorage.setItem("iip.active-organisation-id", org);
+    window.localStorage.setItem("iip.active-workspace-id", "main");
+  }, [organisationId]);
+});
+
+test("the profile and the terms are asked for, checked, and ticked only once they exist", async ({ page }) => {
+  await page.goto("/app/admin/setup");
+  await expect(page.getByRole("heading", { name: "Set up your organisation", level: 1 })).toBeVisible();
+
+  const steps = page.getByRole("list", { name: "Set-up steps" });
+  const profileStep = steps.getByRole("listitem").filter({ hasText: "Tell us about your organisation" });
+  const termsStep = steps.getByRole("listitem").filter({ hasText: "Accept the terms and the data processing agreement" });
+  await expect(profileStep).toContainText("Not done yet");
+  await expect(termsStep).toContainText("Not done yet");
+
+  const profile = page.getByRole("form", { name: "About your organisation" });
+  await profile.getByLabel("Registered name").fill("Mavuno Bank Limited");
+  await profile.getByLabel("What kind of licence").selectOption("BancassuranceDistributor");
+  await profile.getByLabel("Licence or registration number").fill("??");
+  await profile.getByLabel("Contact person").fill("Aisha Namutebi");
+  await profile.getByLabel("Contact email").fill("aisha@mavuno.example");
+  await profile.getByLabel("About you").fill("Mavuno Bank serves salaried workers and small traders across Uganda and sells insurance from its partner insurers.");
+  await profile.getByRole("button", { name: "Save the profile" }).click();
+  await expect(profile.getByRole("alert")).toContainText("licence or registration number");
+
+  await profile.getByLabel("Licence or registration number").fill("IRA/BA/0042");
+  await profile.getByRole("button", { name: "Save the profile" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "profile was saved" })).toBeVisible();
+  await expect(profileStep).toContainText("Done");
+  await expect(termsStep).toContainText("Not done yet");
+
+  const terms = page.getByRole("form", { name: "Accept the terms" });
+  await expect(terms.getByRole("button", { name: "Accept for the organisation" })).toBeDisabled();
+  await terms.getByLabel("Your full name").fill("Aisha Namutebi");
+  await terms.getByLabel("Your position").fill("Managing Director");
+  await terms.getByLabel(/I am authorised to accept/).check();
+  await terms.getByRole("button", { name: "Accept for the organisation" }).click();
+
+  await expect(page.getByText(/Accepted by Aisha Namutebi, Managing Director/)).toBeVisible();
+  // What was saved is what comes back after a reload.
+  await page.reload();
+  await expect(profile.getByLabel("What kind of licence")).toHaveValue("BancassuranceDistributor");
+  await expect(profile.getByLabel("Licence or registration number")).toHaveValue("IRA/BA/0042");
+  await expect(termsStep).toContainText("Done");
+  await page.screenshot({ path: `test-results/workspace/setup-${test.info().project.name}.png`, fullPage: true });
+});
+
+test("the legal documents the organisation accepts are public pages", async ({ page }) => {
+  for (const [path, heading] of [["/terms", "Terms and Conditions"], ["/privacy", "Data Privacy & Protection Policy"], ["/data-processing", "Data Processing Agreement"]] as const) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+  }
+});

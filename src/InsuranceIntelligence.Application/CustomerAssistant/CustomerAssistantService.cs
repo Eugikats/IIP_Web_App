@@ -131,7 +131,8 @@ public sealed partial class CustomerAssistantService(
     InsuranceIntelligence.Application.Billing.IAiUsageContext? usageContext = null,
     InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null,
     InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null,
-    InsuranceIntelligence.Application.Rules.OutcomeService? outcomes = null) : ICustomerAssistantService
+    InsuranceIntelligence.Application.Rules.OutcomeService? outcomes = null,
+    InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;

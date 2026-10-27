@@ -883,6 +883,9 @@ app.MapPost("/api/v1/marketplace/resolve", InsuranceIntelligence.Api.Marketplace
 app.MapPost("/api/v1/marketplace/activate", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Activate).RequireRateLimiting("marketplace");
 app.MapPost("/api/v1/marketplace/webhook", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Webhook).RequireRateLimiting("webhook");
 app.MapGet("/api/v1/organisation/onboarding", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Onboarding);
+app.MapGet("/api/v1/organisation/profile", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.GetProfile);
+app.MapPut("/api/v1/organisation/profile", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.SaveProfile);
+app.MapPost("/api/v1/organisation/terms", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.AcceptTerms);
 app.MapPost("/api/v1/organisation/sandbox", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.EnableSandbox);
 app.MapGet("/api/v1/events/catalogue", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Catalogue);
 app.MapPost("/api/v1/organisation/webhooks", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Create);

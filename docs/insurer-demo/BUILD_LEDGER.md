@@ -37,6 +37,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 - Demo customer and story (piece 11): `DemoCustomerService` adds a person to a demonstration workspace only (refused otherwise, and under protected profiles), with facts, a stated consent (agreed, never asked, declined; given 30 days ago so the story reads in order) and a loan event "days ago". The Bank events tab has "Add a demonstration customer" (visible only when `GET /api/v1/demo/status` says demonstration) with a "Fill in Eugene's details" button that leaves name and number for the real teammate. `PersonTimelineService` and the "Why this person" drawer (from a decision row or an event row) show consent, the bank event, each rule decision with every check, what went out and their reply, oldest first, from this workspace's records only. Fast-forward is not built: rehearsal uses "when it happened" choices, wait 0 in the demo rules, and policy dates relative to today. The sidebar workspace chip still shows the workspace id.
 - Conversions and results (pieces 12 and 13): a "Conversions" tab in Acquisition for staff only. `ConversionReportService` counts per insurer: offers, answers, details asked, and people converted (applied for a cover of the offered insurer, or hold a policy of that insurer that began after the offer). It holds no commission rate and says so on screen; there is no commission property anywhere. `CampaignReportService` gives results per rule (looked at, sent, shown as sent, delivered and read from WhatsApp's own state for real sends only, answered, converted, and the reasons everyone else was not messaged, which add up to the looked-at count).
 - Verification: Domain.Tests 731, Api.Tests 1688 passed, tsc clean, lint 0 errors; demo-customer.spec.ts (customer, story, conversions, results) passes at 1280 and 768. Delivered and read were tested with fake delivery states; nothing was measured against real WhatsApp.
+- Onboarding profile and terms (piece 14): the organisation's `company-profile` (registered name, licence kind and number, regulator and country defaulting to Uganda, contact, website, "about you") and `terms-acceptance` (a named person, position, an explicit "authorised" tick, and the versions shown) live in the organisation's workspace. Acceptance counts only for the versions in force (`CompanyProfileService.CurrentTermsVersion` and `CurrentDataProcessingVersion`, mirrored in `iip-data-processing-content.ts`); change either and everyone is asked again. The checklist gains "profile" and "terms" after sign-up when the service is registered. New page `/app/admin/setup` (Admin tile "Set up your organisation") with the checklist and both forms. New public page `/data-processing` with a plain data processing agreement written to match what the product does (no certifications claimed, Azure regions outside Uganda stated, WhatsApp not described as end-to-end encrypted). It has NOT been reviewed by counsel: that is on the owner's list. Kato's prompt now includes the organisation's own "about you" and licence when it exists.
+- Verification: full suite green, lint 0 errors, tsc clean; setup.spec.ts passes at 1280 and 768 (invalid licence refused, saved profile survives a reload, terms need the tick, legal pages are public).
 
 ## Piece status
 
@@ -55,8 +57,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 11 | Demo customer and timeline screens | done (no fast-forward) |
 | 12 | Conversion view for bank staff | done |
 | 13 | Campaign reporting | done |
-| 14 | Onboarding: company profile, terms, licence | next |
-| 15 | Onboarding: security screen, storage step | |
+| 14 | Onboarding: company profile, terms, licence | done |
+| 15 | Onboarding: security screen, storage step | next |
 | 16 | Extraction agent for wordings | |
 | 17 | "Here is what I found" confirm screen | |
 | 18 | Managed WhatsApp number flow | |

@@ -27,7 +27,8 @@ public sealed class OrganisationOnboardingService(
     IKnowledgeDocumentRepository knowledge,
     ICaseRepository cases,
     ITenantMembershipWriter membershipWriter,
-    DemoSeedService demoSeed)
+    DemoSeedService demoSeed,
+    CompanyProfileService? profile = null)
 {
     /// <summary>The workspace for synthetic data. Scheduled jobs and customer messaging never visit it.</summary>
     public const string SandboxWorkspace = "sandbox";
@@ -65,6 +66,20 @@ public sealed class OrganisationOnboardingService(
                 "A separate workspace of made-up claims to explore. Nothing in it reaches a real customer.",
                 sandboxLoaded, "/app/admin/sandbox"),
         };
+
+        if (profile is not null)
+        {
+            // Who the organisation is and that it accepted the terms come second, before anything is connected, because a licence and a
+            // named person who accepted are what a bank or an insurer is asked for first.
+            var hasProfile = await profile.GetProfileAsync(scope, cancellationToken) is not null;
+            var accepted = await profile.HasAcceptedCurrentAsync(scope, cancellationToken);
+            steps.Insert(1, new OnboardingStep("profile", "Tell us about your organisation",
+                "Your registered name, licence number and who to contact. Kato uses the description when customers ask who you are.",
+                hasProfile, "/app/admin/setup"));
+            steps.Insert(2, new OnboardingStep("terms", "Accept the terms and the data processing agreement",
+                "A named person accepts for the organisation. You are asked again if either document changes.",
+                accepted, "/app/admin/setup"));
+        }
 
         return new OnboardingChecklist(organisationId, steps.Count(s => s.Done), steps.Count, steps);
     }

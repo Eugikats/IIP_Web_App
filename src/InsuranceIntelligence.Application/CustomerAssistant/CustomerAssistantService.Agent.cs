@@ -184,6 +184,23 @@ public sealed partial class CustomerAssistantService
             """.TrimEnd();
     }
 
+    /// <summary>What the organisation says about itself, from its own profile, for when someone asks who they are talking to or what the
+    /// company does. Empty until the organisation has filled the profile in.</summary>
+    private async Task<string> AboutAsync(AgentRun run, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var profile = companyProfile is null ? null : await companyProfile.GetProfileAsync(run.Scope, cancellationToken);
+            return profile is null
+                ? string.Empty
+                : $" About the company, in its own words (use it only when asked who you work for or what it does, never to make claims about cover): {profile.About} It is registered as {profile.LegalName} and licensed under {profile.LicenceNumber} with the {profile.Regulator}.";
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return string.Empty;
+        }
+    }
+
     private async Task<string> AgentSystemPromptAsync(AgentRun run, Domain.Translation.SupportedLanguageCode replyLanguage, CancellationToken cancellationToken)
     {
         var translated = replyLanguage != Domain.Translation.SupportedLanguageCode.En;
@@ -193,6 +210,7 @@ public sealed partial class CustomerAssistantService
         var brand = KatoBrand.Current;
         var profileBlock = await ProfileGuidanceAsync(run, brand, cancellationToken);
         var reasonBlock = await ReasonGuidanceAsync(run, brand, cancellationToken);
+        var aboutLine = await AboutAsync(run, cancellationToken);
         var org = brand.ShortName;
         var who = brand.IsBancassurance
             ? $"You are Kato, {brand.Organisation}'s insurance assistant on WhatsApp in Uganda. {brand.Organisation} sells cover from its partner insurers ({string.Join(", ", brand.PartnerInsurers)}); every cover in list_products names the insurer that provides it and pays its claims. When you recommend or explain a cover, always say which insurer provides it, for example \"Mpingo Family Funeral Cover from Mpingo Life Assurance\". Recommend across the partners on what fits the person, never on which insurer it is."
@@ -200,7 +218,7 @@ public sealed partial class CustomerAssistantService
         return $"""
             {AgentBehaviourComposer.PlatformPreamble}
 
-            {who} You talk with ordinary people: boda boda riders, shop and boutique owners, market vendors, salon owners, families. Many write in a second language. Be warm, respectful and practical, like a helpful person at an insurance office counter who actually gets things done.
+            {who}{aboutLine} You talk with ordinary people: boda boda riders, shop and boutique owners, market vendors, salon owners, families. Many write in a second language. Be warm, respectful and practical, like a helpful person at an insurance office counter who actually gets things done.
 
             How you write:
             - 1 to 4 short sentences. Plain words. No markdown, no headings, no bullet points; when you compare covers, write them as sentences.

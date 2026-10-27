@@ -14,6 +14,10 @@ public sealed record InviteRequest(string? Email, string? Role);
 public sealed record AcceptInvitationRequest(string? Token);
 public sealed record LinkRequest(string? OrganisationId);
 public sealed record CloseRequest(string? ConfirmName);
+public sealed record ProfileRequest(
+    string? LegalName, string? TradingName, string? LicenceKind, string? LicenceNumber, string? Regulator, string? Country,
+    string? ContactName, string? ContactEmail, string? ContactPhone, string? Website, string? About);
+public sealed record AcceptTermsRequest(string? FullName, string? Title, bool Authorised, string? TermsVersion, string? DataProcessingVersion);
 
 /// <summary>
 /// Sign-up, invitations, and broker/insurer links. Creating an organisation and accepting an
@@ -175,6 +179,73 @@ public static class OrganisationEndpoints
     public static Task<IResult> Onboarding(
         OrganisationOnboardingService service, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
         Admin(httpContext, options, async (organisationId, _) => Results.Ok(await service.ChecklistAsync(organisationId, cancellationToken)));
+
+    private static object? DescribeProfile(InsuranceIntelligence.Application.Organisations.CompanyProfile? profile) => profile is null ? null : new
+    {
+        profile.LegalName, profile.TradingName, licenceKind = profile.LicenceKind.ToString(), profile.LicenceNumber, profile.Regulator, profile.Country,
+        profile.ContactName, profile.ContactEmail, profile.ContactPhone, profile.Website, profile.About, profile.UpdatedAt, profile.UpdatedBy,
+    };
+
+    public static Task<IResult> GetProfile(
+        InsuranceIntelligence.Application.Organisations.CompanyProfileService service, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, _) =>
+        {
+            var scope = InsuranceIntelligence.Domain.Common.TenantScope.Create(organisationId, Organisation.DefaultWorkspace);
+            var accepted = await service.GetAcceptanceAsync(scope, cancellationToken);
+            return Results.Ok(new
+            {
+                profile = DescribeProfile(await service.GetProfileAsync(scope, cancellationToken)),
+                acceptance = accepted,
+                acceptedCurrent = await service.HasAcceptedCurrentAsync(scope, cancellationToken),
+                termsVersion = InsuranceIntelligence.Application.Organisations.CompanyProfileService.CurrentTermsVersion,
+                dataProcessingVersion = InsuranceIntelligence.Application.Organisations.CompanyProfileService.CurrentDataProcessingVersion,
+            });
+        });
+
+    public static Task<IResult> SaveProfile(
+        ProfileRequest request, InsuranceIntelligence.Application.Organisations.CompanyProfileService service, InfrastructureOptions options,
+        HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, userId) =>
+        {
+            if (!Enum.TryParse<InsuranceIntelligence.Application.Organisations.LicenceKind>(request.LicenceKind, ignoreCase: true, out var kind))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["licenceKind"] = ["Say what kind of licence it is."] });
+            }
+
+            try
+            {
+                var scope = InsuranceIntelligence.Domain.Common.TenantScope.Create(organisationId, Organisation.DefaultWorkspace);
+                var saved = await service.SaveProfileAsync(
+                    scope,
+                    new InsuranceIntelligence.Application.Organisations.CompanyProfile(
+                        request.LegalName ?? string.Empty, request.TradingName, kind, request.LicenceNumber ?? string.Empty, request.Regulator ?? string.Empty,
+                        request.Country ?? string.Empty, request.ContactName ?? string.Empty, request.ContactEmail ?? string.Empty, request.ContactPhone, request.Website,
+                        request.About ?? string.Empty, DateTimeOffset.UtcNow, userId),
+                    userId, cancellationToken);
+                return Results.Ok(DescribeProfile(saved));
+            }
+            catch (InsuranceIntelligence.Application.Organisations.CompanyProfileException problem)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["profile"] = [problem.Message] });
+            }
+        });
+
+    public static Task<IResult> AcceptTerms(
+        AcceptTermsRequest request, InsuranceIntelligence.Application.Organisations.CompanyProfileService service, InfrastructureOptions options,
+        HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, userId) =>
+        {
+            try
+            {
+                var scope = InsuranceIntelligence.Domain.Common.TenantScope.Create(organisationId, Organisation.DefaultWorkspace);
+                return Results.Ok(await service.AcceptAsync(
+                    scope, userId, request.FullName, request.Title, request.Authorised, request.TermsVersion, request.DataProcessingVersion, cancellationToken));
+            }
+            catch (InsuranceIntelligence.Application.Organisations.CompanyProfileException problem)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["terms"] = [problem.Message] });
+            }
+        });
 
     public static Task<IResult> EnableSandbox(
         OrganisationOnboardingService service, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>

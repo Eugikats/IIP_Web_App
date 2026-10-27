@@ -629,6 +629,28 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
+    public async Task TheAgent_KnowsWhoItWorksFor_FromTheOrganisationsOwnProfile_AndSaysNothingWhenThereIsNone()
+    {
+        var store = OutcomeStore();
+        var profile = new InsuranceIntelligence.Application.Organisations.CompanyProfileService(store, TimeProvider.System);
+        await profile.SaveProfileAsync(
+            TenantScope.Create("tenant-ca", "workspace-ca"),
+            new InsuranceIntelligence.Application.Organisations.CompanyProfile(
+                "Mavuno Bank Limited", "Mavuno Bank", InsuranceIntelligence.Application.Organisations.LicenceKind.BancassuranceDistributor, "IRA/BA/0042", "", "",
+                "Aisha", "aisha@mavuno.example", null, null, "Mavuno Bank serves salaried workers and small traders across Uganda.", DateTimeOffset.UnixEpoch, "x"),
+            "admin");
+        var withProfile = new ScriptedAgentModel().Says("Hello.");
+        var without = new ScriptedAgentModel().Says("Hello.");
+
+        await Fixture.Create(agent: withProfile, companyProfile: profile).HandleFromAsync("Hi", "256790000900");
+        await Fixture.Create(agent: without).HandleFromAsync("Hi", "256790000901");
+
+        Assert.Contains("Mavuno Bank serves salaried workers", withProfile.Conversations[0][0].Content!);
+        Assert.Contains("licensed under IRA/BA/0042", withProfile.Conversations[0][0].Content!);
+        Assert.DoesNotContain("About the company, in its own words", without.Conversations[0][0].Content!);
+    }
+
+    [Fact]
     public async Task TheAgent_IgnoresAReasonThatIsTooOld_OrBelongsToAnotherNumber()
     {
         var (oldLog, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddDays(-30));
@@ -1637,7 +1659,8 @@ public sealed partial class CustomerAssistantServiceTests
             IVoiceNoteSpeaker? speaker = null,
             IToolCallingChatProvider? agent = null,
             InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null,
-            bool stopHandling = false)
+            bool stopHandling = false,
+            InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -1692,6 +1715,7 @@ public sealed partial class CustomerAssistantServiceTests
                 agent,
                 insightsQueue,
                 decisionLog: decisionLog,
+                companyProfile: companyProfile,
                 outcomes: stopHandling ? new InsuranceIntelligence.Application.Rules.OutcomeService(OutcomeStore(), decisionLog ?? new InsuranceIntelligence.Application.Rules.DecisionLog(OutcomeStore()), salesLeads, consent) : null);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
