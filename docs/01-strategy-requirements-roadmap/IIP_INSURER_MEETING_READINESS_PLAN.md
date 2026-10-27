@@ -223,7 +223,7 @@ Long lead items first, because they depend on other people:
 | Build 6 | Polish the claim-by-WhatsApp path and the claim identity check | Build |
 | Before each meeting | Full rehearsal on a clean workspace, with a fallback if the network or WhatsApp fails | Both |
 
-If time is short, the order of value for the meetings is: 1 (templates and sending), 3 (demo customer and timeline), 2 (rules), then 4 (onboarding with the extraction agent), then 5.
+Everything above is built; the dependency order is in section 15.
 
 ## 9. Questions for you
 
@@ -399,3 +399,160 @@ Add to the questions for you:
 10. For bancassurance, should "life" mean Mpingo Life and "general" Kifaru General, as the partners are set up today?
 11. For the first-touch demo, which bank facts will you enter for Eugene: products held, a loan, salary, savings? I would keep it to two or three, so the story is easy to follow.
 12. Do you want the bank first-touch to need a person's approval of the message each time, or a rule approved once (as in section 3.3)? For a bank demo I would show the rule approved once.
+
+---
+
+# Addendum 2 (2026-10-27): bancassurance as an agent, "how do we know it is time", and the full ordered build
+
+Decisions from your note: **everything gets built** (so the plan is one full ordered build, section 15). The three scenario names stay as proposed. A rule approved once is the way to run outreach.
+
+## 14. How we know it is time to reach out to someone
+
+### 14.1 What bancassurance means for the design
+
+A bank in bancassurance is an **agent or distributor for insurers**. It does not underwrite and it does not pay claims. It sells cover on behalf of partner insurers and earns commission. A bank usually sells **life, general, or both**. This changes four things in IIP:
+
+- The **Mavuno Bank scenario sells both** life and general covers from its partners. Kato always names the insurer who provides and pays for each cover (it already does).
+- **Commission must never decide the ranking.** If the bank earns more on one insurer's cover, the temptation is to push it. The fit ranking cannot see commission, and Kato tells a customer who asks that the bank earns a commission from the insurer. This is both fair and, I expect, a regulatory expectation. Please confirm the exact disclosure rules for bancassurance with counsel and the IRA, because I have not verified them.
+- Staff get a **commission and conversion view** (applications, policies, commission earned by insurer), shown to bank staff only and never to the customer.
+- The bank's **licensing and agency agreement** with each insurer sits behind everything. We should have a place to record which insurer a bank may sell for, and which lines.
+
+### 14.2 The core idea: triggers are events, not guesses
+
+The system cannot know "this customer just did something at the bank" unless the bank tells it. So the mechanism is:
+
+1. **Events come in.** Each is a small record: who (customer id and phone), what happened (event type), when, and a few safe details (product code, amount band). Not balances, and not transaction lists.
+2. **Rules listen for events.** Each rule says "when this event happens, offer this".
+3. **Every event is checked against the rules**, then through the same gates as any outreach: consent, not already covered, not contacted recently, sending hours, no open complaint.
+4. **A decision is recorded either way** ("considered Eugene, sent" or "considered Eugene, skipped because he declined marketing"). That log is the compliance answer and the demo timeline.
+
+### 14.3 What counts as "a recent action in the bank" (events and the offer they suggest)
+
+| Event from the bank | Reason it matters | Offer it suggests (life or general) | Suggested timing |
+|---|---|---|---|
+| Loan disbursed | A debt now exists that a family could inherit | **Credit life** (Loan Protector), life | 2 to 3 days after disbursement |
+| Vehicle or equipment loan disbursed | The bank financed an asset at risk | **Motor or equipment cover**, general | Before first use, within 2 days |
+| Business loan or working-capital loan | Stock and premises are at risk | **Shop and stock cover**, general | 3 days after |
+| Salary account opened or first salary credited | A new earner with dependants | **Funeral or personal accident cover**, life | 7 days after |
+| School-fees payment or a school-fees loan | Education is the family's biggest cost | **School fees protector**, life | Two weeks before term |
+| Savings reaches a milestone or a standing order starts | Building savings | **Education or endowment**, life | Same week |
+| Loan nearly repaid or fully repaid | A natural moment to talk | A new cover, or a thank you and a new offer | At repayment |
+| Mortgage taken | Large debt and an asset | **Mortgage life** (life) and **property cover** (general) | Within a week |
+| An insured policy nearing expiry (general) | Renewal | Renewal reminder | 30 and 7 days before |
+| A premium missed (life) | Risk of lapse | Payment reminder, then reinstatement | Day 3, then day 10 |
+
+For the demo, I would use three: **loan disbursed**, **salary account opened**, **school-fees payment**.
+
+### 14.4 How the bank tells us (three routes)
+
+| Route | How | Realistic when |
+|---|---|---|
+| **A. A person records it** | An "Record a bank event" form: pick the customer, the event, the date | The demo, and a bank's first pilot |
+| **B. A file** | The bank drops a daily file of events (one row per event) in a folder IIP can read, or uploads it. IIP already has connected folders and list import to build on | The first real step: most banks can produce a daily extract, and it needs little IT work |
+| **C. A live feed** | The bank's system calls IIP when an event happens, or IIP reads an events API | Later, once their IT agrees. Larger banks will ask for this |
+
+Start with A for the demo and B as the real pilot path. Say plainly in the meeting that C is the target and needs the bank's IT.
+
+### 14.5 What a rule looks like (approved once)
+
+A person at the bank (or at IIP for the demo) approves a rule once. It has these parts:
+
+| Part | Example for Eugene |
+|---|---|
+| Name | "Loan Protector after a salary loan" |
+| **When** (the event) | A loan is disbursed |
+| **Only if** (conditions) | Loan amount is UGX 2 million or more, term 12 months or more |
+| **Who** (audience) | Has agreed to be contacted by the bank about insurance, does not already hold the cover, is a Mavuno customer |
+| **Wait** | 2 days after the event (0 for the demo) |
+| **Offer** | The best-fit cover among the allowed covers (here: credit life), or one fixed cover |
+| **Opener** | Template `bank_cover_intro` |
+| **Hours** | 09:00 to 18:00 East Africa time |
+| **Never more than** | One offer per person in 30 days, and the same cover only once in 90 days |
+| **Stop when** | They say no, reply STOP, raise a complaint, or already have the cover |
+| **Follow-up** | One gentle nudge after 3 days of silence, then nothing |
+| **Daily limit** | For example 50 people a day, so a big file does not trip WhatsApp's limits |
+| **Approved by** | Name and date, kept in the audit trail |
+
+The person approves the **rule and the wording**, not each message. Changing any part makes it need approval again.
+
+### 14.6 Time-based triggers work alongside
+
+Not everything is an event from the bank. Some are dates already in the data: a policy expiring, a premium due, a claim waiting for documents, a prospect gone quiet. A daily sweep (the retention watch already does this for policies) turns those into the same kind of trigger, so one rules engine handles both.
+
+### 14.7 The decision log
+
+Every time an event or date arrives, IIP records, for each person considered: what triggered it, which rule, each gate and whether it passed, and the outcome (sent, or skipped with the reason). Staff can open it per person ("Why did Eugene get this?") and per rule ("Who got it and who did not, and why not"). It is what a compliance officer will ask for first.
+
+### 14.8 Eugene's guessed facts for the demo
+
+Because you said I can guess them. These are made up for the demo and should be entered for a real, consenting teammate (rename as needed):
+
+| Fact | Value |
+|---|---|
+| Name | Eugene K. (use your teammate's real first name) |
+| Bank | Mavuno Bank, Ntinda branch |
+| Products held | Salary account, savings account, salary loan |
+| Salary | About UGX 2.4 million a month |
+| Loan | UGX 8 million, 36 months, disbursed 2 days ago |
+| Dependants | 2 children |
+| Work | Employed, office job |
+| Consent | Agreed to be contacted by the bank about insurance, recorded with a date |
+| Cover held | None |
+
+What the system would then do: the **loan disbursed** event arrives, the rule matches, the consent and "no cover held" gates pass, credit life ranks first among eligible covers, and `bank_cover_intro` goes out. After he taps "Yes, show me", Kato sends the benefits and price, and handles questions.
+
+### 14.9 The demo controls
+
+- **Record a bank event** (the form for route A), with a "pretend this was 2 days ago" option.
+- **Rules** screen: the rule in 14.5 as a readable card, an approve button, and a pause button.
+- **Why this person** timeline: every step of the decision, then the conversation.
+- **Switch scenario** (section 10).
+
+## 15. The full ordered build
+
+Everything below is built, in this order, because each step needs the one before. Nothing is optional or cut for time; the order is by dependency, with the long-lead items outside the build running alongside.
+
+### Alongside the build (people and approvals, not code)
+
+| Task | Who |
+|---|---|
+| Submit templates 1, 2, 5, 6, 8 and `bank_cover_intro` to Meta; confirm the demo number, business verification, display name | You |
+| Microsoft and Google app registrations (`OWNER_SETUP_GOOGLE_MICROSOFT.md`) | You |
+| Security one-pager checked by counsel | You and counsel |
+| Counsel's view on bancassurance disclosure, commission, and marketing consent | You and counsel |
+| Real sample wordings from the insurers, or public ones | You |
+
+### The build
+
+| # | Piece | Depends on | What it delivers |
+|---|---|---|---|
+| 1 | **Per-workspace brand and scenario settings** | none | Kato, outreach and fixed texts read the brand from the workspace, not a startup setting |
+| 2 | **Demo scenarios and the switch**: Mavuno Bank, Nile Life, Nile General, each with wordings, customers, policies with dates relative to today, consent | 1 | One click between worlds, clearly labelled as demonstration |
+| 3 | **Template catalogue**: name, language, category, status, parameters, which rule uses it; sending uses it outside the 24-hour window | none | Messages no longer blocked for lack of a template |
+| 4 | **Events**: an event store, the "Record a bank event" form, and a file import using connected folders | 2 | The input side of triggers |
+| 5 | **Rules engine** with the parts in 14.5, approval once, pause, limits, and the decision log | 3, 4 | Outreach that runs itself within an approved rule |
+| 6 | **Reason carried into the conversation**: the thread knows it began from "loan protector offer" or "renewal" | 5 | Kato answers a reply knowing why it wrote first |
+| 7 | **Outcomes and hand-off**: renewal requested, wants a quote, not now, declined; a task for the right person with full context; STOP handling | 5, 6 | The loop closes |
+| 8 | **Bank first-touch flow**: eligibility, fit ranking without commission, suppression, `bank_cover_intro`, Kato's detail message from approved wording | 2, 3, 5, 6 | The Eugene demo |
+| 9 | **Renewal and premium flows** for the Nile scenarios (30 and 7 days, premium due, lapse and win-back) | 5, 6, 7 | The insurer demos, life and general |
+| 10 | **Document chasing and claim updates** as rules (documents needed, received, status) | 5 | Proactive claims handling |
+| 11 | **Demo customer and timeline screens**: add a demo customer, record an event, fast-forward, "why this person" | 4, 5 | The part the audience sees |
+| 12 | **Commission and conversion view** for bank staff | 8 | Applications, policies, commission by insurer |
+| 13 | **Campaign reporting**: sent, delivered, read, replied, converted, skipped and why | 5, 7 | The numbers slide, from real demo data |
+| 14 | **Onboarding: company profile, terms and data-processing acceptance, licence number** | none | A better step 1 and 2 |
+| 15 | **Onboarding: security screen and storage step**, including connecting SharePoint, OneDrive or Google Drive and the guided alternative | 14 | The reassurance screen |
+| 16 | **The extraction agent** reading wordings into products, covers, exclusions, waiting periods, premiums and claim documents, with sources and confidence | 15 | The biggest missing piece |
+| 17 | **The "here is what I found" confirm screen**, then publish | 16 | Setup in minutes |
+| 18 | **Managed WhatsApp number flow** ported from CIP: request, support queue, code by SMS or voice, enter code, register | none | "Ask us to set up your number" |
+| 19 | **Claim by WhatsApp polish and the identity check** (a code, like CIP's) | none | A strong claims demo |
+| 20 | **Security pack**: the one-pager, an architecture diagram, answers to the usual questionnaire | none | The trust slide |
+| 21 | **Rehearsal** on a clean workspace for each scenario, with fallbacks | all | A demo that works on the day |
+
+Items 1, 3, 14 and 18 have no dependencies and can start together.
+
+## 16. Updated questions
+
+1. Confirm the Eugene facts in 14.8, or give the teammate's real details (with their agreement).
+2. For route B (a daily file), is that how Mavuno-style banks usually extract data? Please tell me what the real banks have said about their systems, because it decides how real the first pilot is.
+3. Who at the bank approves a rule: marketing, compliance, or the bancassurance lead? That is the "approved by" in 14.5.
+4. For bancassurance, do we record commission rates in IIP, or only show conversions and let the bank apply its own rates?
