@@ -32,7 +32,8 @@ public sealed class RuleEngine(
     ICustomerRepository customers,
     IPolicyRepository policies,
     IWhatsAppMessageRepository messageRepository,
-    TimeProvider clock)
+    TimeProvider clock,
+    OutcomeService? outcomes = null)
 {
     private static readonly TimeSpan EastAfrica = TimeSpan.FromHours(3);
     public const string DemoNumberId = "demo-number";
@@ -90,7 +91,100 @@ public sealed class RuleEngine(
             }
         }
 
+        // Follow-ups: one gentle nudge after a stretch of silence, then nothing.
+        foreach (var offer in existing.Values.Where(decision => decision.Kind == "offer" && decision.WentOut).ToArray())
+        {
+            var rule = liveRules.FirstOrDefault(candidate => candidate.RuleId == offer.RuleId);
+            if (rule?.FollowUpAfterDays is not { } days || rule.FollowUpTemplate is null || now - offer.DecidedAt < TimeSpan.FromDays(days))
+            {
+                continue;
+            }
+
+            var id = $"{offer.DecisionId}:followup";
+            if (existing.TryGetValue(id, out var already) && already.IsFinal)
+            {
+                continue;
+            }
+
+            considered++;
+            var nudge = await FollowUpAsync(scope, rule, offer, brand, settings?.IsDemonstration == true, now, cancellationToken);
+            await log.SaveAsync(scope, nudge, cancellationToken);
+            existing[id] = nudge;
+            switch (nudge.Outcome)
+            {
+                case DecisionOutcome.Sent: sent++; break;
+                case DecisionOutcome.DemoSent: demo++; break;
+                case DecisionOutcome.Skipped: skipped++; break;
+                case DecisionOutcome.Scheduled: scheduled++; break;
+                default: blocked++; break;
+            }
+        }
+
         return new RuleRunSummary(considered, sent, demo, skipped, scheduled, blocked);
+    }
+
+    private async Task<RuleDecision> FollowUpAsync(
+        TenantScope scope, OutreachRule rule, RuleDecision offer, KatoBrand brand, bool demonstration, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var gates = new List<DecisionGate>();
+        RuleDecision Done(DecisionOutcome outcome, string reason, DateTimeOffset? notBefore = null, string? messageId = null) =>
+            offer with { DecisionId = $"{offer.DecisionId}:followup", Gates = gates, Outcome = outcome, Reason = reason, DecidedAt = now, NotBefore = notBefore, MessageId = messageId, Kind = "follow_up", TemplateName = rule.FollowUpTemplate };
+
+        var reasonRecord = await log.GetReasonAsync(scope, offer.Phone, cancellationToken);
+        var answered = reasonRecord is not null && outcomes is not null && await outcomes.HasAnsweredAsync(scope, offer.Phone, reasonRecord, cancellationToken);
+        gates.Add(new DecisionGate("Has not answered", !answered, answered ? "They answered the offer, so no nudge is needed." : $"No answer in {rule.FollowUpAfterDays} days."));
+        if (answered)
+        {
+            return Done(DecisionOutcome.Skipped, "They already answered.");
+        }
+
+        var lead = await leads.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, offer.Phone, cancellationToken);
+        var agreed = lead?.Consent?.Status == ContactConsentStatus.Agreed;
+        gates.Add(new DecisionGate("Agreed to be contacted", agreed, agreed ? "Consent is still recorded." : "Consent is no longer recorded."));
+        if (!agreed)
+        {
+            return Done(DecisionOutcome.Skipped, "They no longer agree to be contacted.");
+        }
+
+        var local = now + EastAfrica;
+        var inHours = local.Hour >= rule.Hours.FromHour && local.Hour < rule.Hours.ToHour;
+        gates.Add(new DecisionGate("Inside sending hours", inHours, $"{rule.Hours.FromHour:00}:00 to {rule.Hours.ToHour:00}:00 East Africa time; it is {local:HH:mm}."));
+        if (!inHours)
+        {
+            var next = NextWindow(now, rule.Hours.FromHour);
+            return Done(DecisionOutcome.Scheduled, $"Outside sending hours; will go at {(next + EastAfrica):d MMM HH:mm}.", next);
+        }
+
+        var template = await templates.GetAsync(scope, rule.FollowUpTemplate!, rule.Language, cancellationToken)
+            ?? await templates.GetAsync(scope, rule.FollowUpTemplate!, DefaultTemplates.Language, cancellationToken);
+        var cover = brand.Products.FirstOrDefault(product => product.Name == offer.Cover);
+        if (template is null || cover is null || lead is null)
+        {
+            gates.Add(new DecisionGate("Template", false, "The follow-up template or the cover could not be found."));
+            return Done(DecisionOutcome.Blocked, "The follow-up template or the cover could not be found.");
+        }
+
+        var values = template.Parameters.Select(parameter => ValueOf(parameter, lead, brand, cover)).ToArray();
+        var consentBasis = $"Agreed to be contacted about insurance on {lead.Consent!.At:yyyy-MM-dd} ({lead.Consent.Channel})";
+        var result = await messages.SendAsync(
+            scope,
+            new TemplateSendRequest(rule.FollowUpTemplate!, rule.Language, offer.Phone, values, $"rule:{rule.RuleId}:follow-up", consentBasis, $"rule:{rule.RuleId}:{offer.EventId}:followup", $"rule:{rule.RuleId}"),
+            cancellationToken);
+        if (result.Sent)
+        {
+            gates.Add(new DecisionGate("Template and delivery", true, $"Sent the approved template {rule.FollowUpTemplate}."));
+            return Done(DecisionOutcome.Sent, "A gentle follow-up after no answer.", messageId: result.MessageId?.ToString("N"));
+        }
+
+        if (demonstration && IsNotLive(result.Reason) && TryRender(template, values) is { } text)
+        {
+            var messageId = await RecordDemoMessageAsync(scope, offer.Phone, text, rule with { TemplateName = rule.FollowUpTemplate! }, now, cancellationToken);
+            gates.Add(new DecisionGate("Template and delivery", true, $"Not delivered to a phone ({result.Reason}). Recorded as it would have been sent."));
+            return Done(DecisionOutcome.DemoSent, "Shown as sent: a follow-up. Not delivered to a phone.", messageId: messageId);
+        }
+
+        gates.Add(new DecisionGate("Template and delivery", false, result.Reason ?? "The message was not sent."));
+        return Done(DecisionOutcome.Blocked, result.Reason ?? "The message was not sent.");
     }
 
     private async Task<RuleDecision> DecideAsync(

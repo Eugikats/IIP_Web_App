@@ -61,6 +61,7 @@ test("a rule is written, approved once, run, and every decision is in the log wi
   await expect(card.getByText(/Approved by user-1 \(Admin\)/)).toBeVisible();
   await page.screenshot({ path: `test-results/workspace/rules-${test.info().project.name}.png`, fullPage: true });
 
+  await expect(page.getByText("No one has answered an offer yet.")).toBeVisible();
   await page.getByRole("button", { name: "Run the rules now" }).click();
   await expect(page.getByRole("status").filter({ hasText: /Looked at/ })).toBeVisible();
 

@@ -9,13 +9,16 @@ import { useUI } from "@/context/UIStateContext";
 import {
   approveRule,
   getDecisions,
+  getOutcomes,
   getRules,
+  markOutcomeDone,
   pauseRule,
   resumeRule,
   ruleSentence,
   runRules,
   saveApprovalSettings,
   saveRule,
+  type OfferOutcomeView,
   type OutreachRule,
   type RuleDecision,
   type RuleForm,
@@ -29,6 +32,16 @@ const OUTCOME: Record<RuleDecision["outcome"], { label: string; tone: "success" 
   Skipped: { label: "Not sent", tone: "neutral" },
   Scheduled: { label: "Waiting", tone: "warning" },
   Blocked: { label: "Could not send", tone: "danger" },
+};
+
+const OUTCOME_KIND: Record<OfferOutcomeView["kind"], string> = {
+  Replied: "Replied",
+  Interested: "Asked for details",
+  NotNow: "Said not now",
+  Declined: "Said no thanks",
+  RenewalRequested: "Asked to renew",
+  Stopped: "Said stop. No more messages will be sent",
+  Applied: "Took the cover",
 };
 
 const EMPTY: RuleForm = {
@@ -75,6 +88,7 @@ export default function RulesTab() {
 
   const [overview, setOverview] = useState<RulesOverview | null>(null);
   const [decisions, setDecisions] = useState<RuleDecision[]>([]);
+  const [outcomes, setOutcomes] = useState<OfferOutcomeView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
@@ -89,7 +103,7 @@ export default function RulesTab() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const [rules, log] = await Promise.all([getRules(role), getDecisions(role, outcomeFilter || undefined)]);
+    const [rules, log, replies] = await Promise.all([getRules(role), getDecisions(role, outcomeFilter || undefined), getOutcomes(role)]);
     setLoading(false);
     if (!rules.ok) {
       setForbidden(rules.forbidden);
@@ -98,6 +112,7 @@ export default function RulesTab() {
     }
     setOverview(rules.value);
     if (log.ok) setDecisions(log.value);
+    if (replies.ok) setOutcomes(replies.value);
   }, [role, outcomeFilter]);
 
   useEffect(() => {
@@ -142,6 +157,7 @@ export default function RulesTab() {
           { label: "Drafts waiting for approval", value: String(waiting) },
           { label: "Offers sent", value: String(decisions.filter((item) => item.outcome === "Sent" || item.outcome === "DemoSent").length) },
           { label: "Considered and not sent", value: String(decisions.filter((item) => item.outcome === "Skipped").length) },
+          { label: "Replies waiting for a person", value: String(outcomes.filter((item) => item.needsPerson && !item.done).length) },
         ]}
       />
 
@@ -294,6 +310,38 @@ export default function RulesTab() {
             ))}
           </ul>
         </ReportState>
+      </TableCard>
+
+      <TableCard title="Replies" subtitle="How people answered an offer. A person who asked for details or to renew is waiting for someone on the team.">
+        {outcomes.length === 0 ? (
+          <p className="m-0 px-5 py-8 text-center text-[13px] text-slate-500">No one has answered an offer yet.</p>
+        ) : (
+          <ul className="m-0 list-none divide-y divide-slate-100 p-0" aria-label="Replies">
+            {outcomes.map((item) => (
+              <li key={item.outcomeId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 sm:px-5">
+                <div className="min-w-0">
+                  <p className="m-0 text-[13.5px] font-semibold text-[#0B1640]">
+                    {item.customerName ?? "Unknown"} <span className="font-mono text-[11.5px] font-normal text-slate-400">{item.phone}</span>
+                  </p>
+                  <p className="m-0 mt-0.5 text-[13px] text-slate-600">
+                    {OUTCOME_KIND[item.kind]}. Offer: {item.cover} ({item.insurer}), from the rule {item.ruleName}.
+                  </p>
+                  {item.reply ? <p className="m-0 mt-0.5 text-[12.5px] text-slate-500">They wrote: “{item.reply}” on {shortWhen(item.at)}.</p> : null}
+                  <p className="m-0 mt-0.5 text-[12px] text-slate-400">Opened with: {item.openingText}</p>
+                </div>
+                {item.needsPerson ? (
+                  item.done ? (
+                    <CipStatusPill tone="success">Followed up</CipStatusPill>
+                  ) : (
+                    <Button variant="secondary" disabled={busy} onClick={() => void act(() => markOutcomeDone(role, item.outcomeId), "Marked as followed up.")}>Mark as followed up</Button>
+                  )
+                ) : (
+                  <CipStatusPill tone="neutral">Nothing to do</CipStatusPill>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </TableCard>
 
       <TableCard

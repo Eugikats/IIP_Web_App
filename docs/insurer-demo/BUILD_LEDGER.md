@@ -27,6 +27,9 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 - Reason in the conversation: Kato's system prompt gets a "Why this conversation exists" block when a rule wrote first within 14 days (event kind, the opening text, the cover and insurer, what to do on yes / not now / stop / why did you write, never amounts). In a bancassurance brand Kato is also told to answer honestly that the bank earns a commission from the insurer and that it never changes the recommendation.
 
+- Outcomes and STOP: `OutcomeService` classifies short replies narrowly (Yes show me, Not now, No thanks, Renew, STOP and its plain variants; "please stop by my shop" is not a stop) and records them against the offer that began the conversation (14 day window). A STOP from anyone, with or without a rule, makes Kato send one plain acknowledgement, then withdraw consent on the prospect record and in the consent history, and the model is never called. Later rule runs skip the person with "asked not to be contacted". An answer that needs a person (details, renew) is a hand-off: listed under "Replies" in the Rules tab with the rule, cover, opening words and their reply, plus a lead activity, until marked followed up. One gentle follow-up (rule.FollowUpAfterDays and template) goes after silence, never after any answer. "Applied" outcome is written by piece 12 conversions.
+- Limitation: the hand-off is a list in the Rules tab, not a task in the staff My Work queue.
+
 ## Piece status
 
 | # | Piece | State |
@@ -37,8 +40,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 4 | Events (store, form, file import) | done |
 | 5 | Rules engine | done (follow-up and STOP in piece 7) |
 | 6 | Reason carried into the conversation | done |
-| 7 | Outcomes and hand-off, STOP | next |
-| 8 | Bank first-touch flow | |
+| 7 | Outcomes and hand-off, STOP | done |
+| 8 | Bank first-touch flow | next |
 | 9 | Renewal and premium flows | |
 | 10 | Document chasing and claim updates | |
 | 11 | Demo customer and timeline screens | |
@@ -55,6 +58,7 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 ## Verified so far
 
+- Piece 7: Api.Tests all pass (RuleEngineTests 40, Kato 118 incl. STOP honoured with the model never called), tsc clean, lint 0 errors, rules.spec.ts 6 pass at 1280 and 768 (replies section shows its empty state). A reply flowing through a real webhook was not driven in a browser.
 - Piece 6: Kato tests 116 passed (3 new: reason present, reason too old or other number ignored, bank commission line). Prompt content is asserted against a scripted model; no real model call was made.
 - Piece 5: Api.Tests 1638 passed (21 RuleEngineTests incl. the Eugene case, consent, cover held, limits, hours, daily limit, approval roles, tamper, demo vs real, isolation), Domain.Tests 731, tsc clean, lint 0 errors. Playwright rules.spec.ts 3 tests pass at 1280 and 768 (write, approve, run, read the log with its checks; edit clears approval; empty cover refused); desktop screenshot reviewed.
 - Piece 4: Api.Tests 1617 passed (17 BankEventTests, 5 connector event-folder tests), Domain.Tests 731, tsc clean, lint 0 errors. Playwright bank-events.spec.ts 4 tests pass at 1280 and 768; tablet screenshot reviewed. Not run at 390 px.

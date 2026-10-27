@@ -1549,6 +1549,10 @@ app.MapPut("/api/v1/rules-approval", InsuranceIntelligence.Api.Rules.RuleEndpoin
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/rules-run", InsuranceIntelligence.Api.Rules.RuleEndpoints.Run)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rule-outcomes", InsuranceIntelligence.Api.Rules.RuleEndpoints.Outcomes)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rule-outcomes/{outcomeId}/done", InsuranceIntelligence.Api.Rules.RuleEndpoints.MarkDone)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapGet("/api/v1/rule-decisions", InsuranceIntelligence.Api.Rules.RuleEndpoints.Decisions)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapGet("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Get)

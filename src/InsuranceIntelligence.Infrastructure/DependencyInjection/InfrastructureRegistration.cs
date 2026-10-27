@@ -109,6 +109,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.BankEvents.EventService>();
         services.AddScoped<InsuranceIntelligence.Application.Rules.RuleService>();
         services.AddScoped<InsuranceIntelligence.Application.Rules.DecisionLog>();
+        services.AddScoped<InsuranceIntelligence.Application.Rules.OutcomeService>();
         services.AddScoped<InsuranceIntelligence.Application.Rules.RuleEngine>();
         services.AddScoped<InsuranceIntelligence.Application.BankEvents.IBankEventFileSink, InsuranceIntelligence.Application.BankEvents.EventFileSink>();
         services.AddScoped<InsuranceIntelligence.Application.Templates.TemplateMessageService>();

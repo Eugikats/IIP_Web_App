@@ -536,6 +536,10 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("saved", model.ToolResults[0]);
     }
 
+    private static InsuranceIntelligence.Application.Workspaces.IWorkspaceRecordStore OutcomeStore() =>
+        new InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceRecordStore(new InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext(
+            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options));
+
     private static async Task<(InsuranceIntelligence.Application.Rules.DecisionLog Log, TenantScope Scope)> LogWithReasonAsync(string phone, DateTimeOffset sentAt)
     {
         var db = new InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext(
@@ -575,6 +579,34 @@ public sealed partial class CustomerAssistantServiceTests
 
         Assert.Contains("earns a commission from the insurer", model.Conversations[0][0].Content!);
         Assert.Contains("never changes which cover you recommend", model.Conversations[0][0].Content!);
+    }
+
+    [Fact]
+    public async Task Stop_IsAnsweredOnceAndPlainly_WithdrawsConsent_AndTheModelIsNeverAsked()
+    {
+        var (log, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddHours(-2));
+        var model = new ScriptedAgentModel().Says("This must not be said.");
+        var fixture = Fixture.Create(agent: model, decisionLog: log, stopHandling: true);
+
+        await fixture.HandleFromAsync("STOP", "256790000001");
+
+        Assert.Empty(model.Conversations);
+        var sent = Assert.Single(fixture.Outbound.SentRequests);
+        Assert.Contains("You will not get any more messages", sent.CustomerSafeBody);
+        var lead = Assert.Single(fixture.SalesLeads.Created, item => item.Consent?.Status == ContactConsentStatus.Withdrawn);
+        Assert.Contains(lead.Activity, activity => activity.Text.Contains("STOP"));
+    }
+
+    [Fact]
+    public async Task AnyoneWhoSaysStop_IsHonoured_EvenWhenNoRuleWroteToThem()
+    {
+        var model = new ScriptedAgentModel().Says("This must not be said.");
+        var fixture = Fixture.Create(agent: model, stopHandling: true);
+
+        await fixture.HandleFromAsync("stop", "256790000222");
+
+        Assert.Empty(model.Conversations);
+        Assert.Contains("You will not get any more messages", Assert.Single(fixture.Outbound.SentRequests).CustomerSafeBody);
     }
 
     [Fact]
@@ -1585,7 +1617,8 @@ public sealed partial class CustomerAssistantServiceTests
             IVoiceNoteTranscriber? voice = null,
             IVoiceNoteSpeaker? speaker = null,
             IToolCallingChatProvider? agent = null,
-            InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null)
+            InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null,
+            bool stopHandling = false)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -1639,7 +1672,8 @@ public sealed partial class CustomerAssistantServiceTests
                 speaker,
                 agent,
                 insightsQueue,
-                decisionLog: decisionLog);
+                decisionLog: decisionLog,
+                outcomes: stopHandling ? new InsuranceIntelligence.Application.Rules.OutcomeService(OutcomeStore(), decisionLog ?? new InsuranceIntelligence.Application.Rules.DecisionLog(OutcomeStore()), salesLeads, consent) : null);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {

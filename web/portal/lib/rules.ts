@@ -117,6 +117,30 @@ export const runRules = (role: string) =>
 export const getDecisions = (role: string, outcome?: string) =>
   call<RuleDecision[]>(role, `/api/v1/rule-decisions${outcome ? `?outcome=${encodeURIComponent(outcome)}` : ""}`, "GET", undefined, "The decision log could not be loaded.");
 
+export type OfferOutcomeView = {
+  outcomeId: string;
+  phone: string;
+  kind: "Replied" | "Interested" | "NotNow" | "Declined" | "RenewalRequested" | "Stopped" | "Applied";
+  ruleName: string;
+  eventType: string;
+  cover: string;
+  insurer: string;
+  openingText: string;
+  offeredAt: string;
+  at: string;
+  reply: string | null;
+  needsPerson: boolean;
+  leadId: string | null;
+  customerName: string | null;
+  done: boolean;
+  doneAt: string | null;
+  doneBy: string | null;
+};
+
+export const getOutcomes = (role: string) => call<OfferOutcomeView[]>(role, "/api/v1/rule-outcomes", "GET", undefined, "The replies could not be loaded.");
+export const markOutcomeDone = (role: string, outcomeId: string) =>
+  call<{ outcomeId: string; done: boolean }>(role, `/api/v1/rule-outcomes/${encodeURIComponent(outcomeId)}/done`, "POST", undefined, "The reply could not be marked as followed up.");
+
 export function ruleSentence(rule: OutreachRule, coverNames: Record<string, string>): string {
   const conditions = [
     rule.minAmount ? `UGX ${rule.minAmount.toLocaleString("en-UG")} or more` : null,

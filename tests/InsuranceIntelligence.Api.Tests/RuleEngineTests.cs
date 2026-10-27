@@ -69,6 +69,7 @@ public sealed class RuleEngineTests
         public required InMemoryPolicyRepository Policies { get; init; }
         public required Provider Provider { get; init; }
         public required Messages Messages { get; init; }
+        public required OutcomeService Outcomes { get; init; }
     }
 
     private static async Task<Rig> RigAsync(bool approveTemplate = true, bool demonstration = false, bool connected = true)
@@ -104,11 +105,12 @@ public sealed class RuleEngineTests
         var leads = new EfSalesLeadRepository(db);
         var customers = new InMemoryCustomerRepository();
         var policies = new InMemoryPolicyRepository();
+        var outcomes = new OutcomeService(store, log, leads);
         return new Rig
         {
             Clock = clock, Db = db, Rules = rules, Log = log, Events = events, Templates = templates, Brands = brands, Leads = leads, Customers = customers, Policies = policies,
-            Provider = provider, Messages = messages,
-            Engine = new RuleEngine(rules, log, events, brands, templates, sender, leads, customers, policies, messages, clock),
+            Provider = provider, Messages = messages, Outcomes = outcomes,
+            Engine = new RuleEngine(rules, log, events, brands, templates, sender, leads, customers, policies, messages, clock, outcomes),
         };
     }
 
@@ -459,6 +461,158 @@ public sealed class RuleEngineTests
         Assert.Equal(0, run.Considered);
         Assert.Empty(rig.Provider.Sent);
         Assert.Empty(await rig.Rules.ListAsync(Other));
+    }
+
+    // ---- Replies, hand-offs, STOP and follow-ups
+
+    [Theory]
+    [InlineData("Yes, show me", OutcomeKind.Interested)]
+    [InlineData("yes", OutcomeKind.Interested)]
+    [InlineData("Not now", OutcomeKind.NotNow)]
+    [InlineData("Maybe later!", OutcomeKind.NotNow)]
+    [InlineData("No thanks", OutcomeKind.Declined)]
+    [InlineData("STOP", OutcomeKind.Stopped)]
+    [InlineData("Stop messages", OutcomeKind.Stopped)]
+    [InlineData("  stop. ", OutcomeKind.Stopped)]
+    [InlineData("Unsubscribe", OutcomeKind.Stopped)]
+    public void ShortRepliesAreReadTheWayTheButtonsAndObviousWordsMean(string text, OutcomeKind expected) =>
+        Assert.Equal(expected, OutcomeService.Classify(text, renewalContext: false));
+
+    [Theory]
+    [InlineData("I will not stop paying my loan")]
+    [InlineData("Please stop by my shop tomorrow")]
+    [InlineData("How much does it cost?")]
+    public void AnythingElseIsNotMistakenForAnAnswerOrAStop(string text) =>
+        Assert.Null(OutcomeService.Classify(text, renewalContext: false));
+
+    [Fact]
+    public void OnARenewalOfferAYesMeansRenew()
+    {
+        Assert.Equal(OutcomeKind.RenewalRequested, OutcomeService.Classify("Yes", renewalContext: true));
+        Assert.Equal(OutcomeKind.RenewalRequested, OutcomeService.Classify("Renew", renewalContext: false));
+    }
+
+    private static async Task<Rig> OfferedAsync()
+    {
+        var rig = await RigAsync();
+        await LiveRuleAsync(rig);
+        await AddEugeneAsync(rig);
+        await LoanEventAsync(rig);
+        await rig.Engine.RunAsync(Bank, "system");
+        return rig;
+    }
+
+    [Fact]
+    public async Task YesShowMe_IsRecordedAgainstTheOffer_AndListedForAPersonWithItsContext()
+    {
+        var rig = await OfferedAsync();
+
+        var handled = await rig.Outcomes.RecordReplyAsync(Bank, Phone, "Yes, show me", NoonEat.AddMinutes(5));
+
+        Assert.False(handled.Stop);
+        var outcome = Assert.Single(await rig.Outcomes.ListAsync(Bank, needsPerson: true));
+        Assert.Equal(OutcomeKind.Interested, outcome.Kind);
+        Assert.Equal("Mpingo Loan Protector", outcome.Cover);
+        Assert.Equal("Loan Protector after a salary loan", outcome.RuleName);
+        Assert.Contains("Hello Eugene", outcome.OpeningText);
+        Assert.Equal("Eugene Katusiime", outcome.CustomerName);
+        var lead = await rig.Leads.FindByPhoneAsync(Bank.TenantId, Bank.WorkspaceId, Phone);
+        Assert.Contains(lead!.Activity, activity => activity.Text.Contains("Asked for details of Mpingo Loan Protector"));
+
+        await rig.Outcomes.MarkDoneAsync(Bank, outcome.OutcomeId, "officer-1", NoonEat.AddHours(1));
+        Assert.Empty(await rig.Outcomes.ListAsync(Bank, needsPerson: true));
+        Assert.Equal("officer-1", (await rig.Outcomes.GetAsync(Bank, outcome.OutcomeId))!.DoneBy);
+    }
+
+    [Fact]
+    public async Task NotNowAndNoThanksAreRecorded_ButDoNotNeedAPerson()
+    {
+        var rig = await OfferedAsync();
+
+        await rig.Outcomes.RecordReplyAsync(Bank, Phone, "Not now", NoonEat.AddMinutes(5));
+
+        var outcome = Assert.Single(await rig.Outcomes.ListAsync(Bank));
+        Assert.Equal(OutcomeKind.NotNow, outcome.Kind);
+        Assert.False(outcome.NeedsPerson);
+    }
+
+    [Fact]
+    public async Task StopWithdrawsConsent_NothingMoreGoesOut_AndTheDecisionLogSaysWhy()
+    {
+        var rig = await OfferedAsync();
+        var stop = await rig.Outcomes.RecordReplyAsync(Bank, Phone, "STOP", NoonEat.AddMinutes(5));
+        Assert.True(stop.Stop);
+
+        await rig.Outcomes.WithdrawAsync(Bank, Phone, NoonEat.AddMinutes(5));
+
+        var lead = await rig.Leads.FindByPhoneAsync(Bank.TenantId, Bank.WorkspaceId, Phone);
+        Assert.Equal(ContactConsentStatus.Withdrawn, lead!.Consent!.Status);
+        Assert.Equal(OutcomeKind.Stopped, Assert.Single(await rig.Outcomes.ListAsync(Bank)).Kind);
+
+        rig.Clock.Now = NoonEat.AddDays(40);
+        await LoanEventAsync(rig, daysAgo: 0, external: "later");
+        await rig.Engine.RunAsync(Bank, "system");
+        var latest = (await rig.Log.ListAsync(Bank)).First();
+        Assert.Equal(DecisionOutcome.Skipped, latest.Outcome);
+        Assert.Contains("asked not to be contacted", latest.Reason);
+        Assert.Single(rig.Provider.Sent);
+    }
+
+    [Fact]
+    public async Task AStopFromSomeoneNoRuleWroteTo_IsStillHonoured()
+    {
+        var rig = await RigAsync();
+        await AddEugeneAsync(rig);
+
+        var handled = await rig.Outcomes.RecordReplyAsync(Bank, Phone, "stop", NoonEat);
+        await rig.Outcomes.WithdrawAsync(Bank, Phone, NoonEat);
+
+        Assert.True(handled.Stop);
+        Assert.Equal(ContactConsentStatus.Withdrawn, (await rig.Leads.FindByPhoneAsync(Bank.TenantId, Bank.WorkspaceId, Phone))!.Consent!.Status);
+    }
+
+    [Fact]
+    public async Task AReplyLongAfterTheOfferIsNotAttachedToIt()
+    {
+        var rig = await OfferedAsync();
+
+        var handled = await rig.Outcomes.RecordReplyAsync(Bank, Phone, "Yes, show me", NoonEat.AddDays(30));
+
+        Assert.Null(handled.Kind);
+        Assert.Empty(await rig.Outcomes.ListAsync(Bank));
+    }
+
+    [Fact]
+    public async Task OneGentleFollowUpGoesAfterSilence_AndNeverAfterAnAnswer()
+    {
+        var rig = await RigAsync();
+        await rig.Templates.SubmitAsync(Bank, "quote_follow_up", "en", "admin");
+        await rig.Templates.RecordDecisionAsync(Bank, "quote_follow_up", "en", TemplateStatus.Approved, null, "admin");
+        await LiveRuleAsync(rig, LoanRule() with { FollowUpAfterDays = 3, FollowUpTemplate = "quote_follow_up" });
+        await AddEugeneAsync(rig);
+        await AddEugeneAsync(rig, phone: "256790000002", name: "Second Person");
+        await LoanEventAsync(rig);
+        await LoanEventAsync(rig, phone: "256790000002");
+        await rig.Engine.RunAsync(Bank, "system");
+        Assert.Equal(2, rig.Provider.Sent.Count);
+        await rig.Outcomes.RecordReplyAsync(Bank, "256790000002", "Not now", NoonEat.AddHours(2));
+
+        rig.Clock.Now = NoonEat.AddDays(2);
+        await rig.Engine.RunAsync(Bank, "system");
+        Assert.Equal(2, rig.Provider.Sent.Count);
+
+        rig.Clock.Now = NoonEat.AddDays(4);
+        var run = await rig.Engine.RunAsync(Bank, "system");
+        var again = await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.Equal(1, run.Sent);
+        Assert.Equal(0, again.Considered);
+        Assert.Equal(3, rig.Provider.Sent.Count);
+        var nudge = Assert.Single(rig.Provider.Sent, request => request.TemplateName == "quote_follow_up");
+        Assert.Equal("Eugene", nudge.TemplateParameters!["1"]);
+        var followUps = await rig.Log.ListAsync(Bank);
+        Assert.Contains(followUps, decision => decision.Kind == "follow_up" && decision.Outcome == DecisionOutcome.Sent);
+        Assert.Contains(followUps, decision => decision.Kind == "follow_up" && decision.Outcome == DecisionOutcome.Skipped && decision.Reason == "They already answered.");
     }
 
     [Fact]

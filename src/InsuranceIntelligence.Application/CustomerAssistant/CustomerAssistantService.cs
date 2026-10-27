@@ -130,7 +130,8 @@ public sealed partial class CustomerAssistantService(
     InsuranceIntelligence.Domain.Usage.IUsageMeter? usageMeter = null,
     InsuranceIntelligence.Application.Billing.IAiUsageContext? usageContext = null,
     InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null,
-    InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null) : ICustomerAssistantService
+    InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null,
+    InsuranceIntelligence.Application.Rules.OutcomeService? outcomes = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
@@ -637,6 +638,33 @@ public sealed partial class CustomerAssistantService(
         if (sender is not { Policies.Count: > 0 })
         {
             await EnsureProspectAsync(scope, waId, threadId, introduced ?? ProfileFullName(inbound.ProfileName), text, correlationId, cancellationToken);
+        }
+
+        // A reply to a message a rule sent is recorded against that offer. STOP is honoured at once, from anyone: one plain
+        // acknowledgement, then the agreement to be contacted is withdrawn so nothing else can go out.
+        if (outcomes is not null)
+        {
+            var handled = await outcomes.RecordReplyAsync(scope, waId, text, now, cancellationToken);
+            if (handled.Stop)
+            {
+                var acknowledgement = $"You will not get any more messages from {KatoBrand.Current.ShortName}. If you change your mind, write to us here any time.";
+                await SendReplyAsync(scope, inbound, threadId, waId, acknowledgement, caseId: null, cancellationToken);
+                await outcomes.WithdrawAsync(scope, waId, now, cancellationToken);
+                await conversationRepository.SaveAsync(new CustomerConversationTurn
+                {
+                    TurnId = Guid.NewGuid(),
+                    Scope = scope,
+                    ThreadId = threadId,
+                    ContactWaId = waId,
+                    InboundMessageText = text,
+                    ClassifiedIntent = CustomerIntent.Unknown,
+                    OutboundReplyText = acknowledgement,
+                    Outcome = CustomerAssistantOutcome.Declined,
+                    OccurredAt = now,
+                    CorrelationId = correlationId,
+                }, cancellationToken);
+                return null;
+            }
         }
 
         // Which language is this customer conversing in? Everything from here on runs on English:

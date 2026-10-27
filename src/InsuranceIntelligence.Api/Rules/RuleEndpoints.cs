@@ -89,6 +89,29 @@ public static class RuleEndpoints
         return Results.Ok(await engine.RunAsync(scope, userId, cancellationToken));
     }
 
+    public static async Task<IResult> Outcomes(bool? needsPerson, OutcomeService outcomes, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        if (Resolve(httpContext, options, Permission.ManageSalesLeads, out var scope, out _, out _) is { } failed)
+        {
+            return failed;
+        }
+
+        var items = await outcomes.ListAsync(scope, needsPerson, 300, cancellationToken);
+        return Results.Ok(items.Select(item => new
+        {
+            item.OutcomeId, phone = Mask(item.Phone), kind = item.Kind.ToString(), item.RuleName, item.EventType, item.Cover, item.Insurer, item.OpeningText,
+            item.OfferedAt, item.At, item.Reply, item.NeedsPerson, item.LeadId, item.CustomerName, item.Done, item.DoneAt, item.DoneBy,
+        }));
+    }
+
+    public static Task<IResult> MarkDone(
+        string outcomeId, OutcomeService outcomes, IAuditWriter audit, TimeProvider clock, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
+        Change(httpContext, options, audit, "followed_up", Permission.ManageSalesLeads, async (scope, userId, _) =>
+        {
+            var done = await outcomes.MarkDoneAsync(scope, outcomeId, userId, clock.GetUtcNow(), cancellationToken);
+            return (outcomeId, (object)new { done.OutcomeId, done.Done, done.DoneAt, done.DoneBy });
+        });
+
     public static async Task<IResult> Decisions(
         string? ruleId, string? phone, string? outcome, DecisionLog log, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken)
     {
