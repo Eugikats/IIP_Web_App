@@ -34,6 +34,9 @@ public sealed record Product
     public required IReadOnlyList<ClaimStageDefinition> Stages { get; init; }
     public required IReadOnlyList<ProductDocumentRequirement> DocumentMatrix { get; init; }
 
+    /// <summary>Human-confirmed facts prepared from policy wording. Every fact keeps its source evidence and extraction estimate.</summary>
+    public IReadOnlyList<ProductWordingFact> WordingFacts { get; init; } = [];
+
     public required string UpdatedByUserId { get; init; }
     public required DateTimeOffset UpdatedAt { get; init; }
     public required string ChangeReason { get; init; }
@@ -106,6 +109,15 @@ public sealed record ProductDocumentRequirement(
     bool IsRequired,
     string RequiredAtStageKey,
     bool IsRegulatoryOrWordingMandated);
+
+public sealed record ProductWordingFact(
+    string Category,
+    string Label,
+    string Value,
+    Guid SourceKnowledgeDocumentId,
+    string SourceChunkId,
+    string SourceQuote,
+    decimal Confidence);
 
 public interface IProductRepository
 {

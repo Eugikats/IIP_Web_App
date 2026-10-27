@@ -19,6 +19,15 @@ public sealed record DocumentMatrixEntryDto(
     string RequiredAtStageKey,
     bool IsRegulatoryOrWordingMandated);
 
+public sealed record ProductWordingFactDto(
+    string Category,
+    string Label,
+    string Value,
+    Guid SourceKnowledgeDocumentId,
+    string SourceChunkId,
+    string SourceQuote,
+    decimal Confidence);
+
 public sealed record ProductDto(
     Guid ProductId,
     int Version,
@@ -40,7 +49,8 @@ public sealed record ProductDto(
     DateTimeOffset? PublishApprovedAt,
     string? PublishRejectedByUserId,
     DateTimeOffset? PublishRejectedAt,
-    string? PublishRejectionReason);
+    string? PublishRejectionReason,
+    IReadOnlyList<ProductWordingFactDto> WordingFacts);
 
 public sealed record ProductVersionSummaryDto(
     int Version,
@@ -61,7 +71,8 @@ public sealed record CreateProductRequest(
     string? Name,
     string? ProductClass,
     string? ChangeReason,
-    bool UseDefaultStageLibrary = true);
+    bool UseDefaultStageLibrary = true,
+    IReadOnlyList<ProductWordingFactDto>? WordingFacts = null);
 
 public sealed record UpdateProductRequest(
     string? Name,
@@ -71,7 +82,8 @@ public sealed record UpdateProductRequest(
     string? ApprovedWordingKnowledgeDocumentId,
     IReadOnlyList<ClaimStageDto>? Stages,
     IReadOnlyList<DocumentMatrixEntryDto>? DocumentMatrix,
-    string? ChangeReason);
+    string? ChangeReason,
+    IReadOnlyList<ProductWordingFactDto>? WordingFacts = null);
 
 public sealed record SubmitProductRequest(string? ChangeReason);
 

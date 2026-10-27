@@ -62,7 +62,7 @@ export default function Products() {
         eyebrow="Admin · Products"
         title="Products"
         sub="A product's claim process, document matrix and IRA approval, configured here with no developer and no release. Every change is versioned and audited."
-        action={<Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreateOpen(true)}>New product</Button>}
+        action={<div className="flex flex-wrap justify-end gap-2"><Link to="/app/admin/products/wordings" className="inline-flex min-h-11 items-center rounded-dls-control border border-dls-border-input bg-dls-surface px-4 py-[9px] text-[13px] font-bold text-dls-text-primary hover:bg-dls-bg-page">Prepare from wording</Link><Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreateOpen(true)}>New product</Button></div>}
       />
 
       {!loading && unresolved.length > 0 && (

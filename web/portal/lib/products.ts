@@ -23,6 +23,28 @@ export type DocumentMatrixEntry = {
   isRegulatoryOrWordingMandated: boolean;
 };
 
+export type ProductWordingFact = {
+  category: string;
+  label: string;
+  value: string;
+  sourceKnowledgeDocumentId: string;
+  sourceChunkId: string;
+  sourceQuote: string;
+  confidence: number;
+};
+
+export type ProductWordingProposal = {
+  proposalId: string;
+  knowledgeDocumentId: string;
+  sourceName: string;
+  sourceVersion: string;
+  provider: string;
+  modelVersion: string | null;
+  preparedAt: string;
+  preparedByUserId: string;
+  items: { category: string; label: string; value: string; sourceChunkId: string; sourceQuote: string; confidence: number }[];
+};
+
 export type ProductStatus = "Draft" | "PendingPublishApproval" | "Published" | "Retired";
 
 export type Product = {
@@ -37,6 +59,7 @@ export type Product = {
   canPublish: boolean;
   stages: ClaimStage[];
   documentMatrix: DocumentMatrixEntry[];
+  wordingFacts: ProductWordingFact[];
   updatedByUserId: string;
   updatedAt: string;
   changeReason: string;
@@ -81,12 +104,12 @@ export type ProductsResult<T> = { ok: true; value: T } | { ok: false; error: str
 
 async function safeError(response: Response, fallback: string): Promise<{ message: string; field?: string }> {
   try {
-    const payload = (await response.json()) as { message?: string; errors?: Record<string, string[]> };
+    const payload = (await response.json()) as { message?: string; detail?: string; title?: string; errors?: Record<string, string[]> };
     if (payload.errors) {
       const [field, messages] = Object.entries(payload.errors)[0] ?? [];
       if (messages?.[0]) return { message: messages[0], field };
     }
-    if (payload.message) return { message: payload.message };
+    if (payload.message || payload.detail) return { message: payload.message ?? payload.detail ?? payload.title ?? fallback };
   } catch {
     // Keep the safe fallback for non-JSON errors.
   }
@@ -133,12 +156,23 @@ export function listProductVersions(role: string, productId: string) {
   return call<ProductVersionSummary[]>(role, `${apiBaseUrl}/api/v1/products/${productId}/versions`, {}, "Version history could not be loaded.");
 }
 
-export function createProduct(role: string, input: { name: string; productClass: string; changeReason: string; useDefaultStageLibrary: boolean }) {
+export function createProduct(role: string, input: { name: string; productClass: string; changeReason: string; useDefaultStageLibrary: boolean; wordingFacts?: ProductWordingFact[] }) {
   return call<Product>(role, `${apiBaseUrl}/api/v1/products`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   }, "This product could not be created.");
+}
+
+export function extractProductWording(role: string, knowledgeDocumentId: string) {
+  return call<ProductWordingProposal>(role, `${apiBaseUrl}/api/v1/products/wording-extractions/${encodeURIComponent(knowledgeDocumentId)}`, {
+    method: "POST",
+  }, "The wording could not be read.");
+}
+
+export function listProductWordingProposals(role: string, knowledgeDocumentId?: string) {
+  const query = knowledgeDocumentId ? `?knowledgeDocumentId=${encodeURIComponent(knowledgeDocumentId)}` : "";
+  return call<ProductWordingProposal[]>(role, `${apiBaseUrl}/api/v1/products/wording-extractions${query}`, {}, "Wording drafts could not be loaded.");
 }
 
 export function updateProductDraft(role: string, productId: string, input: UpdateProductInput) {

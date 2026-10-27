@@ -3,6 +3,7 @@ using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Products;
 
 namespace InsuranceIntelligence.Application.Products;
@@ -20,7 +21,8 @@ public sealed class ProductCommandService(
     IPermissionService permissionService,
     IProductRepository repository,
     IDocumentTypeCatalogRepository documentTypeCatalogRepository,
-    IAuditWriter auditWriter) : IProductCommandService
+    IAuditWriter auditWriter,
+    IKnowledgeDocumentRepository? knowledgeDocuments = null) : IProductCommandService
 {
     public async Task<ProductDto> CreateDraftAsync(CreateProductRequest request, CancellationToken cancellationToken = default)
     {
@@ -37,6 +39,9 @@ public sealed class ProductCommandService(
         }
 
         var context = tenantContextAccessor.Current;
+        var wordingFacts = request.WordingFacts is null
+            ? Array.Empty<ProductWordingFact>()
+            : await ValidateWordingFacts(context.Scope, request.WordingFacts, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         var reason = string.IsNullOrWhiteSpace(request.ChangeReason) ? "Product created." : request.ChangeReason.Trim();
 
@@ -54,6 +59,7 @@ public sealed class ProductCommandService(
             Status = ProductStatus.Draft,
             Stages = request.UseDefaultStageLibrary ? DefaultClaimStageLibrary.Default() : [],
             DocumentMatrix = [],
+            WordingFacts = wordingFacts,
             UpdatedByUserId = context.UserId,
             UpdatedAt = now,
             ChangeReason = reason,
@@ -92,6 +98,9 @@ public sealed class ProductCommandService(
         var documentMatrix = request.DocumentMatrix is null
             ? current.DocumentMatrix
             : await ValidateDocumentMatrix(current.Scope, request.DocumentMatrix, stages, cancellationToken);
+        var wordingFacts = request.WordingFacts is null
+            ? current.WordingFacts
+            : await ValidateWordingFacts(current.Scope, request.WordingFacts, cancellationToken);
 
         var context = tenantContextAccessor.Current;
         var updated = current with
@@ -107,6 +116,7 @@ public sealed class ProductCommandService(
                 : NormalizeOrNull(request.ApprovedWordingKnowledgeDocumentId),
             Stages = stages,
             DocumentMatrix = documentMatrix,
+            WordingFacts = wordingFacts,
             // Editing a published or pending-publish product returns it to Draft: the edited
             // content has not itself gone through publish approval, and the previous Published
             // version stays intact in history for any claim already filed against it (outcome C).
@@ -424,6 +434,48 @@ public sealed class ProductCommandService(
         return result;
     }
 
+    private async Task<IReadOnlyList<ProductWordingFact>> ValidateWordingFacts(
+        TenantScope scope, IReadOnlyList<ProductWordingFactDto> facts, CancellationToken cancellationToken)
+    {
+        if (facts.Count > 250)
+        {
+            throw new ProductValidationException("wordingFacts", "A product can keep up to 250 wording facts.");
+        }
+
+        if (facts.Count > 0 && knowledgeDocuments is null)
+        {
+            throw new ProductValidationException("wordingFacts", "Source validation is not available for these wording facts.");
+        }
+
+        var result = new List<ProductWordingFact>(facts.Count);
+        foreach (var fact in facts)
+        {
+            if (string.IsNullOrWhiteSpace(fact.Category) || fact.Category.Length > 40
+                || string.IsNullOrWhiteSpace(fact.Label) || fact.Label.Length > 120
+                || string.IsNullOrWhiteSpace(fact.Value) || fact.Value.Length > 1000
+                || string.IsNullOrWhiteSpace(fact.SourceChunkId) || fact.SourceChunkId.Length > 160
+                || string.IsNullOrWhiteSpace(fact.SourceQuote) || fact.SourceQuote.Length > 2000
+                || fact.Confidence is < 0m or > 1m)
+            {
+                throw new ProductValidationException("wordingFacts", "Each wording fact needs a value, source passage and confidence from 0 to 1.");
+            }
+
+            var document = await knowledgeDocuments!.GetAsync(fact.SourceKnowledgeDocumentId, scope, cancellationToken);
+            var chunk = document?.DocumentType == KnowledgeDocumentType.PolicyWording
+                ? document.Chunks.FirstOrDefault(candidate => candidate.ChunkId == fact.SourceChunkId)
+                : null;
+            if (chunk is null || !chunk.Content.Contains(fact.SourceQuote, StringComparison.Ordinal))
+            {
+                throw new ProductValidationException("wordingFacts", "A wording fact's source passage could not be verified in this workspace.");
+            }
+
+            result.Add(new ProductWordingFact(fact.Category.Trim(), fact.Label.Trim(), fact.Value.Trim(),
+                fact.SourceKnowledgeDocumentId, fact.SourceChunkId, fact.SourceQuote.Trim(), fact.Confidence));
+        }
+
+        return result;
+    }
+
     internal static ProductDto ToDto(Product product) =>
         new(
             product.ProductId,
@@ -464,5 +516,7 @@ public sealed class ProductCommandService(
             product.PublishApprovedAt,
             product.PublishRejectedByUserId,
             product.PublishRejectedAt,
-            product.PublishRejectionReason);
+            product.PublishRejectionReason,
+            product.WordingFacts.Select(fact => new ProductWordingFactDto(
+                fact.Category, fact.Label, fact.Value, fact.SourceKnowledgeDocumentId, fact.SourceChunkId, fact.SourceQuote, fact.Confidence)).ToArray());
 }

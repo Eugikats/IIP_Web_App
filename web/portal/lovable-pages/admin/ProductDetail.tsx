@@ -234,6 +234,22 @@ export default function ProductDetail() {
             </div>
           </GlassCard>
 
+          {product.wordingFacts.length > 0 && (
+            <GlassCard>
+              <div className="mb-1 text-[14px] font-bold text-dls-text-primary">Human-confirmed facts from policy wording</div>
+              <p className="mb-3 text-[12px] text-dls-text-secondary">These facts were reviewed when this draft was created. Each keeps its source passage for traceability.</p>
+              <div className="space-y-3">
+                {product.wordingFacts.map((fact, index) => (
+                  <div key={`${fact.sourceChunkId}-${fact.category}-${index}`} className="rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-3">
+                    <div className="text-[12px] font-semibold text-dls-text-primary">{fact.label}: {fact.value}</div>
+                    <blockquote className="mb-0 mt-2 border-l-2 border-dls-border-subtle pl-3 text-[12px] leading-5 text-dls-text-secondary">“{fact.sourceQuote}”</blockquote>
+                    <p className="mb-0 mt-1 text-[10.5px] text-dls-text-muted">Source document {fact.sourceKnowledgeDocumentId}, chunk {fact.sourceChunkId} · {Math.round(fact.confidence * 100)}% model estimate</p>
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          )}
+
           <GlassCard>
             <div className="mb-1 flex items-center justify-between">
               <div className="text-[14px] font-bold text-dls-text-primary">Claim process</div>

@@ -4,7 +4,9 @@ using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Products;
+using InsuranceIntelligence.LocalTestDoubles;
 
 namespace InsuranceIntelligence.Domain.Tests.Products;
 
@@ -55,6 +57,57 @@ public sealed class ProductCommandServiceTests
         var written = Assert.Single(audit.Events);
         Assert.Equal("product.created", written.ActionName);
         Assert.Equal("author-1", written.UserId);
+    }
+
+    [Fact]
+    public async Task CreateDraftAsync_SavesConfirmedWordingFactsOnlyWhenTheirQuoteBelongsToThisWorkspace()
+    {
+        var documentId = Guid.NewGuid();
+        var chunkId = "wording-chunk-1";
+        var documents = new InMemoryKnowledgeDocumentRepository();
+        await documents.SaveAsync(new KnowledgeDocument
+        {
+            KnowledgeDocumentId = documentId, Scope = Scope, DocumentName = "Policy wording", ProductLine = "Life",
+            DocumentType = KnowledgeDocumentType.PolicyWording, Version = "1", OriginalFileName = "policy.pdf", ContentType = "application/pdf",
+            FileSizeBytes = 1, ObjectKey = "object", ApprovalStatus = KnowledgeDocumentStatus.Draft,
+            IndexedStatus = KnowledgeIndexedStatus.NotIndexed, Chunks = [new KnowledgeChunk
+            {
+                ChunkId = chunkId, KnowledgeDocumentId = documentId, Scope = Scope, DocumentName = "Policy wording", ProductLine = "Life", Version = "1",
+                ChunkIndex = 0, Content = "The policy covers accidental death up to UGX 5,000,000.",
+                SourceReference = new KnowledgeSourceReference(documentId, chunkId, "Policy wording", "Life", "1", "object"),
+            }], UploadedByUserId = "author-1", CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, CorrelationId = "upload",
+        });
+        var service = BuildService("author-1", out _, out _, knowledgeDocuments: documents);
+        var facts = new[] { new ProductWordingFactDto("cover", "Accidental death", "Up to UGX 5,000,000", documentId, chunkId,
+            "The policy covers accidental death up to UGX 5,000,000.", 0.91m) };
+
+        var created = await service.CreateDraftAsync(new CreateProductRequest("Loan Protector", "Life", "Confirmed source facts.", WordingFacts: facts));
+
+        var savedFact = Assert.Single(created.WordingFacts);
+        Assert.Equal("Accidental death", savedFact.Label);
+        Assert.Equal(chunkId, savedFact.SourceChunkId);
+    }
+
+    [Fact]
+    public async Task CreateDraftAsync_RefusesAConfirmedWordingFactFromAnotherWorkspace()
+    {
+        var otherScope = TenantScope.Create("tenant-b", Scope.WorkspaceId);
+        var otherId = Guid.NewGuid();
+        var docs = new InMemoryKnowledgeDocumentRepository();
+        await docs.SaveAsync(new KnowledgeDocument
+        {
+            KnowledgeDocumentId = otherId, Scope = otherScope, DocumentName = "Other wording", ProductLine = "Life",
+            DocumentType = KnowledgeDocumentType.PolicyWording, Version = "1", OriginalFileName = "other.pdf", ContentType = "application/pdf",
+            FileSizeBytes = 1, ObjectKey = "other", ApprovalStatus = KnowledgeDocumentStatus.Draft, IndexedStatus = KnowledgeIndexedStatus.NotIndexed,
+            Chunks = [], UploadedByUserId = "other", CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, CorrelationId = "other",
+        });
+        var service = BuildService("author-1", out _, out _, knowledgeDocuments: docs);
+
+        var error = await Assert.ThrowsAsync<ProductValidationException>(() => service.CreateDraftAsync(new CreateProductRequest(
+            "Loan Protector", "Life", "Attempt cross-workspace source", WordingFacts: [new ProductWordingFactDto(
+                "cover", "Cover", "Value", otherId, "foreign-chunk", "Foreign source quote.", 0.8m)])));
+
+        Assert.Equal("wordingFacts", error.Field);
     }
 
     [Fact]
@@ -237,7 +290,8 @@ public sealed class ProductCommandServiceTests
         out InMemoryProductRepository repository,
         out RecordingAuditWriter audit,
         IReadOnlyList<Permission>? permissions = null,
-        IDocumentTypeCatalogRepository? documentTypeCatalog = null)
+        IDocumentTypeCatalogRepository? documentTypeCatalog = null,
+        IKnowledgeDocumentRepository? knowledgeDocuments = null)
     {
         repository = new InMemoryProductRepository();
         audit = new RecordingAuditWriter();
@@ -247,7 +301,8 @@ public sealed class ProductCommandServiceTests
             new FixedPermissionService([.. effectivePermissions]),
             repository,
             documentTypeCatalog ?? new InMemoryDocumentTypeCatalogRepository(),
-            audit);
+            audit,
+            knowledgeDocuments);
     }
 
     private static TenantContextAccessor CurrentContext(string userId)
