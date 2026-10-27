@@ -157,12 +157,14 @@ public sealed class WhatsAppCloudApiOutboundProvider(
     {
         if (!string.IsNullOrWhiteSpace(request.TemplateName))
         {
-            var parameters = request.TemplateParameters?.Select(pair => new
-            {
-                type = "text",
-                parameter_name = pair.Key,
-                text = pair.Value
-            }).ToArray() ?? [];
+            // A template with numbered placeholders ({{1}}, {{2}}) takes its values in order and no parameter name; one
+            // with named placeholders takes each value with its name. The key says which: a number or a name.
+            var ordered = (request.TemplateParameters ?? new Dictionary<string, string>())
+                .OrderBy(pair => int.TryParse(pair.Key, out var position) ? position : int.MaxValue)
+                .ToArray();
+            var parameters = ordered.Select(pair => int.TryParse(pair.Key, out _)
+                ? (object)new { type = "text", text = pair.Value }
+                : new { type = "text", parameter_name = pair.Key, text = pair.Value }).ToArray();
             return new
             {
                 messaging_product = "whatsapp",
