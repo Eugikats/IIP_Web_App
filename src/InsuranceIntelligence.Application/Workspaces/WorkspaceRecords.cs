@@ -18,6 +18,10 @@ public interface IWorkspaceRecordStore
 
     Task SaveAsync(TenantScope scope, string kind, string key, string payloadJson, CancellationToken cancellationToken = default);
 
+    /// <summary>Replace a record only if its current payload still matches, for bounded security counters.</summary>
+    Task<bool> TryReplaceAsync(TenantScope scope, string kind, string key, string expectedPayloadJson,
+        string replacementPayloadJson, CancellationToken cancellationToken = default) => Task.FromResult(false);
+
     Task<IReadOnlyList<WorkspaceRecord>> ListAsync(TenantScope scope, string kind, int take = 500, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(TenantScope scope, string kind, string key, CancellationToken cancellationToken = default);

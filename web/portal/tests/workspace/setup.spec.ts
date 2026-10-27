@@ -90,7 +90,7 @@ test("a workspace can request and cancel managed WhatsApp setup without sending 
   await form.getByRole("checkbox").check();
   await form.getByRole("button", { name: "Request setup" }).click();
   await expect(page.getByText("Request status:")).toContainText("Requested");
-  await expect(page.getByText("Codes and registration PINs are not collected or stored.")).toBeVisible();
+  await expect(page.getByText("Codes and registration PINs are submitted to Meta for verification and never stored by IIP.")).toBeVisible();
   await page.screenshot({ path: `test-results/workspace/whatsapp-onboarding-${test.info().project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: "Cancel request" }).click();
   await expect(form).toBeVisible();

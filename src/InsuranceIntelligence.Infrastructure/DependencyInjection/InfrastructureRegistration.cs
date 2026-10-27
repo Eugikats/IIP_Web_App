@@ -488,6 +488,8 @@ public static class InfrastructureRegistration
                 AccessToken = configuration["WhatsApp:AccessToken"],
                 AppSecret = configuration["WhatsApp:AppSecret"],
                 VerifyToken = configuration["WhatsApp:VerifyToken"],
+                ManagedAccessToken = configuration["WhatsApp:ManagedAccessToken"],
+                ManagedAppSecret = configuration["WhatsApp:ManagedAppSecret"],
                 TenantId = configuration["WhatsApp:TenantId"] ?? configuration["INSURANCEINTELLIGENCE_TENANT_ID"],
                 WorkspaceId = configuration["WhatsApp:WorkspaceId"] ?? configuration["INSURANCEINTELLIGENCE_WORKSPACE_ID"],
                 IntegrationUserId = configuration["WhatsApp:IntegrationUserId"],

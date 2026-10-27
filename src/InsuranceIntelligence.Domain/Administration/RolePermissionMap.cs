@@ -5,7 +5,9 @@ public static class RolePermissionMap
     private static readonly IReadOnlyDictionary<PlatformRole, Permission[]> Map =
         new Dictionary<PlatformRole, Permission[]>
         {
-            [PlatformRole.Admin] = Enum.GetValues<Permission>(),
+            // Tenant administrators cannot operate the publisher's cross-tenant queue.
+            [PlatformRole.Admin] = Enum.GetValues<Permission>()
+                .Where(permission => permission != Permission.ManageTenantOnboarding).ToArray(),
             [PlatformRole.ITAdmin] =
             [
                 Permission.ViewCommandCenter,

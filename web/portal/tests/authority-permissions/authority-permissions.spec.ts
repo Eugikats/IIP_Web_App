@@ -31,7 +31,7 @@ const consequentialGrants: Record<Permission, Role[]> = {
   ExportEvidencePack: ["Admin", "ClaimsSupervisor", "Compliance", "ITAdmin"],
   SendCustomerUpdate: ["Admin", "ClaimsOfficer", "ClaimsSupervisor", "CustomerService"],
   ManageAgentWorkflows: ["Admin", "ITAdmin"],
-  ManageTenantOnboarding: ["Admin", "PublisherSupport"],
+  ManageTenantOnboarding: ["PublisherSupport"],
 } as Record<Permission, Role[]>;
 
 test("every staff preview uses one full operational label and a permitted landing route", () => {

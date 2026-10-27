@@ -621,6 +621,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAge
 builder.Services.AddScoped<InsuranceIntelligence.Application.MyWork.IMyWorkService, InsuranceIntelligence.Application.MyWork.MyWorkService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.IWhatsAppMessagingService, InsuranceIntelligence.Application.WhatsApp.WhatsAppMessagingService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.ICustomerAssistantService, InsuranceIntelligence.Application.CustomerAssistant.CustomerAssistantService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IClaimIdentityVerifier, InsuranceIntelligence.Application.CustomerAssistant.ClaimIdentityVerifier>();
 
 // Hidden field-test commands (#reset, #demo) for one shared phone: Demo runtime profile only, and
 // only for the number in INSURANCEINTELLIGENCE_DEMO_PHONE_NUMBER. Anywhere else they do not exist.
@@ -1529,6 +1530,14 @@ app.MapDelete("/api/v1/integrations/whatsapp/onboarding", WhatsAppOnboardingEndp
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/admin/whatsapp/onboarding", WhatsAppOnboardingEndpoints.SupportQueue)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapPost("/api/v1/admin/whatsapp/onboarding/{tenantId}/{workspaceId}/assign", WhatsAppOnboardingEndpoints.AssignNumber)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapPost("/api/v1/integrations/whatsapp/onboarding/request-code", WhatsAppOnboardingEndpoints.RequestCode)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations)).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/integrations/whatsapp/onboarding/verify-code", WhatsAppOnboardingEndpoints.VerifyCode)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations)).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/integrations/whatsapp/onboarding/register", WhatsAppOnboardingEndpoints.RegisterNumber)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations)).RequireRateLimiting("mfa");
 app.MapGet("/api/v1/demo/scenarios", InsuranceIntelligence.Api.DemoScenarios.DemoScenarioEndpoints.List);
 app.MapPost("/api/v1/demo/scenarios/{scenarioId}/activate", InsuranceIntelligence.Api.DemoScenarios.DemoScenarioEndpoints.Activate);
 app.MapGet("/api/v1/templates", InsuranceIntelligence.Api.Templates.TemplateEndpoints.List)

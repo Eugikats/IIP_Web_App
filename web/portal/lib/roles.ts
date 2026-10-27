@@ -46,7 +46,8 @@ export type Permission =
   | "ReviewAgentWorkItems"
   | "ViewBilling"
   | "ManageTenantOnboarding"
-  | "ManageProducts";
+  | "ManageProducts"
+  | "ManageOrganisation";
 
 export const STAFF_ROLES: Role[] = [
   "Admin", "ClaimsOfficer", "ClaimsSupervisor", "CustomerService", "Broker",
@@ -61,13 +62,13 @@ export const ALL_PERMISSIONS: Permission[] = [
   "ViewChannels", "ViewCustomers", "ViewSalesLeads", "ManageSalesLeads", "ViewFraudSignals",
   "ViewUnderwriting", "ManageAgents", "ViewAgentWorkflows", "RunAgentWorkflows",
   "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling", "ManageTenantOnboarding",
-  "ManageProducts",
+  "ManageProducts", "ManageOrganisation",
 ];
 
 // Development presentation contract only. Protected runtimes use server-resolved permissions.
 // Keep this aligned with RolePermissionMap and test the alignment at both boundaries.
 export const PREVIEW_PERMISSIONS: Record<Role, Permission[]> = {
-  Admin: ALL_PERMISSIONS,
+  Admin: ALL_PERMISSIONS.filter((permission) => permission !== "ManageTenantOnboarding"),
   ITAdmin: [
     "ViewCommandCenter", "ViewAuditLog", "ExportEvidencePack", "ConfigureIntegrations",
     "ManageTenantSettings", "ManageAgents", "ViewAgentWorkflows", "RunAgentWorkflows",

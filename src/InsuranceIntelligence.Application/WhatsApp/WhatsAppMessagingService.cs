@@ -164,7 +164,11 @@ public sealed class WhatsAppMessagingService(
                 ThreadId = BuildThreadId(inbound.BusinessPhoneNumberId, waId),
                 BusinessPhoneNumberId = inbound.BusinessPhoneNumberId, ContactWaId = waId,
                 Direction = WhatsAppMessageDirection.Inbound, ContentType = inbound.ContentType,
-                CustomerSafeBody = inbound.CustomerSafeBody, ProviderMessageId = inbound.ProviderMessageId,
+                CustomerSafeBody = inbound.ContentType == WhatsAppContentType.Text
+                    && inbound.CustomerSafeBody.Trim().Length == 6
+                    && inbound.CustomerSafeBody.Trim().All(char.IsAsciiDigit)
+                    ? "[verification code redacted]" : inbound.CustomerSafeBody,
+                ProviderMessageId = inbound.ProviderMessageId,
                 ReplyToProviderMessageId = inbound.ReplyToProviderMessageId,
                 DeliveryState = WhatsAppDeliveryState.Received, CreatedAt = inbound.ReceivedAt,
                 UpdatedAt = inbound.ReceivedAt, CorrelationId = Guid.NewGuid().ToString("N")

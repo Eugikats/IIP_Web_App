@@ -80,6 +80,30 @@ public sealed class EfWorkspaceRecordStore(InsuranceIntelligenceDbContext dbCont
         }
     }
 
+    public async Task<bool> TryReplaceAsync(TenantScope scope, string kind, string key, string expectedPayloadJson,
+        string replacementPayloadJson, CancellationToken cancellationToken = default)
+    {
+        if (dbContext.Database.IsInMemory())
+        {
+            var local = await dbContext.WorkspaceRecords.FirstOrDefaultAsync(item => item.Id == IdOf(scope, kind, key)
+                && item.TenantId == scope.TenantId && item.WorkspaceId == scope.WorkspaceId
+                && item.Kind == kind && item.Key == key, cancellationToken);
+            if (local?.PayloadJson != expectedPayloadJson) return false;
+            local.PayloadJson = replacementPayloadJson;
+            local.UpdatedAt = DateTimeOffset.UtcNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        var updated = await dbContext.WorkspaceRecords
+            .Where(item => item.Id == IdOf(scope, kind, key) && item.TenantId == scope.TenantId
+                && item.WorkspaceId == scope.WorkspaceId && item.Kind == kind && item.Key == key
+                && item.PayloadJson == expectedPayloadJson)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(item => item.PayloadJson, replacementPayloadJson)
+                .SetProperty(item => item.UpdatedAt, DateTimeOffset.UtcNow), cancellationToken);
+        return updated == 1;
+    }
+
     public async Task<IReadOnlyList<WorkspaceRecord>> ListAsync(TenantScope scope, string kind, int take = 500, CancellationToken cancellationToken = default)
     {
         try

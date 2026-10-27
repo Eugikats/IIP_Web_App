@@ -28,10 +28,10 @@ const previewBlock = rolesSource.match(/export const PREVIEW_PERMISSIONS:[\s\S]*
 if (!previewBlock) findings.push("Could not find PREVIEW_PERMISSIONS in lib/roles.ts.");
 
 const frontendPermissionsByRole = new Map();
-for (const match of previewBlock.matchAll(/^\s{2}(\w+):\s*(ALL_PERMISSIONS|\[([^\]]*)\])/gm)) {
+for (const match of previewBlock.matchAll(/^\s{2}(\w+):\s*(ALL_PERMISSIONS(?:\.filter\(\(permission\) => permission !== "ManageTenantOnboarding"\))?|\[([^\]]*)\])/gm)) {
   const [, role, allOrList, list] = match;
-  if (allOrList === "ALL_PERMISSIONS") {
-    frontendPermissionsByRole.set(role, "ALL");
+  if (allOrList.startsWith("ALL_PERMISSIONS")) {
+    frontendPermissionsByRole.set(role, allOrList.includes(".filter") ? "ALL_EXCEPT_PLATFORM" : "ALL");
   } else {
     const permissions = [...(list ?? "").matchAll(/"([A-Za-z]+)"/g)].map((m) => m[1]);
     frontendPermissionsByRole.set(role, new Set(permissions));
@@ -45,11 +45,11 @@ const allBackendPermissions = [...permissionEnumSource.matchAll(/^\s*([A-Za-z]+)
   .filter((name) => name !== "Permission"); // guard against matching the enum declaration line itself
 
 for (const match of backendSource.matchAll(
-  /\[PlatformRole\.(\w+)\]\s*=\s*(Enum\.GetValues<Permission>\(\)|\[([\s\S]*?)\])/g,
+  /\[PlatformRole\.(\w+)\]\s*=\s*(Enum\.GetValues<Permission>\(\)(?:\s*\.Where\([^\n]+?\)\.ToArray\(\))?|\[([\s\S]*?)\])/g,
 )) {
   const [, role, allOrList, list] = match;
   if (allOrList.startsWith("Enum.GetValues")) {
-    backendPermissionsByRole.set(role, "ALL");
+    backendPermissionsByRole.set(role, allOrList.includes(".Where") ? "ALL_EXCEPT_PLATFORM" : "ALL");
   } else {
     const permissions = [...(list ?? "").matchAll(/Permission\.(\w+)/g)].map((m) => m[1]);
     backendPermissionsByRole.set(role, new Set(permissions));
@@ -84,8 +84,10 @@ for (const role of roles) {
     continue;
   }
 
-  const frontendSet = frontend === "ALL" ? new Set(allBackendPermissions) : frontend;
-  const backendSet = backend === "ALL" ? new Set(allBackendPermissions) : backend;
+  const frontendSet = frontend === "ALL" ? new Set(allBackendPermissions)
+    : frontend === "ALL_EXCEPT_PLATFORM" ? new Set(allBackendPermissions.filter((permission) => permission !== "ManageTenantOnboarding")) : frontend;
+  const backendSet = backend === "ALL" ? new Set(allBackendPermissions)
+    : backend === "ALL_EXCEPT_PLATFORM" ? new Set(allBackendPermissions.filter((permission) => permission !== "ManageTenantOnboarding")) : backend;
 
   for (const permission of backendSet) {
     if (!frontendSet.has(permission)) {

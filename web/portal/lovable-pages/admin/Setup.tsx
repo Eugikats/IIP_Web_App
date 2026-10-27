@@ -23,6 +23,10 @@ import {
   getWhatsAppOnboarding,
   submitWhatsAppOnboarding,
   cancelWhatsAppOnboarding,
+  requestWhatsAppCode,
+  verifyWhatsAppCode,
+  registerWhatsAppNumber,
+  type ManagedAvailability,
   type WhatsAppOnboardingRequest,
 } from "@/lib/orgSetup";
 
@@ -76,6 +80,9 @@ export default function Setup() {
   const [whatsAppEmail, setWhatsAppEmail] = useState("");
   const [whatsAppConsent, setWhatsAppConsent] = useState(false);
   const [whatsAppError, setWhatsAppError] = useState<string | null>(null);
+  const [managedAvailability, setManagedAvailability] = useState<ManagedAvailability>("Not configured");
+  const [whatsAppCode, setWhatsAppCode] = useState("");
+  const [whatsAppPin, setWhatsAppPin] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,6 +103,7 @@ export default function Setup() {
     setSecurity(securityResult.value);
     setFileConnections(files);
     setWhatsAppRequest(whatsAppResult.ok ? whatsAppResult.value.request : null);
+    setManagedAvailability(whatsAppResult.ok ? whatsAppResult.value.metaVerification : "Not configured");
     if (profile.value.profile) {
       const { updatedAt: _updatedAt, updatedBy: _updatedBy, ...rest } = profile.value.profile;
       setForm({ ...EMPTY, ...rest, tradingName: rest.tradingName ?? "", contactPhone: rest.contactPhone ?? "", website: rest.website ?? "" });
@@ -173,6 +181,37 @@ export default function Setup() {
     setWhatsAppError(null);
     const result = await cancelWhatsAppOnboarding(role);
     setBusy(false);
+    if (!result.ok) { setWhatsAppError(result.error); return; }
+    setWhatsAppRequest(result.value);
+  }
+
+  async function requestCode(method: "SMS" | "VOICE") {
+    setBusy(true);
+    setWhatsAppError(null);
+    const result = await requestWhatsAppCode(role, method);
+    setBusy(false);
+    if (!result.ok) { setWhatsAppError(result.error); return; }
+    setWhatsAppRequest(result.value);
+  }
+
+  async function verifyCode(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setWhatsAppError(null);
+    const result = await verifyWhatsAppCode(role, whatsAppCode);
+    setBusy(false);
+    setWhatsAppCode("");
+    if (!result.ok) { setWhatsAppError(result.error); return; }
+    setWhatsAppRequest(result.value);
+  }
+
+  async function registerNumber(event?: React.FormEvent) {
+    event?.preventDefault();
+    setBusy(true);
+    setWhatsAppError(null);
+    const result = await registerWhatsAppNumber(role, whatsAppPin);
+    setBusy(false);
+    setWhatsAppPin("");
     if (!result.ok) { setWhatsAppError(result.error); return; }
     setWhatsAppRequest(result.value);
   }
@@ -255,12 +294,37 @@ export default function Setup() {
           </GlassCard>
           <GlassCard>
             <h2 className="m-0 text-[15px] font-bold text-dls-text-primary">WhatsApp number setup</h2>
-            <p className="mb-0 mt-1 text-[13px] text-dls-text-secondary">Request help connecting a number. Meta code verification and number registration are <strong>Not configured</strong>.</p>
+            <p className="mb-0 mt-1 text-[13px] text-dls-text-secondary">Request help connecting a number. Meta verification: <strong>{managedAvailability}</strong>.</p>
             {whatsAppRequest && whatsAppRequest.status !== "Cancelled" ? (
               <div className="mt-3 border-t border-dls-border-subtle pt-3">
                 <p className="m-0 text-[13px] text-dls-text-primary">Request status: <strong>{whatsAppRequest.status}</strong></p>
                 <p className="mb-0 mt-1 text-[12.5px] text-dls-text-secondary">{whatsAppRequest.phoneNumber} · {whatsAppRequest.displayName}</p>
-                {whatsAppRequest.status !== "Active" ? <Button className="mt-3" variant="secondary" disabled={busy} onClick={cancelWhatsAppRequest}>Cancel request</Button> : null}
+                {whatsAppRequest.status === "Requested" ? <p className="mb-0 mt-2 text-[12.5px] text-dls-text-secondary">Publisher Support will confirm the number with Meta before a code can be sent.</p> : null}
+                {managedAvailability === "Available" && ["AwaitingCode", "CodeSent"].includes(whatsAppRequest.status) ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="m-0 text-[12.5px] text-dls-text-secondary">Meta can send the verification code to this business number.</p>
+                    <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={busy} onClick={() => void requestCode("SMS")}>Send code by SMS</Button><Button variant="secondary" disabled={busy} onClick={() => void requestCode("VOICE")}>Call with code</Button></div>
+                  </div>
+                ) : null}
+                {whatsAppRequest.status === "CodeSent" ? (
+                  <form onSubmit={verifyCode} className="mt-3 flex flex-wrap items-end gap-2" aria-label="Verify WhatsApp number">
+                    <Field label="Code from Meta" htmlFor="wa-code"><Input id="wa-code" inputMode="numeric" autoComplete="one-time-code" required minLength={4} maxLength={10} value={whatsAppCode} onChange={(event) => setWhatsAppCode(event.target.value)} /></Field>
+                    <Button type="submit" variant="primary" disabled={busy}>Verify code</Button>
+                  </form>
+                ) : null}
+                {whatsAppRequest.status === "Verified" ? (
+                  <form onSubmit={registerNumber} className="mt-3 flex flex-wrap items-end gap-2" aria-label="Register WhatsApp number">
+                    <Field label="Six-digit registration PIN" hint="Keep this PIN securely. IIP does not store it." htmlFor="wa-pin"><Input id="wa-pin" type="password" inputMode="numeric" required minLength={6} maxLength={6} value={whatsAppPin} onChange={(event) => setWhatsAppPin(event.target.value)} /></Field>
+                    <Button type="submit" variant="primary" disabled={busy}>Register number</Button>
+                  </form>
+                ) : null}
+                {whatsAppRequest.status === "NeedsAttention" && whatsAppRequest.registrationSucceeded ? (
+                  <div className="mt-3 space-y-2"><p className="m-0 text-[12.5px] text-dls-text-secondary">Meta registered the number, but the connection needs another attempt.</p><Button variant="primary" disabled={busy} onClick={() => void registerNumber()}>Finish connection</Button></div>
+                ) : null}
+                {whatsAppRequest.status === "NeedsAttention" && !whatsAppRequest.registrationSucceeded ? <p className="mb-0 mt-2 text-[12.5px] text-dls-text-secondary">Publisher Support needs to review the Meta connection before setup can continue.</p> : null}
+                {whatsAppRequest.status === "Active" ? <p className="mb-0 mt-2 text-[12.5px] text-dls-text-secondary">The number is connected. Meta can deliver messages to this workspace.</p> : null}
+                {!whatsAppRequest.registrationSucceeded && !["Active", "Registering"].includes(whatsAppRequest.status) ? <Button className="mt-3" variant="secondary" disabled={busy} onClick={cancelWhatsAppRequest}>Cancel request</Button> : null}
+                {whatsAppError ? <p className="m-0 mt-2 text-[13px] text-dls-danger-text" role="alert">{whatsAppError}</p> : null}
               </div>
             ) : (
               <form onSubmit={submitWhatsAppRequest} className="mt-3 grid gap-3 sm:grid-cols-2" aria-label="Request WhatsApp setup">
@@ -272,7 +336,7 @@ export default function Setup() {
                 {whatsAppError ? <p className="m-0 text-[13px] text-dls-danger-text" role="alert">{whatsAppError}</p> : null}
               </form>
             )}
-            <p className="mb-0 mt-3 text-[12px] text-dls-text-muted">Codes and registration PINs are not collected or stored. This request records consent to be contacted about setup.</p>
+            <p className="mb-0 mt-3 text-[12px] text-dls-text-muted">Codes and registration PINs are submitted to Meta for verification and never stored by IIP. This request records consent to be contacted about setup.</p>
           </GlassCard>
 
           <GlassCard>

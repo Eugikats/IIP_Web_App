@@ -202,6 +202,10 @@ public sealed record WhatsAppOptions
     public string? AccessToken { get; init; }
     public string? AppSecret { get; init; }
     public string? VerifyToken { get; init; }
+    /// <summary>Platform-managed onboarding credentials, separate from a deployment-wide sender.
+    /// These are supplied through secure configuration and never returned to a tenant or support browser.</summary>
+    public string? ManagedAccessToken { get; init; }
+    public string? ManagedAppSecret { get; init; }
     /// <summary>Server-side tenant for this WhatsApp business number (not taken from the webhook).</summary>
     public string? TenantId { get; init; }
     /// <summary>Server-side workspace for this WhatsApp business number.</summary>

@@ -31,6 +31,35 @@ namespace InsuranceIntelligence.Api.Tests;
 /// </summary>
 public sealed partial class CustomerAssistantServiceTests
 {
+    private sealed class VerifiedClaimIdentity : IClaimIdentityVerifier
+    {
+        public Task<bool> IsVerifiedAsync(TenantScope scope, string phone, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<ClaimIdentityResult> SendAsync(TenantScope scope, string phone, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(ClaimIdentityResult.Verified);
+        public Task<ClaimIdentityResult> VerifyAsync(TenantScope scope, string phone, string code, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(ClaimIdentityResult.Verified);
+    }
+
+    private sealed class PendingClaimIdentity : IClaimIdentityVerifier
+    {
+        public Task<bool> IsVerifiedAsync(TenantScope scope, string phone, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<ClaimIdentityResult> SendAsync(TenantScope scope, string phone, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(ClaimIdentityResult.CodeSent);
+        public Task<ClaimIdentityResult> VerifyAsync(TenantScope scope, string phone, string code, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(ClaimIdentityResult.InvalidCode);
+    }
+
+    [Fact]
+    public async Task Unverified_policyholder_gets_no_claim_details_and_cannot_open_a_claim()
+    {
+        var fixture = Fixture.Create(claimIdentity: new PendingClaimIdentity());
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+        var claimId = fixture.SeedCase(ValidPolicyNumber, CaseStatus.InReview);
+
+        await fixture.HandleAsync("What is the status of my claim?");
+        Assert.DoesNotContain(ClaimReference.For(claimId), fixture.Conversations.Saved[^1].OutboundReplyText);
+        await fixture.HandleAsync("123456");
+        Assert.Equal("[verification code redacted]", fixture.Conversations.Saved[^1].InboundMessageText);
+        await fixture.HandleAsync("I had an accident and need to make a claim");
+        Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+    }
+
     private const string ValidPolicyNumber = "NSA/MO/2026/00009";
 
     [Fact]
@@ -1660,7 +1689,8 @@ public sealed partial class CustomerAssistantServiceTests
             IToolCallingChatProvider? agent = null,
             InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null,
             bool stopHandling = false,
-            InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null)
+            InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null,
+            IClaimIdentityVerifier? claimIdentity = null)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -1716,7 +1746,8 @@ public sealed partial class CustomerAssistantServiceTests
                 insightsQueue,
                 decisionLog: decisionLog,
                 companyProfile: companyProfile,
-                outcomes: stopHandling ? new InsuranceIntelligence.Application.Rules.OutcomeService(OutcomeStore(), decisionLog ?? new InsuranceIntelligence.Application.Rules.DecisionLog(OutcomeStore()), salesLeads, consent) : null);
+                outcomes: stopHandling ? new InsuranceIntelligence.Application.Rules.OutcomeService(OutcomeStore(), decisionLog ?? new InsuranceIntelligence.Application.Rules.DecisionLog(OutcomeStore()), salesLeads, consent) : null,
+                claimIdentity: claimIdentity ?? new VerifiedClaimIdentity());
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {

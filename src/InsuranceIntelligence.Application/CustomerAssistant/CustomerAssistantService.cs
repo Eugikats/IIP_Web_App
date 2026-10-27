@@ -132,7 +132,8 @@ public sealed partial class CustomerAssistantService(
     InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null,
     InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null,
     InsuranceIntelligence.Application.Rules.OutcomeService? outcomes = null,
-    InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null) : ICustomerAssistantService
+    InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null,
+    IClaimIdentityVerifier? claimIdentity = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
@@ -720,7 +721,28 @@ public sealed partial class CustomerAssistantService(
         // again, anything else is a correction. Nothing binding happens on the first telling.
         AssistantOutcome? outcome = null;
         var turnId = Guid.NewGuid();
-        if (agentModel is not null
+        var identityCodeSubmitted = false;
+        if (sender is { Policies.Count: > 0 } && classified != CustomerIntent.HumanRequested
+            && (claimIdentity is null || !await claimIdentity.IsVerifiedAsync(scope, waId, cancellationToken)))
+        {
+            var result = claimIdentity is null ? ClaimIdentityResult.NotConfigured
+                : text.Length == 6 && text.All(char.IsAsciiDigit)
+                    ? await claimIdentity.VerifyAsync(scope, waId, text, correlationId, cancellationToken)
+                    : await claimIdentity.SendAsync(scope, waId, correlationId, cancellationToken);
+            identityCodeSubmitted = text.Length == 6 && text.All(char.IsAsciiDigit);
+            var message = result switch
+            {
+                ClaimIdentityResult.Verified => "Your number is verified. Please repeat your request so I can help with your cover or claim.",
+                ClaimIdentityResult.CodeSent => "I sent a six-digit verification code by SMS to the number on your policy. Reply with that code here within 10 minutes.",
+                ClaimIdentityResult.InvalidCode => "That code was not correct. Please try again.",
+                ClaimIdentityResult.Expired => "That code has expired. Reply with your request again to get a new code.",
+                ClaimIdentityResult.Locked => "Too many incorrect codes. Please contact our team for help.",
+                ClaimIdentityResult.Cooldown => "Please use the code already sent by SMS. You can request another after one minute.",
+                _ => "SMS verification is not configured. Please ask for a person to help with your claim."
+            };
+            outcome = AssistantOutcome.Of(message, classified, CustomerAssistantOutcome.AutoReplied);
+        }
+        if (outcome is null && agentModel is not null
             && (usageMeter is null
                 || (await usageMeter.TryConsumeAsync(scope, InsuranceIntelligence.Domain.Usage.UsageKind.AssistantTurn, cancellationToken)).Allowed))
         {
@@ -788,7 +810,7 @@ public sealed partial class CustomerAssistantService(
             Scope = scope,
             ThreadId = threadId,
             ContactWaId = waId,
-            InboundMessageText = text,
+            InboundMessageText = identityCodeSubmitted ? "[verification code redacted]" : text,
             ClassifiedIntent = outcome.Intent,
             OutboundReplyText = reply,
             Outcome = outcome.Outcome,
@@ -797,7 +819,7 @@ public sealed partial class CustomerAssistantService(
             LeadId = outcome.LeadId,
             PolicyNumber = outcome.PolicyNumber,
             CustomerLanguage = language.Reply == SupportedLanguageCode.En ? null : SupportedLanguage.For(language.Reply).Iso,
-            OriginalInboundText = string.Equals(original, text, StringComparison.Ordinal) ? null : original,
+            OriginalInboundText = identityCodeSubmitted || string.Equals(original, text, StringComparison.Ordinal) ? null : original,
             OutboundLocalisedText = localised is { Status: TranslationStatus.Translated } ? localised.Text : null,
             InboundTranslationStatus = understood.Status,
             OutboundTranslationStatus = localised?.Status,
@@ -1272,11 +1294,15 @@ public sealed partial class CustomerAssistantService(
         var thread = await CurrentThreadAsync(scope, threadId, cancellationToken);
         var previousTurn = thread.Length == 0 ? null : thread[^1];
 
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
-        var claimCase = sender is null
+        var identityRequired = sender is { Policies.Count: > 0 }
+            && (claimIdentity is null || !await claimIdentity.IsVerifiedAsync(scope, waId, cancellationToken));
+
+        IReadOnlyCollection<ClaimCase> cases = identityRequired ? [] : await caseRepository.ListAsync(scope, cancellationToken);
+        var claimCase = sender is null || identityRequired
             ? null
             : CasesFor(cases, sender, waId).Where(c => ClaimStatusLabels.IsOpen(c.Status)).OrderByDescending(c => c.CreatedAt).FirstOrDefault();
-        if (claimCase is null && thread.LastOrDefault(turn => turn.CaseId is not null)?.CaseId is { } threadCaseId)
+        if (!identityRequired && sender is not null && claimCase is null
+            && thread.LastOrDefault(turn => turn.CaseId is not null)?.CaseId is { } threadCaseId)
         {
             claimCase = cases.FirstOrDefault(c => c.CaseId == threadCaseId && ClaimStatusLabels.IsOpen(c.Status));
         }
@@ -1287,7 +1313,8 @@ public sealed partial class CustomerAssistantService(
         string? reply = null;
         if (!burst)
         {
-            reply = claimCase is null
+            reply = identityRequired ? "I received your photo. To discuss or link it to a claim, send a text request and complete SMS verification."
+                : claimCase is null
                 ? KatoReplies.PhotoHeld(sender?.FirstName)
                 : KatoReplies.PhotoAdded(sender?.FirstName, ClaimReference.For(claimCase.CaseId));
 
