@@ -17,6 +17,7 @@ public sealed record CloseRequest(string? ConfirmName);
 public sealed record ProfileRequest(
     string? LegalName, string? TradingName, string? LicenceKind, string? LicenceNumber, string? Regulator, string? Country,
     string? ContactName, string? ContactEmail, string? ContactPhone, string? Website, string? About);
+public sealed record AcknowledgeSecurityRequest(string? FullName, string? Version);
 public sealed record AcceptTermsRequest(string? FullName, string? Title, bool Authorised, string? TermsVersion, string? DataProcessingVersion);
 
 /// <summary>
@@ -244,6 +245,36 @@ public static class OrganisationEndpoints
             catch (InsuranceIntelligence.Application.Organisations.CompanyProfileException problem)
             {
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["terms"] = [problem.Message] });
+            }
+        });
+
+    public static Task<IResult> GetSecurity(
+        InsuranceIntelligence.Application.Organisations.CompanyProfileService service, InfrastructureOptions options, HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, _) =>
+        {
+            var scope = InsuranceIntelligence.Domain.Common.TenantScope.Create(organisationId, Organisation.DefaultWorkspace);
+            return Results.Ok(new
+            {
+                version = InsuranceIntelligence.Application.Organisations.SecurityStatements.Version,
+                statements = InsuranceIntelligence.Application.Organisations.SecurityStatements.All.Select(item => new { item.Key, item.Title, item.Statement, status = item.Status.ToString() }),
+                acknowledgement = await service.GetSecurityAcknowledgementAsync(scope, cancellationToken),
+                readCurrent = await service.HasReadSecurityAsync(scope, cancellationToken),
+            });
+        });
+
+    public static Task<IResult> AcknowledgeSecurity(
+        AcknowledgeSecurityRequest request, InsuranceIntelligence.Application.Organisations.CompanyProfileService service, InfrastructureOptions options,
+        HttpContext httpContext, CancellationToken cancellationToken) =>
+        Admin(httpContext, options, async (organisationId, userId) =>
+        {
+            try
+            {
+                var scope = InsuranceIntelligence.Domain.Common.TenantScope.Create(organisationId, Organisation.DefaultWorkspace);
+                return Results.Ok(await service.AcknowledgeSecurityAsync(scope, userId, request.FullName, request.Version, cancellationToken));
+            }
+            catch (InsuranceIntelligence.Application.Organisations.CompanyProfileException problem)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["security"] = [problem.Message] });
             }
         });
 

@@ -41,7 +41,7 @@ public sealed class OrganisationOnboardingTests : IDisposable
 
         var fresh = await onboarding.ChecklistAsync(acme.OrganisationId);
         Assert.Equal(1, fresh.Completed); // only the sign-up itself
-        Assert.Equal(6, fresh.Total);
+        Assert.Equal(7, fresh.Total);
 
         await whatsApp.SaveAsync(new InsuranceIntelligence.Domain.Integrations.WhatsAppChannelConfiguration
         {
@@ -73,7 +73,7 @@ public sealed class OrganisationOnboardingTests : IDisposable
         var fresh = await withProfile.ChecklistAsync(acme.OrganisationId);
 
         Assert.Equal(["organisation", "profile", "terms"], fresh.Steps.Take(3).Select(step => step.Key).ToArray());
-        Assert.Equal(8, fresh.Total);
+        Assert.Equal(10, fresh.Total);
         Assert.False(fresh.Steps.Single(step => step.Key == "profile").Done);
         Assert.False(fresh.Steps.Single(step => step.Key == "terms").Done);
 
@@ -87,6 +87,40 @@ public sealed class OrganisationOnboardingTests : IDisposable
         var done = await withProfile.ChecklistAsync(acme.OrganisationId);
         Assert.True(done.Steps.Single(step => step.Key == "profile").Done);
         Assert.True(done.Steps.Single(step => step.Key == "terms").Done);
+    }
+
+    [Fact]
+    public async Task TheStorageStepIsDoneWhenAConnectorOrAnyDocumentExists()
+    {
+        var repository = new EfOrganisationRepository(db);
+        var knowledge = new InMemoryKnowledgeDocumentRepository();
+        var connectorRepository = new InsuranceIntelligence.Infrastructure.Connectors.EfDataConnectorRepository(db);
+        var seeder = new DemoSeedService(
+            cases, new InMemoryCaseDocumentRepository(), new InMemoryApprovalRepository(), new InMemoryAuditRepository(), new InMemoryCustomerRepository(),
+            new InMemoryPolicyRepository(), new InMemoryCoverageRepository(), new InMemoryBranchRepository(), new InMemoryProducerRepository(), products);
+        var withStorage = new OrganisationOnboardingService(repository, whatsApp, products, knowledge, cases,
+            new EfTenantMembershipWriter(db), seeder, connectors: connectorRepository);
+        var acme = await organisations.CreateAsync("owner", "Acme Assurance", OrganisationType.Insurer, "c");
+
+        Assert.False((await withStorage.ChecklistAsync(acme.OrganisationId)).Steps.Single(step => step.Key == "storage").Done);
+
+        await knowledge.SaveAsync(new InsuranceIntelligence.Domain.Knowledge.KnowledgeDocument
+        {
+            KnowledgeDocumentId = Guid.NewGuid(), Scope = acme.Scope, DocumentName = "Draft wording", ProductLine = "General",
+            DocumentType = InsuranceIntelligence.Domain.Knowledge.KnowledgeDocumentType.PolicyWording, Version = "1", OriginalFileName = "wording.pdf",
+            ContentType = "application/pdf", FileSizeBytes = 1, ObjectKey = "object", ApprovalStatus = InsuranceIntelligence.Domain.Knowledge.KnowledgeDocumentStatus.Draft,
+            IndexedStatus = InsuranceIntelligence.Domain.Knowledge.KnowledgeIndexedStatus.NotIndexed, Chunks = [], UploadedByUserId = "owner",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, CorrelationId = "c",
+        });
+        Assert.True((await withStorage.ChecklistAsync(acme.OrganisationId)).Steps.Single(step => step.Key == "storage").Done);
+
+        var other = await organisations.CreateAsync("owner", "Other Assurance", OrganisationType.Insurer, "c");
+        await connectorRepository.SaveAsync(new InsuranceIntelligence.Domain.Integrations.DataConnector
+        {
+            ConnectorId = Guid.NewGuid(), Scope = other.Scope, Provider = InsuranceIntelligence.Domain.Integrations.FileProvider.Google,
+            OwnerUserId = "owner", Folders = [], CreatedBy = "owner", CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        Assert.True((await withStorage.ChecklistAsync(other.OrganisationId)).Steps.Single(step => step.Key == "storage").Done);
     }
 
     [Fact]

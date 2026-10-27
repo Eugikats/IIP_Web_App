@@ -38,6 +38,13 @@ export type ProfileState = {
   dataProcessingVersion: string;
 };
 
+export type SecurityState = {
+  version: string;
+  statements: { key: string; title: string; statement: string; status: "InPlace" | "Partly" | "NotOffered" }[];
+  acknowledgement: { version: string; acknowledgedByUserId: string; acknowledgedByName: string; acknowledgedAt: string } | null;
+  readCurrent: boolean;
+};
+
 export type SetupResult<T> = { ok: true; value: T } | { ok: false; error: string; forbidden: boolean };
 
 async function failure(response: Response, fallback: string): Promise<SetupResult<never>> {
@@ -73,3 +80,7 @@ export const acceptTerms = (
   role: string,
   body: { fullName: string; title: string; authorised: boolean; termsVersion: string; dataProcessingVersion: string },
 ) => call<TermsAcceptance>(role, "/api/v1/organisation/terms", "POST", body, "The acceptance could not be recorded.");
+
+export const getSecurity = (role: string) => call<SecurityState>(role, "/api/v1/organisation/security", "GET", undefined, "The security statements could not be loaded.");
+export const acknowledgeSecurity = (role: string, body: { fullName: string; version: string }) =>
+  call<SecurityState["acknowledgement"]>(role, "/api/v1/organisation/security-ack", "POST", body, "The acknowledgement could not be recorded.");

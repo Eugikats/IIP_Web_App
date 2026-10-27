@@ -58,13 +58,20 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 12 | Conversion view for bank staff | done |
 | 13 | Campaign reporting | done |
 | 14 | Onboarding: company profile, terms, licence | done |
-| 15 | Onboarding: security screen, storage step | next |
+| 15 | Onboarding: security screen, storage step | done |
 | 16 | Extraction agent for wordings | |
 | 17 | "Here is what I found" confirm screen | |
 | 18 | Managed WhatsApp number flow | |
 | 19 | Claim by WhatsApp polish and identity check | |
 | 20 | Security pack | |
 | 21 | Rehearsal | |
+
+## Piece 15 completion
+
+- The security statements are shown with their current version and an honest status for each statement. A named person records that they read that exact version in the organisation's `main` workspace; an older version does not count. The checklist adds security, storage, and document wording steps, with storage complete when a connector or any document exists.
+- The setup screen reports Microsoft and Google file connection state and links to Data Hub uploads. Connected folders let an administrator choose Knowledge or BankEvents purpose both when adding and editing a folder.
+- Verification: `dotnet test InsuranceIntelligence.sln --no-restore` passed (Domain 733, API 1701); `pnpm lint` completed with 0 errors and 6 existing image warnings; `npx tsc --noEmit` passed. `setup.spec.ts` passed 4/4 at 1280 and 768, screenshots reviewed.
+- Full workspace Playwright run: 115 passed, 7 failed. Six failures are time-sensitive demo checks because the run started after the 20:00 EAT outreach cutoff. One tablet sidebar check timed out during the 10.5 minute run. These are not counted as passing.
 
 ## Verified so far
 
@@ -84,4 +91,7 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 ## Questions for the owner (asked at the very end)
 
-- None yet.
+- Counsel review of the data processing agreement and security statements.
+- Owner to upload approved WhatsApp templates.
+- Microsoft and Google app registrations.
+- Confirm which public sample wordings can be used for the extraction rehearsal.

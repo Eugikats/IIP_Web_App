@@ -135,6 +135,14 @@ function ConnectorCard({ connector, role, onChanged, onNotice }: { connector: Co
               <span className="truncate font-medium">{folder.name}</span>
               <span className="text-dls-text-muted">{folder.productLine}, {folder.documentType.replace(/([A-Z])/g, " $1").trim().toLowerCase()}</span>
             </span>
+            <label className="flex items-center gap-2 text-[12px] text-dls-text-secondary">
+              Purpose
+              <select aria-label={`Purpose for ${folder.name}`} value={folder.purpose} disabled={busy !== null}
+                onChange={(event) => void act("purpose", () => replaceConnectorFolders(role, connector.id, connector.folders.map((f) => toInput(f.folderId === folder.folderId ? { ...f, purpose: event.target.value as ConnectorFolder["purpose"] } : f))), () => "Folder purpose saved.")}
+                className="h-8 rounded-lg border border-dls-border-subtle bg-white px-2 text-[12px] text-dls-text-primary">
+                <option value="Knowledge">Knowledge</option><option value="BankEvents">Bank events</option>
+              </select>
+            </label>
             {confirm?.kind === "folder" && confirm.folder.folderId === folder.folderId ? (
               <span className="flex flex-wrap items-center gap-2 text-[12.5px]">
                 <span className="text-dls-text-secondary">Its files leave the Data Hub at once.</span>
@@ -208,7 +216,7 @@ function AddConnector({ role, onClose, onCreated }: { role: string; onClose: () 
   const add = (entries: { id: string; name: string; isFile: boolean }[]) =>
     setDrafts((current) => [
       ...current,
-      ...entries.filter((e) => !current.some((d) => d.folderId === e.id)).map((e) => ({ key: e.id, folderId: e.id, displayName: e.name, productLine: "General", documentType: "PolicyWording", isFile: e.isFile })),
+      ...entries.filter((e) => !current.some((d) => d.folderId === e.id)).map((e) => ({ key: e.id, folderId: e.id, displayName: e.name, productLine: "General", documentType: "PolicyWording", isFile: e.isFile, purpose: "Knowledge" as const })),
     ]);
 
   async function pickGoogle() {
@@ -297,6 +305,12 @@ function AddConnector({ role, onClose, onCreated }: { role: string; onClose: () 
                         className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-[13px] text-slate-900"
                       >
                         {DOCUMENT_TYPES.map((type) => <option key={type} value={type}>{type.replace(/([A-Z])/g, " $1").trim()}</option>)}
+                      </select>
+                    </label>
+                    <label className="block text-[12px] font-medium text-slate-600">
+                      Purpose
+                      <select value={draft.purpose} onChange={(e) => setDrafts((c) => c.map((d) => (d.key === draft.key ? { ...d, purpose: e.target.value as FolderInput["purpose"] } : d)))} aria-label={`Purpose for ${draft.displayName}`} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-[13px] text-slate-900">
+                        <option value="Knowledge">Knowledge documents</option><option value="BankEvents">Bank events CSV</option>
                       </select>
                     </label>
                   </div>

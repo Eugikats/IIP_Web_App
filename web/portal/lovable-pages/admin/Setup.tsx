@@ -8,13 +8,17 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { ErrorStateSurface, LoadingSkeleton, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
 import { useUI } from "@/context/UIStateContext";
+import { getFileConnectionStatus, type FileConnectionStatus } from "@/lib/files/fileConnections";
 import {
+  acknowledgeSecurity,
   acceptTerms,
   getChecklist,
   getProfile,
+  getSecurity,
   saveProfile,
   type CompanyProfile,
   type ProfileState,
+  type SecurityState,
   type SetupChecklist,
 } from "@/lib/orgSetup";
 
@@ -49,6 +53,8 @@ export default function Setup() {
 
   const [checklist, setChecklist] = useState<SetupChecklist | null>(null);
   const [state, setState] = useState<ProfileState | null>(null);
+  const [security, setSecurity] = useState<SecurityState | null>(null);
+  const [fileConnections, setFileConnections] = useState<FileConnectionStatus[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
@@ -58,20 +64,26 @@ export default function Setup() {
   const [busy, setBusy] = useState(false);
   const [acceptor, setAcceptor] = useState({ fullName: "", title: "", authorised: false });
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [securityName, setSecurityName] = useState("");
+  const [securityError, setSecurityError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const [steps, profile] = await Promise.all([getChecklist(role), getProfile(role)]);
+    const [steps, profile, securityResult, files] = await Promise.all([
+      getChecklist(role), getProfile(role), getSecurity(role), getFileConnectionStatus(role).catch(() => null),
+    ]);
     setLoading(false);
-    if (!steps.ok || !profile.ok) {
-      const failed = !steps.ok ? steps : (profile as { ok: false; error: string; forbidden: boolean });
+    if (!steps.ok || !profile.ok || !securityResult.ok) {
+      const failed = !steps.ok ? steps : !profile.ok ? profile : securityResult as { ok: false; error: string; forbidden: boolean };
       setForbidden(failed.forbidden);
       setError(failed.forbidden ? null : failed.error);
       return;
     }
     setChecklist(steps.value);
     setState(profile.value);
+    setSecurity(securityResult.value);
+    setFileConnections(files);
     if (profile.value.profile) {
       const { updatedAt: _updatedAt, updatedBy: _updatedBy, ...rest } = profile.value.profile;
       setForm({ ...EMPTY, ...rest, tradingName: rest.tradingName ?? "", contactPhone: rest.contactPhone ?? "", website: rest.website ?? "" });
@@ -118,6 +130,22 @@ export default function Setup() {
     await load();
   }
 
+  async function submitSecurityAcknowledgement(event: React.FormEvent) {
+    event.preventDefault();
+    if (!security) return;
+    setBusy(true);
+    setSecurityError(null);
+    setNotice(null);
+    const result = await acknowledgeSecurity(role, { fullName: securityName, version: security.version });
+    setBusy(false);
+    if (!result.ok) {
+      setSecurityError(result.error);
+      return;
+    }
+    setNotice(`Read confirmation recorded for ${result.value?.acknowledgedByName ?? securityName}.`);
+    await load();
+  }
+
   const patch = (changes: Partial<Form>) => setForm((current) => ({ ...current, ...changes }));
 
   return (
@@ -152,8 +180,47 @@ export default function Setup() {
         </div>
       ) : null}
 
-      {checklist && state ? (
+      {checklist && state && security ? (
         <div className="space-y-4">
+          <GlassCard>
+            <h2 className="m-0 text-[15px] font-bold text-dls-text-primary">How your data is protected</h2>
+            <p className="mb-0 mt-1 text-[13px] text-dls-text-secondary">Current statements, version {security.version}. Each line describes what is in place today.</p>
+            <ul className="m-0 mt-3 space-y-3 p-0">
+              {security.statements.map((item) => {
+                const label = item.status === "InPlace" ? "In place" : item.status === "Partly" ? "Partly" : "Not offered";
+                return <li key={item.key} className="list-none border-t border-dls-border-subtle pt-3">
+                  <div className="flex flex-wrap items-center gap-2"><h3 className="m-0 text-[13.5px] font-semibold text-dls-text-primary">{item.title}</h3><span className="rounded-full border border-dls-border-subtle px-2 py-0.5 text-[11.5px] text-dls-text-secondary">{label}</span></div>
+                  <p className="m-0 mt-1 text-[12.5px] text-dls-text-secondary">{item.statement}</p>
+                </li>;
+              })}
+            </ul>
+            {security.readCurrent && security.acknowledgement ? (
+              <p className="mb-0 mt-4 text-[13px] text-dls-text-primary" role="status">Read by <strong>{security.acknowledgement.acknowledgedByName}</strong> on {new Date(security.acknowledgement.acknowledgedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.</p>
+            ) : (
+              <form onSubmit={submitSecurityAcknowledgement} className="mt-4 flex flex-wrap items-end gap-3" aria-label="Confirm reading security statements">
+                {security.acknowledgement ? <p className="m-0 w-full text-[12.5px] text-dls-text-secondary">These statements changed since {security.acknowledgement.acknowledgedByName} read them. Please read this version.</p> : null}
+                <Field label="Your full name" htmlFor="security-reader"><Input id="security-reader" required minLength={2} maxLength={100} value={securityName} onChange={(event) => setSecurityName(event.target.value)} /></Field>
+                <Button type="submit" variant="primary" disabled={busy}>I have read this</Button>
+                {securityError ? <p className="m-0 w-full text-[13px] text-dls-danger-text" role="alert">{securityError}</p> : null}
+              </form>
+            )}
+          </GlassCard>
+
+          <GlassCard>
+            <h2 className="m-0 text-[15px] font-bold text-dls-text-primary">Where your documents come from</h2>
+            <p className="mb-0 mt-1 text-[13px] text-dls-text-secondary">Connect the folders your team already uses, or upload documents in the Data Hub. Synced files still need a person to review and approve them.</p>
+            {fileConnections === null ? <p className="mb-0 mt-3 text-[12.5px] text-dls-text-muted">Connection status could not be loaded. You can still upload in the Data Hub.</p> : (
+              <ul className="m-0 mt-3 space-y-2 p-0">
+                {(["microsoft", "google"] as const).map((provider) => {
+                  const item = fileConnections.find((connection) => connection.provider === provider);
+                  const name = provider === "microsoft" ? "Microsoft (SharePoint and OneDrive)" : "Google Drive";
+                  const label = !item?.configured ? "Not configured on this platform yet" : item.connected ? `Connected${item.accountEmail ? ` as ${item.accountEmail}` : ""}` : "Configured, not connected";
+                  return <li key={provider} className="flex flex-wrap items-center justify-between gap-2 border-t border-dls-border-subtle pt-2 text-[13px]"><span className="text-dls-text-primary">{name}</span><span className="text-dls-text-secondary">{label}</span></li>;
+                })}
+              </ul>
+            )}
+            <Link to="/app/knowledge" className="mt-4 inline-block text-[13px] font-semibold text-dls-primary underline">Upload documents in the Data Hub</Link>
+          </GlassCard>
           <GlassCard>
             <p className="mb-2 text-[13px] text-dls-text-muted">{checklist.completed} of {checklist.total} done</p>
             <ol className="m-0 list-none divide-y divide-dls-border-subtle p-0" aria-label="Set-up steps">

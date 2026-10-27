@@ -886,6 +886,8 @@ app.MapGet("/api/v1/organisation/onboarding", InsuranceIntelligence.Api.Organisa
 app.MapGet("/api/v1/organisation/profile", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.GetProfile);
 app.MapPut("/api/v1/organisation/profile", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.SaveProfile);
 app.MapPost("/api/v1/organisation/terms", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.AcceptTerms);
+app.MapGet("/api/v1/organisation/security", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.GetSecurity);
+app.MapPost("/api/v1/organisation/security-ack", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.AcknowledgeSecurity);
 app.MapPost("/api/v1/organisation/sandbox", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.EnableSandbox);
 app.MapGet("/api/v1/events/catalogue", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Catalogue);
 app.MapPost("/api/v1/organisation/webhooks", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Create);

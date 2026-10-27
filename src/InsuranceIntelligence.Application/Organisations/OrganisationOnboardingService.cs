@@ -28,7 +28,8 @@ public sealed class OrganisationOnboardingService(
     ICaseRepository cases,
     ITenantMembershipWriter membershipWriter,
     DemoSeedService demoSeed,
-    CompanyProfileService? profile = null)
+    CompanyProfileService? profile = null,
+    InsuranceIntelligence.Domain.Integrations.IDataConnectorRepository? connectors = null)
 {
     /// <summary>The workspace for synthetic data. Scheduled jobs and customer messaging never visit it.</summary>
     public const string SandboxWorkspace = "sandbox";
@@ -45,6 +46,8 @@ public sealed class OrganisationOnboardingService(
         var anyApprovedWording = (await knowledge.ListAsync(scope, cancellationToken))
             .Any(d => d.ApprovalStatus == KnowledgeDocumentStatus.Approved);
         var members = await organisations.ListMemberUserIdsAsync(organisationId, cancellationToken);
+        var anyDocument = (await knowledge.ListAsync(scope, cancellationToken)).Count > 0;
+        var anyConnector = connectors is not null && (await connectors.ListAsync(scope, cancellationToken)).Count > 0;
         var sandboxLoaded = (await cases.ListAsync(SandboxScope(organisation), cancellationToken)).Count > 0;
 
         var steps = new List<OnboardingStep>
@@ -56,6 +59,9 @@ public sealed class OrganisationOnboardingService(
             new("products", "Publish your products",
                 "Kato can only explain and sell products you have published, with the documents each claim needs.",
                 anyPublishedProduct, "/app/admin/products"),
+            new("storage", "Choose where your documents come from",
+                "Connect a SharePoint, OneDrive or Google Drive folder, or upload files yourself. Either works; nothing you bring in is used until a person approves it.",
+                anyConnector || anyDocument, "/app/knowledge"),
             new("wordings", "Upload your approved policy wordings",
                 "Kato answers policy questions only from wordings you have approved, and never from memory.",
                 anyApprovedWording, "/app/knowledge"),
@@ -79,6 +85,9 @@ public sealed class OrganisationOnboardingService(
             steps.Insert(2, new OnboardingStep("terms", "Accept the terms and the data processing agreement",
                 "A named person accepts for the organisation. You are asked again if either document changes.",
                 accepted, "/app/admin/setup"));
+            steps.Insert(3, new OnboardingStep("security", "Read how your data is protected",
+                "What is in place, what is partly in place and what we do not offer, in plain words. A named person confirms they read it.",
+                await profile.HasReadSecurityAsync(scope, cancellationToken), "/app/admin/setup"));
         }
 
         return new OnboardingChecklist(organisationId, steps.Count(s => s.Done), steps.Count, steps);

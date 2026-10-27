@@ -11,6 +11,7 @@ export type ConnectorFolder = {
   productLine: string;
   documentType: string;
   isFile: boolean;
+  purpose: "Knowledge" | "BankEvents";
 };
 
 export type ConnectorRun = {
@@ -42,7 +43,7 @@ export type Connector = {
   recentRuns: ConnectorRun[];
 };
 
-export type FolderInput = { folderId: string; displayName: string; driveId?: string | null; productLine: string; documentType: string; isFile: boolean };
+export type FolderInput = { folderId: string; displayName: string; driveId?: string | null; productLine: string; documentType: string; isFile: boolean; purpose: "Knowledge" | "BankEvents" };
 
 export class ConnectorError extends Error {
   constructor(public status: number, message: string) {
@@ -82,5 +83,5 @@ export const resumeConnector = (role: string, id: string) => call(`/${id}/resume
 export const deleteConnector = (role: string, id: string) => call(`/${id}`, role, "DELETE");
 
 export function toInput(folder: ConnectorFolder): FolderInput {
-  return { folderId: folder.folderId, displayName: folder.name, driveId: folder.driveId, productLine: folder.productLine, documentType: folder.documentType, isFile: folder.isFile };
+  return { folderId: folder.folderId, displayName: folder.name, driveId: folder.driveId, productLine: folder.productLine, documentType: folder.documentType, isFile: folder.isFile, purpose: folder.purpose };
 }

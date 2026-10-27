@@ -99,4 +99,32 @@ public sealed class CompanyProfileTests
         Assert.False(await service.HasAcceptedCurrentAsync(Ours));
         Assert.Equal("Old Acceptor", (await service.GetAcceptanceAsync(Ours))!.AcceptedByName);
     }
+
+    [Fact]
+    public async Task SecurityAcknowledgementNeedsANameAndCurrentVersion_AndIsWorkspaceScoped()
+    {
+        var service = Service();
+        await Assert.ThrowsAsync<CompanyProfileException>(() => service.AcknowledgeSecurityAsync(Ours, "admin-1", "", SecurityStatements.Version));
+        await Assert.ThrowsAsync<CompanyProfileException>(() => service.AcknowledgeSecurityAsync(Ours, "admin-1", "Aisha Namutebi", "2020-01-01"));
+
+        var acknowledged = await service.AcknowledgeSecurityAsync(Ours, "admin-1", " Aisha  Namutebi ", SecurityStatements.Version);
+
+        Assert.Equal("Aisha Namutebi", acknowledged.AcknowledgedByName);
+        Assert.Equal("admin-1", acknowledged.AcknowledgedByUserId);
+        Assert.True(await service.HasReadSecurityAsync(Ours));
+        Assert.False(await service.HasReadSecurityAsync(Theirs));
+    }
+
+    [Fact]
+    public async Task AnAcknowledgementOfAnOlderSecurityVersionNoLongerCounts_ButStaysOnRecord()
+    {
+        var store = new EfWorkspaceRecordStore(new InsuranceIntelligenceDbContext(
+            new DbContextOptionsBuilder<InsuranceIntelligenceDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options));
+        var service = new CompanyProfileService(store, TimeProvider.System);
+        await store.SaveAsync(Ours, CompanyProfileService.SecurityKind, CompanyProfileService.Key,
+            """{"version":"2020-01-01","acknowledgedByUserId":"u","acknowledgedByName":"Old Reader","acknowledgedAt":"2020-01-02T00:00:00+00:00"}""");
+
+        Assert.False(await service.HasReadSecurityAsync(Ours));
+        Assert.Equal("Old Reader", (await service.GetSecurityAcknowledgementAsync(Ours))!.AcknowledgedByName);
+    }
 }

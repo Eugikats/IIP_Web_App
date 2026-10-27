@@ -40,6 +40,9 @@ public sealed record TermsAcceptance(
     string AcceptedByTitle,
     DateTimeOffset AcceptedAt);
 
+/// <summary>A named person confirming they read how the organisation's data is protected, for the version of the statements in force.</summary>
+public sealed record SecurityAcknowledgement(string Version, string AcknowledgedByUserId, string AcknowledgedByName, DateTimeOffset AcknowledgedAt);
+
 public sealed class CompanyProfileException(string message) : Exception(message);
 
 /// <summary>
@@ -52,6 +55,7 @@ public sealed class CompanyProfileService(IWorkspaceRecordStore store, TimeProvi
     public const string ProfileKind = "company-profile";
     public const string TermsKind = "terms-acceptance";
     public const string Key = "current";
+    public const string SecurityKind = "security-ack";
 
     /// <summary>The versions in force. Raise one when the document changes; everyone is asked again.</summary>
     public const string CurrentTermsVersion = "2026-10-01";
@@ -83,6 +87,34 @@ public sealed class CompanyProfileService(IWorkspaceRecordStore store, TimeProvi
     public async Task<bool> HasAcceptedCurrentAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
         await GetAcceptanceAsync(scope, cancellationToken) is { } accepted
         && accepted.TermsVersion == CurrentTermsVersion && accepted.DataProcessingVersion == CurrentDataProcessingVersion;
+
+    public async Task<SecurityAcknowledgement?> GetSecurityAcknowledgementAsync(TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var record = await store.GetAsync(scope, SecurityKind, Key, cancellationToken);
+        return record is null ? null : Read<SecurityAcknowledgement>(record.PayloadJson);
+    }
+
+    public async Task<bool> HasReadSecurityAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+        await GetSecurityAcknowledgementAsync(scope, cancellationToken) is { } ack && ack.Version == SecurityStatements.Version;
+
+    public async Task<SecurityAcknowledgement> AcknowledgeSecurityAsync(
+        TenantScope scope, string actorId, string? fullName, string? version, CancellationToken cancellationToken = default)
+    {
+        var name = Squash(fullName);
+        if (name.Length is < 2 or > 100)
+        {
+            throw new CompanyProfileException("Type your full name to confirm you have read it.");
+        }
+
+        if (version != SecurityStatements.Version)
+        {
+            throw new CompanyProfileException("The security statements were updated. Reload the page and read the current version.");
+        }
+
+        var ack = new SecurityAcknowledgement(SecurityStatements.Version, actorId, name, clock.GetUtcNow());
+        await store.SaveAsync(scope, SecurityKind, Key, JsonSerializer.Serialize(ack, Json), cancellationToken);
+        return ack;
+    }
 
     public async Task<TermsAcceptance> AcceptAsync(
         TenantScope scope, string actorId, string? fullName, string? title, bool authorised, string? termsVersion, string? dataProcessingVersion,

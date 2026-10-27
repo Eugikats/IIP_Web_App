@@ -18,15 +18,21 @@ test.beforeEach(async ({ page }) => {
   }, [organisationId]);
 });
 
-test("the profile and the terms are asked for, checked, and ticked only once they exist", async ({ page }) => {
+test("the profile, terms and security reading are recorded only when complete", async ({ page }) => {
   await page.goto("/app/admin/setup");
   await expect(page.getByRole("heading", { name: "Set up your organisation", level: 1 })).toBeVisible();
 
   const steps = page.getByRole("list", { name: "Set-up steps" });
   const profileStep = steps.getByRole("listitem").filter({ hasText: "Tell us about your organisation" });
   const termsStep = steps.getByRole("listitem").filter({ hasText: "Accept the terms and the data processing agreement" });
+  const securityStep = steps.getByRole("listitem").filter({ hasText: "Read how your data is protected" });
+  const storageStep = steps.getByRole("listitem").filter({ hasText: "Choose where your documents come from" });
   await expect(profileStep).toContainText("Not done yet");
   await expect(termsStep).toContainText("Not done yet");
+  await expect(securityStep).toContainText("Not done yet");
+  await expect(storageStep).toContainText("Not done yet");
+  await expect(page.getByRole("heading", { name: "How your data is protected" })).toBeVisible();
+  await expect(page.getByText("Not configured on this platform yet").first()).toBeVisible();
 
   const profile = page.getByRole("form", { name: "About your organisation" });
   await profile.getByLabel("Registered name").fill("Mavuno Bank Limited");
@@ -57,6 +63,13 @@ test("the profile and the terms are asked for, checked, and ticked only once the
   await expect(profile.getByLabel("What kind of licence")).toHaveValue("BancassuranceDistributor");
   await expect(profile.getByLabel("Licence or registration number")).toHaveValue("IRA/BA/0042");
   await expect(termsStep).toContainText("Done");
+
+  const security = page.getByRole("form", { name: "Confirm reading security statements" });
+  await security.getByLabel("Your full name").fill("Aisha Namutebi");
+  await security.getByRole("button", { name: "I have read this" }).click();
+  await expect(page.getByText(/Read by Aisha Namutebi on/)).toBeVisible();
+  await expect(securityStep).toContainText("Done");
+  await expect(page.getByRole("link", { name: "Upload documents in the Data Hub" })).toHaveAttribute("href", "/app/knowledge");
   await page.screenshot({ path: `test-results/workspace/setup-${test.info().project.name}.png`, fullPage: true });
 });
 
