@@ -270,7 +270,7 @@ public static class OrganisationEndpoints
             ? null
             : Results.Json(new { message = "Sign-up for IIP is not open yet. Contact info@oticgroup.net to get started." }, statusCode: StatusCodes.Status403Forbidden);
 
-    private static string? SignedInUser(HttpContext httpContext, InfrastructureOptions options)
+    internal static string? SignedInUser(HttpContext httpContext, InfrastructureOptions options)
     {
         var development = options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase);
         if (!development && httpContext.User.Identity?.IsAuthenticated != true)

@@ -143,6 +143,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/admin/onboarding", requiredAny: ["ManageTenantOnboarding"] },
   { path: "/app/admin/tenant-policy", requiredAny: ["ManageTenantSettings"] },
   { path: "/app/admin/whatsapp", requiredAny: ["ConfigureIntegrations"] },
+  { path: "/app/admin/demonstrations", requiredAny: ["ManageTenantSettings"] },
   { path: "/app/admin/email", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin/connections", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin", requiredAny: ["ManageTenantSettings"], exact: true },

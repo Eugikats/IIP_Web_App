@@ -427,7 +427,7 @@ public static class ConversationInsightsParser
                 var refs = item.ValueKind == JsonValueKind.Object ? ValidRefs(item) : [];
                 var strength = ParseStrength(Str(item, "strength"));
                 var reason = Clean(Str(item, "text")) ?? string.Empty;
-                var product = MicroinsuranceCatalog.FindByLineOrName(named)?.Name
+                var product = KatoBrand.Current.Find(named)?.Name
                     ?? (named is not null && named.Length <= 60 && ProspectFacts.IsGroundedIn(named, CitedText(refs)) ? named : null);
                 if (product is null || strength is null || refs.Count == 0 || IsSensitive(reason)
                     || interests.Any(existing => string.Equals(existing.Product, product, StringComparison.OrdinalIgnoreCase)))

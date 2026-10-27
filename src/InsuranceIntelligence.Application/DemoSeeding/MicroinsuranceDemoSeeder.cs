@@ -61,7 +61,7 @@ public sealed class MicroinsuranceDemoSeeder(
 
         var indexed = 0;
         var notIndexed = 0;
-        foreach (var document in CatalogueDocuments.Concat(PartnerDocuments()))
+        foreach (var document in CatalogueDocuments.Concat(PartnerDocuments(PartnerCovers)))
         {
             try
             {
@@ -296,11 +296,71 @@ public sealed class MicroinsuranceDemoSeeder(
             "within 14 days of the loss"),
     ];
 
+    // The Nile group's life covers carry the same terms as the partner life covers, under the Nile life company.
+    private static readonly PartnerTerms[] NileLifeCovers =
+    [
+        NileLifeTermsFor(MicroinsuranceCatalog.LoanProtector, MicroinsuranceCatalog.NileLifeLoanProtector),
+        NileLifeTermsFor(MicroinsuranceCatalog.FamilyFuneral, MicroinsuranceCatalog.NileLifeFuneral),
+        NileLifeTermsFor(MicroinsuranceCatalog.SchoolFees, MicroinsuranceCatalog.NileLifeSchoolFees),
+    ];
+
+    private static PartnerTerms NileLifeTermsFor(MicroinsuranceCatalog.MicroProduct partner, MicroinsuranceCatalog.MicroProduct nile)
+    {
+        var terms = PartnerCovers.First(item => item.Product == partner);
+        return terms with { Product = nile, Exclusions = terms.Exclusions.Replace(partner.Insurer, nile.Insurer, StringComparison.Ordinal) };
+    }
+
+    /// <summary>
+    /// Publishes the products and wordings of one organisation's covers, and nothing else, so a bank's workspace holds
+    /// its partners' covers and an insurer's workspace holds its own. The same idempotent steps as
+    /// <see cref="SeedCatalogueAsync"/>; each cover's claim documents and wordings come from the same source.
+    /// </summary>
+    public async Task<CatalogueResult> SeedCatalogueForAsync(
+        TenantScope scope, IReadOnlyList<MicroinsuranceCatalog.MicroProduct> products, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var created = 0;
+        var known = CatalogueProducts.Concat(PartnerProducts).GroupBy(item => item.ProductClass).ToDictionary(group => group.Key, group => group.First());
+        foreach (var product in products)
+        {
+            var documents = known.TryGetValue(product.ProductLine, out var template) ? template.Documents : [];
+            var name = product.Insurer == MicroinsuranceCatalog.NileShield && template is not null
+                ? template.Name
+                : $"{product.Name} (microinsurance, demo)";
+            if (await EnsureProductAsync(scope, new CatalogueProduct(product.ProductLine, name, documents), now, cancellationToken))
+            {
+                created++;
+            }
+        }
+
+        var lines = products.Where(item => item.Insurer == MicroinsuranceCatalog.NileShield).Select(item => item.ProductLine).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var wanted = CatalogueDocuments.Where(document => lines.Contains(document.ProductLine))
+            .Concat(PartnerDocuments(PartnerCovers.Concat(NileLifeCovers).Where(terms => products.Contains(terms.Product))));
+        var indexed = 0;
+        var notIndexed = 0;
+        foreach (var document in wanted)
+        {
+            try
+            {
+                if (await EnsureKnowledgeDocumentAsync(scope, document, now, cancellationToken))
+                {
+                    indexed++;
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                notIndexed++;
+            }
+        }
+
+        return new CatalogueResult(created, 0, indexed, notIndexed);
+    }
+
     /// <summary>Key information, policy wording and how to join, pay and claim for each partner cover,
     /// built from the cover's own facts so the three documents never contradict what Kato quotes.</summary>
-    private static IEnumerable<CatalogueDocument> PartnerDocuments()
+    private static IEnumerable<CatalogueDocument> PartnerDocuments(IEnumerable<PartnerTerms> covers)
     {
-        foreach (var terms in PartnerCovers)
+        foreach (var terms in covers)
         {
             var product = terms.Product;
             var levels = product.ChoosableLevels.Count > 1

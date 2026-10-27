@@ -1,11 +1,11 @@
 "use client";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
-import { Building2, Users, FileText, Workflow, Sparkles, Plug, ShieldCheck, ScrollText, Bot, CreditCard, Gavel, ArrowRight, MessageCircle, Mail, Radio, PackageCheck, UploadCloud } from "lucide-react";
+import { Building2, Users, FileText, Workflow, Sparkles, Plug, ShieldCheck, ScrollText, Bot, CreditCard, Gavel, ArrowRight, MessageCircle, Mail, Radio, PackageCheck, UploadCloud, Presentation } from "lucide-react";
 import { useUI } from "@/context/UIStateContext";
 import { canAccess, canAccessWithPermissions } from "@/lib/roles";
 import { useRuntimeContext } from "@/lib/runtimeContext";
-import { canUseLocalTestDoubles } from "@/lib/config";
+import { canUseLocalTestDoubles, isDemonstrationRuntime } from "@/lib/config";
 
 const cards = [
   { to: "/app/admin/products", icon: PackageCheck, title: "Products", desc: "Configure a product's claim process, document matrix and IRA approval. Every change is versioned and audited." },
@@ -19,6 +19,9 @@ const cards = [
   { to: "/app/integrations", icon: Plug, title: "Integrations & Health", desc: "Live provider health, adapter boundaries, identity paths, and safe diagnostics." },
   { to: "/app/admin/whatsapp", icon: MessageCircle, title: "WhatsApp Business", desc: "Connect your WhatsApp Business number, credentials are validated against Meta and encrypted at rest." },
   { to: "/app/admin/email", icon: Mail, title: "Email Mailboxes", desc: "Configure claim mailboxes and process inbound email into verified, real claims." },
+  ...(isDemonstrationRuntime
+    ? [{ to: "/app/admin/demonstrations", icon: Presentation, title: "Demonstrations", desc: "Switch between the ready-made worlds: Mavuno Bank, Nile Life and Nile General. Invented people only." }]
+    : []),
   { to: "/app/admin/connections", icon: Radio, title: "Connections", desc: "Connect SMS and other outbound channels, enter credentials, validated live, no redeploy needed." },
 ];
 

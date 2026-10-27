@@ -27,6 +27,9 @@ public static class MicroinsuranceCatalog
     public const string Mpingo = "Mpingo Life Assurance";
     public const string Kifaru = "Kifaru General Insurance";
 
+    /// <summary>The life company in the Nile group. Nile Shield Assurance writes general insurance; this one writes life.</summary>
+    public const string NileLife = "Nile Shield Life Assurance";
+
     /// <summary>One level of cover a customer can choose: the most it pays, and its monthly price.</summary>
     public sealed record CoverLevel(decimal SumInsured, decimal MonthlyPremium);
 
@@ -232,12 +235,27 @@ public static class MicroinsuranceCatalog
         PapersForAClaim = "The police report (or fire brigade report for a fire), a list of what was lost with its value, and photos of the home.",
     };
 
+    private static MicroProduct AsNileLife(MicroProduct source, string name) =>
+        source with { Name = name, Explanation = source.Explanation.Replace(source.Name, name, StringComparison.Ordinal), Insurer = NileLife, PolicyPrefix = "NLA" };
+
+    // The life covers of the Nile group, for the Nile Life demonstration: the same shapes as the partner life covers, under the Nile life company.
+    public static readonly MicroProduct NileLifeLoanProtector = AsNileLife(LoanProtector, "Nile Shield Life Loan Protector");
+    public static readonly MicroProduct NileLifeFuneral = AsNileLife(FamilyFuneral, "Nile Shield Life Family Funeral Cover");
+    public static readonly MicroProduct NileLifeSchoolFees = AsNileLife(SchoolFees, "Nile Shield Life School Fees Protector");
+
     /// <summary>Every cover any configured insurer offers. What Kato actually sells depends on whose
     /// assistant he is: see <see cref="KatoBrand.Products"/>.</summary>
     public static readonly IReadOnlyList<MicroProduct> All =
         [HospitalCash, BodaAccident, StallStock, ShopCover, GoodsInTransit, MamaCare, LoanProtector, FamilyFuneral, SchoolFees, HomeContents];
 
-    public static MicroProduct? FindByLineOrName(string? value)
+    /// <summary>Every cover that can be sold by some organisation, including the Nile life company's. Several
+    /// insurers share a product line, so a lookup by line must be made among one organisation's covers
+    /// (<see cref="KatoBrand.Find"/>), not among these.</summary>
+    public static readonly IReadOnlyList<MicroProduct> Offered = [.. All, NileLifeLoanProtector, NileLifeFuneral, NileLifeSchoolFees];
+
+    public static MicroProduct? FindByLineOrName(string? value) => FindAmong(All, value);
+
+    public static MicroProduct? FindAmong(IEnumerable<MicroProduct> products, string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -245,7 +263,7 @@ public static class MicroinsuranceCatalog
         }
 
         var wanted = value.Trim();
-        return All.FirstOrDefault(p =>
+        return products.FirstOrDefault(p =>
             string.Equals(p.ProductLine, wanted, StringComparison.OrdinalIgnoreCase)
             || string.Equals(p.Name, wanted, StringComparison.OrdinalIgnoreCase)
             || string.Equals(p.Code, wanted, StringComparison.OrdinalIgnoreCase)

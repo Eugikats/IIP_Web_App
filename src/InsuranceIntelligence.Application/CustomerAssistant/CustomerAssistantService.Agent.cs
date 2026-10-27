@@ -371,7 +371,7 @@ public sealed partial class CustomerAssistantService
 
     private async Task<string> ToolSearchAsync(AgentRun run, string question, string? product, CancellationToken cancellationToken)
     {
-        var micro = MicroinsuranceCatalog.FindByLineOrName(product);
+        var micro = KatoBrand.Current.Find(product);
         var lines = micro is not null
             ? [micro.ProductLine]
             : !string.IsNullOrWhiteSpace(product)
@@ -453,7 +453,7 @@ public sealed partial class CustomerAssistantService
 
     private async Task<string> ToolApplyAsync(AgentRun run, string? productName, decimal? coverAmount, CancellationToken cancellationToken)
     {
-        var product = MicroinsuranceCatalog.FindByLineOrName(productName);
+        var product = KatoBrand.Current.Find(productName);
         if (product is null || !KatoBrand.Current.Products.Contains(product))
         {
             return Json(new { error = "unknown_product", instruction = "Use a product from list_products, or offer hand_to_person for other covers." });
@@ -628,7 +628,7 @@ public sealed partial class CustomerAssistantService
                 return byNumber;
             }
 
-            var micro = MicroinsuranceCatalog.FindByLineOrName(coverHint);
+            var micro = KatoBrand.Current.Find(coverHint);
             var byLine = policies.FirstOrDefault(p =>
                 (micro is not null && string.Equals(p.ProductLine, micro.ProductLine, StringComparison.OrdinalIgnoreCase))
                 || coverHint.Contains(p.ProductLine, StringComparison.OrdinalIgnoreCase));

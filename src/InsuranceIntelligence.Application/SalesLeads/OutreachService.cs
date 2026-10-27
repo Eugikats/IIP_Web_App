@@ -176,7 +176,7 @@ public sealed class OutreachService(
             {
                 var interest = lead.Interests.Where(item => item.Strength != InterestStrength.NotNow).OrderByDescending(item => item.Strength).First();
                 var product = Brand.Products.FirstOrDefault(item => string.Equals(item.Name, interest.Product, StringComparison.OrdinalIgnoreCase))
-                    ?? MicroinsuranceCatalog.FindByLineOrName(interest.Product);
+                    ?? Brand.Find(interest.Product);
                 var name = product?.Name ?? interest.Product;
                 added.Add(new OutreachDraft(
                     Guid.NewGuid(), OutreachKind.QuietFollowUp,

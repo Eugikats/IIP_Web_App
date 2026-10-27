@@ -632,6 +632,8 @@ builder.Services.AddSingleton(demoRuntime && !string.IsNullOrWhiteSpace(demoPhon
 builder.Services.AddSingleton(new InsuranceIntelligence.Application.DemoSeeding.DemoPolicyholderSettings(
     builder.Configuration["INSURANCEINTELLIGENCE_DEMO_POLICYHOLDER_NAME"] ?? string.Empty));
 builder.Services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.MicroinsuranceDemoSeeder>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoScenarioPolicyholderSeeder>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoScenarioService>();
 builder.Services.AddScoped<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IVoiceNoteTranscriber>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IVoiceNoteSpeaker>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
@@ -1508,6 +1510,8 @@ app.MapPost("/api/v1/integrations/whatsapp/configuration/test", WhatsAppConfigur
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/whatsapp/configuration/meta-check", WhatsAppConfigurationEndpoints.CheckWithMeta)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/demo/scenarios", InsuranceIntelligence.Api.DemoScenarios.DemoScenarioEndpoints.List);
+app.MapPost("/api/v1/demo/scenarios/{scenarioId}/activate", InsuranceIntelligence.Api.DemoScenarios.DemoScenarioEndpoints.Activate);
 app.MapGet("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Get)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPut("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Save)

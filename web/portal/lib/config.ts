@@ -54,6 +54,40 @@ const ACTIVE_WORKSPACE_STORAGE_KEY = "iip.active-workspace-id";
 // (see RuntimeClaimTypes.RequestedWorkspaceHeaderName), never trusted client-side.
 export const requestedWorkspaceHeaderName = "X-Requested-Workspace-Id";
 
+const ACTIVE_ORGANISATION_STORAGE_KEY = "iip.active-organisation-id";
+
+/** The organisation the person chose to act in, when they belong to several (for example the demonstrations). */
+export function getActiveOrganisationOverride(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(ACTIVE_ORGANISATION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveOrganisationOverride(organisationId: string | null, workspaceId: string | null = null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (organisationId) {
+      window.localStorage.setItem(ACTIVE_ORGANISATION_STORAGE_KEY, organisationId);
+    } else {
+      window.localStorage.removeItem(ACTIVE_ORGANISATION_STORAGE_KEY);
+    }
+    // Each organisation has its own workspaces, so a workspace chosen in the old one means nothing here.
+    if (workspaceId) {
+      window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, workspaceId);
+    } else {
+      window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+    }
+  } catch {
+    // Best effort, falling back to the server's default organisation is safe.
+  }
+}
+
+/** Demonstrations are offered only in the profiles that are demonstrations by definition. */
+export const isDemonstrationRuntime = ["Demo", "LocalTest", "Development"].includes(runtimeProfile);
+
 /** The workspace the user last chose via the settings workspace switcher, if any. */
 export function getActiveWorkspaceOverride(): string | null {
   if (typeof window === "undefined") return null;
@@ -90,10 +124,12 @@ export function setActiveWorkspaceOverride(workspaceId: string | null) {
 export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<string, string> {
   const headers: Record<string, string> = {};
   const workspaceOverride = getActiveWorkspaceOverride();
+  const organisationOverride = getActiveOrganisationOverride();
 
   if (canUseLocalTestDoubles) {
-    if (defaultTenantId) {
-      headers["X-Tenant-Id"] = defaultTenantId;
+    const tenantId = organisationOverride || defaultTenantId;
+    if (tenantId) {
+      headers["X-Tenant-Id"] = tenantId;
     }
 
     // A workspace chosen via the settings switcher overrides the configured default,
@@ -122,6 +158,10 @@ export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<strin
     // and fails closed if they don't belong to it (never client-side scope substitution).
     if (workspaceOverride) {
       headers[requestedWorkspaceHeaderName] = workspaceOverride;
+    }
+    // Likewise a hint: the membership store confirms the person belongs to this organisation.
+    if (organisationOverride) {
+      headers["X-Organisation-Id"] = organisationOverride;
     }
   }
 

@@ -49,12 +49,15 @@ public sealed record KatoBrand(
 
     /// <summary>The covers Kato may explain and take applications for.</summary>
     public IReadOnlyList<MicroinsuranceCatalog.MicroProduct> Products =>
-        MicroinsuranceCatalog.All
+        MicroinsuranceCatalog.Offered
             .Where(product => (IsBancassurance
                     ? PartnerInsurers.Contains(product.Insurer, StringComparer.OrdinalIgnoreCase)
                     : string.Equals(product.Insurer, Organisation, StringComparison.OrdinalIgnoreCase))
                 && LineFocus.Allows(product.InsuranceClass))
             .ToArray();
+
+    /// <summary>A cover of this organisation by product line, name or code.</summary>
+    public MicroinsuranceCatalog.MicroProduct? Find(string? value) => MicroinsuranceCatalog.FindAmong(Products, value);
 
     public static KatoBrand FromSettings(string? organisation, string? shortName, string? partnerInsurers)
     {
