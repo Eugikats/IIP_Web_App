@@ -20,6 +20,11 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 - Events: nine event types from plan 14.3 (code, label, reason, suggested offer, timing). An event stores phone (normalised to 256...), type, when, source and only four safe details (amount, term_months, product_code, branch); a balance or account number column is never read and is named as left out. The id is a hash of type, phone, day and the bank's own reference, so a resent file changes nothing. Phones are masked in the list API. Acquisition has a new "Bank events" tab (record form with "when" choices for rehearsal, CSV upload).
 - Connected folders can be marked `purpose: BankEvents` (API field on the folder entry): CSV files are read by `IBankEventFileSink`, state `Imported`, never become knowledge, never retired. Tested with a fake provider only. The folder picker screen has no purpose control yet; add it in piece 15 with the storage step.
 
+- Rules: a rule is stored as `rule` records, approved once; its fingerprint (trigger, conditions, wait, covers, template, hours, limits, follow-up) ties the approval to the exact content, so any edit returns it to Draft and clears the approver, and a paused rule changed behind the back cannot resume. Who may approve is the workspace's `rule-settings` (default Admin; the bank admin changes it; optional four-eyes). The check uses the signed-in roles on the server.
+- The engine (`RuleEngine.RunAsync`, run by the 5-minute `RuleRunWorker` and by "Run the rules now") works through each live rule and pending event: conditions, known customer, consent, cover already held, contacted recently, best fit (existing ProspectScoring, no commission anywhere), same cover, wait, hours, daily limit, template, send. Every decision, sent or not, is in the `decision` log with its gates. Scheduled decisions are retried when due. A decision is final once Sent, DemoSent, Skipped or Blocked.
+- Demonstration honesty: in a demonstration workspace with no connected number or no approved template, the offer is recorded as `DemoSent` ("Shown as sent, not delivered to a phone") with a message row in a demo number thread. In any other workspace it is `Blocked` with the reason. A `ConversationReason` (why the conversation began) is saved per phone for piece 6.
+- Not done in piece 5: the open-complaint gate (no complaint record to check yet), follow-up nudges and STOP handling (piece 7), time-based triggers such as expiry (pieces 9 and 10).
+
 ## Piece status
 
 | # | Piece | State |
@@ -28,8 +33,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 2 | Demo scenarios and the switch | done |
 | 3 | Template catalogue | done |
 | 4 | Events (store, form, file import) | done |
-| 5 | Rules engine | next |
-| 6 | Reason carried into the conversation | |
+| 5 | Rules engine | done (follow-up and STOP in piece 7) |
+| 6 | Reason carried into the conversation | next |
 | 7 | Outcomes and hand-off, STOP | |
 | 8 | Bank first-touch flow | |
 | 9 | Renewal and premium flows | |
@@ -48,6 +53,7 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 ## Verified so far
 
+- Piece 5: Api.Tests 1638 passed (21 RuleEngineTests incl. the Eugene case, consent, cover held, limits, hours, daily limit, approval roles, tamper, demo vs real, isolation), Domain.Tests 731, tsc clean, lint 0 errors. Playwright rules.spec.ts 3 tests pass at 1280 and 768 (write, approve, run, read the log with its checks; edit clears approval; empty cover refused); desktop screenshot reviewed.
 - Piece 4: Api.Tests 1617 passed (17 BankEventTests, 5 connector event-folder tests), Domain.Tests 731, tsc clean, lint 0 errors. Playwright bank-events.spec.ts 4 tests pass at 1280 and 768; tablet screenshot reviewed. Not run at 390 px.
 - Piece 3: Api.Tests 1595 passed (20 new in TemplateCatalogTests), Domain.Tests 731, tsc clean. Playwright templates.spec.ts 4 tests pass at 1280 and 768; screenshot of the draft drawer reviewed. Not run at 390 px. The send path is proven only against a recording fake provider; no real WhatsApp call was made.
 - Piece 2: Domain.Tests 731 passed (9 new DemoScenarioTests), Api.Tests 1575 passed, tsc clean, lint warnings only (pre-existing img warnings). Live check against the offline API on :5167: scenario list and activate work; the bank organisation holds 39 prospects and the default tenant 0; second activate adds nothing. Playwright workspace spec demonstrations.spec.ts passes at 1280 and 768 (3 tests each); screenshots reviewed (Demonstrations page, Nile Life retention with 3, 7, 14, 21, 30 day policies). Not run at 390 px. Known gap: the sidebar workspace chip still shows the workspace id ("main"), not the organisation name.

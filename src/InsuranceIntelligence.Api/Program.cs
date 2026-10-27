@@ -584,6 +584,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorF
 builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorFileSource, InsuranceIntelligence.Infrastructure.Connectors.GoogleDriveFileSource>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Connectors.IConnectorSyncService, InsuranceIntelligence.Application.Connectors.ConnectorSyncService>();
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Connectors.ConnectorSyncWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Rules.RuleRunWorker>();
 // JSON lists are large and the people reading them are far from the data centre; compressing them costs a little CPU
 // and saves far more waiting. Brotli at its fastest level is the cheap setting on a small plan.
 builder.Services.AddResponseCompression(options =>
@@ -1529,6 +1530,26 @@ app.MapGet("/api/v1/events", InsuranceIntelligence.Api.BankEvents.EventEndpoints
 app.MapPost("/api/v1/events", InsuranceIntelligence.Api.BankEvents.EventEndpoints.Record)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapPost("/api/v1/events/import", InsuranceIntelligence.Api.BankEvents.EventEndpoints.Import)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rules", InsuranceIntelligence.Api.Rules.RuleEndpoints.Overview)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rules", (InsuranceIntelligence.Api.Rules.RuleRequest request, InsuranceIntelligence.Application.Rules.RuleService rules, InsuranceIntelligence.Application.Core.IAuditWriter audit, InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions options, HttpContext context, CancellationToken token) =>
+        InsuranceIntelligence.Api.Rules.RuleEndpoints.Save(null, request, rules, audit, options, context, token))
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPut("/api/v1/rules/{ruleId}", (string ruleId, InsuranceIntelligence.Api.Rules.RuleRequest request, InsuranceIntelligence.Application.Rules.RuleService rules, InsuranceIntelligence.Application.Core.IAuditWriter audit, InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions options, HttpContext context, CancellationToken token) =>
+        InsuranceIntelligence.Api.Rules.RuleEndpoints.Save(ruleId, request, rules, audit, options, context, token))
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rules/{ruleId}/approve", InsuranceIntelligence.Api.Rules.RuleEndpoints.Approve)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rules/{ruleId}/pause", InsuranceIntelligence.Api.Rules.RuleEndpoints.Pause)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rules/{ruleId}/resume", InsuranceIntelligence.Api.Rules.RuleEndpoints.Resume)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPut("/api/v1/rules-approval", InsuranceIntelligence.Api.Rules.RuleEndpoints.SaveApprovalSettings)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/rules-run", InsuranceIntelligence.Api.Rules.RuleEndpoints.Run)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rule-decisions", InsuranceIntelligence.Api.Rules.RuleEndpoints.Decisions)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapGet("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Get)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));

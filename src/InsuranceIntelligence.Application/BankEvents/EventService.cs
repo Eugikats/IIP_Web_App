@@ -251,6 +251,19 @@ public sealed class EventService(IWorkspaceRecordStore store, TimeProvider clock
         return digits;
     }
 
+    /// <summary>The same as <see cref="NormalisePhone"/> but null for something that is not a number, for filters.</summary>
+    public static string? NormalisePhoneOrNull(string? value)
+    {
+        try
+        {
+            return NormalisePhone(value);
+        }
+        catch (EventException)
+        {
+            return null;
+        }
+    }
+
     private static string IdOf(string type, string phone, DateTimeOffset occurred, string? externalId)
     {
         var key = $"{type}|{phone}|{occurred:yyyy-MM-dd}|{externalId?.Trim()}";
