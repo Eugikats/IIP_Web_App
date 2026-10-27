@@ -48,7 +48,7 @@ requireText("components/iip/AppShell.tsx", "firstAccessibleRoute(runtimeContext?
 requireText("components/iip/AppShell.tsx", "<Sidebar />", "the rail must always render, it is not a dismissible mobile drawer (navigation model §5.1).");
 rejectPattern("components/iip/AppShell.tsx", /mobileDrawerOpen|mobileViewport/, "the rail must not reintroduce a mobile open/close drawer state, it must be present at every viewport width.");
 requireText("components/iip/AppShell.tsx", "<CopilotPanel />", "must render the right evidence/context rail.");
-requireText("components/iip/AppShell.tsx", "<StatusBar />", "must render the environment/status footer.");
+rejectPattern("components/iip/AppShell.tsx", /StatusBar/, "the retired bottom status bar must stay removed.");
 requireText("components/iip/AppShell.tsx", "!runtimeContext", "must withhold protected shell content until /api/v1/me resolves.");
 requireText("components/iip/AppShell.tsx", "Verifying your access", "must render a bounded authentication loading state.");
 requireText("lovable-pages/Login.tsx", "runtimeProfile", "login environment labeling must come from runtime configuration.");
@@ -78,7 +78,6 @@ requireText("components/iip/CopilotPanel.tsx", "Not configured", "provider gaps 
 requireText("lib/lovable-parity/data/providerHealth.ts", "/api/v1/provider-status", "provider health must come from the governed backend endpoint.");
 requireText("lib/lovable-parity/mode.ts", "process.env.NODE_ENV !== \"production\"", "visual parity fixtures must be disabled in production builds.");
 requireText("components/iip/ProviderHealthGrid.tsx", "providerStatusTone", "provider cards must use the shared fail-closed status classifier.");
-requireText("components/iip/StatusBar.tsx", "isProviderHealthy", "the status bar must use the shared fail-closed status classifier.");
 requireText("components/iip/CopilotPanel.tsx", "isProviderHealthy", "the evidence rail must use the shared fail-closed status classifier.");
 requireText("lib/providerHealth.ts", "return \"warning\";", "unknown provider states must fail closed as warnings.");
 

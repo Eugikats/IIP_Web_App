@@ -59,10 +59,23 @@ public static class RolePermissionMap
                 Permission.ReviewAgentWorkItems,
                 Permission.ManageProducts
             ],
-            // Demo-readiness pass: given full access to every tab, the same breadth as Admin.
-            // A broader, easily-narrowed-later grant made under a hard deadline, not a
-            // considered least-privilege design; revisit before this role reaches production use.
-            [PlatformRole.CustomerService] = Enum.GetValues<Permission>(),
+            [PlatformRole.CustomerService] =
+            [
+                Permission.ViewCommandCenter,
+                Permission.CreateClaim,
+                Permission.UploadDocument,
+                Permission.ViewAssignedClaims,
+                Permission.ViewAiOutputs,
+                Permission.ManageCustomerCommunications,
+                Permission.SendCustomerUpdate,
+                Permission.ViewChannels,
+                Permission.ViewCustomers,
+                Permission.ViewSalesLeads,
+                Permission.ManageSalesLeads,
+                Permission.ViewAgentWorkflows,
+                Permission.RunAgentWorkflows,
+                Permission.ReviewAgentWorkItems
+            ],
             // Demo-readiness pass: a broker submits claims on behalf of a client but should not
             // see ongoing claim status/detail (ViewAssignedClaims removed).
             [PlatformRole.Broker] =

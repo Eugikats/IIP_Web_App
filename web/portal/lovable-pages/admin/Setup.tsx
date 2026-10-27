@@ -20,6 +20,10 @@ import {
   type ProfileState,
   type SecurityState,
   type SetupChecklist,
+  getWhatsAppOnboarding,
+  submitWhatsAppOnboarding,
+  cancelWhatsAppOnboarding,
+  type WhatsAppOnboardingRequest,
 } from "@/lib/orgSetup";
 
 type Form = Omit<CompanyProfile, "updatedAt" | "updatedBy">;
@@ -66,12 +70,19 @@ export default function Setup() {
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [securityName, setSecurityName] = useState("");
   const [securityError, setSecurityError] = useState<string | null>(null);
+  const [whatsAppRequest, setWhatsAppRequest] = useState<WhatsAppOnboardingRequest | null>(null);
+  const [whatsAppPhone, setWhatsAppPhone] = useState("");
+  const [whatsAppName, setWhatsAppName] = useState("");
+  const [whatsAppEmail, setWhatsAppEmail] = useState("");
+  const [whatsAppConsent, setWhatsAppConsent] = useState(false);
+  const [whatsAppError, setWhatsAppError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const [steps, profile, securityResult, files] = await Promise.all([
+    const [steps, profile, securityResult, files, whatsAppResult] = await Promise.all([
       getChecklist(role), getProfile(role), getSecurity(role), getFileConnectionStatus(role).catch(() => null),
+      getWhatsAppOnboarding(role),
     ]);
     setLoading(false);
     if (!steps.ok || !profile.ok || !securityResult.ok) {
@@ -84,6 +95,7 @@ export default function Setup() {
     setState(profile.value);
     setSecurity(securityResult.value);
     setFileConnections(files);
+    setWhatsAppRequest(whatsAppResult.ok ? whatsAppResult.value.request : null);
     if (profile.value.profile) {
       const { updatedAt: _updatedAt, updatedBy: _updatedBy, ...rest } = profile.value.profile;
       setForm({ ...EMPTY, ...rest, tradingName: rest.tradingName ?? "", contactPhone: rest.contactPhone ?? "", website: rest.website ?? "" });
@@ -145,6 +157,26 @@ export default function Setup() {
     setNotice(`Read confirmation recorded for ${result.value?.acknowledgedByName ?? securityName}.`);
     await load();
   }
+
+  async function submitWhatsAppRequest(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setWhatsAppError(null);
+    const result = await submitWhatsAppOnboarding(role, { phoneNumber: whatsAppPhone, displayName: whatsAppName, contactEmail: whatsAppEmail, consent: whatsAppConsent });
+    setBusy(false);
+    if (!result.ok) { setWhatsAppError(result.error); return; }
+    setWhatsAppRequest(result.value);
+  }
+
+  async function cancelWhatsAppRequest() {
+    setBusy(true);
+    setWhatsAppError(null);
+    const result = await cancelWhatsAppOnboarding(role);
+    setBusy(false);
+    if (!result.ok) { setWhatsAppError(result.error); return; }
+    setWhatsAppRequest(result.value);
+  }
+
 
   const patch = (changes: Partial<Form>) => setForm((current) => ({ ...current, ...changes }));
 
@@ -221,6 +253,28 @@ export default function Setup() {
             )}
             <Link to="/app/knowledge" className="mt-4 inline-block text-[13px] font-semibold text-dls-primary underline">Upload documents in the Data Hub</Link>
           </GlassCard>
+          <GlassCard>
+            <h2 className="m-0 text-[15px] font-bold text-dls-text-primary">WhatsApp number setup</h2>
+            <p className="mb-0 mt-1 text-[13px] text-dls-text-secondary">Request help connecting a number. Meta code verification and number registration are <strong>Not configured</strong>.</p>
+            {whatsAppRequest && whatsAppRequest.status !== "Cancelled" ? (
+              <div className="mt-3 border-t border-dls-border-subtle pt-3">
+                <p className="m-0 text-[13px] text-dls-text-primary">Request status: <strong>{whatsAppRequest.status}</strong></p>
+                <p className="mb-0 mt-1 text-[12.5px] text-dls-text-secondary">{whatsAppRequest.phoneNumber} · {whatsAppRequest.displayName}</p>
+                {whatsAppRequest.status !== "Active" ? <Button className="mt-3" variant="secondary" disabled={busy} onClick={cancelWhatsAppRequest}>Cancel request</Button> : null}
+              </div>
+            ) : (
+              <form onSubmit={submitWhatsAppRequest} className="mt-3 grid gap-3 sm:grid-cols-2" aria-label="Request WhatsApp setup">
+                <Field label="Business phone number" hint="Include country code, for example +256..." htmlFor="wa-phone"><Input id="wa-phone" required value={whatsAppPhone} onChange={(event) => setWhatsAppPhone(event.target.value)} /></Field>
+                <Field label="Display name for Meta review" htmlFor="wa-name"><Input id="wa-name" required value={whatsAppName} onChange={(event) => setWhatsAppName(event.target.value)} /></Field>
+                <Field label="Setup contact email" htmlFor="wa-email"><Input id="wa-email" type="email" required value={whatsAppEmail} onChange={(event) => setWhatsAppEmail(event.target.value)} /></Field>
+                <label className="flex items-start gap-2 text-[12.5px] text-dls-text-secondary"><input type="checkbox" checked={whatsAppConsent} onChange={(event) => setWhatsAppConsent(event.target.checked)} required />I agree that support may contact me about setting up this number.</label>
+                <Button type="submit" variant="primary" disabled={busy || !whatsAppConsent}>Request setup</Button>
+                {whatsAppError ? <p className="m-0 text-[13px] text-dls-danger-text" role="alert">{whatsAppError}</p> : null}
+              </form>
+            )}
+            <p className="mb-0 mt-3 text-[12px] text-dls-text-muted">Codes and registration PINs are not collected or stored. This request records consent to be contacted about setup.</p>
+          </GlassCard>
+
           <GlassCard>
             <p className="mb-2 text-[13px] text-dls-text-muted">{checklist.completed} of {checklist.total} done</p>
             <ol className="m-0 list-none divide-y divide-dls-border-subtle p-0" aria-label="Set-up steps">

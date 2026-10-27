@@ -19,6 +19,7 @@ const cards = [
   { to: "/app/admin/billing", icon: CreditCard, title: "Billing & Usage", desc: "Plan, entitlement, seat, AI run, document, message, and storage controls." },
   { to: "/app/integrations", icon: Plug, title: "Integrations & Health", desc: "Live provider health, adapter boundaries, identity paths, and safe diagnostics." },
   { to: "/app/admin/whatsapp", icon: MessageCircle, title: "WhatsApp Business", desc: "Connect your WhatsApp Business number, credentials are validated against Meta and encrypted at rest." },
+  { to: "/app/admin/whatsapp-support", icon: MessageCircle, title: "WhatsApp setup requests", desc: "Publisher support queue for organisations requesting managed number setup." },
   { to: "/app/admin/templates", icon: MessageSquareText, title: "Message templates", desc: "The opening messages WhatsApp must approve before you can write first to someone. Edit drafts, submit them and record the decision." },
   { to: "/app/admin/email", icon: Mail, title: "Email Mailboxes", desc: "Configure claim mailboxes and process inbound email into verified, real claims." },
   ...(isDemonstrationRuntime

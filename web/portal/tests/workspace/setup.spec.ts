@@ -79,3 +79,42 @@ test("the legal documents the organisation accepts are public pages", async ({ p
     await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
   }
 });
+
+test("a workspace can request and cancel managed WhatsApp setup without sending or storing a code", async ({ page }) => {
+  await page.goto("/app/admin/setup");
+  const form = page.getByRole("form", { name: "Request WhatsApp setup" });
+  await expect(form).toBeVisible();
+  await form.getByLabel("Business phone number").fill("+256700000001");
+  await form.getByLabel("Display name for Meta review").fill("IIP browser fixture");
+  await form.getByLabel("Setup contact email").fill("setup-fixture@example.test");
+  await form.getByRole("checkbox").check();
+  await form.getByRole("button", { name: "Request setup" }).click();
+  await expect(page.getByText("Request status:")).toContainText("Requested");
+  await expect(page.getByText("Codes and registration PINs are not collected or stored.")).toBeVisible();
+  await page.screenshot({ path: `test-results/workspace/whatsapp-onboarding-${test.info().project.name}.png`, fullPage: true });
+  await page.getByRole("button", { name: "Cancel request" }).click();
+  await expect(form).toBeVisible();
+});
+
+test("Publisher Support sees only the managed-number queue on its support screen", async ({ page, request }) => {
+  const tenant = `support-fixture-${Date.now()}`;
+  const displayName = `Support browser fixture ${tenant}`;
+  const workspace = "main";
+  const headers = { "x-demo-role": "Admin", "X-User-Id": "support-queue-fixture", "X-Tenant-Id": tenant, "X-Workspace-Id": workspace, "Content-Type": "application/json" };
+  const created = await request.post(`${API}/api/v1/integrations/whatsapp/onboarding`, {
+    headers,
+    data: { phoneNumber: "+256700000002", displayName, contactEmail: "support-fixture@example.test", consent: true },
+  });
+  expect(created.ok()).toBeTruthy();
+
+  try {
+    await page.addInitScript(() => window.localStorage.setItem("iip.role", JSON.stringify("PublisherSupport")));
+    await page.goto("/app/admin/whatsapp-support");
+    await expect(page.getByRole("heading", { name: "WhatsApp number requests" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: `${displayName} · Requested` })).toBeVisible();
+    await expect(page.locator("header").getByText("Not configured")).toBeVisible();
+    await page.screenshot({ path: `test-results/workspace/whatsapp-support-${test.info().project.name}.png`, fullPage: true });
+  } finally {
+    await request.delete(`${API}/api/v1/integrations/whatsapp/onboarding`, { headers });
+  }
+});

@@ -84,3 +84,12 @@ export const acceptTerms = (
 export const getSecurity = (role: string) => call<SecurityState>(role, "/api/v1/organisation/security", "GET", undefined, "The security statements could not be loaded.");
 export const acknowledgeSecurity = (role: string, body: { fullName: string; version: string }) =>
   call<SecurityState["acknowledgement"]>(role, "/api/v1/organisation/security-ack", "POST", body, "The acknowledgement could not be recorded.");
+
+export type WhatsAppOnboardingRequest = { id: string; phoneNumber: string; displayName: string; contactEmail: string; status: string; createdAt: string };
+export const getWhatsAppOnboarding = (role: string) => call<{ status: string; request: WhatsAppOnboardingRequest | null; metaVerification: "Not configured" }>(role, "/api/v1/integrations/whatsapp/onboarding", "GET", undefined, "The WhatsApp setup request could not be loaded.");
+export const submitWhatsAppOnboarding = (role: string, body: { phoneNumber: string; displayName: string; contactEmail: string; consent: boolean }) =>
+  call<WhatsAppOnboardingRequest>(role, "/api/v1/integrations/whatsapp/onboarding", "POST", body, "The WhatsApp setup request could not be submitted.");
+export const cancelWhatsAppOnboarding = (role: string) =>
+  call<WhatsAppOnboardingRequest>(role, "/api/v1/integrations/whatsapp/onboarding", "DELETE", undefined, "The WhatsApp setup request could not be cancelled.");
+export type WhatsAppSupportQueue = { items: { tenantId: string; workspaceId: string; request: WhatsAppOnboardingRequest }[]; metaVerification: "Not configured" };
+export const getWhatsAppSupportQueue = (role: string) => call<WhatsAppSupportQueue>(role, "/api/v1/admin/whatsapp/onboarding", "GET", undefined, "The support queue could not be loaded.");

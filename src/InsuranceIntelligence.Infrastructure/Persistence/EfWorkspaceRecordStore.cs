@@ -119,4 +119,16 @@ public sealed class EfWorkspaceRecordStore(InsuranceIntelligenceDbContext dbCont
             return 0;
         }
     }
+
+    public async Task<IReadOnlyList<(TenantScope Scope, WorkspaceRecord Record)>> ListPlatformAsync(string kind, int take = 500, CancellationToken cancellationToken = default)
+    {
+        var rows = await dbContext.WorkspaceRecords.AsNoTracking()
+            .Where(item => item.Kind == kind)
+            .OrderByDescending(item => item.UpdatedAt)
+            .Take(Math.Clamp(take, 1, 1000))
+            .ToListAsync(cancellationToken);
+        return rows.Select(item => (
+            TenantScope.Create(item.TenantId, item.WorkspaceId),
+            ToRecord(item))).ToArray();
+    }
 }

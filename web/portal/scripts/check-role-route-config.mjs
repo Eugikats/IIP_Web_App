@@ -21,7 +21,7 @@ for (const role of expectedRoles) {
 }
 
 for (const path of permissionPaths) {
-  if (path !== "/app" && !path.startsWith("/app/")) findings.push(`Role route "${path}" must stay under /app.`);
+  if (path !== "/app" && !path.startsWith("/app/") && path !== "/academy") findings.push(`Role route "${path}" must stay under /app, except the explicitly public Academy route.`);
 }
 
 for (const href of sidebarPaths) {

@@ -135,6 +135,10 @@ public sealed class ProductWordingExtractionTests
         }
         public Task<int> CountAsync(TenantScope scope, string kind, CancellationToken cancellationToken = default) =>
             Task.FromResult(records.Keys.Count(key => key.Tenant == scope.TenantId && key.Workspace == scope.WorkspaceId && key.Kind == kind));
+        public Task<IReadOnlyList<(TenantScope Scope, WorkspaceRecord Record)>> ListPlatformAsync(string kind, int take = 500, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<(TenantScope Scope, WorkspaceRecord Record)>>(
+                records.Where(pair => pair.Key.Kind == kind).Select(pair =>
+                    (TenantScope.Create(pair.Key.Tenant, pair.Key.Workspace), pair.Value)).Take(take).ToArray());
     }
 
     private sealed class Audit : IAuditWriter

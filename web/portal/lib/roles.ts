@@ -91,7 +91,7 @@ export const PREVIEW_PERMISSIONS: Record<Role, Permission[]> = {
     "ViewSalesLeads", "ManageSalesLeads", "ViewAgentWorkflows", "RunAgentWorkflows",
     "ReviewAgentWorkItems",
   ],
-  Broker: ["CreateClaim", "UploadDocument", "ViewAssignedClaims", "ViewAiOutputs"],
+  Broker: ["CreateClaim", "UploadDocument", "ViewAiOutputs"],
   Compliance: [
     "ViewCommandCenter", "ViewAllClaims", "ViewAuditLog", "ExportEvidencePack", "ManageKnowledgeBase",
     "ViewAiOutputs", "ApproveSettlementWorkflowStep", "OverrideAiRecommendation", "ViewCustomers",
@@ -145,6 +145,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/admin/whatsapp", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin/demonstrations", requiredAny: ["ManageTenantSettings"] },
   { path: "/app/admin/setup", requiredAny: ["ManageTenantSettings"] },
+  { path: "/app/admin/whatsapp-support", requiredAny: ["ManageTenantOnboarding"] },
   { path: "/app/admin/templates", requiredAny: ["ManageCustomerCommunications", "ConfigureIntegrations"] },
   { path: "/app/admin/email", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin/connections", requiredAny: ["ConfigureIntegrations"] },
@@ -192,7 +193,7 @@ export const ROLES: Record<Role, RoleDef> = {
     key: "CustomerService", label: "Customer Service", title: "Customer Service", landing: "/app/channels",
   },
   Broker: {
-    key: "Broker", label: "Broker", title: "Broker", landing: "/app/claims",
+    key: "Broker", label: "Broker", title: "Broker", landing: "/app/claims/new",
   },
   Compliance: {
     key: "Compliance", label: "Compliance Officer", title: "Compliance Officer", landing: "/app/audit",

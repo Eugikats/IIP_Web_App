@@ -23,4 +23,9 @@ public interface IWorkspaceRecordStore
     Task DeleteAsync(TenantScope scope, string kind, string key, CancellationToken cancellationToken = default);
 
     Task<int> CountAsync(TenantScope scope, string kind, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists records across workspaces for a named platform operation. Callers must
+    /// enforce platform-level authorization before using this method. Use only for queues whose
+    /// owning workflow explicitly spans tenants, and return the minimum fields needed.</summary>
+    Task<IReadOnlyList<(TenantScope Scope, WorkspaceRecord Record)>> ListPlatformAsync(string kind, int take = 500, CancellationToken cancellationToken = default);
 }

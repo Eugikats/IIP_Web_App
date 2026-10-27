@@ -64,7 +64,7 @@ if (allBackendPermissions.length === 0) findings.push("Could not parse the Permi
 // staff Role type or PREVIEW_PERMISSIONS (see lib/roles.ts STAFF_ROLES / ROLES), because it is
 // not a staff preview experience at all; it is handled entirely by ClientPortalEndpoints.cs on a
 // separate surface. Deliberate, not drift.
-const backendOnlyRoles = new Set(["Client"]);
+const backendOnlyRoles = new Set(["Client", "Integration"]);
 
 const roles = new Set(
   [...frontendPermissionsByRole.keys(), ...backendPermissionsByRole.keys()].filter(

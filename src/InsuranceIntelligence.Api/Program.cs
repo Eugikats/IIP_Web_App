@@ -1521,6 +1521,14 @@ app.MapPost("/api/v1/integrations/whatsapp/configuration/test", WhatsAppConfigur
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/whatsapp/configuration/meta-check", WhatsAppConfigurationEndpoints.CheckWithMeta)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/whatsapp/onboarding", WhatsAppOnboardingEndpoints.GetMine)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/integrations/whatsapp/onboarding", WhatsAppOnboardingEndpoints.Submit)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapDelete("/api/v1/integrations/whatsapp/onboarding", WhatsAppOnboardingEndpoints.CancelMine)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/admin/whatsapp/onboarding", WhatsAppOnboardingEndpoints.SupportQueue)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
 app.MapGet("/api/v1/demo/scenarios", InsuranceIntelligence.Api.DemoScenarios.DemoScenarioEndpoints.List);
 app.MapPost("/api/v1/demo/scenarios/{scenarioId}/activate", InsuranceIntelligence.Api.DemoScenarios.DemoScenarioEndpoints.Activate);
 app.MapGet("/api/v1/templates", InsuranceIntelligence.Api.Templates.TemplateEndpoints.List)
