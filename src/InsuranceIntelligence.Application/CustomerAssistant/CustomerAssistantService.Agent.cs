@@ -129,6 +129,40 @@ public sealed partial class CustomerAssistantService
             """;
     }
 
+    /// <summary>
+    /// When this conversation began because {org} wrote first, a rule's message, Kato is told why and what was said, so a reply such as
+    /// "Yes, show me" is answered from the approved wording of the cover that was offered instead of starting from nothing. Nothing about
+    /// the person is added beyond the kind of event; amounts and balances never reach the model.
+    /// </summary>
+    private async Task<string> ReasonGuidanceAsync(AgentRun run, KatoBrand brand, CancellationToken cancellationToken)
+    {
+        var commission = brand.IsBancassurance
+            ? $"If they ask whether {brand.Organisation} earns anything when they take cover, answer plainly: yes, {brand.Organisation} earns a commission from the insurer that provides the cover. It never changes which cover you recommend.\n"
+            : string.Empty;
+        InsuranceIntelligence.Application.Rules.ConversationReason? reason = null;
+        try
+        {
+            reason = decisionLog is null ? null : await decisionLog.GetReasonAsync(run.Scope, run.WaId, cancellationToken);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Without the reason Kato still talks; he simply does not know why the conversation began.
+        }
+
+        if (reason is null || run.Now - reason.SentAt > TimeSpan.FromDays(14))
+        {
+            return commission.TrimEnd();
+        }
+
+        return $"""
+            Why this conversation exists: {brand.Organisation} wrote to this person first, on {reason.SentAt:d MMMM}, because of this: {reason.EventLabel.ToLowerInvariant()}. The message they were sent was: "{reason.OpeningText}" It offered {reason.Cover}, provided and paid by {reason.Insurer}.
+            - When they answer yes, ask for details, or tap "Yes, show me", explain {reason.Cover} from the approved wording (search_policy_information and list_products): what it pays, what it costs a month and about a day, the waiting period and the main exclusion. Say that {reason.Insurer} provides and pays the cover and {brand.Organisation} offers it. Offer to explain how it works or set it up.
+            - If they say no or not now, accept it warmly and do not offer anything else in this conversation. If they say stop, tell them you will not message them again.
+            - If they ask why you wrote, be honest: they bank with {brand.Organisation} and agreed to hear about insurance. Never mention amounts, balances or what they did at the bank beyond the kind of event above.
+            {commission}
+            """.TrimEnd();
+    }
+
     private async Task<string> AgentSystemPromptAsync(AgentRun run, Domain.Translation.SupportedLanguageCode replyLanguage, CancellationToken cancellationToken)
     {
         var translated = replyLanguage != Domain.Translation.SupportedLanguageCode.En;
@@ -137,6 +171,7 @@ public sealed partial class CustomerAssistantService
         var demoPhone = demoSession?.IsDemoPhone(run.WaId) == true;
         var brand = KatoBrand.Current;
         var profileBlock = await ProfileGuidanceAsync(run, brand, cancellationToken);
+        var reasonBlock = await ReasonGuidanceAsync(run, brand, cancellationToken);
         var org = brand.ShortName;
         var who = brand.IsBancassurance
             ? $"You are Kato, {brand.Organisation}'s insurance assistant on WhatsApp in Uganda. {brand.Organisation} sells cover from its partner insurers ({string.Join(", ", brand.PartnerInsurers)}); every cover in list_products names the insurer that provides it and pays its claims. When you recommend or explain a cover, always say which insurer provides it, for example \"Mpingo Family Funeral Cover from Mpingo Life Assurance\". Recommend across the partners on what fits the person, never on which insurer it is."
@@ -172,6 +207,8 @@ public sealed partial class CustomerAssistantService
             - In every later reply, answer what they asked and then add ONE short, friendly question about the first thing still to find out. After that, ask one, at most two, per reply. Tie each question to what they just said ("You mentioned the shop: is it in Kalerwe or somewhere else?") and never write them as a list or a form.
             - Skip the question when they are upset, in a hurry, reporting a claim, asking for a person, or have just said no. Never ask something already recorded above. If they answer, acknowledge it in a few words before moving on; if they dodge a question, drop it.
             - The things worth finding out are their work and what they sell, where they live or work, roughly what they earn or turn over, who depends on them, any cover they already have, what worries them, what they could pay a month, and when they would want cover. Ask first about the things that matter for the cover they are leaning toward. Never ask about religion, tribe, health conditions, disability or politics; if they mention their health because of a medical or maternity cover, talk about the cover, not the condition.
+
+            {reasonBlock}
 
             You decide and recommend yourself. Recommend the cover that fits from what they told you and say why, plainly. Never pass a question to "the team" that list_products or search_policy_information can answer, and never stall with "let me check with my colleagues".
 

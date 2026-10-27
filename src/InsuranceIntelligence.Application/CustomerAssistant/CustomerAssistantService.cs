@@ -129,7 +129,8 @@ public sealed partial class CustomerAssistantService(
     // the plain rule-based replies answer, so no organisation can run up the platform's AI cost.
     InsuranceIntelligence.Domain.Usage.IUsageMeter? usageMeter = null,
     InsuranceIntelligence.Application.Billing.IAiUsageContext? usageContext = null,
-    InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null) : ICustomerAssistantService
+    InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null,
+    InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;

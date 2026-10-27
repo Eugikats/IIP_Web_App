@@ -25,6 +25,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 - Demonstration honesty: in a demonstration workspace with no connected number or no approved template, the offer is recorded as `DemoSent` ("Shown as sent, not delivered to a phone") with a message row in a demo number thread. In any other workspace it is `Blocked` with the reason. A `ConversationReason` (why the conversation began) is saved per phone for piece 6.
 - Not done in piece 5: the open-complaint gate (no complaint record to check yet), follow-up nudges and STOP handling (piece 7), time-based triggers such as expiry (pieces 9 and 10).
 
+- Reason in the conversation: Kato's system prompt gets a "Why this conversation exists" block when a rule wrote first within 14 days (event kind, the opening text, the cover and insurer, what to do on yes / not now / stop / why did you write, never amounts). In a bancassurance brand Kato is also told to answer honestly that the bank earns a commission from the insurer and that it never changes the recommendation.
+
 ## Piece status
 
 | # | Piece | State |
@@ -34,8 +36,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 3 | Template catalogue | done |
 | 4 | Events (store, form, file import) | done |
 | 5 | Rules engine | done (follow-up and STOP in piece 7) |
-| 6 | Reason carried into the conversation | next |
-| 7 | Outcomes and hand-off, STOP | |
+| 6 | Reason carried into the conversation | done |
+| 7 | Outcomes and hand-off, STOP | next |
 | 8 | Bank first-touch flow | |
 | 9 | Renewal and premium flows | |
 | 10 | Document chasing and claim updates | |
@@ -53,6 +55,7 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 ## Verified so far
 
+- Piece 6: Kato tests 116 passed (3 new: reason present, reason too old or other number ignored, bank commission line). Prompt content is asserted against a scripted model; no real model call was made.
 - Piece 5: Api.Tests 1638 passed (21 RuleEngineTests incl. the Eugene case, consent, cover held, limits, hours, daily limit, approval roles, tamper, demo vs real, isolation), Domain.Tests 731, tsc clean, lint 0 errors. Playwright rules.spec.ts 3 tests pass at 1280 and 768 (write, approve, run, read the log with its checks; edit clears approval; empty cover refused); desktop screenshot reviewed.
 - Piece 4: Api.Tests 1617 passed (17 BankEventTests, 5 connector event-folder tests), Domain.Tests 731, tsc clean, lint 0 errors. Playwright bank-events.spec.ts 4 tests pass at 1280 and 768; tablet screenshot reviewed. Not run at 390 px.
 - Piece 3: Api.Tests 1595 passed (20 new in TemplateCatalogTests), Domain.Tests 731, tsc clean. Playwright templates.spec.ts 4 tests pass at 1280 and 768; screenshot of the draft drawer reviewed. Not run at 390 px. The send path is proven only against a recording fake provider; no real WhatsApp call was made.

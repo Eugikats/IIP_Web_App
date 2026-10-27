@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Domain.Acquisition;
+using Microsoft.EntityFrameworkCore;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.Notifications;
@@ -533,6 +534,61 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal("Aisha Namutebi", Assert.Single(fixture.Customers.Customers).FullName);
         Assert.Empty(await fixture.Policies.ListByCustomerAsync(fixture.Customers.Customers[0].CustomerId, fixture.Scope, default));
         Assert.Contains("saved", model.ToolResults[0]);
+    }
+
+    private static async Task<(InsuranceIntelligence.Application.Rules.DecisionLog Log, TenantScope Scope)> LogWithReasonAsync(string phone, DateTimeOffset sentAt)
+    {
+        var db = new InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext(
+            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        var log = new InsuranceIntelligence.Application.Rules.DecisionLog(new InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceRecordStore(db));
+        var scope = TenantScope.Create("tenant-ca", "workspace-ca");
+        await log.SaveReasonAsync(scope, new InsuranceIntelligence.Application.Rules.ConversationReason(
+            phone, "rule-1", "Loan Protector", "loan_disbursed", "Loan disbursed", "Mpingo Loan Protector", "Mpingo Life Assurance", "bank_cover_intro",
+            "Hello Eugene, this is Kato from Mavuno Bank.", sentAt, Demonstration: false));
+        return (log, scope);
+    }
+
+    [Fact]
+    public async Task TheAgent_KnowsWhyTheConversationBegan_WhenARuleWroteFirst()
+    {
+        var (log, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddHours(-3));
+        var model = new ScriptedAgentModel().Says("Mpingo Loan Protector pays off your loan.");
+        var fixture = Fixture.Create(agent: model, decisionLog: log);
+
+        await fixture.HandleFromAsync("Yes, show me", "256790000001");
+
+        var system = model.Conversations[0][0].Content!;
+        Assert.Contains("Why this conversation exists", system);
+        Assert.Contains("loan disbursed", system);
+        Assert.Contains("Mpingo Loan Protector", system);
+        Assert.Contains("Mpingo Life Assurance provides and pays", system);
+        Assert.DoesNotContain("8,000,000", system);
+    }
+
+    [Fact]
+    public async Task ABanksAgent_IsToldToAnswerHonestlyThatTheBankEarnsACommission()
+    {
+        using var bank = KatoBrand.Use(new KatoBrand("Mavuno Bank", "Mavuno Bank", [MicroinsuranceCatalog.Mpingo, MicroinsuranceCatalog.Kifaru]));
+        var model = new ScriptedAgentModel().Says("Hello.");
+
+        await Fixture.Create(agent: model).HandleFromAsync("Hi", "256790000555");
+
+        Assert.Contains("earns a commission from the insurer", model.Conversations[0][0].Content!);
+        Assert.Contains("never changes which cover you recommend", model.Conversations[0][0].Content!);
+    }
+
+    [Fact]
+    public async Task TheAgent_IgnoresAReasonThatIsTooOld_OrBelongsToAnotherNumber()
+    {
+        var (oldLog, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddDays(-30));
+        var model = new ScriptedAgentModel().Says("Hello.");
+        await Fixture.Create(agent: model, decisionLog: oldLog).HandleFromAsync("Hi", "256790000001");
+        Assert.DoesNotContain("Why this conversation exists", model.Conversations[0][0].Content!);
+
+        var (log, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddHours(-1));
+        var other = new ScriptedAgentModel().Says("Hello.");
+        await Fixture.Create(agent: other, decisionLog: log).HandleFromAsync("Hi", "256790000777");
+        Assert.DoesNotContain("Why this conversation exists", other.Conversations[0][0].Content!);
     }
 
     [Fact]
@@ -1528,7 +1584,8 @@ public sealed partial class CustomerAssistantServiceTests
             string? demoPhone = null,
             IVoiceNoteTranscriber? voice = null,
             IVoiceNoteSpeaker? speaker = null,
-            IToolCallingChatProvider? agent = null)
+            IToolCallingChatProvider? agent = null,
+            InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -1581,7 +1638,8 @@ public sealed partial class CustomerAssistantServiceTests
                 voice,
                 speaker,
                 agent,
-                insightsQueue);
+                insightsQueue,
+                decisionLog: decisionLog);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {
