@@ -884,6 +884,110 @@ public sealed class RuleEngineTests
         Assert.Contains("we received your claim", (await rig.Log.GetReasonAsync(Bank, Phone))!.OpeningText);
     }
 
+    // ---- The rehearsal: a demonstration customer and the story of why they were messaged
+
+    private static InsuranceIntelligence.Application.DemoScenarios.DemoCustomerService Customers(Rig rig) => new(rig.Leads, rig.Events, rig.Brands, rig.Clock);
+
+    private static InsuranceIntelligence.Application.DemoScenarios.DemoCustomerRequest EugeneRequest(
+        InsuranceIntelligence.Application.DemoScenarios.DemoConsent consent = InsuranceIntelligence.Application.DemoScenarios.DemoConsent.Agreed, string phone = "+256 790 000 001") =>
+        new("Eugene", phone, "Ntinda branch", ["Salary account", "Savings account", "Salary loan"], "About UGX 2.4m a month", "2 children", 8_000_000m, 36, 2, consent);
+
+    [Fact]
+    public async Task ADemonstrationCustomerCanOnlyBeAddedToADemonstrationWorkspace()
+    {
+        var real = await RigAsync(demonstration: false);
+
+        var error = await Assert.ThrowsAsync<InsuranceIntelligence.Application.DemoScenarios.DemoCustomerException>(() => Customers(real).AddAsync(Bank, EugeneRequest(), "staff"));
+
+        Assert.Contains("demonstration workspace", error.Message);
+        Assert.Null(await real.Leads.FindByPhoneAsync(Bank.TenantId, Bank.WorkspaceId, Phone));
+    }
+
+    [Fact]
+    public async Task EugeneIsAddedWithHisFactsHisConsentAndHisLoan_AndTheRuleOffersHimTheLoanProtector()
+    {
+        var rig = await RigAsync(approveTemplate: false, demonstration: true, connected: false);
+        await LiveRuleAsync(rig);
+
+        var added = await Customers(rig).AddAsync(Bank, EugeneRequest(), "staff");
+        await Customers(rig).AddAsync(Bank, EugeneRequest(), "staff");
+        var run = await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.True(added.EventRecorded);
+        Assert.Equal(1, run.DemoSent);
+        var lead = (await rig.Leads.FindByPhoneAsync(Bank.TenantId, Bank.WorkspaceId, Phone))!;
+        Assert.Equal(ContactConsentStatus.Agreed, lead.Consent!.Status);
+        Assert.Contains(lead.Facts, fact => fact.Key == "bank_products" && fact.Value.Contains("Salary loan"));
+        var decision = Assert.Single(await rig.Log.ListAsync(Bank));
+        Assert.Equal("Mpingo Loan Protector", decision.Cover);
+        Assert.Single(await rig.Events.ListAsync(Bank));
+    }
+
+    [Theory]
+    [InlineData(InsuranceIntelligence.Application.DemoScenarios.DemoConsent.NotAsked, "no recorded agreement")]
+    [InlineData(InsuranceIntelligence.Application.DemoScenarios.DemoConsent.Declined, "asked not to be contacted")]
+    public async Task AnEugeneWhoNeverAgreedIsSkipped_WhichIsWhatTheDemonstrationOfConsentShows(InsuranceIntelligence.Application.DemoScenarios.DemoConsent consent, string expected)
+    {
+        var rig = await RigAsync(approveTemplate: false, demonstration: true, connected: false);
+        await LiveRuleAsync(rig);
+        await Customers(rig).AddAsync(Bank, EugeneRequest(consent), "staff");
+
+        await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.Contains(expected, (await rig.Log.ListAsync(Bank)).Single().Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(rig.Messages.Saved);
+    }
+
+    [Fact]
+    public async Task ABadPhoneOrNameIsRefused()
+    {
+        var rig = await RigAsync(demonstration: true);
+
+        await Assert.ThrowsAsync<InsuranceIntelligence.Application.DemoScenarios.DemoCustomerException>(() => Customers(rig).AddAsync(Bank, EugeneRequest(phone: "123"), "staff"));
+        await Assert.ThrowsAsync<InsuranceIntelligence.Application.DemoScenarios.DemoCustomerException>(() => Customers(rig).AddAsync(Bank, EugeneRequest() with { Name = " " }, "staff"));
+    }
+
+    [Fact]
+    public async Task TheTimelineTellsTheWholeStoryInOrder_FromTheAgreementToTheirAnswer()
+    {
+        var rig = await RigAsync(approveTemplate: false, demonstration: true, connected: false);
+        await LiveRuleAsync(rig);
+        await Customers(rig).AddAsync(Bank, EugeneRequest(), "staff");
+        await rig.Engine.RunAsync(Bank, "system");
+        await rig.Outcomes.RecordReplyAsync(Bank, Phone, "Yes, show me", NoonEat.AddMinutes(10));
+        var timeline = new PersonTimelineService(rig.Events, rig.Log, rig.Outcomes, rig.Leads);
+
+        var story = await timeline.GetAsync(Bank, Phone);
+
+        Assert.Equal("Eugene", story.CustomerName);
+        Assert.Contains("Agreed", story.ConsentSummary);
+        Assert.Equal(["consent", "event", "decision", "message", "reply"], story.Entries.Select(entry => entry.Kind).ToArray());
+        var decision = story.Entries.Single(entry => entry.Kind == "decision");
+        Assert.Contains("shown as sent", decision.Title);
+        Assert.Contains(decision.Gates!, gate => gate.Name == "Agreed to be contacted" && gate.Passed);
+        Assert.Contains("UGX 8,000,000", story.Entries.Single(entry => entry.Kind == "event").Detail);
+        Assert.Contains("Hello Eugene", story.Entries.Single(entry => entry.Kind == "message").Detail);
+        Assert.Contains("Yes, show me", story.Entries.Single(entry => entry.Kind == "reply").Detail);
+    }
+
+    [Fact]
+    public async Task OnePersonsTimelineNeverIncludesAnotherPersonOrAnotherWorkspace()
+    {
+        var rig = await RigAsync(approveTemplate: false, demonstration: true, connected: false);
+        await LiveRuleAsync(rig);
+        await Customers(rig).AddAsync(Bank, EugeneRequest(), "staff");
+        await Customers(rig).AddAsync(Bank, EugeneRequest(phone: "+256 790 000 002") with { Name = "Someone Else" }, "staff");
+        await rig.Engine.RunAsync(Bank, "system");
+        var timeline = new PersonTimelineService(rig.Events, rig.Log, rig.Outcomes, rig.Leads);
+
+        var mine = await timeline.GetAsync(Bank, Phone);
+        var elsewhere = await timeline.GetAsync(Other, Phone);
+
+        Assert.All(mine.Entries.Where(entry => entry.Kind == "decision"), entry => Assert.DoesNotContain("Someone Else", entry.Detail));
+        Assert.Equal(1, mine.Entries.Count(entry => entry.Kind == "event"));
+        Assert.Empty(elsewhere.Entries);
+    }
+
     [Fact]
     public void TheBankRelationshipNamesKindsOfProductOnly()
     {

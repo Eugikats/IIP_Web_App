@@ -24,6 +24,7 @@ import {
   type RuleForm,
   type RulesOverview,
 } from "@/lib/rules";
+import PersonTimelineDrawer from "./PersonTimelineDrawer";
 import { KpiRow, ReportState, TableCard, shortWhen, th } from "./ReportParts";
 
 const OUTCOME: Record<RuleDecision["outcome"], { label: string; tone: "success" | "info" | "neutral" | "warning" | "danger" }> = {
@@ -99,6 +100,7 @@ export default function RulesTab() {
   const [roles, setRoles] = useState<string | null>(null);
   const [outcomeFilter, setOutcomeFilter] = useState("");
   const [openDecision, setOpenDecision] = useState<string | null>(null);
+  const [timelineFor, setTimelineFor] = useState<{ eventId?: string; decisionId?: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -386,6 +388,9 @@ export default function RulesTab() {
                       <button type="button" className="ml-2 text-[12px] font-semibold text-[#1769FF] underline" aria-expanded={openDecision === decision.decisionId} onClick={() => setOpenDecision(openDecision === decision.decisionId ? null : decision.decisionId)}>
                         {openDecision === decision.decisionId ? "Hide the checks" : "Show the checks"}
                       </button>
+                      <button type="button" className="ml-2 text-[12px] font-semibold text-[#1769FF] underline" onClick={() => setTimelineFor({ decisionId: decision.decisionId })}>
+                        Why this person
+                      </button>
                       {openDecision === decision.decisionId ? (
                         <ul className="m-0 mt-2 list-none space-y-1 p-0">
                           {decision.gates.map((gate) => (
@@ -403,6 +408,8 @@ export default function RulesTab() {
           </div>
         )}
       </TableCard>
+
+      <PersonTimelineDrawer by={timelineFor} onClose={() => setTimelineFor(null)} />
     </div>
   );
 }

@@ -15,6 +15,8 @@ import {
   type BankEventType,
   type EventImportOutcome,
 } from "@/lib/bankEvents";
+import { addDemoCustomer, EUGENE, getDemoStatus, type DemoCustomerForm, type DemoStatus } from "@/lib/demoCustomers";
+import PersonTimelineDrawer from "./PersonTimelineDrawer";
 import { KpiRow, ReportState, TableCard, shortWhen, th } from "./ReportParts";
 
 const WHEN: { value: string; label: string; days: number }[] = [
@@ -56,6 +58,11 @@ export default function EventsTab() {
   const [imported, setImported] = useState<{ fileName: string; outcome: EventImportOutcome } | null>(null);
   const [form, setForm] = useState({ eventType: "loan_disbursed", phone: "", when: "2", amount: "", termMonths: "", branch: "" });
   const fileInput = useRef<HTMLInputElement>(null);
+  const [demo, setDemo] = useState<DemoStatus | null>(null);
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [customer, setCustomer] = useState<DemoCustomerForm>({ ...EUGENE });
+  const [customerError, setCustomerError] = useState<string | null>(null);
+  const [timelineFor, setTimelineFor] = useState<{ eventId?: string; decisionId?: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,6 +81,30 @@ export default function EventsTab() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void getDemoStatus(role).then((result) => setDemo(result.ok ? result.value : null));
+  }, [role]);
+
+  async function submitCustomer(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setCustomerError(null);
+    setNotice(null);
+    const result = await addDemoCustomer(role, customer);
+    setBusy(false);
+    if (!result.ok) {
+      setCustomerError(result.error);
+      return;
+    }
+    setNotice(
+      result.value.eventRecorded
+        ? `${customer.name} was added with what the bank would know about them, and the loan was recorded. Run the rules to see what happens.`
+        : `${customer.name} was added. Their loan event was already recorded.`,
+    );
+    setCustomerOpen(false);
+    await load();
+  }
 
   const chosenType = types.find((type) => type.code === form.eventType);
   const pending = (events ?? []).filter((event) => event.state === "Pending").length;
@@ -161,6 +192,11 @@ export default function EventsTab() {
         subtitle="What has happened to a customer at the bank. The rules read these to decide whom to offer cover."
         actions={
           <>
+            {demo?.isDemonstration ? (
+              <Button variant="secondary" disabled={busy} onClick={() => setCustomerOpen((open) => !open)}>
+                Add a demonstration customer
+              </Button>
+            ) : null}
             <input ref={fileInput} type="file" accept=".csv,text/csv" className="sr-only" aria-label="Load a file of events" onChange={(event) => void onFile(event.target.files?.[0])} />
             <Button variant="secondary" disabled={busy} icon={<Upload className="h-4 w-4" aria-hidden="true" />} onClick={() => fileInput.current?.click()}>
               Load a file
@@ -171,6 +207,56 @@ export default function EventsTab() {
           </>
         }
       >
+        {customerOpen ? (
+          <form onSubmit={submitCustomer} className="grid gap-3 border-b border-slate-100 px-4 py-4 sm:grid-cols-2 sm:px-5" aria-label="Add a demonstration customer">
+            <p className="m-0 text-[13px] text-slate-600 sm:col-span-2">
+              For a rehearsal only. Use a teammate who has agreed to take part, and give their own name and WhatsApp number. Only this demonstration workspace holds them.
+            </p>
+            <div className="sm:col-span-2">
+              <Button variant="ghost" onClick={() => setCustomer({ ...EUGENE, name: customer.name || EUGENE.name, phone: customer.phone })}>Fill in Eugene&apos;s details</Button>
+            </div>
+            <Field label="Name" htmlFor="dc-name">
+              <Input id="dc-name" required value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} />
+            </Field>
+            <Field label="WhatsApp number" hint="With the country code." htmlFor="dc-phone">
+              <Input id="dc-phone" inputMode="tel" required value={customer.phone} onChange={(event) => setCustomer({ ...customer, phone: event.target.value })} />
+            </Field>
+            <Field label="Branch" htmlFor="dc-branch">
+              <Input id="dc-branch" value={customer.branch} onChange={(event) => setCustomer({ ...customer, branch: event.target.value })} />
+            </Field>
+            <Field label="Products held at the bank" hint="Separated by commas." htmlFor="dc-products">
+              <Input id="dc-products" value={customer.bankProducts.join(", ")} onChange={(event) => setCustomer({ ...customer, bankProducts: event.target.value.split(",").map((part) => part.trim()).filter(Boolean) })} />
+            </Field>
+            <Field label="Income" htmlFor="dc-income">
+              <Input id="dc-income" value={customer.incomeBand} onChange={(event) => setCustomer({ ...customer, incomeBand: event.target.value })} />
+            </Field>
+            <Field label="Dependants" htmlFor="dc-dependants">
+              <Input id="dc-dependants" value={customer.dependants} onChange={(event) => setCustomer({ ...customer, dependants: event.target.value })} />
+            </Field>
+            <Field label="Loan amount (UGX)" hint="Leave empty for no loan event." htmlFor="dc-loan">
+              <Input id="dc-loan" inputMode="numeric" value={customer.loanAmount ?? ""} onChange={(event) => setCustomer({ ...customer, loanAmount: event.target.value.trim() === "" ? undefined : Number(event.target.value.replace(/,/g, "")) })} />
+            </Field>
+            <Field label="Term in months" htmlFor="dc-term">
+              <Input id="dc-term" inputMode="numeric" value={customer.loanTermMonths ?? ""} onChange={(event) => setCustomer({ ...customer, loanTermMonths: event.target.value.trim() === "" ? undefined : Number(event.target.value) })} />
+            </Field>
+            <Field label="Loan paid out (days ago)" htmlFor="dc-days">
+              <Input id="dc-days" inputMode="numeric" value={customer.loanDaysAgo ?? ""} onChange={(event) => setCustomer({ ...customer, loanDaysAgo: event.target.value.trim() === "" ? undefined : Number(event.target.value) })} />
+            </Field>
+            <Field label="Agreement to be contacted about insurance" hint="Choose what they agreed to, to show how the rules treat each case." htmlFor="dc-consent">
+              <Select id="dc-consent" value={customer.consent} onChange={(event) => setCustomer({ ...customer, consent: event.target.value as DemoCustomerForm["consent"] })}>
+                <option value="Agreed">Agreed</option>
+                <option value="NotAsked">Never asked</option>
+                <option value="Declined">Said no</option>
+              </Select>
+            </Field>
+            {customerError ? <p className="m-0 text-[13px] text-dls-danger-text sm:col-span-2" role="alert">{customerError}</p> : null}
+            <div className="flex gap-2 sm:col-span-2">
+              <Button type="submit" variant="primary" disabled={busy || customer.phone.trim().length === 0}>Add the customer</Button>
+              <Button variant="ghost" disabled={busy} onClick={() => setCustomerOpen(false)}>Cancel</Button>
+            </div>
+          </form>
+        ) : null}
+
         {formOpen ? (
           <form onSubmit={submit} className="grid gap-3 border-b border-slate-100 px-4 py-4 sm:grid-cols-2 sm:px-5" aria-label="Record a bank event">
             <Field label="What happened" hint={chosenType ? `${chosenType.reason} Suggests: ${chosenType.suggestedOffer}.` : undefined} htmlFor="ev-type">
@@ -229,6 +315,7 @@ export default function EventsTab() {
                   <th className={th}>Details</th>
                   <th className={th}>Came from</th>
                   <th className={th}>Rules</th>
+                  <th className={th}>Story</th>
                 </tr>
               </thead>
               <tbody>
@@ -242,6 +329,9 @@ export default function EventsTab() {
                     <td className="px-3 py-3">
                       <CipStatusPill tone={event.state === "Processed" ? "success" : "neutral"}>{event.state === "Processed" ? "Looked at" : "Waiting"}</CipStatusPill>
                     </td>
+                    <td className="px-3 py-3">
+                      <button type="button" className="text-[12.5px] font-semibold text-[#1769FF] underline" onClick={() => setTimelineFor({ eventId: event.eventId })}>Why this person</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -249,6 +339,8 @@ export default function EventsTab() {
           </div>
         </ReportState>
       </TableCard>
+
+      <PersonTimelineDrawer by={timelineFor} onClose={() => setTimelineFor(null)} />
     </div>
   );
 }
