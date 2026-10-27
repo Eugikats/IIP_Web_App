@@ -12,7 +12,8 @@ namespace InsuranceIntelligence.Api.Local;
 // "DocumentStorage"), distinct from the human-readable message. The exception boundary
 // (see ProviderNotConfiguredExceptionHandler) uses it to build a structured, honest
 // response instead of letting a raw provider error reach the client (AGENTS.md I9).
-public sealed class ProviderNotConfiguredException(string capability, string message) : InvalidOperationException(message)
+public sealed class ProviderNotConfiguredException(string capability, string message)
+    : InsuranceIntelligence.Application.Ai.CapabilityNotConfiguredException(message)
 {
     public string Capability { get; } = capability;
 }

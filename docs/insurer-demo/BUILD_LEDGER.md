@@ -59,8 +59,8 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 13 | Campaign reporting | done |
 | 14 | Onboarding: company profile, terms, licence | done |
 | 15 | Onboarding: security screen, storage step | done |
-| 16 | Extraction agent for wordings | |
-| 17 | "Here is what I found" confirm screen | |
+| 16 | Extraction agent for wordings | done |
+| 17 | "Here is what I found" confirm screen | next |
 | 18 | Managed WhatsApp number flow | |
 | 19 | Claim by WhatsApp polish and identity check | |
 | 20 | Security pack | |
@@ -72,6 +72,12 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 - The setup screen reports Microsoft and Google file connection state and links to Data Hub uploads. Connected folders let an administrator choose Knowledge or BankEvents purpose both when adding and editing a folder.
 - Verification: `dotnet test InsuranceIntelligence.sln --no-restore` passed (Domain 733, API 1701); `pnpm lint` completed with 0 errors and 6 existing image warnings; `npx tsc --noEmit` passed. `setup.spec.ts` passed 4/4 at 1280 and 768, screenshots reviewed.
 - Full workspace Playwright run: 115 passed, 7 failed. Six failures are time-sensitive demo checks because the run started after the 20:00 EAT outreach cutoff. One tablet sidebar check timed out during the 10.5 minute run. These are not counted as passing.
+
+## Piece 16 completion
+
+- `ProductWordingExtractionService` reads only the selected workspace's PolicyWording chunks, in bounded segments, through the configured chat provider. It asks for product identity, cover, exclusions, waiting periods, limits, excesses, premiums, claim documents and steps, time limits, and contacts. Each result must carry an exact quote from an allowed source chunk; unsupported items are dropped. The AI result is saved as a separate draft proposal and audited. It does not create, edit, or publish a Product.
+- `POST /api/v1/products/wording-extractions/{knowledgeDocumentId}` and the scoped list endpoint require `ManageProducts`. Missing AI capability is reported as Not configured. Text over 60,000 characters and documents without readable text fail with a usable reason.
+- Verification: `dotnet build InsuranceIntelligence.sln --no-restore` succeeded with 0 errors. `ProductWordingExtractionTests` passed 3/3, covering exact citations, rejection of unsupported output, workspace isolation, audit recording, and not-configured behavior. No call was made to a live AI provider.
 
 ## Verified so far
 

@@ -66,6 +66,30 @@ public static class ProductEndpoints
     public static async Task<IResult> Retire(Guid productId, RetireProductRequest request, IProductCommandService commandService, CancellationToken cancellationToken) =>
         await Guarded(async () => Results.Ok(await commandService.RetireAsync(productId, request, cancellationToken)));
 
+    public static async Task<IResult> ExtractWording(Guid knowledgeDocumentId, IProductWordingExtractionService extraction, CancellationToken cancellationToken) =>
+        await WordingGuarded(async () => Results.Ok(await extraction.ExtractAsync(knowledgeDocumentId, cancellationToken)));
+
+    public static async Task<IResult> ListWordingExtractions(Guid? knowledgeDocumentId, IProductWordingExtractionService extraction, CancellationToken cancellationToken) =>
+        await WordingGuarded(async () => Results.Ok(await extraction.ListAsync(knowledgeDocumentId, cancellationToken)));
+
+    private static async Task<IResult> WordingGuarded(Func<Task<IResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (ProductWordingExtractionException ex)
+        {
+            var status = ex.Code switch
+            {
+                "not_found" => StatusCodes.Status404NotFound,
+                "not_configured" => StatusCodes.Status503ServiceUnavailable,
+                _ => StatusCodes.Status400BadRequest,
+            };
+            return Results.Problem(ex.Message, statusCode: status, title: ex.Code == "not_configured" ? "Not configured" : "Wording extraction unavailable");
+        }
+    }
+
     private static async Task<IResult> Guarded(Func<Task<IResult>> action)
     {
         try

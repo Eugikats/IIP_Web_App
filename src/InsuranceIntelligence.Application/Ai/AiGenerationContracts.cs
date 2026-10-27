@@ -29,6 +29,9 @@ public interface IChatCompletionProvider
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>A configured AI capability is required for this operation, but none is available.</summary>
+public class CapabilityNotConfiguredException(string message) : InvalidOperationException(message) { }
+
 public sealed record ValidatedAiOutput(
     string Preview,
     bool RequiresHumanReview,
