@@ -12,7 +12,8 @@ namespace InsuranceIntelligence.Application.DemoScenarios;
 /// 30 days" is always 30 days away however long the demonstration has been set up. Running it again restores the same
 /// records and moves their dates to match today.
 /// </summary>
-public sealed class DemoScenarioPolicyholderSeeder(ICustomerRepository customers, IPolicyRepository policies)
+public sealed class DemoScenarioPolicyholderSeeder(
+    ICustomerRepository customers, IPolicyRepository policies, InsuranceIntelligence.Application.SalesLeads.ISalesLeadWriteRepository? leads = null)
 {
     public const string Marker = "demonstration";
 
@@ -84,6 +85,24 @@ public sealed class DemoScenarioPolicyholderSeeder(ICustomerRepository customers
                 $"{product.Name}, UGX {product.MonthlyPremium:N0} a month",
                 customer.CustomerId, null, start, end, product.MonthlyPremium * 12, "UGX", product.SumInsured);
             await policies.UpsertAsync(policy, cancellationToken);
+
+            // The person is also on the contact list, with the agreement to receive reminders about their own policy that they gave
+            // when they bought it, so the rules have something to check.
+            if (leads is not null)
+            {
+                var joined = DateTimeOffset.UtcNow.AddDays(-200);
+                await leads.CreateAsync(scope.TenantId, scope.WorkspaceId, new InsuranceIntelligence.Application.SalesLeads.SalesLeadDetailReadModel(
+                    $"LEAD-POLICY-{phone}", "Policyholder", "Existing customer", "Demonstration policyholder", product.Name, "Customer", [], [], null, null,
+                    holder.Name, $"+{phone}", joined, "system:demo-seed")
+                {
+                    Phone = phone,
+                    PrimaryChannel = "Policy records",
+                    Consent = new InsuranceIntelligence.Domain.Acquisition.ContactConsent(
+                        InsuranceIntelligence.Domain.Acquisition.ContactConsentStatus.Agreed, joined, "Agreed to receive reminders about their own policy on WhatsApp when the policy was bought.", "Policy purchase"),
+                    Activity = [new InsuranceIntelligence.Domain.Acquisition.ProspectActivity(joined, "Bought " + product.Name, "Demo data")],
+                }, cancellationToken);
+            }
+
             created++;
         }
 

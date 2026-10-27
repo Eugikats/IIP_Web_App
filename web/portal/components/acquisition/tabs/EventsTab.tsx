@@ -26,7 +26,7 @@ const WHEN: { value: string; label: string; days: number }[] = [
   { value: "14", label: "Two weeks ago", days: 14 },
 ];
 
-const SOURCE: Record<BankEvent["source"], string> = { Recorded: "Entered by hand", FileImport: "From a file", Feed: "From the bank's system" };
+const SOURCE: Record<BankEvent["source"], string> = { Recorded: "Entered by hand", FileImport: "From a file", Feed: "From the bank's system", PolicyDates: "From policy dates" };
 
 function money(value: string | undefined): string | null {
   const number = Number(value);
@@ -175,7 +175,7 @@ export default function EventsTab() {
           <form onSubmit={submit} className="grid gap-3 border-b border-slate-100 px-4 py-4 sm:grid-cols-2 sm:px-5" aria-label="Record a bank event">
             <Field label="What happened" hint={chosenType ? `${chosenType.reason} Suggests: ${chosenType.suggestedOffer}.` : undefined} htmlFor="ev-type">
               <Select id="ev-type" value={form.eventType} onChange={(event) => setForm({ ...form, eventType: event.target.value })}>
-                {types.map((type) => (
+                {types.filter((type) => !type.isTimeTrigger).map((type) => (
                   <option key={type.code} value={type.code}>{type.label}</option>
                 ))}
               </Select>

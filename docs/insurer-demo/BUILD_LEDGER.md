@@ -30,6 +30,9 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 - Outcomes and STOP: `OutcomeService` classifies short replies narrowly (Yes show me, Not now, No thanks, Renew, STOP and its plain variants; "please stop by my shop" is not a stop) and records them against the offer that began the conversation (14 day window). A STOP from anyone, with or without a rule, makes Kato send one plain acknowledgement, then withdraw consent on the prospect record and in the consent history, and the model is never called. Later rule runs skip the person with "asked not to be contacted". An answer that needs a person (details, renew) is a hand-off: listed under "Replies" in the Rules tab with the rule, cover, opening words and their reply, plus a lead activity, until marked followed up. One gentle follow-up (rule.FollowUpAfterDays and template) goes after silence, never after any answer. "Applied" outcome is written by piece 12 conversions.
 - Limitation: the hand-off is a list in the Rules tab, not a task in the staff My Work queue.
 
+- Bank first-touch (piece 8): demo rules for Mavuno Bank are seeded as unapproved drafts when a scenario is set up (loan disbursed, salary account opened, school fees paid; wait 0 for rehearsal). A new gate skips someone with an open claim. Eligibility by age is not built because no age is recorded; ranking uses the existing ProspectScoring with no commission input. Eugene himself is added by the demo-customer form (piece 11).
+- Renewals and premiums (piece 9): `PolicySweepService` turns policy dates into events (policy_ending_30, policy_ending_7, policy_lapsed, premium_due for life covers three days ahead) with fixed identities, run at the start of each rule run when a live rule uses one. They go through the same gates; "already holds the cover" and the same-cover limit do not apply to them, and the one-offer-per-person limit applies per rule so a 30 day and a 7 day reminder both go. Values (policy number, end date, due date, amount) come from event details, never invented. Nile demo customers get a contact record with agreement to receive reminders about their own policy. A missed premium is not detected: no payment records exist. Kato is told a colleague completes any renewal or payment.
+
 ## Piece status
 
 | # | Piece | State |
@@ -41,9 +44,9 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 | 5 | Rules engine | done (follow-up and STOP in piece 7) |
 | 6 | Reason carried into the conversation | done |
 | 7 | Outcomes and hand-off, STOP | done |
-| 8 | Bank first-touch flow | next |
-| 9 | Renewal and premium flows | |
-| 10 | Document chasing and claim updates | |
+| 8 | Bank first-touch flow | done (Eugene in piece 11) |
+| 9 | Renewal and premium flows | done |
+| 10 | Document chasing and claim updates | next |
 | 11 | Demo customer and timeline screens | |
 | 12 | Conversion view for bank staff | |
 | 13 | Campaign reporting | |
@@ -58,6 +61,7 @@ Worktree: `Projects/iip_saas_insurer_demo`, branch `build/insurer-demo-2026-10-2
 
 ## Verified so far
 
+- Pieces 8 and 9: Api.Tests all pass (RuleEngineTests 46, Kato 119), tsc clean, lint 0 errors. All insurer-demo Playwright specs (demonstrations, templates, bank-events, rules, renewals) pass at 1280 and 768 together: 28 tests. Renewals spec drives Nile Life from policy dates to logged reminders in a browser. Not run at 390 px.
 - Piece 7: Api.Tests all pass (RuleEngineTests 40, Kato 118 incl. STOP honoured with the model never called), tsc clean, lint 0 errors, rules.spec.ts 6 pass at 1280 and 768 (replies section shows its empty state). A reply flowing through a real webhook was not driven in a browser.
 - Piece 6: Kato tests 116 passed (3 new: reason present, reason too old or other number ignored, bank commission line). Prompt content is asserted against a scripted model; no real model call was made.
 - Piece 5: Api.Tests 1638 passed (21 RuleEngineTests incl. the Eugene case, consent, cover held, limits, hours, daily limit, approval roles, tamper, demo vs real, isolation), Domain.Tests 731, tsc clean, lint 0 errors. Playwright rules.spec.ts 3 tests pass at 1280 and 768 (write, approve, run, read the log with its checks; edit clears approval; empty cover refused); desktop screenshot reviewed.

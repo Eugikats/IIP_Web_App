@@ -225,6 +225,14 @@ public sealed class EventService(IWorkspaceRecordStore store, TimeProvider clock
             details["branch"] = Short(input.Branch, "branch");
         }
 
+        foreach (var (key, value) in input.Extra ?? new Dictionary<string, string>())
+        {
+            if (WorkspaceEvent.AllowedDetails.Contains(key) && !string.IsNullOrWhiteSpace(value))
+            {
+                details[key] = Short(value, key.Replace('_', ' '));
+            }
+        }
+
         var occurred = input.OccurredAt.Value.ToUniversalTime();
         var id = IdOf(type.Code, phone, occurred, input.ExternalId);
         return new WorkspaceEvent(id, type.Code, phone, occurred, now, source, sourceReference, details, actorId);

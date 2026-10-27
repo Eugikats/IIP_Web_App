@@ -610,6 +610,25 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
+    public async Task OnARenewalReminderTheAgentIsToldAPersonCompletesTheRenewal()
+    {
+        var db = new InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext(
+            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        var log = new InsuranceIntelligence.Application.Rules.DecisionLog(new InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceRecordStore(db));
+        await log.SaveReasonAsync(TenantScope.Create("tenant-ca", "workspace-ca"), new InsuranceIntelligence.Application.Rules.ConversationReason(
+            "256790000001", "rule-1", "Renewal, 30 days", "policy_ending_30", "Policy ends within 30 days", "Nile Shield Life Family Funeral Cover", "Nile Shield Life Assurance",
+            "renewal_30_days", "Hello Sarah, your cover ends on 30 November.", DateTimeOffset.UtcNow.AddHours(-1), Demonstration: false));
+        var model = new ScriptedAgentModel().Says("A colleague will help.");
+
+        await Fixture.Create(agent: model, decisionLog: log).HandleFromAsync("Yes, renew", "256790000001");
+
+        var system = model.Conversations[0][0].Content!;
+        Assert.Contains("reminder about a policy they already hold", system);
+        Assert.Contains("a colleague will complete it with them", system);
+        Assert.DoesNotContain("explain Nile Shield Life Family Funeral Cover from the approved wording", system);
+    }
+
+    [Fact]
     public async Task TheAgent_IgnoresAReasonThatIsTooOld_OrBelongsToAnotherNumber()
     {
         var (oldLog, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddDays(-30));

@@ -70,6 +70,8 @@ public sealed class RuleEngineTests
         public required Provider Provider { get; init; }
         public required Messages Messages { get; init; }
         public required OutcomeService Outcomes { get; init; }
+        public required InMemoryCaseRepository Cases { get; init; }
+        public required PolicySweepService Sweep { get; init; }
     }
 
     private static async Task<Rig> RigAsync(bool approveTemplate = true, bool demonstration = false, bool connected = true)
@@ -106,11 +108,13 @@ public sealed class RuleEngineTests
         var customers = new InMemoryCustomerRepository();
         var policies = new InMemoryPolicyRepository();
         var outcomes = new OutcomeService(store, log, leads);
+        var cases = new InMemoryCaseRepository();
+        var sweep = new PolicySweepService(policies, customers, events, clock);
         return new Rig
         {
             Clock = clock, Db = db, Rules = rules, Log = log, Events = events, Templates = templates, Brands = brands, Leads = leads, Customers = customers, Policies = policies,
-            Provider = provider, Messages = messages, Outcomes = outcomes,
-            Engine = new RuleEngine(rules, log, events, brands, templates, sender, leads, customers, policies, messages, clock, outcomes),
+            Provider = provider, Messages = messages, Outcomes = outcomes, Cases = cases, Sweep = sweep,
+            Engine = new RuleEngine(rules, log, events, brands, templates, sender, leads, customers, policies, messages, clock, outcomes, cases, sweep),
         };
     }
 
@@ -406,7 +410,7 @@ public sealed class RuleEngineTests
         var rig = await RigAsync();
 
         await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule(lines: [MicroinsuranceCatalog.BodaAccidentLine]), "w"));
-        await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { TemplateName = "renewal_30_days" }, "w"));
+        await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { TemplateName = "claim_documents_needed" }, "w"));
         await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { TemplateName = "does_not_exist" }, "w"));
         await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { Hours = new RuleHours(18, 9) }, "w"));
         await Assert.ThrowsAsync<RuleException>(() => rig.Rules.SaveAsync(Bank, LoanRule() with { EventType = "nonsense" }, "w"));
@@ -613,6 +617,160 @@ public sealed class RuleEngineTests
         var followUps = await rig.Log.ListAsync(Bank);
         Assert.Contains(followUps, decision => decision.Kind == "follow_up" && decision.Outcome == DecisionOutcome.Sent);
         Assert.Contains(followUps, decision => decision.Kind == "follow_up" && decision.Outcome == DecisionOutcome.Skipped && decision.Reason == "They already answered.");
+    }
+
+    [Fact]
+    public async Task SomeoneWithAClaimInProgressIsNotOfferedAnything_AndIsOnceTheClaimIsSettled()
+    {
+        var rig = await RigAsync();
+        await LiveRuleAsync(rig);
+        await AddEugeneAsync(rig);
+        var claim = new InsuranceIntelligence.Domain.Cases.ClaimCase
+        {
+            CaseId = Guid.NewGuid(), Scope = Bank, CustomerName = "Eugene", CustomerPhone = $"+{Phone}", PolicyNumber = "P1", ProductLine = "Loan Protector",
+            ClaimType = "Test", Channel = "WhatsApp", IncidentDate = DateOnly.FromDateTime(NoonEat.UtcDateTime), IncidentDescription = "Test",
+            Status = InsuranceIntelligence.Domain.Cases.CaseStatus.InReview, CreatedByUserId = "t", CreatedAt = NoonEat, UpdatedAt = NoonEat, CorrelationId = "c",
+            Priority = InsuranceIntelligence.Domain.Workflow.CasePriority.Normal, SlaDueAt = NoonEat.AddDays(5), RiskLevel = "Low", CompletenessScore = 0m,
+        };
+        await rig.Cases.SaveAsync(claim);
+        await LoanEventAsync(rig, external: "during-claim");
+
+        var during = await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.Equal(1, during.Skipped);
+        Assert.Contains("claim in progress", (await rig.Log.ListAsync(Bank)).Single().Reason);
+        Assert.Empty(rig.Provider.Sent);
+
+        await rig.Cases.SaveAsync(claim with { Status = InsuranceIntelligence.Domain.Cases.CaseStatus.Settled });
+        await LoanEventAsync(rig, external: "after-claim");
+        var after = await rig.Engine.RunAsync(Bank, "system");
+        Assert.Equal(1, after.Sent);
+    }
+
+    [Fact]
+    public async Task TheDemonstrationRulesForTheBankAreValid_AndStartAsDraftsNobodyHasApproved()
+    {
+        var rig = await RigAsync();
+        var scenario = InsuranceIntelligence.Application.DemoScenarios.DemoScenarioCatalog.Find(InsuranceIntelligence.Application.DemoScenarios.DemoScenarioCatalog.MavunoBank)!;
+
+        foreach (var rule in InsuranceIntelligence.Application.DemoScenarios.DemoScenarioRules.For(scenario))
+        {
+            await rig.Rules.SaveAsync(Bank, rule, "demo-setup");
+        }
+
+        var saved = await rig.Rules.ListAsync(Bank);
+        Assert.Equal(3, saved.Count);
+        Assert.All(saved, rule => Assert.Equal(RuleStatus.Draft, rule.Status));
+        foreach (var id in new[] { InsuranceIntelligence.Application.DemoScenarios.DemoScenarioCatalog.NileLife, InsuranceIntelligence.Application.DemoScenarios.DemoScenarioCatalog.NileGeneral })
+        {
+            var insurer = InsuranceIntelligence.Application.DemoScenarios.DemoScenarioRules.For(InsuranceIntelligence.Application.DemoScenarios.DemoScenarioCatalog.Find(id)!);
+            Assert.Equal(3, insurer.Count);
+            Assert.All(insurer, rule => Assert.True(BankEventCatalog.Find(rule.EventType)!.IsTimeTrigger));
+        }
+    }
+
+    // ---- Renewals and premiums, from dates already in the policy records
+
+    private static async Task AddFuneralPolicyAsync(Rig rig, int daysUntilEnd, string policyId = "p-funeral", string customerId = "c1", string phone = Phone)
+    {
+        await rig.Customers.UpsertAsync(new InsuranceIntelligence.Domain.Customers.Customer(customerId, Bank.TenantId, Bank.WorkspaceId, "Eugene Katusiime", null, $"+{phone}"));
+        var today = DateOnly.FromDateTime(NoonEat.UtcDateTime);
+        await rig.Policies.UpsertAsync(new Policy(policyId, Bank.TenantId, Bank.WorkspaceId, "MLA/FF/2026/00001", MicroinsuranceCatalog.FuneralLine, null, customerId, null,
+            today.AddDays(daysUntilEnd - 364), today.AddDays(daysUntilEnd), 96_000m, "UGX", 3_000_000m));
+    }
+
+    [Fact]
+    public async Task TheSweepNoticesRenewalsLapsesAndPremiumsFromPolicyDates_OnceEach()
+    {
+        var rig = await RigAsync();
+        await AddFuneralPolicyAsync(rig, 20, "p-30", "c30", "256790000030");
+        await AddFuneralPolicyAsync(rig, 5, "p-7", "c7", "256790000007");
+        await AddFuneralPolicyAsync(rig, -4, "p-lapsed", "cl", "256790000004");
+        await AddFuneralPolicyAsync(rig, 200, "p-far", "cf", "256790000200");
+
+        var first = await rig.Sweep.SweepAsync(Bank);
+        var second = await rig.Sweep.SweepAsync(Bank);
+
+        var types = (await rig.Events.ListAsync(Bank, take: 100)).Select(item => item.EventType).Order().ToArray();
+        Assert.Contains("policy_ending_30", types);
+        Assert.Contains("policy_ending_7", types);
+        Assert.Contains("policy_lapsed", types);
+        Assert.Equal(first.New, (await rig.Events.ListAsync(Bank, take: 100)).Count);
+        Assert.Equal(0, second.New);
+        var ending = (await rig.Events.ListAsync(Bank, eventType: "policy_ending_30")).Single();
+        Assert.Equal("MLA/FF/2026/00001", ending.Details["policy_number"]);
+        Assert.Equal("Mpingo Family Funeral Cover", ending.Details["product"]);
+        Assert.Equal(EventSource.PolicyDates, ending.Source);
+    }
+
+    [Fact]
+    public async Task ARenewalReminderGoesThirtyDaysBefore_AndTheSevenDayOneStillGoesLater()
+    {
+        var rig = await RigAsync();
+        foreach (var name in new[] { "renewal_30_days", "renewal_7_days" })
+        {
+            await rig.Templates.SubmitAsync(Bank, name, "en", "admin");
+            await rig.Templates.RecordDecisionAsync(Bank, name, "en", TemplateStatus.Approved, null, "admin");
+        }
+
+        string[] lines = [MicroinsuranceCatalog.FuneralLine, MicroinsuranceCatalog.LoanProtectorLine, MicroinsuranceCatalog.SchoolFeesLine];
+        await LiveRuleAsync(rig, new OutreachRule("", "Renewal, 30 days", 0, "policy_ending_30", new RuleConditions(), 0, lines, "renewal_30_days", "en", new RuleHours(9, 18), new RuleLimits(), null, null, RuleStatus.Draft, "w", DateTimeOffset.UnixEpoch));
+        await LiveRuleAsync(rig, new OutreachRule("", "Renewal, 7 days", 0, "policy_ending_7", new RuleConditions(), 0, lines, "renewal_7_days", "en", new RuleHours(9, 18), new RuleLimits(), null, null, RuleStatus.Draft, "w", DateTimeOffset.UnixEpoch));
+        await AddEugeneAsync(rig);
+        await AddFuneralPolicyAsync(rig, 20);
+
+        var first = await rig.Engine.RunAsync(Bank, "system");
+        Assert.Equal(1, first.Sent);
+        var request = Assert.Single(rig.Provider.Sent);
+        Assert.Equal("renewal_30_days", request.TemplateName);
+        var endDate = DateOnly.FromDateTime(NoonEat.UtcDateTime).AddDays(20).ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal(["Eugene", "Mpingo Family Funeral Cover", "MLA/FF/2026/00001", endDate], request.TemplateParameters!.OrderBy(pair => pair.Key).Select(pair => pair.Value).ToArray());
+
+        Assert.Equal(0, (await rig.Engine.RunAsync(Bank, "system")).Sent);
+
+        rig.Clock.Now = NoonEat.AddDays(15);
+        var later = await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.Equal(1, later.Sent);
+        Assert.Equal(["renewal_30_days", "renewal_7_days"], rig.Provider.Sent.Select(sent => sent.TemplateName).ToArray());
+    }
+
+    [Fact]
+    public async Task APremiumReminderGivesTheAmountAndTheDueDate()
+    {
+        var rig = await RigAsync();
+        await rig.Templates.SubmitAsync(Bank, "premium_due", "en", "admin");
+        await rig.Templates.RecordDecisionAsync(Bank, "premium_due", "en", TemplateStatus.Approved, null, "admin");
+        await LiveRuleAsync(rig, new OutreachRule("", "Premium due", 0, "premium_due", new RuleConditions(), 0, [MicroinsuranceCatalog.FuneralLine], "premium_due", "en", new RuleHours(9, 18), new RuleLimits(), null, null, RuleStatus.Draft, "w", DateTimeOffset.UnixEpoch));
+        await AddEugeneAsync(rig);
+        var today = DateOnly.FromDateTime(NoonEat.UtcDateTime);
+        await rig.Customers.UpsertAsync(new InsuranceIntelligence.Domain.Customers.Customer("c1", Bank.TenantId, Bank.WorkspaceId, "Eugene Katusiime", null, $"+{Phone}"));
+        // Began on a date whose day of the month falls two days from now.
+        var started = today.AddDays(2).AddMonths(-5);
+        await rig.Policies.UpsertAsync(new Policy("p1", Bank.TenantId, Bank.WorkspaceId, "MLA/FF/2026/00001", MicroinsuranceCatalog.FuneralLine, null, "c1", null, started, started.AddYears(1), 96_000m, "UGX", 3_000_000m));
+
+        var run = await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.Equal(1, run.Sent);
+        var request = Assert.Single(rig.Provider.Sent);
+        Assert.Equal("UGX 8,000", request.TemplateParameters!["3"]);
+        Assert.Equal(today.AddDays(2).ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture), request.TemplateParameters["4"]);
+    }
+
+    [Fact]
+    public async Task ARenewalRuleDoesNotApplyToAProductItDoesNotList()
+    {
+        var rig = await RigAsync();
+        await rig.Templates.SubmitAsync(Bank, "renewal_30_days", "en", "admin");
+        await rig.Templates.RecordDecisionAsync(Bank, "renewal_30_days", "en", TemplateStatus.Approved, null, "admin");
+        await LiveRuleAsync(rig, new OutreachRule("", "Renewal", 0, "policy_ending_30", new RuleConditions(), 0, [MicroinsuranceCatalog.HomeContentsLine], "renewal_30_days", "en", new RuleHours(9, 18), new RuleLimits(), null, null, RuleStatus.Draft, "w", DateTimeOffset.UnixEpoch));
+        await AddEugeneAsync(rig);
+        await AddFuneralPolicyAsync(rig, 20);
+
+        var run = await rig.Engine.RunAsync(Bank, "system");
+
+        Assert.Equal(1, run.Skipped);
+        Assert.Empty(rig.Provider.Sent);
     }
 
     [Fact]

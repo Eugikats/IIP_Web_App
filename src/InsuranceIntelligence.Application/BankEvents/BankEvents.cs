@@ -4,7 +4,7 @@ namespace InsuranceIntelligence.Application.BankEvents;
 /// Something that happened to a customer at the bank, which may be a reason to offer them cover. The bank tells IIP;
 /// IIP cannot see it for itself. Each type says why it matters, what it suggests, and when.
 /// </summary>
-public sealed record BankEventType(string Code, string Label, string Reason, string SuggestedOffer, string SuggestedTiming, bool ProtectsAnAsset = false);
+public sealed record BankEventType(string Code, string Label, string Reason, string SuggestedOffer, string SuggestedTiming, bool ProtectsAnAsset = false, bool IsTimeTrigger = false);
 
 public static class BankEventCatalog
 {
@@ -19,6 +19,12 @@ public static class BankEventCatalog
         new("standing_order_started", "Standing order started", "Someone committing to regular saving.", "Education or endowment cover", "The same week"),
         new("loan_repaid", "Loan repaid", "A natural moment to talk.", "A new cover, or a thank you and a new offer", "At repayment"),
         new("mortgage_taken", "Mortgage taken", "A large debt and an asset.", "Mortgage life and property cover", "Within a week", ProtectsAnAsset: true),
+
+        // Not something the bank tells IIP: these come from dates already in the policy records, found by a daily look at them.
+        new("policy_ending_30", "Policy ends within 30 days", "A policy is nearing its end.", "Renewal reminder", "30 days before", IsTimeTrigger: true),
+        new("policy_ending_7", "Policy ends within 7 days", "A policy is about to end.", "Second renewal reminder", "7 days before", IsTimeTrigger: true),
+        new("policy_lapsed", "Policy has just ended", "A policy ended and was not renewed.", "A win-back message", "Within two weeks after", IsTimeTrigger: true),
+        new("premium_due", "Premium due soon", "A monthly premium falls due.", "Payment reminder", "3 days before", IsTimeTrigger: true),
     ];
 
     public static BankEventType? Find(string? codeOrLabel)
@@ -44,6 +50,9 @@ public enum EventSource
 
     /// <summary>The bank's system sent it. Not built yet.</summary>
     Feed,
+
+    /// <summary>Found by looking at dates already in the policy records.</summary>
+    PolicyDates,
 }
 
 public enum EventProcessingState
@@ -74,7 +83,7 @@ public sealed record WorkspaceEvent(
 {
     /// <summary>The only details an event may carry. Anything else is dropped on the way in and reported.</summary>
     public static readonly IReadOnlySet<string> AllowedDetails =
-        new HashSet<string>(StringComparer.Ordinal) { "amount", "term_months", "product_code", "branch" };
+        new HashSet<string>(StringComparer.Ordinal) { "amount", "term_months", "product_code", "branch", "policy_number", "product", "product_line", "end_date", "due_date" };
 
     public decimal? Amount => Details.TryGetValue("amount", out var value) && decimal.TryParse(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var amount) ? amount : null;
 
@@ -90,7 +99,8 @@ public sealed record EventInput(
     decimal? Amount = null,
     int? TermMonths = null,
     string? ProductCode = null,
-    string? Branch = null);
+    string? Branch = null,
+    IReadOnlyDictionary<string, string>? Extra = null);
 
 public sealed class EventException(string message) : Exception(message);
 

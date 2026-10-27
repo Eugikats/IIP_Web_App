@@ -23,7 +23,8 @@ public sealed class DemoScenarioService(
     MicroinsuranceDemoSeeder catalogue,
     BankCustomerDemoSeeder bankCustomers,
     DemoScenarioPolicyholderSeeder policyholders,
-    IProspectTriageService triage)
+    IProspectTriageService triage,
+    InsuranceIntelligence.Application.Rules.RuleService rules)
 {
     public async Task<IReadOnlyList<DemoScenarioState>> ListAsync(string userId, CancellationToken cancellationToken = default)
     {
@@ -79,6 +80,15 @@ public sealed class DemoScenarioService(
         else
         {
             await policyholders.SeedAsync(scope, scenario, cancellationToken);
+        }
+
+        // Starting rules, only when the workspace has none, so a person who changed or approved them keeps their work.
+        if ((await rules.ListAsync(scope, cancellationToken)).Count == 0)
+        {
+            foreach (var rule in DemoScenarioRules.For(scenario))
+            {
+                await rules.SaveAsync(scope, rule, "demo-setup", cancellationToken);
+            }
         }
 
         return new DemoScenarioState(scenario, organisationId, scope.WorkspaceId, Ready: true);

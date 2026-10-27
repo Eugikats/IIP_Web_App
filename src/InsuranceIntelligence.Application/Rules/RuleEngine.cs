@@ -33,7 +33,9 @@ public sealed class RuleEngine(
     IPolicyRepository policies,
     IWhatsAppMessageRepository messageRepository,
     TimeProvider clock,
-    OutcomeService? outcomes = null)
+    OutcomeService? outcomes = null,
+    InsuranceIntelligence.Domain.Cases.ICaseRepository? cases = null,
+    PolicySweepService? sweep = null)
 {
     private static readonly TimeSpan EastAfrica = TimeSpan.FromHours(3);
     public const string DemoNumberId = "demo-number";
@@ -46,6 +48,12 @@ public sealed class RuleEngine(
         if (liveRules.Length == 0)
         {
             return new RuleRunSummary(0, 0, 0, 0, 0, 0);
+        }
+
+        // Dates already in the policy records become events, so renewals and premiums go through the same rules and the same checks.
+        if (sweep is not null && liveRules.Any(rule => BankEventCatalog.Find(rule.EventType)?.IsTimeTrigger == true))
+        {
+            await sweep.SweepAsync(scope, cancellationToken);
         }
 
         var brand = await brands.ResolveAsync(scope, cancellationToken);
@@ -164,7 +172,8 @@ public sealed class RuleEngine(
             return Done(DecisionOutcome.Blocked, "The follow-up template or the cover could not be found.");
         }
 
-        var values = template.Parameters.Select(parameter => ValueOf(parameter, lead, brand, cover)).ToArray();
+        var sourceEvent = await events.GetAsync(scope, offer.EventId, cancellationToken);
+        var values = template.Parameters.Select(parameter => ValueOf(parameter, lead, brand, cover, sourceEvent)).ToArray();
         var consentBasis = $"Agreed to be contacted about insurance on {lead.Consent!.At:yyyy-MM-dd} ({lead.Consent.Channel})";
         var result = await messages.SendAsync(
             scope,
@@ -244,15 +253,42 @@ public sealed class RuleEngine(
             .Where(policy => policy.CustomerId is not null && onPhone.Contains(policy.CustomerId) && (policy.EffectiveTo is null || policy.EffectiveTo >= DateOnly.FromDateTime(now.UtcDateTime)))
             .Select(policy => policy.ProductLine)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var candidates = brand.Products.Where(product => rule.AllowedProductLines.Contains(product.ProductLine, StringComparer.OrdinalIgnoreCase) && !held.Contains(product.ProductLine)).ToArray();
-        if (!Gate("Does not already hold the cover", candidates.Length > 0,
-                candidates.Length > 0 ? (held.Count == 0 ? "Holds no cover with this organisation." : $"Holds {string.Join(", ", held)}; the rest can be offered.") : "Already holds every cover the rule may offer."))
+        var timeTrigger = BankEventCatalog.Find(item.EventType)?.IsTimeTrigger == true;
+        MicroinsuranceCatalog.MicroProduct[] candidates;
+        if (timeTrigger)
         {
-            return Done(DecisionOutcome.Skipped, "They already hold the covers this rule offers.", lead: leadId, name: name);
+            // A reminder about a policy they hold: the cover is that policy's own, and holding it is the whole point.
+            var line = item.Details.GetValueOrDefault("product_line");
+            candidates = brand.Products.Where(product => product.ProductLine == line && rule.AllowedProductLines.Contains(product.ProductLine, StringComparer.OrdinalIgnoreCase)).ToArray();
+            if (!Gate("Rule covers this product", candidates.Length > 0, candidates.Length > 0 ? $"{candidates[0].Name} is one of the covers this rule applies to." : "This rule does not apply to this product."))
+            {
+                return Done(DecisionOutcome.Skipped, "This rule does not apply to this product.", lead: leadId, name: name);
+            }
+        }
+        else
+        {
+            candidates = brand.Products.Where(product => rule.AllowedProductLines.Contains(product.ProductLine, StringComparer.OrdinalIgnoreCase) && !held.Contains(product.ProductLine)).ToArray();
+            if (!Gate("Does not already hold the cover", candidates.Length > 0,
+                    candidates.Length > 0 ? (held.Count == 0 ? "Holds no cover with this organisation." : $"Holds {string.Join(", ", held)}; the rest can be offered.") : "Already holds every cover the rule may offer."))
+            {
+                return Done(DecisionOutcome.Skipped, "They already hold the covers this rule offers.", lead: leadId, name: name);
+            }
+        }
+
+        // Not in the middle of a claim: a marketing message to someone waiting on a claim is the wrong message at the wrong time.
+        if (cases is not null)
+        {
+            var openClaim = (await cases.ListAsync(scope, cancellationToken))
+                .FirstOrDefault(claim => claim.Status is not (InsuranceIntelligence.Domain.Cases.CaseStatus.Settled or InsuranceIntelligence.Domain.Cases.CaseStatus.Closed)
+                    && PhoneNumbers.SameNumber(claim.CustomerPhone, item.Phone));
+            if (!Gate("Not in the middle of a claim", openClaim is null, openClaim is null ? "No claim is open." : "A claim is open, so this is not the time for an offer."))
+            {
+                return Done(DecisionOutcome.Skipped, "They have a claim in progress.", lead: leadId, name: name);
+            }
         }
 
         // Not contacted too often
-        var mine = history.Where(decision => decision.Phone == item.Phone && decision.WentOut && decision.Kind == "offer").ToArray();
+        var mine = history.Where(decision => decision.Phone == item.Phone && decision.WentOut && decision.Kind == "offer" && (!timeTrigger || decision.RuleId == rule.RuleId)).ToArray();
         var recent = mine.FirstOrDefault(decision => now - decision.DecidedAt < TimeSpan.FromDays(rule.Limits.OnePerPersonDays));
         if (!Gate("Not contacted recently", recent is null,
                 recent is null ? $"No offer in the last {rule.Limits.OnePerPersonDays} days." : $"Offered {recent.Cover} on {recent.DecidedAt:d MMM yyyy}, and the limit is one offer every {rule.Limits.OnePerPersonDays} days."))
@@ -282,7 +318,7 @@ public sealed class RuleEngine(
         }
 
         Gate("Best-fit cover", true, fitDetail);
-        var sameCover = mine.FirstOrDefault(decision => decision.Cover == cover.Name && now - decision.DecidedAt < TimeSpan.FromDays(rule.Limits.SameCoverDays));
+        var sameCover = timeTrigger ? null : mine.FirstOrDefault(decision => decision.Cover == cover.Name && now - decision.DecidedAt < TimeSpan.FromDays(rule.Limits.SameCoverDays));
         if (!Gate("Same cover not offered twice", sameCover is null, sameCover is null ? $"{cover.Name} has not been offered in the last {rule.Limits.SameCoverDays} days." : $"{cover.Name} was offered on {sameCover.DecidedAt:d MMM yyyy}."))
         {
             return Done(DecisionOutcome.Skipped, "This cover was offered to them recently.", cover: cover, lead: leadId, name: name);
@@ -320,7 +356,7 @@ public sealed class RuleEngine(
             return Done(DecisionOutcome.Blocked, $"There is no template called {rule.TemplateName}.", cover: cover, lead: leadId, name: name);
         }
 
-        var values = template.Parameters.Select(parameter => ValueOf(parameter, lead, brand, cover)).ToArray();
+        var values = template.Parameters.Select(parameter => ValueOf(parameter, lead, brand, cover, item)).ToArray();
         var consentBasis = $"Agreed to be contacted about insurance on {consent!.At:yyyy-MM-dd} ({consent.Channel})";
         var sendResult = await messages.SendAsync(
             scope,
@@ -410,12 +446,14 @@ public sealed class RuleEngine(
 
     // ---- What a template's placeholders stand for
 
-    internal static string ValueOf(string parameter, SalesLeadDetailReadModel lead, KatoBrand brand, MicroinsuranceCatalog.MicroProduct cover) => parameter switch
+    internal static string ValueOf(string parameter, SalesLeadDetailReadModel lead, KatoBrand brand, MicroinsuranceCatalog.MicroProduct cover, WorkspaceEvent? item) => parameter switch
     {
         "customer_name" => FirstName(lead.CustomerName),
         "organisation" => brand.ShortName,
         "cover_name" or "product" => cover.Name,
         "bank_relationship" => BankRelationship(lead),
+        "policy_number" or "end_date" or "due_date" => item?.Details.GetValueOrDefault(parameter) ?? string.Empty,
+        "amount" => item?.Amount is { } amount ? $"UGX {amount:N0}" : string.Empty,
         _ => string.Empty,
     };
 

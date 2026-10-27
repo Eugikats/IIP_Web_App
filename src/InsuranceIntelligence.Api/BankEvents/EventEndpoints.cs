@@ -21,6 +21,7 @@ public static class EventEndpoints
         reason = type.Reason,
         suggestedOffer = type.SuggestedOffer,
         suggestedTiming = type.SuggestedTiming,
+        isTimeTrigger = type.IsTimeTrigger,
     }));
 
     public static async Task<IResult> List(

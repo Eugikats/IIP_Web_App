@@ -154,6 +154,17 @@ public sealed partial class CustomerAssistantService
             return commission.TrimEnd();
         }
 
+        if (reason.EventType.StartsWith("policy_", StringComparison.Ordinal) || reason.EventType == "premium_due")
+        {
+            return $"""
+                Why this conversation exists: {brand.Organisation} wrote to this person first, on {reason.SentAt:d MMMM}, as a reminder about a policy they already hold ({reason.Cover}, provided by {reason.Insurer}): {reason.EventLabel.ToLowerInvariant()}. The message they were sent was: "{reason.OpeningText}"
+                - If they want to renew, or ask how to pay, say a colleague will complete it with them here and that nothing is renewed or paid until then. Never promise renewal terms or a price you cannot see in their policy. Use get_my_account for their cover and dates.
+                - If they say not now, accept it warmly. If they say stop, tell them you will not message them again.
+                - If they ask a question about their policy, answer it from their record and the approved wording.
+                {commission}
+                """.TrimEnd();
+        }
+
         return $"""
             Why this conversation exists: {brand.Organisation} wrote to this person first, on {reason.SentAt:d MMMM}, because of this: {reason.EventLabel.ToLowerInvariant()}. The message they were sent was: "{reason.OpeningText}" It offered {reason.Cover}, provided and paid by {reason.Insurer}.
             - When they answer yes, ask for details, or tap "Yes, show me", explain {reason.Cover} from the approved wording (search_policy_information and list_products): what it pays, what it costs a month and about a day, the waiting period and the main exclusion. Say that {reason.Insurer} provides and pays the cover and {brand.Organisation} offers it. Offer to explain how it works or set it up.

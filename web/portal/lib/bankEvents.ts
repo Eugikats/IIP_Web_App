@@ -8,6 +8,7 @@ export type BankEventType = {
   reason: string;
   suggestedOffer: string;
   suggestedTiming: string;
+  isTimeTrigger: boolean;
 };
 
 export type BankEvent = {
@@ -17,7 +18,7 @@ export type BankEvent = {
   phone: string;
   occurredAt: string;
   receivedAt: string;
-  source: "Recorded" | "FileImport" | "Feed";
+  source: "Recorded" | "FileImport" | "Feed" | "PolicyDates";
   sourceReference: string | null;
   details: Record<string, string>;
   state: "Pending" | "Processed";
