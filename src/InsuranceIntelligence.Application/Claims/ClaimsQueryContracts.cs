@@ -66,7 +66,12 @@ public sealed record ClaimDetailDto(
     DateOnly? PolicyEffectiveFrom = null,
     DateOnly? PolicyEffectiveTo = null,
     string? PolicyRecordSource = null,
-    DateTimeOffset? PolicyLastRefreshedAt = null);
+    DateTimeOffset? PolicyLastRefreshedAt = null,
+    // What the customer wrote in their own language, when the description above is a translation of it, and the
+    // structured medical claim details. Both were held on the claim but never sent to the screen.
+    string? OriginalIncidentText = null,
+    string? OriginalIncidentLanguage = null,
+    MedicalFnolDetails? MedicalFnolDetails = null);
 
 public sealed record DocumentSummaryDto(
     Guid DocumentId,

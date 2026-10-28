@@ -139,7 +139,10 @@ public sealed class ClaimsQueryService(
             policy?.EffectiveFrom,
             policy?.EffectiveTo,
             policy?.RecordSource.ToString(),
-            policy?.LastRefreshedAt);
+            policy?.LastRefreshedAt,
+            claim.OriginalIncidentText,
+            claim.OriginalIncidentLanguage,
+            claim.MedicalFnolDetails);
 
     private static DocumentSummaryDto ToDocumentSummary(CaseDocument document) =>
         new(

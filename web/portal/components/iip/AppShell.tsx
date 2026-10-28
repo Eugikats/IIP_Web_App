@@ -176,7 +176,22 @@ function ShellInner({ children }: { children: ReactNode }) {
   );
 }
 
+// Another tab or window switched the demonstration (the active organisation is kept in local storage). This one is
+// still showing the old world, so load it afresh rather than leave it looking right and being wrong.
+function useReloadWhenOrganisationChangesElsewhere() {
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "iip.active-organisation-id" || event.key === "iip.active-workspace-id") {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+}
+
 export default function AppShell({ children }: { children: ReactNode }) {
+  useReloadWhenOrganisationChangesElsewhere();
   return (
     <UIStateProvider>
       <RuntimeContextProvider>

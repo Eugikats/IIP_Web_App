@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { Link, useNavigate } from "@/components/iip/NextRouterCompat";
 import { toast } from "sonner";
 import { TriangleAlert, ArrowRight, ClipboardList, Filter, Search, UserCheck, X } from "lucide-react";
-import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge, ConfidenceBadge, ChannelBadge } from "@/components/iip/Primitives";
+import { GlassCard, SectionHeader, Badge, StatusBadge, SLABadge, RiskBadge, ChannelBadge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Input";
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
@@ -11,7 +11,7 @@ import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, EmptyFilteredSta
 import { useClaims } from "@/lib/lovable-parity/data/claims";
 import type { ClaimRowView } from "@/lib/lovable-parity/data/claims";
 import { useRuntimeContext } from "@/lib/runtimeContext";
-import { claimReference } from "@/lib/format";
+import { channelLabel, claimReference, humanizeIdentifier } from "@/lib/format";
 import { usePeople } from "@/lib/people";
 
 const quickFilters = [
@@ -109,7 +109,7 @@ export default function ClaimsQueue() {
         // here, so it fits this eyebrow's intent without introducing a new color.
         eyebrowClassName="text-dls-text-secondary"
         title="Work Queue"
-        sub="Claims requiring officer attention across Motor Operations. AI has already read the documents and flagged anything worth checking. Officers decide."
+        sub="Claims that need an officer. AI has read the documents and flagged anything worth checking; officers decide."
         action={
           <Link to="/app/claims/new" className="dls-focus-outline inline-flex min-h-11 items-center justify-center gap-1.5 rounded-dls-control bg-dls-primary px-4 py-[9px] text-[13px] font-bold text-dls-text-inverse shadow-dls-primary hover:bg-dls-primary-hover">
             + New claim
@@ -237,37 +237,44 @@ export default function ClaimsQueue() {
             <Table label="Complete claims work queue">
               <TableHead>
                 <TableRow>
-                  {["Claim", "Customer", "Product", "Status", "Docs", "SLA", "Risk", "Confidence", "Assigned", "Updated", "Actions"].map(h => (
-                    <TableHeaderCell key={h}>{h}</TableHeaderCell>
+                  {["Claim", "Customer", "Cover", "Status", "Attention", "Owner", ""].map((h, index) => (
+                    <TableHeaderCell key={`${h}-${index}`}>{h}</TableHeaderCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {rows.map(c => (
                   <TableRow key={c.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-dls-text-primary">{claimReference(c.id)}</span>
-                        {c.requiresConfirmation ? <Badge tone="warning">Needs confirmation</Badge> : null}
-                      </div>
-                      <div className="text-[11px] text-dls-text-muted">{c.policy}</div>
+                    <TableCell className="align-middle">
+                      <Link to={`/app/claims/${c.id}`} className="dls-focus-outline rounded-dls-tight font-semibold text-dls-text-primary hover:text-dls-primary hover:underline">{claimReference(c.id)}</Link>
+                      <div className="mt-0.5 text-[11px] text-dls-text-muted">{c.policy}</div>
+                      {c.requiresConfirmation ? <div className="mt-1"><Badge tone="warning">Needs confirmation</Badge></div> : null}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="align-middle">
                       <div className="text-dls-text-primary">{c.customer}</div>
-                      <div className="mt-1"><ChannelBadge channel={c.channel} /></div>
+                      <div className="mt-0.5 text-[11px] text-dls-text-muted">via {channelLabel(c.channel)}</div>
                     </TableCell>
-                    <TableCell className="text-dls-text-secondary">{c.productLine} · {c.claimType}</TableCell>
-                    <TableCell><StatusBadge status={c.status} /></TableCell>
-                    <TableCell>{c.complete ? <Badge tone="success">Complete</Badge> : <Badge tone="warning">Incomplete</Badge>}</TableCell>
-                    <TableCell><SLABadge sla={c.sla} /></TableCell>
-                    <TableCell><RiskBadge risk={c.risk} /></TableCell>
-                    <TableCell><ConfidenceBadge value={c.confidence} /></TableCell>
-                    <TableCell className="whitespace-nowrap text-dls-text-secondary">
-                      {c.assignedUserId ? describe(c.assignedUserId) : c.assignedTeam ?? "Unassigned"}
+                    <TableCell className="max-w-[10rem] align-middle">
+                      <div className="truncate text-dls-text-primary" title={c.productLine}>{c.productLine}</div>
+                      <div className="mt-0.5 truncate text-[11px] text-dls-text-muted" title={humanizeIdentifier(c.claimType)}>{humanizeIdentifier(c.claimType)}</div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-dls-text-muted">{c.updated}</TableCell>
-                    <TableCell>
-                      <ClaimActions claim={c} busy={busyCaseId === c.id} onAssign={assignToMe} onEscalate={escalate} />
+                    <TableCell className="align-middle">
+                      <StatusBadge status={c.status} />
+                      <div className={`mt-1 text-[11px] ${c.complete ? "text-dls-text-muted" : "font-semibold text-dls-warning-text"}`}>
+                        {c.complete ? "Documents complete" : "Documents incomplete"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-middle">
+                      <div className="flex flex-col items-start gap-1"><SLABadge sla={c.sla} /><RiskBadge risk={c.risk} /></div>
+                    </TableCell>
+                    <TableCell className="align-middle text-dls-text-secondary">
+                      <div className="max-w-[7.5rem] truncate" title={c.assignedUserId ? describe(c.assignedUserId) : c.assignedTeam ?? "Unassigned"}>
+                        {c.assignedUserId ? describe(c.assignedUserId) : c.assignedTeam ?? "Unassigned"}
+                      </div>
+                      <div className="mt-0.5 whitespace-nowrap text-[11px] text-dls-text-muted">{c.updated}</div>
+                    </TableCell>
+                    <TableCell className="align-middle">
+                      <ClaimActions claim={c} busy={busyCaseId === c.id} onAssign={assignToMe} onEscalate={escalate} iconOnly />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -343,7 +350,21 @@ function QueueSelect({
   );
 }
 
-function ClaimActions({ claim, busy, onAssign, onEscalate, compact = false }: { claim: ClaimRowView; busy: boolean; onAssign: (id: string) => Promise<void>; onEscalate: (id: string) => Promise<void>; compact?: boolean }) {
+function ClaimActions({ claim, busy, onAssign, onEscalate, compact = false, iconOnly = false }: { claim: ClaimRowView; busy: boolean; onAssign: (id: string) => Promise<void>; onEscalate: (id: string) => Promise<void>; compact?: boolean; iconOnly?: boolean }) {
+  if (iconOnly) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Link to={`/app/claims/${claim.id}`} title="Review" aria-label={`Review ${claimReference(claim.id)}`} className="dls-focus-outline inline-flex h-9 w-9 items-center justify-center rounded-dls-control border border-dls-border-input bg-dls-surface text-dls-primary hover:bg-dls-bg-page"><ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
+        <button type="button" title="Assign to me" aria-label={`Assign ${claimReference(claim.id)} to me`} onClick={() => void onAssign(claim.id)} disabled={busy} className="dls-focus-outline inline-flex h-9 w-9 items-center justify-center rounded-dls-control border border-dls-border-input bg-dls-surface text-dls-text-primary hover:bg-dls-bg-page disabled:opacity-50">
+          <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+        <button type="button" title="Escalate" aria-label={`Escalate ${claimReference(claim.id)}`} onClick={() => void onEscalate(claim.id)} disabled={busy || claim.status === "Escalated"} className="dls-focus-outline inline-flex h-9 w-9 items-center justify-center rounded-dls-control border border-dls-warning-dot bg-dls-surface text-dls-warning-text disabled:opacity-50">
+          <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex flex-wrap items-center gap-2 ${compact ? "border-t border-dls-border-subtle pt-3" : ""}`}>
       <Link to={`/app/claims/${claim.id}`} className="dls-focus-outline inline-flex min-h-11 items-center gap-1 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[12px] font-semibold text-dls-primary hover:bg-dls-bg-page">Review <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>

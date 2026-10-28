@@ -22,6 +22,8 @@ import CountUp from "@/components/cip/CountUp";
 import { dailyCounts, trendDirection } from "@/components/cip/series";
 import { presentationMode } from "@/lib/config";
 import { useLiveProspects } from "@/lib/lovable-parity/useLiveProspects";
+import { useUI } from "@/context/UIStateContext";
+import { useWorkspaceMode } from "@/lib/workspaceMode";
 import { Input } from "@/components/ui/Input";
 import { EmptyStateSurface, ErrorStateSurface, LoadingSkeleton, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
 import { LeadCustomerModal, initialsOf } from "@/components/acquisition/LeadCustomerModal";
@@ -118,6 +120,11 @@ function optionLabel(options: { label: string; value: string }[], value: string)
 export default function CustomerAcquisition() {
   const { leads, loading, error, forbidden, creating, reload, createLead, getLeadDetail, addNote, assign, refreshInsights, runTriage, refresh, draftOutreach, draftFollowUps, editOutreach, sendOutreach, sendOutreachMany, dismissOutreach } = useSalesLeads();
   const live = useLiveProspects(leads, refresh, true, presentationMode ? 3000 : 15000);
+  const { roleDef } = useUI();
+  const mode = useWorkspaceMode(roleDef.key);
+  // A bank sees its own customers and bank events; an insurer does not. Unknown shows everything.
+  const showBank = mode.isBancassurance !== false;
+  const visibleTabs = TABS.filter((item) => item.id !== "events" || showBank);
   const [tab, setTab] = useState<TabId>("prospects");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [newestFirst, setNewestFirst] = useState(true);
@@ -231,7 +238,7 @@ export default function CustomerAcquisition() {
         ) : null}
       </div>
 
-      <AcquisitionTabs tabs={[...TABS]} active={tab} onChange={setTab} chatHref="/app/channels" />
+      <AcquisitionTabs tabs={[...visibleTabs]} active={tab} onChange={setTab} chatHref="/app/channels" />
 
       {tab === "prospects" || tab === "charts" ? (
       <AcquisitionKpiStrip
@@ -239,7 +246,7 @@ export default function CustomerAcquisition() {
           kpi("Total prospects", kpiRows.total),
           kpi("Existing customers", kpiRows.existing),
           kpi("New to the insurer", kpiRows.newToInsurer),
-          kpi("Bank customers", kpiRows.bank),
+          ...(showBank ? [kpi("Bank customers", kpiRows.bank)] : []),
           kpi("Ready to apply", kpiRows.ready),
         ]}
       />

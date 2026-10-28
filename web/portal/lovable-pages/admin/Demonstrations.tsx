@@ -8,7 +8,7 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { ErrorStateSurface, LoadingSkeleton, NotConfiguredStateSurface } from "@/components/ui/StateSurfaces";
 import { useUI } from "@/context/UIStateContext";
 import { setActiveOrganisationOverride } from "@/lib/config";
-import { activateDemoScenario, listDemoScenarios, type DemoScenario } from "@/lib/demoScenarios";
+import { activateDemoScenario, applyWorldToWhatsApp, listDemoScenarios, type DemoScenario } from "@/lib/demoScenarios";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 
 const ICONS: Record<string, typeof Landmark> = {
@@ -59,6 +59,14 @@ export default function Demonstrations() {
     if (!result.ok) {
       setBusy(null);
       setActionError(result.error);
+      return;
+    }
+    // The WhatsApp assistant follows the world that is open. Someone without permission to change the assistant's
+    // identity still gets the world; anything else that goes wrong is shown rather than hidden.
+    const whatsapp = await applyWorldToWhatsApp(role, result.value);
+    if (!whatsapp.ok && !whatsapp.notAvailable) {
+      setBusy(null);
+      setActionError(`${result.value.title} is ready, but ${whatsapp.error} Try again, or open it from this screen once the problem is fixed.`);
       return;
     }
     // Acting in that organisation from now on; a full load makes every screen read it afresh.

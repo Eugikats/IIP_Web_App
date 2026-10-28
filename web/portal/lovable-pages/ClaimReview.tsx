@@ -36,7 +36,7 @@ import { extractionHref } from "@/lib/workItemLinks";
 import { canPreviewPermission, hasPermission } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useRuntimeContext } from "@/lib/runtimeContext";
-import { channelLabel, claimReference, formatDate } from "@/lib/format";
+import { channelLabel, claimReference, documentTypeLabel, formatDate, humanizeIdentifier } from "@/lib/format";
 import { usePeople } from "@/lib/people";
 import AssignClaimControl from "@/components/iip/AssignClaimControl";
 import { getFileConnectionStatus, type FileConnectionStatus } from "@/lib/files/fileConnections";
@@ -652,6 +652,27 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       </GlassCard>
       </div>
 
+      <section aria-label="Claim at a glance" className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <FactTile
+          label="Claimed"
+          value={detail.claimedAmount != null ? `UGX ${detail.claimedAmount.toLocaleString("en-UG")}` : "Not stated"}
+          sub={humanizeIdentifier(detail.claimType)}
+        />
+        <FactTile label="Happened" value={formatDate(detail.incidentDate)} sub={`Reported through ${channelLabel(detail.channel)}`} />
+        <FactTile
+          label="Cover"
+          value={detail.policyNumber}
+          sub={detail.policyEffectiveFrom && detail.policyEffectiveTo
+            ? `${formatDate(detail.policyEffectiveFrom)} to ${formatDate(detail.policyEffectiveTo)}`
+            : "Cover period not loaded"}
+        />
+        <FactTile
+          label="Owner"
+          value={detail.assignedUserId ? describe(detail.assignedUserId) : "Unassigned"}
+          sub={detail.slaDueAt ? `Due ${formatDate(detail.slaDueAt)}` : "No due date set"}
+        />
+      </section>
+
       {detail.originalIncidentText ? (
         <div className="mb-4 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
           <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">
@@ -777,7 +798,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                       <FileText className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="break-words text-[13px] font-semibold text-dls-text-primary">{document.documentType}</div>
+                      <div className="break-words text-[13px] font-semibold text-dls-text-primary">{documentTypeLabel(document.documentType)}</div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="text-[11px] text-dls-text-muted">{document.processingStatus}</span>
                         {document.classificationConfidence > 0 ? (
@@ -801,25 +822,42 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           </GlassCard>
 
           <GlassCard>
-            <div className="mb-3 text-[14px] font-bold text-dls-text-primary">Motor FNOL details</div>
-            {detail.motorFnolDetails ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <DetailTile label="Vehicle registration" value={detail.motorFnolDetails.vehicleRegistration} />
-                <DetailTile label="Accident time" value={detail.motorFnolDetails.accidentTime} />
-                <DetailTile label="Accident location" value={detail.motorFnolDetails.accidentLocation} />
-                <DetailTile label="Driver name" value={detail.motorFnolDetails.driverName} />
-                <DetailTile label="Driving permit" value={detail.motorFnolDetails.drivingPermitNumber} />
-                <DetailTile label="Third party" value={detail.motorFnolDetails.thirdPartyInvolved} />
-                <DetailTile label="Injury indicator" value={detail.motorFnolDetails.injuryIndicator} />
-                <DetailTile label="Police report" value={detail.motorFnolDetails.policeReportStatus} />
-                <DetailTile label="Preferred channel" value={detail.motorFnolDetails.preferredCommunicationChannel} />
-                <DetailTile label="Document notes" value={detail.motorFnolDetails.uploadedDocuments} />
-              </div>
-            ) : (
-              <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
-                This claim has no structured Motor FNOL details yet.
-              </div>
-            )}
+            <div className="mb-3 text-[14px] font-bold text-dls-text-primary">What was reported</div>
+            <p className="m-0 whitespace-pre-line text-[13px] leading-relaxed text-dls-text-primary">{detail.incidentDescription}</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <DetailTile label="Date of incident" value={formatDate(detail.incidentDate)} />
+              <DetailTile label="Reported through" value={channelLabel(detail.channel)} />
+              <DetailTile label="Customer email" value={detail.customerEmail} />
+              <DetailTile label="Customer phone" value={detail.customerPhone} />
+              {detail.motorFnolDetails ? (
+                <>
+                  <DetailTile label="Vehicle registration" value={detail.motorFnolDetails.vehicleRegistration} />
+                  <DetailTile label="Accident time" value={detail.motorFnolDetails.accidentTime} />
+                  <DetailTile label="Accident location" value={detail.motorFnolDetails.accidentLocation} />
+                  <DetailTile label="Driver name" value={detail.motorFnolDetails.driverName} />
+                  <DetailTile label="Driving permit" value={detail.motorFnolDetails.drivingPermitNumber} />
+                  <DetailTile label="Third party" value={detail.motorFnolDetails.thirdPartyInvolved} />
+                  <DetailTile label="Injury indicator" value={detail.motorFnolDetails.injuryIndicator} />
+                  <DetailTile label="Police report" value={detail.motorFnolDetails.policeReportStatus} />
+                </>
+              ) : null}
+              {detail.medicalFnolDetails ? (
+                <>
+                  <DetailTile label="Patient" value={detail.medicalFnolDetails.patientName} />
+                  <DetailTile label="Relationship to policyholder" value={detail.medicalFnolDetails.relationshipToPolicyholder} />
+                  <DetailTile label="Treatment date" value={detail.medicalFnolDetails.treatmentDate} />
+                  <DetailTile label="Provider" value={detail.medicalFnolDetails.providerName} />
+                  <DetailTile label="Admission" value={detail.medicalFnolDetails.admissionType} />
+                  <DetailTile label="Treating doctor" value={detail.medicalFnolDetails.treatingDoctor} />
+                  <DetailTile label="Diagnosis summary" value={detail.medicalFnolDetails.diagnosisSummary} />
+                </>
+              ) : null}
+            </div>
+            {!detail.motorFnolDetails && !detail.medicalFnolDetails ? (
+              <p className="mb-0 mt-3 text-[11.5px] text-dls-text-muted">
+                No structured details were captured for this {detail.productLine} claim beyond the description above. Ask the customer for what is missing.
+              </p>
+            ) : null}
           </GlassCard>
 
           <GlassCard>
@@ -1099,6 +1137,16 @@ function Row({ k, v }: { k: string; v: string }) {
     <div className="flex items-baseline justify-between gap-2">
       <span className="text-[11.5px] text-dls-text-muted">{k}</span>
       <span className="text-right text-dls-text-primary">{v}</span>
+    </div>
+  );
+}
+
+function FactTile({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div className="min-w-0 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+      <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">{label}</div>
+      <div className="mt-1 truncate text-[16px] font-semibold text-dls-text-primary" title={value}>{value}</div>
+      <div className="mt-0.5 truncate text-[12px] text-dls-text-secondary" title={sub}>{sub}</div>
     </div>
   );
 }

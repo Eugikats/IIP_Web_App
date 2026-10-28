@@ -88,6 +88,7 @@ public static class DemoScenarioEndpoints
         summary = state.Scenario.Summary,
         emphasis = state.Scenario.Emphasis,
         brandName = state.Scenario.BrandName,
+        shortName = state.Scenario.ShortName,
         isBank = state.Scenario.IsBank,
         lineFocus = state.Scenario.LineFocus.ToString(),
         partnerInsurers = state.Scenario.PartnerInsurers,

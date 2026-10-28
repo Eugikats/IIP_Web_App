@@ -30,6 +30,17 @@ export type MotorFnolDetailsView = {
   preferredCommunicationChannel: string | null;
   uploadedDocuments: string | null;
 };
+export type MedicalFnolDetailsView = {
+  patientName: string | null;
+  relationshipToPolicyholder: string | null;
+  treatmentDate: string | null;
+  providerName: string | null;
+  admissionType: string | null;
+  treatingDoctor: string | null;
+  diagnosisSummary: string | null;
+  preferredCommunicationChannel: string | null;
+  uploadedDocuments: string | null;
+};
 export type ClaimDetailView = {
   claimId: string;
   customerName: string;
@@ -45,6 +56,7 @@ export type ClaimDetailView = {
   originalIncidentText: string | null;
   originalIncidentLanguage: string | null;
   motorFnolDetails: MotorFnolDetailsView | null;
+  medicalFnolDetails: MedicalFnolDetailsView | null;
   status: string;
   completenessScore: number;
   riskLevel: string;
@@ -114,6 +126,7 @@ function parityClaimDetail(claimId: string): ClaimDetailView | null {
     originalIncidentText: null,
     originalIncidentLanguage: null,
     motorFnolDetails: null,
+    medicalFnolDetails: null,
     status: claim.status,
     completenessScore: Math.round(claim.confidence * 100),
     riskLevel: claim.risk,
@@ -251,6 +264,7 @@ export function useClaimReview(claimId: string) {
         incidentDate: d.incidentDate, incidentDescription: d.incidentDescription, status: d.status,
         originalIncidentText: d.originalIncidentText ?? null, originalIncidentLanguage: d.originalIncidentLanguage ?? null,
         motorFnolDetails: d.motorFnolDetails ?? null,
+        medicalFnolDetails: d.medicalFnolDetails ?? null,
         completenessScore: d.completenessScore, riskLevel: d.riskLevel, priority: d.priority, slaDueAt: d.slaDueAt,
         requiresConfirmation: Boolean(d.requiresConfirmation),
         assignedUserId: d.assignedUserId,
