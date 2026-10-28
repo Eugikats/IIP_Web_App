@@ -37,7 +37,8 @@ public sealed class MicroinsuranceDemoSeeder(
     IPolicyRepository policyRepository,
     ICaseRepository caseRepository,
     IAuditRepository auditRepository,
-    DemoPolicyholderSettings policyholderSettings) : IDemoPolicyholderLoader
+    DemoPolicyholderSettings policyholderSettings,
+    IDocumentTypeCatalogRepository? documentTypeCatalog = null) : IDemoPolicyholderLoader
 {
     public const string DemoApprovalMarker = "DEMO PRODUCT, NOT IRA-APPROVED";
     private const string SeedActor = "system:demo-seed";
@@ -50,6 +51,7 @@ public sealed class MicroinsuranceDemoSeeder(
     {
         var now = DateTimeOffset.UtcNow;
         var relabelled = await RelabelLegacyReferencesAsync(scope, now, cancellationToken);
+        await EnsureDocumentTypesAsync(scope, now, cancellationToken);
         var created = 0;
         foreach (var product in CatalogueProducts.Concat(PartnerProducts))
         {
@@ -84,6 +86,52 @@ public sealed class MicroinsuranceDemoSeeder(
     /// <summary>"#demo" on the demo phone: the demo policyholder with Hospital Cash and Boda Rider
     /// Accident cover, and one Hospital Cash claim waiting for documents, so "where is my claim?"
     /// has something real to show. Running it again restores the same records.</summary>
+    // The documents the demo products ask for that are not one of the built-in types. Without a catalog entry the
+    // product screen warns that the document "will not be tracked for completeness", which is true and avoidable.
+    private static readonly (string Key, string Label, string Description)[] DemoDocumentTypes =
+    [
+        ("DeathCertificate", "Death certificate", "Confirms the death or the permanent disability."),
+        ("LoanStatement", "Loan statement", "Shows what is still owed on the loan."),
+        ("StockList", "Stock list", "Shows the value of the goods lost."),
+        ("BurialPermit", "Burial permit or LC1 letter", "Confirms the death for the funeral benefit."),
+        ("SupplierReceipt", "Supplier receipt", "Shows what was being carried and its value."),
+    ];
+
+    private async Task EnsureDocumentTypesAsync(TenantScope scope, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (documentTypeCatalog is null)
+        {
+            return;
+        }
+
+        var existing = (await documentTypeCatalog.ListCurrentAsync(scope, cancellationToken))
+            .Select(definition => definition.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var wanted = DefaultDocumentTypeCatalog.BuildFor(scope, SeedActor, now)
+            .Concat(DemoDocumentTypes.Select(entry => new DocumentTypeDefinition
+            {
+                DefinitionId = Guid.NewGuid(),
+                VersionId = Guid.NewGuid(),
+                Scope = scope,
+                Version = 1,
+                Key = entry.Key,
+                CustomerLabel = entry.Label,
+                Description = entry.Description,
+                BuiltInType = null,
+                Active = true,
+                UpdatedByUserId = SeedActor,
+                UpdatedAt = now,
+                ChangeReason = "Demo document type.",
+            }));
+        foreach (var definition in wanted.Where(definition => !existing.Contains(definition.Key)))
+        {
+            await documentTypeCatalog.SaveAsync(definition, cancellationToken);
+            await auditRepository.WriteAsync(
+                AuditEvent.DocumentTypeDefinitionSaved(scope, SeedActor, definition.Key, definition.Version, definition.Active, definition.ChangeReason, "demo-seed"),
+                cancellationToken);
+        }
+    }
+
     public async Task<string> LoadAsync(TenantScope scope, string senderWaId, string correlationId, CancellationToken cancellationToken)
     {
         await SeedCatalogueAsync(scope, cancellationToken);
