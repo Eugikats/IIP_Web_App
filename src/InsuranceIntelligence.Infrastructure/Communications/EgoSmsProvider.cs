@@ -126,17 +126,36 @@ public sealed class EgoSmsProvider(
             using var response = await httpClient.PostAsJsonAsync(settings.BaseUrl, body, JsonOptions, timeout.Token);
             response.EnsureSuccessStatusCode();
 
-            var payload = await response.Content.ReadFromJsonAsync<EgoSmsSendResponse>(JsonOptions, timeout.Token);
-            if (payload is null)
+            // Read the reply as plain text and pick out the two fields that matter. The gateway has been seen to send
+            // fields such as Cost as a number where its documentation says string; a strict typed read turned a message
+            // that had gone out into a reported failure.
+            var raw = await response.Content.ReadAsStringAsync(timeout.Token);
+            string? status;
+            string? followUp;
+            string? gatewayMessage;
+            try
             {
+                using var document = JsonDocument.Parse(raw);
+                status = ReadText(document.RootElement, "Status");
+                followUp = ReadText(document.RootElement, "MsgFollowUpUniqueCode");
+                gatewayMessage = ReadText(document.RootElement, "Message");
+            }
+            catch (JsonException)
+            {
+                // A short, key-free look at what came back, so a gateway change is diagnosable from the log.
+                logger.LogWarning(
+                    "EgoSMS reply was not JSON. CaseId={CaseId} CorrelationId={CorrelationId} ContentType={ContentType} Start={Start}",
+                    request.CaseId, request.CorrelationId, response.Content.Headers.ContentType?.MediaType,
+                    raw.Length <= 120 ? raw : raw[..120]);
                 return new CommunicationSendResult("ProviderError", string.Empty, "The SMS gateway returned an unreadable response.");
             }
 
-            if (!string.Equals(payload.Status, "OK", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(status, "OK", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(status, "Success", StringComparison.OrdinalIgnoreCase))
             {
                 logger.LogWarning(
-                    "EgoSMS send failed. CaseId={CaseId} CorrelationId={CorrelationId} Status={Status}",
-                    request.CaseId, request.CorrelationId, payload.Status);
+                    "EgoSMS send failed. CaseId={CaseId} CorrelationId={CorrelationId} Status={Status} GatewayMessage={GatewayMessage}",
+                    request.CaseId, request.CorrelationId, status, gatewayMessage);
                 return new CommunicationSendResult("ProviderError", string.Empty, "The SMS gateway declined the message. Verify the sender ID and account balance.");
             }
 
@@ -144,7 +163,7 @@ public sealed class EgoSmsProvider(
                 "EgoSMS dispatched. CaseId={CaseId} CorrelationId={CorrelationId}",
                 request.CaseId, request.CorrelationId);
 
-            return new CommunicationSendResult("Sent", payload.MsgFollowUpUniqueCode ?? string.Empty, null);
+            return new CommunicationSendResult("Sent", followUp ?? string.Empty, null);
         }
         catch (Exception exception)
             when (exception is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
@@ -161,17 +180,30 @@ public sealed class EgoSmsProvider(
     // enough to justify differentiating OTP/magic-link traffic from other transactional SMS today.
     private const string DefaultPriority = "1";
 
+    // A field may arrive as text, a number or be absent; read it as text without ever throwing on its type.
+    private static string? ReadText(JsonElement root, string name)
+    {
+        if (root.ValueKind != JsonValueKind.Object) return null;
+        foreach (var property in root.EnumerateObject())
+        {
+            if (!string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+            return property.Value.ValueKind switch
+            {
+                JsonValueKind.String => property.Value.GetString(),
+                JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False => property.Value.GetRawText(),
+                _ => null,
+            };
+        }
+
+        return null;
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private sealed record EgoSmsSendRequest(string method, EgoSmsUserData userdata, EgoSmsMessage[] msgdata);
     private sealed record EgoSmsUserData(string username, string password);
     private sealed record EgoSmsMessage(string number, string message, string senderid, string priority);
 
-    private sealed record EgoSmsSendResponse(
-        [property: JsonPropertyName("Status")] string? Status,
-        [property: JsonPropertyName("Message")] string? Message,
-        [property: JsonPropertyName("Cost")] string? Cost,
-        [property: JsonPropertyName("MsgFollowUpUniqueCode")] string? MsgFollowUpUniqueCode);
 }
 
 /// <summary>

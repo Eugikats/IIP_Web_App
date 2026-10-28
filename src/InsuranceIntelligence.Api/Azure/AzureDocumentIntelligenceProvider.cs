@@ -44,9 +44,13 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
             var (fields, confidences, boundingBoxes) = BuildExtraction(request, analyzeResult, modelId);
             var warnings = BuildWarnings(analyzeResult);
 
+            // The printed words decide first; the file name is only a weak hint and says so in its low confidence.
+            var guess = DocumentContentClassifier.Classify(
+                request.OriginalFileName, analyzeResult.Content, analyzeResult.Documents.FirstOrDefault()?.DocumentType);
+
             logger.LogInformation("Azure Document Intelligence processed document {DocumentId} with model {ModelId} version {ModelVersion}.", request.DocumentId, modelId, modelVersion);
             return new DocumentProcessingResult(
-                new DocumentClassificationResult(Classify(request.OriginalFileName, analyzeResult), ClassificationConfidence(analyzeResult), "AzureDocumentIntelligence", DateTimeOffset.UtcNow, modelVersion),
+                new DocumentClassificationResult(guess.Type, guess.Confidence, "AzureDocumentIntelligence", DateTimeOffset.UtcNow, modelVersion),
                 new DocumentExtractionResult(fields, confidences, "AzureDocumentIntelligence", DateTimeOffset.UtcNow, false, null, null, null, boundingBoxes, modelVersion),
                 warnings);
         }
@@ -159,33 +163,6 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
             new DocumentExtractionResult(fields, fields.Keys.ToDictionary(key => key, _ => 0.05m), "AzureDocumentIntelligence", DateTimeOffset.UtcNow, false, null, null),
             warnings);
         // Note: no ModelVersion or BoundingBoxes on the not-configured fallback path, those require a real extraction.
-    }
-
-    private static DocumentType Classify(string fileName, AnalyzeResult? analyzeResult = null)
-    {
-        var azureType = analyzeResult?.Documents.FirstOrDefault()?.DocumentType;
-        if (!string.IsNullOrWhiteSpace(azureType))
-        {
-            if (azureType.Contains("invoice", StringComparison.OrdinalIgnoreCase)) return DocumentType.Invoice;
-            if (azureType.Contains("receipt", StringComparison.OrdinalIgnoreCase)) return DocumentType.Invoice;
-            if (azureType.Contains("medical", StringComparison.OrdinalIgnoreCase)) return DocumentType.MedicalReport;
-            if (azureType.Contains("identity", StringComparison.OrdinalIgnoreCase)) return DocumentType.CustomerId;
-        }
-
-        var normalized = fileName.ToLowerInvariant();
-        if (normalized.Contains("claim", StringComparison.Ordinal)) return DocumentType.ClaimForm;
-        if (normalized.Contains("police", StringComparison.Ordinal)) return DocumentType.PoliceAbstract;
-        if (normalized.Contains("invoice", StringComparison.Ordinal)) return DocumentType.Invoice;
-        if (normalized.Contains("medical", StringComparison.Ordinal)) return DocumentType.MedicalReport;
-        if (normalized.Contains("photo", StringComparison.Ordinal)) return DocumentType.PhotoEvidence;
-        if (normalized.Contains("id", StringComparison.Ordinal)) return DocumentType.CustomerId;
-        return DocumentType.Unknown;
-    }
-
-    private static decimal ClassificationConfidence(AnalyzeResult analyzeResult)
-    {
-        var confidence = analyzeResult.Documents.FirstOrDefault()?.Confidence;
-        return confidence is null or <= 0 ? 0.70m : DecimalConfidence(confidence);
     }
 
     private static decimal DecimalConfidence(float? confidence) =>

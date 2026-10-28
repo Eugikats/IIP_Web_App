@@ -10,7 +10,7 @@ using InsuranceIntelligence.Domain.Workflow;
 
 namespace InsuranceIntelligence.Application.CustomerAssistant;
 
-public enum ClaimIdentityResult { Verified, CodeSent, InvalidCode, Expired, Locked, Cooldown, NotConfigured }
+public enum ClaimIdentityResult { Verified, CodeSent, InvalidCode, Expired, Locked, Cooldown, NotConfigured, SendFailed }
 
 public interface IClaimIdentityVerifier
 {
@@ -55,8 +55,10 @@ public sealed class ClaimIdentityVerifier(
             && !string.Equals(result.DeliveryStatus, "Success", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(result.DeliveryStatus, "Queued", StringComparison.OrdinalIgnoreCase))
         {
-            await WriteAuditAsync(scope, "claim.identity_code_unavailable", correlationId, cancellationToken);
-            return ClaimIdentityResult.NotConfigured;
+            // Only a genuinely unconfigured SMS service is reported as "not configured"; a declined or failed send is not.
+            var notConfigured = string.Equals(result.DeliveryStatus, "ConfigurationRequired", StringComparison.OrdinalIgnoreCase);
+            await WriteAuditAsync(scope, $"claim.identity_code_unavailable.{result.DeliveryStatus}", correlationId, cancellationToken);
+            return notConfigured ? ClaimIdentityResult.NotConfigured : ClaimIdentityResult.SendFailed;
         }
 
         await records.SaveAsync(scope, Kind, phone, JsonSerializer.Serialize(challenge), cancellationToken);
@@ -103,4 +105,19 @@ public sealed class ClaimIdentityVerifier(
         audit.WriteAsync(new AuditEvent(Guid.NewGuid(), scope, null, null, CustomerAssistantService.SystemActorId,
             ActorType.Integration, action, clock.GetUtcNow(), null, null, [], "CustomerAssistant", null,
             "recorded", null, "Claim identity challenge metadata; code and phone omitted.", correlationId), cancellationToken);
+}
+
+/// <summary>
+/// Used only when a Demo-profile deployment is explicitly set to skip the SMS check for a presentation. Every number
+/// counts as verified. Registered nowhere else, and never in Staging or Production.
+/// </summary>
+public sealed class DemoSkippedClaimIdentityVerifier : IClaimIdentityVerifier
+{
+    public Task<bool> IsVerifiedAsync(TenantScope scope, string phone, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    public Task<ClaimIdentityResult> SendAsync(TenantScope scope, string phone, string correlationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(ClaimIdentityResult.Verified);
+
+    public Task<ClaimIdentityResult> VerifyAsync(TenantScope scope, string phone, string code, string correlationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(ClaimIdentityResult.Verified);
 }

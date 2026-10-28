@@ -326,20 +326,34 @@ public static class ClientPortalEndpoints
                     uploadedDocument.ObjectKey,
                     ct => storageProvider.ReadAsync(scope, uploadedDocument.ObjectKey, ct)),
                 cancellationToken);
+            // The customer chose which required document this is. That choice is what the document counts as; the
+            // classifier's own guess stays on the record, and a disagreement is raised for a person to look at.
+            var namedType = Local.StaticDocumentChecklistProvider.EffectiveType(uploadedDocument);
+            var classifiedType = processingResult.Classification.DocumentType;
+            var effectiveType = namedType != DocumentType.Unknown ? namedType : classifiedType;
+            var typeWarnings = namedType != DocumentType.Unknown && classifiedType != DocumentType.Unknown && classifiedType != namedType
+                ? new[]
+                {
+                    new DocumentValidationWarning(
+                        "document.type.mismatch",
+                        $"Sent as {DocumentMapper.LabelFor(namedType)}, but the content looks like {DocumentMapper.LabelFor(classifiedType)}. Check it before relying on it.",
+                        "warning"),
+                }
+                : Array.Empty<DocumentValidationWarning>();
             var fieldValidationRules = DocumentFieldValidator.ResolveRules(
                 scope, await fieldValidationRuleRepository.ListAsync(scope, cancellationToken));
             var fieldValidationWarnings = DocumentFieldValidator.Evaluate(
                 fieldValidationRules,
-                processingResult.Classification.DocumentType,
+                effectiveType,
                 claimCase.ProductLine,
                 processingResult.Extraction.Fields);
             var processedDocument = uploadedDocument with
             {
-                DocumentType = processingResult.Classification.DocumentType,
+                DocumentType = effectiveType,
                 ProcessingStatus = DocumentProcessingStatus.Processed,
                 Classification = processingResult.Classification,
                 Extraction = processingResult.Extraction,
-                ValidationWarnings = processingResult.ValidationWarnings.Concat(fieldValidationWarnings).ToArray(),
+                ValidationWarnings = processingResult.ValidationWarnings.Concat(typeWarnings).Concat(fieldValidationWarnings).ToArray(),
                 ProcessedAt = DateTimeOffset.UtcNow
             };
 

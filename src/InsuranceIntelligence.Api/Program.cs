@@ -621,7 +621,6 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAge
 builder.Services.AddScoped<InsuranceIntelligence.Application.MyWork.IMyWorkService, InsuranceIntelligence.Application.MyWork.MyWorkService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.IWhatsAppMessagingService, InsuranceIntelligence.Application.WhatsApp.WhatsAppMessagingService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.ICustomerAssistantService, InsuranceIntelligence.Application.CustomerAssistant.CustomerAssistantService>();
-builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IClaimIdentityVerifier, InsuranceIntelligence.Application.CustomerAssistant.ClaimIdentityVerifier>();
 
 // Hidden field-test commands (#reset, #demo) for one shared phone: Demo runtime profile only, and
 // only for the number in INSURANCEINTELLIGENCE_DEMO_PHONE_NUMBER. Anywhere else they do not exist.
@@ -629,6 +628,19 @@ var demoRuntime = InsuranceIntelligence.Api.Azure.AzureProviderStartupValidator
     .ResolveRuntimeProfile(infrastructureOptions, builder.Environment.EnvironmentName)
     .Equals("Demo", StringComparison.OrdinalIgnoreCase);
 var demoPhoneNumber = builder.Configuration["INSURANCEINTELLIGENCE_DEMO_PHONE_NUMBER"];
+// The SMS possession check before a WhatsApp customer can discuss a claim stays on everywhere except a deliberate,
+// Demo-profile-only setting for presenting, so a presenter is not stopped by a code sent to a phone that is not theirs.
+// Outside the Demo runtime profile the setting is ignored; set it back to false (or remove it) to restore the check.
+var skipClaimIdentityForDemo = demoRuntime
+    && string.Equals(builder.Configuration["INSURANCEINTELLIGENCE_DEMO_SKIP_CLAIM_IDENTITY"], "true", StringComparison.OrdinalIgnoreCase);
+if (skipClaimIdentityForDemo)
+{
+    builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IClaimIdentityVerifier, InsuranceIntelligence.Application.CustomerAssistant.DemoSkippedClaimIdentityVerifier>();
+}
+else
+{
+    builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IClaimIdentityVerifier, InsuranceIntelligence.Application.CustomerAssistant.ClaimIdentityVerifier>();
+}
 builder.Services.AddSingleton(demoRuntime && !string.IsNullOrWhiteSpace(demoPhoneNumber)
     ? new InsuranceIntelligence.Application.CustomerAssistant.DemoSessionSettings(true, demoPhoneNumber.Trim())
     : InsuranceIntelligence.Application.CustomerAssistant.DemoSessionSettings.Disabled);

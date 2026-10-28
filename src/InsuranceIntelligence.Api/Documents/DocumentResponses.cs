@@ -70,7 +70,19 @@ public sealed record DocumentChecklistResponse(
     IReadOnlyCollection<ChecklistDocumentResponse> RequiredDocuments,
     IReadOnlyCollection<ChecklistDocumentResponse> OptionalDocuments,
     IReadOnlyCollection<ChecklistDocumentResponse> ReceivedDocuments,
-    IReadOnlyCollection<ChecklistDocumentResponse> MissingRequiredDocuments);
+    IReadOnlyCollection<ChecklistDocumentResponse> MissingRequiredDocuments,
+    ChecklistDetailsResponse? Details = null);
+
+/// <summary>The details the received documents carry, apart from the documents themselves. Documents nothing
+/// could be read from are listed separately: a person has to read them, they are not "missing everything".</summary>
+public sealed record ChecklistDetailsResponse(
+    int Found,
+    int Total,
+    decimal Percentage,
+    IReadOnlyCollection<ChecklistMissingDetail> Missing,
+    IReadOnlyCollection<string> UnreadDocuments);
+
+public sealed record ChecklistMissingDetail(string DocumentLabel, string Detail);
 
 public sealed record ChecklistDocumentResponse(
     string DocumentType,

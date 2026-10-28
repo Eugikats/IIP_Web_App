@@ -738,6 +738,7 @@ public sealed partial class CustomerAssistantService(
                 ClaimIdentityResult.Expired => "That code has expired. Reply with your request again to get a new code.",
                 ClaimIdentityResult.Locked => "Too many incorrect codes. Please contact our team for help.",
                 ClaimIdentityResult.Cooldown => "Please use the code already sent by SMS. You can request another after one minute.",
+                ClaimIdentityResult.SendFailed => "I could not send the verification code just now. Please try again in a minute, or ask for a person to help with your claim.",
                 _ => "SMS verification is not configured. Please ask for a person to help with your claim."
             };
             outcome = AssistantOutcome.Of(message, classified, CustomerAssistantOutcome.AutoReplied);

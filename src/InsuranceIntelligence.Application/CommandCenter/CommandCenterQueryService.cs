@@ -900,7 +900,7 @@ public sealed class CommandCenterQueryService(
             ]),
             new EvidenceListBlock([
                 new EvidenceSource(
-                    $"Claim {claimCase.CaseId}",
+                    $"Claim {InsuranceIntelligence.Domain.Cases.ClaimReference.For(claimCase.CaseId)}",
                     claimCase.CustomerName,
                     $"/claims/{claimCase.CaseId}")
             ])

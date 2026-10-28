@@ -109,7 +109,7 @@ public static class FraudRuleEngine
             yield return new FraudAdvisorySignal(
                 RuleId: "R-AML-EARLY-CLAIM",
                 SignalType: "AML/CFT: early claim after policy inception",
-                Title: $"Claim {claim.CaseId} filed {daysSinceInception} day(s) after policy inception",
+                Title: $"Claim {Cases.ClaimReference.For(claim.CaseId)} filed {daysSinceInception} day(s) after policy inception",
                 Description: $"AML/CFT advisory signal, not a determination: this claim was filed {daysSinceInception} day(s) after policy {claim.PolicyNumber}'s effective date, within the {options.EarlyClaimWindowDays}-day review window. Confirm the loss timeline before proceeding; this alone does not establish wrongdoing.",
                 Severity: FraudSignalSeverity.PotentialAnomaly,
                 RelatedCaseIds: [claim.CaseId],
@@ -127,7 +127,7 @@ public static class FraudRuleEngine
             yield return new FraudAdvisorySignal(
                 RuleId: "R-AML-HIGH-VALUE",
                 SignalType: "AML/CFT: high-value policy claim",
-                Title: $"Claim {claim.CaseId} is against a high sum-insured policy",
+                Title: $"Claim {Cases.ClaimReference.For(claim.CaseId)} is against a high sum-insured policy",
                 Description: $"AML/CFT advisory signal, not a determination: policy {claim.PolicyNumber}'s sum insured ({claim.PolicySumInsured:N0}) meets or exceeds the {options.HighValueSumInsuredThreshold:N0} review threshold. Large-value transactions require AML/CFT review regardless of any other indicator.",
                 Severity: FraudSignalSeverity.AdvisorySignal,
                 RelatedCaseIds: [claim.CaseId],
@@ -157,7 +157,7 @@ public static class FraudRuleEngine
                 Severity: FraudSignalSeverity.PotentialAnomaly,
                 RelatedCaseIds: distinctCases.Select(c => c.CaseId).ToArray(),
                 Evidence: new[] { $"{kind}: {group.Key}" }
-                    .Concat(distinctCases.Select(c => $"Claim {c.CaseId} · {c.CustomerName}"))
+                    .Concat(distinctCases.Select(c => $"Claim {Cases.ClaimReference.For(c.CaseId)} · {c.CustomerName}"))
                     .ToArray());
         }
     }
@@ -181,7 +181,7 @@ public static class FraudRuleEngine
                         Description: $"Requires investigation: {group.First().CustomerName} filed {window.Length} claims within {options.VelocityWindowDays} days. Confirm each is a distinct, genuine incident.",
                         Severity: FraudSignalSeverity.RequiresInvestigation,
                         RelatedCaseIds: window.Select(c => c.CaseId).ToArray(),
-                        Evidence: window.Select(c => $"Claim {c.CaseId} · {c.ClaimType} · {c.CreatedAt:yyyy-MM-dd}").ToArray());
+                        Evidence: window.Select(c => $"Claim {Cases.ClaimReference.For(c.CaseId)} · {c.ClaimType} · {c.CreatedAt:yyyy-MM-dd}").ToArray());
                     break; // one velocity signal per claimant is enough
                 }
             }
@@ -208,7 +208,7 @@ public static class FraudRuleEngine
                 Description: $"Potential anomaly: policy {group.Key} is associated with {names.Length} different claimant names across claims. Verify the policyholder relationship before proceeding.",
                 Severity: FraudSignalSeverity.PotentialAnomaly,
                 RelatedCaseIds: group.Select(c => c.CaseId).ToArray(),
-                Evidence: group.Select(c => $"Claim {c.CaseId} · {c.CustomerName}").ToArray());
+                Evidence: group.Select(c => $"Claim {Cases.ClaimReference.For(c.CaseId)} · {c.CustomerName}").ToArray());
         }
     }
 
@@ -220,7 +220,7 @@ public static class FraudRuleEngine
             yield return new FraudAdvisorySignal(
                 RuleId: "R-LOW-COMPLETENESS",
                 SignalType: "Low documentation completeness",
-                Title: $"Claim {claim.CaseId} has low documentation completeness",
+                Title: $"Claim {Cases.ClaimReference.For(claim.CaseId)} has low documentation completeness",
                 Description: $"Advisory signal: documentation completeness is {claim.CompletenessScore:P0}, below the {options.LowCompletenessThreshold:P0} threshold. Low completeness alone is not suspicious, request the outstanding evidence before assessing.",
                 Severity: FraudSignalSeverity.AdvisorySignal,
                 RelatedCaseIds: new[] { claim.CaseId },

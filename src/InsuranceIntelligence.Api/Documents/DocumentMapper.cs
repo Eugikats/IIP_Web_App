@@ -75,7 +75,22 @@ public static class DocumentMapper
             checklist.RequiredDocuments.Select(documentType => ToChecklistItem(documentType, checklist.ReceivedDocuments.Contains(documentType))).ToArray(),
             checklist.OptionalDocuments.Select(documentType => ToChecklistItem(documentType, checklist.ReceivedDocuments.Contains(documentType))).ToArray(),
             checklist.ReceivedDocuments.Select(documentType => ToChecklistItem(documentType, Received: true)).ToArray(),
-            checklist.MissingRequiredDocuments.Select(missing => new ChecklistDocumentResponse(missing.Key, missing.Label, Received: false)).ToArray());
+            checklist.MissingRequiredDocuments.Select(missing => new ChecklistDocumentResponse(missing.Key, missing.Label, Received: false)).ToArray(),
+            ToDetails(checklist));
+
+    private static ChecklistDetailsResponse ToDetails(DocumentCompletenessChecklist checklist)
+    {
+        var fields = checklist.FieldCompleteness;
+        return new ChecklistDetailsResponse(
+            fields.Found,
+            fields.Total,
+            fields.Percentage,
+            checklist.DetailChecks
+                .Where(check => check.Readable)
+                .SelectMany(check => check.Missing.Select(field => new ChecklistMissingDetail(check.DocumentLabel, field.Label)))
+                .ToArray(),
+            checklist.UnreadDocuments.Select(check => check.DocumentLabel).ToArray());
+    }
 
     public static SafeAuditSummary ToAuditSummary(IReadOnlyCollection<AuditEvent> auditEvents)
     {

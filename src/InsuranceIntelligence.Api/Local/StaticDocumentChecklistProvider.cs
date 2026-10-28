@@ -23,9 +23,21 @@ public sealed class StaticDocumentChecklistProvider(
             .Where(document => !document.IsSuperseded
                 && document.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved)
             .ToArray();
+        // Which document this is follows the customer's own choice of slot when they made one and it names a built-in
+        // type, because they know what they are holding and a scan called scan001.pdf tells the classifier nothing.
+        // The classifier's independent guess is kept on the document so a disagreement can be shown to a person.
         var received = processed
-            .Select(document => document.DocumentType)
+            .Select(EffectiveType)
             .Distinct()
+            .ToArray();
+        var fieldChecks = processed
+            .GroupBy(EffectiveType)
+            .Select(group => group
+                .Select(document => DocumentFieldCheck.Check(document, group.Key, claimCase.ProductLine, LabelFor(group.Key)))
+                .OrderByDescending(check => check.Readable)
+                .ThenByDescending(check => check.Found.Count)
+                .First())
+            .Where(check => check.DocumentType != DocumentType.Unknown)
             .ToArray();
         // A custom document type has no DocumentType of its own, so it is matched on the key the
         // customer chose (outcome B), falling back to the classifier's DocumentType name for a
@@ -55,8 +67,17 @@ public sealed class StaticDocumentChecklistProvider(
             score,
             rules.CustomRequired,
             rules.CustomOptional,
-            rules.CustomRequired.Where(entry => receivedKeys.Contains(entry.Key)).Select(entry => entry.Key).ToArray());
+            rules.CustomRequired.Where(entry => receivedKeys.Contains(entry.Key)).Select(entry => entry.Key).ToArray(),
+            fieldChecks);
     }
+
+    /// <summary>The built-in type the customer named for this document, else the classifier's type.</summary>
+    public static DocumentType EffectiveType(CaseDocument document) =>
+        document.DocumentTypeKey is { Length: > 0 } key
+        && Enum.GetNames<DocumentType>().Contains(key.Trim(), StringComparer.OrdinalIgnoreCase)
+        && Enum.Parse<DocumentType>(key.Trim(), ignoreCase: true) is var named and not DocumentType.Unknown
+            ? named
+            : document.DocumentType;
 
     private async Task<DocumentChecklistRuleSet> ResolveRulesAsync(ClaimCase claimCase, CancellationToken cancellationToken)
     {

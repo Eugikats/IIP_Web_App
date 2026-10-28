@@ -6,7 +6,7 @@ public sealed class MockDocumentProcessingProvider : IDocumentProcessingProvider
 {
     public Task<DocumentProcessingResult> ProcessAsync(DocumentProcessingRequest request, CancellationToken cancellationToken = default)
     {
-        var documentType = Classify(request.OriginalFileName);
+        var documentType = DocumentContentClassifier.Classify(request.OriginalFileName).Type;
         var confidence = documentType == DocumentType.Unknown ? 0.35m : 0.92m;
         var now = DateTimeOffset.UtcNow;
         var fields = new Dictionary<string, string>
@@ -35,40 +35,4 @@ public sealed class MockDocumentProcessingProvider : IDocumentProcessingProvider
         return Task.FromResult(result);
     }
 
-    private static DocumentType Classify(string fileName)
-    {
-        var normalized = fileName.ToLowerInvariant();
-
-        if (normalized.Contains("claim", StringComparison.Ordinal))
-        {
-            return DocumentType.ClaimForm;
-        }
-
-        if (normalized.Contains("police", StringComparison.Ordinal))
-        {
-            return DocumentType.PoliceAbstract;
-        }
-
-        if (normalized.Contains("invoice", StringComparison.Ordinal))
-        {
-            return DocumentType.Invoice;
-        }
-
-        if (normalized.Contains("medical", StringComparison.Ordinal))
-        {
-            return DocumentType.MedicalReport;
-        }
-
-        if (normalized.Contains("photo", StringComparison.Ordinal))
-        {
-            return DocumentType.PhotoEvidence;
-        }
-
-        if (normalized.Contains("id", StringComparison.Ordinal))
-        {
-            return DocumentType.CustomerId;
-        }
-
-        return DocumentType.Unknown;
-    }
 }
