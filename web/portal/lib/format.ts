@@ -21,6 +21,15 @@ export function claimReference(caseId: string | null | undefined): string {
   return `CLM-${value.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 }
 
+/**
+ * Free text from the backend can still carry a full id ("Claim e0ab43ad-1835-..."). Any id in the text becomes the
+ * short reference people use, so a 36-character GUID never reaches the screen, including in records written before
+ * the backend stopped printing ids.
+ */
+export function withReferences(text: string | null | undefined): string {
+  return (text ?? "").replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, (id) => claimReference(id));
+}
+
 /** Short reference for any other record (approval, document, customer). Never the full id. */
 export function shortReference(prefix: string, id: string | null | undefined): string {
   const value = (id ?? "").trim();

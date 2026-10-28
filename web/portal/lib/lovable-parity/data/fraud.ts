@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
+import { claimReference, withReferences } from "@/lib/format";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 
 export type FraudSeverity = "Advisory" | "Anomaly" | "Investigation";
@@ -100,12 +101,12 @@ function mapDto(dto: FraudSignalDto): FraudSignalView {
     id: dto.signalId,
     signalId: dto.signalId,
     ruleId: dto.ruleId,
-    title: dto.signalType || dto.title,
-    detail: dto.description,
+    title: withReferences(dto.signalType || dto.title),
+    detail: withReferences(dto.description),
     severity: SEVERITY_MAP[dto.severity] ?? "Advisory",
-    linked: dto.relatedCaseIds.length > 0 ? dto.relatedCaseIds.join(", ") : "-",
+    linked: dto.relatedCaseIds.length > 0 ? dto.relatedCaseIds.map(claimReference).join(", ") : "-",
     relatedCaseIds: dto.relatedCaseIds,
-    evidence: dto.evidence,
+    evidence: dto.evidence.map(withReferences),
     disposition: mapDisposition(dto.disposition),
   };
 }
