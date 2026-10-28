@@ -505,6 +505,37 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
     ? [documentFollowUpAction, supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction, resolveClaimAction]
     : [resolveClaimAction, supervisorReviewAction, draftCustomerUpdateAction, draftDecisionOutcomeAction, exportClaimPackAction, markEvidenceReviewedAction, documentFollowUpAction];
 
+  const missingBlock = (
+      <div>
+        <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What is missing</div>
+        {checklist === null ? (
+          <p className="text-[12.5px] text-dls-text-muted">{checklistError ?? "Checking what is still needed."}</p>
+        ) : (
+          <>
+            <p className="mb-1.5 text-[12.5px] font-semibold text-dls-text-primary">
+              {Math.round(checklist.completenessScore)}% complete: documents {checklist.requiredReceived} of {checklist.requiredTotal}
+              {checklist.details && checklist.details.total > 0 ? `, details ${checklist.details.found} of ${checklist.details.total}` : ""}
+            </p>
+            {checklist.missingRequiredDocuments.length === 0 && !checklist.details?.missing.length && !checklist.details?.unreadDocuments.length ? (
+              <p className="text-[12.5px] text-dls-text-muted">Nothing outstanding.</p>
+            ) : (
+              <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                {checklist.missingRequiredDocuments.map((item) => (
+                  <li key={`document-${item.documentType}`}>{item.label}</li>
+                ))}
+                {(checklist.details?.missing ?? []).map((item) => (
+                  <li key={`detail-${item.documentLabel}-${item.detail}`}>{item.detail}, on the {item.documentLabel.toLowerCase()}</li>
+                ))}
+                {(checklist.details?.unreadDocuments ?? []).map((label) => (
+                  <li key={`unread-${label}`}>{label}: could not be read, a person needs to check it</li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </div>
+  );
+
   return (
     <>
       {crumb}
@@ -565,34 +596,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                   </ul>
                 )}
               </div>
-              <div>
-                <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What is missing</div>
-                {checklist === null ? (
-                  <p className="text-[12.5px] text-dls-text-muted">{checklistError ?? "Checking what is still needed."}</p>
-                ) : (
-                  <>
-                    <p className="mb-1.5 text-[12.5px] font-semibold text-dls-text-primary">
-                      {Math.round(checklist.completenessScore)}% complete: documents {checklist.requiredReceived} of {checklist.requiredTotal}
-                      {checklist.details && checklist.details.total > 0 ? `, details ${checklist.details.found} of ${checklist.details.total}` : ""}
-                    </p>
-                    {checklist.missingRequiredDocuments.length === 0 && !checklist.details?.missing.length && !checklist.details?.unreadDocuments.length ? (
-                      <p className="text-[12.5px] text-dls-text-muted">Nothing outstanding.</p>
-                    ) : (
-                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
-                        {checklist.missingRequiredDocuments.map((item) => (
-                          <li key={`document-${item.documentType}`}>{item.label}</li>
-                        ))}
-                        {(checklist.details?.missing ?? []).map((item) => (
-                          <li key={`detail-${item.documentLabel}-${item.detail}`}>{item.detail}, on the {item.documentLabel.toLowerCase()}</li>
-                        ))}
-                        {(checklist.details?.unreadDocuments ?? []).map((label) => (
-                          <li key={`unread-${label}`}>{label}: could not be read, a person needs to check it</li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                )}
-              </div>
+              {missingBlock}
             </div>
 
             {(displayedSummary.openQuestions.length > 0 || displayedSummary.riskSignals?.length > 0) ? (
@@ -642,6 +646,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             {awaitingAutomaticReview
               ? "The claims agent reviews every new claim as soon as it arrives. Its review usually appears here within a minute."
               : "No review yet. Use Generate summary to ask the claims agent for one."}
+            <div className="mt-3">{missingBlock}</div>
           </div>
         )}
       </GlassCard>
@@ -694,8 +699,8 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <ClaimDecisionCard
             detail={detail}
             openReviewRequestCount={reviewRequests.filter((request) => request.status === "Open" || request.status === "Acknowledged").length}
-            documentsReceivedCount={documentItems.filter((item) => item.present).length}
-            documentsRequiredCount={documentItems.length}
+            documentsReceivedCount={checklist?.requiredReceived ?? documentItems.filter((item) => item.present).length}
+            documentsRequiredCount={checklist?.requiredTotal ?? documentItems.length}
             actions={decisionActions}
           />
 
