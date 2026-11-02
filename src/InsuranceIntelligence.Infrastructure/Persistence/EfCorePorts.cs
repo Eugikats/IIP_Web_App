@@ -88,9 +88,13 @@ public sealed class EfPermissionReadRepository(InsuranceIntelligenceDbContext db
             query = query.Where(m => m.WorkspaceId == workspaceHint);
         }
 
-        var memberships = await query
+        // The same person holding the same workspace twice (a duplicate record) is still one membership. Counting the
+        // rows, not the workspaces, turned a harmless duplicate into "ambiguous" and locked the person out.
+        var memberships = (await query
             .Select(m => new { m.TenantId, m.WorkspaceId })
-            .ToArrayAsync(cancellationToken);
+            .ToArrayAsync(cancellationToken))
+            .Distinct()
+            .ToArray();
 
         // No direct membership in the organisation asked for: a broker whose organisation has an
         // active link with that insurer reaches it, as a broker, for exactly as long as the link stands.

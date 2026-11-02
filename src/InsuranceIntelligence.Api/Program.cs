@@ -841,6 +841,16 @@ app.Use(async (context, next) =>
                     .GetRequiredService<IPermissionReadRepository>()
                     .GetEffectiveMembershipAsync(userId, tenantHint, workspaceHint, context.RequestAborted);
 
+                if (membership is null && context.Request.Path.StartsWithSegments("/api/v1/me", StringComparison.OrdinalIgnoreCase)
+                    && !context.Request.Path.StartsWithSegments("/api/v1/me/organisations", StringComparison.OrdinalIgnoreCase))
+                {
+                    // The identity lookup is the one that locks a person out, and the refusal said nothing about why.
+                    // Record what was asked, never a token: the account id and the two hints.
+                    context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("MembershipLookup").LogWarning(
+                        "No single active membership for user {UserId} (tenant hint {TenantHint}, workspace hint {WorkspaceHint}, organisation header {OrganisationHeader}).",
+                        userId, tenantHint ?? "(none)", workspaceHint ?? "(none)", requestedOrganisation ?? "(none)");
+                }
+
                 if (membership is not null)
                 {
                     context.Items[DemoAuthorization.EffectivePermissionsItemKey] = membership.Permissions;
