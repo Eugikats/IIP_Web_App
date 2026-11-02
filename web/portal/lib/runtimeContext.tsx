@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useUI } from "@/context/UIStateContext";
-import { apiBaseUrl, canUseLocalTestDoubles, scopedHeaders } from "@/lib/config";
+import { apiBaseUrl, canUseLocalTestDoubles, getActiveOrganisationOverride, getActiveWorkspaceOverride, scopedHeaders, setActiveOrganisationOverride } from "@/lib/config";
 import { getEntraApiAccessToken } from "@/lib/entraAuth";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { ROLES, type Permission, type Role } from "@/lib/roles";
@@ -178,12 +178,21 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const token = await getEntraApiAccessToken();
-      const response = await fetch(`${apiBaseUrl}/api/v1/me`, {
-        headers: {
-          ...scopedHeaders(canUseLocalTestDoubles ? "Admin" : role, ""),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      const load = () =>
+        fetch(`${apiBaseUrl}/api/v1/me`, {
+          headers: {
+            ...scopedHeaders(canUseLocalTestDoubles ? "Admin" : role, ""),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+      let response = await load();
+      // A remembered organisation or workspace (from switching demonstrations) that this account does not belong to
+      // makes the API refuse everything, and the browser would send it again forever. Forget it and try once more as
+      // the account's own workspace, so a stale choice can never lock someone out.
+      if (response.status === 403 && !canUseLocalTestDoubles && (getActiveOrganisationOverride() || getActiveWorkspaceOverride())) {
+        setActiveOrganisationOverride(null, null);
+        response = await load();
+      }
       if (!response.ok) {
         throw await UiServiceError.fromResponse(response, `Workspace access is unavailable.`);
       }
