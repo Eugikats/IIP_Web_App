@@ -59,31 +59,14 @@ test("Gate 12 Admin Console exposes role-filtered governance destinations and ho
   });
 });
 
-test("Gate 12 Tenant Onboarding separates Entra tenant identity from Azure subscription targeting", async ({ page }, testInfo) => {
+test("Gate 12 tenant workspace cannot access platform-level insurer onboarding", async ({ page }) => {
   await page.goto("/app/admin/onboarding");
   await page.waitForLoadState("networkidle");
 
   const main = page.getByRole("main");
-  await expect(main.getByRole("heading", { name: "Insurer onboarding & admin consent" })).toBeVisible();
-  await expect(main.getByText("Microsoft Entra tenant-wide admin consent")).toBeVisible();
-  await expect(main.getByText("Admin consent uses the insurer's own Entra tenant")).toBeVisible();
-  await expect(main.getByText("Uganda Insurer Ltd.")).toBeVisible();
-  await expect(main.getByText("ugandainsurer.onmicrosoft.com")).toBeVisible();
-  await expect(main.getByText("00000000-0000-0000-0000-000000000001")).toBeVisible();
-
-  await page.getByRole("button", { name: "Get consent link" }).click();
-  await expect(main.getByText("Microsoft Entra admin consent is not configured for this visual fixture.")).toBeVisible();
-  await expect(main.getByRole("link", { name: "Admin consent link" })).toHaveCount(0);
-
-  await page.getByRole("button", { name: "New onboarding" }).click();
-  await expect(page.getByLabel("Expected Entra tenant id or verified domain")).toBeVisible();
-  await expect(page.getByLabel("Azure subscription id(s) for Managed App (comma-separated)")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create pending tenant" })).toBeDisabled();
-
-  await testInfo.attach(`gate-12-onboarding-${testInfo.project.name}.png`, {
-    body: await page.screenshot({ fullPage: true }),
-    contentType: "image/png"
-  });
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(main.getByRole("heading", { name: /Good (morning|afternoon|evening),/ })).toBeVisible();
+  await expect(main.getByRole("heading", { name: "Insurer onboarding & admin consent" })).toHaveCount(0);
 });
 
 test("Gate 12 deployed profile shows no fake connected providers or local controls @deployed", async ({ page }) => {

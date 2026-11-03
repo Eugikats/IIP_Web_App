@@ -67,7 +67,11 @@ async function call(path: string, role: string, method = "GET", body?: unknown):
 }
 
 export async function listConnectors(role: string): Promise<Connector[]> {
-  return ((await call("", role)) as { connectors: Connector[] }).connectors;
+  const payload = await call("", role) as { connectors?: unknown } | null;
+  if (!payload || !Array.isArray(payload.connectors)) {
+    throw new ConnectorError(502, "Connected folders returned an invalid response.");
+  }
+  return payload.connectors as Connector[];
 }
 
 export const createConnector = (role: string, provider: "google" | "microsoft", folders: FolderInput[]) => call("", role, "POST", { provider, folders });

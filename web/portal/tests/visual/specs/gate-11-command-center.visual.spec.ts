@@ -9,15 +9,10 @@ test("Gate 11 Command Center summarizes implemented workflow state", async ({ pa
   await page.goto("/app/assistant");
   await page.waitForLoadState("networkidle");
 
-  // Navigation model §6.2, the chat-first landing is exactly four elements (orb, greeting,
-  // subtext, suggestion chips); there is no stat row in the hero itself.
-  await expect(page.getByRole("heading", { name: /Good morning,/ })).toBeVisible();
-  await expect(page.getByRole("main").getByText("How can I help with your work today?")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Which claims are waiting on documents?" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Message IIP Operations" })).toBeVisible();
-  // The chat composer disclaimer is shared by the Assistant landing and the right-rail Copilot
-  // (design language v2 §8.17), both render at desktop widths, so scope to main to disambiguate.
-  await expect(page.getByRole("main").getByText("IIP can make mistakes and does not make claim decisions. Verify before acting.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening),/ })).toBeVisible();
+  await expect(page.getByRole("main").getByText(/Your AI analyst for claims, customers and acquisition/)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Questions to try" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Ask the Command Center" })).toBeVisible();
 
   const viewportWidth = page.viewportSize()?.width ?? 0;
   if (viewportWidth >= 1280) {

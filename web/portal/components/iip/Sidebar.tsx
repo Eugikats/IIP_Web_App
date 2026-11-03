@@ -38,7 +38,7 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
   {
     label: "Work",
     items: [
-      { to: "/app", label: "Command Center", icon: MonitorDot },
+      { to: "/app", label: "Brief", icon: Home },
       { to: "/app/claims", label: "Claims", icon: FileSearch },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
       { to: "/app/channels", label: "Inbox", icon: Inbox },
@@ -54,6 +54,7 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
 // Everything else is one step away in the profile menu, so the rail stays short (as in CIP) and no
 // screen is unreachable.
 const MORE_DESTINATIONS: { to: string; label: string; icon: typeof MessageSquare }[] = [
+  { to: "/app/assistant", label: "Assistant", icon: MessageSquare },
   { to: "/app/brief", label: "My day", icon: Home },
   { to: "/app/work-items", label: "My work", icon: ListChecks },
   { to: "/app/customers", label: "Customers", icon: Users },

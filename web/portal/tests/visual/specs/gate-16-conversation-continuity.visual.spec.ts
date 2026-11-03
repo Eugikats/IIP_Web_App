@@ -22,7 +22,7 @@ test("Gate 16 conversations stay findable and distinguish changed evidence", asy
   await expect(page).toHaveURL(/\/app\/conversations\/11111111-1111-4111-8111-111111111111$/);
 
   await expect(page.getByText("Evidence changed since this answer")).toBeVisible();
-  await expect(page.getByText(/Historical responses are shown for continuity/)).toBeVisible();
+  await expect(page.getByText(/Earlier answers are shown for continuity/)).toBeVisible();
   await expect(page.getByText("The police report was missing when this answer was saved.")).toBeVisible();
 });
 
@@ -39,7 +39,7 @@ test("Gate 16 archive is reversible and is not deletion", async ({ page }) => {
 test("Gate 16 preserves a safe unsent draft through interruption", async ({ page }) => {
   const href = "/app/conversations/11111111-1111-4111-8111-111111111111";
   await page.goto(href);
-  const composer = page.getByPlaceholder("Ask about claims, documents or customers…");
+  const composer = page.getByRole("textbox", { name: "Ask the Command Center" });
   await composer.fill("Check the updated police report before continuing");
   await page.reload();
   await expect(composer).toHaveValue("Check the updated police report before continuing");

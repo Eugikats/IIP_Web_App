@@ -237,8 +237,8 @@ export default function ClaimsQueue() {
             <Table label="Complete claims work queue">
               <TableHead>
                 <TableRow>
-                  {["Claim", "Customer", "Cover", "Status", "Attention", "Owner", ""].map((h, index) => (
-                    <TableHeaderCell key={`${h}-${index}`}>{h}</TableHeaderCell>
+                  {["Claim", "Customer", "Cover", "Status", "Attention", "Owner", "Actions"].map((h) => (
+                    <TableHeaderCell key={h}>{h}</TableHeaderCell>
                   ))}
                 </TableRow>
               </TableHead>

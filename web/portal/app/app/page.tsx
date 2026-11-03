@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import Component from "@/lovable-pages/AIConversations";
+import Component from "@/lovable-pages/Brief";
 
 export default function Page() {
   return (

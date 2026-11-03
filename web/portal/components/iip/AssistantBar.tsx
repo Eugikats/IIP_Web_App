@@ -6,14 +6,14 @@ import { useLocation, useNavigate } from "@/components/iip/NextRouterCompat";
 
 /// Navigation model outcome F: chat is a bar available on every screen, not the landing screen
 /// itself. Submitting a question here hands off to the full Assistant conversation at
-/// the Command Center at /app (AIConversations.tsx picks the question up from ?q= and sends it once).
+/// /app/assistant (AIConversations.tsx picks the question up from ?q= and sends it once).
 export default function AssistantBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [value, setValue] = useState("");
 
   // The Command Center has its own question box, so a second bar under it would only repeat it.
-  if (location.pathname === "/app" || location.pathname === "/app/assistant" || location.pathname.startsWith("/app/conversations/")) {
+  if (location.pathname === "/app/assistant" || location.pathname.startsWith("/app/conversations/")) {
     return null;
   }
 
@@ -21,7 +21,7 @@ export default function AssistantBar() {
     const question = value.trim();
     if (!question) return;
     setValue("");
-    navigate(`/app?q=${encodeURIComponent(question)}`);
+    navigate(`/app/assistant?q=${encodeURIComponent(question)}`);
   }
 
   return (

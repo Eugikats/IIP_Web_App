@@ -12,11 +12,12 @@ test("Gate 1 shell uses the approved light-only MVP foundation", async ({ page }
   await page.waitForLoadState("networkidle");
 
   await expect(page.locator("html")).not.toHaveClass(/dark/);
-  // Navigation model §5.2, the rail is icon-only; "Insurance Intelligence Platform", "Assistant"
+  // Navigation model §5.2, the rail is icon-only; "Insurance Intelligence Platform", "Brief"
   // and "Claims" are accessible names (aria-label/title), not visible text.
   await expect(page.getByRole("link", { name: "Insurance Intelligence Platform" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Assistant" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Brief" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Claims", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening),/ })).toBeVisible();
 
   // Design language v2 §3, no fixed top bar; a page's own breadcrumb/h1 lives in its content
   // column, so there is no <header> element to measure.
