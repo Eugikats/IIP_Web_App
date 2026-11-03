@@ -7,15 +7,20 @@ namespace InsuranceIntelligence.Application.Products;
 public sealed class ProductQueryService(
     ITenantContextAccessor tenantContextAccessor,
     IPermissionService permissionService,
-    IProductRepository repository) : IProductQueryService
+    IProductRepository repository,
+    ITenantSettingsRepository? settingsRepository = null) : IProductQueryService
 {
+    private async Task<bool> RequiresIraAsync(CancellationToken cancellationToken) =>
+        settingsRepository is null
+        || (await settingsRepository.GetAsync(tenantContextAccessor.Current.Scope, cancellationToken)).RequireIraApprovalForPublish;
+
     public async Task<ProductDto?> GetCurrentAsync(Guid productId, CancellationToken cancellationToken = default)
     {
         await permissionService.RequirePermissionAsync(Permission.ManageProducts, cancellationToken);
 
         var context = tenantContextAccessor.Current;
         var product = await repository.GetCurrentAsync(context.Scope, productId, cancellationToken);
-        return product is null ? null : ProductCommandService.ToDto(product);
+        return product is null ? null : ProductCommandService.ToDto(product, await RequiresIraAsync(cancellationToken));
     }
 
     public async Task<ProductDto?> GetVersionAsync(Guid productId, int version, CancellationToken cancellationToken = default)
@@ -24,7 +29,7 @@ public sealed class ProductQueryService(
 
         var context = tenantContextAccessor.Current;
         var product = await repository.GetVersionAsync(context.Scope, productId, version, cancellationToken);
-        return product is null ? null : ProductCommandService.ToDto(product);
+        return product is null ? null : ProductCommandService.ToDto(product, await RequiresIraAsync(cancellationToken));
     }
 
     public async Task<IReadOnlyList<ProductVersionSummaryDto>> ListVersionsAsync(Guid productId, CancellationToken cancellationToken = default)

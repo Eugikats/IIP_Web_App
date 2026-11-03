@@ -13,7 +13,8 @@ namespace InsuranceIntelligence.Application.Billing;
 public sealed class BillingQueryService(
     ITenantContextAccessor tenantContextAccessor,
     IPermissionService permissionService,
-    IBillingUsageSource usageSource) : IBillingQueryService
+    IBillingUsageSource usageSource,
+    ITenantSettingsRepository? settingsRepository = null) : IBillingQueryService
 {
     public async Task<BillingSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
     {
@@ -23,6 +24,10 @@ public sealed class BillingQueryService(
         var meters = await usageSource.GetUsageAsync(context.TenantId, context.WorkspaceId, cancellationToken);
 
         var package = DefaultEntitlements.Package;
-        return new BillingSummaryDto(package.Name, package.Modules, package.SeatLimit, meters);
+        // The seat limit is a workspace setting; the package's own number is only the default.
+        var seatLimit = settingsRepository is null
+            ? package.SeatLimit
+            : (await settingsRepository.GetAsync(context.Scope, cancellationToken)).SeatLimit;
+        return new BillingSummaryDto(package.Name, package.Modules, seatLimit, meters);
     }
 }

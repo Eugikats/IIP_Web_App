@@ -28,7 +28,8 @@ public static class BillingEndpoints
 /// </summary>
 public sealed class RecordBackedBillingUsageSource(
     IClaimsReadRepository claimsReadRepository,
-    IAgentActionLogRepository actionLogRepository) : IBillingUsageSource
+    IAgentActionLogRepository actionLogRepository,
+    InsuranceIntelligence.Domain.Administration.ITenantSettingsRepository? settingsRepository = null) : IBillingUsageSource
 {
     public async Task<IReadOnlyList<UsageMeterDto>> GetUsageAsync(
         string tenantId,
@@ -36,7 +37,10 @@ public sealed class RecordBackedBillingUsageSource(
         CancellationToken cancellationToken = default)
     {
         var scope = InsuranceIntelligence.Domain.Common.TenantScope.Create(tenantId, workspaceId);
-        var claims = await claimsReadRepository.ListAsync(new ClaimsQuery(Take: 5000), cancellationToken);
+        var claimsLimit = settingsRepository is null
+            ? InsuranceIntelligence.Domain.Administration.TenantSettings.DefaultClaimsMeterLimit
+            : (await settingsRepository.GetAsync(scope, cancellationToken)).ClaimsMeterLimit;
+        var claims = await claimsReadRepository.ListAsync(new ClaimsQuery(Take: claimsLimit + 1), cancellationToken);
         var claimCount = claims.Count;
 
         var actionLogs = await actionLogRepository.ListAsync(scope, cancellationToken);
@@ -48,7 +52,7 @@ public sealed class RecordBackedBillingUsageSource(
 
         var meters = new[]
         {
-            new UsageMeter("claims", "Claims processed", claimCount, 5000, "claims", Metered: true),
+            new UsageMeter("claims", "Claims processed", claimCount, claimsLimit, "claims", Metered: true),
             new UsageMeter("documents", "Documents processed", 0, 0, "documents", Metered: false),
             new UsageMeter("ai-tokens", "AI tokens consumed", totalTokens, 0, "tokens", Metered: aiCallsMetered),
             new UsageMeter("ai-cost-usd", "Estimated AI cost (USD)", (int)(estimatedCost * 100), 0, "cents", Metered: aiCallsMetered),

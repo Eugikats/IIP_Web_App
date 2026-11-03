@@ -75,10 +75,15 @@ public sealed record Product
 
     /// <summary>A product cannot be activated without an approval reference and its effective
     /// date. The screen must say so in plain words rather than failing silently (outcome A).</summary>
-    public bool CanPublish =>
-        !string.IsNullOrWhiteSpace(IraApprovalReference)
-        && IraApprovalEffectiveDate is not null
-        && Stages.Count > 0;
+    public bool CanPublish => CanPublishWith(requireIraApproval: true);
+
+    /// <summary>Whether the product can be submitted for publishing. The IRA reference and date are
+    /// required unless the workspace has switched that rule off (TenantSettings); a claim process
+    /// with at least one stage is always required.</summary>
+    public bool CanPublishWith(bool requireIraApproval) =>
+        Stages.Count > 0
+        && (!requireIraApproval
+            || (!string.IsNullOrWhiteSpace(IraApprovalReference) && IraApprovalEffectiveDate is not null));
 }
 
 /// <summary>One kind of claim a product handles, for example "Own damage" or "Theft". The key is

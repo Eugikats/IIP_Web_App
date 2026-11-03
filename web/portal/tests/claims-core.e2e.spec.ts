@@ -417,3 +417,67 @@ test.describe("Item 5: claim fields per claim type", () => {
     expect(other.status()).toBe(404);
   });
 });
+
+test.describe("Item 6: product settings and labels", () => {
+  test("operating settings fit mobile, tablet and desktop viewports", async ({ page }) => {
+    for (const width of [390, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/app/admin/settings");
+      await expect(page.getByTestId("operating-settings")).toBeVisible();
+      const overflows = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      expect(overflows, `horizontal overflow at ${width}px`).toBe(false);
+    }
+  });
+
+  test("an admin changes the reminder days and the IRA rule in the portal and the API follows", async ({ page, request }) => {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const before = (await (await request.get(`${API}/api/v1/admin/tenant-settings`, { headers })).json()) as { requireIraApprovalForPublish: boolean; missingDocumentReminderDays: number };
+    try {
+      await page.goto("/app/admin/settings");
+      const form = page.getByTestId("operating-settings");
+      await expect(form).toBeVisible();
+      const days = form.getByLabel(/Remind the customer about missing documents/);
+      await days.fill("9");
+      await form.getByLabel(/Require an IRA approval reference/).setChecked(!before.requireIraApprovalForPublish);
+      await page.getByRole("button", { name: "Save settings" }).click();
+      await expect(page.getByText("Settings saved.")).toBeVisible();
+
+      const saved = (await (await request.get(`${API}/api/v1/admin/tenant-settings`, { headers })).json()) as { requireIraApprovalForPublish: boolean; missingDocumentReminderDays: number };
+      expect(saved.missingDocumentReminderDays).toBe(9);
+      expect(saved.requireIraApprovalForPublish).toBe(!before.requireIraApprovalForPublish);
+
+      await page.reload();
+      await expect(page.getByTestId("operating-settings").getByLabel(/Remind the customer about missing documents/)).toHaveValue("9");
+    } finally {
+      await request.put(`${API}/api/v1/admin/tenant-settings`, { headers, data: { requireIraApprovalForPublish: before.requireIraApprovalForPublish, missingDocumentReminderDays: before.missingDocumentReminderDays } });
+    }
+  });
+
+  test("an out-of-range value is refused with a reason and nothing changes", async ({ page, request }) => {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    await page.goto("/app/admin/settings");
+    const form = page.getByTestId("operating-settings");
+    await form.getByLabel(/Remind the customer about missing documents/).fill("99");
+    await page.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.getByText(/must be between 1 and 30 days/)).toBeVisible();
+    const stored = (await (await request.get(`${API}/api/v1/admin/tenant-settings`, { headers })).json()) as { missingDocumentReminderDays: number };
+    expect(stored.missingDocumentReminderDays).not.toBe(99);
+  });
+
+  test("turning the IRA rule off lets a product be submitted without an IRA reference, and another tenant is unaffected", async ({ request }) => {
+    const tenant = newTenant();
+    const headers = scopeHeaders(tenant);
+    const other = scopeHeaders(newTenant());
+    const created = await request.post(`${API}/api/v1/products`, { headers, data: { name: "Plain Cover", productClass: "General", changeReason: "e2e" } });
+    const { productId } = (await created.json()) as { productId: string };
+    const refused = await request.post(`${API}/api/v1/products/${productId}/submit`, { headers, data: { changeReason: "go" } });
+    expect(refused.status()).toBe(400);
+
+    await request.put(`${API}/api/v1/admin/tenant-settings`, { headers, data: { requireIraApprovalForPublish: false } });
+    const accepted = await request.post(`${API}/api/v1/products/${productId}/submit`, { headers, data: { changeReason: "go" } });
+    expect(accepted.status(), await accepted.text()).toBe(200);
+
+    const untouched = (await (await request.get(`${API}/api/v1/admin/tenant-settings`, { headers: other })).json()) as { requireIraApprovalForPublish: boolean };
+    expect(untouched.requireIraApprovalForPublish).toBe(true);
+  });
+});

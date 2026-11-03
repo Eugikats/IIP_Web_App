@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Application.Notifications;
+using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
@@ -29,18 +30,27 @@ public sealed class CaseFollowThroughService(
     INotificationEmitter notificationEmitter,
     INotificationRepository notificationRepository,
     IAuditRepository auditRepository,
-    IDocumentChecklistProvider? checklistProvider = null) : ICaseFollowThroughService
+    IDocumentChecklistProvider? checklistProvider = null,
+    ITenantSettingsRepository? settingsRepository = null) : ICaseFollowThroughService
 {
     private const string SystemActorId = "system:case-follow-through";
 
-    // Fixed constants today; the build contract names these as a future tenant setting
-    // ("timings are settings", outcome G), same status as ClaimBriefRanking's weights.
-    private static readonly TimeSpan MissingDocumentReminderWait = TimeSpan.FromDays(3);
-    private static readonly TimeSpan SlaWarningLeadTime = TimeSpan.FromHours(24);
+    // Per-workspace settings (build-loop item 6, "timings are settings", outcome G). Read at the
+    // start of each run; with no settings store wired they are the long-standing 3 days and 24
+    // hours (TenantSettings defaults).
+    private TimeSpan missingDocumentReminderWait = TimeSpan.FromDays(TenantSettings.DefaultMissingDocumentReminderDays);
+    private TimeSpan slaWarningLeadTime = TimeSpan.FromHours(TenantSettings.DefaultSlaWarningLeadHours);
 
     public async Task<CaseFollowThroughResult> RunAsync(TenantScope scope, string correlationId, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
+        if (settingsRepository is not null)
+        {
+            var settings = await settingsRepository.GetAsync(scope, cancellationToken);
+            missingDocumentReminderWait = TimeSpan.FromDays(settings.MissingDocumentReminderDays);
+            slaWarningLeadTime = TimeSpan.FromHours(settings.SlaWarningLeadHours);
+        }
+
         var allCases = await caseRepository.ListAsync(scope, cancellationToken);
         var openCases = allCases
             .Where(claimCase => claimCase.Status is not (CaseStatus.Settled or CaseStatus.Closed) && !claimCase.RequiresConfirmation)
@@ -59,7 +69,7 @@ public sealed class CaseFollowThroughService(
         foreach (var claimCase in openCases)
         {
             var lastPrompt = claimCase.LastMissingDocumentReminderAt ?? claimCase.CreatedAt;
-            if (now - lastPrompt < MissingDocumentReminderWait)
+            if (now - lastPrompt < missingDocumentReminderWait)
             {
                 continue;
             }
@@ -107,7 +117,7 @@ public sealed class CaseFollowThroughService(
 
             // Already breached: that is SlaBreach's job, recomputed reactively wherever a claim is
             // read (CaseEndpoints.ListCases). This is only ever the warning that comes before.
-            if (dueAt <= now || dueAt - now > SlaWarningLeadTime)
+            if (dueAt <= now || dueAt - now > slaWarningLeadTime)
             {
                 continue;
             }

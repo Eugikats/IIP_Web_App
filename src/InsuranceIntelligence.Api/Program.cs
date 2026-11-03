@@ -1202,6 +1202,10 @@ app.MapPost("/api/v1/communication-templates/seed-defaults", InsuranceIntelligen
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 app.MapGet("/api/v1/reports/operations-summary", ReportsEndpoints.GetOperationsSummary)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapGet("/api/v1/admin/tenant-settings", InsuranceIntelligence.Api.Admin.TenantSettingsEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPut("/api/v1/admin/tenant-settings", InsuranceIntelligence.Api.Admin.TenantSettingsEndpoints.Put)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/admin/tenant-configuration", AdminEndpoints.GetTenantConfiguration)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPut("/api/v1/admin/tenant-configuration", AdminEndpoints.UpdateTenantConfiguration)

@@ -22,8 +22,15 @@ public sealed class ProductCommandService(
     IProductRepository repository,
     IDocumentTypeCatalogRepository documentTypeCatalogRepository,
     IAuditWriter auditWriter,
-    IKnowledgeDocumentRepository? knowledgeDocuments = null) : IProductCommandService
+    IKnowledgeDocumentRepository? knowledgeDocuments = null,
+    ITenantSettingsRepository? settingsRepository = null) : IProductCommandService
 {
+    /// <summary>The workspace's rule on IRA approval before publishing (TenantSettings). With no
+    /// settings store wired it is the long-standing rule: required.</summary>
+    private async Task<bool> RequiresIraApprovalAsync(CancellationToken cancellationToken) =>
+        settingsRepository is null
+        || (await settingsRepository.GetAsync(tenantContextAccessor.Current.Scope, cancellationToken)).RequireIraApprovalForPublish;
+
     public async Task<ProductDto> CreateDraftAsync(CreateProductRequest request, CancellationToken cancellationToken = default)
     {
         await permissionService.RequirePermissionAsync(Permission.ManageProducts, cancellationToken);
@@ -71,7 +78,7 @@ public sealed class ProductCommandService(
         await repository.SaveAsync(product, cancellationToken);
         await Audit(product, "product.created", reason, cancellationToken);
 
-        return ToDto(product);
+        return ToDto(product, await RequiresIraApprovalAsync(cancellationToken));
     }
 
     public async Task<ProductDto> UpdateDraftAsync(Guid productId, UpdateProductRequest request, CancellationToken cancellationToken = default)
@@ -158,7 +165,7 @@ public sealed class ProductCommandService(
         await repository.SaveAsync(updated, cancellationToken);
         await Audit(updated, "product.updated", updated.ChangeReason, cancellationToken);
 
-        return ToDto(updated);
+        return ToDto(updated, await RequiresIraApprovalAsync(cancellationToken));
     }
 
     public async Task<ProductDto> SubmitForPublishApprovalAsync(Guid productId, SubmitProductRequest request, CancellationToken cancellationToken = default)
@@ -172,11 +179,14 @@ public sealed class ProductCommandService(
             throw new ProductValidationException("status", "Only a draft product can be submitted for publish approval.");
         }
 
-        if (!current.CanPublish)
+        var requireIra = await RequiresIraApprovalAsync(cancellationToken);
+        if (!current.CanPublishWith(requireIra))
         {
             throw new ProductValidationException(
-                "iraApprovalReference",
-                "A product cannot be activated without an IRA approval reference, its effective date, and at least one claim stage.");
+                requireIra ? "iraApprovalReference" : "stages",
+                requireIra
+                    ? "A product cannot be activated without an IRA approval reference, its effective date, and at least one claim stage."
+                    : "A product cannot be activated without at least one claim stage.");
         }
 
         var context = tenantContextAccessor.Current;
@@ -201,7 +211,7 @@ public sealed class ProductCommandService(
         await repository.SaveAsync(updated, cancellationToken);
         await Audit(updated, "product.publish_submitted", reason, cancellationToken);
 
-        return ToDto(updated);
+        return ToDto(updated, await RequiresIraApprovalAsync(cancellationToken));
     }
 
     public async Task<ProductDto> ApprovePublishAsync(Guid productId, ApproveProductPublishRequest request, CancellationToken cancellationToken = default)
@@ -239,7 +249,7 @@ public sealed class ProductCommandService(
         await repository.SaveAsync(updated, cancellationToken);
         await Audit(updated, "product.published", reason, cancellationToken);
 
-        return ToDto(updated);
+        return ToDto(updated, await RequiresIraApprovalAsync(cancellationToken));
     }
 
     public async Task<ProductDto> RejectPublishAsync(Guid productId, RejectProductPublishRequest request, CancellationToken cancellationToken = default)
@@ -276,7 +286,7 @@ public sealed class ProductCommandService(
         await repository.SaveAsync(updated, cancellationToken);
         await Audit(updated, "product.publish_rejected", reason, cancellationToken);
 
-        return ToDto(updated);
+        return ToDto(updated, await RequiresIraApprovalAsync(cancellationToken));
     }
 
     public async Task<ProductDto> RetireAsync(Guid productId, RetireProductRequest request, CancellationToken cancellationToken = default)
@@ -310,7 +320,7 @@ public sealed class ProductCommandService(
         await repository.SaveAsync(updated, cancellationToken);
         await Audit(updated, "product.retired", reason, cancellationToken);
 
-        return ToDto(updated);
+        return ToDto(updated, await RequiresIraApprovalAsync(cancellationToken));
     }
 
     private async Task<Product> RequireCurrent(Guid productId, CancellationToken cancellationToken)
@@ -801,7 +811,7 @@ public sealed class ProductCommandService(
         }
     }
 
-    internal static ProductDto ToDto(Product product) =>
+    internal static ProductDto ToDto(Product product, bool requireIraApproval = true) =>
         new(
             product.ProductId,
             product.Version,
@@ -811,7 +821,7 @@ public sealed class ProductCommandService(
             product.IraApprovalEffectiveDate,
             product.ApprovedWordingKnowledgeDocumentId,
             product.Status.ToString(),
-            product.CanPublish,
+            product.CanPublishWith(requireIraApproval),
             product.Stages
                 .OrderBy(stage => stage.SortOrder)
                 .Select(stage => new ClaimStageDto(

@@ -209,6 +209,32 @@ public sealed record AuditEvent(
             correlationId: correlationId,
             confidence: document.Classification.ConfidenceScore);
 
+    /// <summary>A workspace administrator changed operating settings. Records which settings, by
+    /// name.</summary>
+    public static AuditEvent TenantSettingsUpdated(
+        TenantScope scope,
+        string userId,
+        IReadOnlyCollection<string> changedSettings,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            null,
+            null,
+            userId,
+            ActorType.User,
+            "tenant.settings.updated",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: string.Join(",", changedSettings.OrderBy(name => name, StringComparer.Ordinal)),
+            EvidenceIds: [],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>Someone saved answers to a claim's fields. Records which fields changed, never the
     /// values, which can be personal.</summary>
     public static AuditEvent CaseFieldsUpdated(
