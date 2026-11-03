@@ -22,6 +22,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedMailboxConnection> MailboxConnections => Set<PersistedMailboxConnection>();
     public DbSet<PersistedInboundEmail> InboundEmails => Set<PersistedInboundEmail>();
     public DbSet<PersistedTeamsNotification> TeamsNotifications => Set<PersistedTeamsNotification>();
+    public DbSet<PersistedWordingDraft> WordingDrafts => Set<PersistedWordingDraft>();
     public DbSet<UserTenantMembershipEntity> UserTenantMemberships => Set<UserTenantMembershipEntity>();
     public DbSet<OrganisationEntity> Organisations => Set<OrganisationEntity>();
     public DbSet<OrganisationInvitationEntity> OrganisationInvitations => Set<OrganisationInvitationEntity>();
@@ -113,6 +114,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedInboundEmail>(), "InboundEmails", "MessageId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedTeamsNotification>(), "TeamsNotifications", "NotificationId");
         modelBuilder.Entity<PersistedTeamsNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedWordingDraft>(), "WordingDrafts", "DraftId");
+        modelBuilder.Entity<PersistedWordingDraft>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ProductId });
         ConfigurePermissionModel(modelBuilder);
         ConfigureOrganisationModel(modelBuilder);
 
@@ -466,6 +469,7 @@ public sealed class PersistedUserAccount : PersistedScopedJson { public string U
 public sealed class PersistedMailboxConnection : PersistedScopedJson;
 public sealed class PersistedInboundEmail : PersistedScopedJson;
 public sealed class PersistedTeamsNotification : PersistedScopedJson { public Guid? CaseId { get; set; } }
+public sealed class PersistedWordingDraft : PersistedScopedJson { public Guid ProductId { get; set; } }
 public sealed class PersistedCustomer : PersistedScopedJson;
 public sealed class PersistedAgentState : PersistedScopedJson;
 public sealed class PersistedAgentWorkflowDefinition : PersistedScopedJson

@@ -209,6 +209,39 @@ public sealed record AuditEvent(
             correlationId: correlationId,
             confidence: document.Classification.ConfidenceScore);
 
+    /// <summary>A step in turning a policy wording into product setup (build-loop item 7): a draft
+    /// was made, an item was decided, the draft was applied or discarded. Records ids, counts and the
+    /// model provider; never the wording text or the output of the model.</summary>
+    public static AuditEvent WordingDraftEvent(
+        TenantScope scope,
+        string userId,
+        Guid productId,
+        Guid draftId,
+        Guid knowledgeDocumentId,
+        string actionName,
+        string afterStatus,
+        string? modelProvider,
+        string? auditReason,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            null,
+            productId.ToString(),
+            userId,
+            ActorType.User,
+            actionName,
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: afterStatus,
+            EvidenceIds: [draftId.ToString(), knowledgeDocumentId.ToString()],
+            ModelProvider: modelProvider,
+            Confidence: null,
+            ValidationResult: "human_review_required",
+            ApprovalId: null,
+            AuditReason: auditReason,
+            CorrelationId: correlationId);
+
     /// <summary>A workspace administrator changed operating settings. Records which settings, by
     /// name.</summary>
     public static AuditEvent TenantSettingsUpdated(

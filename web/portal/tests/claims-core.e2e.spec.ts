@@ -481,3 +481,97 @@ test.describe("Item 6: product settings and labels", () => {
     expect(untouched.requireIraApprovalForPublish).toBe(true);
   });
 });
+
+async function uploadWording(request: APIRequestContext, headers: Record<string, string>, documentName: string) {
+  const uploaded = await request.post(`${API}/api/v1/knowledge-documents`, {
+    headers,
+    multipart: {
+      file: fixture("sample_policy_wording.txt"),
+      documentName,
+      productLine: "Motor",
+      version: "1.0",
+      documentType: "PolicyWording",
+    },
+  });
+  expect(uploaded.status(), await uploaded.text()).toBe(201);
+}
+
+test.describe("Item 7: policy wording to drafted configuration", () => {
+  test("an admin reads a wording, decides each proposal and adds only the accepted ones", async ({ page, request }) => {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const wordingName = `Motor wording ${Math.random().toString(36).slice(2, 8)}`;
+    await uploadWording(request, headers, wordingName);
+    const created = await request.post(`${API}/api/v1/products`, {
+      headers,
+      data: { name: "Wording Cover", productClass: `Wording${Math.random().toString(36).slice(2, 6)}`, changeReason: "e2e" },
+    });
+    const { productId } = (await created.json()) as { productId: string };
+
+    await page.goto(`/app/admin/products/${productId}`);
+    const panel = page.getByTestId("wording-draft-panel");
+    for (const width of [390, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(panel).toBeVisible();
+      const overflows = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      expect(overflows, `horizontal overflow at ${width}px`).toBe(false);
+    }
+    await panel.getByLabel("Wording to read").selectOption({ label: `${wordingName} (version 1.0)` });
+    await panel.getByRole("button", { name: "Read the wording" }).click();
+
+    const review = page.getByTestId("wording-draft-review");
+    await expect(review.getByText("What is covered")).toBeVisible();
+    await expect(review.getByText("Found in the wording: clause 1.3, page 1").first()).toBeVisible();
+    const sourceHref = await review.getByRole("link", { name: "Open source wording in the Data Hub" }).first().getAttribute("href");
+    const sourcePage = await page.context().newPage();
+    await sourcePage.goto(new URL(sourceHref!, page.url()).toString());
+    await expect(sourcePage.getByRole("button", { name: wordingName })).toHaveAttribute("aria-expanded", "true");
+    await expect(sourcePage.getByTestId("knowledge-chunk-preview")).toBeVisible();
+    await sourcePage.close();
+
+    // Nothing is part of the product yet.
+    const before = (await (await request.get(`${API}/api/v1/products/${productId}`, { headers })).json()) as { version: number; coverageItems: unknown[] };
+    expect(before.coverageItems).toHaveLength(0);
+
+    await review.getByRole("button", { name: "Accept Accident", exact: true }).click();
+    await review.getByRole("button", { name: "Accept Police report" }).first().click();
+    await review.getByRole("button", { name: "Accept Fire", exact: true }).click();
+    await review.getByRole("region", { name: "What is covered" }).getByRole("button", { name: "Reject Windscreen", exact: true }).click();
+
+    // A document with no matching document type cannot be accepted until one is chosen.
+    const logBook = review.getByTestId("wording-item").filter({ hasText: "Log book" }).first();
+    await expect(logBook.getByRole("button", { name: /^Accept / })).toBeDisabled();
+
+    await panel.getByRole("button", { name: /Add 3 accepted items to the product/ }).click();
+    await expect(page.getByTestId("wording-apply-result")).toContainText("1 kinds of claim, 1 documents, 0 questions, 1 covered or excluded items");
+
+    await expect(page.getByTestId("coverage-items").getByText("Fire")).toBeVisible();
+    const after = (await (await request.get(`${API}/api/v1/products/${productId}`, { headers })).json()) as {
+      version: number; status: string; claimTypes: { key: string }[]; coverageItems: { title: string; clause: string }[];
+      documentMatrix: { documentKey: string; claimTypeKeys: string[] }[];
+    };
+    expect(after.version).toBeGreaterThan(before.version);
+    expect(after.status).toBe("Draft");
+    expect(after.claimTypes.map((type) => type.key)).toEqual(["accident"]);
+    expect(after.coverageItems.map((item) => item.title)).toEqual(["Fire"]);
+    expect(after.documentMatrix.find((entry) => entry.documentKey === "PoliceAbstract")?.claimTypeKeys).toEqual(["accident"]);
+  });
+
+  test("another tenant cannot read or apply a reading", async ({ request }) => {
+    const tenant = newTenant();
+    const headers = scopeHeaders(tenant);
+    await uploadWording(request, headers, "Isolated wording");
+    const created = await request.post(`${API}/api/v1/products`, { headers, data: { name: "Iso", productClass: "Motor", changeReason: "e2e" } });
+    const { productId } = (await created.json()) as { productId: string };
+    const drafted = await request.post(`${API}/api/v1/products/${productId}/wording-drafts`, { headers, data: {} });
+    expect(drafted.status(), await drafted.text()).toBe(400);
+
+    const wordings = (await (await request.get(`${API}/api/v1/knowledge-documents`, { headers })).json()) as { knowledgeDocumentId: string }[];
+    const ok = await request.post(`${API}/api/v1/products/${productId}/wording-drafts`, { headers, data: { knowledgeDocumentId: wordings[0].knowledgeDocumentId } });
+    expect(ok.status(), await ok.text()).toBe(201);
+    const { draftId } = (await ok.json()) as { draftId: string };
+
+    const other = scopeHeaders(newTenant());
+    expect((await request.get(`${API}/api/v1/products/${productId}/wording-drafts/${draftId}`, { headers: other })).status()).toBe(404);
+    expect((await request.post(`${API}/api/v1/products/${productId}/wording-drafts/${draftId}/apply`, { headers: other, data: {} })).status()).toBe(404);
+  });
+});

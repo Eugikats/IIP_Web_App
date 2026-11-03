@@ -18,6 +18,19 @@ public sealed class MockChatCompletionProvider : IChatCompletionProvider
 
     public Task<ChatCompletionResult> CompleteAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {
+        if (MockWordingExtractor.Handles(request.Prompt))
+        {
+            var json = MockWordingExtractor.Respond(request.Prompt);
+            return Task.FromResult(new ChatCompletionResult(
+                json,
+                "Mock",
+                "mock-chat",
+                DateTimeOffset.UtcNow,
+                "mock-chat-v1",
+                PromptTokens: Math.Max(1, request.Prompt.Length / 4),
+                CompletionTokens: Math.Max(1, json.Length / 4)));
+        }
+
         var facts = new List<string>();
         foreach (var line in request.Prompt.Replace("\r\n", "\n").Split('\n'))
         {

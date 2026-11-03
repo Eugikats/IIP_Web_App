@@ -30,6 +30,7 @@ import {
 import { ensureDocumentTypeCatalog, type DocumentTypeDefinition } from "@/lib/documentTypes";
 import { ClaimTypesEditor } from "@/components/iip/ClaimTypesEditor";
 import { ClaimFieldsEditor } from "@/components/iip/ClaimFieldsEditor";
+import { WordingDraftPanel } from "@/components/iip/WordingDraftPanel";
 
 const STATUS_TONE: Record<ProductStatus, PillTone> = {
   Draft: "neutral",
@@ -107,6 +108,14 @@ export default function ProductDetail() {
   }, [role, productId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Re-reads the product without replacing the page with a loading state, so a panel that has just
+  // changed it (adding items read from a wording) keeps showing what it did.
+  const refresh = useCallback(async () => {
+    const [productResult, versionsResult] = await Promise.all([getProduct(role, productId), listProductVersions(role, productId)]);
+    if (productResult.ok) applyProduct(productResult.value);
+    if (versionsResult.ok) setVersions(versionsResult.value);
+  }, [role, productId]);
 
   const stageKeys = useMemo(() => stages.map((stage) => stage.stageKey).filter(Boolean), [stages]);
   const activeDocumentTypes = useMemo(() => documentTypes.filter((type) => type.active), [documentTypes]);
@@ -347,6 +356,40 @@ export default function ProductDetail() {
           <GlassCard>
             <ClaimFieldsEditor value={claimFields} onChange={setClaimFields} claimTypes={claimTypes} disabled={!canEdit} />
           </GlassCard>
+
+          <GlassCard>
+            <WordingDraftPanel
+              role={role}
+              productId={productId}
+              hasUnsavedChanges={isDirty}
+              canEdit={canEdit}
+              onApplied={() => void refresh()}
+            />
+          </GlassCard>
+
+          {(product.coverageItems ?? []).length > 0 && (
+            <GlassCard>
+              <div className="text-[14px] font-bold text-dls-text-primary">What the wording covers</div>
+              <p className="mb-3 mt-1 text-[12px] text-dls-text-secondary">Read from the policy wording and confirmed by a person. For reference; a claim is still decided by a person.</p>
+              <div className="grid gap-4 sm:grid-cols-2" data-testid="coverage-items">
+                {(["Covered", "Excluded"] as const).map((kind) => (
+                  <div key={kind}>
+                    <div className="mb-1 text-[12.5px] font-semibold text-dls-text-primary">{kind === "Covered" ? "Covered" : "Not covered"}</div>
+                    <ul className="space-y-2">
+                      {(product.coverageItems ?? []).filter((item) => item.kind === kind).map((item) => (
+                        <li key={`${item.kind}-${item.key ?? item.title}`} className="text-[12.5px] text-dls-text-primary">
+                          {item.title}
+                          <span className="block text-[11.5px] text-dls-text-muted">
+                            {[item.clause ? `clause ${item.clause}` : null, item.page ? `page ${item.page}` : null].filter(Boolean).join(", ") || "No clause recorded"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          )}
 
           <GlassCard>
             <div className="mb-1 flex items-center justify-between">

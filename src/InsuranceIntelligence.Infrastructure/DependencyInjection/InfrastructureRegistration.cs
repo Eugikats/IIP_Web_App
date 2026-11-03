@@ -283,6 +283,7 @@ public static class InfrastructureRegistration
         services.AddScoped<ITenantConfigurationRepository, EfTenantConfigurationRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Academy.IAcademyPricingRepository, EfAcademyPricingRepository>();
         services.AddScoped<ITenantSettingsRepository, EfTenantSettingsRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Products.IWordingDraftRepository, EfWordingDraftRepository>();
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
         services.AddScoped<IMailboxConnectionRepository, EfMailboxConnectionRepository>();
         services.AddScoped<IInboundEmailRepository, EfInboundEmailRepository>();

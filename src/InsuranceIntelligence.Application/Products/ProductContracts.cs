@@ -51,6 +51,15 @@ public sealed record ClaimFieldDto(
     bool CustomerVisible,
     IReadOnlyList<string>? ClaimTypeKeys);
 
+public sealed record CoverageItemDto(
+    string? Key,
+    string Kind,
+    string Title,
+    string? Description,
+    string? Clause,
+    int? Page,
+    string? Quote);
+
 public sealed record ProductDto(
     Guid ProductId,
     int Version,
@@ -75,7 +84,8 @@ public sealed record ProductDto(
     string? PublishRejectionReason,
     IReadOnlyList<ProductWordingFactDto> WordingFacts,
     IReadOnlyList<ClaimTypeDto>? ClaimTypes = null,
-    IReadOnlyList<ClaimFieldDto>? ClaimFields = null);
+    IReadOnlyList<ClaimFieldDto>? ClaimFields = null,
+    IReadOnlyList<CoverageItemDto>? CoverageItems = null);
 
 public sealed record ProductVersionSummaryDto(
     int Version,
@@ -110,7 +120,8 @@ public sealed record UpdateProductRequest(
     string? ChangeReason,
     IReadOnlyList<ProductWordingFactDto>? WordingFacts = null,
     IReadOnlyList<ClaimTypeDto>? ClaimTypes = null,
-    IReadOnlyList<ClaimFieldDto>? ClaimFields = null);
+    IReadOnlyList<ClaimFieldDto>? ClaimFields = null,
+    IReadOnlyList<CoverageItemDto>? CoverageItems = null);
 
 public sealed record SubmitProductRequest(string? ChangeReason);
 

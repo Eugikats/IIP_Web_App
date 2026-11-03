@@ -9,6 +9,7 @@ using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Api.Local.Mock;
 using InsuranceIntelligence.Api.Tests.Support;
 using InsuranceIntelligence.Application.Ai;
+using InsuranceIntelligence.Application.Products;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Workflow;
@@ -135,6 +136,28 @@ public sealed class MockProviderTests
         Assert.Equal("Mock", first.Provider);
         Assert.DoesNotContain((char)0x2014, first.Content);
         Assert.DoesNotContain("approved", first.Content, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void MockWordingExtraction_UsesClausesFromTheSuppliedText()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "web", "portal", "tests", "fixtures", "claims-core", "sample_policy_wording.txt")))
+        {
+            directory = directory.Parent;
+        }
+
+        var wording = File.ReadAllText(Path.Combine(directory!.FullName, "web", "portal", "tests", "fixtures", "claims-core", "sample_policy_wording.txt"));
+        var prompt = WordingExtraction.BuildPrompt("sample", wording, ["PoliceAbstract", "ClaimForm"]);
+        var response = MockWordingExtractor.Respond(prompt);
+
+        Assert.Contains("\"title\":\"Theft\"", response, StringComparison.Ordinal);
+        Assert.Contains("\"kind\":\"claim_type\"", response, StringComparison.Ordinal);
+        Assert.Contains("\"documentKey\":\"PoliceAbstract\"", response, StringComparison.Ordinal);
+        var parsed = WordingExtraction.Parse(response, wording,
+            new WordingExtractionContext(["PoliceAbstract", "ClaimForm"], [], [], []));
+        Assert.Contains(parsed, item => item.Kind == InsuranceIntelligence.Domain.Products.WordingItemKind.Covered
+            && item.Title.Contains("Theft", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

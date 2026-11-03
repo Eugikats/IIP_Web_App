@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useId, useMemo, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
@@ -59,6 +59,30 @@ export default function Knowledge() {
   const [chunksByDoc, setChunksByDoc] = useState<Record<string, KnowledgeChunkView[]>>({});
   const [chunksLoadingId, setChunksLoadingId] = useState<string | null>(null);
   const [chunksErrorByDoc, setChunksErrorByDoc] = useState<Record<string, string>>({});
+  const [sourceOpenedDocId, setSourceOpenedDocId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (loading) return;
+    const requestedId = new URLSearchParams(window.location.search).get("documentId");
+    if (!requestedId || sourceOpenedDocId === requestedId) return;
+    const source = docs.find((doc) => doc.id === requestedId);
+    if (!source) return;
+
+    setSourceOpenedDocId(requestedId);
+    setQ(source.title);
+    setExpandedDocId(requestedId);
+    if (chunksByDoc[requestedId] || chunksLoadingId === requestedId) return;
+
+    setChunksLoadingId(requestedId);
+    void loadChunks(requestedId).then((result) => {
+      setChunksLoadingId(null);
+      if (result.ok) {
+        setChunksByDoc((current) => ({ ...current, [requestedId]: result.chunks ?? [] }));
+      } else {
+        setChunksErrorByDoc((current) => ({ ...current, [requestedId]: result.message ?? "Could not load the chunk preview." }));
+      }
+    });
+  }, [chunksByDoc, chunksLoadingId, docs, loadChunks, loading, sourceOpenedDocId]);
 
   async function toggleChunkPreview(docId: string) {
     if (expandedDocId === docId) {
@@ -383,7 +407,7 @@ function ChunkPreview({ loading, error, chunks }: { loading: boolean; error: str
     return <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">No chunks yet, this document has not been indexed.</div>;
   }
   return (
-    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4" data-testid="knowledge-chunk-preview">
       <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">
         {chunks.length} chunk{chunks.length === 1 ? "" : "s"}, what retrieval can ground an answer in
       </div>

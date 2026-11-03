@@ -127,6 +127,8 @@ public sealed class ProductCommandService(
             EnsureFieldClaimTypesExist(claimFields, claimTypes);
         }
 
+        var coverageItems = request.CoverageItems is null ? current.CoverageItems : ValidateCoverageItems(request.CoverageItems);
+
         var context = tenantContextAccessor.Current;
         var updated = current with
         {
@@ -136,6 +138,7 @@ public sealed class ProductCommandService(
             ProductClass = productClass,
             ClaimTypes = claimTypes,
             ClaimFields = claimFields,
+            CoverageItems = coverageItems,
             IraApprovalReference = request.IraApprovalReference is null ? current.IraApprovalReference : NormalizeOrNull(request.IraApprovalReference),
             IraApprovalEffectiveDate = request.IraApprovalEffectiveDate ?? current.IraApprovalEffectiveDate,
             ApprovedWordingKnowledgeDocumentId = request.ApprovedWordingKnowledgeDocumentId is null
@@ -671,6 +674,69 @@ public sealed class ProductCommandService(
         return result;
     }
 
+    private const int MaxCoverageItems = 200;
+
+    /// <summary>What the wording covers and excludes. Keys are derived from the title when blank and
+    /// are unique within a kind; text is trimmed and bounded.</summary>
+    internal static IReadOnlyList<CoverageItem> ValidateCoverageItems(IReadOnlyList<CoverageItemDto> items)
+    {
+        if (items.Count > MaxCoverageItems)
+        {
+            throw new ProductValidationException("coverageItems", $"A product can list at most {MaxCoverageItems} covered or excluded items.");
+        }
+
+        var result = new List<CoverageItem>(items.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in items)
+        {
+            if (!Enum.TryParse<CoverageKind>(item.Kind?.Trim(), ignoreCase: true, out var kind) || !Enum.IsDefined(kind))
+            {
+                throw new ProductValidationException("coverageItems", $"'{item.Kind}' is not a kind of cover. Use Covered or Excluded.");
+            }
+
+            var title = item.Title?.Trim() ?? string.Empty;
+            if (title.Length == 0 || title.Length > 160)
+            {
+                throw new ProductValidationException("coverageItems", "Every covered or excluded item needs a title of up to 160 characters.");
+            }
+
+            var description = item.Description?.Trim() ?? string.Empty;
+            if (description.Length > 1000)
+            {
+                throw new ProductValidationException("coverageItems", $"The description of '{title}' is longer than 1,000 characters.");
+            }
+
+            var key = string.IsNullOrWhiteSpace(item.Key)
+                ? ClaimTypeMatching.Normalize(title)
+                : ClaimTypeMatching.Normalize(item.Key);
+            if (key.Length == 0)
+            {
+                throw new ProductValidationException("coverageItems", $"'{title}' needs at least one letter or digit in its title.");
+            }
+
+            if (key.Length > 60)
+            {
+                key = key[..60];
+            }
+
+            if (!seen.Add($"{kind}:{key}"))
+            {
+                throw new ProductValidationException("coverageItems", $"'{title}' is listed twice as {kind.ToString().ToLowerInvariant()}.");
+            }
+
+            result.Add(new CoverageItem(
+                key,
+                kind,
+                title,
+                description,
+                NormalizeOrNull(item.Clause),
+                item.Page is > 0 ? item.Page : null,
+                NormalizeOrNull(item.Quote) is { } quote && quote.Length > 800 ? quote[..800] : NormalizeOrNull(item.Quote)));
+        }
+
+        return result;
+    }
+
     private const int MaxClaimFields = 80;
 
     /// <summary>Field keys are camelCase identifiers (letters and digits). A blank key is derived
@@ -868,5 +934,8 @@ public sealed class ProductCommandService(
                 .Select(field => new ClaimFieldDto(
                     field.Key, field.Label, field.Type.ToString(), field.Required, field.Options ?? [],
                     field.HelpText, field.SortOrder, field.CustomerVisible, field.ClaimTypeKeys ?? []))
+                .ToArray(),
+            product.CoverageItems
+                .Select(item => new CoverageItemDto(item.Key, item.Kind.ToString(), item.Title, item.Description, item.Clause, item.Page, item.Quote))
                 .ToArray());
 }

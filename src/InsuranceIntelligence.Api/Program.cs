@@ -587,6 +587,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQu
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCommandService, InsuranceIntelligence.Application.Products.ProductCommandService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductWordingExtractionService, InsuranceIntelligence.Application.Products.ProductWordingExtractionService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimTypeService, InsuranceIntelligence.Application.Products.ClaimTypeService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IWordingDraftService, InsuranceIntelligence.Application.Products.WordingDraftService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1413,6 +1414,21 @@ app.MapGet("/api/v1/claim-types", InsuranceIntelligence.Api.Products.ClaimTypeEn
 app.MapPost("/api/v1/claim-types/suggest", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.Suggest)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim, Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ManageProducts));
 app.MapPost("/api/v1/products/{productId:guid}/claim-types/import-existing", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.ImportExisting)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+// Policy wording to drafted setup (build-loop item 7): the model proposes, a person accepts, edits or
+// rejects each item, and applying makes a draft version of the product (publishing still needs a
+// second approver).
+app.MapPost("/api/v1/products/{productId:guid}/wording-drafts", InsuranceIntelligence.Api.Products.WordingDraftEndpoints.Create)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/{productId:guid}/wording-drafts", InsuranceIntelligence.Api.Products.WordingDraftEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/{productId:guid}/wording-drafts/{draftId:guid}", InsuranceIntelligence.Api.Products.WordingDraftEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPut("/api/v1/products/{productId:guid}/wording-drafts/{draftId:guid}/items/{itemId}", InsuranceIntelligence.Api.Products.WordingDraftEndpoints.UpdateItem)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/wording-drafts/{draftId:guid}/apply", InsuranceIntelligence.Api.Products.WordingDraftEndpoints.Apply)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/wording-drafts/{draftId:guid}/discard", InsuranceIntelligence.Api.Products.WordingDraftEndpoints.Discard)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 app.MapGet("/api/v1/client-portal/claim-types", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.ListForClaimant)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());

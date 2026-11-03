@@ -75,6 +75,16 @@ export type ClaimFieldConfig = {
 
 export type ProductStatus = "Draft" | "PendingPublishApproval" | "Published" | "Retired";
 
+export type CoverageItem = {
+  key: string | null;
+  kind: "Covered" | "Excluded";
+  title: string;
+  description: string | null;
+  clause: string | null;
+  page: number | null;
+  quote: string | null;
+};
+
 export type Product = {
   productId: string;
   version: number;
@@ -90,6 +100,8 @@ export type Product = {
   wordingFacts: ProductWordingFact[];
   claimTypes: ClaimTypeConfig[];
   claimFields: ClaimFieldConfig[];
+  /** What the policy wording says is covered or excluded, each with its clause (read only here). */
+  coverageItems?: CoverageItem[];
   updatedByUserId: string;
   updatedAt: string;
   changeReason: string;

@@ -49,6 +49,11 @@ public sealed record Product
     /// definitions for the product line apply (see <see cref="ClaimFieldResolver"/>).</summary>
     public IReadOnlyList<ClaimFieldDefinition> ClaimFields { get; init; } = [];
 
+    /// <summary>What the policy wording says is covered and what is excluded (build-loop item 7),
+    /// each with the clause it came from. Part of the version snapshot. Informational for staff and
+    /// for the assistant's grounding; it does not decide a claim.</summary>
+    public IReadOnlyList<CoverageItem> CoverageItems { get; init; } = [];
+
     public IReadOnlyList<ClaimTypeDefinition> ActiveClaimTypes =>
         ClaimTypes.Where(type => type.Active).OrderBy(type => type.SortOrder).ToArray();
 
@@ -85,6 +90,22 @@ public sealed record Product
         && (!requireIraApproval
             || (!string.IsNullOrWhiteSpace(IraApprovalReference) && IraApprovalEffectiveDate is not null));
 }
+
+public enum CoverageKind
+{
+    Covered,
+    Excluded,
+}
+
+/// <summary>One thing the wording covers or excludes, with where it says so.</summary>
+public sealed record CoverageItem(
+    string Key,
+    CoverageKind Kind,
+    string Title,
+    string Description,
+    string? Clause,
+    int? Page,
+    string? Quote);
 
 /// <summary>One kind of claim a product handles, for example "Own damage" or "Theft". The key is
 /// stable and is what a claim stores; the name is what people read; aliases are other words people
