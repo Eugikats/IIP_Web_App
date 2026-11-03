@@ -1,0 +1,184 @@
+{
+  "pack": "06_goods_in_transit",
+  "variant": "challenge",
+  "purpose": "Goods-in-transit claim. CHALLENGE: inconsistent quantity and date/time-zone mismatch.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_policy_certificate.docx",
+      "document_type": "policy_certificate",
+      "page": "1",
+      "fields": {
+        "Certificate": "SYN-GIT-CERT-0902",
+        "Insured": "Test Importer Wanyama Ltd (fictional)",
+        "Goods": "Cartons of ceramic tiles",
+        "Route": "Fictional Port to Testville",
+        "Sum insured": "UGX 22,000,000"
+      },
+      "confidence_sensitive_fields": [
+        "sum_insured"
+      ]
+    },
+    {
+      "file": "02_consignment_note.docx",
+      "document_type": "consignment_note",
+      "page": "1",
+      "fields": {
+        "Consignment no.": "SYN-CN-88014",
+        "Shipper": "Test Exporter Co (fictional)",
+        "Consignee": "Test Importer Wanyama Ltd (fictional)",
+        "Carrier": "Test Haulage Ltd (fictional)",
+        "Dispatch": "2026-09-02 08:00 EAT (UTC+3)",
+        "Quantity": "200 cartons"
+      },
+      "confidence_sensitive_fields": [
+        "quantity",
+        "dispatch_time"
+      ]
+    },
+    {
+      "file": "03_packing_list.docx",
+      "document_type": "packing_list",
+      "page": "1",
+      "fields": {
+        "Consignment": "SYN-CN-88014",
+        "Cartons": "200",
+        "Gross weight": "6,400 kg",
+        "Item": "Ceramic tiles 60x60"
+      },
+      "confidence_sensitive_fields": [
+        "cartons"
+      ]
+    },
+    {
+      "file": "04_delivery_proof.docx",
+      "document_type": "delivery_proof",
+      "page": "1",
+      "fields": {
+        "Consignment": "SYN-CN-88014",
+        "Delivered": "2026-09-03 06:30 UTC",
+        "Cartons received": "180",
+        "Receiver": "Test Receiver Sample",
+        "Remark": "Broken cartons noted"
+      },
+      "confidence_sensitive_fields": [
+        "cartons_received",
+        "delivered_time"
+      ]
+    },
+    {
+      "file": "05_incident_report.docx",
+      "document_type": "incident_report",
+      "page": "1",
+      "fields": {
+        "Consignment": "SYN-CN-88014",
+        "Incident time": "2026-09-02 19:10 EAT (UTC+3)",
+        "Description": "Truck braked sharply, load shifted",
+        "Reporter": "Test Driver Sample"
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "06_carrier_correspondence.docx",
+      "document_type": "correspondence",
+      "page": "1",
+      "fields": {
+        "From": "Test Haulage Ltd (fictional)",
+        "Date": "2026-09-05",
+        "Message": "Acknowledges receipt of complaint. No admission stated."
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "07_invoice.docx",
+      "document_type": "invoice",
+      "page": "1",
+      "fields": {
+        "Invoice": "SYN-CI-4410",
+        "Qty": "200 cartons",
+        "Unit price": "UGX 110,000",
+        "Total": "UGX 22,000,000"
+      },
+      "confidence_sensitive_fields": [
+        "total"
+      ]
+    },
+    {
+      "file": "08_salvage_list.docx",
+      "document_type": "salvage_list",
+      "page": "1",
+      "fields": {
+        "Intact cartons": "150",
+        "Damaged cartons": "30",
+        "Note": "Counts as stated by test surveyor"
+      },
+      "confidence_sensitive_fields": [
+        "intact",
+        "damaged"
+      ]
+    },
+    {
+      "file": "09_photo_prompts.docx",
+      "document_type": "damage_photo_descriptions",
+      "page": "1",
+      "fields": {
+        "photo_count": 2
+      },
+      "confidence_sensitive_fields": []
+    }
+  ],
+  "discrepancies": [
+    {
+      "code": "QUANTITY_INCONSISTENT",
+      "description": "200 cartons dispatched/invoiced; 180 received per proof of delivery; salvage list totals 180 (150+30).",
+      "files": [
+        "03_packing_list.docx",
+        "04_delivery_proof.docx",
+        "08_salvage_list.docx"
+      ],
+      "evidence": {}
+    },
+    {
+      "code": "TIMEZONE_MISMATCH",
+      "description": "Dispatch in EAT (UTC+3); delivery stated in UTC. 2026-09-03 06:30 UTC equals 09:30 EAT, so ordering holds only after conversion; extraction must normalise.",
+      "files": [
+        "02_consignment_note.docx",
+        "04_delivery_proof.docx"
+      ],
+      "evidence": {}
+    }
+  ],
+  "missing_required_items": [],
+  "human_verification_required": [
+    "Liability and coverage are not decided."
+  ],
+  "cross_document_relationships": [
+    {
+      "key": "consignment_no",
+      "value": "SYN-CN-88014",
+      "appears_in": [
+        "02",
+        "03",
+        "04",
+        "05"
+      ]
+    },
+    {
+      "key": "quantity_dispatched",
+      "value": 200,
+      "appears_in": [
+        "02",
+        "03",
+        "07"
+      ]
+    },
+    {
+      "key": "quantity_received",
+      "value": 180,
+      "appears_in": [
+        "04"
+      ]
+    }
+  ]
+}

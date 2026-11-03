@@ -1,0 +1,140 @@
+{
+  "pack": "03_life_death_claim",
+  "variant": "clean",
+  "purpose": "Life death claim. CLEAN.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_claim_form.docx",
+      "document_type": "life_claim_form",
+      "page": "1",
+      "fields": {
+        "Claim ref": "SYN-CLM-0003",
+        "Policy number": "SYN-LIF-2020-001988",
+        "Life assured": "Test Deceased Mukasa Fictiona",
+        "Date of death": "2026-08-03",
+        "Claimant": "Test Beneficiary Nantongo Sample",
+        "Relationship": "Spouse",
+        "Claimant NIN (invented)": "CMSYN0000123456",
+        "Claimant phone": "+256 700 000 303 (fake)",
+        "Bank account attached": "Yes",
+        "signature_present": true
+      },
+      "confidence_sensitive_fields": [
+        "date_of_death",
+        "claimant"
+      ]
+    },
+    {
+      "file": "02_policy_schedule.docx",
+      "document_type": "policy_schedule",
+      "page": "1",
+      "fields": {
+        "Policy number": "SYN-LIF-2020-001988",
+        "Life assured": "Test Deceased Mukasa Fictiona",
+        "Plan": "Term life, 20 years",
+        "Sum assured (UGX)": "50,000,000",
+        "Inception": "2020-02-01",
+        "Premium status": "Paid up to date (stated)",
+        "Nominated beneficiary": "Test Beneficiary Nantongo Sample"
+      },
+      "confidence_sensitive_fields": [
+        "sum_assured",
+        "nominated_beneficiary"
+      ]
+    },
+    {
+      "file": "03_death_certificate_sample.docx",
+      "document_type": "death_certificate",
+      "page": "1",
+      "fields": {
+        "Certificate no.": "SYN-DC-00552",
+        "Name": "Test Deceased Mukasa Fictiona",
+        "Date of death": "2026-08-03",
+        "Place": "Fictional District Hospital",
+        "Cause (as stated, synthetic)": "Natural causes",
+        "Issuing office": "Invented Registry Office"
+      },
+      "confidence_sensitive_fields": [
+        "date_of_death"
+      ],
+      "notes": "Layout invented, not any real registry template."
+    },
+    {
+      "file": "04_beneficiary_nomination.docx",
+      "document_type": "beneficiary_nomination",
+      "page": "1",
+      "fields": {
+        "Policy number": "SYN-LIF-2020-001988",
+        "Beneficiary": "Test Beneficiary Nantongo Sample",
+        "Share": "100%",
+        "Date signed": "2020-02-01",
+        "signature_present": true
+      },
+      "confidence_sensitive_fields": [
+        "beneficiary"
+      ]
+    },
+    {
+      "file": "05_claimant_id_sample.docx",
+      "document_type": "identity_document",
+      "page": "1",
+      "fields": {
+        "Name": "Test Beneficiary Nantongo Sample",
+        "NIN (invented)": "CMSYN0000123456",
+        "DOB": "1988-04-04 (invented)",
+        "Card no.": "SYN-ID-90122"
+      },
+      "confidence_sensitive_fields": [
+        "name",
+        "nin"
+      ],
+      "notes": "Not a NIRA layout."
+    },
+    {
+      "file": "06_physician_note.docx",
+      "document_type": "medical_note",
+      "page": "1",
+      "fields": {
+        "Physician": "Dr. Test Physician Sample",
+        "Patient": "Test Deceased Mukasa Fictiona",
+        "Date of death recorded": "2026-08-03",
+        "Statement": "Patient died at facility. Synthetic text only."
+      },
+      "confidence_sensitive_fields": [
+        "date_of_death_recorded"
+      ]
+    },
+    {
+      "file": "07_bank_details_attachment.docx",
+      "document_type": "bank_details",
+      "page": "1",
+      "fields": {
+        "Account name": "Test Beneficiary Nantongo Sample",
+        "Bank": "Invented Test Bank",
+        "Account no.": "0000000000 (placeholder)"
+      },
+      "confidence_sensitive_fields": [
+        "account_name"
+      ]
+    },
+    {
+      "file": "08_accidental_death_variant_reference.docx",
+      "document_type": "police_postmortem_reference",
+      "page": "1",
+      "fields": {
+        "Police ref": "SYN-PR-61004",
+        "Postmortem ref": "SYN-PM-0187",
+        "Applicable": "Only for accidental-death variant; included for completeness",
+        "Date of incident": "2026-08-03"
+      },
+      "confidence_sensitive_fields": []
+    }
+  ],
+  "discrepancies": [],
+  "missing_required_items": [],
+  "human_verification_required": [
+    "Identity match, beneficiary entitlement and cause of death require human verification. No approval or payment recommendation."
+  ]
+}

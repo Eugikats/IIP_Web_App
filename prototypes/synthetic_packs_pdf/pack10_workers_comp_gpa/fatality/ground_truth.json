@@ -1,0 +1,140 @@
+{
+  "pack": "10_workers_comp_gpa",
+  "variant": "fatality",
+  "purpose": "Fatality variant with beneficiary evidence.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_employer_incident_report.docx",
+      "document_type": "incident_report",
+      "page": "1",
+      "fields": {
+        "Employer": "Test Manufacturing Ltd (fictional)",
+        "Employee": "Test Employee Ssentongo Sample",
+        "Date of incident": "2026-09-08",
+        "Location": "Fictional Factory Floor 2",
+        "Description": "Fatal incident. Synthetic.",
+        "Reported by": "Test HR Officer"
+      },
+      "confidence_sensitive_fields": [
+        "date_of_incident",
+        "employer"
+      ]
+    },
+    {
+      "file": "02_employment_record.docx",
+      "document_type": "employment_record",
+      "page": "1",
+      "fields": {
+        "Employee": "Test Employee Ssentongo Sample",
+        "NIN (invented)": "CMSYN0000789012",
+        "Employer": "Test Manufacturing Ltd (fictional)",
+        "Job title": "Machine operator",
+        "Start date": "2022-03-01"
+      },
+      "confidence_sensitive_fields": [
+        "employer",
+        "nin"
+      ]
+    },
+    {
+      "file": "03_policy_schedule.docx",
+      "document_type": "policy_schedule",
+      "page": "1",
+      "fields": {
+        "Policy": "SYN-GPA-2026-000318",
+        "Policyholder": "Test Manufacturing Ltd (fictional)",
+        "Period": "2026-01-01 to 2026-12-31",
+        "Employees covered": "120",
+        "Capital sum per life": "UGX 36,000,000"
+      },
+      "confidence_sensitive_fields": [
+        "policyholder"
+      ]
+    },
+    {
+      "file": "04_witness_statement.docx",
+      "document_type": "witness_statement",
+      "page": "1",
+      "fields": {
+        "Witness": "Test Witness Namutebi Sample",
+        "Date of incident stated": "2026-09-08",
+        "Statement": "I saw the pallet fall. Synthetic.",
+        "signature_present": true
+      },
+      "confidence_sensitive_fields": [
+        "date_of_incident_stated"
+      ]
+    },
+    {
+      "file": "05_police_reference.docx",
+      "document_type": "police_reference",
+      "page": "1",
+      "fields": {
+        "Reference": "SYN-PR-70012",
+        "Date": "2026-09-08",
+        "Note": "Workplace incident logged"
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "06_medical_report.docx",
+      "document_type": "medical_report",
+      "page": "1",
+      "fields": {
+        "Patient": "Test Employee Ssentongo Sample",
+        "Date": "2026-09-08",
+        "Finding (synthetic)": "Fatal head injury"
+      },
+      "confidence_sensitive_fields": [
+        "finding"
+      ]
+    },
+    {
+      "file": "07_medical_bills.docx",
+      "document_type": "medical_bills",
+      "page": "1",
+      "fields": {
+        "Total": "UGX 350,000",
+        "Provider": "Test Hospital (fictional)"
+      },
+      "confidence_sensitive_fields": [
+        "total"
+      ]
+    },
+    {
+      "file": "08_payslip.docx",
+      "document_type": "payslip",
+      "page": "1",
+      "fields": {
+        "Employee": "Test Employee Ssentongo Sample",
+        "Month": "2026-08",
+        "Gross": "UGX 900,000",
+        "Net": "UGX 800,000"
+      },
+      "confidence_sensitive_fields": [
+        "gross"
+      ]
+    },
+    {
+      "file": "09_beneficiary_evidence.docx",
+      "document_type": "beneficiary_evidence",
+      "page": "1",
+      "fields": {
+        "Beneficiary": "Test Spouse Nabukenya Sample",
+        "Relationship": "Spouse",
+        "Marriage doc ref (invented)": "SYN-MR-0021",
+        "Beneficiary NIN (invented)": "CMSYN0000445566"
+      },
+      "confidence_sensitive_fields": [
+        "beneficiary"
+      ]
+    }
+  ],
+  "discrepancies": [],
+  "missing_required_items": [],
+  "human_verification_required": [
+    "Benefit entitlement is not decided."
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "pack": "11_life_maturity_and_credit_life",
+  "variant": "a_maturity_challenge",
+  "purpose": "Endowment maturity folder. CHALLENGE: policy number mismatch and missing discharge form.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_policy_schedule.docx",
+      "document_type": "policy_schedule",
+      "page": "1",
+      "fields": {
+        "Policy": "SYN-END-2006-000412",
+        "Holder": "Test Policyholder Atuhaire Sample",
+        "Plan": "Endowment 20 years",
+        "Maturity date": "2026-10-01",
+        "Sum assured": "UGX 12,000,000"
+      },
+      "confidence_sensitive_fields": [
+        "policy_number",
+        "maturity_date"
+      ]
+    },
+    {
+      "file": "02_maturity_notice.docx",
+      "document_type": "maturity_notice",
+      "page": "1",
+      "fields": {
+        "Policy": "SYN-END-2006-000421",
+        "Holder": "Test Policyholder Atuhaire Sample",
+        "Maturity date": "2026-10-01",
+        "Estimated maturity value": "UGX 15,400,000"
+      },
+      "confidence_sensitive_fields": [
+        "policy_number"
+      ]
+    },
+    {
+      "file": "04_claimant_id.docx",
+      "document_type": "identity_document",
+      "page": "1",
+      "fields": {
+        "Name": "Test Policyholder Atuhaire Sample",
+        "NIN (invented)": "CMSYN0000112233",
+        "Card no.": "SYN-ID-44120"
+      },
+      "confidence_sensitive_fields": [
+        "nin"
+      ]
+    },
+    {
+      "file": "05_payment_instruction.docx",
+      "document_type": "payment_instruction",
+      "page": "1",
+      "fields": {
+        "Account name": "Test Policyholder Atuhaire Sample",
+        "Bank": "Invented Test Bank",
+        "Account no.": "0000000000 (placeholder)"
+      },
+      "confidence_sensitive_fields": []
+    }
+  ],
+  "discrepancies": [
+    {
+      "code": "POLICY_NUMBER_MISMATCH",
+      "description": "Maturity notice shows ...000421, schedule shows ...000412.",
+      "files": [
+        "01_policy_schedule.docx",
+        "02_maturity_notice.docx"
+      ],
+      "evidence": {}
+    }
+  ],
+  "missing_required_items": [
+    {
+      "item": "Discharge form",
+      "note": ""
+    }
+  ],
+  "human_verification_required": [
+    "No payment approval. Entitlement not inferred."
+  ]
+}

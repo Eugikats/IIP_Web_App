@@ -1,0 +1,160 @@
+{
+  "pack": "05_property_fire",
+  "variant": "challenge",
+  "purpose": "Small-business fire claim. CHALLENGE: conflicting loss dates, duplicate invoice, incomplete (no BI summary).",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_asset_schedule.docx",
+      "document_type": "asset_schedule",
+      "page": "1",
+      "fields": {
+        "Policy": "SYN-PRP-2026-000771",
+        "Insured": "Test Trading Store Nakato Ltd (fictional)",
+        "Stock": "UGX 40,000,000",
+        "Fittings": "UGX 8,000,000",
+        "Equipment": "UGX 6,500,000",
+        "Total sum insured": "UGX 54,500,000"
+      },
+      "confidence_sensitive_fields": [
+        "total_sum_insured"
+      ]
+    },
+    {
+      "file": "02_claim_form.docx",
+      "document_type": "property_claim_form",
+      "page": "1",
+      "fields": {
+        "Claim ref": "SYN-CLM-0005",
+        "Policy": "SYN-PRP-2026-000771",
+        "Insured": "Test Trading Store Nakato Ltd (fictional)",
+        "Date of loss": "2026-10-03",
+        "Cause (as stated)": "Fire",
+        "Claimed amount": "UGX 31,200,000",
+        "signature_present": true
+      },
+      "confidence_sensitive_fields": [
+        "date_of_loss",
+        "claimed_amount"
+      ]
+    },
+    {
+      "file": "03_fire_service_report.docx",
+      "document_type": "fire_service_report",
+      "page": "1",
+      "fields": {
+        "Reference": "SYN-FS-2231",
+        "Incident date": "2026-10-04",
+        "Location": "Fictional Arcade, Testville",
+        "Note": "Observation only"
+      },
+      "confidence_sensitive_fields": [
+        "incident_date"
+      ]
+    },
+    {
+      "file": "04_police_reference.docx",
+      "document_type": "police_reference",
+      "page": "1",
+      "fields": {
+        "Reference": "SYN-PR-80233",
+        "Reported date": "2026-10-03",
+        "Station": "Fictional Central Station"
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "05_photo_prompts.docx",
+      "document_type": "damage_photo_descriptions",
+      "page": "1",
+      "fields": {
+        "photo_count": 3
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "06_inventory.docx",
+      "document_type": "inventory",
+      "page": "1",
+      "fields": {
+        "Shelving units": "6 x 250,000 = 1,500,000",
+        "Counter": "1 x 900,000 = 900,000",
+        "Stock rice 50kg bags": "40 x 180,000 = 7,200,000",
+        "Stock sugar 50kg bags": "30 x 210,000 = 6,300,000",
+        "Inventory total": "15,900,000",
+        "total_ugx": 15900000
+      },
+      "confidence_sensitive_fields": [
+        "inventory_total"
+      ]
+    },
+    {
+      "file": "07_supplier_invoice_1.docx",
+      "document_type": "supplier_invoice",
+      "page": "1",
+      "fields": {
+        "invoice_no": "SYN-SI-3301",
+        "supplier": "Test Wholesaler Ltd (fictional)",
+        "total_ugx": 13500000
+      },
+      "confidence_sensitive_fields": [
+        "invoice_no"
+      ]
+    },
+    {
+      "file": "08_supplier_invoice_1_dup.docx",
+      "document_type": "supplier_invoice",
+      "page": "1",
+      "fields": {
+        "invoice_no": "SYN-SI-3301",
+        "supplier": "Test Wholesaler Ltd (fictional)",
+        "total_ugx": 13500000
+      },
+      "confidence_sensitive_fields": [
+        "invoice_no"
+      ]
+    },
+    {
+      "file": "09_replacement_quote.docx",
+      "document_type": "quote",
+      "page": "1",
+      "fields": {
+        "Contractor": "Test Builders Ltd (fictional)",
+        "Repairs": "UGX 9,500,000",
+        "Fittings": "UGX 4,200,000",
+        "Total": "UGX 13,700,000"
+      },
+      "confidence_sensitive_fields": []
+    }
+  ],
+  "discrepancies": [
+    {
+      "code": "CONFLICTING_LOSS_DATES",
+      "description": "Claim form 2026-10-03; fire service report 2026-10-04.",
+      "files": [
+        "02_claim_form.docx",
+        "03_fire_service_report.docx"
+      ],
+      "evidence": {}
+    },
+    {
+      "code": "DUPLICATE_SUPPLIER_INVOICE",
+      "description": "SYN-SI-3301 appears twice.",
+      "files": [
+        "07_supplier_invoice_1.docx",
+        "08_supplier_invoice_1_dup.docx"
+      ],
+      "evidence": {}
+    }
+  ],
+  "missing_required_items": [
+    {
+      "item": "Business interruption income summary",
+      "note": ""
+    }
+  ],
+  "human_verification_required": [
+    "Cause, coverage and quantum are not decided here."
+  ]
+}

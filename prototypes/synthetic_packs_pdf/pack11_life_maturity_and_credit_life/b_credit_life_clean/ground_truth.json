@@ -1,0 +1,82 @@
+{
+  "pack": "11_life_maturity_and_credit_life",
+  "variant": "b_credit_life_clean",
+  "purpose": "Credit-life death folder. CLEAN.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_loan_balance_statement.docx",
+      "document_type": "loan_statement",
+      "page": "1",
+      "fields": {
+        "Lender": "Invented Test Lender Ltd",
+        "Borrower": "Test Borrower Lutalo Fictiona",
+        "Loan ref": "SYN-LN-90812",
+        "Credit-life policy ref": "SYN-CRL-2025-003377",
+        "Balance at date of death": "UGX 8,450,000"
+      },
+      "confidence_sensitive_fields": [
+        "policy_ref",
+        "balance"
+      ]
+    },
+    {
+      "file": "02_policy_certificate.docx",
+      "document_type": "policy_certificate",
+      "page": "1",
+      "fields": {
+        "Policy": "SYN-CRL-2025-003377",
+        "Life assured": "Test Borrower Lutalo Fictiona",
+        "Loan ref": "SYN-LN-90812",
+        "Cover": "Outstanding balance, max UGX 10,000,000"
+      },
+      "confidence_sensitive_fields": [
+        "policy_number"
+      ]
+    },
+    {
+      "file": "03_death_evidence.docx",
+      "document_type": "death_certificate",
+      "page": "1",
+      "fields": {
+        "Name": "Test Borrower Lutalo Fictiona",
+        "Date of death": "2026-09-22",
+        "Certificate no.": "SYN-DC-00771"
+      },
+      "confidence_sensitive_fields": [
+        "date_of_death"
+      ],
+      "notes": "Invented layout."
+    },
+    {
+      "file": "04_claimant_docs.docx",
+      "document_type": "claimant_documents",
+      "page": "1",
+      "fields": {
+        "Claimant": "Test Claimant Lutalo Jr Sample",
+        "Relationship": "Son",
+        "NIN (invented)": "CMSYN0000998877"
+      },
+      "confidence_sensitive_fields": [
+        "claimant"
+      ]
+    },
+    {
+      "file": "05_lender_correspondence.docx",
+      "document_type": "correspondence",
+      "page": "1",
+      "fields": {
+        "From": "Invented Test Lender Ltd",
+        "Date": "2026-09-30",
+        "Message": "Confirms outstanding balance. Synthetic."
+      },
+      "confidence_sensitive_fields": []
+    }
+  ],
+  "discrepancies": [],
+  "missing_required_items": [],
+  "human_verification_required": [
+    "No payment approval. Beneficiary entitlement not inferred."
+  ]
+}

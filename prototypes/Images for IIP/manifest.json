@@ -1,0 +1,16 @@
+{
+  "marker": "SYNTHETIC - NOT REAL CLAIM EVIDENCE",
+  "purpose": "Image attachment, checklist matching, authorized preview, and human review in a test workspace.",
+  "decision_boundary": "No coverage, liability, fraud, repair-cost, settlement, or payment decision is encoded.",
+  "images": [
+    { "file": "exec-e7ef8d1b-8164-4cb5-8272-e2da6aad42f6.png", "productLine": "Motor", "documentTypeKey": "PhotoEvidence", "scenario": "Vehicle rear and registration context" },
+    { "file": "exec-ce85a721-4a26-4c85-9459-aa44a5fd9462.png", "productLine": "Motor", "documentTypeKey": "PhotoEvidence", "scenario": "Front impact damage" },
+    { "file": "exec-c47912a3-a9b7-481c-8f56-03a260651207.png", "productLine": "Motor", "documentTypeKey": "PhotoEvidence", "scenario": "Close view of front lamp and damage" },
+    { "file": "exec-519b4240-1148-478d-afa5-6dd82873e25c.png", "productLine": "Motor", "documentTypeKey": "PhotoEvidence", "scenario": "Additional front damage view" },
+    { "file": "exec-bc02334c-c13f-42e5-ac56-71ec24cda9a1.png", "productLine": "GoodsInTransit", "documentTypeKey": "PhotoEvidence", "scenario": "Loaded freight vehicle" },
+    { "file": "exec-2ea85599-a5c7-4ff3-98f1-36610fb2b402.png", "productLine": "GoodsInTransit", "documentTypeKey": "PhotoEvidence", "scenario": "Damaged tile cargo" },
+    { "file": "exec-fa0adcaf-9ab2-41e3-acda-1a75e88e15ff.png", "productLine": "Fire", "documentTypeKey": "PhotoEvidence", "scenario": "Fire-damaged shop interior" },
+    { "file": "exec-b4a2915c-f4ea-4067-9a8c-69ae4a99119e.png", "productLine": "Fire", "documentTypeKey": "PhotoEvidence", "scenario": "Close view of damaged stock" },
+    { "file": "exec-8aa5d10e-435f-4f74-a577-ec7571c73f08.png", "productLine": "Fire", "documentTypeKey": "PhotoEvidence", "scenario": "Fire-damaged storefront" }
+  ]
+}

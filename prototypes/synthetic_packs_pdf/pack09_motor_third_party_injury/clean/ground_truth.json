@@ -1,0 +1,147 @@
+{
+  "pack": "09_motor_third_party_injury",
+  "variant": "clean",
+  "purpose": "Third-party bodily injury. CLEAN: driver is the insured.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_police_abstract.docx",
+      "document_type": "police_abstract",
+      "page": "1",
+      "fields": {
+        "Abstract no.": "SYN-PA-90311",
+        "Date of accident": "2026-09-20",
+        "Vehicle": "UBX 731R",
+        "Driver": "Test Insured Byaruhanga Fictiona",
+        "Registered owner / insured": "Test Insured Byaruhanga Fictiona",
+        "Injured party": "Test Claimant Opio Sample",
+        "Summary": "Vehicle struck pedestrian at a crossing. Injuries reported."
+      },
+      "confidence_sensitive_fields": [
+        "driver",
+        "date_of_accident"
+      ]
+    },
+    {
+      "file": "02_claimant_statement.docx",
+      "document_type": "claimant_statement",
+      "page": "1",
+      "fields": {
+        "Claimant": "Test Claimant Opio Sample",
+        "NIN (invented)": "CMSYN0000654321",
+        "Date of accident": "2026-09-20",
+        "Statement": "I was crossing when the vehicle hit me. Synthetic text.",
+        "signature_present": true
+      },
+      "confidence_sensitive_fields": [
+        "claimant",
+        "nin"
+      ]
+    },
+    {
+      "file": "03_insured_driver_details.docx",
+      "document_type": "insured_driver_details",
+      "page": "1",
+      "fields": {
+        "Insured": "Test Insured Byaruhanga Fictiona",
+        "Policy": "SYN-MTR-2026-006610",
+        "Vehicle": "UBX 731R",
+        "Driver": "Test Insured Byaruhanga Fictiona",
+        "Driver permit (invented)": "TST-DP-0099125",
+        "Relationship driver to insured": "Same person"
+      },
+      "confidence_sensitive_fields": [
+        "insured",
+        "driver"
+      ]
+    },
+    {
+      "file": "04_medical_report.docx",
+      "document_type": "medical_report",
+      "page": "1",
+      "fields": {
+        "Patient": "Test Claimant Opio Sample",
+        "Date seen": "2026-09-20",
+        "Injury (synthetic)": "Fracture of left forearm",
+        "Doctor": "Dr. Test Doctor Sample"
+      },
+      "confidence_sensitive_fields": [
+        "injury",
+        "date_seen"
+      ]
+    },
+    {
+      "file": "05_treatment_bills.docx",
+      "document_type": "treatment_bill",
+      "page": "1",
+      "fields": {
+        "lines": [
+          {
+            "desc": "Consultation",
+            "qty": 1,
+            "unit_ugx": 40000,
+            "date": "2026-09-20",
+            "line_total_ugx": 40000
+          },
+          {
+            "desc": "X-ray",
+            "qty": 1,
+            "unit_ugx": 80000,
+            "date": "2026-09-20",
+            "line_total_ugx": 80000
+          },
+          {
+            "desc": "Cast and splint",
+            "qty": 1,
+            "unit_ugx": 150000,
+            "date": "2026-09-21",
+            "line_total_ugx": 150000
+          },
+          {
+            "desc": "Follow-up visit",
+            "qty": 1,
+            "unit_ugx": 40000,
+            "date": "2026-10-04",
+            "line_total_ugx": 40000
+          }
+        ],
+        "total_ugx": 310000
+      },
+      "confidence_sensitive_fields": [
+        "lines",
+        "total_ugx"
+      ]
+    },
+    {
+      "file": "06_employer_wage_evidence.docx",
+      "document_type": "wage_evidence",
+      "page": "1",
+      "fields": {
+        "Employee": "Test Claimant Opio Sample",
+        "Employer": "Test Hardware Ltd (fictional)",
+        "Monthly wage": "UGX 600,000",
+        "Absent days": "21"
+      },
+      "confidence_sensitive_fields": [
+        "monthly_wage"
+      ]
+    },
+    {
+      "file": "07_accident_sketch.docx",
+      "document_type": "accident_sketch",
+      "page": "1",
+      "fields": {
+        "Layout": "Two-lane road, pedestrian crossing, vehicle travelling north",
+        "Point of impact": "Marked X at crossing, 3 m from kerb",
+        "Prepared by": "Test Officer A. Sample"
+      },
+      "confidence_sensitive_fields": []
+    }
+  ],
+  "discrepancies": [],
+  "missing_required_items": [],
+  "human_verification_required": [
+    "Liability, causation and cover are not decided. Confirm claimant identity and bill dates."
+  ]
+}

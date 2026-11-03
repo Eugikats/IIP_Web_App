@@ -1,0 +1,246 @@
+{
+  "pack": "01_motor_own_damage",
+  "variant": "challenge",
+  "purpose": "Comprehensive motor own-damage claim, low-speed collision. CHALLENGE: registration digit mismatch in police abstract, estimate B total != sum of lines, claim form unsigned.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_claim_form.docx",
+      "document_type": "motor_claim_form",
+      "page": "1",
+      "fields": {
+        "claim_ref": "SYN-CLM-0001",
+        "policy_number": "SYN-MTR-2026-004417",
+        "insured_name": "Test Insured Namukasa Fictiona",
+        "vehicle_registration": "UBZ 482K",
+        "date_of_loss": "2026-09-14",
+        "time_of_loss": "17:40",
+        "location": "Fictional Rd junction, Testville, Uganda",
+        "driver_name": "Test Insured Namukasa Fictiona",
+        "estimated_damage_ugx": 3250000,
+        "signature_present": false
+      },
+      "confidence_sensitive_fields": [
+        "vehicle_registration",
+        "date_of_loss",
+        "policy_number"
+      ]
+    },
+    {
+      "file": "02_drivers_permit.docx",
+      "document_type": "drivers_permit",
+      "page": "1",
+      "fields": {
+        "permit_number": "TST-DP-0048213",
+        "holder_name": "Test Insured Namukasa Fictiona",
+        "class": "B",
+        "expiry": "2029-03-31",
+        "dob": "1990-01-01"
+      },
+      "confidence_sensitive_fields": [
+        "permit_number",
+        "expiry"
+      ]
+    },
+    {
+      "file": "03_vehicle_logbook_extract.docx",
+      "document_type": "vehicle_logbook",
+      "page": "1",
+      "fields": {
+        "registration": "UBZ 482K",
+        "chassis_no": "SYNCH0048213X001",
+        "engine_no": "SYNENG771204",
+        "make": "Fictomotor",
+        "model": "Sedan 1.5",
+        "year": 2019,
+        "colour": "Silver",
+        "registered_owner": "Test Insured Namukasa Fictiona"
+      },
+      "confidence_sensitive_fields": [
+        "registration",
+        "chassis_no"
+      ]
+    },
+    {
+      "file": "04_police_abstract.docx",
+      "document_type": "police_abstract",
+      "page": "1",
+      "fields": {
+        "abstract_no": "SYN-PA-77120",
+        "vehicle_registration": "UBZ 483K",
+        "date_of_incident": "2026-09-14",
+        "station": "Fictional Central Station",
+        "reporting_person": "Test Insured Namukasa Fictiona",
+        "officer": "Test Officer A. Sample"
+      },
+      "confidence_sensitive_fields": [
+        "vehicle_registration",
+        "abstract_no"
+      ]
+    },
+    {
+      "file": "05_damage_photos_prompts.docx",
+      "document_type": "damage_photo_descriptions",
+      "page": "1",
+      "fields": {
+        "photo_count": 3,
+        "vehicle_registration_visible": "UBZ 482K"
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "06_repair_estimate_A.docx",
+      "document_type": "repair_estimate",
+      "page": "1",
+      "fields": {
+        "garage": "Test Garage Alpha Ltd (fictional)",
+        "registration": "UBZ 482K",
+        "estimate_date": "2026-09-16",
+        "lines": [
+          {
+            "desc": "Front bumper replace",
+            "qty": 1,
+            "unit_ugx": 850000,
+            "line_total_ugx": 850000
+          },
+          {
+            "desc": "Bonnet panel repair and respray",
+            "qty": 1,
+            "unit_ugx": 1100000,
+            "line_total_ugx": 1100000
+          },
+          {
+            "desc": "Headlamp assembly LH",
+            "qty": 1,
+            "unit_ugx": 620000,
+            "line_total_ugx": 620000
+          },
+          {
+            "desc": "Labour",
+            "qty": 1,
+            "unit_ugx": 480000,
+            "line_total_ugx": 480000
+          },
+          {
+            "desc": "Paint materials",
+            "qty": 1,
+            "unit_ugx": 200000,
+            "line_total_ugx": 200000
+          }
+        ],
+        "total_ugx": 3250000
+      },
+      "confidence_sensitive_fields": [
+        "total_ugx",
+        "registration"
+      ]
+    },
+    {
+      "file": "07_repair_estimate_B.docx",
+      "document_type": "repair_estimate",
+      "page": "1",
+      "fields": {
+        "garage": "Test Garage Beta Ltd (fictional)",
+        "registration": "UBZ 482K",
+        "estimate_date": "2026-09-17",
+        "lines": [
+          {
+            "desc": "Front bumper replace",
+            "qty": 1,
+            "unit_ugx": 900000,
+            "line_total_ugx": 900000
+          },
+          {
+            "desc": "Bonnet panel repair and respray",
+            "qty": 1,
+            "unit_ugx": 1250000,
+            "line_total_ugx": 1250000
+          },
+          {
+            "desc": "Headlamp assembly LH",
+            "qty": 1,
+            "unit_ugx": 700000,
+            "line_total_ugx": 700000
+          },
+          {
+            "desc": "Labour",
+            "qty": 1,
+            "unit_ugx": 520000,
+            "line_total_ugx": 520000
+          },
+          {
+            "desc": "Paint materials",
+            "qty": 1,
+            "unit_ugx": 250000,
+            "line_total_ugx": 250000
+          }
+        ],
+        "stated_total_ugx": 3770000,
+        "computed_total_ugx": 3620000
+      },
+      "confidence_sensitive_fields": [
+        "stated_total_ugx"
+      ]
+    },
+    {
+      "file": "08_third_party_contact_sheet.docx",
+      "document_type": "third_party_contacts",
+      "page": "1",
+      "fields": {
+        "tp_name": "Test Other Driver Okello Sample",
+        "tp_phone": "+256 700 000 202",
+        "tp_registration": "UAZ 119T",
+        "tp_insurer": "Fictional Mutual Cover (invented)"
+      },
+      "confidence_sensitive_fields": []
+    }
+  ],
+  "discrepancies": [
+    {
+      "code": "MISSING_SIGNATURE",
+      "description": "Claim form has no insured signature.",
+      "files": [
+        "01_claim_form.docx"
+      ],
+      "evidence": {
+        "signature_present": false
+      }
+    },
+    {
+      "code": "REGISTRATION_MISMATCH",
+      "description": "Police abstract shows UBZ 483K; claim form, permit link and logbook show UBZ 482K (one digit differs).",
+      "files": [
+        "01_claim_form.docx",
+        "03_vehicle_logbook_extract.docx",
+        "04_police_abstract.docx"
+      ],
+      "evidence": {
+        "claim_form": "UBZ 482K",
+        "logbook": "UBZ 482K",
+        "police_abstract": "UBZ 483K"
+      }
+    },
+    {
+      "code": "ESTIMATE_TOTAL_MISMATCH",
+      "description": "Estimate B stated total 3,770,000 but lines sum to 3,620,000 (difference 150,000).",
+      "files": [
+        "07_repair_estimate_B.docx"
+      ],
+      "evidence": {
+        "stated": 3770000,
+        "computed": 3620000
+      }
+    }
+  ],
+  "missing_required_items": [
+    {
+      "item": "Signed claim form",
+      "note": ""
+    }
+  ],
+  "human_verification_required": [
+    "Confirm correct registration against the original police abstract.",
+    "Select between estimates A and B is a business decision; not made here."
+  ]
+}

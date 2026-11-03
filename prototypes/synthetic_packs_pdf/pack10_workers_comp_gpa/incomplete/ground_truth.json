@@ -1,0 +1,120 @@
+{
+  "pack": "10_workers_comp_gpa",
+  "variant": "incomplete",
+  "purpose": "INCOMPLETE and INCONSISTENT: employer name differs, accident date differs, wage and medical bills missing.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_employer_incident_report.docx",
+      "document_type": "incident_report",
+      "page": "1",
+      "fields": {
+        "Employer": "Test Manufacturing Ltd (fictional)",
+        "Employee": "Test Employee Ssentongo Sample",
+        "Date of incident": "2026-09-08",
+        "Location": "Fictional Factory Floor 2",
+        "Description": "Employee injured by falling pallet. Synthetic.",
+        "Reported by": "Test HR Officer"
+      },
+      "confidence_sensitive_fields": [
+        "date_of_incident",
+        "employer"
+      ]
+    },
+    {
+      "file": "02_employment_record.docx",
+      "document_type": "employment_record",
+      "page": "1",
+      "fields": {
+        "Employee": "Test Employee Ssentongo Sample",
+        "NIN (invented)": "CMSYN0000789012",
+        "Employer": "Test Manufacturers Uganda Ltd (fictional)",
+        "Job title": "Machine operator",
+        "Start date": "2022-03-01"
+      },
+      "confidence_sensitive_fields": [
+        "employer",
+        "nin"
+      ]
+    },
+    {
+      "file": "03_policy_schedule.docx",
+      "document_type": "policy_schedule",
+      "page": "1",
+      "fields": {
+        "Policy": "SYN-GPA-2026-000318",
+        "Policyholder": "Test Manufacturing Ltd (fictional)",
+        "Period": "2026-01-01 to 2026-12-31",
+        "Employees covered": "120",
+        "Capital sum per life": "UGX 36,000,000"
+      },
+      "confidence_sensitive_fields": [
+        "policyholder"
+      ]
+    },
+    {
+      "file": "04_witness_statement.docx",
+      "document_type": "witness_statement",
+      "page": "1",
+      "fields": {
+        "Witness": "Test Witness Namutebi Sample",
+        "Date of incident stated": "2026-09-09",
+        "Statement": "I saw the pallet fall. Synthetic.",
+        "signature_present": true
+      },
+      "confidence_sensitive_fields": [
+        "date_of_incident_stated"
+      ]
+    },
+    {
+      "file": "05_police_reference.docx",
+      "document_type": "police_reference",
+      "page": "1",
+      "fields": {
+        "Reference": "SYN-PR-70012",
+        "Date": "2026-09-08",
+        "Note": "Workplace incident logged"
+      },
+      "confidence_sensitive_fields": []
+    }
+  ],
+  "discrepancies": [
+    {
+      "code": "EMPLOYER_IDENTITY_MISMATCH",
+      "description": "Employer is 'Test Manufacturing Ltd (fictional)' on policy and incident report but 'Test Manufacturers Uganda Ltd (fictional)' on employment record.",
+      "files": [
+        "01_employer_incident_report.docx",
+        "02_employment_record.docx",
+        "03_policy_schedule.docx"
+      ],
+      "evidence": {}
+    },
+    {
+      "code": "INCIDENT_DATE_MISMATCH",
+      "description": "Incident 2026-09-08 vs witness statement 2026-09-09.",
+      "files": [
+        "01_employer_incident_report.docx",
+        "04_witness_statement.docx"
+      ],
+      "evidence": {}
+    }
+  ],
+  "missing_required_items": [
+    {
+      "item": "Medical report",
+      "note": ""
+    },
+    {
+      "item": "Medical bills",
+      "note": ""
+    },
+    {
+      "item": "Payslip / wage evidence",
+      "note": ""
+    }
+  ],
+  "human_verification_required": [
+    "Benefit entitlement is not decided."
+  ]
+}

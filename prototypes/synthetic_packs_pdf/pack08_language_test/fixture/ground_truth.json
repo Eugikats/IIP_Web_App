@@ -1,0 +1,256 @@
+{
+  "pack": "08_language_test",
+  "variant": "fixture",
+  "purpose": "Translation test fixture. Not approved customer wording. Native-speaker review required for all languages.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "00_english_source.docx",
+      "document_type": "language_source",
+      "page": "1",
+      "fields": {
+        "sentences": [
+          "We have received your claim SYN-CLM-0100 on 12 October 2026.",
+          "Please send your police report and a copy of your ID by 26 October 2026.",
+          "The estimated repair cost is UGX 2,500,000.",
+          "Loss of personal items left in the vehicle is excluded under this policy.",
+          "You do not need to visit our office."
+        ],
+        "invariants": {
+          "claim_ref": "SYN-CLM-0100",
+          "dates": [
+            "12 October 2026",
+            "26 October 2026"
+          ],
+          "amount": "UGX 2,500,000",
+          "has_exclusion": true,
+          "has_negation": true
+        }
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "kiswahili.docx",
+      "document_type": "translation_fixture",
+      "page": "1",
+      "fields": {
+        "language": "Kiswahili",
+        "confidence": "medium-high",
+        "translation": [
+          "Tumepokea madai yako SYN-CLM-0100 tarehe 12 Oktoba 2026.",
+          "Tafadhali tuma ripoti ya polisi na nakala ya kitambulisho chako kufikia tarehe 26 Oktoba 2026.",
+          "Gharama inayokadiriwa ya ukarabati ni UGX 2,500,000.",
+          "Upotevu wa mali binafsi zilizoachwa ndani ya gari haujafidiwa chini ya bima hii.",
+          "Huhitaji kutembelea ofisi yetu."
+        ],
+        "back_translation": [
+          "We have received your claim SYN-CLM-0100 on 12 October 2026.",
+          "Please send a police report and a copy of your ID by 26 October 2026.",
+          "The estimated cost of repair is UGX 2,500,000.",
+          "Loss of personal property left inside the car is not compensated under this insurance.",
+          "You do not need to visit our office."
+        ],
+        "uncertain_terms": [
+          "bima (insurance)",
+          "haujafidiwa (not compensated)"
+        ],
+        "must_preserve": [
+          "SYN-CLM-0100",
+          "2026",
+          "UGX 2,500,000"
+        ],
+        "native_review_required": true
+      },
+      "confidence_sensitive_fields": [
+        "translation"
+      ]
+    },
+    {
+      "file": "luganda.docx",
+      "document_type": "translation_fixture",
+      "page": "1",
+      "fields": {
+        "language": "Luganda",
+        "confidence": "medium",
+        "translation": [
+          "Tufunye okusaba kwo SYN-CLM-0100 nga 12 Okitobba 2026.",
+          "Tusaba otuweereze lipoota ya poliisi ne kopi y'endagamuntu yo nga tennaba kutuuka 26 Okitobba 2026.",
+          "Omuwendo ogugeraageranyizibwa ogw'okuddaabiriza guli UGX 2,500,000.",
+          "Okufiirwa ebintu byo ebyalekebwa mu mmotoka tekubaliddwa mu pooliisi eno.",
+          "Tolina kujja mu ofiisi yaffe."
+        ],
+        "back_translation": [
+          "We received your request SYN-CLM-0100 on 12 October 2026.",
+          "Please send a police report and your ID copy before 26 October 2026.",
+          "The estimated repair amount is UGX 2,500,000.",
+          "Losing your items left in the car is not accepted in this police/policy (term unsure).",
+          "You have nothing to come to our office."
+        ],
+        "uncertain_terms": [
+          "pooliisi (policy; wrongly sounds like police)",
+          "month name",
+          "tekubaliddwa (excluded)"
+        ],
+        "must_preserve": [
+          "SYN-CLM-0100",
+          "2026",
+          "UGX 2,500,000"
+        ],
+        "native_review_required": true
+      },
+      "confidence_sensitive_fields": [
+        "translation"
+      ]
+    },
+    {
+      "file": "runyankole.docx",
+      "document_type": "translation_fixture",
+      "page": "1",
+      "fields": {
+        "language": "Runyankole",
+        "confidence": "low",
+        "translation": [
+          "Nitwakire okusaba kwawe SYN-CLM-0100 aha 12 Okwekumi 2026.",
+          "Nitukwegayirira otutume lipoota ya poliisi na kopi y'endangamuntu yaawe butakahika 26 Okwekumi 2026.",
+          "Ekihumbi ky'okuhindura ekiteganirizibwe nikyo UGX 2,500,000.",
+          "Okuhwerera ebintu by'omuntu ebyasigara omu motoka tikuri omu bwishingye obu.",
+          "Tikikwetaagisa kuza aha ofiisi yaitu."
+        ],
+        "back_translation": [
+          "Back-translation withheld until native review; draft meaning is as per English source.",
+          "Back-translation withheld until native review; draft meaning is as per English source.",
+          "Back-translation withheld until native review; draft meaning is as per English source.",
+          "Back-translation withheld until native review; draft meaning is as per English source.",
+          "Back-translation withheld until native review; draft meaning is as per English source."
+        ],
+        "uncertain_terms": [
+          "whole text needs native review",
+          "bwishingye (insurance)",
+          "month name"
+        ],
+        "must_preserve": [
+          "SYN-CLM-0100",
+          "2026",
+          "UGX 2,500,000"
+        ],
+        "native_review_required": true
+      },
+      "confidence_sensitive_fields": [
+        "translation"
+      ]
+    },
+    {
+      "file": "acholi.docx",
+      "document_type": "translation_fixture",
+      "page": "1",
+      "fields": {
+        "language": "Acholi",
+        "confidence": "low",
+        "translation": [
+          "Wa ki gamo kwayo mamegi SYN-CLM-0100 i nino 12 Mukwa 10 2026.",
+          "Kombedi cwal ripot pa polis ki kopi pa ID mamegi nio i nino 26 Mukwa 10 2026.",
+          "Wel cente ma ki cwiny ni pi yubo gari obedo UGX 2,500,000.",
+          "Yubo pi jami ma ki to i gari pe ki gwoko i insurans man.",
+          "Pe myero i bin i ofis wa."
+        ],
+        "back_translation": [
+          "Back-translation withheld until native review.",
+          "Back-translation withheld until native review.",
+          "Back-translation withheld until native review.",
+          "Back-translation withheld until native review.",
+          "Back-translation withheld until native review."
+        ],
+        "uncertain_terms": [
+          "whole text needs native review",
+          "insurans (loanword)",
+          "month names"
+        ],
+        "must_preserve": [
+          "SYN-CLM-0100",
+          "2026",
+          "UGX 2,500,000"
+        ],
+        "native_review_required": true
+      },
+      "confidence_sensitive_fields": [
+        "translation"
+      ]
+    },
+    {
+      "file": "ateso.docx",
+      "document_type": "translation_fixture",
+      "page": "1",
+      "fields": {
+        "language": "Ateso",
+        "confidence": "pending",
+        "translation": [
+          "[TRANSLATION PENDING NATIVE SPEAKER] SYN-CLM-0100 12 October 2026",
+          "[TRANSLATION PENDING NATIVE SPEAKER] 26 October 2026",
+          "[TRANSLATION PENDING NATIVE SPEAKER] UGX 2,500,000",
+          "[TRANSLATION PENDING NATIVE SPEAKER] exclusion sentence",
+          "[TRANSLATION PENDING NATIVE SPEAKER] negation sentence"
+        ],
+        "back_translation": [
+          "n/a",
+          "n/a",
+          "n/a",
+          "n/a",
+          "n/a"
+        ],
+        "uncertain_terms": [
+          "all sentences"
+        ],
+        "must_preserve": [
+          "SYN-CLM-0100",
+          "2026",
+          "UGX 2,500,000"
+        ],
+        "native_review_required": true
+      },
+      "confidence_sensitive_fields": [
+        "translation"
+      ]
+    },
+    {
+      "file": "lugbara.docx",
+      "document_type": "translation_fixture",
+      "page": "1",
+      "fields": {
+        "language": "Lugbara",
+        "confidence": "pending",
+        "translation": [
+          "[TRANSLATION PENDING NATIVE SPEAKER] SYN-CLM-0100 12 October 2026",
+          "[TRANSLATION PENDING NATIVE SPEAKER] 26 October 2026",
+          "[TRANSLATION PENDING NATIVE SPEAKER] UGX 2,500,000",
+          "[TRANSLATION PENDING NATIVE SPEAKER] exclusion sentence",
+          "[TRANSLATION PENDING NATIVE SPEAKER] negation sentence"
+        ],
+        "back_translation": [
+          "n/a",
+          "n/a",
+          "n/a",
+          "n/a",
+          "n/a"
+        ],
+        "uncertain_terms": [
+          "all sentences"
+        ],
+        "must_preserve": [
+          "SYN-CLM-0100",
+          "2026",
+          "UGX 2,500,000"
+        ],
+        "native_review_required": true
+      },
+      "confidence_sensitive_fields": [
+        "translation"
+      ]
+    }
+  ],
+  "discrepancies": [],
+  "missing_required_items": [],
+  "human_verification_required": [
+    "All six languages require native-speaker review. Ateso and Lugbara are placeholders by design; Acholi and Runyankole are low-confidence drafts."
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "pack": "04_health_reimbursement",
+  "variant": "clean",
+  "purpose": "Outpatient and inpatient reimbursement bundle. CLEAN.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_member_policy_card.docx",
+      "document_type": "member_card",
+      "page": "1",
+      "fields": {
+        "Member": "Test Member Auma Sample",
+        "Member no.": "SYN-HLT-44190",
+        "Scheme": "Test Group Plan (fictional)",
+        "Valid to": "2026-12-31"
+      },
+      "confidence_sensitive_fields": [
+        "member_no"
+      ]
+    },
+    {
+      "file": "02_provider_details.docx",
+      "document_type": "provider_detail",
+      "page": "1",
+      "fields": {
+        "Provider": "Test Clinic Alpha (fictional)",
+        "Location": "Testville",
+        "Registration (invented)": "SYN-PRV-0031",
+        "Phone": "+256 700 000 404 (fake)"
+      },
+      "confidence_sensitive_fields": [
+        "provider_reg"
+      ]
+    },
+    {
+      "file": "03_referral_letter.docx",
+      "document_type": "referral",
+      "page": "1",
+      "fields": {
+        "From": "Test Clinic Alpha (fictional)",
+        "To": "Test Referral Hospital (fictional)",
+        "Patient": "Test Member Auma Sample",
+        "Date": "2026-07-11",
+        "Reason": "Further assessment (synthetic text)"
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "04_medical_report.docx",
+      "document_type": "medical_report",
+      "page": "1",
+      "fields": {
+        "Patient": "Test Member Auma Sample",
+        "Diagnosis (synthetic)": "Acute gastroenteritis",
+        "Admission": "2026-07-11 to 2026-07-14",
+        "Doctor": "Dr. Test Doctor Sample"
+      },
+      "confidence_sensitive_fields": [
+        "diagnosis",
+        "admission_dates"
+      ]
+    },
+    {
+      "file": "05_prescription.docx",
+      "document_type": "prescription",
+      "page": "1",
+      "fields": {
+        "Patient": "Test Member Auma Sample",
+        "Date": "2026-07-10",
+        "Item 1": "Oral rehydration salts x6",
+        "Item 2": "Paracetamol 500mg x20",
+        "Prescriber": "Dr. Test Doctor Sample"
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "06_lab_result.docx",
+      "document_type": "lab_result",
+      "page": "1",
+      "fields": {
+        "Patient": "Test Member Auma Sample",
+        "Date": "2026-07-10",
+        "Test": "Stool microscopy",
+        "Result": "Synthetic result text, no clinical meaning"
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "07_outpatient_invoice.docx",
+      "document_type": "itemized_invoice",
+      "page": "1",
+      "fields": {
+        "invoice_no": "SYN-INV-1001",
+        "date": "2026-07-10",
+        "provider": "Test Clinic Alpha (fictional)",
+        "lines": [
+          {
+            "desc": "Consultation",
+            "qty": 1,
+            "unit_ugx": 50000,
+            "line_total_ugx": 50000
+          },
+          {
+            "desc": "Stool microscopy",
+            "qty": 1,
+            "unit_ugx": 30000,
+            "line_total_ugx": 30000
+          },
+          {
+            "desc": "ORS x6",
+            "qty": 6,
+            "unit_ugx": 2000,
+            "line_total_ugx": 12000
+          },
+          {
+            "desc": "Paracetamol 500mg x20",
+            "qty": 1,
+            "unit_ugx": 4000,
+            "line_total_ugx": 4000
+          }
+        ],
+        "stated_total_ugx": 96000,
+        "computed_total_ugx": 96000
+      },
+      "confidence_sensitive_fields": [
+        "stated_total_ugx",
+        "invoice_no"
+      ]
+    },
+    {
+      "file": "08_inpatient_invoice.docx",
+      "document_type": "itemized_invoice",
+      "page": "1",
+      "fields": {
+        "invoice_no": "SYN-INV-1002",
+        "date": "2026-07-14",
+        "provider": "Test Clinic Alpha (fictional)",
+        "lines": [
+          {
+            "desc": "Bed 3 nights",
+            "qty": 3,
+            "unit_ugx": 120000,
+            "line_total_ugx": 360000
+          },
+          {
+            "desc": "Doctor review",
+            "qty": 3,
+            "unit_ugx": 40000,
+            "line_total_ugx": 120000
+          },
+          {
+            "desc": "IV fluids",
+            "qty": 4,
+            "unit_ugx": 25000,
+            "line_total_ugx": 100000
+          },
+          {
+            "desc": "Nursing",
+            "qty": 3,
+            "unit_ugx": 30000,
+            "line_total_ugx": 90000
+          }
+        ],
+        "stated_total_ugx": 670000,
+        "computed_total_ugx": 670000
+      },
+      "confidence_sensitive_fields": [
+        "stated_total_ugx",
+        "invoice_no"
+      ]
+    },
+    {
+      "file": "09_inpatient_receipt.docx",
+      "document_type": "receipt",
+      "page": "1",
+      "fields": {
+        "receipt_no": "SYN-RCT-5523",
+        "invoice_ref": "SYN-INV-1002",
+        "amount_paid_ugx": 670000
+      },
+      "confidence_sensitive_fields": [
+        "amount_paid_ugx"
+      ]
+    }
+  ],
+  "discrepancies": [],
+  "missing_required_items": [],
+  "human_verification_required": [
+    "Medical necessity and benefit eligibility are not assessed."
+  ]
+}

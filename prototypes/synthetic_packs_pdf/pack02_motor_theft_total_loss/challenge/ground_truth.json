@@ -1,0 +1,170 @@
+{
+  "pack": "02_motor_theft_total_loss",
+  "variant": "challenge",
+  "purpose": "Motor theft evidence. CHALLENGE: loss date before policy inception, chassis mismatch, duplicate police reference.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_claim_form.docx",
+      "document_type": "motor_claim_form",
+      "page": "1",
+      "fields": {
+        "Claim ref": "SYN-CLM-0002",
+        "Policy number": "SYN-MTR-2026-005230",
+        "Insured": "Test Owner Akello Fictiona",
+        "Vehicle registration": "UBY 205M",
+        "Chassis no.": "SYNCH0077310Z002",
+        "Date of loss": "2026-05-20",
+        "Location": "Fictional Market Parking, Testville",
+        "Type of loss": "Theft of whole vehicle",
+        "Police report ref": "SYN-PR-30511",
+        "Sum insured (UGX)": "28,000,000",
+        "signature_present": true
+      },
+      "confidence_sensitive_fields": [
+        "date_of_loss",
+        "chassis_no",
+        "police_report_ref"
+      ]
+    },
+    {
+      "file": "02_police_report_extract.docx",
+      "document_type": "police_report",
+      "page": "1",
+      "fields": {
+        "Report ref": "SYN-PR-30511",
+        "Station": "Fictional Central Station",
+        "Reported date": "2026-05-20",
+        "Complainant": "Test Owner Akello Fictiona",
+        "Vehicle": "UBY 205M",
+        "Chassis no.": "SYNCH0077310Z002",
+        "Summary": "Vehicle reported stolen from parking area. Keys held by owner."
+      },
+      "confidence_sensitive_fields": [
+        "report_ref",
+        "reported_date"
+      ]
+    },
+    {
+      "file": "03_vehicle_logbook_extract.docx",
+      "document_type": "vehicle_logbook",
+      "page": "1",
+      "fields": {
+        "Registration": "UBY 205M",
+        "Chassis no.": "SYNCH0077301Z002",
+        "Engine no.": "SYNENG550193",
+        "Make / model": "Fictomotor SUV 2.0",
+        "Year": "2018",
+        "Registered owner": "Test Owner Akello Fictiona"
+      },
+      "confidence_sensitive_fields": [
+        "chassis_no"
+      ]
+    },
+    {
+      "file": "04_policy_schedule.docx",
+      "document_type": "policy_schedule",
+      "page": "1",
+      "fields": {
+        "Policy number": "SYN-MTR-2026-005230",
+        "Insured": "Test Owner Akello Fictiona",
+        "Vehicle": "UBY 205M",
+        "Cover type": "Comprehensive incl. theft",
+        "Inception date": "2026-06-01",
+        "Expiry date": "2027-05-31",
+        "Sum insured (UGX)": "28,000,000"
+      },
+      "confidence_sensitive_fields": [
+        "inception_date",
+        "sum_insured"
+      ],
+      "notes": "Not an insurer form. Generic invented layout."
+    },
+    {
+      "file": "05_keys_received_checklist.docx",
+      "document_type": "keys_checklist",
+      "page": "1",
+      "fields": {
+        "Original keys": "2 of 2 handed over",
+        "Remote fob": "1 of 1",
+        "Spare key location": "Home safe (stated)",
+        "Received by": "Test Claims Clerk (fictional)",
+        "Date received": "2026-06-05",
+        "signature_present": true
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "06_insurer_inspection_note.docx",
+      "document_type": "inspection_note",
+      "page": "1",
+      "fields": {
+        "Assessor": "Test Assessor B. Sample",
+        "Inspection date": "2026-06-06",
+        "Scene visited": "Yes, Fictional Market Parking",
+        "CCTV available": "No camera at location",
+        "Observations": "Glass fragments consistent with report. Observation only, no conclusion drawn."
+      },
+      "confidence_sensitive_fields": []
+    },
+    {
+      "file": "07_second_police_report.docx",
+      "document_type": "police_report",
+      "page": "1",
+      "fields": {
+        "Report ref": "SYN-PR-30511",
+        "Station": "Fictional North Station",
+        "Reported date": "2026-07-02",
+        "Complainant": "Test Other Person Sample",
+        "Vehicle": "UAB 640P",
+        "Summary": "Unrelated theft report. Same reference number as another file."
+      },
+      "confidence_sensitive_fields": [
+        "report_ref"
+      ]
+    }
+  ],
+  "discrepancies": [
+    {
+      "code": "LOSS_BEFORE_INCEPTION",
+      "description": "Loss date 2026-05-20 precedes policy inception 2026-06-01.",
+      "files": [
+        "01_claim_form.docx",
+        "04_policy_schedule.docx"
+      ],
+      "evidence": {
+        "loss_date": "2026-05-20",
+        "inception": "2026-06-01"
+      }
+    },
+    {
+      "code": "CHASSIS_MISMATCH",
+      "description": "Chassis on claim form/police report is SYNCH0077310Z002; logbook shows SYNCH0077301Z002 (transposed digits).",
+      "files": [
+        "01_claim_form.docx",
+        "02_police_report_extract.docx",
+        "03_vehicle_logbook_extract.docx"
+      ],
+      "evidence": {
+        "logbook": "SYNCH0077301Z002",
+        "claim": "SYNCH0077310Z002"
+      }
+    },
+    {
+      "code": "DUPLICATE_POLICE_REFERENCE",
+      "description": "Police reference SYN-PR-30511 also appears on a second synthetic report below, naming a different vehicle.",
+      "files": [
+        "02_police_report_extract.docx",
+        "07_second_police_report.docx"
+      ],
+      "evidence": {
+        "ref": "SYN-PR-30511"
+      }
+    }
+  ],
+  "missing_required_items": [],
+  "human_verification_required": [
+    "Date checks and reference duplication need human verification. No fraud conclusion is drawn."
+  ]
+}

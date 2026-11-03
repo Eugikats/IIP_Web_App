@@ -1,0 +1,91 @@
+{
+  "pack": "07_cross_channel_identity",
+  "variant": "all",
+  "purpose": "Three transcripts for identity-link decisions. Do not link on name alone.",
+  "synthetic_marker": "SYNTHETIC — NOT A REAL CLAIM",
+  "no_decision_made": "Ground truth lists extracted fields and flags only. No coverage, liability, fraud, approval or payment decision is made.",
+  "documents": [
+    {
+      "file": "01_whatsapp_verified_linking.docx",
+      "document_type": "conversation_transcript",
+      "page": "1",
+      "fields": {
+        "customer_name": "Test Customer Achieng Sample",
+        "claim_ref": "SYN-CLM-0107",
+        "channel_handle": "+256 700 000 501",
+        "x_handle_claimed": "@achieng_test_syn",
+        "otp_verified": true,
+        "explicit_link_consent": true,
+        "second_channel_proof_of_control": true
+      },
+      "confidence_sensitive_fields": [
+        "handle",
+        "claim_ref"
+      ]
+    },
+    {
+      "file": "02_x_dm_similar_name_different_person.docx",
+      "document_type": "conversation_transcript",
+      "page": "1",
+      "fields": {
+        "display_name": "Achieng Sample",
+        "claim_ref_mentioned": "SYN-CLM-0107",
+        "phone_match": false,
+        "otp_verified": false,
+        "explicit_link_consent": false,
+        "self_stated_different_person": true
+      },
+      "confidence_sensitive_fields": [
+        "handle",
+        "claim_ref"
+      ]
+    },
+    {
+      "file": "03_email_unverified.docx",
+      "document_type": "conversation_transcript",
+      "page": "1",
+      "fields": {
+        "claimed_name": "Test Customer Achieng Sample",
+        "otp_verified": false,
+        "explicit_link_consent": false,
+        "verification_of_either_account": false
+      },
+      "confidence_sensitive_fields": [
+        "handle",
+        "claim_ref"
+      ]
+    }
+  ],
+  "discrepancies": [],
+  "missing_required_items": [],
+  "human_verification_required": [],
+  "expected_link_decisions": [
+    {
+      "transcript": "01",
+      "decision": "LINK",
+      "evidence": [
+        "OTP verified on WhatsApp",
+        "explicit consent sentence naming @achieng_test_syn",
+        "second OTP entered via X DM proving control of the X account"
+      ]
+    },
+    {
+      "transcript": "02",
+      "decision": "NO_LINK",
+      "evidence": [
+        "phone number does not match record",
+        "no OTP",
+        "user states they are a different person",
+        "name similarity alone is not evidence"
+      ]
+    },
+    {
+      "transcript": "03",
+      "decision": "NO_LINK",
+      "evidence": [
+        "no verification of email or WhatsApp",
+        "name claim alone is insufficient"
+      ]
+    }
+  ]
+}
