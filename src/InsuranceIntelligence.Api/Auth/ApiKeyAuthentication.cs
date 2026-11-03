@@ -15,7 +15,7 @@ public sealed class ApiKeyAuthenticationHandler(
     ApiKeyService service)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
-    public const string Scheme = "ApiKey";
+    public new const string Scheme = "ApiKey";
     public const string HeaderName = "X-Api-Key";
     public const string OrganisationItemKey = "iip.apikey.organisation";
 

@@ -76,26 +76,26 @@ public sealed class DocumentUnderstandingTests
     }
 
     [Fact]
-    public void A_customer_choosing_the_police_abstract_slot_counts_even_when_the_classifier_cannot_tell()
+    public async Task A_customer_choosing_the_police_abstract_slot_counts_even_when_the_classifier_cannot_tell()
     {
         var claim = Case();
-        var checklist = Provider().BuildChecklistAsync(claim,
-            [Doc(claim, DocumentType.ClaimForm), Doc(claim, DocumentType.PhotoEvidence), Doc(claim, DocumentType.Unknown, "PoliceAbstract")]).Result;
+        var checklist = await Provider().BuildChecklistAsync(claim,
+            [Doc(claim, DocumentType.ClaimForm), Doc(claim, DocumentType.PhotoEvidence), Doc(claim, DocumentType.Unknown, "PoliceAbstract")]);
         Assert.Empty(checklist.MissingRequiredDocuments);
         Assert.Equal(100m, checklist.CompletenessScore.Percentage);
     }
 
     [Fact]
-    public void A_missing_required_document_is_named_and_lowers_the_score()
+    public async Task A_missing_required_document_is_named_and_lowers_the_score()
     {
         var claim = Case();
-        var checklist = Provider().BuildChecklistAsync(claim, [Doc(claim, DocumentType.ClaimForm), Doc(claim, DocumentType.PhotoEvidence)]).Result;
+        var checklist = await Provider().BuildChecklistAsync(claim, [Doc(claim, DocumentType.ClaimForm), Doc(claim, DocumentType.PhotoEvidence)]);
         Assert.Equal(66.67m, checklist.CompletenessScore.Percentage);
         Assert.Equal(new[] { "Police abstract" }, checklist.MissingRequiredDocuments.Select(item => item.Label));
     }
 
     [Fact]
-    public void A_claim_form_with_no_policy_number_or_date_reports_those_details_as_missing()
+    public async Task A_claim_form_with_no_policy_number_or_date_reports_those_details_as_missing()
     {
         var claim = Case();
         var form = Doc(claim, DocumentType.ClaimForm, fields: new()
@@ -104,7 +104,7 @@ public sealed class DocumentUnderstandingTests
             ["keyValue.Vehicle_Reg._No."] = "UBA 123X",
             ["keyValue.Brief_description"] = "Rear-ended at a junction",
         });
-        var checklist = Provider().BuildChecklistAsync(claim, [form]).Result;
+        var checklist = await Provider().BuildChecklistAsync(claim, [form]);
         var check = Assert.Single(checklist.DetailChecks);
         Assert.True(check.Readable);
         Assert.Equal(new[] { "Policy number", "Date of the accident or loss" }, check.Missing.Select(field => field.Label));
@@ -113,22 +113,22 @@ public sealed class DocumentUnderstandingTests
     }
 
     [Fact]
-    public void A_person_correcting_a_field_fills_in_a_detail_the_reader_missed()
+    public async Task A_person_correcting_a_field_fills_in_a_detail_the_reader_missed()
     {
         var claim = Case();
         var form = Doc(claim, DocumentType.ClaimForm,
             fields: new() { ["keyValue.Name_of_Insured"] = "Amina Okello" },
             corrections: new() { ["keyValue.Policy_No"] = new("keyValue.Policy_No", "POL-1", "officer", DateTimeOffset.UtcNow, "c") });
-        var check = Provider().BuildChecklistAsync(claim, [form]).Result.DetailChecks.Single();
+        var check = (await Provider().BuildChecklistAsync(claim, [form])).DetailChecks.Single();
         Assert.DoesNotContain(check.Missing, field => field.Key == "policy_number");
     }
 
     [Fact]
-    public void A_document_nothing_could_be_read_from_is_not_reported_as_missing_every_detail()
+    public async Task A_document_nothing_could_be_read_from_is_not_reported_as_missing_every_detail()
     {
         var claim = Case();
         var scan = Doc(claim, DocumentType.ClaimForm, fields: new() { ["sourceFileName"] = "scan.pdf", ["objectKey"] = "k", ["pageCount"] = "1" });
-        var checklist = Provider().BuildChecklistAsync(claim, [scan]).Result;
+        var checklist = await Provider().BuildChecklistAsync(claim, [scan]);
         var check = Assert.Single(checklist.DetailChecks);
         Assert.False(check.Readable);
         Assert.Empty(check.Missing);
@@ -137,22 +137,22 @@ public sealed class DocumentUnderstandingTests
     }
 
     [Fact]
-    public void Field_names_are_matched_as_words_so_unrelated_keys_never_count()
+    public async Task Field_names_are_matched_as_words_so_unrelated_keys_never_count()
     {
         var claim = Case();
         // "objectKey" contains the letters "ob"; it is not an OB number. Only field. and keyValue. keys are read at all.
         var abstractDoc = Doc(claim, DocumentType.PoliceAbstract, fields: new() { ["objectKey"] = "abc", ["keyValue.Station"] = "Kampala Central" });
-        var check = Provider().BuildChecklistAsync(claim, [abstractDoc]).Result.DetailChecks.Single();
+        var check = (await Provider().BuildChecklistAsync(claim, [abstractDoc])).DetailChecks.Single();
         Assert.Contains(check.Missing, field => field.Key == "reference");
         Assert.DoesNotContain(check.Missing, field => field.Key == "station");
     }
 
     [Fact]
-    public void A_photo_has_no_required_details()
+    public async Task A_photo_has_no_required_details()
     {
         var claim = Case();
         var photo = Doc(claim, DocumentType.PhotoEvidence, fields: new() { ["pageCount"] = "1" });
-        var check = Provider().BuildChecklistAsync(claim, [photo]).Result.DetailChecks.Single();
+        var check = (await Provider().BuildChecklistAsync(claim, [photo])).DetailChecks.Single();
         Assert.True(check.Readable);
         Assert.Empty(check.Missing);
     }

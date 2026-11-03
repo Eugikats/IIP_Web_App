@@ -119,14 +119,14 @@ public sealed class OutcomeService(
             return new ReplyHandled(OutcomeKind.Stopped, Stop: true);
         }
 
-        if (!active)
+        if (!active || reason is null)
         {
             return new ReplyHandled(null, Stop: false);
         }
 
         var lead = await leads.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, phone, cancellationToken);
         var recorded = kind ?? OutcomeKind.Replied;
-        var id = IdOf(phone, reason!);
+        var id = IdOf(phone, reason);
         var previous = await GetAsync(scope, id, cancellationToken);
         // Once someone has said stop, or declined, a later "ok" does not undo it.
         if (previous is { Kind: OutcomeKind.Stopped or OutcomeKind.Declined } && recorded is OutcomeKind.Replied or OutcomeKind.Interested)

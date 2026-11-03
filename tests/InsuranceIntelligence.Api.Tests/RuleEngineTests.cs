@@ -745,7 +745,7 @@ public sealed class RuleEngineTests
         var later = await rig.Engine.RunAsync(Bank, "system");
 
         Assert.Equal(1, later.Sent);
-        Assert.Equal(["renewal_30_days", "renewal_7_days"], rig.Provider.Sent.Select(sent => sent.TemplateName).ToArray());
+        Assert.Equal<string?>(["renewal_30_days", "renewal_7_days"], rig.Provider.Sent.Select(sent => sent.TemplateName));
     }
 
     [Fact]

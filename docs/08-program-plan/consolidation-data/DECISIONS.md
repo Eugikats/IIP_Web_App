@@ -27,3 +27,13 @@ Phase 0 asks to run the guard on the live baseline before copying it there, but 
 ### D-009 Preserve the plan and evidence beside phase reports
 
 In addition to the explicitly listed plan, data and guard paths, Phase 0 copies the handover and branch/live audit from the plan branch. They are the instructions and evidence named by the handover. No application files are imported from the plan branch. Alternative: keep these two documents reachable only through the plan branch.
+
+### D-010 Repair baseline build warnings without weakening checks
+
+The first Release build of the live baseline succeeded with 17 warnings and 0 errors, which fails the plan's zero-warning gate. The XML package pin moves from 8.0.4 to Microsoft's patched 8.0.5. Sources: https://github.com/dotnet/runtime/security/advisories/GHSA-7hqp-7c5m-4vq6 and https://github.com/dotnet/runtime/security/advisories/GHSA-vrv5-2jg9-4mmr. Both identify 8.0.5 as patched. The other warnings are addressed with an explicit null check in the existing outcome path, an explicit `new` modifier on the existing authentication scheme constant, equivalent xUnit collection assertions and awaited tasks in seven document tests. No test, assertion or expected outcome is removed. These are current supported contracts; the null branch already returns when no reason exists. Alternative: suppress warnings or advance main with a red gate, both rejected.
+
+The copied migration inventory's trailing blank line was removed to pass `git diff --cached --check`; no migration entry or migration source changed.
+
+### D-011 Consolidation authorization overrides the older PR-only process
+
+The owner's handover explicitly permits direct phase pushes and fast-forward main updates after gates pass. That task-specific authorization supersedes the older repository's PR-only process for this consolidation. All three CI jobs and the broader phase checks remain in force; nothing is deployed. A refused push triggers the plan's stop-and-report rule.
