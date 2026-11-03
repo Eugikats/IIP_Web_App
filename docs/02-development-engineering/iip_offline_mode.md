@@ -41,10 +41,12 @@ In a second terminal:
 ```bash
 cd web/portal
 pnpm install
-NEXT_PUBLIC_API_BASE_URL=http://localhost:5167 pnpm dev
+IIP_LOCAL_API_PROXY_TARGET=http://localhost:5167 pnpm dev
 ```
 
 Then open **http://localhost:3000**.
+
+Keep `NEXT_PUBLIC_API_BASE_URL` unset for local portal runs so browser requests stay same-origin and Next.js proxies `/api/*` to the API. If the API is on another local port, change only `IIP_LOCAL_API_PROXY_TARGET` to that HTTP(S) origin. Do not point the browser directly at a different origin unless that API explicitly allows the portal origin through CORS.
 
 ## Signing in
 

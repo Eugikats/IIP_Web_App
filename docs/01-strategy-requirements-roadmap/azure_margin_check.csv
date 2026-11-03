@@ -1,0 +1,19 @@
+region,tier,scenario,revenue,fixed,people,bank_fx,allowance,total_cost,gross_margin_usd,margin_pct
+southafricanorth,Core,base,447.15,88.98,8.0,3.57,11.25,111.8,335.35,75.0
+southafricanorth,Core,base+Defender SQL/Storage,447.15,114.51,8.0,3.95,11.25,137.71,309.44,69.2
+southafricanorth,Growth,base,894.31,164.26,26.67,6.94,25.31,223.18,671.13,75.04
+southafricanorth,Growth,base+Defender SQL/Storage,894.31,190.54,26.67,7.33,25.31,249.85,644.46,72.06
+southafricanorth,Enterprise,base,1341.46,215.51,66.0,9.94,36.56,328.01,1013.45,75.55
+southafricanorth,Enterprise,base+Defender SQL/Storage,1341.46,244.04,66.0,10.37,36.56,356.97,984.49,73.39
+westeurope,Core,base,447.15,65.11,8.0,3.21,11.25,87.57,359.58,80.42
+westeurope,Core,base+Defender SQL/Storage,447.15,90.64,8.0,3.6,11.25,113.49,333.66,74.62
+westeurope,Growth,base,894.31,119.03,26.67,6.26,25.31,177.27,717.04,80.18
+westeurope,Growth,base+Defender SQL/Storage,894.31,145.31,26.67,6.65,25.31,203.94,690.37,77.2
+westeurope,Enterprise,base,1341.46,159.83,66.0,9.1,36.56,271.5,1069.96,79.76
+westeurope,Enterprise,base+Defender SQL/Storage,1341.46,188.36,66.0,9.53,36.56,300.46,1041.0,77.6
+eastus,Core,base,447.15,62.3,8.0,3.17,11.25,84.72,362.43,81.05
+eastus,Core,base+Defender SQL/Storage,447.15,87.83,8.0,3.55,11.25,110.63,336.52,75.26
+eastus,Growth,base,894.31,114.88,26.67,6.19,25.31,173.06,721.25,80.65
+eastus,Growth,base+Defender SQL/Storage,894.31,141.16,26.67,6.59,25.31,199.73,694.58,77.67
+eastus,Enterprise,base,1341.46,153.23,66.0,9.01,36.56,264.8,1076.66,80.26
+eastus,Enterprise,base+Defender SQL/Storage,1341.46,181.76,66.0,9.43,36.56,293.76,1047.7,78.1

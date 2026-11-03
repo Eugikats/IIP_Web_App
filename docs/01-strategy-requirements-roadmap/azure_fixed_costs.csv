@@ -1,0 +1,172 @@
+region,tier,group,line,product,sku,meter,unit,unit_price,quantity,quantity_unit,basis,monthly_usd,note
+southafricanorth,Core,base,"App Service plan, Linux B2",Azure App Service Basic Plan - Linux,B2,B2,1 Hour,0.0487,1,instances,hourly x 730 x instances,35.55,
+southafricanorth,Core,base,Azure SQL Database Standard S1,SQL Database Single Standard,S1,S1 DTUs,1/Day,1.413,1,database,daily x 30.42,42.98,
+southafricanorth,Core,base,Blob Hot LRS: data stored,General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0219,50,GB,"per GB-month, first tier",1.09,
+southafricanorth,Core,base,Blob Hot LRS: read ops (50% of ops),General Block Blob v2,Hot LRS,Hot Read Operations,10K,0.004,50000.0,ops,per 10K ops,0.02,
+southafricanorth,Core,base,Blob Hot LRS: write ops (50% of ops),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.06,50000.0,ops,per 10K ops,0.3,
+southafricanorth,Core,base,Log Analytics ingestion,Log Analytics,Analytics Logs,Analytics Logs Data Ingestion,1 GB,3.36,1.3,GB,"per GB, free 5 GB NOT credited",4.37,
+southafricanorth,Core,base,SQL LTR backup storage (RA-GRS),SQL Database - LTR Backup Storage,Backup RA-GRS,Backup RA-GRS Data Stored,1 GB/Month,0.067,50,GB,per GB-month,3.35,
+southafricanorth,Core,base,SQL auditing: stored logs (estimate),General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0219,5,GB,Hot LRS data stored,0.11,estimate
+southafricanorth,Core,base,SQL auditing: write ops (estimate),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.06,50000,ops,Hot LRS write ops,0.3,estimate
+southafricanorth,Core,base,ACS Email: sent,Email,Basic,Basic Sent Email,1,0.00025,1000,emails,per email,0.25,
+southafricanorth,Core,base,ACS Email: data transferred,Email,Basic,Basic Data Transferred,1 MB,0.00012,500.0,MB,"per MB, 0.5 MB each",0.06,
+southafricanorth,Core,base,Azure DNS public zone,Azure DNS,Public,Public Zone,1,0.5,1,zone,"per zone-month, first 25 zones",0.5,DNS is priced under region 'Zone 1' for all regions
+southafricanorth,Core,base,Key Vault operations,Key Vault,Standard,Operations,10K,0.03,10000,ops,per 10K ops,0.03,
+southafricanorth,Core,base,Service Bus Basic,Service Bus,Basic,Basic Messaging Operations,1M,0.073,1000000,ops,per 1M ops,0.07,assumes 1M ops a month
+southafricanorth,Core,addon_security,Defender for Azure SQL (per server),Microsoft Defender for SQL,Standard,Standard Node,1/Month,15.0,1,server,per node-month,15.0,
+southafricanorth,Core,addon_security,Defender for Storage (per account),Microsoft Defender for Storage,Standard,Standard Node,1/Hour,0.0134,1,account,hourly x 730,9.78,1 storage account assumed
+southafricanorth,Core,addon_security,Defender for Storage malware scanning,Microsoft Defender for Storage,Malware Scanning,Malware Scanning Data Ingested,1 GB,0.15,5,GB,per GB scanned,0.75,assumes 10% of stored GB scanned a month
+southafricanorth,Core,addon_search,AI Search Basic (1 unit),Azure AI Search,Basic,Basic Unit,1 Hour,0.101,1,unit,hourly x 730,73.73,
+southafricanorth,Core,addon_search,AI Search S1 (1 unit),Azure AI Search,Standard S1,Standard S1 Unit,1 Hour,0.336,1,unit,hourly x 730,245.28,
+southafricanorth,Growth,base,"App Service plan, Linux B2",Azure App Service Basic Plan - Linux,B2,B2,1 Hour,0.0487,1,instances,hourly x 730 x instances,35.55,
+southafricanorth,Growth,base,Azure SQL Database Standard S2,SQL Database Single Standard,S2,S2 DTUs,1/Day,3.533,1,database,daily x 30.42,107.47,
+southafricanorth,Growth,base,Blob Hot LRS: data stored,General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0219,100,GB,"per GB-month, first tier",2.19,
+southafricanorth,Growth,base,Blob Hot LRS: read ops (50% of ops),General Block Blob v2,Hot LRS,Hot Read Operations,10K,0.004,100000.0,ops,per 10K ops,0.04,
+southafricanorth,Growth,base,Blob Hot LRS: write ops (50% of ops),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.06,100000.0,ops,per 10K ops,0.6,
+southafricanorth,Growth,base,Log Analytics ingestion,Log Analytics,Analytics Logs,Analytics Logs Data Ingestion,1 GB,3.36,2.6,GB,"per GB, free 5 GB NOT credited",8.74,
+southafricanorth,Growth,base,SQL LTR backup storage (RA-GRS),SQL Database - LTR Backup Storage,Backup RA-GRS,Backup RA-GRS Data Stored,1 GB/Month,0.067,100,GB,per GB-month,6.7,
+southafricanorth,Growth,base,SQL auditing: stored logs (estimate),General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0219,10,GB,Hot LRS data stored,0.22,estimate
+southafricanorth,Growth,base,SQL auditing: write ops (estimate),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.06,100000,ops,Hot LRS write ops,0.6,estimate
+southafricanorth,Growth,base,ACS Email: sent,Email,Basic,Basic Sent Email,1,0.00025,5000,emails,per email,1.25,
+southafricanorth,Growth,base,ACS Email: data transferred,Email,Basic,Basic Data Transferred,1 MB,0.00012,2500.0,MB,"per MB, 0.5 MB each",0.3,
+southafricanorth,Growth,base,Azure DNS public zone,Azure DNS,Public,Public Zone,1,0.5,1,zone,"per zone-month, first 25 zones",0.5,DNS is priced under region 'Zone 1' for all regions
+southafricanorth,Growth,base,Key Vault operations,Key Vault,Standard,Operations,10K,0.03,10000,ops,per 10K ops,0.03,
+southafricanorth,Growth,base,Service Bus Basic,Service Bus,Basic,Basic Messaging Operations,1M,0.073,1000000,ops,per 1M ops,0.07,assumes 1M ops a month
+southafricanorth,Growth,addon_security,Defender for Azure SQL (per server),Microsoft Defender for SQL,Standard,Standard Node,1/Month,15.0,1,server,per node-month,15.0,
+southafricanorth,Growth,addon_security,Defender for Storage (per account),Microsoft Defender for Storage,Standard,Standard Node,1/Hour,0.0134,1,account,hourly x 730,9.78,1 storage account assumed
+southafricanorth,Growth,addon_security,Defender for Storage malware scanning,Microsoft Defender for Storage,Malware Scanning,Malware Scanning Data Ingested,1 GB,0.15,10,GB,per GB scanned,1.5,assumes 10% of stored GB scanned a month
+southafricanorth,Growth,addon_search,AI Search Basic (1 unit),Azure AI Search,Basic,Basic Unit,1 Hour,0.101,1,unit,hourly x 730,73.73,
+southafricanorth,Growth,addon_search,AI Search S1 (1 unit),Azure AI Search,Standard S1,Standard S1 Unit,1 Hour,0.336,1,unit,hourly x 730,245.28,
+southafricanorth,Enterprise,base,"App Service plan, Linux B2",Azure App Service Basic Plan - Linux,B2,B2,1 Hour,0.0487,2,instances,hourly x 730 x instances,71.1,
+southafricanorth,Enterprise,base,Azure SQL Database Standard S2,SQL Database Single Standard,S2,S2 DTUs,1/Day,3.533,1,database,daily x 30.42,107.47,
+southafricanorth,Enterprise,base,Blob Hot LRS: data stored,General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0219,250,GB,"per GB-month, first tier",5.47,
+southafricanorth,Enterprise,base,Blob Hot LRS: read ops (50% of ops),General Block Blob v2,Hot LRS,Hot Read Operations,10K,0.004,250000.0,ops,per 10K ops,0.1,
+southafricanorth,Enterprise,base,Blob Hot LRS: write ops (50% of ops),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.06,250000.0,ops,per 10K ops,1.5,
+southafricanorth,Enterprise,base,Log Analytics ingestion,Log Analytics,Analytics Logs,Analytics Logs Data Ingestion,1 GB,3.36,3.5,GB,"per GB, free 5 GB NOT credited",11.76,
+southafricanorth,Enterprise,base,SQL LTR backup storage (RA-GRS),SQL Database - LTR Backup Storage,Backup RA-GRS,Backup RA-GRS Data Stored,1 GB/Month,0.067,150,GB,per GB-month,10.05,
+southafricanorth,Enterprise,base,SQL auditing: stored logs (estimate),General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0219,15,GB,Hot LRS data stored,0.33,estimate
+southafricanorth,Enterprise,base,SQL auditing: write ops (estimate),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.06,150000,ops,Hot LRS write ops,0.9,estimate
+southafricanorth,Enterprise,base,ACS Email: sent,Email,Basic,Basic Sent Email,1,0.00025,20000,emails,per email,5.0,
+southafricanorth,Enterprise,base,ACS Email: data transferred,Email,Basic,Basic Data Transferred,1 MB,0.00012,10000.0,MB,"per MB, 0.5 MB each",1.2,
+southafricanorth,Enterprise,base,Azure DNS public zone,Azure DNS,Public,Public Zone,1,0.5,1,zone,"per zone-month, first 25 zones",0.5,DNS is priced under region 'Zone 1' for all regions
+southafricanorth,Enterprise,base,Key Vault operations,Key Vault,Standard,Operations,10K,0.03,20000,ops,per 10K ops,0.06,
+southafricanorth,Enterprise,base,Service Bus Basic,Service Bus,Basic,Basic Messaging Operations,1M,0.073,1000000,ops,per 1M ops,0.07,assumes 1M ops a month
+southafricanorth,Enterprise,addon_security,Defender for Azure SQL (per server),Microsoft Defender for SQL,Standard,Standard Node,1/Month,15.0,1,server,per node-month,15.0,
+southafricanorth,Enterprise,addon_security,Defender for Storage (per account),Microsoft Defender for Storage,Standard,Standard Node,1/Hour,0.0134,1,account,hourly x 730,9.78,1 storage account assumed
+southafricanorth,Enterprise,addon_security,Defender for Storage malware scanning,Microsoft Defender for Storage,Malware Scanning,Malware Scanning Data Ingested,1 GB,0.15,25,GB,per GB scanned,3.75,assumes 10% of stored GB scanned a month
+southafricanorth,Enterprise,addon_search,AI Search Basic (1 unit),Azure AI Search,Basic,Basic Unit,1 Hour,0.101,1,unit,hourly x 730,73.73,
+southafricanorth,Enterprise,addon_search,AI Search S1 (1 unit),Azure AI Search,Standard S1,Standard S1 Unit,1 Hour,0.336,1,unit,hourly x 730,245.28,
+westeurope,Core,base,"App Service plan, Linux B2",Azure App Service Basic Plan - Linux,B2,B2,1 Hour,0.036,1,instances,hourly x 730 x instances,26.28,
+westeurope,Core,base,Azure SQL Database Standard S1,SQL Database Single Standard,S1,S1 DTUs,1/Day,0.9677,1,database,daily x 30.42,29.44,
+westeurope,Core,base,Blob Hot LRS: data stored,General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0196,50,GB,"per GB-month, first tier",0.98,
+westeurope,Core,base,Blob Hot LRS: read ops (50% of ops),General Block Blob v2,Hot LRS,Hot Read Operations,10K,0.0043,50000.0,ops,per 10K ops,0.02,
+westeurope,Core,base,Blob Hot LRS: write ops (50% of ops),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.054,50000.0,ops,per 10K ops,0.27,
+westeurope,Core,base,Log Analytics ingestion,Log Analytics,Analytics Logs,Analytics Logs Data Ingestion,1 GB,2.99,1.3,GB,"per GB, free 5 GB NOT credited",3.89,
+westeurope,Core,base,SQL LTR backup storage (RA-GRS),SQL Database - LTR Backup Storage,Backup RA-GRS,Backup RA-GRS Data Stored,1 GB/Month,0.0595,50,GB,per GB-month,2.97,
+westeurope,Core,base,SQL auditing: stored logs (estimate),General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0196,5,GB,Hot LRS data stored,0.1,estimate
+westeurope,Core,base,SQL auditing: write ops (estimate),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.054,50000,ops,Hot LRS write ops,0.27,estimate
+westeurope,Core,base,ACS Email: sent,Email,Basic,Basic Sent Email,1,0.00025,1000,emails,per email,0.25,
+westeurope,Core,base,ACS Email: data transferred,Email,Basic,Basic Data Transferred,1 MB,0.00012,500.0,MB,"per MB, 0.5 MB each",0.06,
+westeurope,Core,base,Azure DNS public zone,Azure DNS,Public,Public Zone,1,0.5,1,zone,"per zone-month, first 25 zones",0.5,DNS is priced under region 'Zone 1' for all regions
+westeurope,Core,base,Key Vault operations,Key Vault,Standard,Operations,10K,0.03,10000,ops,per 10K ops,0.03,
+westeurope,Core,base,Service Bus Basic,Service Bus,Basic,Basic Messaging Operations,1M,0.05,1000000,ops,per 1M ops,0.05,assumes 1M ops a month
+westeurope,Core,addon_security,Defender for Azure SQL (per server),Microsoft Defender for SQL,Standard,Standard Node,1/Month,15.0,1,server,per node-month,15.0,
+westeurope,Core,addon_security,Defender for Storage (per account),Microsoft Defender for Storage,Standard,Standard Node,1/Hour,0.0134,1,account,hourly x 730,9.78,1 storage account assumed
+westeurope,Core,addon_security,Defender for Storage malware scanning,Microsoft Defender for Storage,Malware Scanning,Malware Scanning Data Ingested,1 GB,0.15,5,GB,per GB scanned,0.75,assumes 10% of stored GB scanned a month
+westeurope,Core,addon_search,AI Search Basic (1 unit),Azure AI Search,Basic,Basic Unit,1 Hour,0.101,1,unit,hourly x 730,73.73,
+westeurope,Core,addon_search,AI Search S1 (1 unit),Azure AI Search,Standard S1,Standard S1 Unit,1 Hour,0.336,1,unit,hourly x 730,245.28,
+westeurope,Growth,base,"App Service plan, Linux B2",Azure App Service Basic Plan - Linux,B2,B2,1 Hour,0.036,1,instances,hourly x 730 x instances,26.28,
+westeurope,Growth,base,Azure SQL Database Standard S2,SQL Database Single Standard,S2,S2 DTUs,1/Day,2.42,1,database,daily x 30.42,73.62,
+westeurope,Growth,base,Blob Hot LRS: data stored,General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0196,100,GB,"per GB-month, first tier",1.96,
+westeurope,Growth,base,Blob Hot LRS: read ops (50% of ops),General Block Blob v2,Hot LRS,Hot Read Operations,10K,0.0043,100000.0,ops,per 10K ops,0.04,
+westeurope,Growth,base,Blob Hot LRS: write ops (50% of ops),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.054,100000.0,ops,per 10K ops,0.54,
+westeurope,Growth,base,Log Analytics ingestion,Log Analytics,Analytics Logs,Analytics Logs Data Ingestion,1 GB,2.99,2.6,GB,"per GB, free 5 GB NOT credited",7.77,
+westeurope,Growth,base,SQL LTR backup storage (RA-GRS),SQL Database - LTR Backup Storage,Backup RA-GRS,Backup RA-GRS Data Stored,1 GB/Month,0.0595,100,GB,per GB-month,5.95,
+westeurope,Growth,base,SQL auditing: stored logs (estimate),General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0196,10,GB,Hot LRS data stored,0.2,estimate
+westeurope,Growth,base,SQL auditing: write ops (estimate),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.054,100000,ops,Hot LRS write ops,0.54,estimate
+westeurope,Growth,base,ACS Email: sent,Email,Basic,Basic Sent Email,1,0.00025,5000,emails,per email,1.25,
+westeurope,Growth,base,ACS Email: data transferred,Email,Basic,Basic Data Transferred,1 MB,0.00012,2500.0,MB,"per MB, 0.5 MB each",0.3,
+westeurope,Growth,base,Azure DNS public zone,Azure DNS,Public,Public Zone,1,0.5,1,zone,"per zone-month, first 25 zones",0.5,DNS is priced under region 'Zone 1' for all regions
+westeurope,Growth,base,Key Vault operations,Key Vault,Standard,Operations,10K,0.03,10000,ops,per 10K ops,0.03,
+westeurope,Growth,base,Service Bus Basic,Service Bus,Basic,Basic Messaging Operations,1M,0.05,1000000,ops,per 1M ops,0.05,assumes 1M ops a month
+westeurope,Growth,addon_security,Defender for Azure SQL (per server),Microsoft Defender for SQL,Standard,Standard Node,1/Month,15.0,1,server,per node-month,15.0,
+westeurope,Growth,addon_security,Defender for Storage (per account),Microsoft Defender for Storage,Standard,Standard Node,1/Hour,0.0134,1,account,hourly x 730,9.78,1 storage account assumed
+westeurope,Growth,addon_security,Defender for Storage malware scanning,Microsoft Defender for Storage,Malware Scanning,Malware Scanning Data Ingested,1 GB,0.15,10,GB,per GB scanned,1.5,assumes 10% of stored GB scanned a month
+westeurope,Growth,addon_search,AI Search Basic (1 unit),Azure AI Search,Basic,Basic Unit,1 Hour,0.101,1,unit,hourly x 730,73.73,
+westeurope,Growth,addon_search,AI Search S1 (1 unit),Azure AI Search,Standard S1,Standard S1 Unit,1 Hour,0.336,1,unit,hourly x 730,245.28,
+westeurope,Enterprise,base,"App Service plan, Linux B2",Azure App Service Basic Plan - Linux,B2,B2,1 Hour,0.036,2,instances,hourly x 730 x instances,52.56,
+westeurope,Enterprise,base,Azure SQL Database Standard S2,SQL Database Single Standard,S2,S2 DTUs,1/Day,2.42,1,database,daily x 30.42,73.62,
+westeurope,Enterprise,base,Blob Hot LRS: data stored,General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0196,250,GB,"per GB-month, first tier",4.9,
+westeurope,Enterprise,base,Blob Hot LRS: read ops (50% of ops),General Block Blob v2,Hot LRS,Hot Read Operations,10K,0.0043,250000.0,ops,per 10K ops,0.11,
+westeurope,Enterprise,base,Blob Hot LRS: write ops (50% of ops),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.054,250000.0,ops,per 10K ops,1.35,
+westeurope,Enterprise,base,Log Analytics ingestion,Log Analytics,Analytics Logs,Analytics Logs Data Ingestion,1 GB,2.99,3.5,GB,"per GB, free 5 GB NOT credited",10.46,
+westeurope,Enterprise,base,SQL LTR backup storage (RA-GRS),SQL Database - LTR Backup Storage,Backup RA-GRS,Backup RA-GRS Data Stored,1 GB/Month,0.0595,150,GB,per GB-month,8.92,
+westeurope,Enterprise,base,SQL auditing: stored logs (estimate),General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0196,15,GB,Hot LRS data stored,0.29,estimate
+westeurope,Enterprise,base,SQL auditing: write ops (estimate),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.054,150000,ops,Hot LRS write ops,0.81,estimate
+westeurope,Enterprise,base,ACS Email: sent,Email,Basic,Basic Sent Email,1,0.00025,20000,emails,per email,5.0,
+westeurope,Enterprise,base,ACS Email: data transferred,Email,Basic,Basic Data Transferred,1 MB,0.00012,10000.0,MB,"per MB, 0.5 MB each",1.2,
+westeurope,Enterprise,base,Azure DNS public zone,Azure DNS,Public,Public Zone,1,0.5,1,zone,"per zone-month, first 25 zones",0.5,DNS is priced under region 'Zone 1' for all regions
+westeurope,Enterprise,base,Key Vault operations,Key Vault,Standard,Operations,10K,0.03,20000,ops,per 10K ops,0.06,
+westeurope,Enterprise,base,Service Bus Basic,Service Bus,Basic,Basic Messaging Operations,1M,0.05,1000000,ops,per 1M ops,0.05,assumes 1M ops a month
+westeurope,Enterprise,addon_security,Defender for Azure SQL (per server),Microsoft Defender for SQL,Standard,Standard Node,1/Month,15.0,1,server,per node-month,15.0,
+westeurope,Enterprise,addon_security,Defender for Storage (per account),Microsoft Defender for Storage,Standard,Standard Node,1/Hour,0.0134,1,account,hourly x 730,9.78,1 storage account assumed
+westeurope,Enterprise,addon_security,Defender for Storage malware scanning,Microsoft Defender for Storage,Malware Scanning,Malware Scanning Data Ingested,1 GB,0.15,25,GB,per GB scanned,3.75,assumes 10% of stored GB scanned a month
+westeurope,Enterprise,addon_search,AI Search Basic (1 unit),Azure AI Search,Basic,Basic Unit,1 Hour,0.101,1,unit,hourly x 730,73.73,
+westeurope,Enterprise,addon_search,AI Search S1 (1 unit),Azure AI Search,Standard S1,Standard S1 Unit,1 Hour,0.336,1,unit,hourly x 730,245.28,
+eastus,Core,base,"App Service plan, Linux B2",Azure App Service Basic Plan - Linux,B2,B2,1 Hour,0.034,1,instances,hourly x 730 x instances,24.82,
+eastus,Core,base,Azure SQL Database Standard S1,SQL Database Single Standard,S1,S1 DTUs,1/Day,0.9677,1,database,daily x 30.42,29.44,
+eastus,Core,base,Blob Hot LRS: data stored,General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0208,50,GB,"per GB-month, first tier",1.04,
+eastus,Core,base,Blob Hot LRS: read ops (50% of ops),General Block Blob v2,Hot LRS,Hot Read Operations,10K,0.004,50000.0,ops,per 10K ops,0.02,
+eastus,Core,base,Blob Hot LRS: write ops (50% of ops),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.05,50000.0,ops,per 10K ops,0.25,
+eastus,Core,base,Log Analytics ingestion,Log Analytics,Analytics Logs,Analytics Logs Data Ingestion,1 GB,2.3,1.3,GB,"per GB, free 5 GB NOT credited",2.99,
+eastus,Core,base,SQL LTR backup storage (RA-GRS),SQL Database - LTR Backup Storage,Backup RA-GRS,Backup RA-GRS Data Stored,1 GB/Month,0.05,50,GB,per GB-month,2.5,
+eastus,Core,base,SQL auditing: stored logs (estimate),General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0208,5,GB,Hot LRS data stored,0.1,estimate
+eastus,Core,base,SQL auditing: write ops (estimate),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.05,50000,ops,Hot LRS write ops,0.25,estimate
+eastus,Core,base,ACS Email: sent,Email,Basic,Basic Sent Email,1,0.00025,1000,emails,per email,0.25,
+eastus,Core,base,ACS Email: data transferred,Email,Basic,Basic Data Transferred,1 MB,0.00012,500.0,MB,"per MB, 0.5 MB each",0.06,
+eastus,Core,base,Azure DNS public zone,Azure DNS,Public,Public Zone,1,0.5,1,zone,"per zone-month, first 25 zones",0.5,DNS is priced under region 'Zone 1' for all regions
+eastus,Core,base,Key Vault operations,Key Vault,Standard,Operations,10K,0.03,10000,ops,per 10K ops,0.03,
+eastus,Core,base,Service Bus Basic,Service Bus,Basic,Basic Messaging Operations,1M,0.05,1000000,ops,per 1M ops,0.05,assumes 1M ops a month
+eastus,Core,addon_security,Defender for Azure SQL (per server),Microsoft Defender for SQL,Standard,Standard Node,1/Month,15.0,1,server,per node-month,15.0,
+eastus,Core,addon_security,Defender for Storage (per account),Microsoft Defender for Storage,Standard,Standard Node,1/Hour,0.0134,1,account,hourly x 730,9.78,1 storage account assumed
+eastus,Core,addon_security,Defender for Storage malware scanning,Microsoft Defender for Storage,Malware Scanning,Malware Scanning Data Ingested,1 GB,0.15,5,GB,per GB scanned,0.75,assumes 10% of stored GB scanned a month
+eastus,Core,addon_search,AI Search Basic (1 unit),Azure AI Search,Basic,Basic Unit,1 Hour,0.101,1,unit,hourly x 730,73.73,
+eastus,Core,addon_search,AI Search S1 (1 unit),Azure AI Search,Standard S1,Standard S1 Unit,1 Hour,0.336,1,unit,hourly x 730,245.28,
+eastus,Growth,base,"App Service plan, Linux B2",Azure App Service Basic Plan - Linux,B2,B2,1 Hour,0.034,1,instances,hourly x 730 x instances,24.82,
+eastus,Growth,base,Azure SQL Database Standard S2,SQL Database Single Standard,S2,S2 DTUs,1/Day,2.42,1,database,daily x 30.42,73.62,
+eastus,Growth,base,Blob Hot LRS: data stored,General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0208,100,GB,"per GB-month, first tier",2.08,
+eastus,Growth,base,Blob Hot LRS: read ops (50% of ops),General Block Blob v2,Hot LRS,Hot Read Operations,10K,0.004,100000.0,ops,per 10K ops,0.04,
+eastus,Growth,base,Blob Hot LRS: write ops (50% of ops),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.05,100000.0,ops,per 10K ops,0.5,
+eastus,Growth,base,Log Analytics ingestion,Log Analytics,Analytics Logs,Analytics Logs Data Ingestion,1 GB,2.3,2.6,GB,"per GB, free 5 GB NOT credited",5.98,
+eastus,Growth,base,SQL LTR backup storage (RA-GRS),SQL Database - LTR Backup Storage,Backup RA-GRS,Backup RA-GRS Data Stored,1 GB/Month,0.05,100,GB,per GB-month,5.0,
+eastus,Growth,base,SQL auditing: stored logs (estimate),General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0208,10,GB,Hot LRS data stored,0.21,estimate
+eastus,Growth,base,SQL auditing: write ops (estimate),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.05,100000,ops,Hot LRS write ops,0.5,estimate
+eastus,Growth,base,ACS Email: sent,Email,Basic,Basic Sent Email,1,0.00025,5000,emails,per email,1.25,
+eastus,Growth,base,ACS Email: data transferred,Email,Basic,Basic Data Transferred,1 MB,0.00012,2500.0,MB,"per MB, 0.5 MB each",0.3,
+eastus,Growth,base,Azure DNS public zone,Azure DNS,Public,Public Zone,1,0.5,1,zone,"per zone-month, first 25 zones",0.5,DNS is priced under region 'Zone 1' for all regions
+eastus,Growth,base,Key Vault operations,Key Vault,Standard,Operations,10K,0.03,10000,ops,per 10K ops,0.03,
+eastus,Growth,base,Service Bus Basic,Service Bus,Basic,Basic Messaging Operations,1M,0.05,1000000,ops,per 1M ops,0.05,assumes 1M ops a month
+eastus,Growth,addon_security,Defender for Azure SQL (per server),Microsoft Defender for SQL,Standard,Standard Node,1/Month,15.0,1,server,per node-month,15.0,
+eastus,Growth,addon_security,Defender for Storage (per account),Microsoft Defender for Storage,Standard,Standard Node,1/Hour,0.0134,1,account,hourly x 730,9.78,1 storage account assumed
+eastus,Growth,addon_security,Defender for Storage malware scanning,Microsoft Defender for Storage,Malware Scanning,Malware Scanning Data Ingested,1 GB,0.15,10,GB,per GB scanned,1.5,assumes 10% of stored GB scanned a month
+eastus,Growth,addon_search,AI Search Basic (1 unit),Azure AI Search,Basic,Basic Unit,1 Hour,0.101,1,unit,hourly x 730,73.73,
+eastus,Growth,addon_search,AI Search S1 (1 unit),Azure AI Search,Standard S1,Standard S1 Unit,1 Hour,0.336,1,unit,hourly x 730,245.28,
+eastus,Enterprise,base,"App Service plan, Linux B2",Azure App Service Basic Plan - Linux,B2,B2,1 Hour,0.034,2,instances,hourly x 730 x instances,49.64,
+eastus,Enterprise,base,Azure SQL Database Standard S2,SQL Database Single Standard,S2,S2 DTUs,1/Day,2.42,1,database,daily x 30.42,73.62,
+eastus,Enterprise,base,Blob Hot LRS: data stored,General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0208,250,GB,"per GB-month, first tier",5.2,
+eastus,Enterprise,base,Blob Hot LRS: read ops (50% of ops),General Block Blob v2,Hot LRS,Hot Read Operations,10K,0.004,250000.0,ops,per 10K ops,0.1,
+eastus,Enterprise,base,Blob Hot LRS: write ops (50% of ops),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.05,250000.0,ops,per 10K ops,1.25,
+eastus,Enterprise,base,Log Analytics ingestion,Log Analytics,Analytics Logs,Analytics Logs Data Ingestion,1 GB,2.3,3.5,GB,"per GB, free 5 GB NOT credited",8.05,
+eastus,Enterprise,base,SQL LTR backup storage (RA-GRS),SQL Database - LTR Backup Storage,Backup RA-GRS,Backup RA-GRS Data Stored,1 GB/Month,0.05,150,GB,per GB-month,7.5,
+eastus,Enterprise,base,SQL auditing: stored logs (estimate),General Block Blob v2,Hot LRS,Hot LRS Data Stored,1 GB/Month,0.0208,15,GB,Hot LRS data stored,0.31,estimate
+eastus,Enterprise,base,SQL auditing: write ops (estimate),General Block Blob v2,Hot LRS,Hot LRS Write Operations,10K,0.05,150000,ops,Hot LRS write ops,0.75,estimate
+eastus,Enterprise,base,ACS Email: sent,Email,Basic,Basic Sent Email,1,0.00025,20000,emails,per email,5.0,
+eastus,Enterprise,base,ACS Email: data transferred,Email,Basic,Basic Data Transferred,1 MB,0.00012,10000.0,MB,"per MB, 0.5 MB each",1.2,
+eastus,Enterprise,base,Azure DNS public zone,Azure DNS,Public,Public Zone,1,0.5,1,zone,"per zone-month, first 25 zones",0.5,DNS is priced under region 'Zone 1' for all regions
+eastus,Enterprise,base,Key Vault operations,Key Vault,Standard,Operations,10K,0.03,20000,ops,per 10K ops,0.06,
+eastus,Enterprise,base,Service Bus Basic,Service Bus,Basic,Basic Messaging Operations,1M,0.05,1000000,ops,per 1M ops,0.05,assumes 1M ops a month
+eastus,Enterprise,addon_security,Defender for Azure SQL (per server),Microsoft Defender for SQL,Standard,Standard Node,1/Month,15.0,1,server,per node-month,15.0,
+eastus,Enterprise,addon_security,Defender for Storage (per account),Microsoft Defender for Storage,Standard,Standard Node,1/Hour,0.0134,1,account,hourly x 730,9.78,1 storage account assumed
+eastus,Enterprise,addon_security,Defender for Storage malware scanning,Microsoft Defender for Storage,Malware Scanning,Malware Scanning Data Ingested,1 GB,0.15,25,GB,per GB scanned,3.75,assumes 10% of stored GB scanned a month
+eastus,Enterprise,addon_search,AI Search Basic (1 unit),Azure AI Search,Basic,Basic Unit,1 Hour,0.101,1,unit,hourly x 730,73.73,
+eastus,Enterprise,addon_search,AI Search S1 (1 unit),Azure AI Search,Standard S1,Standard S1 Unit,1 Hour,0.336,1,unit,hourly x 730,245.28,

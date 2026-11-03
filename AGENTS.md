@@ -58,6 +58,7 @@ Root instructions for coding agents. Keep this file short and durable: it protec
 6. Update owning docs/ADRs when contracts or decisions change; mark superseded guidance instead of leaving conflicts.
 7. Review the diff for legacy fallback, duplicate knowledge, secrets, cross-tenant risk, missing audit, unsafe AI authority, and unsupported claims.
 8. Run targeted checks during iteration and full affected-area checks before completion. Report actual results and skipped/manual work honestly.
+9. When the user says “finish” or “complete,” continue through every item they named and close all implementation work possible. Report only genuine external prerequisites after doing that work.
 
 ## Verified commands
 

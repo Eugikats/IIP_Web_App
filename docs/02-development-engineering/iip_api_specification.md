@@ -746,7 +746,45 @@ Suggested actions must be permission-aware. A user should never receive an actio
 
 Channels is the internal unified inbox for customer-originated conversations entering through WhatsApp, WebChat, SMS, email, Teams, broker, call center, and website form channels.
 
-### 10.1 Get Channels Overview
+**Current implemented read contract (2026-10-31):** `GET /api/v1/channels/overview` returns tenant and workspace scoped WhatsApp, inbound email, and normalized channel-message rows. The filtered and paged response example below is a future contract, not the current route behavior. `GET /api/v1/channels/conversations/{channel}/{threadId}` reads retained WhatsApp messages, email previews, or stored Instagram, Messenger, TikTok, X, and Telegram messages. It requires `ViewChannels` and audits successful reads without message content. Its response has `channel`, `threadId`, `recipientId`, `messages`, and `canReplyInInbox`; each message has `messageId`, `direction`, `body`, `contentType`, `deliveryState`, `createdAt`, `caseId`, `sentByUserId`, and `isPreview`. `canReplyInInbox` is available for WhatsApp and for Telegram when the workspace has a matching validated bot, current customer-initiated consent, and the viewer has both `ManageCustomerCommunications` and `SendCustomerUpdate`. Email retains only a subject and body preview here.
+
+**Current account configuration contract (2026-10-31):** `GET /api/v1/integrations/connections/{connectionType}/providers`, `GET/POST/DELETE /api/v1/integrations/connections/{connectionType}`, and `POST /api/v1/integrations/connections/{connectionType}/test` support `instagram`, `messenger`, `tiktok`, `x`, and `telegram` in addition to existing connection types. These routes require `ConfigureIntegrations`, resolve tenant and workspace server side, and accept a required audit reason for a save or delete. Credentials arrive in `secretFields`, are encrypted at rest, and are never returned by status. Instagram, Messenger, TikTok, and X remain account-verification only. Telegram save additionally requires `InfrastructureOptions.ApiPublicBaseUrl` to be HTTPS, registers a webhook with Telegram, and stores its generated secret encrypted with the bot token.
+
+`POST /api/v1/integrations/telegram/bots/{botId}/webhook` is unauthenticated at the API layer because Telegram calls it directly. It resolves the workspace only from the indexed Telegram bot ID, verifies `X-Telegram-Bot-Api-Secret-Token` in constant time, accepts private updates, stores normalized messages in the tenant-scoped `ChannelMessages` table, deduplicates Telegram `update_id`, records customer-initiated consent (and `/stop` opt-out), and audits metadata without message content. `POST /api/v1/channels/conversations/telegram/{threadId}/messages` sends a human-approved text reply only after permission, account, thread, consent, and idempotency checks. A provider timeout is retained as `Unknown` and blocks another attempt. AI handling, media, richer delivery reconciliation, provider permission review, and production webhook proof are not enabled. Apply the channel-message and external-account-index migrations before enabling these routes. Only one saved account per connection type and workspace is supported.
+
+### 10.1 Consented Cross-Channel Customer Timeline
+
+```http
+GET /api/v1/customers/{customerId}/channel-timeline?page=1&pageSize=50
+```
+
+Requires `ViewCustomers` and `ViewChannels`. The server resolves the customer and active identity links in the authenticated tenant/workspace. It includes a link's messages only while the channel-specific consent remains permitted and the exact connected account remains active and validated. The response contains message ID, channel, direction, customer-safe body, content type, delivery state, timestamp, and an optional linked claim ID. It does not return the provider account ID, recipient ID, or thread ID. The response is ordered newest first and paged up to the newest 500 records per linked identity; `sourceHistoryCapped` signals that older messages may remain outside the window. Every successful read writes an audit event with customer and paging metadata, never message content or provider identifiers.
+
+```json
+{
+  "customerId": "b3923a70-3ae0-4f48-a993-67ea88e5d94b",
+  "entries": [
+    {
+      "messageId": "3b820a29-0180-4594-a183-e88a0a6c08f2",
+      "channel": "whatsapp",
+      "direction": "Inbound",
+      "body": "Please call me tomorrow.",
+      "contentType": "Text",
+      "deliveryState": "Received",
+      "createdAt": "2026-11-02T00:00:00Z",
+      "caseId": null
+    }
+  ],
+  "page": 1,
+  "pageSize": 50,
+  "hasMore": false,
+  "sourceHistoryCapped": false
+}
+```
+
+This read contract does not itself authorize assistant grounding, autonomous outreach, claim access, or cross-channel takeover. Those require their own current permission and consent checks.
+
+### 10.2 Get Channels Overview
 
 ```http
 GET /api/v1/channels/overview
@@ -807,13 +845,13 @@ Response example:
 }
 ```
 
-### 10.2 Get Conversation Detail
+### 10.3 Get Conversation Detail
 
 ```http
 GET /api/v1/channels/conversations/{conversationId}
 ```
 
-### 10.3 Assign Conversation
+### 10.4 Assign Conversation
 
 ```http
 POST /api/v1/channels/conversations/{conversationId}/assign
@@ -828,7 +866,7 @@ Request:
 }
 ```
 
-### 10.4 Convert Conversation to Work Item
+### 10.5 Convert Conversation to Work Item
 
 ```http
 POST /api/v1/channels/conversations/{conversationId}/convert
@@ -1313,6 +1351,16 @@ Request:
   "idempotencyKey": "fnol_session_01J_convert_001"
 }
 ```
+
+### 14.4 Resolve Policy Context
+
+```http
+GET /api/v1/policy-lookup?policyNumber={policyNumber}
+```
+
+Requires `CreateClaim`. The server resolves tenant and workspace from the authenticated context. A successful response includes the policy, customer context when available, active-cover indication, possible open duplicate claims, and `source` (`IIPPolicyRegister` or `ExternalPolicySystem`). A missing policy returns 404. Provider configuration or health failures use distinct statuses: unconfigured/unsupported (503), authorization/provider response errors (502), service unavailable (503), and malformed mapped data (502). Provider error bodies and credentials are never returned.
+
+The generic REST connection accepts HTTPS base URLs only, rejects embedded URL credentials, query strings, fragments, and localhost targets, and uses a client that does not follow redirects. Network egress must still be restricted to destinations approved for that tenant and environment.
 
 ---
 
@@ -1833,6 +1881,15 @@ GET /api/v1/customers/{customerId}/communications
 GET /api/v1/claims/{claimId}/communications
 ```
 
+### 19.3 Customer Follow-up Queue and Cancellation
+
+```http
+GET  /api/v1/customer-follow-ups
+POST /api/v1/customer-follow-ups/{taskId}/cancel
+```
+
+Both routes require `ManageCustomerCommunications` and resolve tenant/workspace from authenticated membership. The queue returns only task ID, customer display name, channel, purpose, due time, time zone, approval mode, status, creation time, and whether cancellation is currently allowed. It omits provider account, recipient, thread, and originating-message identifiers. Cancellation requires a non-empty `X-Audit-Reason` (up to 500 characters), records a user audit event, and succeeds only while the task is `PendingReview` or `Scheduled`. A task already processing or in a terminal state returns `409`; a task outside the resolved workspace returns `404`. The current queue is review and cancellation only. It does not approve tasks or dispatch customer messages; automatic follow-up dispatch remains `Not configured` until the governed worker and dispatch-time checks are implemented.
+
 ---
 
 ## 20. Tasks and Workflow APIs
@@ -2074,29 +2131,46 @@ Business rules:
 
 Admin APIs configure tenant behavior, workflow rules, document templates, users, roles, provider modes, and AI settings.
 
-### 23.1 Get Tenant Settings
+### 23.1 Get Tenant Configuration
 
 ```http
-GET /api/v1/admin/tenant-settings
+GET /api/v1/admin/tenant-configuration
 ```
 
-### 23.2 Update Tenant Settings
+The caller must have `ManageTenantSettings`. The tenant and workspace are resolved from the authenticated server-side context. The response includes the insurer profile, configured business lines and channels, approval thresholds, document checklists, audit retention, document classification confidence threshold, fraud rules, and update timestamp.
+
+### 23.2 Update Tenant Configuration
 
 ```http
-PATCH /api/v1/admin/tenant-settings
+PUT /api/v1/admin/tenant-configuration
 ```
 
-Request:
+The caller must have `ManageTenantSettings` and provide `X-Audit-Reason`. The API validates the full configuration, stores it in the tenant-scoped configuration record, and writes an audit event containing the changed field groups.
+
+Request fields:
 
 ```json
 {
-  "countryCode": "UG",
-  "currencyCode": "UGX",
-  "defaultLanguage": "en",
-  "enabledChannels": ["whatsapp", "email", "webchat"],
-  "humanReviewRequiredForCustomerMessages": true
+  "insurerName": "Example Insurance",
+  "logoUrl": null,
+  "country": "Uganda",
+  "region": "East Africa",
+  "businessLines": [],
+  "channels": [],
+  "approvalThresholds": [],
+  "checklists": [],
+  "auditRetentionDays": 365,
+  "fraudRules": {
+    "velocityWindowDays": 30,
+    "velocityClaimCount": 3,
+    "lowCompletenessThreshold": 0.4,
+    "earlyClaimWindowDays": 14,
+    "highValueSumInsuredThreshold": 100000000
+  }
 }
 ```
+
+Fraud-rule thresholds produce advisory signals for human review. They do not determine fraud or make a claim decision. Velocity windows are limited to 1 through 365 days, velocity counts to 2 through 100 claims, completeness to 0 through 1, early-claim windows to 0 through 365 days, and high-value thresholds must be positive.
 
 ### 23.3 Configure Document Requirements
 
@@ -2537,6 +2611,10 @@ When implementing this API, coding agents must follow these rules:
 | Channels | `/api/v1/channels/conversations/{conversationId}` | GET | Yes |
 | Channels | `/api/v1/channels/conversations/{conversationId}/assign` | POST | Yes |
 | Channels | `/api/v1/channels/conversations/{conversationId}/convert` | POST | Yes |
+| Channels | `/api/v1/channels/conversations/{channel}/{threadId}/identity-link` | GET, POST | Yes |
+| Channels | `/api/v1/channel-identities/{linkId}/revoke` | POST | Yes |
+| Customers | `/api/v1/customers/{customerId}/channel-identities` | GET | Yes |
+| Customers | `/api/v1/customers/{customerId}/channel-timeline` | GET | Yes |
 | Customers | `/api/v1/customers/overview` | GET | Yes |
 | Customers | `/api/v1/customers/{customerId}` | GET | Yes |
 | Customers | `/api/v1/customers/{customerId}/consents` | POST | Yes |
@@ -2577,13 +2655,16 @@ When implementing this API, coding agents must follow these rules:
 | Integrations | `/api/v1/integrations/providers` | GET | Yes |
 | Integrations | `/api/v1/integrations/events` | GET | Yes |
 | Integrations | `/api/v1/integrations/events/{eventId}/retry` | POST | Yes |
-| Admin | `/api/v1/admin/tenant-settings` | GET | Yes |
-| Admin | `/api/v1/admin/tenant-settings` | PATCH | Yes |
+| Admin | `/api/v1/admin/tenant-configuration` | GET | Yes |
+| Admin | `/api/v1/admin/tenant-configuration` | PUT | Yes |
+| Policy lookup | `/api/v1/policy-lookup` | GET | Yes |
 | Reports | `/api/v1/reports/operations-summary` | GET | Phase 2 |
 | Support | `/api/v1/support/queues` | GET | Yes |
 | WhatsApp webhook | `/api/v1/integrations/whatsapp/webhook` | GET/POST | Provider verification/signature |
 | WhatsApp thread | `/api/v1/channels/whatsapp/threads/{threadId}` | GET | Yes |
 | WhatsApp reviewed outbound | `/api/v1/channels/whatsapp/threads/{threadId}/messages` | POST | Yes |
+| Customer follow-ups | `/api/v1/customer-follow-ups` | GET | Review queue |
+| Customer follow-up cancellation | `/api/v1/customer-follow-ups/{taskId}/cancel` | POST | Audit reason required |
 | Webhooks | `/api/v1/webhooks/microsoft-graph/mail` | POST | Phase 2 |
 
 ---
