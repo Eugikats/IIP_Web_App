@@ -12,6 +12,7 @@ import { FilterTab } from "@/components/ui/FilterTab";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
+import { fetchClaimTypes } from "@/lib/claimTypes";
 
 // Six-step FNOL intake (docs/03-design-architecture/iip_fnol_six_step_intake_design.md):
 // 1 Identify the claimant, 2 Find the policy, 3 Describe the incident, 4 Product-line specifics,
@@ -165,6 +166,24 @@ export default function FNOL() {
   const [checklistLoading, setChecklistLoading] = useState(false);
   const [checklistError, setChecklistError] = useState<string | null>(null);
   const [lookup, setLookup] = useState<PolicyLookupState>({ status: "idle" });
+  // The claim types this insurer configured for the product line. Null means none are configured
+  // (or they could not be read), so the built-in list below is used and nothing is blocked.
+  const [configuredClaimTypes, setConfiguredClaimTypes] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchClaimTypes(roleDef.key, productLine).then((options) => {
+      if (cancelled) return;
+      const names = options?.configured ? options.claimTypes.map((type) => type.name) : null;
+      setConfiguredClaimTypes(names);
+      if (names && names.length > 0) {
+        setForm((current) => (names.some((name) => name.toLowerCase() === current.claimType.toLowerCase())
+          ? current
+          : { ...current, claimType: names[0] }));
+      }
+    });
+    return () => { cancelled = true; };
+  }, [productLine, roleDef.key]);
 
   function selectProductLine(next: ProductLine) {
     setProductLine(next);
@@ -492,7 +511,7 @@ export default function FNOL() {
                   label="Claim type"
                   value={form.claimType}
                   onChange={(value) => updateCommon("claimType", value)}
-                  options={productLine === "Motor" ? MOTOR_CLAIM_TYPES : MEDICAL_CLAIM_TYPES}
+                  options={configuredClaimTypes ?? (productLine === "Motor" ? MOTOR_CLAIM_TYPES : MEDICAL_CLAIM_TYPES)}
                   required
                 />
                 <Field

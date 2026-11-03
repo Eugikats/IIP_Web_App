@@ -45,6 +45,15 @@ export type ProductWordingProposal = {
   items: { category: string; label: string; value: string; sourceChunkId: string; sourceQuote: string; confidence: number }[];
 };
 
+export type ClaimTypeConfig = {
+  key: string | null;
+  name: string;
+  description: string | null;
+  active: boolean;
+  sortOrder: number;
+  aliases: string[] | null;
+};
+
 export type ProductStatus = "Draft" | "PendingPublishApproval" | "Published" | "Retired";
 
 export type Product = {
@@ -60,6 +69,7 @@ export type Product = {
   stages: ClaimStage[];
   documentMatrix: DocumentMatrixEntry[];
   wordingFacts: ProductWordingFact[];
+  claimTypes: ClaimTypeConfig[];
   updatedByUserId: string;
   updatedAt: string;
   changeReason: string;
@@ -97,7 +107,15 @@ export type UpdateProductInput = {
   approvedWordingKnowledgeDocumentId?: string | null;
   stages?: ClaimStage[] | null;
   documentMatrix?: DocumentMatrixEntry[] | null;
+  claimTypes?: ClaimTypeConfig[] | null;
   changeReason: string;
+};
+
+export type ClaimTypeImportResult = {
+  productId: string;
+  productVersion: number;
+  addedClaimTypes: string[];
+  claimsUpdated: number;
 };
 
 export type ProductsResult<T> = { ok: true; value: T } | { ok: false; error: string; field?: string };
@@ -181,6 +199,12 @@ export function updateProductDraft(role: string, productId: string, input: Updat
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   }, "This change could not be saved.");
+}
+
+export function importExistingClaimTypes(role: string, productId: string) {
+  return call<ClaimTypeImportResult>(role, `${apiBaseUrl}/api/v1/products/${productId}/claim-types/import-existing`, {
+    method: "POST",
+  }, "Existing claim types could not be imported.");
 }
 
 export function submitProductForPublishApproval(role: string, productId: string, changeReason: string) {

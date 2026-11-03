@@ -450,6 +450,7 @@ public sealed partial class CustomerAssistantService
                     product_or_policy_number = new { type = "string", description = "Which of their covers the claim is under." },
                     what_happened = new { type = "string", description = "A clear description in English: what happened, where, and what was lost or damaged or what injury." },
                     when_it_happened = new { type = "string", description = "When it happened, for example 'this morning' or '28 September'." },
+                    claim_type = new { type = "string", description = "The claim type from that cover's claim_types in get_my_account that best fits what happened. Leave out if the cover lists none." },
                 },
                 required = new[] { "what_happened" },
                 additionalProperties = false,
@@ -502,7 +503,7 @@ public sealed partial class CustomerAssistantService
             "save_name" => await ToolSaveNameAsync(run, Arg(args, "full_name"), cancellationToken),
             "register_customer" => await ToolRegisterAsync(run, Arg(args, "full_name"), Arg(args, "occupation"), Arg(args, "area"), cancellationToken),
             "apply_for_cover" => await ToolApplyAsync(run, Arg(args, "product"), NumberArg(args, "cover_amount_ugx"), cancellationToken),
-            "file_claim" => await ToolFileClaimAsync(run, Arg(args, "product_or_policy_number"), Arg(args, "what_happened"), Arg(args, "when_it_happened"), cancellationToken),
+            "file_claim" => await ToolFileClaimAsync(run, Arg(args, "product_or_policy_number"), Arg(args, "what_happened"), Arg(args, "when_it_happened"), cancellationToken, Arg(args, "claim_type")),
             "send_claim_link" => await ToolSendLinkAsync(run, cancellationToken),
             "schedule_customer_follow_up" => await ToolScheduleFollowUpAsync(run, Arg(args, "due_at"), Arg(args, "purpose"), cancellationToken),
             "hand_to_person" => await ToolHandToPersonAsync(run, Arg(args, "reason"), cancellationToken),
@@ -580,6 +581,12 @@ public sealed partial class CustomerAssistantService
 
         return Json(new { scheduled = true, status = "pending_review", due_at = dueAt.ToString("dddd d MMMM yyyy 'at' HH:mm", System.Globalization.CultureInfo.InvariantCulture), time_zone = "Africa/Kampala", sends_automatically = false });
     }
+    /// <summary>The claim types a cover's published product offers, by name, so Kato can pick the one
+    /// that fits what the customer describes instead of inventing a label.</summary>
+    private static string[] ClaimTypeNamesFor(string productLine, IReadOnlyCollection<Domain.Products.Product> published) =>
+        published
+            .FirstOrDefault(product => string.Equals(product.ProductClass, productLine, StringComparison.OrdinalIgnoreCase))
+            ?.ActiveClaimTypes.Select(type => type.Name).ToArray() ?? [];
 
     private async Task<string> ToolGetMyAccountAsync(AgentRun run, CancellationToken cancellationToken)
     {
@@ -590,6 +597,9 @@ public sealed partial class CustomerAssistantService
         }
 
         var sender = await IdentifySenderAsync(run.Scope, run.WaId, cancellationToken);
+        var covers = (await productRepository.ListCurrentForAllProductsAsync(run.Scope, cancellationToken))
+            .Where(product => product.Status == Domain.Products.ProductStatus.Published)
+            .ToArray();
         var claims = sender is null
             ? []
             : CasesFor(await caseRepository.ListAsync(run.Scope, cancellationToken), sender, run.WaId)
@@ -615,6 +625,7 @@ public sealed partial class CustomerAssistantService
                 from = p.EffectiveFrom?.ToString("d MMMM yyyy"),
                 to = p.EffectiveTo?.ToString("d MMMM yyyy"),
                 monthly_price_ugx = p.AnnualPremium is { } annual ? Math.Round(annual / 12m) : (decimal?)null,
+                claim_types = ClaimTypeNamesFor(p.ProductLine, covers),
             }).ToArray(),
             claims,
         });
@@ -789,7 +800,7 @@ public sealed partial class CustomerAssistantService
     }
 
     private async Task<string> ToolFileClaimAsync(
-        AgentRun run, string? coverHint, string? whatHappened, string? when, CancellationToken cancellationToken)
+        AgentRun run, string? coverHint, string? whatHappened, string? when, CancellationToken cancellationToken, string? claimTypeName = null)
     {
         if (!KatoWords.StartsWithYes(run.Original, run.English))
         {
@@ -841,7 +852,9 @@ public sealed partial class CustomerAssistantService
             CustomerPhone: customer?.Phone ?? $"+{run.WaId}",
             PolicyNumber: policy.PolicyNumber,
             ProductLine: policy.ProductLine,
-            ClaimType: $"{policy.ProductLine} claim reported on WhatsApp",
+            // A claim type the model chose from the cover's own list is matched in intake; anything
+            // else keeps the generic label and a person confirms the type when they confirm the claim.
+            ClaimType: string.IsNullOrWhiteSpace(claimTypeName) ? $"{policy.ProductLine} claim reported on WhatsApp" : claimTypeName.Trim(),
             Channel: "WhatsApp",
             IncidentDate: CustomerMessageSignals.IncidentDate($"{when} {whatHappened}", DateOnly.FromDateTime(run.Now.UtcDateTime)),
             IncidentDescription: description!,

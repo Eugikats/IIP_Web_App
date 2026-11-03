@@ -465,3 +465,19 @@ export async function requestContactDetailChange(
     return { ok: false, error: safeNetworkFailure(reason, "We could not submit your request.") };
   }
 }
+
+export async function fetchClaimantClaimTypes(
+  session: ClientPortalSession,
+  productLine: string,
+): Promise<{ configured: boolean; claimTypes: { key: string; name: string; description: string }[] } | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claim-types?productLine=${encodeURIComponent(productLine)}`, {
+      headers: clientPortalHeaders(session.sessionToken),
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as { configured: boolean; claimTypes: { key: string; name: string; description: string }[] };
+  } catch {
+    return null;
+  }
+}

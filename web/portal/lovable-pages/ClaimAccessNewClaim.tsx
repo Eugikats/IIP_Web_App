@@ -10,6 +10,7 @@ import {
   type ClientPortalSession,
   type MotorFnolDetails,
   createClaim,
+  fetchClaimantClaimTypes,
   loadStoredSession,
   storeSession,
 } from "@/lib/clientPortal";
@@ -25,6 +26,9 @@ export default function ClaimAccessNewClaim() {
   const [session, setSession] = useState<ClientPortalSession | null>(null);
   const [productLine, setProductLine] = useState<string>("Motor");
   const [claimType, setClaimType] = useState(MOTOR_CLAIM_TYPES[0]);
+  // The claim types this insurer configured for the policy's product. Null means none are
+  // configured (or they could not be read), so the built-in list is used.
+  const [configuredClaimTypes, setConfiguredClaimTypes] = useState<string[] | null>(null);
   const [incidentDate, setIncidentDate] = useState("");
   const [incidentDescription, setIncidentDescription] = useState("");
   const [vehicleRegistration, setVehicleRegistration] = useState("");
@@ -58,10 +62,22 @@ export default function ClaimAccessNewClaim() {
     }
   }, [router]);
 
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    void fetchClaimantClaimTypes(session, productLine).then((options) => {
+      if (cancelled) return;
+      const names = options?.configured ? options.claimTypes.map((type) => type.name) : null;
+      setConfiguredClaimTypes(names);
+      if (names && names.length > 0) setClaimType(names[0]);
+    });
+    return () => { cancelled = true; };
+  }, [session, productLine]);
+
   if (!session) return null;
 
   const productLineSupported = SUPPORTED_PRODUCT_LINES.includes(productLine);
-  const claimTypeOptions = productLine === "Medical" ? MEDICAL_CLAIM_TYPES : MOTOR_CLAIM_TYPES;
+  const claimTypeOptions = configuredClaimTypes ?? (productLine === "Medical" ? MEDICAL_CLAIM_TYPES : MOTOR_CLAIM_TYPES);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();

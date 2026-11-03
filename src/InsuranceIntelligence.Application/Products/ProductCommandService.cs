@@ -102,6 +102,8 @@ public sealed class ProductCommandService(
             ? current.WordingFacts
             : await ValidateWordingFacts(current.Scope, request.WordingFacts, cancellationToken);
 
+        var claimTypes = request.ClaimTypes is null ? current.ClaimTypes : ValidateClaimTypes(request.ClaimTypes);
+
         var context = tenantContextAccessor.Current;
         var updated = current with
         {
@@ -109,6 +111,7 @@ public sealed class ProductCommandService(
             Version = current.Version + 1,
             Name = name,
             ProductClass = productClass,
+            ClaimTypes = claimTypes,
             IraApprovalReference = request.IraApprovalReference is null ? current.IraApprovalReference : NormalizeOrNull(request.IraApprovalReference),
             IraApprovalEffectiveDate = request.IraApprovalEffectiveDate ?? current.IraApprovalEffectiveDate,
             ApprovedWordingKnowledgeDocumentId = request.ApprovedWordingKnowledgeDocumentId is null
@@ -364,6 +367,90 @@ public sealed class ProductCommandService(
         return result.OrderBy(stage => stage.SortOrder).ToArray();
     }
 
+    private const int MaxClaimTypes = 60;
+
+    /// <summary>Keys are lower-case slugs. A blank key is derived from the name. Order in the
+    /// list is the order shown, so reordering is just sending the list in a new order.</summary>
+    internal static IReadOnlyList<ClaimTypeDefinition> ValidateClaimTypes(IReadOnlyList<ClaimTypeDto> types)
+    {
+        if (types.Count > MaxClaimTypes)
+        {
+            throw new ProductValidationException("claimTypes", $"A product can have at most {MaxClaimTypes} claim types.");
+        }
+
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var result = new List<ClaimTypeDefinition>(types.Count);
+        foreach (var type in types)
+        {
+            var name = type.Name?.Trim() ?? string.Empty;
+            if (name.Length == 0 || name.Length > 80)
+            {
+                throw new ProductValidationException("claimTypes", "Every claim type needs a name of up to 80 characters.");
+            }
+
+            var key = string.IsNullOrWhiteSpace(type.Key) ? Slug(name) : type.Key.Trim().ToLowerInvariant();
+            if (!IsValidKey(key))
+            {
+                throw new ProductValidationException("claimTypes", $"'{key}' is not a valid key. Use lower-case letters, digits, hyphen or underscore, starting with a letter or digit.");
+            }
+
+            if (!keys.Add(key))
+            {
+                throw new ProductValidationException("claimTypes", $"Claim type key '{key}' is used more than once.");
+            }
+
+            if (!names.Add(ClaimTypeMatching.Normalize(name)))
+            {
+                throw new ProductValidationException("claimTypes", $"A claim type named '{name}' already exists.");
+            }
+
+            var description = type.Description?.Trim() ?? string.Empty;
+            if (description.Length > 300)
+            {
+                throw new ProductValidationException("claimTypes", $"The description of '{name}' is longer than 300 characters.");
+            }
+
+            var aliases = (type.Aliases ?? [])
+                .Select(alias => alias?.Trim() ?? string.Empty)
+                .Where(alias => alias.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (aliases.Length > 10 || aliases.Any(alias => alias.Length > 60))
+            {
+                throw new ProductValidationException("claimTypes", $"'{name}' can have at most 10 aliases of up to 60 characters.");
+            }
+
+            result.Add(new ClaimTypeDefinition(key, name, description, type.Active, result.Count, aliases));
+        }
+
+        return result;
+    }
+
+    internal static string Slug(string value)
+    {
+        var builder = new System.Text.StringBuilder();
+        foreach (var character in value.Trim().ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(character) && character < 128)
+            {
+                builder.Append(character);
+            }
+            else if (builder.Length > 0 && builder[^1] != '-')
+            {
+                builder.Append('-');
+            }
+        }
+
+        var slug = builder.ToString().Trim('-');
+        return slug.Length > 40 ? slug[..40].Trim('-') : slug;
+    }
+
+    private static bool IsValidKey(string key) =>
+        key.Length is >= 1 and <= 40
+        && char.IsAsciiLetterOrDigit(key[0])
+        && key.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character is '-' or '_');
+
     private async Task<IReadOnlyList<ProductDocumentRequirement>> ValidateDocumentMatrix(
         TenantScope scope,
         IReadOnlyList<DocumentMatrixEntryDto> entries,
@@ -518,5 +605,9 @@ public sealed class ProductCommandService(
             product.PublishRejectedAt,
             product.PublishRejectionReason,
             product.WordingFacts.Select(fact => new ProductWordingFactDto(
-                fact.Category, fact.Label, fact.Value, fact.SourceKnowledgeDocumentId, fact.SourceChunkId, fact.SourceQuote, fact.Confidence)).ToArray());
+                fact.Category, fact.Label, fact.Value, fact.SourceKnowledgeDocumentId, fact.SourceChunkId, fact.SourceQuote, fact.Confidence)).ToArray(),
+            product.ClaimTypes
+                .OrderBy(type => type.SortOrder)
+                .Select(type => new ClaimTypeDto(type.Key, type.Name, type.Description, type.Active, type.SortOrder, type.Aliases ?? []))
+                .ToArray());
 }

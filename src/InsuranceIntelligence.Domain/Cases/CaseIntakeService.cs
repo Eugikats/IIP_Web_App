@@ -35,7 +35,9 @@ public sealed class CaseIntakeService(
             ? CaseStatus.Assigned
             : routing.InitialStatus;
 
-        var (productId, productVersion) = await ResolveProductPinAsync(command.Scope, command.ProductLine, cancellationToken);
+        var pinnedProduct = await ResolveProductAsync(command.Scope, command.ProductLine, cancellationToken);
+        var (productId, productVersion) = (pinnedProduct?.ProductId, pinnedProduct?.Version);
+        var claimTypeResolution = ResolveClaimType(pinnedProduct, command.ClaimType, command.IncidentDescription, command.RequireConfiguredClaimType);
         var advisoryRiskSignals = await ResolveAdvisoryRiskSignalsAsync(command.Scope, command.PolicyNumber, command.IncidentDate, command.ClaimedAmount, cancellationToken);
 
         var claimCase = new ClaimCase
@@ -51,7 +53,8 @@ public sealed class CaseIntakeService(
             ProductVersion = productVersion,
             ClaimedAmount = command.ClaimedAmount,
             AdvisoryRiskSignals = advisoryRiskSignals,
-            ClaimType = command.ClaimType.Trim(),
+            ClaimType = claimTypeResolution.Name,
+            ClaimTypeKey = claimTypeResolution.Key,
             Channel = command.Channel.Trim(),
             IncidentDate = command.IncidentDate,
             IncidentDescription = command.IncidentDescription.Trim(),
@@ -116,16 +119,24 @@ public sealed class CaseIntakeService(
         var incidentDate = corrections.IncidentDate ?? claimCase.IncidentDate;
 
         var routing = ClaimRoutingPolicy.Evaluate(claimType, claimCase.MotorFnolDetails, productLine: productLine);
-        var (productId, productVersion) = string.Equals(productLine, claimCase.ProductLine, StringComparison.OrdinalIgnoreCase)
-            ? (claimCase.ProductId, claimCase.ProductVersion)
-            : await ResolveProductPinAsync(claimCase.Scope, productLine, cancellationToken);
+        var productChanged = !string.Equals(productLine, claimCase.ProductLine, StringComparison.OrdinalIgnoreCase);
+        var confirmedProduct = productChanged
+            ? await ResolveProductAsync(claimCase.Scope, productLine, cancellationToken)
+            : await ResolvePinnedProductAsync(claimCase, cancellationToken);
+        var (productId, productVersion) = productChanged
+            ? (confirmedProduct?.ProductId, confirmedProduct?.Version)
+            : (claimCase.ProductId, claimCase.ProductVersion);
+        // Confirming is where a person fixes the best guess an automatic channel made, so a typed
+        // claim type is matched against the configured types; an unmatched one is kept as text.
+        var confirmedType = ResolveClaimType(confirmedProduct, claimType, incidentDescription, requireConfigured: false);
         var now = DateTimeOffset.UtcNow;
         var confirmed = claimCase with
         {
             ProductLine = productLine,
             ProductId = productId,
             ProductVersion = productVersion,
-            ClaimType = claimType,
+            ClaimType = confirmedType.Name,
+            ClaimTypeKey = confirmedType.Key,
             IncidentDescription = incidentDescription,
             IncidentDate = incidentDate,
             RequiresConfirmation = false,
@@ -171,27 +182,61 @@ public sealed class CaseIntakeService(
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>Matches a claim's free-text ProductLine to a configured, Published product by
-    /// name, and pins the exact version in force right now. Returns (null, null) when no product
-    /// repository is wired or no Published product matches, in which case ProductLine alone
-    /// continues to describe the claim, exactly as it always has.</summary>
-    private async Task<(Guid? ProductId, int? Version)> ResolveProductPinAsync(TenantScope scope, string productLine, CancellationToken cancellationToken)
+    /// <summary>Matches a claim's free-text ProductLine to a configured, Published product, and
+    /// returns it so its exact version can be pinned. Null when no product repository is wired or no
+    /// Published product matches, in which case ProductLine alone continues to describe the claim,
+    /// exactly as it always has.</summary>
+    private async Task<Product?> ResolveProductAsync(TenantScope scope, string productLine, CancellationToken cancellationToken)
     {
         if (productRepository is null || string.IsNullOrWhiteSpace(productLine))
         {
-            return (null, null);
+            return null;
         }
 
         var products = await productRepository.ListCurrentForAllProductsAsync(scope, cancellationToken);
         // ProductClass is the line ("Motor", "Medical"), not Name (an admin-chosen display name
-        // like "Motor Comprehensive" or the demo seed's "Motor Cover") -- matching on Name meant a
+        // like "Motor Comprehensive" or the demo seed's "Motor Cover"). Matching on Name meant a
         // freshly filed claim never pinned to a real product even when one existed for its line,
         // silently falling back to the generic built-in checklist every time.
-        var match = products.FirstOrDefault(product =>
+        return products.FirstOrDefault(product =>
             product.Status == ProductStatus.Published
             && string.Equals(product.ProductClass, productLine.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
 
-        return match is null ? (null, null) : (match.ProductId, match.Version);
+    /// <summary>The exact product version a claim was pinned to (not the latest).</summary>
+    private async Task<Product?> ResolvePinnedProductAsync(ClaimCase claimCase, CancellationToken cancellationToken)
+    {
+        if (productRepository is null || claimCase.ProductId is not { } productId || claimCase.ProductVersion is not { } version)
+        {
+            return null;
+        }
+
+        return await productRepository.GetVersionAsync(claimCase.Scope, productId, version, cancellationToken);
+    }
+
+    private static (string Name, string? Key) ResolveClaimType(Product? product, string typed, string? description, bool requireConfigured)
+    {
+        var trimmed = typed.Trim();
+        var configured = product?.ActiveClaimTypes ?? [];
+        if (product is null || configured.Count == 0)
+        {
+            return (trimmed, null);
+        }
+
+        // Only active types: a retired type still resolves for history (Product.FindClaimType) but
+        // can no longer be chosen for a new claim.
+        var match = ClaimTypeMatching.Find(configured, trimmed) ?? (requireConfigured ? null : product.SuggestClaimType($"{trimmed} {description}"));
+        if (match is not null)
+        {
+            return (match.Name, match.Key);
+        }
+
+        if (requireConfigured)
+        {
+            throw new ClaimTypeNotConfiguredException(trimmed, configured.Select(type => type.Name).ToArray());
+        }
+
+        return (trimmed, null);
     }
 
     /// <summary>Deterministic, rule-based advisory only (PolicyRiskSignalEvaluator), never a
@@ -230,4 +275,12 @@ public sealed record ClaimCaseConfirmationResult
 
     public static ClaimCaseConfirmationResult Confirmed(ClaimCase before, ClaimCase after) =>
         new() { Found = true, WasAlreadyConfirmed = false, Before = before, After = after };
+}
+
+/// <summary>A person chose a claim type that the claim's product does not offer.</summary>
+public sealed class ClaimTypeNotConfiguredException(string chosen, IReadOnlyList<string> allowed)
+    : ArgumentException($"'{chosen}' is not a claim type for this product. Choose one of: {string.Join(", ", allowed)}.", "ClaimType")
+{
+    public string Chosen { get; } = chosen;
+    public IReadOnlyList<string> Allowed { get; } = allowed;
 }

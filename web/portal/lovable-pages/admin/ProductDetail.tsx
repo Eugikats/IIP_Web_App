@@ -13,18 +13,21 @@ import { useUI } from "@/context/UIStateContext";
 import {
   approveProductPublish,
   getProduct,
+  importExistingClaimTypes,
   listProductVersions,
   rejectProductPublish,
   retireProduct,
   submitProductForPublishApproval,
   updateProductDraft,
   type ClaimStage,
+  type ClaimTypeConfig,
   type DocumentMatrixEntry,
   type Product,
   type ProductStatus,
   type ProductVersionSummary,
 } from "@/lib/products";
 import { ensureDocumentTypeCatalog, type DocumentTypeDefinition } from "@/lib/documentTypes";
+import { ClaimTypesEditor } from "@/components/iip/ClaimTypesEditor";
 
 const STATUS_TONE: Record<ProductStatus, PillTone> = {
   Draft: "neutral",
@@ -62,6 +65,8 @@ export default function ProductDetail() {
   const [iraApprovalEffectiveDate, setIraApprovalEffectiveDate] = useState("");
   const [stages, setStages] = useState<ClaimStage[]>([]);
   const [documentMatrix, setDocumentMatrix] = useState<DocumentMatrixEntry[]>([]);
+  const [claimTypes, setClaimTypes] = useState<ClaimTypeConfig[]>([]);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeDefinition[]>([]);
 
   function applyProduct(loaded: Product) {
@@ -72,6 +77,7 @@ export default function ProductDetail() {
     setIraApprovalEffectiveDate(loaded.iraApprovalEffectiveDate ?? "");
     setStages(loaded.stages);
     setDocumentMatrix(loaded.documentMatrix);
+    setClaimTypes(loaded.claimTypes ?? []);
   }
 
   const load = useCallback(async () => {
@@ -108,6 +114,7 @@ export default function ProductDetail() {
       || iraApprovalEffectiveDate !== (product.iraApprovalEffectiveDate ?? "")
       || JSON.stringify(stages) !== JSON.stringify(product.stages)
       || JSON.stringify(documentMatrix) !== JSON.stringify(product.documentMatrix)
+      || JSON.stringify(claimTypes) !== JSON.stringify(product.claimTypes ?? [])
     : false;
 
   async function onConfirmGoverned(reason: string) {
@@ -117,7 +124,7 @@ export default function ProductDetail() {
       case "save":
         result = await updateProductDraft(role, productId, {
           name, productClass, iraApprovalReference: iraApprovalReference || null,
-          iraApprovalEffectiveDate: iraApprovalEffectiveDate || null, stages, documentMatrix, changeReason: reason,
+          iraApprovalEffectiveDate: iraApprovalEffectiveDate || null, stages, documentMatrix, claimTypes, changeReason: reason,
         });
         break;
       case "submit":
@@ -141,6 +148,23 @@ export default function ProductDetail() {
     }
     applyProduct(result.value);
     setGovernedAction(null);
+    void load();
+  }
+
+  async function onImportClaimTypes() {
+    setImportNotice(null);
+    setActionError(null);
+    const result = await importExistingClaimTypes(role, productId);
+    if (!result.ok) {
+      setActionError(result.error);
+      return;
+    }
+    const added = result.value.addedClaimTypes.length;
+    setImportNotice(
+      added === 0
+        ? `No new claim types found. ${result.value.claimsUpdated} claim(s) linked.`
+        : `Added ${added} claim type(s) from existing claims and linked ${result.value.claimsUpdated} claim(s). Review them below, then submit the product for approval again.`,
+    );
     void load();
   }
 
@@ -286,6 +310,18 @@ export default function ProductDetail() {
                 </div>
               ))}
             </div>
+          </GlassCard>
+
+          <GlassCard>
+            <ClaimTypesEditor
+              value={claimTypes}
+              onChange={setClaimTypes}
+              disabled={!canEdit}
+              extraAction={canEdit && !isDirty ? (
+                <Button variant="ghost" onClick={() => void onImportClaimTypes()}>Import from existing claims</Button>
+              ) : null}
+            />
+            {importNotice && <p className="mt-3 text-[12px] text-dls-text-secondary">{importNotice}</p>}
           </GlassCard>
 
           <GlassCard>

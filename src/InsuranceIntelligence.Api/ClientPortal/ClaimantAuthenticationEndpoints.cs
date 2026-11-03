@@ -265,7 +265,8 @@ public static class ClaimantAuthenticationEndpoints
             request.IncidentDescription.Trim(),
             session.ContactValue,
             correlationId,
-            request.MotorFnolDetails);
+            request.MotorFnolDetails,
+            RequireConfiguredClaimType: true);
 
         ClaimCase claimCase;
         try

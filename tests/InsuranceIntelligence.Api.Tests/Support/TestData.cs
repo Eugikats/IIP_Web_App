@@ -38,6 +38,40 @@ public static class TestData
         return new CaseInfo(body.GetProperty("caseId").GetGuid(), policy, email, phone, tenantId, workspaceId);
     }
 
+    /// <summary>Creates, configures, submits and approves a product with two different admins (the
+    /// maker/checker rule), and returns its id. Claim types and a document matrix are optional.</summary>
+    public static async Task<Guid> PublishProductAsync(
+        Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory,
+        string tenantId,
+        string productClass = "Motor",
+        object[]? claimTypes = null,
+        object[]? documentMatrix = null,
+        string workspaceId = "workspace-main")
+    {
+        using var maker = factory.CreateScopedClient(tenantId, workspaceId, "Admin", "maker-1");
+        using var checker = factory.CreateScopedClient(tenantId, workspaceId, "Admin", "checker-1");
+
+        var created = await maker.PostAsJsonAsync("/api/v1/products", new { name = $"{productClass} Cover", productClass, changeReason = "test" });
+        Assert.True(created.IsSuccessStatusCode, await created.Content.ReadAsStringAsync());
+        var productId = (await MockedApiFactory.ReadJsonAsync(created)).GetProperty("productId").GetGuid();
+
+        var updated = await maker.PutAsJsonAsync($"/api/v1/products/{productId}", new
+        {
+            iraApprovalReference = "TEST-REF-1",
+            iraApprovalEffectiveDate = "2026-01-01",
+            claimTypes,
+            documentMatrix,
+            changeReason = "configure for test",
+        });
+        Assert.True(updated.IsSuccessStatusCode, await updated.Content.ReadAsStringAsync());
+
+        var submitted = await maker.PostAsJsonAsync($"/api/v1/products/{productId}/submit", new { changeReason = "ready" });
+        Assert.True(submitted.IsSuccessStatusCode, await submitted.Content.ReadAsStringAsync());
+        var approved = await checker.PostAsJsonAsync($"/api/v1/products/{productId}/approve", new { changeReason = "approved" });
+        Assert.True(approved.IsSuccessStatusCode, await approved.Content.ReadAsStringAsync());
+        return productId;
+    }
+
     public static MultipartFormDataContent FileForm(string fileName, string content, string? documentTypeKey = null, string contentType = "text/plain")
     {
         var form = new MultipartFormDataContent();

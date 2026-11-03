@@ -53,6 +53,7 @@ public static class CaseMapper
             claimCase.ClaimedAmount,
             claimCase.AdvisoryRiskSignals,
             claimCase.OriginalIncidentText,
-            claimCase.OriginalIncidentLanguage);
+            claimCase.OriginalIncidentLanguage,
+            claimCase.ClaimTypeKey);
     }
 }

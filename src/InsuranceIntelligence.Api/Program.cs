@@ -586,6 +586,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Brief.IBriefService
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQueryService, InsuranceIntelligence.Application.Products.ProductQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCommandService, InsuranceIntelligence.Application.Products.ProductCommandService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductWordingExtractionService, InsuranceIntelligence.Application.Products.ProductWordingExtractionService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimTypeService, InsuranceIntelligence.Application.Products.ClaimTypeService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingService, InsuranceIntelligence.Application.Onboarding.TenantOnboardingService>();
@@ -1400,6 +1401,16 @@ app.MapPost("/api/v1/sales-leads/{leadId}/triage", SalesLeadEndpoints.RunTriageF
 // Product configuration, the spine everything else in claim handling reads from (blueprint
 // outcome A/C). Every save is a new version; publishing needs an IRA approval reference and a
 // second person, distinct from whoever submitted it.
+// Claim types (build-loop item 3): dropdown options and suggestions for whoever is filing a claim,
+// plus the one-off import of the free-text types already used on existing claims.
+app.MapGet("/api/v1/claim-types", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim, Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ManageProducts));
+app.MapPost("/api/v1/claim-types/suggest", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.Suggest)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim, Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ManageProducts));
+app.MapPost("/api/v1/products/{productId:guid}/claim-types/import-existing", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.ImportExisting)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/client-portal/claim-types", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.ListForClaimant)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapGet("/api/v1/products", InsuranceIntelligence.Api.Products.ProductEndpoints.ListProducts)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 app.MapGet("/api/v1/products/default-stage-library", InsuranceIntelligence.Api.Products.ProductEndpoints.GetDefaultStageLibrary)

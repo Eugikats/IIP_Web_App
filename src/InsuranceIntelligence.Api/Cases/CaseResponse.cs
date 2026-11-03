@@ -37,7 +37,8 @@ public sealed record CaseResponse(
     decimal? ClaimedAmount = null,
     IReadOnlyCollection<string>? AdvisoryRiskSignals = null,
     string? OriginalIncidentText = null,
-    string? OriginalIncidentLanguage = null);
+    string? OriginalIncidentLanguage = null,
+    string? ClaimTypeKey = null);
 
 /// <summary>The document-completeness check at the moment this response was built, WO 5.3: tell
 /// the submitter what is missing at submission, not only after extraction runs later. Null when

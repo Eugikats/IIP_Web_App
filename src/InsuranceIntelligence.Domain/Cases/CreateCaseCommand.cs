@@ -26,4 +26,9 @@ public sealed record CreateCaseCommand(
     /// see ClaimCase.RequiresConfirmation. A human confirming it is what starts the real SLA.</summary>
     bool RequiresConfirmation = false,
     string? OriginalIncidentText = null,
-    string? OriginalIncidentLanguage = null);
+    string? OriginalIncidentLanguage = null,
+    /// <summary>True for a person filling in a form (staff or claimant): when the claim's product
+    /// has configured claim types, the claim type must be one of them, otherwise intake throws
+    /// ClaimTypeNotConfiguredException. Automatic channels (email, WhatsApp) leave this false and
+    /// get a best-guess type that staff confirm.</summary>
+    bool RequireConfiguredClaimType = false);

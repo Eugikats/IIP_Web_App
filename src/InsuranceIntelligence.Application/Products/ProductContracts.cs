@@ -27,6 +27,13 @@ public sealed record ProductWordingFactDto(
     string SourceChunkId,
     string SourceQuote,
     decimal Confidence);
+public sealed record ClaimTypeDto(
+    string? Key,
+    string Name,
+    string? Description,
+    bool Active,
+    int SortOrder,
+    IReadOnlyList<string>? Aliases);
 
 public sealed record ProductDto(
     Guid ProductId,
@@ -50,7 +57,8 @@ public sealed record ProductDto(
     string? PublishRejectedByUserId,
     DateTimeOffset? PublishRejectedAt,
     string? PublishRejectionReason,
-    IReadOnlyList<ProductWordingFactDto> WordingFacts);
+    IReadOnlyList<ProductWordingFactDto> WordingFacts,
+    IReadOnlyList<ClaimTypeDto>? ClaimTypes = null);
 
 public sealed record ProductVersionSummaryDto(
     int Version,
@@ -83,7 +91,8 @@ public sealed record UpdateProductRequest(
     IReadOnlyList<ClaimStageDto>? Stages,
     IReadOnlyList<DocumentMatrixEntryDto>? DocumentMatrix,
     string? ChangeReason,
-    IReadOnlyList<ProductWordingFactDto>? WordingFacts = null);
+    IReadOnlyList<ProductWordingFactDto>? WordingFacts = null,
+    IReadOnlyList<ClaimTypeDto>? ClaimTypes = null);
 
 public sealed record SubmitProductRequest(string? ChangeReason);
 
@@ -124,4 +133,38 @@ public interface IProductQueryService
 public sealed class ProductValidationException(string field, string message) : InvalidOperationException(message)
 {
     public string Field { get; } = field;
+}
+
+/// <summary>One claim type as offered in a dropdown or to the assistant.</summary>
+public sealed record ClaimTypeOptionDto(string Key, string Name, string Description);
+
+/// <summary>The claim types a published product offers for one product line. Configured is false
+/// when no published product has any, in which case callers keep the free-text claim type.</summary>
+public sealed record ClaimTypeOptionsDto(
+    string ProductLine,
+    Guid? ProductId,
+    string? ProductName,
+    bool Configured,
+    IReadOnlyList<ClaimTypeOptionDto> ClaimTypes);
+
+public sealed record ClaimTypeSuggestionDto(string? Key, string? Name, bool Matched);
+
+public sealed record ClaimTypeImportResultDto(
+    Guid ProductId,
+    int ProductVersion,
+    IReadOnlyList<string> AddedClaimTypes,
+    int ClaimsUpdated);
+
+public interface IClaimTypeService
+{
+    /// <summary>The active claim types of the Published product for a product line (staff and
+    /// claimant dropdowns, and the WhatsApp assistant).</summary>
+    Task<ClaimTypeOptionsDto> ListForProductLineAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string? productLine, CancellationToken cancellationToken = default);
+
+    /// <summary>A suggestion only; the person filing still chooses.</summary>
+    Task<ClaimTypeSuggestionDto> SuggestAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string? productLine, string? text, CancellationToken cancellationToken = default);
+
+    /// <summary>Turns the free-text claim types already used on this product's claims into
+    /// configured claim types and links those claims to them. Additive: nothing is removed.</summary>
+    Task<ClaimTypeImportResultDto> ImportExistingAsync(Guid productId, CancellationToken cancellationToken = default);
 }

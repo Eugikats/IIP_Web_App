@@ -111,6 +111,7 @@ public sealed class DemoSeedService(
             var caseId = Guid.NewGuid();
 
             var product = products[line.Name];
+            var claimTypeText = line.ClaimTypes[rng.Next(line.ClaimTypes.Length)];
             var claimCase = new ClaimCase
             {
                 CaseId = caseId,
@@ -122,7 +123,8 @@ public sealed class DemoSeedService(
                 ProductLine = line.Name,
                 ProductId = product.ProductId,
                 ProductVersion = product.Version,
-                ClaimType = line.ClaimTypes[rng.Next(line.ClaimTypes.Length)],
+                ClaimType = claimTypeText,
+                ClaimTypeKey = product.IsNew ? DemoClaimTypeKey(claimTypeText) : null,
                 Channel = Channels[rng.Next(Channels.Length)],
                 IncidentDate = incidentDate,
                 IncidentDescription = line.Narratives[rng.Next(line.Narratives.Length)],
@@ -262,6 +264,7 @@ public sealed class DemoSeedService(
                 Status = ProductStatus.Published,
                 Stages = DefaultClaimStageLibrary.Default(),
                 DocumentMatrix = matrix,
+                ClaimTypes = ToDemoClaimTypes(line.ClaimTypes),
                 UpdatedByUserId = seededByUserId,
                 UpdatedAt = now,
                 ChangeReason = "Seeded demo product, so a seeded claim has a real configured claim process and document matrix to pin against.",
@@ -277,6 +280,22 @@ public sealed class DemoSeedService(
 
         return result;
     }
+
+    /// <summary>The seeded product lines carry their claim types as PascalCase text such as
+    /// "ThirdPartyLiability". Each becomes a configured claim type with a readable name and the raw
+    /// text as an alias, so seeded claims keep resolving to it.</summary>
+    private static IReadOnlyList<ClaimTypeDefinition> ToDemoClaimTypes(string[] raw) =>
+        raw.Select((text, index) => new ClaimTypeDefinition(
+                DemoClaimTypeKey(text),
+                Products.ClaimTypeService.Prettify(text),
+                string.Empty,
+                Active: true,
+                SortOrder: index,
+                Aliases: [text]))
+            .ToArray();
+
+    private static string DemoClaimTypeKey(string raw) =>
+        Products.ProductCommandService.Slug(Products.ClaimTypeService.Prettify(raw));
 
     private static ProductDocumentRequirement ToDocumentRequirement(
         DocumentType documentType,

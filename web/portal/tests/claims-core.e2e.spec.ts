@@ -60,7 +60,7 @@ export const PORTAL_WORKSPACE = "workspace-operations";
 
 /** Creates a claim in the portal's tenant and returns the access link a customer would be sent
  *  (read from the mock outbox, because the Mock communication provider "delivers" it there). */
-export async function claimantLinkFor(request: APIRequestContext, claimType = "Own damage") {
+export async function claimantLinkFor(request: APIRequestContext, claimType = "Accident") {
   const policyNumber = `POL-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   const email = `claimant.${Math.random().toString(36).slice(2, 8)}@example.com`;
   const created = await request.post(`${API}/api/v1/cases`, {
@@ -210,5 +210,68 @@ test.describe("Item 2: known defects", () => {
     expect(permissions).not.toContain("ManageProducts");
     expect(permissions).not.toContain("ManageTenantOnboarding");
     expect(permissions).toContain("CreateClaim");
+  });
+});
+
+test.describe("Item 3: claim types per product", () => {
+  test("an admin adds and reorders claim types on a product in the portal and they are saved", async ({ page, request }) => {
+    // A draft product on a spare line, so editing it cannot unpublish the seeded Motor product
+    // that the other tests in this run rely on.
+    const created = await request.post(`${API}/api/v1/products`, {
+      headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE),
+      data: { name: "Marine Cover", productClass: `Marine${Math.random().toString(36).slice(2, 6)}`, changeReason: "e2e" },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    const { productId } = (await created.json()) as { productId: string };
+
+    await page.goto(`/app/admin/products/${productId}`);
+    const editor = page.getByTestId("claim-types-editor");
+    await expect(editor).toBeVisible();
+    await expect(editor.getByText("No claim types yet.")).toBeVisible();
+
+    await editor.getByRole("button", { name: "Add claim type" }).click();
+    await editor.getByLabel("Claim type 1 name").fill("Cargo loss");
+    await editor.getByLabel("Claim type 1 aliases").fill("lost cargo, missing goods");
+    await editor.getByRole("button", { name: "Add claim type" }).click();
+    await editor.getByLabel("Claim type 2 name").fill("Hull damage");
+    await editor.getByRole("button", { name: "Move Hull damage up" }).click();
+
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await page.getByLabel("Reason for audit trail").fill("Set up the first claim types");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+
+    await expect.poll(async () => {
+      const saved = await request.get(`${API}/api/v1/products/${productId}`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) });
+      const body = (await saved.json()) as { claimTypes: { key: string; name: string; aliases: string[] }[] };
+      return body.claimTypes.map((type) => type.key);
+    }).toEqual(["hull-damage", "cargo-loss"]);
+  });
+
+  test("the seeded Motor product offers claim types; staff can file with one and not with a made-up one", async ({ request }) => {
+    const list = (await (await request.get(`${API}/api/v1/claim-types?productLine=Motor`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) })).json()) as {
+      configured: boolean;
+      claimTypes: { name: string }[];
+    };
+    expect(list.configured).toBe(true);
+    expect(list.claimTypes.map((type) => type.name)).toContain("Theft");
+
+    const post = (claimType: string) => request.post(`${API}/api/v1/cases`, {
+      headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE),
+      data: {
+        customerName: "Claim Type Tester", customerEmail: "ct@example.com", customerPhone: "+256700000555",
+        policyNumber: `POL-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, productLine: "Motor", claimType,
+        channel: "Phone", incidentDate: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10), incidentDescription: "Test",
+      },
+    });
+    const accepted = await post("Theft");
+    expect(accepted.status()).toBe(201);
+    expect(((await accepted.json()) as { claimTypeKey: string }).claimTypeKey).toBe("theft");
+    expect((await post("Made-up type")).status()).toBe(400);
+  });
+
+  test("another tenant does not see this insurer's claim types", async ({ request }) => {
+    const other = (await (await request.get(`${API}/api/v1/claim-types?productLine=Motor`, { headers: scopeHeaders(newTenant()) })).json()) as { configured: boolean; claimTypes: unknown[] };
+    expect(other.configured).toBe(false);
+    expect(other.claimTypes).toEqual([]);
   });
 });

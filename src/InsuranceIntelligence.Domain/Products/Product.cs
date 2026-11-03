@@ -37,6 +37,24 @@ public sealed record Product
     /// <summary>Human-confirmed facts prepared from policy wording. Every fact keeps its source evidence and extraction estimate.</summary>
     public IReadOnlyList<ProductWordingFact> WordingFacts { get; init; } = [];
 
+    /// <summary>The kinds of claim this product handles (build-loop item 3). Part of the version
+    /// snapshot like the stages and document matrix, so a claim keeps the types in force when it
+    /// was filed. Empty for a product that has not configured any, in which case claims keep the
+    /// free-text claim type and the built-in Motor/Medical rules, exactly as before.</summary>
+    public IReadOnlyList<ClaimTypeDefinition> ClaimTypes { get; init; } = [];
+
+    public IReadOnlyList<ClaimTypeDefinition> ActiveClaimTypes =>
+        ClaimTypes.Where(type => type.Active).OrderBy(type => type.SortOrder).ToArray();
+
+    /// <summary>Resolves what a person or a form wrote (a key, a name or a known alias, in any
+    /// case and punctuation) to one of this product's claim types. Inactive types still resolve,
+    /// so a claim filed before a type was retired keeps its meaning.</summary>
+    public ClaimTypeDefinition? FindClaimType(string? text) => ClaimTypeMatching.Find(ClaimTypes, text);
+
+    /// <summary>A best guess from free text such as an incident description, never a decision:
+    /// the person filing still chooses. Null when nothing matches or two types tie.</summary>
+    public ClaimTypeDefinition? SuggestClaimType(string? text) => ClaimTypeMatching.Suggest(ActiveClaimTypes, text);
+
     public required string UpdatedByUserId { get; init; }
     public required DateTimeOffset UpdatedAt { get; init; }
     public required string ChangeReason { get; init; }
@@ -55,6 +73,130 @@ public sealed record Product
         !string.IsNullOrWhiteSpace(IraApprovalReference)
         && IraApprovalEffectiveDate is not null
         && Stages.Count > 0;
+}
+
+/// <summary>One kind of claim a product handles, for example "Own damage" or "Theft". The key is
+/// stable and is what a claim stores; the name is what people read; aliases are other words people
+/// use for it ("stolen" for theft) and feed matching and suggestions.</summary>
+public sealed record ClaimTypeDefinition(
+    string Key,
+    string Name,
+    string Description,
+    bool Active,
+    int SortOrder,
+    IReadOnlyList<string>? Aliases = null);
+
+public static class ClaimTypeMatching
+{
+    private static readonly HashSet<string> StopWords = new(StringComparer.Ordinal)
+    {
+        "the", "and", "for", "was", "were", "with", "that", "this", "from", "have", "has", "had", "are", "not",
+        "claim", "claims", "cover", "insurance", "policy", "loss", "damage", "damaged", "my", "our", "their", "his",
+        "her", "its", "into", "onto", "over", "under", "out", "off", "but", "all", "any", "can", "did", "does",
+    };
+
+    /// <summary>Lower-case letters and digits only, so "Own-damage", "own damage" and "OwnDamage"
+    /// are the same thing.</summary>
+    public static string Normalize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var buffer = new char[value.Length];
+        var length = 0;
+        foreach (var character in value)
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                buffer[length++] = char.ToLowerInvariant(character);
+            }
+        }
+
+        return new string(buffer, 0, length);
+    }
+
+    public static ClaimTypeDefinition? Find(IEnumerable<ClaimTypeDefinition> types, string? text)
+    {
+        var wanted = Normalize(text);
+        if (wanted.Length == 0)
+        {
+            return null;
+        }
+
+        var list = types as IReadOnlyList<ClaimTypeDefinition> ?? types.ToArray();
+        return list.FirstOrDefault(type => Normalize(type.Key) == wanted)
+            ?? list.FirstOrDefault(type => Normalize(type.Name) == wanted)
+            ?? list.FirstOrDefault(type => type.Aliases?.Any(alias => Normalize(alias) == wanted) == true);
+    }
+
+    public static ClaimTypeDefinition? Suggest(IEnumerable<ClaimTypeDefinition> activeTypes, string? text)
+    {
+        var exact = Find(activeTypes, text);
+        if (exact is not null)
+        {
+            return exact;
+        }
+
+        var words = Tokens(text);
+        if (words.Count == 0)
+        {
+            return null;
+        }
+
+        var scored = activeTypes
+            .Select(type => (Type: type, Score: Score(type, words)))
+            .Where(item => item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ToArray();
+        if (scored.Length == 0 || (scored.Length > 1 && scored[0].Score == scored[1].Score))
+        {
+            return null;
+        }
+
+        return scored[0].Type;
+    }
+
+    private static int Score(ClaimTypeDefinition type, HashSet<string> words)
+    {
+        var score = 0;
+        foreach (var phrase in new[] { type.Name }.Concat(type.Aliases ?? []))
+        {
+            var phraseTokens = Tokens(phrase);
+            var hits = phraseTokens.Count(words.Contains);
+            if (hits > 0)
+            {
+                score += hits * 2 + (hits == phraseTokens.Count ? 2 : 0);
+            }
+        }
+
+        score += Tokens(type.Description).Count(words.Contains);
+        return score;
+    }
+
+    private static readonly char[] Separators = " ,.;:/-_()!?".Concat(new[] { (char)39, (char)34, (char)10, (char)13, (char)9 }).ToArray();
+
+    private static HashSet<string> Tokens(string? text)
+    {
+        var tokens = new HashSet<string>(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return tokens;
+        }
+
+        foreach (var raw in text.Split(Separators, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var token = raw.ToLowerInvariant();
+            if (token.Length >= 3 && !StopWords.Contains(token))
+            {
+                // A crude stem (first five letters) so "stole" and "stolen" meet.
+                tokens.Add(token.Length > 5 ? token[..5] : token);
+            }
+        }
+
+        return tokens;
+    }
 }
 
 public enum ProductStatus

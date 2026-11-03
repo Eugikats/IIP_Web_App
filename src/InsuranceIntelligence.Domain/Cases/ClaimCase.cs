@@ -38,6 +38,11 @@ public sealed record ClaimCase
     /// configured wait, never every time the timer fires (outcome G).</summary>
     public DateTimeOffset? LastMissingDocumentReminderAt { get; init; }
     public required string ClaimType { get; init; }
+
+    /// <summary>The key of the configured claim type this claim was resolved to (build-loop item
+    /// 3), or null for a claim whose product has no configured claim types, or whose text did not
+    /// match one. ClaimType stays the human-readable text either way.</summary>
+    public string? ClaimTypeKey { get; init; }
     public required string Channel { get; init; }
     public required DateOnly IncidentDate { get; init; }
     public required string IncidentDescription { get; init; }
