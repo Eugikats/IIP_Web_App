@@ -1,0 +1,112 @@
+[
+  {
+    "prompt": "Why does the canvas begin with \"Problem and baseline\"?",
+    "options": [
+      "To fill space",
+      "So that the benefit of the AI solution can be measured against today's performance",
+      "Because regulators require it first",
+      "To describe the vendor"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "In the worked example, which action is set at Level 0 for the intake agent?",
+    "options": [
+      "Sending document checklists",
+      "Sending reminders",
+      "Deciding whether to pay or decline a claim",
+      "Creating a claim file"
+    ],
+    "answer": 2,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Which control addresses the risk of the agent misreading handwritten documents?",
+    "options": [
+      "A larger model",
+      "Routing handwritten documents to staff",
+      "More reminders",
+      "Removing escalation"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "A canvas lists \"bias\" as a risk but no corresponding control. What is the problem?",
+    "options": [
+      "None",
+      "Risks without matching controls give decision-makers no assurance",
+      "Bias is not relevant to insurance",
+      "Controls are optional"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Which recommendation option is appropriate when benefits are clear but data terms with the vendor are not yet confirmed?",
+    "options": [
+      "Proceed immediately",
+      "Proceed with conditions : confirm data terms before go-live",
+      "Never proceed",
+      "Proceed and review later"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Proportionality in the canvas means:",
+    "options": [
+      "Every use case needs the same 40-page assessment",
+      "The depth of assessment matches the potential impact of the use case",
+      "Only large insurers need assessments",
+      "Assessments are optional"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Which pilot success criterion is best?",
+    "options": [
+      "\"Staff liked it\"",
+      "Fewer days from notification to complete file, with no increase in complaints, over three months",
+      "\"The vendor was happy\"",
+      "Number of messages sent"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Who should hold the stop mechanism (\"kill switch\") in the worked example?",
+    "options": [
+      "The vendor only",
+      "A named business owner, such as the claims manager",
+      "Any customer",
+      "No one"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "The \"Governance mapping\" box connects the use case to:",
+    "options": [
+      "The marketing plan",
+      "IAIS topics and NIST functions",
+      "Staff leave schedules",
+      "Premium tables"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "After approval, the canvas should be:",
+    "options": [
+      "Deleted",
+      "Stored with the decision and revisited at the review date",
+      "Sent to customers",
+      "Published on social media"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  }
+]

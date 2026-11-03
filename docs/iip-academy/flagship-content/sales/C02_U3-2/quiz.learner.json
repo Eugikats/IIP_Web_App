@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'start with the customer's concern' method?",
+    "options": [
+      "Acknowledge the issue in clear, respectful language without making an admission or promise outside your role.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'start with the customer's concern' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "The immediate purpose is to understand the concern and provide a useful, supported next step, not to defend an automated reply."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'separate status from expectation' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A recorded request for documents is a status."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'separate status from expectation' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Where a date is not established, do not invent one to make the message sound reassuring.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'route complaints deliberately' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Identify an expression of dissatisfaction and use the organisation's approved complaints process.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'route complaints deliberately' method?",
+    "options": [
+      "The responsible team owns final complaint responses and any formal dispute communication.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'review tone and disclosure' method?",
+    "options": [
+      "Remove internal blame, speculation, fraud suspicions and restricted notes from customer messages.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'review tone and disclosure' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Keep an accurate record of what was authorised and communicated."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]

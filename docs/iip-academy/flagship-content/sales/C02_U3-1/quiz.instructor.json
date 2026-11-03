@@ -1,0 +1,102 @@
+[
+  {
+    "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'classify the question' method?",
+    "options": [
+      "Distinguish a general product question from an account-specific request, a complaint or a loss report.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Distinguish a general product question from an account-specific request, a complaint or a loss report. The information needed and disclosure checks differ. A general explanation should not expose policyholder details. A loss report should enter claims intake rather than a marketing discovery form."
+  },
+  {
+    "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'classify the question' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A loss report should enter claims intake rather than a marketing discovery form."
+    ],
+    "answer": 2,
+    "explanation": "Distinguish a general product question from an account-specific request, a complaint or a loss report. The information needed and disclosure checks differ. A general explanation should not expose policyholder details. A loss report should enter claims intake rather than a marketing discovery form."
+  },
+  {
+    "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'state what the evidence supports' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Check the applicable source and the customer's question before answering."
+    ],
+    "answer": 2,
+    "explanation": "Check the applicable source and the customer's question before answering. Separate established facts from what is pending. If the source supports only a general explanation, do not infer the customer's own coverage. A clear 'not yet confirmed' with a next action is more useful than a confident unsupported answer."
+  },
+  {
+    "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'state what the evidence supports' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A clear 'not yet confirmed' with a next action is more useful than a confident unsupported answer.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Check the applicable source and the customer's question before answering. Separate established facts from what is pending. If the source supports only a general explanation, do not infer the customer's own coverage. A clear 'not yet confirmed' with a next action is more useful than a confident unsupported answer."
+  },
+  {
+    "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'escalate with a question' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A useful referral states the exact uncertainty, what was checked and what the receiving person needs to resolve.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "A useful referral states the exact uncertainty, what was checked and what the receiving person needs to resolve. Do not send a vague 'please assist' without context. Urgency should reflect the actual situation and agreed procedure, not the drafting tool's guess. Avoid promising a response time that has not been accepted."
+  },
+  {
+    "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'escalate with a question' method?",
+    "options": [
+      "Avoid promising a response time that has not been accepted.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "A useful referral states the exact uncertainty, what was checked and what the receiving person needs to resolve. Do not send a vague 'please assist' without context. Urgency should reflect the actual situation and agreed procedure, not the drafting tool's guess. Avoid promising a response time that has not been accepted."
+  },
+  {
+    "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'check the answer reached the need' method?",
+    "options": [
+      "When a response returns, verify that it answers the original question and is appropriate for the recipient.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "When a response returns, verify that it answers the original question and is appropriate for the recipient. Do not forward an internal note unchanged. Record the source of any confirmed answer and the next action. If the customer remains confused, clarify or provide a person rather than endlessly repeating the same automated wording."
+  },
+  {
+    "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'check the answer reached the need' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "If the customer remains confused, clarify or provide a person rather than endlessly repeating the same automated wording."
+    ],
+    "answer": 2,
+    "explanation": "When a response returns, verify that it answers the original question and is appropriate for the recipient. Do not forward an internal note unchanged. Record the source of any confirmed answer and the next action. If the customer remains confused, clarify or provide a person rather than endlessly repeating the same automated wording."
+  },
+  {
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ],
+    "answer": 0,
+    "explanation": "A customer asks whether an accident involving delivery work is covered. The available document is a product overview rather than the customer's policy. Explain that the overview cannot establish the claim outcome, capture the question and route it to the authorised team with the relevant policy and incident checks still needed. Do not equate a general benefit description with a decision on this event."
+  },
+  {
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ],
+    "answer": 1,
+    "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+  }
+]

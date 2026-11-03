@@ -1,0 +1,100 @@
+[
+  {
+    "id": 0,
+    "prompt": "Proxy discrimination occurs when:",
+    "options": [
+      "A broker acts on behalf of a client",
+      "A seemingly neutral variable closely tracks a characteristic that should not drive decisions",
+      "A model is too small",
+      "A premium is paid late"
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "A model raises micro-health prices in districts with better hospital access because claims are higher there. What is the concern?",
+    "options": [
+      "None : higher claims justify higher prices",
+      "The model may be penalising access to care rather than true risk, creating an unfair outcome",
+      "The model is too accurate",
+      "The districts are too small"
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "Model drift means:",
+    "options": [
+      "The model moves to another server",
+      "Model performance changes over time as real-world conditions change",
+      "A model is copied by a competitor",
+      "The model's name changes"
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "A vendor refuses to explain how its model declines applications, citing proprietary rights. The insurer should:",
+    "options": [
+      "Accept this",
+      "Recognise it remains accountable and require sufficient explanation, testing access or alternatives",
+      "Stop explaining declines to customers",
+      "Rely on the vendor's reputation"
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "Which IAIS supervisory topic most directly relates to customers understanding why AI affected them?",
+    "options": [
+      "Proportionality",
+      "Transparency and explainability",
+      "Capital adequacy",
+      "Reinsurance"
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "Removing gender from a dataset guarantees the model will not discriminate by gender. True or false?",
+    "options": [
+      "True",
+      "False : other variables may act as proxies"
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "Which contract clause is most important when a chatbot vendor processes customer conversations?",
+    "options": [
+      "Logo usage",
+      "Data use, retention, deletion, location and audit rights",
+      "Office hours",
+      "Font choice"
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "Under the EU AI Act, AI used for risk assessment and pricing of individuals in life and health insurance is classified as:",
+    "options": [
+      "Prohibited",
+      "High-risk",
+      "Minimal risk",
+      "Unregulated"
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "An AI sales assistant consistently recommends the highest-commission product regardless of need. Which risk family is this?",
+    "options": [
+      "Conduct and customer outcomes",
+      "Model drift",
+      "Prompt injection",
+      "Data minimisation"
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which practice best addresses over-reliance on AI?",
+    "options": [
+      "Removing human review",
+      "Keeping staff trained to challenge outputs and sampling AI work regularly",
+      "Using more AI tools",
+      "Hiding AI use from staff"
+    ]
+  }
+]

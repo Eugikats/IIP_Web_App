@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'define the next action' method?",
+    "options": [
+      "Qualification asks whether there is enough relevant information and interest for a particular next step.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'define the next action' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A record can be ready for clarification while still being unready for an application."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'use relevant evidence' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A priority can reflect a stated need, requested timing, required missing information and the current contact status."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'use relevant evidence' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Follow the approved method and flag missing information rather than using a precise-looking score to conceal it.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'apply contact status first' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A customer who asked not to receive outreach does not become contactable because the lead looks valuable.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'apply contact status first' method?",
+    "options": [
+      "Escalate unclear status rather than choosing the interpretation most likely to produce a sale.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'review the queue as work' method?",
+    "options": [
+      "A useful queue has a reason, owner and next action, not just a ranking.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'review the queue as work' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A low follow-up priority is not a rejection of cover."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]

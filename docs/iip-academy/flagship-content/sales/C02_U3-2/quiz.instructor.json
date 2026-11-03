@@ -1,0 +1,102 @@
+[
+  {
+    "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'start with the customer's concern' method?",
+    "options": [
+      "Acknowledge the issue in clear, respectful language without making an admission or promise outside your role.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Acknowledge the issue in clear, respectful language without making an admission or promise outside your role. Avoid blaming a colleague, the customer or an insurer partner. The immediate purpose is to understand the concern and provide a useful, supported next step, not to defend an automated reply."
+  },
+  {
+    "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'start with the customer's concern' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "The immediate purpose is to understand the concern and provide a useful, supported next step, not to defend an automated reply."
+    ],
+    "answer": 2,
+    "explanation": "Acknowledge the issue in clear, respectful language without making an admission or promise outside your role. Avoid blaming a colleague, the customer or an insurer partner. The immediate purpose is to understand the concern and provide a useful, supported next step, not to defend an automated reply."
+  },
+  {
+    "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'separate status from expectation' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A recorded request for documents is a status."
+    ],
+    "answer": 2,
+    "explanation": "A recorded request for documents is a status. 'Payment will arrive tomorrow' is an outcome promise requiring evidence and authority. State what is confirmed, what remains outstanding and who is acting. Where a date is not established, do not invent one to make the message sound reassuring."
+  },
+  {
+    "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'separate status from expectation' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Where a date is not established, do not invent one to make the message sound reassuring.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "A recorded request for documents is a status. 'Payment will arrive tomorrow' is an outcome promise requiring evidence and authority. State what is confirmed, what remains outstanding and who is acting. Where a date is not established, do not invent one to make the message sound reassuring."
+  },
+  {
+    "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'route complaints deliberately' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Identify an expression of dissatisfaction and use the organisation's approved complaints process.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Identify an expression of dissatisfaction and use the organisation's approved complaints process. Record the substance, relevant history and action required. A customer asking for a person should not be trapped in repeated automated answers. The responsible team owns final complaint responses and any formal dispute communication."
+  },
+  {
+    "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'route complaints deliberately' method?",
+    "options": [
+      "The responsible team owns final complaint responses and any formal dispute communication.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Identify an expression of dissatisfaction and use the organisation's approved complaints process. Record the substance, relevant history and action required. A customer asking for a person should not be trapped in repeated automated answers. The responsible team owns final complaint responses and any formal dispute communication."
+  },
+  {
+    "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'review tone and disclosure' method?",
+    "options": [
+      "Remove internal blame, speculation, fraud suspicions and restricted notes from customer messages.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Remove internal blame, speculation, fraud suspicions and restricted notes from customer messages. Check the recipient and source, then read the message for clarity and empathy. Preserve the actual insurer decision rather than softening it into a different promise. Keep an accurate record of what was authorised and communicated."
+  },
+  {
+    "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'review tone and disclosure' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Keep an accurate record of what was authorised and communicated."
+    ],
+    "answer": 2,
+    "explanation": "Remove internal blame, speculation, fraud suspicions and restricted notes from customer messages. Check the recipient and source, then read the message for clarity and empathy. Preserve the actual insurer decision rather than softening it into a different promise. Keep an accurate record of what was authorised and communicated."
+  },
+  {
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ],
+    "answer": 0,
+    "explanation": "A customer says, 'I have sent the document twice and nobody tells me what is happening.' The record confirms one upload and an unresolved review task. Do not claim that the file is complete or payment approved. Acknowledge the concern, state the verified position and route the upload discrepancy and service concern to a named owner. Give only a confirmed next step."
+  },
+  {
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ],
+    "answer": 1,
+    "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+  }
+]

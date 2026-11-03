@@ -1,0 +1,102 @@
+[
+  {
+    "prompt": "For review points and stop conditions, which best next step follows the lesson's 'define the action boundary' method?",
+    "options": [
+      "Describe exactly what the workflow may read, prepare and change.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Describe exactly what the workflow may read, prepare and change. 'Help with sales' is too broad. 'Prepare a reply from an approved source for an authorised officer to review' is testable. Explicitly exclude policy issuance, binding premiums, adverse claim decisions and payment authorisation from the assistant's powers."
+  },
+  {
+    "prompt": "For review points and stop conditions, which review principle follows the lesson's 'define the action boundary' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Explicitly exclude policy issuance, binding premiums, adverse claim decisions and payment authorisation from the assistant's powers."
+    ],
+    "answer": 2,
+    "explanation": "Describe exactly what the workflow may read, prepare and change. 'Help with sales' is too broad. 'Prepare a reply from an approved source for an authorised officer to review' is testable. Explicitly exclude policy issuance, binding premiums, adverse claim decisions and payment authorisation from the assistant's powers."
+  },
+  {
+    "prompt": "For review points and stop conditions, which best next step follows the lesson's 'make review possible' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Show the draft, supporting source, customer context, unknowns and intended recipient to the reviewer."
+    ],
+    "answer": 2,
+    "explanation": "Show the draft, supporting source, customer context, unknowns and intended recipient to the reviewer. Give the person a real choice to edit, return, stop or refer. Do not assume a signature field makes a review meaningful if the person cannot inspect the evidence or is expected to approve too many items to check."
+  },
+  {
+    "prompt": "For review points and stop conditions, which review principle follows the lesson's 'make review possible' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Do not assume a signature field makes a review meaningful if the person cannot inspect the evidence or is expected to approve too many items to check.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Show the draft, supporting source, customer context, unknowns and intended recipient to the reviewer. Give the person a real choice to edit, return, stop or refer. Do not assume a signature field makes a review meaningful if the person cannot inspect the evidence or is expected to approve too many items to check."
+  },
+  {
+    "prompt": "For review points and stop conditions, which best next step follows the lesson's 'specify stop and escalation triggers' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Missing or conflicting sources, an unmatched customer, a stop request, a complaint and an unsupported consequential statement require an appropriate pause or route.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Missing or conflicting sources, an unmatched customer, a stop request, a complaint and an unsupported consequential statement require an appropriate pause or route. Define which actions stop and who investigates. A failure should not silently switch to an unapproved tool, channel or source just to make the workflow appear successful."
+  },
+  {
+    "prompt": "For review points and stop conditions, which review principle follows the lesson's 'specify stop and escalation triggers' method?",
+    "options": [
+      "A failure should not silently switch to an unapproved tool, channel or source just to make the workflow appear successful.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Missing or conflicting sources, an unmatched customer, a stop request, a complaint and an unsupported consequential statement require an appropriate pause or route. Define which actions stop and who investigates. A failure should not silently switch to an unapproved tool, channel or source just to make the workflow appear successful."
+  },
+  {
+    "prompt": "For review points and stop conditions, which best next step follows the lesson's 'record and test the control' method?",
+    "options": [
+      "Keep the draft version, reviewer action and actual result traceable without unnecessarily exposing sensitive data.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Keep the draft version, reviewer action and actual result traceable without unnecessarily exposing sensitive data. Test stop conditions with fictional cases before a wider pilot. Verify that a queued message does not go out after a relevant stop request. An instruction written in a prompt is not proof that the system enforces it."
+  },
+  {
+    "prompt": "For review points and stop conditions, which review principle follows the lesson's 'record and test the control' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "An instruction written in a prompt is not proof that the system enforces it."
+    ],
+    "answer": 2,
+    "explanation": "Keep the draft version, reviewer action and actual result traceable without unnecessarily exposing sensitive data. Test stop conditions with fictional cases before a wider pilot. Verify that a queued message does not go out after a relevant stop request. An instruction written in a prompt is not proof that the system enforces it."
+  },
+  {
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ],
+    "answer": 0,
+    "explanation": "A customer withdraws outreach permission after a follow-up draft has been prepared. The workflow continues because it checked contact status only when the lead was first created. The corrected design rechecks the relevant status before approval/send, stops the queued action and assigns any necessary service work separately. Test this sequence rather than relying on a label saying 'human in the loop'."
+  },
+  {
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ],
+    "answer": 1,
+    "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+  }
+]

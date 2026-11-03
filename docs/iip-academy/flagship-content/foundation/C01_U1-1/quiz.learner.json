@@ -1,0 +1,102 @@
+[
+  {
+    "id": 0,
+    "prompt": "Which statement best describes generative AI?",
+    "options": [
+      "It follows if-then rules written by programmers",
+      "It produces new content such as text based on patterns learned from data",
+      "It copies data between systems by mimicking clicks",
+      "It stores policyholder records securely"
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "A motor system automatically refers any claim from a policyholder with more than three claims in twelve months. This is best described as:",
+    "options": [
+      "Machine learning",
+      "Rules-based automation",
+      "Generative AI",
+      "Agentic AI"
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "An insurer trains a model on five years of claims to score new claims for likely fraud. This is:",
+    "options": [
+      "Predictive machine learning",
+      "RPA",
+      "Generative AI",
+      "A rules table"
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "What most clearly distinguishes agentic AI from a chatbot?",
+    "options": [
+      "It uses a larger model",
+      "It can plan multiple steps and use tools to take actions towards a goal",
+      "It speaks local languages",
+      "It never makes mistakes"
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "A broker tells a client, \"AI will soon approve all claims without anyone checking.\" Which response is most accurate?",
+    "options": [
+      "Agree : agents already do this widely",
+      "Explain that most insurers currently use agents to summarise, route and speed up work while keeping humans responsible for coverage and claims decisions",
+      "Say AI cannot be used in claims at all",
+      "Say only regulators may use AI"
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "Which task is least appropriate to hand to a GenAI tool without human review?",
+    "options": [
+      "Drafting a first version of a customer newsletter",
+      "Summarising a meeting transcript for internal notes",
+      "Issuing the final decision to repudiate a claim",
+      "Suggesting headings for a training manual"
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "A vendor's \"AI underwriting engine\" turns out to be a table of fixed referral rules. What is the main practical implication?",
+    "options": [
+      "It will improve automatically over time",
+      "It must be updated manually whenever underwriting guidelines change",
+      "It will fabricate answers",
+      "It requires DPPA registration while ML does not"
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "Why does the distinction between AI categories matter for an insurance professional?",
+    "options": [
+      "Each category carries different risks and needs different controls",
+      "Only agentic AI is legal in Uganda",
+      "Rules-based systems are always more accurate",
+      "It affects only IT staff"
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "A claims assistant summarises a hospital invoice and lists a procedure that is not on the invoice. The most likely explanation is that:",
+    "options": [
+      "The hospital changed the invoice",
+      "The generative model produced plausible but unsupported text",
+      "The rules table is outdated",
+      "The agent sent the wrong email"
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which statement about AI output is true?",
+    "options": [
+      "AI output is always deterministic and correct",
+      "Confident wording from AI indicates accuracy",
+      "AI output is probabilistic and can be wrong while sounding confident",
+      "AI output cannot contain errors if the vendor is reputable"
+    ]
+  }
+]

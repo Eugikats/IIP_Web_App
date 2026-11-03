@@ -1,0 +1,98 @@
+[
+  {
+    "id": 0,
+    "prompt": "A vendor cites rapid AI adoption elsewhere. What does this establish about your insurer's readiness?",
+    "options": [
+      "A reason to investigate, but not evidence that the local workflow is ready",
+      "That the same accuracy will transfer without testing",
+      "That human review is no longer needed"
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "A claims-summary pilot saves time but omits exclusions. What is the best response?",
+    "options": [
+      "Pause consequential use, examine omissions and retest against source documents",
+      "Scale immediately because speed is the only success measure",
+      "Delete the failed examples from the evaluation set"
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "How should a team compare a bounded pilot with its current process?",
+    "options": [
+      "Use comparable cases, documented quality checks and time measurements",
+      "Compare the best AI example with the worst manual example",
+      "Use only a demonstration supplied by the vendor"
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "Which first AI use case best fits the prioritisation screen for a Ugandan motor insurer?",
+    "options": [
+      "Fully automated claim repudiation",
+      "An intake assistant that tells customers which documents are still missing",
+      "A model that sets premiums with no human review",
+      "Replacing all loss assessors"
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "The IRA has urged insurers to automate claims processing mainly to:",
+    "options": [
+      "Reduce staff numbers",
+      "Ensure timely settlement of claims",
+      "Replace brokers",
+      "Increase premiums"
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "Which local constraint was cited by a Ugandan health insurer as a challenge to automation?",
+    "options": [
+      "Lack of customers",
+      "High technology costs and network issues",
+      "Prohibition by law",
+      "Excess staff"
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "A bancassurance team wants consistent product explanations across bank branches. The most appropriate AI application is:",
+    "options": [
+      "An agent that sells policies without staff involvement",
+      "A GenAI tool drafting plain-language explanations from approved product sheets, reviewed by compliance",
+      "A fraud model",
+      "An RPA bot for premium collection"
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "Why might copying a foreign insurer's AI use case directly fail in Uganda?",
+    "options": [
+      "Foreign AI is illegal",
+      "Differences in data availability, document formats, connectivity and language",
+      "Ugandan customers do not make claims",
+      "Foreign insurers do not use AI"
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "Which is the best measure of success for a claims AI pilot?",
+    "options": [
+      "Number of staff who tried the tool",
+      "Reduction in average days from last document to settlement, with complaint rates monitored",
+      "How advanced the model is",
+      "Number of prompts written"
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which proposal gives a manager the clearest basis for a pilot decision?",
+    "options": [
+      "A scoped use case with evidence, risks, ownership, measures and stop criteria",
+      "A promise that AI will remove all uncertainty",
+      "A vendor headline with no local test plan"
+    ]
+  }
+]

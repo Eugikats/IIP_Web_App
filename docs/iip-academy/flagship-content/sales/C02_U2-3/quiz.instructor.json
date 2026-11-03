@@ -1,0 +1,102 @@
+[
+  {
+    "prompt": "For follow-up across agents, branches and insurers, which best next step follows the lesson's 'prepare a useful handover' method?",
+    "options": [
+      "Include the stated need, relevant facts, source documents, unanswered questions, contact status and next action.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Include the stated need, relevant facts, source documents, unanswered questions, contact status and next action. Distinguish an actual quote or issued policy from a draft. A transcript can support the record but is not a substitute for a concise explanation of what the receiving person needs to do."
+  },
+  {
+    "prompt": "For follow-up across agents, branches and insurers, which review principle follows the lesson's 'prepare a useful handover' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A transcript can support the record but is not a substitute for a concise explanation of what the receiving person needs to do."
+    ],
+    "answer": 2,
+    "explanation": "Include the stated need, relevant facts, source documents, unanswered questions, contact status and next action. Distinguish an actual quote or issued policy from a draft. A transcript can support the record but is not a substitute for a concise explanation of what the receiving person needs to do."
+  },
+  {
+    "prompt": "For follow-up across agents, branches and insurers, which best next step follows the lesson's 'transfer ownership explicitly' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Name the receiving person or queue, the action and the expected review point under the team's procedure."
+    ],
+    "answer": 2,
+    "explanation": "Name the receiving person or queue, the action and the expected review point under the team's procedure. Sending a note does not prove the other team accepted ownership. Record acknowledgement or retain responsibility for checking that the handover arrived. Avoid telling a customer an officer will call at a time no one has accepted."
+  },
+  {
+    "prompt": "For follow-up across agents, branches and insurers, which review principle follows the lesson's 'transfer ownership explicitly' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Avoid telling a customer an officer will call at a time no one has accepted.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Name the receiving person or queue, the action and the expected review point under the team's procedure. Sending a note does not prove the other team accepted ownership. Record acknowledgement or retain responsibility for checking that the handover arrived. Avoid telling a customer an officer will call at a time no one has accepted."
+  },
+  {
+    "prompt": "For follow-up across agents, branches and insurers, which best next step follows the lesson's 'keep channels consistent' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Connect the handover to the relevant enquiry or policy reference without exposing restricted information.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Connect the handover to the relevant enquiry or policy reference without exposing restricted information. An agent and claims officer may need different views of the same relationship. Do not copy an entire internal conversation into a customer message. Check the recipient and permitted channel each time information crosses a team boundary."
+  },
+  {
+    "prompt": "For follow-up across agents, branches and insurers, which review principle follows the lesson's 'keep channels consistent' method?",
+    "options": [
+      "Check the recipient and permitted channel each time information crosses a team boundary.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Connect the handover to the relevant enquiry or policy reference without exposing restricted information. An agent and claims officer may need different views of the same relationship. Do not copy an entire internal conversation into a customer message. Check the recipient and permitted channel each time information crosses a team boundary."
+  },
+  {
+    "prompt": "For follow-up across agents, branches and insurers, which best next step follows the lesson's 'follow up on the next action' method?",
+    "options": [
+      "Follow-up asks whether the agreed next action happened and what has changed.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Follow-up asks whether the agreed next action happened and what has changed. It is not simply another sales message. Check for a reply, a stop request, an outstanding service issue or a completed application before preparing a draft. Close or pause stale work with a reason instead of leaving it as an apparently active opportunity indefinitely."
+  },
+  {
+    "prompt": "For follow-up across agents, branches and insurers, which review principle follows the lesson's 'follow up on the next action' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Close or pause stale work with a reason instead of leaving it as an apparently active opportunity indefinitely."
+    ],
+    "answer": 2,
+    "explanation": "Follow-up asks whether the agreed next action happened and what has changed. It is not simply another sales message. Check for a reply, a stop request, an outstanding service issue or a completed application before preparing a draft. Close or pause stale work with a reason instead of leaving it as an apparently active opportunity indefinitely."
+  },
+  {
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ],
+    "answer": 0,
+    "explanation": "A branch sends an enquiry to an insurer team. The record says 'sent' but no owner has accepted it. The customer returns to the branch and is told to repeat the same information. A better process keeps the branch responsible for confirming handover acceptance, supplies the existing facts and tells the customer the confirmed next step rather than an invented callback promise."
+  },
+  {
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ],
+    "answer": 1,
+    "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+  }
+]

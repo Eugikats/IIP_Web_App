@@ -1,0 +1,112 @@
+[
+  {
+    "prompt": "In the RCTCF structure, what does the second \"C\" stand for?",
+    "options": [
+      "Customer",
+      "Constraints",
+      "Compliance",
+      "Calculation"
+    ],
+    "answer": 1,
+    "explanation": "Role, Context, Task, Constraints, Format."
+  },
+  {
+    "prompt": "Which prompt element most directly reduces invented details in an underwriting summary?",
+    "options": [
+      "\"Act as an expert\"",
+      "\"Use only the report text provided and write 'not stated' where information is missing\"",
+      "\"Be detailed\"",
+      "\"Use bullet points\""
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "A claims officer writes \"Write a letter about a delayed claim.\" What is the main weakness?",
+    "options": [
+      "Too polite",
+      "No context, audience, reason for delay or constraints",
+      "Too long",
+      "Uses the word \"claim\""
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Which constraint is most important in a delay message to a customer?",
+    "options": [
+      "Use technical terms",
+      "Do not promise a settlement date that has not been confirmed",
+      "Make it at least 500 words",
+      "Mention competitors"
+    ],
+    "answer": 1,
+    "explanation": "Unfounded promises create complaints and conduct risk."
+  },
+  {
+    "prompt": "Why ask the model to ask clarifying questions before drafting?",
+    "options": [
+      "It makes the model slower",
+      "It surfaces missing information before a draft is built on assumptions",
+      "It is required by law",
+      "It changes the model's training"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Prompting well will make an AI tool:",
+    "options": [
+      "Accurate about regulations it has never seen",
+      "Better at structure, tone and relevance, but still dependent on correct source information",
+      "Able to access the core system",
+      "Free from bias"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "A team reuses the same prompt for motor claim acknowledgements every day. Best practice is to:",
+    "options": [
+      "Let each officer write their own each time",
+      "Approve, store and version a tested template",
+      "Share it on social media",
+      "Avoid templates"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Which format instruction suits a WhatsApp update to a customer?",
+    "options": [
+      "\"A formal three-page letter\"",
+      "\"Under 120 words, plain language, no attachments\"",
+      "\"A table with ten columns\"",
+      "\"Legal citations for every sentence\""
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Giving the model an example of a good past message (with personal details removed) mainly helps it to:",
+    "options": [
+      "Copy the customer's data",
+      "Match the desired tone, length and structure",
+      "Verify facts",
+      "Connect to the internet"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "After receiving a first draft that is too formal, the best next step is to:",
+    "options": [
+      "Start again with a new tool",
+      "Give a follow-up instruction such as \"make it warmer and simpler, keep the same facts\"",
+      "Send it anyway",
+      "Rewrite the whole thing by hand without using the draft"
+    ],
+    "answer": 1,
+    "explanation": "Iteration is part of prompting."
+  }
+]

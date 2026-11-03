@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For preparing a relevant outreach message, which best next step follows the lesson's 'set audience and purpose' method?",
+    "options": [
+      "Identify the intended audience and the single action the message should support.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For preparing a relevant outreach message, which review principle follows the lesson's 'set audience and purpose' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Personalisation should be relevant and proportionate; avoid inserting sensitive or unexpected details just because a system can access them."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For preparing a relevant outreach message, which best next step follows the lesson's 'provide a bounded brief' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Tell the drafting tool who the message is for, its purpose, the approved product source, the channel, the permitted tone and what it must not claim."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For preparing a relevant outreach message, which review principle follows the lesson's 'provide a bounded brief' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Do not ask the tool to invent urgency, a discount, a premium or a customer's insurance status.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For preparing a relevant outreach message, which best next step follows the lesson's 'make the next step easy' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Use plain language and one clear next step, such as asking a question or requesting a discussion with an officer.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For preparing a relevant outreach message, which review principle follows the lesson's 'make the next step easy' method?",
+    "options": [
+      "Channel-specific templates and restrictions must be checked by the channel owner before sending.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For preparing a relevant outreach message, which best next step follows the lesson's 'approve the exact draft' method?",
+    "options": [
+      "The reviewer sees the intended audience, source, contact status and exact version to be sent.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For preparing a relevant outreach message, which review principle follows the lesson's 'approve the exact draft' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A prepared draft is not a delivered message, and a failed send must not be shown as customer engagement."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]

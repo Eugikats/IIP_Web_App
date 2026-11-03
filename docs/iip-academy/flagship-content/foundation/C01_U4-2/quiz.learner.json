@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "What is the appropriate use of the IAIS AI application paper in this lesson?",
+    "options": [
+      "A replacement for applicable law",
+      "A source of supervisory guidance to inform an evidence-based review",
+      "An automatic certification for an AI vendor"
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "Who should own a consequential approval in the fictional summary pilot?",
+    "options": [
+      "An accountable authorised person",
+      "The language model",
+      "Whichever tool generated the most confident answer"
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "Which NIST function establishes policies and responsibilities?",
+    "options": [
+      "Measure",
+      "Map",
+      "Govern"
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "Which NIST function examines the use-case context and affected people?",
+    "options": [
+      "Map",
+      "Measure",
+      "Manage"
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "Testing summaries against source documents primarily supports which function?",
+    "options": [
+      "Map",
+      "Measure",
+      "A claim of accreditation"
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "Responding to failed tests and deciding whether to stop supports which function?",
+    "options": [
+      "Manage",
+      "A sales approval",
+      "Automatic policy issuance"
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "A colleague cannot identify a familiar AI-specific law. What should follow?",
+    "options": [
+      "Assume no obligations apply",
+      "Review the laws and requirements relevant to the actual activity and processing",
+      "Ignore information-governance review"
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "How should an international legal applicability question be resolved?",
+    "options": [
+      "Use a remembered deadline",
+      "Let the model infer the answer from a country name",
+      "Check current official sources and obtain an accountable applicability review"
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "Does a completed governance form prove that controls work?",
+    "options": [
+      "Yes, if it is signed",
+      "No; evidence and testing are still needed",
+      "Yes, if the vendor is well known"
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "What belongs in the review when an important legal issue remains unresolved?",
+    "options": [
+      "A plausible AI-generated answer",
+      "An omitted row so the review looks complete",
+      "The exact issue, assigned owner and next step before the affected action proceeds"
+    ]
+  }
+]

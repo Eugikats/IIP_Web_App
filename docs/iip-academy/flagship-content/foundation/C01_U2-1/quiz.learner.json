@@ -1,0 +1,102 @@
+[
+  {
+    "id": 0,
+    "prompt": "In the RCTCF structure, what does the second \"C\" stand for?",
+    "options": [
+      "Customer",
+      "Constraints",
+      "Compliance",
+      "Calculation"
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "Which prompt element most directly reduces invented details in an underwriting summary?",
+    "options": [
+      "\"Act as an expert\"",
+      "\"Use only the report text provided and write 'not stated' where information is missing\"",
+      "\"Be detailed\"",
+      "\"Use bullet points\""
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "A claims officer writes \"Write a letter about a delayed claim.\" What is the main weakness?",
+    "options": [
+      "Too polite",
+      "No context, audience, reason for delay or constraints",
+      "Too long",
+      "Uses the word \"claim\""
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "Which constraint is most important in a delay message to a customer?",
+    "options": [
+      "Use technical terms",
+      "Do not promise a settlement date that has not been confirmed",
+      "Make it at least 500 words",
+      "Mention competitors"
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "Why ask the model to ask clarifying questions before drafting?",
+    "options": [
+      "It makes the model slower",
+      "It surfaces missing information before a draft is built on assumptions",
+      "It is required by law",
+      "It changes the model's training"
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "Prompting well will make an AI tool:",
+    "options": [
+      "Accurate about regulations it has never seen",
+      "Better at structure, tone and relevance, but still dependent on correct source information",
+      "Able to access the core system",
+      "Free from bias"
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "A team reuses the same prompt for motor claim acknowledgements every day. Best practice is to:",
+    "options": [
+      "Let each officer write their own each time",
+      "Approve, store and version a tested template",
+      "Share it on social media",
+      "Avoid templates"
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "Which format instruction suits a WhatsApp update to a customer?",
+    "options": [
+      "\"A formal three-page letter\"",
+      "\"Under 120 words, plain language, no attachments\"",
+      "\"A table with ten columns\"",
+      "\"Legal citations for every sentence\""
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "Giving the model an example of a good past message (with personal details removed) mainly helps it to:",
+    "options": [
+      "Copy the customer's data",
+      "Match the desired tone, length and structure",
+      "Verify facts",
+      "Connect to the internet"
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "After receiving a first draft that is too formal, the best next step is to:",
+    "options": [
+      "Start again with a new tool",
+      "Give a follow-up instruction such as \"make it warmer and simpler, keep the same facts\"",
+      "Send it anyway",
+      "Rewrite the whole thing by hand without using the draft"
+    ]
+  }
+]

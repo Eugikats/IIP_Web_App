@@ -1,0 +1,102 @@
+[
+  {
+    "id": 0,
+    "prompt": "A decision-rights matrix specifies:",
+    "options": [
+      "Staff salaries",
+      "For each agent action, whether it may act alone, needs approval, or must never act",
+      "The model's training data",
+      "Premium rates"
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "Which is the most appropriate escalation trigger for a claims intake agent?",
+    "options": [
+      "Every message received",
+      "Death claims and messages mentioning a complaint",
+      "Messages sent on weekdays",
+      "None : the agent should handle everything"
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "Prompt injection is:",
+    "options": [
+      "A vaccine",
+      "Hidden instructions in content the agent reads that try to make it act in unintended ways",
+      "A faster processor",
+      "A premium adjustment"
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "Which control best limits the damage of a successful prompt injection?",
+    "options": [
+      "A larger model",
+      "Least-privilege permissions, so the agent can only propose consequential actions for approval",
+      "Longer prompts",
+      "Using the agent only at night"
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "A supervisor approves 600 agent decisions per day with seconds per case. This is an example of:",
+    "options": [
+      "Strong oversight",
+      "Rubber-stamping : nominal rather than meaningful oversight",
+      "Prompt injection",
+      "Data minimisation"
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "Why is an audit trail important for agent decisions?",
+    "options": [
+      "It speeds up the model",
+      "It allows decisions to be explained, reviewed, and responded to in complaints and supervision",
+      "It reduces premiums",
+      "It is only needed for IT"
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "Which action should an intake agent never take on its own?",
+    "options": [
+      "Sending a document checklist",
+      "Authorising a claim payment",
+      "Creating a claim file",
+      "Acknowledging receipt"
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "A \"kill switch\" allows the business to:",
+    "options": [
+      "Delete customer data",
+      "Pause the agent immediately if problems arise",
+      "Increase autonomy",
+      "Train the model"
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "Escalation rules that send every case to a person result in:",
+    "options": [
+      "Perfect control and full value",
+      "Little efficiency gain from the agent",
+      "Faster processing",
+      "No need for staff"
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Uganda's government has emphasised which principles for AI governance?",
+    "options": [
+      "Speed and secrecy",
+      "Transparency, accountability and human oversight",
+      "Full autonomy",
+      "Vendor self-regulation only"
+    ]
+  }
+]

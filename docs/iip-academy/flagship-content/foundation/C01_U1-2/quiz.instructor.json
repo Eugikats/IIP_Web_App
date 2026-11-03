@@ -1,0 +1,111 @@
+[
+  {
+    "prompt": "In simple terms, how does an LLM produce text?",
+    "options": [
+      "It retrieves verified answers from a central database",
+      "It predicts the most likely next piece of text, repeatedly",
+      "It copies whole paragraphs from websites",
+      "It runs the user's question through a rules table"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "A claims-summary pilot saves time but omits exclusions. What is the best response?",
+    "options": [
+      "Pause consequential use, examine omissions and retest against source documents",
+      "Scale immediately because speed is the only success measure",
+      "Delete the failed examples from the evaluation set"
+    ],
+    "answer": 0,
+    "explanation": "Use relevant local evidence, explicit limits and accountable human review rather than an unsupported industry statistic."
+  },
+  {
+    "prompt": "Why might an AI assistant give outdated information about a regulation issued last month?",
+    "options": [
+      "Its knowledge stops at a training cutoff unless it can search or is given the text",
+      "Regulators block AI tools",
+      "LLMs cannot read English legal text",
+      "The regulation is encrypted"
+    ],
+    "answer": 0,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "A colleague pastes a 200-page reinsurance treaty and asks for \"all exclusions\". What is the main risk?",
+    "options": [
+      "The tool will refuse",
+      "Some clauses may be missed or given less attention because of context limits",
+      "The treaty will be published online",
+      "The output will be in the wrong language"
+    ],
+    "answer": 1,
+    "explanation": "Break the document into sections and check each."
+  },
+  {
+    "prompt": "An AI tool calculates a pro-rata refund on cancellation. What should you do before sending it to the customer?",
+    "options": [
+      "Send it : AI is good at maths",
+      "Recalculate independently",
+      "Ask the AI to confirm it is correct",
+      "Round it up to be safe"
+    ],
+    "answer": 1,
+    "explanation": "LLMs are unreliable at arithmetic without tools; asking the same model to \"confirm\" is not verification."
+  },
+  {
+    "prompt": "Which prompt is most likely to reduce hallucination when asking about a policy exclusion?",
+    "options": [
+      "\"What does the policy exclude?\"",
+      "\"Using only the clause text pasted below, state whether flood damage is excluded and quote the sentence you relied on.\"",
+      "\"Be accurate.\"",
+      "\"Answer like an expert underwriter.\""
+    ],
+    "answer": 1,
+    "explanation": "Grounding in provided text and requiring a quotation makes errors visible."
+  },
+  {
+    "prompt": "The same question asked three times gives three different wordings. This reflects:",
+    "options": [
+      "A software fault",
+      "The non-deterministic nature of generative models",
+      "Hacking",
+      "A context window error"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "An AI tool without internet access says, \"I have checked the IRA website and confirmed this.\" How should you treat this?",
+    "options": [
+      "As confirmation",
+      "As generated text that does not prove any check took place",
+      "As a legal opinion",
+      "As a regulatory filing"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "A Luganda translation of an exclusion is going to a customer. What is the best practice?",
+    "options": [
+      "Send it as generated",
+      "Have a fluent Luganda speaker review it against the English original",
+      "Translate it back into English with the same tool and send if it matches",
+      "Avoid informing the customer"
+    ],
+    "answer": 1,
+    "explanation": "Back-translation by the same tool can hide errors."
+  },
+  {
+    "prompt": "Which statement about grounding (connecting AI to search or documents) is correct?",
+    "options": [
+      "It eliminates all errors",
+      "It reduces errors but outputs still need checking",
+      "It is illegal in Uganda",
+      "It makes the model deterministic"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  }
+]

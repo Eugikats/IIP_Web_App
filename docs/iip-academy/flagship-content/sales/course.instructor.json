@@ -1,0 +1,1353 @@
+{
+  "id": "insurance-sales-customer-experience",
+  "title": "AI for Insurance Sales, Distribution & Customer Experience",
+  "priceUsd": 120,
+  "units": [
+    {
+      "id": "C02_U1-1",
+      "title": "Where AI helps from enquiry to renewal",
+      "module": 1,
+      "moduleTitle": "The customer journey and AI's role",
+      "goal": "Distinguish AI preparation from human authority throughout a customer relationship.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U1-1/narration.md",
+      "practice": "Write a three-sentence reply and a six-field handover. Label customer statements, product source, unknowns, contact status, next action and owner.",
+      "questions": [
+        {
+          "prompt": "For where ai helps from enquiry to renewal, which best next step follows the lesson's 'map the relationship' method?",
+          "options": [
+            "An enquiry, application, issued policy and claim are different records.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "An enquiry, application, issued policy and claim are different records. A new prospect enters discovery and registration. An existing policyholder can enter service or claims directly after appropriate verification. Do not force someone reporting a loss through a sales conversation or treat a registered enquiry as active cover."
+        },
+        {
+          "prompt": "For where ai helps from enquiry to renewal, which review principle follows the lesson's 'map the relationship' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Do not force someone reporting a loss through a sales conversation or treat a registered enquiry as active cover."
+          ],
+          "answer": 2,
+          "explanation": "An enquiry, application, issued policy and claim are different records. A new prospect enters discovery and registration. An existing policyholder can enter service or claims directly after appropriate verification. Do not force someone reporting a loss through a sales conversation or treat a registered enquiry as active cover."
+        },
+        {
+          "prompt": "For where ai helps from enquiry to renewal, which best next step follows the lesson's 'keep unknowns visible' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Separate what the customer said from the product facts and the questions still unanswered."
+          ],
+          "answer": 2,
+          "explanation": "Separate what the customer said from the product facts and the questions still unanswered. A statement that a motorcycle is used for deliveries establishes a stated use, not eligibility, a premium or a policy. A useful next step clarifies the missing information without inventing an answer."
+        },
+        {
+          "prompt": "For where ai helps from enquiry to renewal, which review principle follows the lesson's 'keep unknowns visible' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A useful next step clarifies the missing information without inventing an answer.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Separate what the customer said from the product facts and the questions still unanswered. A statement that a motorcycle is used for deliveries establishes a stated use, not eligibility, a premium or a policy. A useful next step clarifies the missing information without inventing an answer."
+        },
+        {
+          "prompt": "For where ai helps from enquiry to renewal, which best next step follows the lesson's 'prepare, then review' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "AI may organise facts, draft an explanation or prepare a handover.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "AI may organise facts, draft an explanation or prepare a handover. The reviewer checks the applicable source, customer, channel, wording and next action. The reviewer needs authority and time to return or correct the work, rather than approving every output automatically."
+        },
+        {
+          "prompt": "For where ai helps from enquiry to renewal, which review principle follows the lesson's 'prepare, then review' method?",
+          "options": [
+            "The reviewer needs authority and time to return or correct the work, rather than approving every output automatically.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "AI may organise facts, draft an explanation or prepare a handover. The reviewer checks the applicable source, customer, channel, wording and next action. The reviewer needs authority and time to return or correct the work, rather than approving every output automatically."
+        },
+        {
+          "prompt": "For where ai helps from enquiry to renewal, which best next step follows the lesson's 'keep ownership clear' method?",
+          "options": [
+            "At each transition name the team or person responsible for the next action.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "At each transition name the team or person responsible for the next action. Record the contact status, source and unanswered questions. Underwriting, cover confirmation, claim decisions and payment remain within the insurer's authorised process. The assistant does not gain those powers merely by drafting the message."
+        },
+        {
+          "prompt": "For where ai helps from enquiry to renewal, which review principle follows the lesson's 'keep ownership clear' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "The assistant does not gain those powers merely by drafting the message."
+          ],
+          "answer": 2,
+          "explanation": "At each transition name the team or person responsible for the next action. Record the contact status, source and unanswered questions. Underwriting, cover confirmation, claim decisions and payment remain within the insurer's authorised process. The assistant does not gain those powers merely by drafting the message."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A delivery rider asks what cover might be relevant. The only supplied training fact says delivery use requires referral. A safe first reply offers to clarify the need and arrange that referral. It must not promise cover or claim payment. The handover records stated delivery use, unanswered eligibility questions and the receiving officer."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U1-2",
+      "title": "Discovery without guessing",
+      "module": 1,
+      "moduleTitle": "The customer journey and AI's role",
+      "goal": "Collect a useful needs record while keeping assumptions and unnecessary personal information out.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U1-2/narration.md",
+      "practice": "Create five discovery questions for the shop owner. For each, state its purpose and how the answer changes the next action. Then write a record with known facts, stated-but-unverified facts and unknowns.",
+      "questions": [
+        {
+          "prompt": "For discovery without guessing, which best next step follows the lesson's 'begin with purpose' method?",
+          "options": [
+            "Start by asking what the customer wants to understand or protect.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Start by asking what the customer wants to understand or protect. A broad question lets the person describe the need in their own words. Do not begin with a long form or a product recommendation. Explain why a follow-up fact is relevant before asking for it. Discovery should make the next conversation easier, not collect every detail that might someday be useful."
+        },
+        {
+          "prompt": "For discovery without guessing, which review principle follows the lesson's 'begin with purpose' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Discovery should make the next conversation easier, not collect every detail that might someday be useful."
+          ],
+          "answer": 2,
+          "explanation": "Start by asking what the customer wants to understand or protect. A broad question lets the person describe the need in their own words. Do not begin with a long form or a product recommendation. Explain why a follow-up fact is relevant before asking for it. Discovery should make the next conversation easier, not collect every detail that might someday be useful."
+        },
+        {
+          "prompt": "For discovery without guessing, which best next step follows the lesson's 'ask in layers' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Use an open question, a focused clarification and a short confirmation."
+          ],
+          "answer": 2,
+          "explanation": "Use an open question, a focused clarification and a short confirmation. For a business-owner enquiry, first ask what concern prompted the conversation, then clarify the activity relevant to that concern. Summarise the answer back for correction. Avoid leading questions that suggest a preferred response. Ask one clear question at a time when using messaging."
+        },
+        {
+          "prompt": "For discovery without guessing, which review principle follows the lesson's 'ask in layers' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Ask one clear question at a time when using messaging.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Use an open question, a focused clarification and a short confirmation. For a business-owner enquiry, first ask what concern prompted the conversation, then clarify the activity relevant to that concern. Summarise the answer back for correction. Avoid leading questions that suggest a preferred response. Ask one clear question at a time when using messaging."
+        },
+        {
+          "prompt": "For discovery without guessing, which best next step follows the lesson's 'label the evidence' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A useful record distinguishes a customer statement, a verified document fact, an assumption and an unknown.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "A useful record distinguishes a customer statement, a verified document fact, an assumption and an unknown. If a customer says they have existing cover, record it as stated until the applicable policy is checked. Do not silently promote a conversational answer into a verified product or eligibility fact. Include when the statement was made and the source of a verified fact."
+        },
+        {
+          "prompt": "For discovery without guessing, which review principle follows the lesson's 'label the evidence' method?",
+          "options": [
+            "Include when the statement was made and the source of a verified fact.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "A useful record distinguishes a customer statement, a verified document fact, an assumption and an unknown. If a customer says they have existing cover, record it as stated until the applicable policy is checked. Do not silently promote a conversational answer into a verified product or eligibility fact. Include when the statement was made and the source of a verified fact."
+        },
+        {
+          "prompt": "For discovery without guessing, which best next step follows the lesson's 'know when to refer' method?",
+          "options": [
+            "Collect only information required for the immediate task under the organisation's approved process.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Collect only information required for the immediate task under the organisation's approved process. A customer may not know the answer or may prefer to discuss it with an officer. Record the gap and refer instead of guessing or pressuring. Do not place identity documents, financial details or health information into an unapproved AI tool simply to make the summary richer."
+        },
+        {
+          "prompt": "For discovery without guessing, which review principle follows the lesson's 'know when to refer' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Do not place identity documents, financial details or health information into an unapproved AI tool simply to make the summary richer."
+          ],
+          "answer": 2,
+          "explanation": "Collect only information required for the immediate task under the organisation's approved process. A customer may not know the answer or may prefer to discuss it with an officer. Record the gap and refer instead of guessing or pressuring. Do not place identity documents, financial details or health information into an unapproved AI tool simply to make the summary richer."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A shop owner says, 'I need insurance for my business.' The assistant assumes the shop owns the building and drafts a building-cover explanation. The customer actually rents a stall and is worried about stock in transit. Correct the record by removing the unsupported ownership assumption. Ask which loss concerns them, what activity is involved and whether they want an officer to explain relevant options. The next officer receives the stated concern and the unanswered questions, not an invented business profile."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U1-3",
+      "title": "Product explanations grounded in approved sources",
+      "module": 1,
+      "moduleTitle": "The customer journey and AI's role",
+      "goal": "Prepare a clear explanation that preserves the applicable product's meaning and limitations.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U1-3/narration.md",
+      "practice": "Build a three-column evidence table: proposed statement, exact supporting passage, and review action. Include one benefit, one limitation and one unresolved question.",
+      "questions": [
+        {
+          "prompt": "For product explanations grounded in approved sources, which best next step follows the lesson's 'find the applicable source' method?",
+          "options": [
+            "Check the insurer, product name, source owner, version and effective period before drafting.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Check the insurer, product name, source owner, version and effective period before drafting. Two similarly named products can have different terms. A marketing summary may omit conditions that appear in the wording. If sources conflict, mark the conflict and ask the authorised owner; do not combine whichever sentences make the offer sound strongest."
+        },
+        {
+          "prompt": "For product explanations grounded in approved sources, which review principle follows the lesson's 'find the applicable source' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "If sources conflict, mark the conflict and ask the authorised owner; do not combine whichever sentences make the offer sound strongest."
+          ],
+          "answer": 2,
+          "explanation": "Check the insurer, product name, source owner, version and effective period before drafting. Two similarly named products can have different terms. A marketing summary may omit conditions that appear in the wording. If sources conflict, mark the conflict and ask the authorised owner; do not combine whichever sentences make the offer sound strongest."
+        },
+        {
+          "prompt": "For product explanations grounded in approved sources, which best next step follows the lesson's 'link claims to passages' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "For each statement about a benefit, exclusion, condition or premium, identify the supporting passage in the applicable approved source."
+          ],
+          "answer": 2,
+          "explanation": "For each statement about a benefit, exclusion, condition or premium, identify the supporting passage in the applicable approved source. A link to an entire folder is less useful than a specific document and passage. If support is absent, omit the claim or turn it into a referral question. AI-generated citations are suggestions until opened and checked."
+        },
+        {
+          "prompt": "For product explanations grounded in approved sources, which review principle follows the lesson's 'link claims to passages' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "AI-generated citations are suggestions until opened and checked.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "For each statement about a benefit, exclusion, condition or premium, identify the supporting passage in the applicable approved source. A link to an entire folder is less useful than a specific document and passage. If support is absent, omit the claim or turn it into a referral question. AI-generated citations are suggestions until opened and checked."
+        },
+        {
+          "prompt": "For product explanations grounded in approved sources, which best next step follows the lesson's 'simplify without changing meaning' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Use short sentences and explain unfamiliar terms, but retain qualifications.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Use short sentences and explain unfamiliar terms, but retain qualifications. 'Subject to assessment' must not become 'will be paid'. A deductible or excess must not disappear from a benefit explanation. Present material limitations next to the relevant benefit so the customer does not receive an attractive headline and miss the condition elsewhere."
+        },
+        {
+          "prompt": "For product explanations grounded in approved sources, which review principle follows the lesson's 'simplify without changing meaning' method?",
+          "options": [
+            "Present material limitations next to the relevant benefit so the customer does not receive an attractive headline and miss the condition elsewhere.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Use short sentences and explain unfamiliar terms, but retain qualifications. 'Subject to assessment' must not become 'will be paid'. A deductible or excess must not disappear from a benefit explanation. Present material limitations next to the relevant benefit so the customer does not receive an attractive headline and miss the condition elsewhere."
+        },
+        {
+          "prompt": "For product explanations grounded in approved sources, which best next step follows the lesson's 'review for the actual question' method?",
+          "options": [
+            "Read the draft as the customer would.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Read the draft as the customer would. Does it answer their question, name what is unresolved and state a useful next step? Then compare it with the source sentence by sentence. A person authorised for the task confirms advice or a formal quote. Clarity does not replace the insurer's acceptance, pricing or issuance process."
+        },
+        {
+          "prompt": "For product explanations grounded in approved sources, which review principle follows the lesson's 'review for the actual question' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Clarity does not replace the insurer's acceptance, pricing or issuance process."
+          ],
+          "answer": 2,
+          "explanation": "Read the draft as the customer would. Does it answer their question, name what is unresolved and state a useful next step? Then compare it with the source sentence by sentence. A person authorised for the task confirms advice or a formal quote. Clarity does not replace the insurer's acceptance, pricing or issuance process."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A fictional approved training extract says accidental damage is considered subject to the policy terms, and an excess applies. A draft says, 'Any damage will be paid in full.' It changes both the scope and the amount. Correct it to preserve the conditions and excess, then refer unanswered details. The customer-facing explanation should not invent a figure because the training extract does not supply one."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U2-1",
+      "title": "Lead qualification and prioritisation",
+      "module": 2,
+      "moduleTitle": "Sales preparation and distribution",
+      "goal": "Choose the next follow-up using evidence without treating a worklist score as insurance eligibility.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U2-1/narration.md",
+      "practice": "Create a worklist with evidence, missing facts, contact status, owner and next action. Explain why a priority is not an underwriting decision.",
+      "questions": [
+        {
+          "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'define the next action' method?",
+          "options": [
+            "Qualification asks whether there is enough relevant information and interest for a particular next step.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Qualification asks whether there is enough relevant information and interest for a particular next step. It is not a promise that an insurer will accept the customer. Define the action first: clarify a missing fact, explain an option or refer an application. A record can be ready for clarification while still being unready for an application."
+        },
+        {
+          "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'define the next action' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A record can be ready for clarification while still being unready for an application."
+          ],
+          "answer": 2,
+          "explanation": "Qualification asks whether there is enough relevant information and interest for a particular next step. It is not a promise that an insurer will accept the customer. Define the action first: clarify a missing fact, explain an option or refer an application. A record can be ready for clarification while still being unready for an application."
+        },
+        {
+          "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'use relevant evidence' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A priority can reflect a stated need, requested timing, required missing information and the current contact status."
+          ],
+          "answer": 2,
+          "explanation": "A priority can reflect a stated need, requested timing, required missing information and the current contact status. Explain the reasons beside the priority. Do not infer affordability, eligibility or interest from an unrelated personal characteristic. Follow the approved method and flag missing information rather than using a precise-looking score to conceal it."
+        },
+        {
+          "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'use relevant evidence' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Follow the approved method and flag missing information rather than using a precise-looking score to conceal it.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "A priority can reflect a stated need, requested timing, required missing information and the current contact status. Explain the reasons beside the priority. Do not infer affordability, eligibility or interest from an unrelated personal characteristic. Follow the approved method and flag missing information rather than using a precise-looking score to conceal it."
+        },
+        {
+          "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'apply contact status first' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A customer who asked not to receive outreach does not become contactable because the lead looks valuable.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "A customer who asked not to receive outreach does not become contactable because the lead looks valuable. Check contact status and permitted channel before preparing follow-up. Separate marketing follow-up from necessary service work under the organisation's procedure. Escalate unclear status rather than choosing the interpretation most likely to produce a sale."
+        },
+        {
+          "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'apply contact status first' method?",
+          "options": [
+            "Escalate unclear status rather than choosing the interpretation most likely to produce a sale.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "A customer who asked not to receive outreach does not become contactable because the lead looks valuable. Check contact status and permitted channel before preparing follow-up. Separate marketing follow-up from necessary service work under the organisation's procedure. Escalate unclear status rather than choosing the interpretation most likely to produce a sale."
+        },
+        {
+          "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'review the queue as work' method?",
+          "options": [
+            "A useful queue has a reason, owner and next action, not just a ranking.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "A useful queue has a reason, owner and next action, not just a ranking. Review stale records, duplicated enquiries and changes in customer circumstances. Record why a priority changed. The officer can correct the ranking when the evidence changes, and the correction should remain traceable. A low follow-up priority is not a rejection of cover."
+        },
+        {
+          "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'review the queue as work' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A low follow-up priority is not a rejection of cover."
+          ],
+          "answer": 2,
+          "explanation": "A useful queue has a reason, owner and next action, not just a ranking. Review stale records, duplicated enquiries and changes in customer circumstances. Record why a priority changed. The officer can correct the ranking when the evidence changes, and the correction should remain traceable. A low follow-up priority is not a rejection of cover."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "Three fictional enquiries arrive. One asks for a callback today with the relevant details supplied. Another shows strong interest but asks to stop marketing contact. A third asks a general question and has not supplied the information needed for referral. Contact status prevents outreach to the second. Assign the first callback and prepare a clarification response for the third, using the authorised channel and review process."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U2-2",
+      "title": "Preparing a relevant outreach message",
+      "module": 2,
+      "moduleTitle": "Sales preparation and distribution",
+      "goal": "Draft a useful, accurate invitation with an appropriate channel and a clear next step.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U2-2/narration.md",
+      "practice": "Write a bounded drafting brief and a message of no more than seventy words. Mark the source, contact-status check, reviewer and intended next step separately from the customer message.",
+      "questions": [
+        {
+          "prompt": "For preparing a relevant outreach message, which best next step follows the lesson's 'set audience and purpose' method?",
+          "options": [
+            "Identify the intended audience and the single action the message should support.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Identify the intended audience and the single action the message should support. An invitation to ask about cover is different from an application request or a policy notice. Use only authorised audience inputs. Personalisation should be relevant and proportionate; avoid inserting sensitive or unexpected details just because a system can access them."
+        },
+        {
+          "prompt": "For preparing a relevant outreach message, which review principle follows the lesson's 'set audience and purpose' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Personalisation should be relevant and proportionate; avoid inserting sensitive or unexpected details just because a system can access them."
+          ],
+          "answer": 2,
+          "explanation": "Identify the intended audience and the single action the message should support. An invitation to ask about cover is different from an application request or a policy notice. Use only authorised audience inputs. Personalisation should be relevant and proportionate; avoid inserting sensitive or unexpected details just because a system can access them."
+        },
+        {
+          "prompt": "For preparing a relevant outreach message, which best next step follows the lesson's 'provide a bounded brief' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Tell the drafting tool who the message is for, its purpose, the approved product source, the channel, the permitted tone and what it must not claim."
+          ],
+          "answer": 2,
+          "explanation": "Tell the drafting tool who the message is for, its purpose, the approved product source, the channel, the permitted tone and what it must not claim. Ask for a short draft and separate unresolved questions. Do not ask the tool to invent urgency, a discount, a premium or a customer's insurance status."
+        },
+        {
+          "prompt": "For preparing a relevant outreach message, which review principle follows the lesson's 'provide a bounded brief' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Do not ask the tool to invent urgency, a discount, a premium or a customer's insurance status.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Tell the drafting tool who the message is for, its purpose, the approved product source, the channel, the permitted tone and what it must not claim. Ask for a short draft and separate unresolved questions. Do not ask the tool to invent urgency, a discount, a premium or a customer's insurance status."
+        },
+        {
+          "prompt": "For preparing a relevant outreach message, which best next step follows the lesson's 'make the next step easy' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Use plain language and one clear next step, such as asking a question or requesting a discussion with an officer.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Use plain language and one clear next step, such as asking a question or requesting a discussion with an officer. Identify the organisation appropriately and avoid implying cover already exists. Include the organisation's required contact-choice wording. Channel-specific templates and restrictions must be checked by the channel owner before sending."
+        },
+        {
+          "prompt": "For preparing a relevant outreach message, which review principle follows the lesson's 'make the next step easy' method?",
+          "options": [
+            "Channel-specific templates and restrictions must be checked by the channel owner before sending.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Use plain language and one clear next step, such as asking a question or requesting a discussion with an officer. Identify the organisation appropriately and avoid implying cover already exists. Include the organisation's required contact-choice wording. Channel-specific templates and restrictions must be checked by the channel owner before sending."
+        },
+        {
+          "prompt": "For preparing a relevant outreach message, which best next step follows the lesson's 'approve the exact draft' method?",
+          "options": [
+            "The reviewer sees the intended audience, source, contact status and exact version to be sent.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "The reviewer sees the intended audience, source, contact status and exact version to be sent. An approval for one draft must not be treated as approval for a materially changed message. Keep the approval and send result recorded. A prepared draft is not a delivered message, and a failed send must not be shown as customer engagement."
+        },
+        {
+          "prompt": "For preparing a relevant outreach message, which review principle follows the lesson's 'approve the exact draft' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A prepared draft is not a delivered message, and a failed send must not be shown as customer engagement."
+          ],
+          "answer": 2,
+          "explanation": "The reviewer sees the intended audience, source, contact status and exact version to be sent. An approval for one draft must not be treated as approval for a materially changed message. Keep the approval and send result recorded. A prepared draft is not a delivered message, and a failed send must not be shown as customer engagement."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A draft says, 'Your renewal discount expires tonight,' but no approved discount or deadline exists. Remove the invented urgency. If the purpose is a discussion of an upcoming verified renewal, state that purpose and invite the customer to review their needs with an officer. The review record captures the approved wording and audience before any send."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U2-3",
+      "title": "Follow-up across agents, branches and insurers",
+      "module": 2,
+      "moduleTitle": "Sales preparation and distribution",
+      "goal": "Make handovers and follow-up clear enough that customers need not repeat their story.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U2-3/narration.md",
+      "practice": "Write the sending team's handover and the receiving team's acknowledgement. Include how unresolved ownership will be escalated and what the customer can be told now.",
+      "questions": [
+        {
+          "prompt": "For follow-up across agents, branches and insurers, which best next step follows the lesson's 'prepare a useful handover' method?",
+          "options": [
+            "Include the stated need, relevant facts, source documents, unanswered questions, contact status and next action.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Include the stated need, relevant facts, source documents, unanswered questions, contact status and next action. Distinguish an actual quote or issued policy from a draft. A transcript can support the record but is not a substitute for a concise explanation of what the receiving person needs to do."
+        },
+        {
+          "prompt": "For follow-up across agents, branches and insurers, which review principle follows the lesson's 'prepare a useful handover' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A transcript can support the record but is not a substitute for a concise explanation of what the receiving person needs to do."
+          ],
+          "answer": 2,
+          "explanation": "Include the stated need, relevant facts, source documents, unanswered questions, contact status and next action. Distinguish an actual quote or issued policy from a draft. A transcript can support the record but is not a substitute for a concise explanation of what the receiving person needs to do."
+        },
+        {
+          "prompt": "For follow-up across agents, branches and insurers, which best next step follows the lesson's 'transfer ownership explicitly' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Name the receiving person or queue, the action and the expected review point under the team's procedure."
+          ],
+          "answer": 2,
+          "explanation": "Name the receiving person or queue, the action and the expected review point under the team's procedure. Sending a note does not prove the other team accepted ownership. Record acknowledgement or retain responsibility for checking that the handover arrived. Avoid telling a customer an officer will call at a time no one has accepted."
+        },
+        {
+          "prompt": "For follow-up across agents, branches and insurers, which review principle follows the lesson's 'transfer ownership explicitly' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Avoid telling a customer an officer will call at a time no one has accepted.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Name the receiving person or queue, the action and the expected review point under the team's procedure. Sending a note does not prove the other team accepted ownership. Record acknowledgement or retain responsibility for checking that the handover arrived. Avoid telling a customer an officer will call at a time no one has accepted."
+        },
+        {
+          "prompt": "For follow-up across agents, branches and insurers, which best next step follows the lesson's 'keep channels consistent' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Connect the handover to the relevant enquiry or policy reference without exposing restricted information.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Connect the handover to the relevant enquiry or policy reference without exposing restricted information. An agent and claims officer may need different views of the same relationship. Do not copy an entire internal conversation into a customer message. Check the recipient and permitted channel each time information crosses a team boundary."
+        },
+        {
+          "prompt": "For follow-up across agents, branches and insurers, which review principle follows the lesson's 'keep channels consistent' method?",
+          "options": [
+            "Check the recipient and permitted channel each time information crosses a team boundary.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Connect the handover to the relevant enquiry or policy reference without exposing restricted information. An agent and claims officer may need different views of the same relationship. Do not copy an entire internal conversation into a customer message. Check the recipient and permitted channel each time information crosses a team boundary."
+        },
+        {
+          "prompt": "For follow-up across agents, branches and insurers, which best next step follows the lesson's 'follow up on the next action' method?",
+          "options": [
+            "Follow-up asks whether the agreed next action happened and what has changed.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Follow-up asks whether the agreed next action happened and what has changed. It is not simply another sales message. Check for a reply, a stop request, an outstanding service issue or a completed application before preparing a draft. Close or pause stale work with a reason instead of leaving it as an apparently active opportunity indefinitely."
+        },
+        {
+          "prompt": "For follow-up across agents, branches and insurers, which review principle follows the lesson's 'follow up on the next action' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Close or pause stale work with a reason instead of leaving it as an apparently active opportunity indefinitely."
+          ],
+          "answer": 2,
+          "explanation": "Follow-up asks whether the agreed next action happened and what has changed. It is not simply another sales message. Check for a reply, a stop request, an outstanding service issue or a completed application before preparing a draft. Close or pause stale work with a reason instead of leaving it as an apparently active opportunity indefinitely."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A branch sends an enquiry to an insurer team. The record says 'sent' but no owner has accepted it. The customer returns to the branch and is told to repeat the same information. A better process keeps the branch responsible for confirming handover acceptance, supplies the existing facts and tells the customer the confirmed next step rather than an invented callback promise."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U3-1",
+      "title": "Handling questions and uncertainty",
+      "module": 3,
+      "moduleTitle": "Customer experience and service",
+      "goal": "Give a useful answer from evidence or refer with context when the answer is not established.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U3-1/narration.md",
+      "practice": "Prepare an answer-or-escalate record with the question, sources checked, supported facts, unresolved issue, owner and customer-facing next step.",
+      "questions": [
+        {
+          "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'classify the question' method?",
+          "options": [
+            "Distinguish a general product question from an account-specific request, a complaint or a loss report.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Distinguish a general product question from an account-specific request, a complaint or a loss report. The information needed and disclosure checks differ. A general explanation should not expose policyholder details. A loss report should enter claims intake rather than a marketing discovery form."
+        },
+        {
+          "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'classify the question' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A loss report should enter claims intake rather than a marketing discovery form."
+          ],
+          "answer": 2,
+          "explanation": "Distinguish a general product question from an account-specific request, a complaint or a loss report. The information needed and disclosure checks differ. A general explanation should not expose policyholder details. A loss report should enter claims intake rather than a marketing discovery form."
+        },
+        {
+          "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'state what the evidence supports' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Check the applicable source and the customer's question before answering."
+          ],
+          "answer": 2,
+          "explanation": "Check the applicable source and the customer's question before answering. Separate established facts from what is pending. If the source supports only a general explanation, do not infer the customer's own coverage. A clear 'not yet confirmed' with a next action is more useful than a confident unsupported answer."
+        },
+        {
+          "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'state what the evidence supports' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A clear 'not yet confirmed' with a next action is more useful than a confident unsupported answer.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Check the applicable source and the customer's question before answering. Separate established facts from what is pending. If the source supports only a general explanation, do not infer the customer's own coverage. A clear 'not yet confirmed' with a next action is more useful than a confident unsupported answer."
+        },
+        {
+          "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'escalate with a question' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A useful referral states the exact uncertainty, what was checked and what the receiving person needs to resolve.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "A useful referral states the exact uncertainty, what was checked and what the receiving person needs to resolve. Do not send a vague 'please assist' without context. Urgency should reflect the actual situation and agreed procedure, not the drafting tool's guess. Avoid promising a response time that has not been accepted."
+        },
+        {
+          "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'escalate with a question' method?",
+          "options": [
+            "Avoid promising a response time that has not been accepted.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "A useful referral states the exact uncertainty, what was checked and what the receiving person needs to resolve. Do not send a vague 'please assist' without context. Urgency should reflect the actual situation and agreed procedure, not the drafting tool's guess. Avoid promising a response time that has not been accepted."
+        },
+        {
+          "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'check the answer reached the need' method?",
+          "options": [
+            "When a response returns, verify that it answers the original question and is appropriate for the recipient.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "When a response returns, verify that it answers the original question and is appropriate for the recipient. Do not forward an internal note unchanged. Record the source of any confirmed answer and the next action. If the customer remains confused, clarify or provide a person rather than endlessly repeating the same automated wording."
+        },
+        {
+          "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'check the answer reached the need' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "If the customer remains confused, clarify or provide a person rather than endlessly repeating the same automated wording."
+          ],
+          "answer": 2,
+          "explanation": "When a response returns, verify that it answers the original question and is appropriate for the recipient. Do not forward an internal note unchanged. Record the source of any confirmed answer and the next action. If the customer remains confused, clarify or provide a person rather than endlessly repeating the same automated wording."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A customer asks whether an accident involving delivery work is covered. The available document is a product overview rather than the customer's policy. Explain that the overview cannot establish the claim outcome, capture the question and route it to the authorised team with the relevant policy and incident checks still needed. Do not equate a general benefit description with a decision on this event."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U3-2",
+      "title": "Service updates and difficult conversations",
+      "module": 3,
+      "moduleTitle": "Customer experience and service",
+      "goal": "Prepare respectful, accurate updates and route concerns without changing the insurer's confirmed position.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U3-2/narration.md",
+      "practice": "Draft a service update, an internal handover and a complaint-routing note for the same situation. Explain which facts belong in each and which internal details must remain restricted.",
+      "questions": [
+        {
+          "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'start with the customer's concern' method?",
+          "options": [
+            "Acknowledge the issue in clear, respectful language without making an admission or promise outside your role.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Acknowledge the issue in clear, respectful language without making an admission or promise outside your role. Avoid blaming a colleague, the customer or an insurer partner. The immediate purpose is to understand the concern and provide a useful, supported next step, not to defend an automated reply."
+        },
+        {
+          "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'start with the customer's concern' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "The immediate purpose is to understand the concern and provide a useful, supported next step, not to defend an automated reply."
+          ],
+          "answer": 2,
+          "explanation": "Acknowledge the issue in clear, respectful language without making an admission or promise outside your role. Avoid blaming a colleague, the customer or an insurer partner. The immediate purpose is to understand the concern and provide a useful, supported next step, not to defend an automated reply."
+        },
+        {
+          "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'separate status from expectation' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A recorded request for documents is a status."
+          ],
+          "answer": 2,
+          "explanation": "A recorded request for documents is a status. 'Payment will arrive tomorrow' is an outcome promise requiring evidence and authority. State what is confirmed, what remains outstanding and who is acting. Where a date is not established, do not invent one to make the message sound reassuring."
+        },
+        {
+          "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'separate status from expectation' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Where a date is not established, do not invent one to make the message sound reassuring.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "A recorded request for documents is a status. 'Payment will arrive tomorrow' is an outcome promise requiring evidence and authority. State what is confirmed, what remains outstanding and who is acting. Where a date is not established, do not invent one to make the message sound reassuring."
+        },
+        {
+          "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'route complaints deliberately' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Identify an expression of dissatisfaction and use the organisation's approved complaints process.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Identify an expression of dissatisfaction and use the organisation's approved complaints process. Record the substance, relevant history and action required. A customer asking for a person should not be trapped in repeated automated answers. The responsible team owns final complaint responses and any formal dispute communication."
+        },
+        {
+          "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'route complaints deliberately' method?",
+          "options": [
+            "The responsible team owns final complaint responses and any formal dispute communication.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Identify an expression of dissatisfaction and use the organisation's approved complaints process. Record the substance, relevant history and action required. A customer asking for a person should not be trapped in repeated automated answers. The responsible team owns final complaint responses and any formal dispute communication."
+        },
+        {
+          "prompt": "For service updates and difficult conversations, which best next step follows the lesson's 'review tone and disclosure' method?",
+          "options": [
+            "Remove internal blame, speculation, fraud suspicions and restricted notes from customer messages.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Remove internal blame, speculation, fraud suspicions and restricted notes from customer messages. Check the recipient and source, then read the message for clarity and empathy. Preserve the actual insurer decision rather than softening it into a different promise. Keep an accurate record of what was authorised and communicated."
+        },
+        {
+          "prompt": "For service updates and difficult conversations, which review principle follows the lesson's 'review tone and disclosure' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Keep an accurate record of what was authorised and communicated."
+          ],
+          "answer": 2,
+          "explanation": "Remove internal blame, speculation, fraud suspicions and restricted notes from customer messages. Check the recipient and source, then read the message for clarity and empathy. Preserve the actual insurer decision rather than softening it into a different promise. Keep an accurate record of what was authorised and communicated."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A customer says, 'I have sent the document twice and nobody tells me what is happening.' The record confirms one upload and an unresolved review task. Do not claim that the file is complete or payment approved. Acknowledge the concern, state the verified position and route the upload discrepancy and service concern to a named owner. Give only a confirmed next step."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U3-3",
+      "title": "Renewals and continuing relationships",
+      "module": 3,
+      "moduleTitle": "Customer experience and service",
+      "goal": "Prepare a review of current needs and verified renewal information without assuming continuation of cover.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U3-3/narration.md",
+      "practice": "Create a renewal review checklist and two messages: one inviting a review and one communicating a genuinely confirmed outcome. List the evidence required before the second can be sent.",
+      "questions": [
+        {
+          "prompt": "For renewals and continuing relationships, which best next step follows the lesson's 'start with verified policy information' method?",
+          "options": [
+            "Check the applicable policy status, expiry date, version and owner.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Check the applicable policy status, expiry date, version and owner. A reminder worklist is only as reliable as its source. Do not infer that a policy renewed because a message was sent or a payment was attempted. When a date or status is uncertain, resolve it before a customer-facing statement."
+        },
+        {
+          "prompt": "For renewals and continuing relationships, which review principle follows the lesson's 'start with verified policy information' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "When a date or status is uncertain, resolve it before a customer-facing statement."
+          ],
+          "answer": 2,
+          "explanation": "Check the applicable policy status, expiry date, version and owner. A reminder worklist is only as reliable as its source. Do not infer that a policy renewed because a message was sent or a payment was attempted. When a date or status is uncertain, resolve it before a customer-facing statement."
+        },
+        {
+          "prompt": "For renewals and continuing relationships, which best next step follows the lesson's 'review changed needs' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Ask whether the relevant circumstances have changed and capture the customer's own answer."
+          ],
+          "answer": 2,
+          "explanation": "Ask whether the relevant circumstances have changed and capture the customer's own answer. A changed vehicle use, address or business activity may require referral. Do not assume last year's facts remain true. An appropriate renewal conversation can also reveal that the customer no longer wants the product or needs service before considering another offer."
+        },
+        {
+          "prompt": "For renewals and continuing relationships, which review principle follows the lesson's 'review changed needs' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "An appropriate renewal conversation can also reveal that the customer no longer wants the product or needs service before considering another offer.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Ask whether the relevant circumstances have changed and capture the customer's own answer. A changed vehicle use, address or business activity may require referral. Do not assume last year's facts remain true. An appropriate renewal conversation can also reveal that the customer no longer wants the product or needs service before considering another offer."
+        },
+        {
+          "prompt": "For renewals and continuing relationships, which best next step follows the lesson's 'keep renewal separate from a new sale' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "An additional product needs its own explanation, applicable source and authorised process.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "An additional product needs its own explanation, applicable source and authorised process. Existing-customer status is not automatic permission for every campaign. Check current contact status and distinguish necessary policy service from optional marketing under the organisation's procedure. Avoid duplicate offers for cover already held."
+        },
+        {
+          "prompt": "For renewals and continuing relationships, which review principle follows the lesson's 'keep renewal separate from a new sale' method?",
+          "options": [
+            "Avoid duplicate offers for cover already held.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "An additional product needs its own explanation, applicable source and authorised process. Existing-customer status is not automatic permission for every campaign. Check current contact status and distinguish necessary policy service from optional marketing under the organisation's procedure. Avoid duplicate offers for cover already held."
+        },
+        {
+          "prompt": "For renewals and continuing relationships, which best next step follows the lesson's 'close the loop accurately' method?",
+          "options": [
+            "Record the actual result: needs clarification, referred, not proceeding, awaiting insurer action or confirmed renewed policy.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Record the actual result: needs clarification, referred, not proceeding, awaiting insurer action or confirmed renewed policy. Do not label an invitation as a renewal. Link the new policy version or confirmed outcome where available, preserve history and assign any remaining action. A claim outcome alone does not determine the renewal outcome."
+        },
+        {
+          "prompt": "For renewals and continuing relationships, which review principle follows the lesson's 'close the loop accurately' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A claim outcome alone does not determine the renewal outcome."
+          ],
+          "answer": 2,
+          "explanation": "Record the actual result: needs clarification, referred, not proceeding, awaiting insurer action or confirmed renewed policy. Do not label an invitation as a renewal. Link the new policy version or confirmed outcome where available, preserve history and assign any remaining action. A claim outcome alone does not determine the renewal outcome."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A policyholder's vehicle use changed from private travel to deliveries. An automated reminder assumes the same terms and says renewal is complete. Correct the unsupported completion statement, capture the changed use and refer through the insurer's process. The customer should receive the actual confirmed terms and effective dates only when established."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U4-1",
+      "title": "Review points and stop conditions",
+      "module": 4,
+      "moduleTitle": "Running and evaluating an AI-assisted workflow",
+      "goal": "Specify meaningful human review, authority and stopping rules for a customer-facing workflow.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U4-1/narration.md",
+      "practice": "Map one workflow with permitted inputs, preparation steps, reviewer evidence, approved action, stop triggers, owner and test case for each trigger.",
+      "questions": [
+        {
+          "prompt": "For review points and stop conditions, which best next step follows the lesson's 'define the action boundary' method?",
+          "options": [
+            "Describe exactly what the workflow may read, prepare and change.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Describe exactly what the workflow may read, prepare and change. 'Help with sales' is too broad. 'Prepare a reply from an approved source for an authorised officer to review' is testable. Explicitly exclude policy issuance, binding premiums, adverse claim decisions and payment authorisation from the assistant's powers."
+        },
+        {
+          "prompt": "For review points and stop conditions, which review principle follows the lesson's 'define the action boundary' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Explicitly exclude policy issuance, binding premiums, adverse claim decisions and payment authorisation from the assistant's powers."
+          ],
+          "answer": 2,
+          "explanation": "Describe exactly what the workflow may read, prepare and change. 'Help with sales' is too broad. 'Prepare a reply from an approved source for an authorised officer to review' is testable. Explicitly exclude policy issuance, binding premiums, adverse claim decisions and payment authorisation from the assistant's powers."
+        },
+        {
+          "prompt": "For review points and stop conditions, which best next step follows the lesson's 'make review possible' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Show the draft, supporting source, customer context, unknowns and intended recipient to the reviewer."
+          ],
+          "answer": 2,
+          "explanation": "Show the draft, supporting source, customer context, unknowns and intended recipient to the reviewer. Give the person a real choice to edit, return, stop or refer. Do not assume a signature field makes a review meaningful if the person cannot inspect the evidence or is expected to approve too many items to check."
+        },
+        {
+          "prompt": "For review points and stop conditions, which review principle follows the lesson's 'make review possible' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Do not assume a signature field makes a review meaningful if the person cannot inspect the evidence or is expected to approve too many items to check.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Show the draft, supporting source, customer context, unknowns and intended recipient to the reviewer. Give the person a real choice to edit, return, stop or refer. Do not assume a signature field makes a review meaningful if the person cannot inspect the evidence or is expected to approve too many items to check."
+        },
+        {
+          "prompt": "For review points and stop conditions, which best next step follows the lesson's 'specify stop and escalation triggers' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Missing or conflicting sources, an unmatched customer, a stop request, a complaint and an unsupported consequential statement require an appropriate pause or route.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Missing or conflicting sources, an unmatched customer, a stop request, a complaint and an unsupported consequential statement require an appropriate pause or route. Define which actions stop and who investigates. A failure should not silently switch to an unapproved tool, channel or source just to make the workflow appear successful."
+        },
+        {
+          "prompt": "For review points and stop conditions, which review principle follows the lesson's 'specify stop and escalation triggers' method?",
+          "options": [
+            "A failure should not silently switch to an unapproved tool, channel or source just to make the workflow appear successful.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Missing or conflicting sources, an unmatched customer, a stop request, a complaint and an unsupported consequential statement require an appropriate pause or route. Define which actions stop and who investigates. A failure should not silently switch to an unapproved tool, channel or source just to make the workflow appear successful."
+        },
+        {
+          "prompt": "For review points and stop conditions, which best next step follows the lesson's 'record and test the control' method?",
+          "options": [
+            "Keep the draft version, reviewer action and actual result traceable without unnecessarily exposing sensitive data.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Keep the draft version, reviewer action and actual result traceable without unnecessarily exposing sensitive data. Test stop conditions with fictional cases before a wider pilot. Verify that a queued message does not go out after a relevant stop request. An instruction written in a prompt is not proof that the system enforces it."
+        },
+        {
+          "prompt": "For review points and stop conditions, which review principle follows the lesson's 'record and test the control' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "An instruction written in a prompt is not proof that the system enforces it."
+          ],
+          "answer": 2,
+          "explanation": "Keep the draft version, reviewer action and actual result traceable without unnecessarily exposing sensitive data. Test stop conditions with fictional cases before a wider pilot. Verify that a queued message does not go out after a relevant stop request. An instruction written in a prompt is not proof that the system enforces it."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A customer withdraws outreach permission after a follow-up draft has been prepared. The workflow continues because it checked contact status only when the lead was first created. The corrected design rechecks the relevant status before approval/send, stops the queued action and assigns any necessary service work separately. Test this sequence rather than relying on a label saying 'human in the loop'."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U4-2",
+      "title": "Measuring commercial and customer outcomes",
+      "module": 4,
+      "moduleTitle": "Running and evaluating an AI-assisted workflow",
+      "goal": "Calculate interpretable measures and evaluate quality alongside activity and sales.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U4-2/narration.md",
+      "practice": "Create a measurement sheet with metric, definition, numerator, denominator, period, data source, owner and review action. Calculate the two fictional rates and explain the limits of the comparison.",
+      "questions": [
+        {
+          "prompt": "For measuring commercial and customer outcomes, which best next step follows the lesson's 'define the question first' method?",
+          "options": [
+            "Decide what the team wants to learn, such as whether a preparation step reduces incomplete handovers without worsening customer confusion.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Decide what the team wants to learn, such as whether a preparation step reduces incomplete handovers without worsening customer confusion. Record the population and time period. A count of messages does not answer that question. Choose measures that correspond to the intended effect rather than whichever number is easiest to collect."
+        },
+        {
+          "prompt": "For measuring commercial and customer outcomes, which review principle follows the lesson's 'define the question first' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Choose measures that correspond to the intended effect rather than whichever number is easiest to collect."
+          ],
+          "answer": 2,
+          "explanation": "Decide what the team wants to learn, such as whether a preparation step reduces incomplete handovers without worsening customer confusion. Record the population and time period. A count of messages does not answer that question. Choose measures that correspond to the intended effect rather than whichever number is easiest to collect."
+        },
+        {
+          "prompt": "For measuring commercial and customer outcomes, which best next step follows the lesson's 'use a denominator' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "A conversion rate is completed outcomes divided by the defined eligible population, not an isolated total."
+          ],
+          "answer": 2,
+          "explanation": "A conversion rate is completed outcomes divided by the defined eligible population, not an isolated total. In a fictional example, twelve completed applications out of sixty qualified enquiries is twenty per cent. State the period, definitions and exclusions. Do not compare this directly with a team counting all inbound contacts as its denominator."
+        },
+        {
+          "prompt": "For measuring commercial and customer outcomes, which review principle follows the lesson's 'use a denominator' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Do not compare this directly with a team counting all inbound contacts as its denominator.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "A conversion rate is completed outcomes divided by the defined eligible population, not an isolated total. In a fictional example, twelve completed applications out of sixty qualified enquiries is twenty per cent. State the period, definitions and exclusions. Do not compare this directly with a team counting all inbound contacts as its denominator."
+        },
+        {
+          "prompt": "For measuring commercial and customer outcomes, which best next step follows the lesson's 'measure quality and potential harm' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Track material corrections, unsupported statements caught, unanswered handovers, complaints and whether stop requests were honoured.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Track material corrections, unsupported statements caught, unanswered handovers, complaints and whether stop requests were honoured. Define what counts as an error and how samples are reviewed. A higher application count accompanied by misleading messages is not evidence of an acceptable improvement. Protect access to customer-level records used for measurement."
+        },
+        {
+          "prompt": "For measuring commercial and customer outcomes, which review principle follows the lesson's 'measure quality and potential harm' method?",
+          "options": [
+            "Protect access to customer-level records used for measurement.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Track material corrections, unsupported statements caught, unanswered handovers, complaints and whether stop requests were honoured. Define what counts as an error and how samples are reviewed. A higher application count accompanied by misleading messages is not evidence of an acceptable improvement. Protect access to customer-level records used for measurement."
+        },
+        {
+          "prompt": "For measuring commercial and customer outcomes, which best next step follows the lesson's 'interpret comparison carefully' method?",
+          "options": [
+            "Compare similar populations and periods and record changes in staffing, campaigns or product availability.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Compare similar populations and periods and record changes in staffing, campaigns or product availability. A small pilot can suggest a pattern without proving causation. Show sample size, missing data and uncertainty. Decide what result would justify continuing, revising or stopping before examining the final figures, and retain the reasons for the decision."
+        },
+        {
+          "prompt": "For measuring commercial and customer outcomes, which review principle follows the lesson's 'interpret comparison carefully' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Decide what result would justify continuing, revising or stopping before examining the final figures, and retain the reasons for the decision."
+          ],
+          "answer": 2,
+          "explanation": "Compare similar populations and periods and record changes in staffing, campaigns or product availability. A small pilot can suggest a pattern without proving causation. Show sample size, missing data and uncertainty. Decide what result would justify continuing, revising or stopping before examining the final figures, and retain the reasons for the decision."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A team reports that applications rose from ten to twelve. The earlier period had twenty qualified enquiries and the later period sixty. The counts increased, but the defined conversion rates moved from fifty to twenty per cent. Neither alone explains why. Review population differences, source changes and quality measures before claiming that AI improved performance."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    },
+    {
+      "id": "C02_U4-3",
+      "title": "Designing a small practical pilot",
+      "module": 4,
+      "moduleTitle": "Running and evaluating an AI-assisted workflow",
+      "goal": "Prepare a bounded pilot that tests usefulness, review controls and customer outcomes before expansion.",
+      "script": "docs/iip-academy/flagship-content/sales/C02_U4-3/narration.md",
+      "practice": "Prepare a one-page pilot plan with problem, scope, sources, roles, boundaries, test cases, metrics, stop conditions, review date and a continue/change/stop recommendation template.",
+      "questions": [
+        {
+          "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'choose one bounded problem' method?",
+          "options": [
+            "Start with a task the team understands and can measure, such as preparing complete enquiry handovers for one approved product.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Start with a task the team understands and can measure, such as preparing complete enquiry handovers for one approved product. Define the current problem, baseline and affected people. Do not begin with a broad promise to automate sales or select a tool before deciding what useful work it should perform."
+        },
+        {
+          "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'choose one bounded problem' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Do not begin with a broad promise to automate sales or select a tool before deciding what useful work it should perform."
+          ],
+          "answer": 2,
+          "explanation": "Start with a task the team understands and can measure, such as preparing complete enquiry handovers for one approved product. Define the current problem, baseline and affected people. Do not begin with a broad promise to automate sales or select a tool before deciding what useful work it should perform."
+        },
+        {
+          "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'set scope and responsibilities' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Name the owner, reviewers, users, source documents, allowed information and channels."
+          ],
+          "answer": 2,
+          "explanation": "Name the owner, reviewers, users, source documents, allowed information and channels. Specify what remains manual and which decisions the pilot must never make. Use fictional material for initial tests and follow the organisation's approval process for any real information. Keep the pilot separate from an unreviewed live campaign."
+        },
+        {
+          "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'set scope and responsibilities' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Keep the pilot separate from an unreviewed live campaign.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Name the owner, reviewers, users, source documents, allowed information and channels. Specify what remains manual and which decisions the pilot must never make. Use fictional material for initial tests and follow the organisation's approval process for any real information. Keep the pilot separate from an unreviewed live campaign."
+        },
+        {
+          "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'test the hard cases' method?",
+          "options": [
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Include ordinary enquiries as well as missing information, conflicting product sources, stop requests, wrong recipients and requests for a person.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+          ],
+          "answer": 1,
+          "explanation": "Include ordinary enquiries as well as missing information, conflicting product sources, stop requests, wrong recipients and requests for a person. Define expected behaviour before running the test. Log actual results and correct failures. Recheck the relevant sequence after a change; do not count an untested edit as a successful control."
+        },
+        {
+          "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'test the hard cases' method?",
+          "options": [
+            "Recheck the relevant sequence after a change; do not count an untested edit as a successful control.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Include ordinary enquiries as well as missing information, conflicting product sources, stop requests, wrong recipients and requests for a person. Define expected behaviour before running the test. Log actual results and correct failures. Recheck the relevant sequence after a change; do not count an untested edit as a successful control."
+        },
+        {
+          "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'decide and document the next step' method?",
+          "options": [
+            "Review quality, customer outcomes, workload and commercial measures together.",
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete."
+          ],
+          "answer": 0,
+          "explanation": "Review quality, customer outcomes, workload and commercial measures together. Recommend continue, change or stop with supporting evidence. State sample limits and outstanding issues. A successful small test does not prove every product or channel is ready. Expansion requires a fresh check of sources, ownership, capacity and controls at the intended scale."
+        },
+        {
+          "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'decide and document the next step' method?",
+          "options": [
+            "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+            "Replace missing facts with a plausible assumption so the worklist appears complete.",
+            "Expansion requires a fresh check of sources, ownership, capacity and controls at the intended scale."
+          ],
+          "answer": 2,
+          "explanation": "Review quality, customer outcomes, workload and commercial measures together. Recommend continue, change or stop with supporting evidence. State sample limits and outstanding issues. A successful small test does not prove every product or channel is ready. Expansion requires a fresh check of sources, ownership, capacity and controls at the intended scale."
+        },
+        {
+          "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+          "options": [
+            "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+            "Assume the fictional example establishes the real customer's policy terms.",
+            "Treat a prepared message as proof it was delivered."
+          ],
+          "answer": 0,
+          "explanation": "A branch pilots AI-prepared handovers for a single fictional training product. The normal example is complete, but a conflicting-source case still produces a confident benefit claim. The pilot should not be declared successful because most outputs looked good. Correct the source-conflict route, repeat that case and review the broader test set before requesting any live expansion."
+        },
+        {
+          "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+          "options": [
+            "A claim that AI improved performance without a source or denominator.",
+            "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+            "An unreviewed AI output copied directly into the customer record."
+          ],
+          "answer": 1,
+          "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+        }
+      ],
+      "editorialStatus": "draft_requires_expert_and_assessment_review"
+    }
+  ],
+  "finalTask": "Customer journey work pack and bounded pilot plan",
+  "publicationStatus": "not_ready_for_paid_release"
+}

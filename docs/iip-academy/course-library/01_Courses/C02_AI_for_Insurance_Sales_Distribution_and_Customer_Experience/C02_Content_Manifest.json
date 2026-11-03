@@ -1,0 +1,53 @@
+{
+  "manifestVersion": "1.0",
+  "manifestType": "editorial-content-inventory",
+  "isVerifiedLmsImportSchema": false,
+  "authoredDate": "2026-10-18",
+  "courseCode": "C02",
+  "title": "AI for Insurance Sales, Distribution & Customer Experience",
+  "language": "en",
+  "contentVersion": "1.0-draft",
+  "publicationStatus": "not_imported_or_published",
+  "scope": "First-unit starter pack; remaining units outlined",
+  "catalogueMapping": "Resolve against actual Academy identifiers. C02 is an editorial code; do not overwrite an older course numbered 2.",
+  "learnerFiles": [
+    { "path": "C02_Course_Outline.md", "role": "course_outline", "status": "draft" },
+    { "path": "Unit_1.1/C02_U1-1_Narration_Script.md", "role": "lesson_source", "status": "draft", "unitCode": "C02_U1-1", "slides": 14 },
+    { "path": "Unit_1.1/C02_U1-1_Quiz.md", "role": "learner_quiz", "status": "draft", "unitCode": "C02_U1-1", "questions": 10 }
+  ],
+  "productionFiles": [
+    { "path": "Production/C02_TTS_Narration_Generator.ipynb", "role": "narration_generator", "status": "configured_not_executed", "defaultUnitCode": "C02_U1-1" },
+    { "path": "Production/C02_Production_Playbook.md", "role": "production_guide", "status": "draft" },
+    { "path": "C02_Reference_Map.md", "role": "source_map", "status": "draft" }
+  ],
+  "restrictedFiles": [
+    { "path": "Instructor_Only/C02_U1-1_Answer_Key.md", "role": "answer_key", "access": "authorised_instructors_only", "excludeFromLearnerDownloads": true, "excludeFromLearnerAssistantRetrieval": true }
+  ],
+  "assessmentSettingsProposed": {
+    "unitQuestions": 10,
+    "unitPassMarks": 8,
+    "moduleQuestions": 15,
+    "modulePassMarks": 12,
+    "capstonePassMarks": 70,
+    "capstoneMaximumMarks": 100,
+    "aiAssistantDuringAssessments": "disabled_server_side_required",
+    "configurationApplied": false
+  },
+  "units": [
+    { "code": "C02_U1-1", "title": "Where AI helps from enquiry to renewal", "status": "script_and_unit_quiz_drafted" },
+    { "code": "C02_U1-2", "title": "Discovery without guessing", "status": "outline_only" },
+    { "code": "C02_U1-3", "title": "Product explanations grounded in approved sources", "status": "outline_only" },
+    { "code": "C02_U2-1", "title": "Lead qualification and prioritisation", "status": "outline_only" },
+    { "code": "C02_U2-2", "title": "Preparing a relevant outreach message", "status": "outline_only" },
+    { "code": "C02_U2-3", "title": "Follow-up across agents, branches and insurers", "status": "outline_only" },
+    { "code": "C02_U3-1", "title": "Handling questions and uncertainty", "status": "outline_only" },
+    { "code": "C02_U3-2", "title": "Service updates and difficult conversations", "status": "outline_only" },
+    { "code": "C02_U3-3", "title": "Renewals and continuing relationships", "status": "outline_only" },
+    { "code": "C02_U4-1", "title": "Review points and stop conditions", "status": "outline_only" },
+    { "code": "C02_U4-2", "title": "Measuring commercial and customer outcomes", "status": "outline_only" },
+    { "code": "C02_U4-3", "title": "Designing a small practical pilot", "status": "outline_only" }
+  ],
+  "remainingProduction": ["Scripts and unit quizzes for eleven units", "Four module question banks", "Detailed capstone case and assessor guide", "Editable slide decks", "Reviewed audio", "Reviewed captions", "Lesson videos", "Academy import and access verification"],
+  "sharedReferencesStoredOnce": true,
+  "syncedProjectSourcesModified": false
+}

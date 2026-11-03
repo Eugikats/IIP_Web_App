@@ -1,0 +1,102 @@
+[
+  {
+    "prompt": "For renewals and continuing relationships, which best next step follows the lesson's 'start with verified policy information' method?",
+    "options": [
+      "Check the applicable policy status, expiry date, version and owner.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Check the applicable policy status, expiry date, version and owner. A reminder worklist is only as reliable as its source. Do not infer that a policy renewed because a message was sent or a payment was attempted. When a date or status is uncertain, resolve it before a customer-facing statement."
+  },
+  {
+    "prompt": "For renewals and continuing relationships, which review principle follows the lesson's 'start with verified policy information' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "When a date or status is uncertain, resolve it before a customer-facing statement."
+    ],
+    "answer": 2,
+    "explanation": "Check the applicable policy status, expiry date, version and owner. A reminder worklist is only as reliable as its source. Do not infer that a policy renewed because a message was sent or a payment was attempted. When a date or status is uncertain, resolve it before a customer-facing statement."
+  },
+  {
+    "prompt": "For renewals and continuing relationships, which best next step follows the lesson's 'review changed needs' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Ask whether the relevant circumstances have changed and capture the customer's own answer."
+    ],
+    "answer": 2,
+    "explanation": "Ask whether the relevant circumstances have changed and capture the customer's own answer. A changed vehicle use, address or business activity may require referral. Do not assume last year's facts remain true. An appropriate renewal conversation can also reveal that the customer no longer wants the product or needs service before considering another offer."
+  },
+  {
+    "prompt": "For renewals and continuing relationships, which review principle follows the lesson's 'review changed needs' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "An appropriate renewal conversation can also reveal that the customer no longer wants the product or needs service before considering another offer.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Ask whether the relevant circumstances have changed and capture the customer's own answer. A changed vehicle use, address or business activity may require referral. Do not assume last year's facts remain true. An appropriate renewal conversation can also reveal that the customer no longer wants the product or needs service before considering another offer."
+  },
+  {
+    "prompt": "For renewals and continuing relationships, which best next step follows the lesson's 'keep renewal separate from a new sale' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "An additional product needs its own explanation, applicable source and authorised process.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "An additional product needs its own explanation, applicable source and authorised process. Existing-customer status is not automatic permission for every campaign. Check current contact status and distinguish necessary policy service from optional marketing under the organisation's procedure. Avoid duplicate offers for cover already held."
+  },
+  {
+    "prompt": "For renewals and continuing relationships, which review principle follows the lesson's 'keep renewal separate from a new sale' method?",
+    "options": [
+      "Avoid duplicate offers for cover already held.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "An additional product needs its own explanation, applicable source and authorised process. Existing-customer status is not automatic permission for every campaign. Check current contact status and distinguish necessary policy service from optional marketing under the organisation's procedure. Avoid duplicate offers for cover already held."
+  },
+  {
+    "prompt": "For renewals and continuing relationships, which best next step follows the lesson's 'close the loop accurately' method?",
+    "options": [
+      "Record the actual result: needs clarification, referred, not proceeding, awaiting insurer action or confirmed renewed policy.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Record the actual result: needs clarification, referred, not proceeding, awaiting insurer action or confirmed renewed policy. Do not label an invitation as a renewal. Link the new policy version or confirmed outcome where available, preserve history and assign any remaining action. A claim outcome alone does not determine the renewal outcome."
+  },
+  {
+    "prompt": "For renewals and continuing relationships, which review principle follows the lesson's 'close the loop accurately' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A claim outcome alone does not determine the renewal outcome."
+    ],
+    "answer": 2,
+    "explanation": "Record the actual result: needs clarification, referred, not proceeding, awaiting insurer action or confirmed renewed policy. Do not label an invitation as a renewal. Link the new policy version or confirmed outcome where available, preserve history and assign any remaining action. A claim outcome alone does not determine the renewal outcome."
+  },
+  {
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ],
+    "answer": 0,
+    "explanation": "A policyholder's vehicle use changed from private travel to deliveries. An automated reminder assumes the same terms and says renewal is complete. Correct the unsupported completion statement, capture the changed use and refer through the insurer's process. The customer should receive the actual confirmed terms and effective dates only when established."
+  },
+  {
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ],
+    "answer": 1,
+    "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+  }
+]

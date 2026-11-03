@@ -1,0 +1,108 @@
+{
+  "subscription": "5f5765ae-985f-42e4-a443-8e2447be33ca",
+  "currentOperator": "ab67829c-cfac-4dde-aaaa-4af848567585",
+  "courses": [
+    {
+      "id": "ai-agentic-insurance",
+      "number": 1,
+      "category": "ai-foundations",
+      "title": "AI & Agentic AI for Insurance",
+      "short": "Foundations of AI, generative AI and agentic AI across the insurance value chain, taught practically through IIP.",
+      "level": "Introductory",
+      "duration": "12 units in 4 modules, with a final applied task",
+      "hue": [
+        "#0E2A8C",
+        "#3D7BF0"
+      ],
+      "icon": "sparkle",
+      "status": "ready",
+      "modules": 4,
+      "lessons": 12,
+      "lessonIds": [
+        "unit-1-1",
+        "unit-1-2",
+        "unit-1-3",
+        "unit-2-1",
+        "unit-2-2",
+        "unit-2-3",
+        "unit-3-1",
+        "unit-3-2",
+        "unit-3-3",
+        "unit-4-1",
+        "unit-4-2",
+        "unit-4-3"
+      ],
+      "minutes": 48,
+      "price": 500000,
+      "currency": "UGX",
+      "hasCertificate": true
+    },
+    {
+      "id": "ai-sales-distribution",
+      "number": 4,
+      "category": "sales-experience",
+      "title": "AI for Insurance Sales, Distribution & Customer Experience",
+      "short": "Using AI across WhatsApp and digital channels for customer acquisition, policy enquiries, lead qualification, renewals, cross-selling and retention.",
+      "level": null,
+      "duration": "2 days (proposed)",
+      "hue": [
+        "#1E4FD8",
+        "#5B9BF5"
+      ],
+      "icon": "chart",
+      "status": "ready",
+      "modules": 8,
+      "lessons": 16,
+      "lessonIds": [
+        "customer-journey-idea",
+        "customer-journey-example",
+        "lead-qualification-idea",
+        "lead-qualification-example",
+        "policy-enquiries-idea",
+        "policy-enquiries-example",
+        "quotes-applications-idea",
+        "quotes-applications-example",
+        "renewals-retention-idea",
+        "renewals-retention-example",
+        "language-experience-idea",
+        "language-experience-example",
+        "channel-rules-idea",
+        "channel-rules-example",
+        "measuring-sales-idea",
+        "measuring-sales-example"
+      ],
+      "minutes": 48,
+      "price": 500000,
+      "currency": "UGX",
+      "hasCertificate": true
+    }
+  ],
+  "testerGrants": [
+    {
+      "courseId": "ai-agentic-insurance",
+      "userId": "6aac969e-d03e-4380-baa5-7e605b24949d",
+      "enrolled": true,
+      "alreadyEnrolled": false
+    },
+    {
+      "courseId": "ai-agentic-insurance",
+      "userId": "ab67829c-cfac-4dde-aaaa-4af848567585",
+      "enrolled": true,
+      "alreadyEnrolled": true
+    },
+    {
+      "courseId": "ai-sales-distribution",
+      "userId": "6aac969e-d03e-4380-baa5-7e605b24949d",
+      "enrolled": true,
+      "alreadyEnrolled": false
+    },
+    {
+      "courseId": "ai-sales-distribution",
+      "userId": "ab67829c-cfac-4dde-aaaa-4af848567585",
+      "enrolled": true,
+      "alreadyEnrolled": false
+    }
+  ],
+  "media": [],
+  "catalogueSnapshot": "Before configuration on the prior deployment. Final prices and asset verification are in azure-media-verification.json."
+}

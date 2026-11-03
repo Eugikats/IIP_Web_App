@@ -1,0 +1,112 @@
+[
+  {
+    "prompt": "What does the \"Complete\" part of the 3C check ask?",
+    "options": [
+      "Is the spelling correct?",
+      "Is anything material missing, such as exclusions, deadlines or outstanding documents?",
+      "Is the letter long enough?",
+      "Has the AI finished generating?"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "An AI-drafted settlement letter shows UGX 4,850,000; the file shows UGX 4,580,000. Which check should catch this?",
+    "options": [
+      "Compliant",
+      "Correct",
+      "Complete",
+      "Format"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "What is the weakness of asking the same AI tool \"Is this calculation correct?\"",
+    "options": [
+      "It is rude",
+      "The tool may simply affirm its own output; it is not independent verification",
+      "It costs more",
+      "It deletes the draft"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Automation bias is:",
+    "options": [
+      "Bias in training data against certain groups",
+      "The tendency to accept machine output because it looks authoritative",
+      "A virus",
+      "A type of premium loading"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Which document needs the deepest verification?",
+    "options": [
+      "Internal brainstorming notes",
+      "A repudiation letter to a policyholder",
+      "A draft agenda for a team meeting",
+      "A list of possible training topics"
+    ],
+    "answer": 1,
+    "explanation": "Proportionate review matches depth to stakes."
+  },
+  {
+    "prompt": "A summary for a corporate client omits the maternity waiting period. Which risk does this create?",
+    "options": [
+      "None : summaries are informal",
+      "Staff may rely on the summary and later dispute a declined claim",
+      "The policy becomes void",
+      "The premium doubles"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Which practice best supports accountability for AI-assisted customer letters?",
+    "options": [
+      "Deleting drafts after sending",
+      "Recording that the letter was AI-assisted and who verified it",
+      "Letting the AI sign the letter",
+      "Avoiding all AI use"
+    ],
+    "answer": 1,
+    "explanation": "Aligns with governance and accountability."
+  },
+  {
+    "prompt": "An AI letter to a bereaved family uses a cheerful marketing tone. Which check catches this?",
+    "options": [
+      "Correct",
+      "Complete",
+      "Compliant (including appropriate tone)",
+      "None"
+    ],
+    "answer": 2,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "What is the best way to verify a clause reference an AI provided?",
+    "options": [
+      "Trust it if formatted correctly",
+      "Open the policy wording and confirm the clause says what the draft claims",
+      "Ask a second AI",
+      "Remove it"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Under heavy workload, a colleague proposes skipping checks on AI-drafted status messages. The best response is:",
+    "options": [
+      "Agree",
+      "Use a quick fixed checklist proportionate to the message : at minimum names, numbers, documents and promises",
+      "Stop sending updates",
+      "Send them unsigned"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  }
+]

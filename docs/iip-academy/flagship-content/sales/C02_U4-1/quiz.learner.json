@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For review points and stop conditions, which best next step follows the lesson's 'define the action boundary' method?",
+    "options": [
+      "Describe exactly what the workflow may read, prepare and change.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For review points and stop conditions, which review principle follows the lesson's 'define the action boundary' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Explicitly exclude policy issuance, binding premiums, adverse claim decisions and payment authorisation from the assistant's powers."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For review points and stop conditions, which best next step follows the lesson's 'make review possible' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Show the draft, supporting source, customer context, unknowns and intended recipient to the reviewer."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For review points and stop conditions, which review principle follows the lesson's 'make review possible' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Do not assume a signature field makes a review meaningful if the person cannot inspect the evidence or is expected to approve too many items to check.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For review points and stop conditions, which best next step follows the lesson's 'specify stop and escalation triggers' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Missing or conflicting sources, an unmatched customer, a stop request, a complaint and an unsupported consequential statement require an appropriate pause or route.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For review points and stop conditions, which review principle follows the lesson's 'specify stop and escalation triggers' method?",
+    "options": [
+      "A failure should not silently switch to an unapproved tool, channel or source just to make the workflow appear successful.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For review points and stop conditions, which best next step follows the lesson's 'record and test the control' method?",
+    "options": [
+      "Keep the draft version, reviewer action and actual result traceable without unnecessarily exposing sensitive data.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For review points and stop conditions, which review principle follows the lesson's 'record and test the control' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "An instruction written in a prompt is not proof that the system enforces it."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]

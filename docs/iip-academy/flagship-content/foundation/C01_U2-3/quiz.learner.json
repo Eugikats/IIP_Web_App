@@ -1,0 +1,102 @@
+[
+  {
+    "id": 0,
+    "prompt": "Which body regulates the processing of personal data in Uganda?",
+    "options": [
+      "Insurance Regulatory Authority",
+      "Personal Data Protection Office under NITA-U",
+      "Uganda Revenue Authority",
+      "Bank of Uganda"
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "A claims officer wants an AI summary of a medical report. What is the best practice?",
+    "options": [
+      "Paste the full report into any free tool",
+      "Remove name, ID and unneeded details, refer to \"Patient A\", and use an organisation-approved tool",
+      "Email the report to the AI provider",
+      "Ask the customer to summarise it"
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "Pseudonymisation means:",
+    "options": [
+      "Encrypting the hard drive",
+      "Replacing identifiers with codes such as \"Claimant A\"",
+      "Deleting the file",
+      "Translating the document"
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "Why does using a public AI tool hosted abroad raise a DPPA issue?",
+    "options": [
+      "Foreign tools are banned",
+      "The Act sets conditions for processing personal data outside Uganda",
+      "Foreign tools cannot read English",
+      "It does not raise any issue"
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "Who should decide which AI tools may process customer data?",
+    "options": [
+      "Each staff member",
+      "The organisation, involving the data protection officer, based on contract and security terms",
+      "The customer",
+      "The AI vendor alone"
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "A broker wants AI help with renewal reminders. Which approach applies data minimisation?",
+    "options": [
+      "Upload the full CRM export",
+      "Draft a template with placeholders and merge details within the broker's own system",
+      "Share the client list on WhatsApp",
+      "Ask the AI to remember all clients"
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "Deleting an AI chat on a public tool:",
+    "options": [
+      "Always removes the data from the provider's systems",
+      "May not remove data the provider has already retained, depending on its terms",
+      "Notifies the PDPO",
+      "Is illegal"
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "Using claims data to target customers with AI-generated marketing without a lawful basis conflicts with which principle?",
+    "options": [
+      "Purpose limitation",
+      "Premium adequacy",
+      "Indemnity",
+      "Subrogation"
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "The DPPA gives data subjects rights in relation to:",
+    "options": [
+      "Automated decision-taking",
+      "Choice of loss assessor",
+      "Premium discounts",
+      "Reinsurance placement"
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which statement about AI and Ugandan data protection law is most accurate?",
+    "options": [
+      "The DPPA does not apply to AI",
+      "The DPPA applies to AI processing of personal data, though commentators argue it does not yet address algorithmic profiling in detail",
+      "AI tools are exempt if hosted abroad",
+      "Only government bodies must comply"
+    ]
+  }
+]

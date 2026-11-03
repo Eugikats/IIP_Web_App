@@ -1,0 +1,1443 @@
+{
+  "id": "ai-agentic-insurance",
+  "title": "AI & Agentic AI for Insurance",
+  "priceUsd": 120,
+  "units": [
+    {
+      "id": "C01_U1-1",
+      "title": "What AI, machine learning, generative AI and agentic AI actually are",
+      "module": 1,
+      "moduleTitle": "Foundations: AI in Ugandan insurance",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U1-1/narration.md",
+      "questions": [
+        {
+          "prompt": "Which statement best describes generative AI?",
+          "options": [
+            "It follows if-then rules written by programmers",
+            "It produces new content such as text based on patterns learned from data",
+            "It copies data between systems by mimicking clicks",
+            "It stores policyholder records securely"
+          ],
+          "answer": 1,
+          "explanation": "Generative AI creates new content; A describes rules-based automation, C describes RPA."
+        },
+        {
+          "prompt": "A motor system automatically refers any claim from a policyholder with more than three claims in twelve months. This is best described as:",
+          "options": [
+            "Machine learning",
+            "Rules-based automation",
+            "Generative AI",
+            "Agentic AI"
+          ],
+          "answer": 1,
+          "explanation": "The threshold was written by a person; the system does not learn."
+        },
+        {
+          "prompt": "An insurer trains a model on five years of claims to score new claims for likely fraud. This is:",
+          "options": [
+            "Predictive machine learning",
+            "RPA",
+            "Generative AI",
+            "A rules table"
+          ],
+          "answer": 0,
+          "explanation": "It learns patterns from historical data to produce a prediction."
+        },
+        {
+          "prompt": "What most clearly distinguishes agentic AI from a chatbot?",
+          "options": [
+            "It uses a larger model",
+            "It can plan multiple steps and use tools to take actions towards a goal",
+            "It speaks local languages",
+            "It never makes mistakes"
+          ],
+          "answer": 1,
+          "explanation": "Agents act; chatbots respond."
+        },
+        {
+          "prompt": "A broker tells a client, \"AI will soon approve all claims without anyone checking.\" Which response is most accurate?",
+          "options": [
+            "Agree : agents already do this widely",
+            "Explain that most insurers currently use agents to summarise, route and speed up work while keeping humans responsible for coverage and claims decisions",
+            "Say AI cannot be used in claims at all",
+            "Say only regulators may use AI"
+          ],
+          "answer": 1,
+          "explanation": "Industry tracking in 2026 shows few insurers give agents material autonomy over claims decisions."
+        },
+        {
+          "prompt": "Which task is least appropriate to hand to a GenAI tool without human review?",
+          "options": [
+            "Drafting a first version of a customer newsletter",
+            "Summarising a meeting transcript for internal notes",
+            "Issuing the final decision to repudiate a claim",
+            "Suggesting headings for a training manual"
+          ],
+          "answer": 2,
+          "explanation": "A repudiation affects the customer's rights and must rest on verified facts and accountable human judgment."
+        },
+        {
+          "prompt": "A vendor's \"AI underwriting engine\" turns out to be a table of fixed referral rules. What is the main practical implication?",
+          "options": [
+            "It will improve automatically over time",
+            "It must be updated manually whenever underwriting guidelines change",
+            "It will fabricate answers",
+            "It requires DPPA registration while ML does not"
+          ],
+          "answer": 1,
+          "explanation": "Rules do not learn; someone must maintain them."
+        },
+        {
+          "prompt": "Why does the distinction between AI categories matter for an insurance professional?",
+          "options": [
+            "Each category carries different risks and needs different controls",
+            "Only agentic AI is legal in Uganda",
+            "Rules-based systems are always more accurate",
+            "It affects only IT staff"
+          ],
+          "answer": 0,
+          "explanation": "Transparency, bias, fabrication and action risks differ by category."
+        },
+        {
+          "prompt": "A claims assistant summarises a hospital invoice and lists a procedure that is not on the invoice. The most likely explanation is that:",
+          "options": [
+            "The hospital changed the invoice",
+            "The generative model produced plausible but unsupported text",
+            "The rules table is outdated",
+            "The agent sent the wrong email"
+          ],
+          "answer": 1,
+          "explanation": "Generative models can fabricate details; summaries must be checked against the source."
+        },
+        {
+          "prompt": "Which statement about AI output is true?",
+          "options": [
+            "AI output is always deterministic and correct",
+            "Confident wording from AI indicates accuracy",
+            "AI output is probabilistic and can be wrong while sounding confident",
+            "AI output cannot contain errors if the vendor is reputable"
+          ],
+          "answer": 2,
+          "explanation": "Fluency is not evidence of accuracy."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U1-2",
+      "title": "How large language models work, and why they get things wrong",
+      "module": 1,
+      "moduleTitle": "Foundations: AI in Ugandan insurance",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U1-2/narration.md",
+      "questions": [
+        {
+          "prompt": "In simple terms, how does an LLM produce text?",
+          "options": [
+            "It retrieves verified answers from a central database",
+            "It predicts the most likely next piece of text, repeatedly",
+            "It copies whole paragraphs from websites",
+            "It runs the user's question through a rules table"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A claims-summary pilot saves time but omits exclusions. What is the best response?",
+          "options": [
+            "Pause consequential use, examine omissions and retest against source documents",
+            "Scale immediately because speed is the only success measure",
+            "Delete the failed examples from the evaluation set"
+          ],
+          "answer": 0,
+          "explanation": "Use relevant local evidence, explicit limits and accountable human review rather than an unsupported industry statistic."
+        },
+        {
+          "prompt": "Why might an AI assistant give outdated information about a regulation issued last month?",
+          "options": [
+            "Its knowledge stops at a training cutoff unless it can search or is given the text",
+            "Regulators block AI tools",
+            "LLMs cannot read English legal text",
+            "The regulation is encrypted"
+          ],
+          "answer": 0,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A colleague pastes a 200-page reinsurance treaty and asks for \"all exclusions\". What is the main risk?",
+          "options": [
+            "The tool will refuse",
+            "Some clauses may be missed or given less attention because of context limits",
+            "The treaty will be published online",
+            "The output will be in the wrong language"
+          ],
+          "answer": 1,
+          "explanation": "Break the document into sections and check each."
+        },
+        {
+          "prompt": "An AI tool calculates a pro-rata refund on cancellation. What should you do before sending it to the customer?",
+          "options": [
+            "Send it : AI is good at maths",
+            "Recalculate independently",
+            "Ask the AI to confirm it is correct",
+            "Round it up to be safe"
+          ],
+          "answer": 1,
+          "explanation": "LLMs are unreliable at arithmetic without tools; asking the same model to \"confirm\" is not verification."
+        },
+        {
+          "prompt": "Which prompt is most likely to reduce hallucination when asking about a policy exclusion?",
+          "options": [
+            "\"What does the policy exclude?\"",
+            "\"Using only the clause text pasted below, state whether flood damage is excluded and quote the sentence you relied on.\"",
+            "\"Be accurate.\"",
+            "\"Answer like an expert underwriter.\""
+          ],
+          "answer": 1,
+          "explanation": "Grounding in provided text and requiring a quotation makes errors visible."
+        },
+        {
+          "prompt": "The same question asked three times gives three different wordings. This reflects:",
+          "options": [
+            "A software fault",
+            "The non-deterministic nature of generative models",
+            "Hacking",
+            "A context window error"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "An AI tool without internet access says, \"I have checked the IRA website and confirmed this.\" How should you treat this?",
+          "options": [
+            "As confirmation",
+            "As generated text that does not prove any check took place",
+            "As a legal opinion",
+            "As a regulatory filing"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A Luganda translation of an exclusion is going to a customer. What is the best practice?",
+          "options": [
+            "Send it as generated",
+            "Have a fluent Luganda speaker review it against the English original",
+            "Translate it back into English with the same tool and send if it matches",
+            "Avoid informing the customer"
+          ],
+          "answer": 1,
+          "explanation": "Back-translation by the same tool can hide errors."
+        },
+        {
+          "prompt": "Which statement about grounding (connecting AI to search or documents) is correct?",
+          "options": [
+            "It eliminates all errors",
+            "It reduces errors but outputs still need checking",
+            "It is illegal in Uganda",
+            "It makes the model deterministic"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U1-3",
+      "title": "The AI opportunity across the insurance value chain",
+      "module": 1,
+      "moduleTitle": "Foundations: AI in Ugandan insurance",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U1-3/narration.md",
+      "questions": [
+        {
+          "prompt": "A vendor cites rapid AI adoption elsewhere. What does this establish about your insurer's readiness?",
+          "options": [
+            "A reason to investigate, but not evidence that the local workflow is ready",
+            "That the same accuracy will transfer without testing",
+            "That human review is no longer needed"
+          ],
+          "answer": 0,
+          "explanation": "Use relevant local evidence, explicit limits and accountable human review rather than an unsupported industry statistic."
+        },
+        {
+          "prompt": "A claims-summary pilot saves time but omits exclusions. What is the best response?",
+          "options": [
+            "Pause consequential use, examine omissions and retest against source documents",
+            "Scale immediately because speed is the only success measure",
+            "Delete the failed examples from the evaluation set"
+          ],
+          "answer": 0,
+          "explanation": "Use relevant local evidence, explicit limits and accountable human review rather than an unsupported industry statistic."
+        },
+        {
+          "prompt": "How should a team compare a bounded pilot with its current process?",
+          "options": [
+            "Use comparable cases, documented quality checks and time measurements",
+            "Compare the best AI example with the worst manual example",
+            "Use only a demonstration supplied by the vendor"
+          ],
+          "answer": 0,
+          "explanation": "Use relevant local evidence, explicit limits and accountable human review rather than an unsupported industry statistic."
+        },
+        {
+          "prompt": "Which first AI use case best fits the prioritisation screen for a Ugandan motor insurer?",
+          "options": [
+            "Fully automated claim repudiation",
+            "An intake assistant that tells customers which documents are still missing",
+            "A model that sets premiums with no human review",
+            "Replacing all loss assessors"
+          ],
+          "answer": 1,
+          "explanation": "High volume, measurable, low harm, assists rather than decides."
+        },
+        {
+          "prompt": "The IRA has urged insurers to automate claims processing mainly to:",
+          "options": [
+            "Reduce staff numbers",
+            "Ensure timely settlement of claims",
+            "Replace brokers",
+            "Increase premiums"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which local constraint was cited by a Ugandan health insurer as a challenge to automation?",
+          "options": [
+            "Lack of customers",
+            "High technology costs and network issues",
+            "Prohibition by law",
+            "Excess staff"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A bancassurance team wants consistent product explanations across bank branches. The most appropriate AI application is:",
+          "options": [
+            "An agent that sells policies without staff involvement",
+            "A GenAI tool drafting plain-language explanations from approved product sheets, reviewed by compliance",
+            "A fraud model",
+            "An RPA bot for premium collection"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Why might copying a foreign insurer's AI use case directly fail in Uganda?",
+          "options": [
+            "Foreign AI is illegal",
+            "Differences in data availability, document formats, connectivity and language",
+            "Ugandan customers do not make claims",
+            "Foreign insurers do not use AI"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which is the best measure of success for a claims AI pilot?",
+          "options": [
+            "Number of staff who tried the tool",
+            "Reduction in average days from last document to settlement, with complaint rates monitored",
+            "How advanced the model is",
+            "Number of prompts written"
+          ],
+          "answer": 1,
+          "explanation": "Measure business outcomes, not activity."
+        },
+        {
+          "prompt": "Which proposal gives a manager the clearest basis for a pilot decision?",
+          "options": [
+            "A scoped use case with evidence, risks, ownership, measures and stop criteria",
+            "A promise that AI will remove all uncertainty",
+            "A vendor headline with no local test plan"
+          ],
+          "answer": 0,
+          "explanation": "Use relevant local evidence, explicit limits and accountable human review rather than an unsupported industry statistic."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U2-1",
+      "title": "Prompting for insurance tasks",
+      "module": 2,
+      "moduleTitle": "Working with generative AI in daily insurance work",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U2-1/narration.md",
+      "questions": [
+        {
+          "prompt": "In the RCTCF structure, what does the second \"C\" stand for?",
+          "options": [
+            "Customer",
+            "Constraints",
+            "Compliance",
+            "Calculation"
+          ],
+          "answer": 1,
+          "explanation": "Role, Context, Task, Constraints, Format."
+        },
+        {
+          "prompt": "Which prompt element most directly reduces invented details in an underwriting summary?",
+          "options": [
+            "\"Act as an expert\"",
+            "\"Use only the report text provided and write 'not stated' where information is missing\"",
+            "\"Be detailed\"",
+            "\"Use bullet points\""
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A claims officer writes \"Write a letter about a delayed claim.\" What is the main weakness?",
+          "options": [
+            "Too polite",
+            "No context, audience, reason for delay or constraints",
+            "Too long",
+            "Uses the word \"claim\""
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which constraint is most important in a delay message to a customer?",
+          "options": [
+            "Use technical terms",
+            "Do not promise a settlement date that has not been confirmed",
+            "Make it at least 500 words",
+            "Mention competitors"
+          ],
+          "answer": 1,
+          "explanation": "Unfounded promises create complaints and conduct risk."
+        },
+        {
+          "prompt": "Why ask the model to ask clarifying questions before drafting?",
+          "options": [
+            "It makes the model slower",
+            "It surfaces missing information before a draft is built on assumptions",
+            "It is required by law",
+            "It changes the model's training"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Prompting well will make an AI tool:",
+          "options": [
+            "Accurate about regulations it has never seen",
+            "Better at structure, tone and relevance, but still dependent on correct source information",
+            "Able to access the core system",
+            "Free from bias"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A team reuses the same prompt for motor claim acknowledgements every day. Best practice is to:",
+          "options": [
+            "Let each officer write their own each time",
+            "Approve, store and version a tested template",
+            "Share it on social media",
+            "Avoid templates"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which format instruction suits a WhatsApp update to a customer?",
+          "options": [
+            "\"A formal three-page letter\"",
+            "\"Under 120 words, plain language, no attachments\"",
+            "\"A table with ten columns\"",
+            "\"Legal citations for every sentence\""
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Giving the model an example of a good past message (with personal details removed) mainly helps it to:",
+          "options": [
+            "Copy the customer's data",
+            "Match the desired tone, length and structure",
+            "Verify facts",
+            "Connect to the internet"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "After receiving a first draft that is too formal, the best next step is to:",
+          "options": [
+            "Start again with a new tool",
+            "Give a follow-up instruction such as \"make it warmer and simpler, keep the same facts\"",
+            "Send it anyway",
+            "Rewrite the whole thing by hand without using the draft"
+          ],
+          "answer": 1,
+          "explanation": "Iteration is part of prompting."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U2-2",
+      "title": "Verifying AI output before you use it",
+      "module": 2,
+      "moduleTitle": "Working with generative AI in daily insurance work",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U2-2/narration.md",
+      "questions": [
+        {
+          "prompt": "What does the \"Complete\" part of the 3C check ask?",
+          "options": [
+            "Is the spelling correct?",
+            "Is anything material missing, such as exclusions, deadlines or outstanding documents?",
+            "Is the letter long enough?",
+            "Has the AI finished generating?"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "An AI-drafted settlement letter shows UGX 4,850,000; the file shows UGX 4,580,000. Which check should catch this?",
+          "options": [
+            "Compliant",
+            "Correct",
+            "Complete",
+            "Format"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "What is the weakness of asking the same AI tool \"Is this calculation correct?\"",
+          "options": [
+            "It is rude",
+            "The tool may simply affirm its own output; it is not independent verification",
+            "It costs more",
+            "It deletes the draft"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Automation bias is:",
+          "options": [
+            "Bias in training data against certain groups",
+            "The tendency to accept machine output because it looks authoritative",
+            "A virus",
+            "A type of premium loading"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which document needs the deepest verification?",
+          "options": [
+            "Internal brainstorming notes",
+            "A repudiation letter to a policyholder",
+            "A draft agenda for a team meeting",
+            "A list of possible training topics"
+          ],
+          "answer": 1,
+          "explanation": "Proportionate review matches depth to stakes."
+        },
+        {
+          "prompt": "A summary for a corporate client omits the maternity waiting period. Which risk does this create?",
+          "options": [
+            "None : summaries are informal",
+            "Staff may rely on the summary and later dispute a declined claim",
+            "The policy becomes void",
+            "The premium doubles"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which practice best supports accountability for AI-assisted customer letters?",
+          "options": [
+            "Deleting drafts after sending",
+            "Recording that the letter was AI-assisted and who verified it",
+            "Letting the AI sign the letter",
+            "Avoiding all AI use"
+          ],
+          "answer": 1,
+          "explanation": "Aligns with governance and accountability."
+        },
+        {
+          "prompt": "An AI letter to a bereaved family uses a cheerful marketing tone. Which check catches this?",
+          "options": [
+            "Correct",
+            "Complete",
+            "Compliant (including appropriate tone)",
+            "None"
+          ],
+          "answer": 2,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "What is the best way to verify a clause reference an AI provided?",
+          "options": [
+            "Trust it if formatted correctly",
+            "Open the policy wording and confirm the clause says what the draft claims",
+            "Ask a second AI",
+            "Remove it"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Under heavy workload, a colleague proposes skipping checks on AI-drafted status messages. The best response is:",
+          "options": [
+            "Agree",
+            "Use a quick fixed checklist proportionate to the message : at minimum names, numbers, documents and promises",
+            "Stop sending updates",
+            "Send them unsigned"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U2-3",
+      "title": "Protecting personal data when using AI",
+      "module": 2,
+      "moduleTitle": "Working with generative AI in daily insurance work",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U2-3/narration.md",
+      "questions": [
+        {
+          "prompt": "Which body regulates the processing of personal data in Uganda?",
+          "options": [
+            "Insurance Regulatory Authority",
+            "Personal Data Protection Office under NITA-U",
+            "Uganda Revenue Authority",
+            "Bank of Uganda"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A claims officer wants an AI summary of a medical report. What is the best practice?",
+          "options": [
+            "Paste the full report into any free tool",
+            "Remove name, ID and unneeded details, refer to \"Patient A\", and use an organisation-approved tool",
+            "Email the report to the AI provider",
+            "Ask the customer to summarise it"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Pseudonymisation means:",
+          "options": [
+            "Encrypting the hard drive",
+            "Replacing identifiers with codes such as \"Claimant A\"",
+            "Deleting the file",
+            "Translating the document"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Why does using a public AI tool hosted abroad raise a DPPA issue?",
+          "options": [
+            "Foreign tools are banned",
+            "The Act sets conditions for processing personal data outside Uganda",
+            "Foreign tools cannot read English",
+            "It does not raise any issue"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Who should decide which AI tools may process customer data?",
+          "options": [
+            "Each staff member",
+            "The organisation, involving the data protection officer, based on contract and security terms",
+            "The customer",
+            "The AI vendor alone"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A broker wants AI help with renewal reminders. Which approach applies data minimisation?",
+          "options": [
+            "Upload the full CRM export",
+            "Draft a template with placeholders and merge details within the broker's own system",
+            "Share the client list on WhatsApp",
+            "Ask the AI to remember all clients"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Deleting an AI chat on a public tool:",
+          "options": [
+            "Always removes the data from the provider's systems",
+            "May not remove data the provider has already retained, depending on its terms",
+            "Notifies the PDPO",
+            "Is illegal"
+          ],
+          "answer": 1,
+          "explanation": "Check the tool's terms."
+        },
+        {
+          "prompt": "Using claims data to target customers with AI-generated marketing without a lawful basis conflicts with which principle?",
+          "options": [
+            "Purpose limitation",
+            "Premium adequacy",
+            "Indemnity",
+            "Subrogation"
+          ],
+          "answer": 0,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "The DPPA gives data subjects rights in relation to:",
+          "options": [
+            "Automated decision-taking",
+            "Choice of loss assessor",
+            "Premium discounts",
+            "Reinsurance placement"
+          ],
+          "answer": 0,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which statement about AI and Ugandan data protection law is most accurate?",
+          "options": [
+            "The DPPA does not apply to AI",
+            "The DPPA applies to AI processing of personal data, though commentators argue it does not yet address algorithmic profiling in detail",
+            "AI tools are exempt if hosted abroad",
+            "Only government bodies must comply"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U3-1",
+      "title": "What makes a system agentic",
+      "module": 3,
+      "moduleTitle": "Agentic AI: from assistants to agents",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U3-1/narration.md",
+      "questions": [
+        {
+          "prompt": "Which component allows an AI agent to query the policy administration system?",
+          "options": [
+            "Memory",
+            "Tools",
+            "Goal",
+            "Training data"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Guardrails in an agent define:",
+          "options": [
+            "The colour scheme of the interface",
+            "What the agent may and may not do, and when it must hand over to a person",
+            "The model's training cutoff",
+            "The premium rate"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "An agent prepares renewal reminders and queues them for a relationship manager to approve and send. Its autonomy level is:",
+          "options": [
+            "Level 0",
+            "Level 2",
+            "Level 4",
+            "Not agentic"
+          ],
+          "answer": 1,
+          "explanation": "It proposes actions approved one by one."
+        },
+        {
+          "prompt": "What is the key difference between a workflow with AI steps and an agent?",
+          "options": [
+            "Workflows cannot use AI",
+            "In a workflow the sequence is fixed; an agent decides which steps to take",
+            "Agents are always cheaper",
+            "There is no difference"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Who owns the decision to approve a consequential insurance action after an AI draft?",
+          "options": [
+            "The authorised accountable person applying the relevant evidence and controls",
+            "The model because it wrote the draft",
+            "The person who purchased the software"
+          ],
+          "answer": 0,
+          "explanation": "Use relevant local evidence, explicit limits and accountable human review rather than an unsupported industry statistic."
+        },
+        {
+          "prompt": "An intake agent can check policy status and request documents but cannot approve or decline claims. For decisions, its autonomy level is:",
+          "options": [
+            "Level 0",
+            "Level 3",
+            "Level 4",
+            "Level 2"
+          ],
+          "answer": 0,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Why should autonomy be assigned per type of action rather than per agent?",
+          "options": [
+            "It is simpler for IT",
+            "Different actions carry different risk : sending a document checklist differs from making a payment",
+            "Regulators require one level per agent",
+            "Agents cannot have multiple actions"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "\"Excessive agency\" refers to:",
+          "options": [
+            "Too many insurance agents in a market",
+            "Giving an AI system more permissions or autonomy than its task requires",
+            "A slow model",
+            "A licensing offence"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which is a characteristic risk of multi-step agents?",
+          "options": [
+            "They cannot read text",
+            "Small errors early in a task can compound across later steps",
+            "They only work offline",
+            "They cannot be stopped"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A colleague says, \"It's an agent, so it runs without supervision.\" The best correction is:",
+          "options": [
+            "Agree",
+            "Agents can operate at different autonomy levels; supervision and limits are design choices the firm must make",
+            "Agents are illegal",
+            "Only IT can supervise agents"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U3-2",
+      "title": "Agentic use cases in claims, underwriting, distribution and service",
+      "module": 3,
+      "moduleTitle": "Agentic AI: from assistants to agents",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U3-2/narration.md",
+      "questions": [
+        {
+          "prompt": "FNOL stands for:",
+          "options": [
+            "Final notice of liability",
+            "First notification of loss",
+            "Full number of losses",
+            "Formal notice of lapse"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which use case most directly supports timely claims settlement?",
+          "options": [
+            "An agent that chases missing claim documents and reports file completeness",
+            "An agent that writes marketing posts",
+            "An agent that books staff leave",
+            "An agent that designs logos"
+          ],
+          "answer": 0,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "An anomaly agent flags a clinic billing the same procedure unusually often. What should happen next?",
+          "options": [
+            "Automatically reject all claims from the clinic",
+            "Refer the flag to an investigator for review",
+            "Publish the clinic's name",
+            "Ignore the flag"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "During a pilot, an intake agent misreads handwritten police abstracts. A sound response is:",
+          "options": [
+            "Abandon AI entirely",
+            "Keep the agent for tasks it does well and route handwritten documents to a person",
+            "Ask customers to stop submitting abstracts",
+            "Ignore the errors"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "The three axes for evaluating an agentic use case are:",
+          "options": [
+            "Cost, colour, speed",
+            "Value, feasibility, risk",
+            "Vendor, price, brand",
+            "Premium, excess, limit"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which Ugandan feature most affects feasibility of document-extraction agents?",
+          "options": [
+            "Many documents are paper or photographed",
+            "All documents are digital",
+            "Customers never submit documents",
+            "Documents are in Latin"
+          ],
+          "answer": 0,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Proactive claims status updates are valuable mainly because:",
+          "options": [
+            "They are required to be daily",
+            "Customers feel informed and supported, which can improve satisfaction even if processing time is unchanged",
+            "They replace settlement",
+            "They reduce premiums"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which metric set best evaluates an intake agent pilot?",
+          "options": [
+            "Number of messages sent only",
+            "Time to complete file, error rate, escalation rate and complaints compared with a baseline",
+            "Number of staff trained",
+            "Model size"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which use case requires the most caution before increasing autonomy?",
+          "options": [
+            "Sending document checklists",
+            "Summarising submissions",
+            "Deciding whether a claim is paid",
+            "Drafting status updates"
+          ],
+          "answer": 2,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A vendor demo uses perfectly scanned documents. What should a Ugandan insurer insist on before buying?",
+          "options": [
+            "A larger discount",
+            "Testing with its own real documents, including poor-quality photographs",
+            "A longer contract",
+            "A logo change"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U3-3",
+      "title": "Designing human oversight for AI agents",
+      "module": 3,
+      "moduleTitle": "Agentic AI: from assistants to agents",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U3-3/narration.md",
+      "questions": [
+        {
+          "prompt": "A decision-rights matrix specifies:",
+          "options": [
+            "Staff salaries",
+            "For each agent action, whether it may act alone, needs approval, or must never act",
+            "The model's training data",
+            "Premium rates"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which is the most appropriate escalation trigger for a claims intake agent?",
+          "options": [
+            "Every message received",
+            "Death claims and messages mentioning a complaint",
+            "Messages sent on weekdays",
+            "None : the agent should handle everything"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Prompt injection is:",
+          "options": [
+            "A vaccine",
+            "Hidden instructions in content the agent reads that try to make it act in unintended ways",
+            "A faster processor",
+            "A premium adjustment"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which control best limits the damage of a successful prompt injection?",
+          "options": [
+            "A larger model",
+            "Least-privilege permissions, so the agent can only propose consequential actions for approval",
+            "Longer prompts",
+            "Using the agent only at night"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A supervisor approves 600 agent decisions per day with seconds per case. This is an example of:",
+          "options": [
+            "Strong oversight",
+            "Rubber-stamping : nominal rather than meaningful oversight",
+            "Prompt injection",
+            "Data minimisation"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Why is an audit trail important for agent decisions?",
+          "options": [
+            "It speeds up the model",
+            "It allows decisions to be explained, reviewed, and responded to in complaints and supervision",
+            "It reduces premiums",
+            "It is only needed for IT"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which action should an intake agent never take on its own?",
+          "options": [
+            "Sending a document checklist",
+            "Authorising a claim payment",
+            "Creating a claim file",
+            "Acknowledging receipt"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A \"kill switch\" allows the business to:",
+          "options": [
+            "Delete customer data",
+            "Pause the agent immediately if problems arise",
+            "Increase autonomy",
+            "Train the model"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Escalation rules that send every case to a person result in:",
+          "options": [
+            "Perfect control and full value",
+            "Little efficiency gain from the agent",
+            "Faster processing",
+            "No need for staff"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Uganda's government has emphasised which principles for AI governance?",
+          "options": [
+            "Speed and secrecy",
+            "Transparency, accountability and human oversight",
+            "Full autonomy",
+            "Vendor self-regulation only"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U4-1",
+      "title": "AI risks specific to insurance",
+      "module": 4,
+      "moduleTitle": "Responsible AI governance in insurance",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U4-1/narration.md",
+      "questions": [
+        {
+          "prompt": "Proxy discrimination occurs when:",
+          "options": [
+            "A broker acts on behalf of a client",
+            "A seemingly neutral variable closely tracks a characteristic that should not drive decisions",
+            "A model is too small",
+            "A premium is paid late"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A model raises micro-health prices in districts with better hospital access because claims are higher there. What is the concern?",
+          "options": [
+            "None : higher claims justify higher prices",
+            "The model may be penalising access to care rather than true risk, creating an unfair outcome",
+            "The model is too accurate",
+            "The districts are too small"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Model drift means:",
+          "options": [
+            "The model moves to another server",
+            "Model performance changes over time as real-world conditions change",
+            "A model is copied by a competitor",
+            "The model's name changes"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A vendor refuses to explain how its model declines applications, citing proprietary rights. The insurer should:",
+          "options": [
+            "Accept this",
+            "Recognise it remains accountable and require sufficient explanation, testing access or alternatives",
+            "Stop explaining declines to customers",
+            "Rely on the vendor's reputation"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which IAIS supervisory topic most directly relates to customers understanding why AI affected them?",
+          "options": [
+            "Proportionality",
+            "Transparency and explainability",
+            "Capital adequacy",
+            "Reinsurance"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Removing gender from a dataset guarantees the model will not discriminate by gender. True or false?",
+          "options": [
+            "True",
+            "False : other variables may act as proxies"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which contract clause is most important when a chatbot vendor processes customer conversations?",
+          "options": [
+            "Logo usage",
+            "Data use, retention, deletion, location and audit rights",
+            "Office hours",
+            "Font choice"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Under the EU AI Act, AI used for risk assessment and pricing of individuals in life and health insurance is classified as:",
+          "options": [
+            "Prohibited",
+            "High-risk",
+            "Minimal risk",
+            "Unregulated"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "An AI sales assistant consistently recommends the highest-commission product regardless of need. Which risk family is this?",
+          "options": [
+            "Conduct and customer outcomes",
+            "Model drift",
+            "Prompt injection",
+            "Data minimisation"
+          ],
+          "answer": 0,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which practice best addresses over-reliance on AI?",
+          "options": [
+            "Removing human review",
+            "Keeping staff trained to challenge outputs and sampling AI work regularly",
+            "Using more AI tools",
+            "Hiding AI use from staff"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U4-2",
+      "title": "The governance landscape: IAIS, NIST, EU AI Act and Uganda",
+      "module": 4,
+      "moduleTitle": "Responsible AI governance in insurance",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U4-2/narration.md",
+      "questions": [
+        {
+          "prompt": "What is the appropriate use of the IAIS AI application paper in this lesson?",
+          "options": [
+            "A replacement for applicable law",
+            "A source of supervisory guidance to inform an evidence-based review",
+            "An automatic certification for an AI vendor"
+          ],
+          "answer": 1,
+          "explanation": "Guidance informs the review but does not certify the system or replace applicable requirements."
+        },
+        {
+          "prompt": "Who should own a consequential approval in the fictional summary pilot?",
+          "options": [
+            "An accountable authorised person",
+            "The language model",
+            "Whichever tool generated the most confident answer"
+          ],
+          "answer": 0,
+          "explanation": "The review needs a responsible person and a recorded decision."
+        },
+        {
+          "prompt": "Which NIST function establishes policies and responsibilities?",
+          "options": [
+            "Measure",
+            "Map",
+            "Govern"
+          ],
+          "answer": 2,
+          "explanation": "Govern establishes organisational ownership and risk-management responsibilities."
+        },
+        {
+          "prompt": "Which NIST function examines the use-case context and affected people?",
+          "options": [
+            "Map",
+            "Measure",
+            "Manage"
+          ],
+          "answer": 0,
+          "explanation": "Map describes the context and relevant risks."
+        },
+        {
+          "prompt": "Testing summaries against source documents primarily supports which function?",
+          "options": [
+            "Map",
+            "Measure",
+            "A claim of accreditation"
+          ],
+          "answer": 1,
+          "explanation": "Measure evaluates performance and risk using evidence."
+        },
+        {
+          "prompt": "Responding to failed tests and deciding whether to stop supports which function?",
+          "options": [
+            "Manage",
+            "A sales approval",
+            "Automatic policy issuance"
+          ],
+          "answer": 0,
+          "explanation": "Manage prioritises and responds to assessed risks."
+        },
+        {
+          "prompt": "A colleague cannot identify a familiar AI-specific law. What should follow?",
+          "options": [
+            "Assume no obligations apply",
+            "Review the laws and requirements relevant to the actual activity and processing",
+            "Ignore information-governance review"
+          ],
+          "answer": 1,
+          "explanation": "The technology label does not settle the legal obligations of the activity."
+        },
+        {
+          "prompt": "How should an international legal applicability question be resolved?",
+          "options": [
+            "Use a remembered deadline",
+            "Let the model infer the answer from a country name",
+            "Check current official sources and obtain an accountable applicability review"
+          ],
+          "answer": 2,
+          "explanation": "Scope and dates need a current review tied to the actual facts."
+        },
+        {
+          "prompt": "Does a completed governance form prove that controls work?",
+          "options": [
+            "Yes, if it is signed",
+            "No; evidence and testing are still needed",
+            "Yes, if the vendor is well known"
+          ],
+          "answer": 1,
+          "explanation": "A record of intended controls is not evidence of their actual operation."
+        },
+        {
+          "prompt": "What belongs in the review when an important legal issue remains unresolved?",
+          "options": [
+            "A plausible AI-generated answer",
+            "An omitted row so the review looks complete",
+            "The exact issue, assigned owner and next step before the affected action proceeds"
+          ],
+          "answer": 2,
+          "explanation": "Keep the unresolved dependency visible and route it to an accountable owner."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    },
+    {
+      "id": "C01_U4-3",
+      "title": "Assessing an AI use case end to end",
+      "module": 4,
+      "moduleTitle": "Responsible AI governance in insurance",
+      "script": "docs/iip-academy/flagship-content/foundation/C01_U4-3/narration.md",
+      "questions": [
+        {
+          "prompt": "Why does the canvas begin with \"Problem and baseline\"?",
+          "options": [
+            "To fill space",
+            "So that the benefit of the AI solution can be measured against today's performance",
+            "Because regulators require it first",
+            "To describe the vendor"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "In the worked example, which action is set at Level 0 for the intake agent?",
+          "options": [
+            "Sending document checklists",
+            "Sending reminders",
+            "Deciding whether to pay or decline a claim",
+            "Creating a claim file"
+          ],
+          "answer": 2,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which control addresses the risk of the agent misreading handwritten documents?",
+          "options": [
+            "A larger model",
+            "Routing handwritten documents to staff",
+            "More reminders",
+            "Removing escalation"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "A canvas lists \"bias\" as a risk but no corresponding control. What is the problem?",
+          "options": [
+            "None",
+            "Risks without matching controls give decision-makers no assurance",
+            "Bias is not relevant to insurance",
+            "Controls are optional"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which recommendation option is appropriate when benefits are clear but data terms with the vendor are not yet confirmed?",
+          "options": [
+            "Proceed immediately",
+            "Proceed with conditions : confirm data terms before go-live",
+            "Never proceed",
+            "Proceed and review later"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Proportionality in the canvas means:",
+          "options": [
+            "Every use case needs the same 40-page assessment",
+            "The depth of assessment matches the potential impact of the use case",
+            "Only large insurers need assessments",
+            "Assessments are optional"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Which pilot success criterion is best?",
+          "options": [
+            "\"Staff liked it\"",
+            "Fewer days from notification to complete file, with no increase in complaints, over three months",
+            "\"The vendor was happy\"",
+            "Number of messages sent"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "Who should hold the stop mechanism (\"kill switch\") in the worked example?",
+          "options": [
+            "The vendor only",
+            "A named business owner, such as the claims manager",
+            "Any customer",
+            "No one"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "The \"Governance mapping\" box connects the use case to:",
+          "options": [
+            "The marketing plan",
+            "IAIS topics and NIST functions",
+            "Staff leave schedules",
+            "Premium tables"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        },
+        {
+          "prompt": "After approval, the canvas should be:",
+          "options": [
+            "Deleted",
+            "Stored with the decision and revisited at the review date",
+            "Sent to customers",
+            "Published on social media"
+          ],
+          "answer": 1,
+          "explanation": "Use the lesson's evidence and human-review principles."
+        }
+      ],
+      "practice": "Prepare a fictional example for this unit, apply its method, identify the supporting source and record the correction or referral an authorised reviewer should make. Do not use real customer information.",
+      "editorialStatus": "draft_requires_expert_review"
+    }
+  ],
+  "finalTask": "AI Use-Case Proposal and Governance Review",
+  "publicationStatus": "not_ready_for_paid_release"
+}

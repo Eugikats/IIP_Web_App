@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For product explanations grounded in approved sources, which best next step follows the lesson's 'find the applicable source' method?",
+    "options": [
+      "Check the insurer, product name, source owner, version and effective period before drafting.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For product explanations grounded in approved sources, which review principle follows the lesson's 'find the applicable source' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "If sources conflict, mark the conflict and ask the authorised owner; do not combine whichever sentences make the offer sound strongest."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For product explanations grounded in approved sources, which best next step follows the lesson's 'link claims to passages' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "For each statement about a benefit, exclusion, condition or premium, identify the supporting passage in the applicable approved source."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For product explanations grounded in approved sources, which review principle follows the lesson's 'link claims to passages' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "AI-generated citations are suggestions until opened and checked.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For product explanations grounded in approved sources, which best next step follows the lesson's 'simplify without changing meaning' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Use short sentences and explain unfamiliar terms, but retain qualifications.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For product explanations grounded in approved sources, which review principle follows the lesson's 'simplify without changing meaning' method?",
+    "options": [
+      "Present material limitations next to the relevant benefit so the customer does not receive an attractive headline and miss the condition elsewhere.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For product explanations grounded in approved sources, which best next step follows the lesson's 'review for the actual question' method?",
+    "options": [
+      "Read the draft as the customer would.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For product explanations grounded in approved sources, which review principle follows the lesson's 'review for the actual question' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Clarity does not replace the insurer's acceptance, pricing or issuance process."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]

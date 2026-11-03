@@ -1,0 +1,102 @@
+[
+  {
+    "id": 0,
+    "prompt": "FNOL stands for:",
+    "options": [
+      "Final notice of liability",
+      "First notification of loss",
+      "Full number of losses",
+      "Formal notice of lapse"
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "Which use case most directly supports timely claims settlement?",
+    "options": [
+      "An agent that chases missing claim documents and reports file completeness",
+      "An agent that writes marketing posts",
+      "An agent that books staff leave",
+      "An agent that designs logos"
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "An anomaly agent flags a clinic billing the same procedure unusually often. What should happen next?",
+    "options": [
+      "Automatically reject all claims from the clinic",
+      "Refer the flag to an investigator for review",
+      "Publish the clinic's name",
+      "Ignore the flag"
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "During a pilot, an intake agent misreads handwritten police abstracts. A sound response is:",
+    "options": [
+      "Abandon AI entirely",
+      "Keep the agent for tasks it does well and route handwritten documents to a person",
+      "Ask customers to stop submitting abstracts",
+      "Ignore the errors"
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "The three axes for evaluating an agentic use case are:",
+    "options": [
+      "Cost, colour, speed",
+      "Value, feasibility, risk",
+      "Vendor, price, brand",
+      "Premium, excess, limit"
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "Which Ugandan feature most affects feasibility of document-extraction agents?",
+    "options": [
+      "Many documents are paper or photographed",
+      "All documents are digital",
+      "Customers never submit documents",
+      "Documents are in Latin"
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "Proactive claims status updates are valuable mainly because:",
+    "options": [
+      "They are required to be daily",
+      "Customers feel informed and supported, which can improve satisfaction even if processing time is unchanged",
+      "They replace settlement",
+      "They reduce premiums"
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "Which metric set best evaluates an intake agent pilot?",
+    "options": [
+      "Number of messages sent only",
+      "Time to complete file, error rate, escalation rate and complaints compared with a baseline",
+      "Number of staff trained",
+      "Model size"
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "Which use case requires the most caution before increasing autonomy?",
+    "options": [
+      "Sending document checklists",
+      "Summarising submissions",
+      "Deciding whether a claim is paid",
+      "Drafting status updates"
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "A vendor demo uses perfectly scanned documents. What should a Ugandan insurer insist on before buying?",
+    "options": [
+      "A larger discount",
+      "Testing with its own real documents, including poor-quality photographs",
+      "A longer contract",
+      "A logo change"
+    ]
+  }
+]

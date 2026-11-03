@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For where ai helps from enquiry to renewal, which best next step follows the lesson's 'map the relationship' method?",
+    "options": [
+      "An enquiry, application, issued policy and claim are different records.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For where ai helps from enquiry to renewal, which review principle follows the lesson's 'map the relationship' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Do not force someone reporting a loss through a sales conversation or treat a registered enquiry as active cover."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For where ai helps from enquiry to renewal, which best next step follows the lesson's 'keep unknowns visible' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Separate what the customer said from the product facts and the questions still unanswered."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For where ai helps from enquiry to renewal, which review principle follows the lesson's 'keep unknowns visible' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A useful next step clarifies the missing information without inventing an answer.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For where ai helps from enquiry to renewal, which best next step follows the lesson's 'prepare, then review' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "AI may organise facts, draft an explanation or prepare a handover.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For where ai helps from enquiry to renewal, which review principle follows the lesson's 'prepare, then review' method?",
+    "options": [
+      "The reviewer needs authority and time to return or correct the work, rather than approving every output automatically.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For where ai helps from enquiry to renewal, which best next step follows the lesson's 'keep ownership clear' method?",
+    "options": [
+      "At each transition name the team or person responsible for the next action.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For where ai helps from enquiry to renewal, which review principle follows the lesson's 'keep ownership clear' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "The assistant does not gain those powers merely by drafting the message."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]

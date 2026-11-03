@@ -1,0 +1,179 @@
+{
+  "units": [
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U1-1",
+      "slides": 14,
+      "durationSeconds": 605.0,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U1-2",
+      "slides": 11,
+      "durationSeconds": 262.704,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U1-3",
+      "slides": 8,
+      "durationSeconds": 171.7,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U2-1",
+      "slides": 11,
+      "durationSeconds": 253.8,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U2-2",
+      "slides": 9,
+      "durationSeconds": 213.144,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U2-3",
+      "slides": 11,
+      "durationSeconds": 303.3,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U3-1",
+      "slides": 10,
+      "durationSeconds": 242.6,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U3-2",
+      "slides": 9,
+      "durationSeconds": 182.3,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U3-3",
+      "slides": 11,
+      "durationSeconds": 255.312,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U4-1",
+      "slides": 9,
+      "durationSeconds": 215.7,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U4-2",
+      "slides": 8,
+      "durationSeconds": 268.536,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "ai-agentic-insurance",
+      "unit": "C01_U4-3",
+      "slides": 7,
+      "durationSeconds": 240.5,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U1-1",
+      "slides": 14,
+      "durationSeconds": 597.72,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U1-2",
+      "slides": 10,
+      "durationSeconds": 298.416,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U1-3",
+      "slides": 10,
+      "durationSeconds": 286.4,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U2-1",
+      "slides": 10,
+      "durationSeconds": 286.8,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U2-2",
+      "slides": 10,
+      "durationSeconds": 274.104,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U2-3",
+      "slides": 10,
+      "durationSeconds": 269.232,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U3-1",
+      "slides": 10,
+      "durationSeconds": 268.6,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U3-2",
+      "slides": 10,
+      "durationSeconds": 272.4,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U3-3",
+      "slides": 10,
+      "durationSeconds": 278.544,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U4-1",
+      "slides": 10,
+      "durationSeconds": 277.0,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U4-2",
+      "slides": 10,
+      "durationSeconds": 286.7,
+      "sourceAndAssetAuditPassed": true
+    },
+    {
+      "course": "insurance-sales-customer-experience",
+      "unit": "C02_U4-3",
+      "slides": 10,
+      "durationSeconds": 284.7,
+      "sourceAndAssetAuditPassed": true
+    }
+  ],
+  "failures": [],
+  "reservedNarrationUsd": 2.7468759999999985,
+  "narrationLimitUsd": 20,
+  "totalVideoMinutes": 114.9,
+  "subjectiveAudioReview": "pending",
+  "captionAlignmentReview": "pending",
+  "paidReleaseApproved": false
+}

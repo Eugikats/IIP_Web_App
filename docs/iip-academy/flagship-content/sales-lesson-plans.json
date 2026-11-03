@@ -1,0 +1,172 @@
+{
+  "courseId": "insurance-sales-customer-experience",
+  "title": "AI for Insurance Sales, Distribution & Customer Experience",
+  "priceUsd": 120,
+  "modules": [
+    {
+      "title": "The customer journey and AI's role",
+      "units": [
+        {
+          "title": "Where AI helps from enquiry to renewal",
+          "existingScript": "docs/iip-academy/course-library/01_Courses/C02_AI_for_Insurance_Sales_Distribution_and_Customer_Experience/Unit_1.1/C02_U1-1_Narration_Script.md",
+          "goal": "Distinguish AI preparation from human authority throughout a customer relationship.",
+          "steps": [
+            ["Map the relationship", "An enquiry, application, issued policy and claim are different records. A new prospect enters discovery and registration. An existing policyholder can enter service or claims directly after appropriate verification. Do not force someone reporting a loss through a sales conversation or treat a registered enquiry as active cover."],
+            ["Keep unknowns visible", "Separate what the customer said from the product facts and the questions still unanswered. A statement that a motorcycle is used for deliveries establishes a stated use, not eligibility, a premium or a policy. A useful next step clarifies the missing information without inventing an answer."],
+            ["Prepare, then review", "AI may organise facts, draft an explanation or prepare a handover. The reviewer checks the applicable source, customer, channel, wording and next action. The reviewer needs authority and time to return or correct the work, rather than approving every output automatically."],
+            ["Keep ownership clear", "At each transition name the team or person responsible for the next action. Record the contact status, source and unanswered questions. Underwriting, cover confirmation, claim decisions and payment remain within the insurer's authorised process. The assistant does not gain those powers merely by drafting the message."]
+          ],
+          "case": "A delivery rider asks what cover might be relevant. The only supplied training fact says delivery use requires referral. A safe first reply offers to clarify the need and arrange that referral. It must not promise cover or claim payment. The handover records stated delivery use, unanswered eligibility questions and the receiving officer.",
+          "task": "Write a three-sentence reply and a six-field handover. Label customer statements, product source, unknowns, contact status, next action and owner."
+        },
+        {
+          "title": "Discovery without guessing",
+          "goal": "Collect a useful needs record while keeping assumptions and unnecessary personal information out.",
+          "steps": [
+            ["Begin with purpose", "Start by asking what the customer wants to understand or protect. A broad question lets the person describe the need in their own words. Do not begin with a long form or a product recommendation. Explain why a follow-up fact is relevant before asking for it. Discovery should make the next conversation easier, not collect every detail that might someday be useful."],
+            ["Ask in layers", "Use an open question, a focused clarification and a short confirmation. For a business-owner enquiry, first ask what concern prompted the conversation, then clarify the activity relevant to that concern. Summarise the answer back for correction. Avoid leading questions that suggest a preferred response. Ask one clear question at a time when using messaging."],
+            ["Label the evidence", "A useful record distinguishes a customer statement, a verified document fact, an assumption and an unknown. If a customer says they have existing cover, record it as stated until the applicable policy is checked. Do not silently promote a conversational answer into a verified product or eligibility fact. Include when the statement was made and the source of a verified fact."],
+            ["Know when to refer", "Collect only information required for the immediate task under the organisation's approved process. A customer may not know the answer or may prefer to discuss it with an officer. Record the gap and refer instead of guessing or pressuring. Do not place identity documents, financial details or health information into an unapproved AI tool simply to make the summary richer."]
+          ],
+          "case": "A shop owner says, 'I need insurance for my business.' The assistant assumes the shop owns the building and drafts a building-cover explanation. The customer actually rents a stall and is worried about stock in transit. Correct the record by removing the unsupported ownership assumption. Ask which loss concerns them, what activity is involved and whether they want an officer to explain relevant options. The next officer receives the stated concern and the unanswered questions, not an invented business profile.",
+          "task": "Create five discovery questions for the shop owner. For each, state its purpose and how the answer changes the next action. Then write a record with known facts, stated-but-unverified facts and unknowns."
+        },
+        {
+          "title": "Product explanations grounded in approved sources",
+          "goal": "Prepare a clear explanation that preserves the applicable product's meaning and limitations.",
+          "steps": [
+            ["Find the applicable source", "Check the insurer, product name, source owner, version and effective period before drafting. Two similarly named products can have different terms. A marketing summary may omit conditions that appear in the wording. If sources conflict, mark the conflict and ask the authorised owner; do not combine whichever sentences make the offer sound strongest."],
+            ["Link claims to passages", "For each statement about a benefit, exclusion, condition or premium, identify the supporting passage in the applicable approved source. A link to an entire folder is less useful than a specific document and passage. If support is absent, omit the claim or turn it into a referral question. AI-generated citations are suggestions until opened and checked."],
+            ["Simplify without changing meaning", "Use short sentences and explain unfamiliar terms, but retain qualifications. 'Subject to assessment' must not become 'will be paid'. A deductible or excess must not disappear from a benefit explanation. Present material limitations next to the relevant benefit so the customer does not receive an attractive headline and miss the condition elsewhere."],
+            ["Review for the actual question", "Read the draft as the customer would. Does it answer their question, name what is unresolved and state a useful next step? Then compare it with the source sentence by sentence. A person authorised for the task confirms advice or a formal quote. Clarity does not replace the insurer's acceptance, pricing or issuance process."]
+          ],
+          "case": "A fictional approved training extract says accidental damage is considered subject to the policy terms, and an excess applies. A draft says, 'Any damage will be paid in full.' It changes both the scope and the amount. Correct it to preserve the conditions and excess, then refer unanswered details. The customer-facing explanation should not invent a figure because the training extract does not supply one.",
+          "task": "Build a three-column evidence table: proposed statement, exact supporting passage, and review action. Include one benefit, one limitation and one unresolved question."
+        }
+      ]
+    },
+    {
+      "title": "Sales preparation and distribution",
+      "units": [
+        {
+          "title": "Lead qualification and prioritisation",
+          "goal": "Choose the next follow-up using evidence without treating a worklist score as insurance eligibility.",
+          "steps": [
+            ["Define the next action", "Qualification asks whether there is enough relevant information and interest for a particular next step. It is not a promise that an insurer will accept the customer. Define the action first: clarify a missing fact, explain an option or refer an application. A record can be ready for clarification while still being unready for an application."],
+            ["Use relevant evidence", "A priority can reflect a stated need, requested timing, required missing information and the current contact status. Explain the reasons beside the priority. Do not infer affordability, eligibility or interest from an unrelated personal characteristic. Follow the approved method and flag missing information rather than using a precise-looking score to conceal it."],
+            ["Apply contact status first", "A customer who asked not to receive outreach does not become contactable because the lead looks valuable. Check contact status and permitted channel before preparing follow-up. Separate marketing follow-up from necessary service work under the organisation's procedure. Escalate unclear status rather than choosing the interpretation most likely to produce a sale."],
+            ["Review the queue as work", "A useful queue has a reason, owner and next action, not just a ranking. Review stale records, duplicated enquiries and changes in customer circumstances. Record why a priority changed. The officer can correct the ranking when the evidence changes, and the correction should remain traceable. A low follow-up priority is not a rejection of cover."]
+          ],
+          "case": "Three fictional enquiries arrive. One asks for a callback today with the relevant details supplied. Another shows strong interest but asks to stop marketing contact. A third asks a general question and has not supplied the information needed for referral. Contact status prevents outreach to the second. Assign the first callback and prepare a clarification response for the third, using the authorised channel and review process.",
+          "task": "Create a worklist with evidence, missing facts, contact status, owner and next action. Explain why a priority is not an underwriting decision."
+        },
+        {
+          "title": "Preparing a relevant outreach message",
+          "goal": "Draft a useful, accurate invitation with an appropriate channel and a clear next step.",
+          "steps": [
+            ["Set audience and purpose", "Identify the intended audience and the single action the message should support. An invitation to ask about cover is different from an application request or a policy notice. Use only authorised audience inputs. Personalisation should be relevant and proportionate; avoid inserting sensitive or unexpected details just because a system can access them."],
+            ["Provide a bounded brief", "Tell the drafting tool who the message is for, its purpose, the approved product source, the channel, the permitted tone and what it must not claim. Ask for a short draft and separate unresolved questions. Do not ask the tool to invent urgency, a discount, a premium or a customer's insurance status."],
+            ["Make the next step easy", "Use plain language and one clear next step, such as asking a question or requesting a discussion with an officer. Identify the organisation appropriately and avoid implying cover already exists. Include the organisation's required contact-choice wording. Channel-specific templates and restrictions must be checked by the channel owner before sending."],
+            ["Approve the exact draft", "The reviewer sees the intended audience, source, contact status and exact version to be sent. An approval for one draft must not be treated as approval for a materially changed message. Keep the approval and send result recorded. A prepared draft is not a delivered message, and a failed send must not be shown as customer engagement."]
+          ],
+          "case": "A draft says, 'Your renewal discount expires tonight,' but no approved discount or deadline exists. Remove the invented urgency. If the purpose is a discussion of an upcoming verified renewal, state that purpose and invite the customer to review their needs with an officer. The review record captures the approved wording and audience before any send.",
+          "task": "Write a bounded drafting brief and a message of no more than seventy words. Mark the source, contact-status check, reviewer and intended next step separately from the customer message."
+        },
+        {
+          "title": "Follow-up across agents, branches and insurers",
+          "goal": "Make handovers and follow-up clear enough that customers need not repeat their story.",
+          "steps": [
+            ["Prepare a useful handover", "Include the stated need, relevant facts, source documents, unanswered questions, contact status and next action. Distinguish an actual quote or issued policy from a draft. A transcript can support the record but is not a substitute for a concise explanation of what the receiving person needs to do."],
+            ["Transfer ownership explicitly", "Name the receiving person or queue, the action and the expected review point under the team's procedure. Sending a note does not prove the other team accepted ownership. Record acknowledgement or retain responsibility for checking that the handover arrived. Avoid telling a customer an officer will call at a time no one has accepted."],
+            ["Keep channels consistent", "Connect the handover to the relevant enquiry or policy reference without exposing restricted information. An agent and claims officer may need different views of the same relationship. Do not copy an entire internal conversation into a customer message. Check the recipient and permitted channel each time information crosses a team boundary."],
+            ["Follow up on the next action", "Follow-up asks whether the agreed next action happened and what has changed. It is not simply another sales message. Check for a reply, a stop request, an outstanding service issue or a completed application before preparing a draft. Close or pause stale work with a reason instead of leaving it as an apparently active opportunity indefinitely."]
+          ],
+          "case": "A branch sends an enquiry to an insurer team. The record says 'sent' but no owner has accepted it. The customer returns to the branch and is told to repeat the same information. A better process keeps the branch responsible for confirming handover acceptance, supplies the existing facts and tells the customer the confirmed next step rather than an invented callback promise.",
+          "task": "Write the sending team's handover and the receiving team's acknowledgement. Include how unresolved ownership will be escalated and what the customer can be told now."
+        }
+      ]
+    },
+    {
+      "title": "Customer experience and service",
+      "units": [
+        {
+          "title": "Handling questions and uncertainty",
+          "goal": "Give a useful answer from evidence or refer with context when the answer is not established.",
+          "steps": [
+            ["Classify the question", "Distinguish a general product question from an account-specific request, a complaint or a loss report. The information needed and disclosure checks differ. A general explanation should not expose policyholder details. A loss report should enter claims intake rather than a marketing discovery form."],
+            ["State what the evidence supports", "Check the applicable source and the customer's question before answering. Separate established facts from what is pending. If the source supports only a general explanation, do not infer the customer's own coverage. A clear 'not yet confirmed' with a next action is more useful than a confident unsupported answer."],
+            ["Escalate with a question", "A useful referral states the exact uncertainty, what was checked and what the receiving person needs to resolve. Do not send a vague 'please assist' without context. Urgency should reflect the actual situation and agreed procedure, not the drafting tool's guess. Avoid promising a response time that has not been accepted."],
+            ["Check the answer reached the need", "When a response returns, verify that it answers the original question and is appropriate for the recipient. Do not forward an internal note unchanged. Record the source of any confirmed answer and the next action. If the customer remains confused, clarify or provide a person rather than endlessly repeating the same automated wording."]
+          ],
+          "case": "A customer asks whether an accident involving delivery work is covered. The available document is a product overview rather than the customer's policy. Explain that the overview cannot establish the claim outcome, capture the question and route it to the authorised team with the relevant policy and incident checks still needed. Do not equate a general benefit description with a decision on this event.",
+          "task": "Prepare an answer-or-escalate record with the question, sources checked, supported facts, unresolved issue, owner and customer-facing next step."
+        },
+        {
+          "title": "Service updates and difficult conversations",
+          "goal": "Prepare respectful, accurate updates and route concerns without changing the insurer's confirmed position.",
+          "steps": [
+            ["Start with the customer's concern", "Acknowledge the issue in clear, respectful language without making an admission or promise outside your role. Avoid blaming a colleague, the customer or an insurer partner. The immediate purpose is to understand the concern and provide a useful, supported next step, not to defend an automated reply."],
+            ["Separate status from expectation", "A recorded request for documents is a status. 'Payment will arrive tomorrow' is an outcome promise requiring evidence and authority. State what is confirmed, what remains outstanding and who is acting. Where a date is not established, do not invent one to make the message sound reassuring."],
+            ["Route complaints deliberately", "Identify an expression of dissatisfaction and use the organisation's approved complaints process. Record the substance, relevant history and action required. A customer asking for a person should not be trapped in repeated automated answers. The responsible team owns final complaint responses and any formal dispute communication."],
+            ["Review tone and disclosure", "Remove internal blame, speculation, fraud suspicions and restricted notes from customer messages. Check the recipient and source, then read the message for clarity and empathy. Preserve the actual insurer decision rather than softening it into a different promise. Keep an accurate record of what was authorised and communicated."]
+          ],
+          "case": "A customer says, 'I have sent the document twice and nobody tells me what is happening.' The record confirms one upload and an unresolved review task. Do not claim that the file is complete or payment approved. Acknowledge the concern, state the verified position and route the upload discrepancy and service concern to a named owner. Give only a confirmed next step.",
+          "task": "Draft a service update, an internal handover and a complaint-routing note for the same situation. Explain which facts belong in each and which internal details must remain restricted."
+        },
+        {
+          "title": "Renewals and continuing relationships",
+          "goal": "Prepare a review of current needs and verified renewal information without assuming continuation of cover.",
+          "steps": [
+            ["Start with verified policy information", "Check the applicable policy status, expiry date, version and owner. A reminder worklist is only as reliable as its source. Do not infer that a policy renewed because a message was sent or a payment was attempted. When a date or status is uncertain, resolve it before a customer-facing statement."],
+            ["Review changed needs", "Ask whether the relevant circumstances have changed and capture the customer's own answer. A changed vehicle use, address or business activity may require referral. Do not assume last year's facts remain true. An appropriate renewal conversation can also reveal that the customer no longer wants the product or needs service before considering another offer."],
+            ["Keep renewal separate from a new sale", "An additional product needs its own explanation, applicable source and authorised process. Existing-customer status is not automatic permission for every campaign. Check current contact status and distinguish necessary policy service from optional marketing under the organisation's procedure. Avoid duplicate offers for cover already held."],
+            ["Close the loop accurately", "Record the actual result: needs clarification, referred, not proceeding, awaiting insurer action or confirmed renewed policy. Do not label an invitation as a renewal. Link the new policy version or confirmed outcome where available, preserve history and assign any remaining action. A claim outcome alone does not determine the renewal outcome."]
+          ],
+          "case": "A policyholder's vehicle use changed from private travel to deliveries. An automated reminder assumes the same terms and says renewal is complete. Correct the unsupported completion statement, capture the changed use and refer through the insurer's process. The customer should receive the actual confirmed terms and effective dates only when established.",
+          "task": "Create a renewal review checklist and two messages: one inviting a review and one communicating a genuinely confirmed outcome. List the evidence required before the second can be sent."
+        }
+      ]
+    },
+    {
+      "title": "Running and evaluating an AI-assisted workflow",
+      "units": [
+        {
+          "title": "Review points and stop conditions",
+          "goal": "Specify meaningful human review, authority and stopping rules for a customer-facing workflow.",
+          "steps": [
+            ["Define the action boundary", "Describe exactly what the workflow may read, prepare and change. 'Help with sales' is too broad. 'Prepare a reply from an approved source for an authorised officer to review' is testable. Explicitly exclude policy issuance, binding premiums, adverse claim decisions and payment authorisation from the assistant's powers."],
+            ["Make review possible", "Show the draft, supporting source, customer context, unknowns and intended recipient to the reviewer. Give the person a real choice to edit, return, stop or refer. Do not assume a signature field makes a review meaningful if the person cannot inspect the evidence or is expected to approve too many items to check."],
+            ["Specify stop and escalation triggers", "Missing or conflicting sources, an unmatched customer, a stop request, a complaint and an unsupported consequential statement require an appropriate pause or route. Define which actions stop and who investigates. A failure should not silently switch to an unapproved tool, channel or source just to make the workflow appear successful."],
+            ["Record and test the control", "Keep the draft version, reviewer action and actual result traceable without unnecessarily exposing sensitive data. Test stop conditions with fictional cases before a wider pilot. Verify that a queued message does not go out after a relevant stop request. An instruction written in a prompt is not proof that the system enforces it."]
+          ],
+          "case": "A customer withdraws outreach permission after a follow-up draft has been prepared. The workflow continues because it checked contact status only when the lead was first created. The corrected design rechecks the relevant status before approval/send, stops the queued action and assigns any necessary service work separately. Test this sequence rather than relying on a label saying 'human in the loop'.",
+          "task": "Map one workflow with permitted inputs, preparation steps, reviewer evidence, approved action, stop triggers, owner and test case for each trigger."
+        },
+        {
+          "title": "Measuring commercial and customer outcomes",
+          "goal": "Calculate interpretable measures and evaluate quality alongside activity and sales.",
+          "steps": [
+            ["Define the question first", "Decide what the team wants to learn, such as whether a preparation step reduces incomplete handovers without worsening customer confusion. Record the population and time period. A count of messages does not answer that question. Choose measures that correspond to the intended effect rather than whichever number is easiest to collect."],
+            ["Use a denominator", "A conversion rate is completed outcomes divided by the defined eligible population, not an isolated total. In a fictional example, twelve completed applications out of sixty qualified enquiries is twenty per cent. State the period, definitions and exclusions. Do not compare this directly with a team counting all inbound contacts as its denominator."],
+            ["Measure quality and potential harm", "Track material corrections, unsupported statements caught, unanswered handovers, complaints and whether stop requests were honoured. Define what counts as an error and how samples are reviewed. A higher application count accompanied by misleading messages is not evidence of an acceptable improvement. Protect access to customer-level records used for measurement."],
+            ["Interpret comparison carefully", "Compare similar populations and periods and record changes in staffing, campaigns or product availability. A small pilot can suggest a pattern without proving causation. Show sample size, missing data and uncertainty. Decide what result would justify continuing, revising or stopping before examining the final figures, and retain the reasons for the decision."]
+          ],
+          "case": "A team reports that applications rose from ten to twelve. The earlier period had twenty qualified enquiries and the later period sixty. The counts increased, but the defined conversion rates moved from fifty to twenty per cent. Neither alone explains why. Review population differences, source changes and quality measures before claiming that AI improved performance.",
+          "task": "Create a measurement sheet with metric, definition, numerator, denominator, period, data source, owner and review action. Calculate the two fictional rates and explain the limits of the comparison."
+        },
+        {
+          "title": "Designing a small practical pilot",
+          "goal": "Prepare a bounded pilot that tests usefulness, review controls and customer outcomes before expansion.",
+          "steps": [
+            ["Choose one bounded problem", "Start with a task the team understands and can measure, such as preparing complete enquiry handovers for one approved product. Define the current problem, baseline and affected people. Do not begin with a broad promise to automate sales or select a tool before deciding what useful work it should perform."],
+            ["Set scope and responsibilities", "Name the owner, reviewers, users, source documents, allowed information and channels. Specify what remains manual and which decisions the pilot must never make. Use fictional material for initial tests and follow the organisation's approval process for any real information. Keep the pilot separate from an unreviewed live campaign."],
+            ["Test the hard cases", "Include ordinary enquiries as well as missing information, conflicting product sources, stop requests, wrong recipients and requests for a person. Define expected behaviour before running the test. Log actual results and correct failures. Recheck the relevant sequence after a change; do not count an untested edit as a successful control."],
+            ["Decide and document the next step", "Review quality, customer outcomes, workload and commercial measures together. Recommend continue, change or stop with supporting evidence. State sample limits and outstanding issues. A successful small test does not prove every product or channel is ready. Expansion requires a fresh check of sources, ownership, capacity and controls at the intended scale."]
+          ],
+          "case": "A branch pilots AI-prepared handovers for a single fictional training product. The normal example is complete, but a conflicting-source case still produces a confident benefit claim. The pilot should not be declared successful because most outputs looked good. Correct the source-conflict route, repeat that case and review the broader test set before requesting any live expansion.",
+          "task": "Prepare a one-page pilot plan with problem, scope, sources, roles, boundaries, test cases, metrics, stop conditions, review date and a continue/change/stop recommendation template."
+        }
+      ]
+    }
+  ]
+}

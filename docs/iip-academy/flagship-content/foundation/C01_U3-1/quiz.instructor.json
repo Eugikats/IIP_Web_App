@@ -1,0 +1,111 @@
+[
+  {
+    "prompt": "Which component allows an AI agent to query the policy administration system?",
+    "options": [
+      "Memory",
+      "Tools",
+      "Goal",
+      "Training data"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Guardrails in an agent define:",
+    "options": [
+      "The colour scheme of the interface",
+      "What the agent may and may not do, and when it must hand over to a person",
+      "The model's training cutoff",
+      "The premium rate"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "An agent prepares renewal reminders and queues them for a relationship manager to approve and send. Its autonomy level is:",
+    "options": [
+      "Level 0",
+      "Level 2",
+      "Level 4",
+      "Not agentic"
+    ],
+    "answer": 1,
+    "explanation": "It proposes actions approved one by one."
+  },
+  {
+    "prompt": "What is the key difference between a workflow with AI steps and an agent?",
+    "options": [
+      "Workflows cannot use AI",
+      "In a workflow the sequence is fixed; an agent decides which steps to take",
+      "Agents are always cheaper",
+      "There is no difference"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Who owns the decision to approve a consequential insurance action after an AI draft?",
+    "options": [
+      "The authorised accountable person applying the relevant evidence and controls",
+      "The model because it wrote the draft",
+      "The person who purchased the software"
+    ],
+    "answer": 0,
+    "explanation": "Use relevant local evidence, explicit limits and accountable human review rather than an unsupported industry statistic."
+  },
+  {
+    "prompt": "An intake agent can check policy status and request documents but cannot approve or decline claims. For decisions, its autonomy level is:",
+    "options": [
+      "Level 0",
+      "Level 3",
+      "Level 4",
+      "Level 2"
+    ],
+    "answer": 0,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Why should autonomy be assigned per type of action rather than per agent?",
+    "options": [
+      "It is simpler for IT",
+      "Different actions carry different risk : sending a document checklist differs from making a payment",
+      "Regulators require one level per agent",
+      "Agents cannot have multiple actions"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "\"Excessive agency\" refers to:",
+    "options": [
+      "Too many insurance agents in a market",
+      "Giving an AI system more permissions or autonomy than its task requires",
+      "A slow model",
+      "A licensing offence"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "Which is a characteristic risk of multi-step agents?",
+    "options": [
+      "They cannot read text",
+      "Small errors early in a task can compound across later steps",
+      "They only work offline",
+      "They cannot be stopped"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  },
+  {
+    "prompt": "A colleague says, \"It's an agent, so it runs without supervision.\" The best correction is:",
+    "options": [
+      "Agree",
+      "Agents can operate at different autonomy levels; supervision and limits are design choices the firm must make",
+      "Agents are illegal",
+      "Only IT can supervise agents"
+    ],
+    "answer": 1,
+    "explanation": "Use the lesson's evidence and human-review principles."
+  }
+]

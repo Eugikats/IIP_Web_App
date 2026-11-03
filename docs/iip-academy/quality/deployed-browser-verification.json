@@ -1,0 +1,21 @@
+{
+  "actor": "Current Azure CLI operator, not Eugene",
+  "courses": [
+    {
+      "courseId": "ai-agentic-insurance",
+      "lessonId": "unit-1-1",
+      "duration": 605,
+      "videoPlayback": true,
+      "captions": true,
+      "transcriptDownload": true
+    },
+    {
+      "courseId": "ai-sales-distribution",
+      "lessonId": "sales-unit-1-1",
+      "duration": 597.72,
+      "videoPlayback": true,
+      "captions": true,
+      "transcriptDownload": true
+    }
+  ]
+}

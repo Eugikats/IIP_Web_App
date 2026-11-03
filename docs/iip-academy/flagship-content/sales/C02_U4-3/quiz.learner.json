@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'choose one bounded problem' method?",
+    "options": [
+      "Start with a task the team understands and can measure, such as preparing complete enquiry handovers for one approved product.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'choose one bounded problem' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Do not begin with a broad promise to automate sales or select a tool before deciding what useful work it should perform."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'set scope and responsibilities' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Name the owner, reviewers, users, source documents, allowed information and channels."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'set scope and responsibilities' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Keep the pilot separate from an unreviewed live campaign.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'test the hard cases' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Include ordinary enquiries as well as missing information, conflicting product sources, stop requests, wrong recipients and requests for a person.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'test the hard cases' method?",
+    "options": [
+      "Recheck the relevant sequence after a change; do not count an untested edit as a successful control.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'decide and document the next step' method?",
+    "options": [
+      "Review quality, customer outcomes, workload and commercial measures together.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'decide and document the next step' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Expansion requires a fresh check of sources, ownership, capacity and controls at the intended scale."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]

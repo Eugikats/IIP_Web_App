@@ -1,0 +1,102 @@
+[
+  {
+    "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'choose one bounded problem' method?",
+    "options": [
+      "Start with a task the team understands and can measure, such as preparing complete enquiry handovers for one approved product.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Start with a task the team understands and can measure, such as preparing complete enquiry handovers for one approved product. Define the current problem, baseline and affected people. Do not begin with a broad promise to automate sales or select a tool before deciding what useful work it should perform."
+  },
+  {
+    "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'choose one bounded problem' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Do not begin with a broad promise to automate sales or select a tool before deciding what useful work it should perform."
+    ],
+    "answer": 2,
+    "explanation": "Start with a task the team understands and can measure, such as preparing complete enquiry handovers for one approved product. Define the current problem, baseline and affected people. Do not begin with a broad promise to automate sales or select a tool before deciding what useful work it should perform."
+  },
+  {
+    "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'set scope and responsibilities' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Name the owner, reviewers, users, source documents, allowed information and channels."
+    ],
+    "answer": 2,
+    "explanation": "Name the owner, reviewers, users, source documents, allowed information and channels. Specify what remains manual and which decisions the pilot must never make. Use fictional material for initial tests and follow the organisation's approval process for any real information. Keep the pilot separate from an unreviewed live campaign."
+  },
+  {
+    "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'set scope and responsibilities' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Keep the pilot separate from an unreviewed live campaign.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Name the owner, reviewers, users, source documents, allowed information and channels. Specify what remains manual and which decisions the pilot must never make. Use fictional material for initial tests and follow the organisation's approval process for any real information. Keep the pilot separate from an unreviewed live campaign."
+  },
+  {
+    "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'test the hard cases' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Include ordinary enquiries as well as missing information, conflicting product sources, stop requests, wrong recipients and requests for a person.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Include ordinary enquiries as well as missing information, conflicting product sources, stop requests, wrong recipients and requests for a person. Define expected behaviour before running the test. Log actual results and correct failures. Recheck the relevant sequence after a change; do not count an untested edit as a successful control."
+  },
+  {
+    "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'test the hard cases' method?",
+    "options": [
+      "Recheck the relevant sequence after a change; do not count an untested edit as a successful control.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Include ordinary enquiries as well as missing information, conflicting product sources, stop requests, wrong recipients and requests for a person. Define expected behaviour before running the test. Log actual results and correct failures. Recheck the relevant sequence after a change; do not count an untested edit as a successful control."
+  },
+  {
+    "prompt": "For designing a small practical pilot, which best next step follows the lesson's 'decide and document the next step' method?",
+    "options": [
+      "Review quality, customer outcomes, workload and commercial measures together.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Review quality, customer outcomes, workload and commercial measures together. Recommend continue, change or stop with supporting evidence. State sample limits and outstanding issues. A successful small test does not prove every product or channel is ready. Expansion requires a fresh check of sources, ownership, capacity and controls at the intended scale."
+  },
+  {
+    "prompt": "For designing a small practical pilot, which review principle follows the lesson's 'decide and document the next step' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Expansion requires a fresh check of sources, ownership, capacity and controls at the intended scale."
+    ],
+    "answer": 2,
+    "explanation": "Review quality, customer outcomes, workload and commercial measures together. Recommend continue, change or stop with supporting evidence. State sample limits and outstanding issues. A successful small test does not prove every product or channel is ready. Expansion requires a fresh check of sources, ownership, capacity and controls at the intended scale."
+  },
+  {
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ],
+    "answer": 0,
+    "explanation": "A branch pilots AI-prepared handovers for a single fictional training product. The normal example is complete, but a conflicting-source case still produces a confident benefit claim. The pilot should not be declared successful because most outputs looked good. Correct the source-conflict route, repeat that case and review the broader test set before requesting any live expansion."
+  },
+  {
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ],
+    "answer": 1,
+    "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+  }
+]

@@ -1,0 +1,112 @@
+[
+  {
+    "prompt": "Which statement best describes generative AI?",
+    "options": [
+      "It follows if-then rules written by programmers",
+      "It produces new content such as text based on patterns learned from data",
+      "It copies data between systems by mimicking clicks",
+      "It stores policyholder records securely"
+    ],
+    "answer": 1,
+    "explanation": "Generative AI creates new content; A describes rules-based automation, C describes RPA."
+  },
+  {
+    "prompt": "A motor system automatically refers any claim from a policyholder with more than three claims in twelve months. This is best described as:",
+    "options": [
+      "Machine learning",
+      "Rules-based automation",
+      "Generative AI",
+      "Agentic AI"
+    ],
+    "answer": 1,
+    "explanation": "The threshold was written by a person; the system does not learn."
+  },
+  {
+    "prompt": "An insurer trains a model on five years of claims to score new claims for likely fraud. This is:",
+    "options": [
+      "Predictive machine learning",
+      "RPA",
+      "Generative AI",
+      "A rules table"
+    ],
+    "answer": 0,
+    "explanation": "It learns patterns from historical data to produce a prediction."
+  },
+  {
+    "prompt": "What most clearly distinguishes agentic AI from a chatbot?",
+    "options": [
+      "It uses a larger model",
+      "It can plan multiple steps and use tools to take actions towards a goal",
+      "It speaks local languages",
+      "It never makes mistakes"
+    ],
+    "answer": 1,
+    "explanation": "Agents act; chatbots respond."
+  },
+  {
+    "prompt": "A broker tells a client, \"AI will soon approve all claims without anyone checking.\" Which response is most accurate?",
+    "options": [
+      "Agree : agents already do this widely",
+      "Explain that most insurers currently use agents to summarise, route and speed up work while keeping humans responsible for coverage and claims decisions",
+      "Say AI cannot be used in claims at all",
+      "Say only regulators may use AI"
+    ],
+    "answer": 1,
+    "explanation": "Industry tracking in 2026 shows few insurers give agents material autonomy over claims decisions."
+  },
+  {
+    "prompt": "Which task is least appropriate to hand to a GenAI tool without human review?",
+    "options": [
+      "Drafting a first version of a customer newsletter",
+      "Summarising a meeting transcript for internal notes",
+      "Issuing the final decision to repudiate a claim",
+      "Suggesting headings for a training manual"
+    ],
+    "answer": 2,
+    "explanation": "A repudiation affects the customer's rights and must rest on verified facts and accountable human judgment."
+  },
+  {
+    "prompt": "A vendor's \"AI underwriting engine\" turns out to be a table of fixed referral rules. What is the main practical implication?",
+    "options": [
+      "It will improve automatically over time",
+      "It must be updated manually whenever underwriting guidelines change",
+      "It will fabricate answers",
+      "It requires DPPA registration while ML does not"
+    ],
+    "answer": 1,
+    "explanation": "Rules do not learn; someone must maintain them."
+  },
+  {
+    "prompt": "Why does the distinction between AI categories matter for an insurance professional?",
+    "options": [
+      "Each category carries different risks and needs different controls",
+      "Only agentic AI is legal in Uganda",
+      "Rules-based systems are always more accurate",
+      "It affects only IT staff"
+    ],
+    "answer": 0,
+    "explanation": "Transparency, bias, fabrication and action risks differ by category."
+  },
+  {
+    "prompt": "A claims assistant summarises a hospital invoice and lists a procedure that is not on the invoice. The most likely explanation is that:",
+    "options": [
+      "The hospital changed the invoice",
+      "The generative model produced plausible but unsupported text",
+      "The rules table is outdated",
+      "The agent sent the wrong email"
+    ],
+    "answer": 1,
+    "explanation": "Generative models can fabricate details; summaries must be checked against the source."
+  },
+  {
+    "prompt": "Which statement about AI output is true?",
+    "options": [
+      "AI output is always deterministic and correct",
+      "Confident wording from AI indicates accuracy",
+      "AI output is probabilistic and can be wrong while sounding confident",
+      "AI output cannot contain errors if the vendor is reputable"
+    ],
+    "answer": 2,
+    "explanation": "Fluency is not evidence of accuracy."
+  }
+]

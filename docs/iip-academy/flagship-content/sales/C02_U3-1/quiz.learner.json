@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'classify the question' method?",
+    "options": [
+      "Distinguish a general product question from an account-specific request, a complaint or a loss report.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'classify the question' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A loss report should enter claims intake rather than a marketing discovery form."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'state what the evidence supports' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Check the applicable source and the customer's question before answering."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'state what the evidence supports' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A clear 'not yet confirmed' with a next action is more useful than a confident unsupported answer.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'escalate with a question' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A useful referral states the exact uncertainty, what was checked and what the receiving person needs to resolve.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'escalate with a question' method?",
+    "options": [
+      "Avoid promising a response time that has not been accepted.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For handling questions and uncertainty, which best next step follows the lesson's 'check the answer reached the need' method?",
+    "options": [
+      "When a response returns, verify that it answers the original question and is appropriate for the recipient.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For handling questions and uncertainty, which review principle follows the lesson's 'check the answer reached the need' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "If the customer remains confused, clarify or provide a person rather than endlessly repeating the same automated wording."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]

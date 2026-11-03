@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For discovery without guessing, which best next step follows the lesson's 'begin with purpose' method?",
+    "options": [
+      "Start by asking what the customer wants to understand or protect.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For discovery without guessing, which review principle follows the lesson's 'begin with purpose' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Discovery should make the next conversation easier, not collect every detail that might someday be useful."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For discovery without guessing, which best next step follows the lesson's 'ask in layers' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Use an open question, a focused clarification and a short confirmation."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For discovery without guessing, which review principle follows the lesson's 'ask in layers' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Ask one clear question at a time when using messaging.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For discovery without guessing, which best next step follows the lesson's 'label the evidence' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A useful record distinguishes a customer statement, a verified document fact, an assumption and an unknown.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For discovery without guessing, which review principle follows the lesson's 'label the evidence' method?",
+    "options": [
+      "Include when the statement was made and the source of a verified fact.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For discovery without guessing, which best next step follows the lesson's 'know when to refer' method?",
+    "options": [
+      "Collect only information required for the immediate task under the organisation's approved process.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For discovery without guessing, which review principle follows the lesson's 'know when to refer' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Do not place identity documents, financial details or health information into an unapproved AI tool simply to make the summary richer."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]

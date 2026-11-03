@@ -1,0 +1,102 @@
+[
+  {
+    "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'define the next action' method?",
+    "options": [
+      "Qualification asks whether there is enough relevant information and interest for a particular next step.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Qualification asks whether there is enough relevant information and interest for a particular next step. It is not a promise that an insurer will accept the customer. Define the action first: clarify a missing fact, explain an option or refer an application. A record can be ready for clarification while still being unready for an application."
+  },
+  {
+    "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'define the next action' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A record can be ready for clarification while still being unready for an application."
+    ],
+    "answer": 2,
+    "explanation": "Qualification asks whether there is enough relevant information and interest for a particular next step. It is not a promise that an insurer will accept the customer. Define the action first: clarify a missing fact, explain an option or refer an application. A record can be ready for clarification while still being unready for an application."
+  },
+  {
+    "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'use relevant evidence' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A priority can reflect a stated need, requested timing, required missing information and the current contact status."
+    ],
+    "answer": 2,
+    "explanation": "A priority can reflect a stated need, requested timing, required missing information and the current contact status. Explain the reasons beside the priority. Do not infer affordability, eligibility or interest from an unrelated personal characteristic. Follow the approved method and flag missing information rather than using a precise-looking score to conceal it."
+  },
+  {
+    "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'use relevant evidence' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Follow the approved method and flag missing information rather than using a precise-looking score to conceal it.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "A priority can reflect a stated need, requested timing, required missing information and the current contact status. Explain the reasons beside the priority. Do not infer affordability, eligibility or interest from an unrelated personal characteristic. Follow the approved method and flag missing information rather than using a precise-looking score to conceal it."
+  },
+  {
+    "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'apply contact status first' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A customer who asked not to receive outreach does not become contactable because the lead looks valuable.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "A customer who asked not to receive outreach does not become contactable because the lead looks valuable. Check contact status and permitted channel before preparing follow-up. Separate marketing follow-up from necessary service work under the organisation's procedure. Escalate unclear status rather than choosing the interpretation most likely to produce a sale."
+  },
+  {
+    "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'apply contact status first' method?",
+    "options": [
+      "Escalate unclear status rather than choosing the interpretation most likely to produce a sale.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "A customer who asked not to receive outreach does not become contactable because the lead looks valuable. Check contact status and permitted channel before preparing follow-up. Separate marketing follow-up from necessary service work under the organisation's procedure. Escalate unclear status rather than choosing the interpretation most likely to produce a sale."
+  },
+  {
+    "prompt": "For lead qualification and prioritisation, which best next step follows the lesson's 'review the queue as work' method?",
+    "options": [
+      "A useful queue has a reason, owner and next action, not just a ranking.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "A useful queue has a reason, owner and next action, not just a ranking. Review stale records, duplicated enquiries and changes in customer circumstances. Record why a priority changed. The officer can correct the ranking when the evidence changes, and the correction should remain traceable. A low follow-up priority is not a rejection of cover."
+  },
+  {
+    "prompt": "For lead qualification and prioritisation, which review principle follows the lesson's 'review the queue as work' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A low follow-up priority is not a rejection of cover."
+    ],
+    "answer": 2,
+    "explanation": "A useful queue has a reason, owner and next action, not just a ranking. Review stale records, duplicated enquiries and changes in customer circumstances. Record why a priority changed. The officer can correct the ranking when the evidence changes, and the correction should remain traceable. A low follow-up priority is not a rejection of cover."
+  },
+  {
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ],
+    "answer": 0,
+    "explanation": "Three fictional enquiries arrive. One asks for a callback today with the relevant details supplied. Another shows strong interest but asks to stop marketing contact. A third asks a general question and has not supplied the information needed for referral. Contact status prevents outreach to the second. Assign the first callback and prepare a clarification response for the third, using the authorised channel and review process."
+  },
+  {
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ],
+    "answer": 1,
+    "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+  }
+]

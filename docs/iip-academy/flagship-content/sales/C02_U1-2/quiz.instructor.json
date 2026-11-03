@@ -1,0 +1,102 @@
+[
+  {
+    "prompt": "For discovery without guessing, which best next step follows the lesson's 'begin with purpose' method?",
+    "options": [
+      "Start by asking what the customer wants to understand or protect.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Start by asking what the customer wants to understand or protect. A broad question lets the person describe the need in their own words. Do not begin with a long form or a product recommendation. Explain why a follow-up fact is relevant before asking for it. Discovery should make the next conversation easier, not collect every detail that might someday be useful."
+  },
+  {
+    "prompt": "For discovery without guessing, which review principle follows the lesson's 'begin with purpose' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Discovery should make the next conversation easier, not collect every detail that might someday be useful."
+    ],
+    "answer": 2,
+    "explanation": "Start by asking what the customer wants to understand or protect. A broad question lets the person describe the need in their own words. Do not begin with a long form or a product recommendation. Explain why a follow-up fact is relevant before asking for it. Discovery should make the next conversation easier, not collect every detail that might someday be useful."
+  },
+  {
+    "prompt": "For discovery without guessing, which best next step follows the lesson's 'ask in layers' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Use an open question, a focused clarification and a short confirmation."
+    ],
+    "answer": 2,
+    "explanation": "Use an open question, a focused clarification and a short confirmation. For a business-owner enquiry, first ask what concern prompted the conversation, then clarify the activity relevant to that concern. Summarise the answer back for correction. Avoid leading questions that suggest a preferred response. Ask one clear question at a time when using messaging."
+  },
+  {
+    "prompt": "For discovery without guessing, which review principle follows the lesson's 'ask in layers' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Ask one clear question at a time when using messaging.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "Use an open question, a focused clarification and a short confirmation. For a business-owner enquiry, first ask what concern prompted the conversation, then clarify the activity relevant to that concern. Summarise the answer back for correction. Avoid leading questions that suggest a preferred response. Ask one clear question at a time when using messaging."
+  },
+  {
+    "prompt": "For discovery without guessing, which best next step follows the lesson's 'label the evidence' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A useful record distinguishes a customer statement, a verified document fact, an assumption and an unknown.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ],
+    "answer": 1,
+    "explanation": "A useful record distinguishes a customer statement, a verified document fact, an assumption and an unknown. If a customer says they have existing cover, record it as stated until the applicable policy is checked. Do not silently promote a conversational answer into a verified product or eligibility fact. Include when the statement was made and the source of a verified fact."
+  },
+  {
+    "prompt": "For discovery without guessing, which review principle follows the lesson's 'label the evidence' method?",
+    "options": [
+      "Include when the statement was made and the source of a verified fact.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "A useful record distinguishes a customer statement, a verified document fact, an assumption and an unknown. If a customer says they have existing cover, record it as stated until the applicable policy is checked. Do not silently promote a conversational answer into a verified product or eligibility fact. Include when the statement was made and the source of a verified fact."
+  },
+  {
+    "prompt": "For discovery without guessing, which best next step follows the lesson's 'know when to refer' method?",
+    "options": [
+      "Collect only information required for the immediate task under the organisation's approved process.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ],
+    "answer": 0,
+    "explanation": "Collect only information required for the immediate task under the organisation's approved process. A customer may not know the answer or may prefer to discuss it with an officer. Record the gap and refer instead of guessing or pressuring. Do not place identity documents, financial details or health information into an unapproved AI tool simply to make the summary richer."
+  },
+  {
+    "prompt": "For discovery without guessing, which review principle follows the lesson's 'know when to refer' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Do not place identity documents, financial details or health information into an unapproved AI tool simply to make the summary richer."
+    ],
+    "answer": 2,
+    "explanation": "Collect only information required for the immediate task under the organisation's approved process. A customer may not know the answer or may prefer to discuss it with an officer. Record the gap and refer instead of guessing or pressuring. Do not place identity documents, financial details or health information into an unapproved AI tool simply to make the summary richer."
+  },
+  {
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ],
+    "answer": 0,
+    "explanation": "A shop owner says, 'I need insurance for my business.' The assistant assumes the shop owns the building and drafts a building-cover explanation. The customer actually rents a stall and is worried about stock in transit. Correct the record by removing the unsupported ownership assumption. Ask which loss concerns them, what activity is involved and whether they want an officer to explain relevant options. The next officer receives the stated concern and the unanswered questions, not an invented business profile."
+  },
+  {
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ],
+    "answer": 1,
+    "explanation": "The work product must show the reasoning and the checks. A confident assertion or an unreviewed draft is not evidence of competent application."
+  }
+]

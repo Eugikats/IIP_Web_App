@@ -1,0 +1,92 @@
+[
+  {
+    "id": 0,
+    "prompt": "For measuring commercial and customer outcomes, which best next step follows the lesson's 'define the question first' method?",
+    "options": [
+      "Decide what the team wants to learn, such as whether a preparation step reduces incomplete handovers without worsening customer confusion.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 1,
+    "prompt": "For measuring commercial and customer outcomes, which review principle follows the lesson's 'define the question first' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Choose measures that correspond to the intended effect rather than whichever number is easiest to collect."
+    ]
+  },
+  {
+    "id": 2,
+    "prompt": "For measuring commercial and customer outcomes, which best next step follows the lesson's 'use a denominator' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "A conversion rate is completed outcomes divided by the defined eligible population, not an isolated total."
+    ]
+  },
+  {
+    "id": 3,
+    "prompt": "For measuring commercial and customer outcomes, which review principle follows the lesson's 'use a denominator' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Do not compare this directly with a team counting all inbound contacts as its denominator.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 4,
+    "prompt": "For measuring commercial and customer outcomes, which best next step follows the lesson's 'measure quality and potential harm' method?",
+    "options": [
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Track material corrections, unsupported statements caught, unanswered handovers, complaints and whether stop requests were honoured.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record."
+    ]
+  },
+  {
+    "id": 5,
+    "prompt": "For measuring commercial and customer outcomes, which review principle follows the lesson's 'measure quality and potential harm' method?",
+    "options": [
+      "Protect access to customer-level records used for measurement.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 6,
+    "prompt": "For measuring commercial and customer outcomes, which best next step follows the lesson's 'interpret comparison carefully' method?",
+    "options": [
+      "Compare similar populations and periods and record changes in staffing, campaigns or product availability.",
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete."
+    ]
+  },
+  {
+    "id": 7,
+    "prompt": "For measuring commercial and customer outcomes, which review principle follows the lesson's 'interpret comparison carefully' method?",
+    "options": [
+      "Treat a fluent draft as sufficient authority and proceed without checking the relevant record.",
+      "Replace missing facts with a plausible assumption so the worklist appears complete.",
+      "Decide what result would justify continuing, revising or stopping before examining the final figures, and retain the reasons for the decision."
+    ]
+  },
+  {
+    "id": 8,
+    "prompt": "In this unit's fictional case, what should a reviewer do before a customer-facing action?",
+    "options": [
+      "Confirm the relevant source, facts, unknowns, contact status and responsible next action.",
+      "Assume the fictional example establishes the real customer's policy terms.",
+      "Treat a prepared message as proof it was delivered."
+    ]
+  },
+  {
+    "id": 9,
+    "prompt": "Which evidence best demonstrates that you can apply this unit rather than merely repeat its title?",
+    "options": [
+      "A claim that AI improved performance without a source or denominator.",
+      "The completed practice work, with checked evidence, visible unknowns and an assigned next action.",
+      "An unreviewed AI output copied directly into the customer record."
+    ]
+  }
+]
