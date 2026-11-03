@@ -20,6 +20,9 @@ export default function portalConfig(phase: string): NextConfig {
   return {
     distDir,
     output: "standalone",
+    // The dev tools badge overlaps the workspace profile menu on tablet-sized viewports.
+    // Keep the browser surface unobstructed while retaining Next's full error overlay.
+    devIndicators: false,
     // The portal uses plain img tags for local assets, not Next image optimization.
     // Exclude unused Sharp native packages from standalone tracing to avoid copying
     // every platform-specific libvips binary into Azure packaging artifacts.

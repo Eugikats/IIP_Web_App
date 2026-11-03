@@ -15,10 +15,10 @@ test.describe("buying a course", () => {
   test("dollar price, choose how to pay, pay, enrolled; unpaid enrolment is refused; the team sees and refunds it", async ({ page, request }) => {
     // The price is in dollars, on the page and in the offer.
     await page.goto("/academy/courses/claims");
-    await expect(page.locator(".pricecard .price")).toHaveText("USD 85");
+    await expect(page.locator(".pricecard .price")).toHaveText("USD 120");
     const offer = await call(request, "get", "/courses/claims/offer");
     expect(offer.body.configured).toBe(true);
-    expect(offer.body.choices.find((choice: { method: string }) => choice.method === "mobile_money").amount).toBe(350000);
+    expect(offer.body.choices.find((choice: { method: string }) => choice.method === "mobile_money").amount).toBe(494000);
 
     // Enrolling without paying is refused by the server, whatever the browser does.
     const direct = await call(request, "post", "/courses/claims/enrol");
@@ -28,11 +28,11 @@ test.describe("buying a course", () => {
     // The checkout asks card or mobile money, with the shilling amount shown.
     await page.getByTestId("enrol").click();
     await expect(page.getByTestId("pay-mobile_money")).toBeVisible();
-    await expect(page.getByText(/UGX 350,000/).first()).toBeVisible();
+    await expect(page.getByText(/UGX 494,000/).first()).toBeVisible();
     await page.getByTestId("pay-card").click();
-    await expect(page.locator(".cktotal b")).toHaveText("USD 85");
+    await expect(page.locator(".cktotal b")).toHaveText("USD 120");
     await page.getByTestId("pay-mobile_money").click();
-    await expect(page.locator(".cktotal b")).toHaveText("UGX 350,000");
+    await expect(page.locator(".cktotal b")).toHaveText("UGX 494,000");
 
     // Paying goes out to the provider's page and back; the server confirms before anything opens.
     await page.getByTestId("pay-now").click();
@@ -55,7 +55,7 @@ test.describe("buying a course", () => {
     await page.getByTestId("admin-tab-payments").click();
     const row = page.getByTestId("order-row").first();
     await expect(row.getByTestId("order-status")).toHaveText("paid");
-    await expect(row).toContainText("UGX 350,000");
+    await expect(row).toContainText("UGX 494,000");
 
     // Changing the rate changes what mobile money costs, and a bad rate is refused.
     await page.getByTestId("admin-tab-prices").click();
@@ -66,7 +66,7 @@ test.describe("buying a course", () => {
     await page.getByTestId("save-payment-settings").click();
     await expect(page.locator("#toast")).toContainText("Payment settings saved");
     const changed = await call(request, "get", "/courses/underwriting/offer");
-    expect(changed.body.choices.find((choice: { method: string }) => choice.method === "mobile_money").amount).toBe(340000);
+    expect(changed.body.choices.find((choice: { method: string }) => choice.method === "mobile_money").amount).toBe(480000);
 
     // A refund is recorded and takes the course away.
     await page.getByTestId("admin-tab-payments").click();

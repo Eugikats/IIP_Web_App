@@ -59,9 +59,13 @@ export function LessonMedia({ courseId, lessonId }: { courseId: string; lessonId
     };
   }, [base, attempt]);
 
+  const notConfigured = problem.startsWith("Not configured.");
+
   return <section aria-label="Lesson recording and downloads" style={{ marginBottom: 20 }}>
-    {problem ? <div role="alert" className="card" style={{ padding: 20 }}>
-      <p>{problem}</p><button className="btn soft" onClick={() => setAttempt((value) => value + 1)}>Retry media</button>
+    {problem ? <div className="card" style={{ padding: 20 }}>
+      {notConfigured
+        ? <p role="status">{problem}</p>
+        : <div role="alert"><p>{problem}</p><button className="btn soft" onClick={() => setAttempt((value) => value + 1)}>Retry media</button></div>}
     </div> : urls["video.mp4"] ? <video key={urls["video.mp4"]} controls preload="metadata" playsInline aria-label="Lesson video"
       style={{ width: "100%", aspectRatio: "16 / 9", background: "var(--text)" }} src={urls["video.mp4"]}>
       <track src={urls["captions.vtt"]} kind="captions" srcLang="en" label="English" default />

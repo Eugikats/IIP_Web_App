@@ -21,7 +21,17 @@ for (const [courseId, lessonId] of [["ai-agentic-insurance", "unit-1-1"], ["ai-s
     expect(course.modules.flatMap((module: { lessons: unknown[] }) => module.lessons)).toHaveLength(12);
     const lesson = await request.get(`${api}/courses/${courseId}/lessons/${lessonId}`, { headers: learnerHeaders });
     expect(JSON.stringify(await lesson.json())).not.toContain('"answer"');
+    const mediaResponse = await request.get(`${api}/courses/${courseId}/lessons/${lessonId}/media/video.mp4`, { headers: learnerHeaders });
+    expect([200, 503]).toContain(mediaResponse.status());
     await page.goto(`/academy/learn/${courseId}/${lessonId}`, { waitUntil: "networkidle" });
+    if (mediaResponse.status() === 503) {
+      const mediaProblem = await mediaResponse.json();
+      expect(mediaProblem.detail).toMatch(/media is not configured/i);
+      await expect(page.getByRole("status").filter({ hasText: "Not configured. A recording has not been published for this lesson." })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Retry media" })).toHaveCount(0);
+      await expect(page.getByTestId("take-quiz")).toBeVisible();
+      return;
+    }
     const video = page.getByLabel("Lesson video", { exact: true });
     await expect(video).toBeVisible({ timeout: 90_000 });
     await expect.poll(() => video.evaluate((element) => (element as HTMLVideoElement).readyState), { timeout: 30_000 }).toBeGreaterThanOrEqual(2);

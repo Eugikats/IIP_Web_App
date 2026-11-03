@@ -60,11 +60,13 @@ test.describe("learner journey", () => {
     expect(access.ok()).toBeTruthy();
     await page.reload();
     await page.getByTestId("continue-course").click();
+    await page.waitForURL(`**/academy/learn/${course.id}/**`, { timeout: 20_000 });
 
     // The first lesson opens, and finishing it needs its quiz.
     await expect(page.getByRole("heading", { level: 1 })).toContainText("What AI, machine learning");
     await expect(page.getByTestId("complete-lesson")).toHaveCount(0);
     await page.getByTestId("take-quiz").click();
+    await page.waitForURL(`**/academy/assessment/${course.id}/**`, { timeout: 20_000 });
     await expect(page.getByTestId("question")).toHaveCount(10);
     await expect(page.getByTestId("submit-assessment")).toBeDisabled();
 

@@ -9,8 +9,8 @@ const HEADERS = { "X-Tenant-Id": "tenant-demo", "X-Workspace-Id": "workspace-ope
 test.describe("zenith", () => {
   test("floating panel and full page", async ({ page, request }) => {
     const compact = (page.viewportSize()?.width ?? 1280) <= 860;
-    await request.post(`${API}/courses/ai-agentic-insurance/enrol`, { headers: HEADERS, data: {} });
-    await request.post(`${API}/courses/ai-sales-distribution/enrol`, { headers: HEADERS, data: {} });
+    await request.post(`${API}/operator/enrol`, { headers: HEADERS, data: { courseId: "ai-agentic-insurance", userId: "user-1" } });
+    await request.post(`${API}/operator/enrol`, { headers: HEADERS, data: { courseId: "ai-sales-distribution", userId: "user-1" } });
 
     await page.goto("/academy/courses");
     if (compact) {

@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
   }, [organisationId]);
 });
 
-test("Nile Life starts with unapproved renewal rules; approving one sends reminders to the people whose policies end soon", async ({ page }) => {
+test("Nile Life starts with unapproved renewal rules; approving one sends reminders to the people whose policies end soon", async ({ page, request }) => {
   await page.goto("/app/acquisition");
   await page.getByRole("tab", { name: "Rules" }).click();
 
@@ -45,9 +45,20 @@ test("Nile Life starts with unapproved renewal rules; approving one sends remind
   }
   await page.screenshot({ path: `test-results/workspace/renewals-${test.info().project.name}.png`, fullPage: true });
 
-  // The people are real records of this organisation only, and the events say where they came from.
-  await page.getByRole("tab", { name: "Bank events" }).click();
-  await expect(page.getByText("From policy dates").first()).toBeVisible();
+  // Insurers do not get the bank-events screen. The scoped operations API still records the
+  // provenance of policy-date events for authorized staff and audit review.
+  await expect(page.getByRole("tab", { name: "Bank events" })).toHaveCount(0);
+  const eventsResponse = await request.get(`${API}/api/v1/events?take=200`, {
+    headers: {
+      "x-demo-role": "Admin",
+      "X-User-Id": "spec-renewals-review",
+      "X-Tenant-Id": organisationId,
+      "X-Workspace-Id": "main",
+    },
+  });
+  expect(eventsResponse.ok()).toBeTruthy();
+  const events = (await eventsResponse.json()) as Array<{ source?: string; eventType?: string }>;
+  expect(events.some((event) => event.source === "PolicyDates" && event.eventType === "policy_ending_30")).toBeTruthy();
 });
 
 test.describe("Nile General claims", () => {

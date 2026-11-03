@@ -32,7 +32,11 @@ public static class AcademyMediaEndpoints
                 http.Response.Headers.CacheControl = "private, no-store";
                 return Results.Stream(await blob.OpenReadAsync(cancellationToken: ct), contentType, enableRangeProcessing: true);
             }
-            catch (Exception exception) when (exception is global::Azure.RequestFailedException or InvalidOperationException)
+            catch (InvalidOperationException)
+            {
+                return Results.Problem("Lesson media is not configured.", statusCode: 503);
+            }
+            catch (global::Azure.RequestFailedException)
             {
                 return Results.Problem("Lesson media is temporarily unavailable. Try again later.", statusCode: 503);
             }

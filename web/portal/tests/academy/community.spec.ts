@@ -65,6 +65,7 @@ test.describe("community and the Academy team", () => {
     await page.goto("/academy");
     await page.locator(".user").click();
     await page.getByTestId("admin-link").click();
+    await page.waitForURL("**/academy/admin", { timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Manage the Academy" })).toBeVisible();
     await page.getByTestId("admin-tab-community").click();
     await page.getByLabel("Discord invite link").fill("https://example.com/not-discord");

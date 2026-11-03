@@ -58,7 +58,15 @@ export async function academyMedia(path: string, signal?: AbortSignal): Promise<
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
   const response = await fetch(`${apiBaseUrl}/api/v1/academy${path}`, { headers, signal, cache: "no-store" });
-  if (!response.ok) throw new AcademyApiError(response.status, response.status === 403 ? "Enrol in this course to open its media." : "Lesson media could not be loaded. Try again.");
+  if (!response.ok) {
+    if (response.status === 403) throw new AcademyApiError(response.status, "Enrol in this course to open its media.");
+    const payload = await response.json().catch(() => ({})) as { detail?: unknown; message?: unknown };
+    const detail = typeof payload.detail === "string" ? payload.detail : typeof payload.message === "string" ? payload.message : "";
+    if (response.status === 503 && /not configured/i.test(detail)) {
+      throw new AcademyApiError(response.status, "Not configured. A recording has not been published for this lesson.");
+    }
+    throw new AcademyApiError(response.status, "Lesson media could not be loaded. Try again.");
+  }
   return response.blob();
 }
 export const academyPost = <T,>(path: string, json?: unknown) => academyFetch<T>(path, { method: "POST", json: json ?? {} });
