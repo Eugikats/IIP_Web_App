@@ -28,7 +28,8 @@ public sealed class CaseFollowThroughService(
     IMissingDocumentRequestService missingDocumentRequestService,
     INotificationEmitter notificationEmitter,
     INotificationRepository notificationRepository,
-    IAuditRepository auditRepository) : ICaseFollowThroughService
+    IAuditRepository auditRepository,
+    IDocumentChecklistProvider? checklistProvider = null) : ICaseFollowThroughService
 {
     private const string SystemActorId = "system:case-follow-through";
 
@@ -64,7 +65,7 @@ public sealed class CaseFollowThroughService(
             }
 
             var documents = await documentRepository.ListForCaseAsync(claimCase.CaseId, scope, cancellationToken);
-            var checklist = BuildChecklist(claimCase, documents);
+            var checklist = await BuildChecklistAsync(claimCase, documents, cancellationToken);
             if (checklist.MissingRequiredDocuments.Count == 0)
             {
                 continue;
@@ -137,13 +138,21 @@ public sealed class CaseFollowThroughService(
         return sent;
     }
 
-    /// <summary>The same primitives StaticDocumentChecklistProvider (Api layer) uses, computed
-    /// directly here instead of through that provider, which Application must not depend on
-    /// (FnolAcknowledgementService's own StaticDocumentTypeLabel duplication, reused below, records
-    /// the same reason). Deliberately the base claim-type rules, not a pinned product's own matrix
-    /// (outcome A): resolving and versioning a product here as well is a larger change than this
-    /// reminder job needs to earn its keep.</summary>
-    private static DocumentCompletenessChecklist BuildChecklist(ClaimCase claimCase, IReadOnlyCollection<CaseDocument> documents)
+    /// <summary>The claim's checklist from the shared provider, so a reminder asks for exactly the
+    /// documents the customer's own page asks for (the pinned product's matrix for this claim type).
+    /// With no provider wired (a test or host that has not configured products) it falls back to
+    /// the built-in claim-type rules, as it always did.</summary>
+    private async Task<DocumentCompletenessChecklist> BuildChecklistAsync(ClaimCase claimCase, IReadOnlyCollection<CaseDocument> documents, CancellationToken cancellationToken)
+    {
+        if (checklistProvider is not null)
+        {
+            return await checklistProvider.BuildChecklistAsync(claimCase, documents, cancellationToken);
+        }
+
+        return BuildBuiltInChecklist(claimCase, documents);
+    }
+
+    private static DocumentCompletenessChecklist BuildBuiltInChecklist(ClaimCase claimCase, IReadOnlyCollection<CaseDocument> documents)
     {
         var rules = DocumentChecklistRules.ForCase(claimCase);
         var received = documents

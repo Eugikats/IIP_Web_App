@@ -21,8 +21,13 @@ public sealed record DocumentCompletenessChecklist(
     IReadOnlyCollection<CustomDocumentRequirement>? CustomRequiredDocuments = null,
     IReadOnlyCollection<CustomDocumentRequirement>? CustomOptionalDocuments = null,
     IReadOnlyCollection<string>? CustomReceivedKeys = null,
-    IReadOnlyCollection<DocumentFieldCheckResult>? FieldChecks = null)
+    IReadOnlyCollection<DocumentFieldCheckResult>? FieldChecks = null,
+    IReadOnlyList<ResolvedDocumentSlot>? ResolvedSlots = null)
 {
+    /// <summary>The slots a customer can fill for this claim, with their wording, kind and limits
+    /// (build-loop item 4). Empty only for a checklist built by code that predates slots.</summary>
+    public IReadOnlyList<ResolvedDocumentSlot> Slots => ResolvedSlots ?? [];
+
     public IReadOnlyCollection<CustomDocumentRequirement> CustomRequired => CustomRequiredDocuments ?? [];
 
     public IReadOnlyCollection<CustomDocumentRequirement> CustomOptional => CustomOptionalDocuments ?? [];

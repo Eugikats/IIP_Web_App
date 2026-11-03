@@ -26,7 +26,7 @@ public sealed class KnownDefectsApiTests(MockedApiFactory factory) : IClassFixtu
         var info = await TestData.CreateCaseAsync(staff, tenant);
         using var claimant = await TestData.ClaimantClientAsync(factory, staff, info);
 
-        using var form = TestData.FileForm("IMG_2031.txt", "nothing recognisable in here", documentTypeKey: "PoliceAbstract");
+        using var form = TestData.FileForm("IMG_2031.pdf", "nothing recognisable in here", documentTypeKey: "PoliceAbstract", contentType: "application/pdf");
         var upload = await claimant.PostAsync($"/api/v1/client-portal/claims/{info.CaseId}/documents", form);
 
         Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
@@ -44,7 +44,7 @@ public sealed class KnownDefectsApiTests(MockedApiFactory factory) : IClassFixtu
         var info = await TestData.CreateCaseAsync(staff, tenant);
         using var claimant = await TestData.ClaimantClientAsync(factory, staff, info);
 
-        using var form = TestData.FileForm("scan.txt", "IIP-MOCK-DOC:Invoice", documentTypeKey: "PoliceAbstract");
+        using var form = TestData.FileForm("scan.pdf", "IIP-MOCK-DOC:Invoice", documentTypeKey: "PoliceAbstract", contentType: "application/pdf");
         var upload = await claimant.PostAsync($"/api/v1/client-portal/claims/{info.CaseId}/documents", form);
         var claim = await MockedApiFactory.ReadJsonAsync(upload);
 
@@ -70,7 +70,7 @@ public sealed class KnownDefectsApiTests(MockedApiFactory factory) : IClassFixtu
         var info = await TestData.CreateCaseAsync(staff, tenant);
         using var claimant = await TestData.ClaimantClientAsync(host, staff, info);
 
-        using var form = TestData.FileForm("police.txt", "IIP-MOCK-DOC:PoliceAbstract", documentTypeKey: "PoliceAbstract");
+        using var form = TestData.FileForm("police.pdf", "IIP-MOCK-DOC:PoliceAbstract", documentTypeKey: "PoliceAbstract", contentType: "application/pdf");
         var upload = await claimant.PostAsync($"/api/v1/client-portal/claims/{info.CaseId}/documents", form);
 
         // The customer is not shown a server error for something they cannot fix.

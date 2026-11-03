@@ -321,21 +321,33 @@ export default function ClaimAccessStatus() {
                       </div>
                     )}
 
+                    {doc.kind === "Evidence" && (
+                      <div className="mt-1 ml-5.5 text-[11px] leading-4 text-dls-text-muted">
+                        These photos are kept exactly as you take them.
+                      </div>
+                    )}
+                    {doc.allowsMultipleFiles && (doc.fileCount ?? 0) > 0 && (
+                      <div className="mt-1 ml-5.5 text-[11px] leading-4 text-dls-text-muted">
+                        {doc.fileCount} of {doc.maxFiles} sent
+                      </div>
+                    )}
+
                     <div className="mt-2 ml-5.5 flex items-center gap-2">
                       <label className="dls-focus-outline focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-dls-primary inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
                         {busyKey === doc.documentTypeKey ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                        ) : doc.uploaded ? (
+                        ) : doc.uploaded && !doc.allowsMultipleFiles ? (
                           <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                         ) : (
                           <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
                         )}
-                        {doc.uploaded ? "Replace" : "Upload"}
+                        {doc.allowsMultipleFiles ? (doc.uploaded ? "Add more" : "Upload") : doc.uploaded ? "Replace" : "Upload"}
                         <input
                           type="file"
-                          accept="image/*,application/pdf"
+                          accept={doc.acceptedFormats?.length ? doc.acceptedFormats.map((format) => `.${format}`).join(",") : "image/*,application/pdf"}
+                          multiple={doc.allowsMultipleFiles === true}
                           className="sr-only"
-                          disabled={busyKey !== null}
+                          disabled={busyKey !== null || (doc.allowsMultipleFiles === true && (doc.fileCount ?? 0) >= (doc.maxFiles ?? 1))}
                           onChange={(event) => onUpload(event, doc.documentTypeKey, doc.label)}
                         />
                       </label>

@@ -67,6 +67,10 @@ export default function ProductDetail() {
   const [documentMatrix, setDocumentMatrix] = useState<DocumentMatrixEntry[]>([]);
   const [claimTypes, setClaimTypes] = useState<ClaimTypeConfig[]>([]);
   const [importNotice, setImportNotice] = useState<string | null>(null);
+  // "all" shows every requirement; a claim type key shows what a claim of that type is asked for
+  // (the requirements for every type plus the ones for that type), and a new one added while
+  // filtered is scoped to that type.
+  const [matrixFilter, setMatrixFilter] = useState<string>("all");
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeDefinition[]>([]);
 
   function applyProduct(loaded: Product) {
@@ -105,6 +109,15 @@ export default function ProductDetail() {
   const recognizedDocumentKeys = useMemo(
     () => new Set(activeDocumentTypes.map((type) => type.key.toLowerCase())),
     [activeDocumentTypes],
+  );
+  const savedClaimTypes = useMemo(() => claimTypes.filter((type): type is ClaimTypeConfig & { key: string } => Boolean(type.key)), [claimTypes]);
+  const visibleEntries = useMemo(
+    () => documentMatrix
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => matrixFilter === "all"
+        || !entry.claimTypeKeys?.length
+        || entry.claimTypeKeys.includes(matrixFilter)),
+    [documentMatrix, matrixFilter],
   );
   const canEdit = product?.status !== "Retired";
   const isDirty = product
@@ -187,6 +200,8 @@ export default function ProductDetail() {
     setDocumentMatrix((prev) => [...prev, {
       documentKey: "", customerLabel: "", reason: "", isRequired: true,
       requiredAtStageKey: stageKeys[0] ?? "", isRegulatoryOrWordingMandated: false,
+      claimTypeKeys: matrixFilter === "all" ? [] : [matrixFilter],
+      kind: "Document", allowsMultiplePages: false, maxFiles: 0, acceptedFormats: [],
     }]);
   }
 
@@ -329,10 +344,30 @@ export default function ProductDetail() {
               <div className="text-[14px] font-bold text-dls-text-primary">Document matrix</div>
               {canEdit && <Button variant="secondary" icon={<Plus aria-hidden="true" />} onClick={addDocument} disabled={stageKeys.length === 0}>Add document</Button>}
             </div>
-            <p className="mb-3 text-[12px] text-dls-text-secondary">What the customer needs to provide, in the customer&apos;s own words, and at which stage.</p>
+            <p className="mb-3 text-[12px] text-dls-text-secondary">What the customer needs to provide, in the customer&apos;s own words, and at which stage. A document can apply to every claim type or only to some, and is either paperwork (can be scanned and turned into a PDF) or evidence such as photos (kept exactly as taken).</p>
+            {savedClaimTypes.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <label htmlFor="matrix-filter" className="text-[12px] font-semibold text-dls-text-secondary">Show what a claim of this type is asked for</label>
+                <select
+                  id="matrix-filter"
+                  className="rounded-dls-control border border-dls-border-input bg-dls-surface px-2 py-[7px] text-sm text-dls-text-primary"
+                  value={matrixFilter}
+                  onChange={(e) => setMatrixFilter(e.target.value)}
+                >
+                  <option value="all">All claim types</option>
+                  {savedClaimTypes.map((type) => <option key={type.key} value={type.key}>{type.name}</option>)}
+                </select>
+              </div>
+            )}
+            {matrixFilter !== "all" && visibleEntries.length === 0 && documentMatrix.length > 0 && (
+              <div className="mb-3 flex items-start gap-2 rounded-dls-control border border-dls-warning-dot bg-dls-warning-tint p-2 text-[11.5px] text-dls-text-primary">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dls-warning-text" aria-hidden="true" />
+                Nothing is set up for this claim type, so a customer filing it is asked for no documents. Add one below.
+              </div>
+            )}
             <div className="space-y-3">
               {documentMatrix.length === 0 && <p className="text-[12.5px] text-dls-text-secondary">No documents configured yet.</p>}
-              {documentMatrix.map((entry, index) => {
+              {visibleEntries.map(({ entry, index }) => {
                 const keyIsRecognized = entry.documentKey === "" || recognizedDocumentKeys.has(entry.documentKey.toLowerCase());
                 return (
                 <div key={index} className="rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-3">
@@ -364,8 +399,72 @@ export default function ProductDetail() {
                       {stageKeys.map((key) => <option key={key} value={key}>{key}</option>)}
                     </select>
                   </div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-6" data-testid="document-slot-settings">
+                    <select
+                      className="rounded-dls-control border border-dls-border-input bg-dls-surface px-2 py-[9px] text-sm text-dls-text-primary sm:col-span-2"
+                      value={entry.kind ?? "Document"}
+                      disabled={!canEdit}
+                      onChange={(e) => updateDocument(index, { kind: e.target.value as "Document" | "Evidence", maxFiles: 0 })}
+                      aria-label={`Kind of ${entry.customerLabel || `document ${index + 1}`}`}
+                    >
+                      <option value="Document">Document (paperwork, can be scanned to PDF)</option>
+                      <option value="Evidence">Evidence (photos, kept exactly as taken)</option>
+                    </select>
+                    <Input
+                      className="sm:col-span-1"
+                      value={entry.maxFiles ? String(entry.maxFiles) : ""}
+                      onChange={(e) => updateDocument(index, { maxFiles: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 })}
+                      disabled={!canEdit || (entry.kind !== "Evidence" && !entry.allowsMultiplePages)}
+                      aria-label={`Most files for ${entry.customerLabel || `document ${index + 1}`}`}
+                      placeholder="Most files"
+                    />
+                    <Input
+                      className="sm:col-span-3"
+                      value={(entry.acceptedFormats ?? []).join(", ")}
+                      onChange={(e) => updateDocument(index, { acceptedFormats: e.target.value.split(",").map((format) => format.trim().replace(/^\./, "").toLowerCase()).filter(Boolean) })}
+                      disabled={!canEdit}
+                      aria-label={`File types for ${entry.customerLabel || `document ${index + 1}`}`}
+                      placeholder="File types, e.g. pdf, jpg, png (blank for the usual ones)"
+                    />
+                  </div>
+                  {savedClaimTypes.length > 0 && (
+                    <fieldset className="mt-2" disabled={!canEdit}>
+                      <legend className="text-[11.5px] font-semibold text-dls-text-secondary">Applies to</legend>
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                        <label className="flex items-center gap-2 text-[12px] text-dls-text-secondary">
+                          <input
+                            type="radio"
+                            name={`applies-${index}`}
+                            checked={!entry.claimTypeKeys?.length}
+                            onChange={() => updateDocument(index, { claimTypeKeys: [] })}
+                          />
+                          Every claim type
+                        </label>
+                        {savedClaimTypes.map((type) => (
+                          <label key={type.key} className="flex items-center gap-2 text-[12px] text-dls-text-secondary">
+                            <input
+                              type="checkbox"
+                              className="h-3.5 w-3.5"
+                              checked={entry.claimTypeKeys?.includes(type.key) ?? false}
+                              onChange={(e) => {
+                                const current = entry.claimTypeKeys ?? [];
+                                updateDocument(index, { claimTypeKeys: e.target.checked ? [...current, type.key] : current.filter((key) => key !== type.key) });
+                              }}
+                            />
+                            {type.name}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap gap-4">
+                      {entry.kind !== "Evidence" && (
+                        <label className="flex items-center gap-2 text-[12px] text-dls-text-secondary">
+                          <input type="checkbox" checked={entry.allowsMultiplePages ?? false} disabled={!canEdit} onChange={(e) => updateDocument(index, { allowsMultiplePages: e.target.checked, maxFiles: 0 })} className="h-3.5 w-3.5" />
+                          Several pages (one document)
+                        </label>
+                      )}
                       <label className="flex items-center gap-2 text-[12px] text-dls-text-secondary">
                         <input type="checkbox" checked={entry.isRequired} disabled={!canEdit} onChange={(e) => updateDocument(index, { isRequired: e.target.checked })} className="h-3.5 w-3.5" />
                         Required, not optional

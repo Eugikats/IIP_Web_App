@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Local;
@@ -785,14 +786,16 @@ public static class DocumentEndpoints
     // WO-15: lets FNOL intake show the real required-documents checklist for the selected product
     // line before a case exists, instead of a hardcoded client list (A1), reuses the exact same
     // DocumentChecklistRules the platform uses everywhere else once a case is created.
-    public static IResult PreviewChecklist(
+    public static async Task<IResult> PreviewChecklist(
         string? productLine,
         string? claimType,
         string? injuryIndicator,
         HttpContext httpContext,
-        InfrastructureOptions options)
+        InfrastructureOptions options,
+        IProductRepository? productRepository = null,
+        CancellationToken cancellationToken = default)
     {
-        if (!TryResolveScope(httpContext, out _, out _, out var validationError))
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
@@ -805,11 +808,34 @@ public static class DocumentEndpoints
         var motorFnolDetails = string.IsNullOrWhiteSpace(injuryIndicator)
             ? null
             : new MotorFnolDetails(null, null, null, null, null, null, injuryIndicator, null, null, null);
-        var ruleSet = DocumentChecklistRules.Resolve(productLine, claimType, motorFnolDetails);
+        // The same resolution a filed claim gets: the published product for this line and the claim
+        // type the person chose, falling back to the built-in rules only when none applies.
+        string? claimTypeKey = null;
+        DocumentChecklistRuleSet? ruleSet = null;
+        if (productRepository is not null)
+        {
+            var product = (await productRepository.ListCurrentForAllProductsAsync(scope, cancellationToken))
+                .FirstOrDefault(candidate => candidate.Status == ProductStatus.Published
+                    && string.Equals(candidate.ProductClass, productLine.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (product is not null)
+            {
+                claimTypeKey = (product.FindClaimType(claimType) ?? product.SuggestClaimType(claimType))?.Key;
+                ruleSet = DocumentChecklistRules.ForProduct(product, claimTypeKey);
+            }
+        }
+
+        ruleSet ??= DocumentChecklistRules.Resolve(productLine, claimType, motorFnolDetails);
+        var slots = ruleSet.Slots
+            .Select(slot => new ChecklistSlotResponse(
+                slot.Key, slot.Label, slot.Description, slot.Required, slot.Kind.ToString(),
+                slot.AllowsMultipleFiles, slot.MaxFiles, slot.AcceptedFormats, Received: false))
+            .ToArray();
 
         return Results.Ok(new ChecklistPreviewResponse(
             ruleSet.RequiredDocuments.Select(ToPreview).ToArray(),
-            ruleSet.OptionalDocuments.Select(ToPreview).ToArray()));
+            ruleSet.OptionalDocuments.Select(ToPreview).ToArray(),
+            slots,
+            claimTypeKey));
     }
 
     private static ChecklistDocumentPreview ToPreview(DocumentType documentType) =>

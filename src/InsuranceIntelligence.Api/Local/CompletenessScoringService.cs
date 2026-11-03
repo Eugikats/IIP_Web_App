@@ -1,18 +1,7 @@
-using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Application.Documents;
 
 namespace InsuranceIntelligence.Api.Local;
 
-public sealed class CompletenessScoringService : ICompletenessScoringService
-{
-    public CompletenessScore Calculate(
-        IReadOnlyCollection<DocumentType> requiredDocuments,
-        IReadOnlyCollection<DocumentType> receivedDocuments) =>
-        CompletenessScore.Calculate(requiredDocuments, receivedDocuments);
-
-    public CompletenessScore Calculate(
-        IReadOnlyCollection<DocumentType> requiredDocuments,
-        IReadOnlyCollection<DocumentType> receivedDocuments,
-        int customRequiredTotal,
-        int customReceived) =>
-        CompletenessScore.Calculate(requiredDocuments, receivedDocuments, customRequiredTotal, customReceived);
-}
+/// <summary>The API's name for the shared completeness arithmetic (see
+/// <see cref="DocumentCompletenessScorer"/>, which the Functions app uses too).</summary>
+public sealed class CompletenessScoringService : DocumentCompletenessScorer;

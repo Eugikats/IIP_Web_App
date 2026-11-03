@@ -17,7 +17,12 @@ public sealed record DocumentMatrixEntryDto(
     string Reason,
     bool IsRequired,
     string RequiredAtStageKey,
-    bool IsRegulatoryOrWordingMandated);
+    bool IsRegulatoryOrWordingMandated,
+    IReadOnlyList<string>? ClaimTypeKeys = null,
+    string? Kind = null,
+    bool AllowsMultiplePages = false,
+    int? MaxFiles = null,
+    IReadOnlyList<string>? AcceptedFormats = null);
 
 public sealed record ProductWordingFactDto(
     string Category,

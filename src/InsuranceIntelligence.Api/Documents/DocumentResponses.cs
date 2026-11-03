@@ -76,7 +76,8 @@ public sealed record DocumentChecklistResponse(
     IReadOnlyCollection<ChecklistDocumentResponse> OptionalDocuments,
     IReadOnlyCollection<ChecklistDocumentResponse> ReceivedDocuments,
     IReadOnlyCollection<ChecklistDocumentResponse> MissingRequiredDocuments,
-    ChecklistDetailsResponse? Details = null);
+    ChecklistDetailsResponse? Details = null,
+    IReadOnlyCollection<ChecklistSlotResponse>? Slots = null);
 
 /// <summary>The details the received documents carry, apart from the documents themselves. Documents nothing
 /// could be read from are listed separately: a person has to read them, they are not "missing everything".</summary>
@@ -88,6 +89,18 @@ public sealed record ChecklistDetailsResponse(
     IReadOnlyCollection<string> UnreadDocuments);
 
 public sealed record ChecklistMissingDetail(string DocumentLabel, string Detail);
+/// <summary>One slot of the claim's checklist: its wording, kind (Document or Evidence), limits and
+/// whether something has been received for it (build-loop item 4).</summary>
+public sealed record ChecklistSlotResponse(
+    string Key,
+    string Label,
+    string Description,
+    bool Required,
+    string Kind,
+    bool AllowsMultipleFiles,
+    int MaxFiles,
+    IReadOnlyList<string> AcceptedFormats,
+    bool Received);
 
 public sealed record ChecklistDocumentResponse(
     string DocumentType,
@@ -102,7 +115,9 @@ public sealed record ChecklistDocumentPreview(string DocumentType, string Label)
 
 public sealed record ChecklistPreviewResponse(
     IReadOnlyCollection<ChecklistDocumentPreview> RequiredDocuments,
-    IReadOnlyCollection<ChecklistDocumentPreview> OptionalDocuments);
+    IReadOnlyCollection<ChecklistDocumentPreview> OptionalDocuments,
+    IReadOnlyCollection<ChecklistSlotResponse>? Slots = null,
+    string? ClaimTypeKey = null);
 
 public sealed record ApproveExtractionRequest(string? ApprovedByUserId);
 

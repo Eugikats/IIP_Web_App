@@ -95,14 +95,21 @@ public sealed class ProductCommandService(
 
         var productClass = string.IsNullOrWhiteSpace(request.ProductClass) ? current.ProductClass : request.ProductClass.Trim();
         var stages = request.Stages is null ? current.Stages : ValidateStages(request.Stages);
+        // Claim types are validated first: a document requirement may name only claim types that
+        // exist in the version being saved, so the matrix is checked against the new list.
+        var claimTypes = request.ClaimTypes is null ? current.ClaimTypes : ValidateClaimTypes(request.ClaimTypes);
         var documentMatrix = request.DocumentMatrix is null
             ? current.DocumentMatrix
-            : await ValidateDocumentMatrix(current.Scope, request.DocumentMatrix, stages, cancellationToken);
+            : await ValidateDocumentMatrix(current.Scope, request.DocumentMatrix, stages, claimTypes, cancellationToken);
+        if (request.DocumentMatrix is null && request.ClaimTypes is not null)
+        {
+            // Claim types were edited but the matrix was not: re-check the existing matrix against
+            // them so a removed claim type cannot be left referenced by a document requirement.
+            EnsureMatrixClaimTypesExist(documentMatrix, claimTypes);
+        }
         var wordingFacts = request.WordingFacts is null
             ? current.WordingFacts
             : await ValidateWordingFacts(current.Scope, request.WordingFacts, cancellationToken);
-
-        var claimTypes = request.ClaimTypes is null ? current.ClaimTypes : ValidateClaimTypes(request.ClaimTypes);
 
         var context = tenantContextAccessor.Current;
         var updated = current with
@@ -455,10 +462,16 @@ public sealed class ProductCommandService(
         TenantScope scope,
         IReadOnlyList<DocumentMatrixEntryDto> entries,
         IReadOnlyList<ClaimStageDefinition> stages,
+        IReadOnlyList<ClaimTypeDefinition> claimTypes,
         CancellationToken cancellationToken)
     {
         var stageKeys = new HashSet<string>(stages.Select(stage => stage.StageKey), StringComparer.OrdinalIgnoreCase);
-        var documentKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var claimTypeKeys = new HashSet<string>(claimTypes.Select(type => type.Key), StringComparer.OrdinalIgnoreCase);
+        // The same document key may appear more than once when each entry names different claim
+        // types (for example a stricter police report for theft). What is refused is two entries
+        // for one key that would both apply to the same claim type at the same level.
+        var allClaimTypeKeysSeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var specificSeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var result = new List<ProductDocumentRequirement>(entries.Count);
 
         // Claim intake build prompt outcome A: a document key used to silently vanish from
@@ -481,9 +494,79 @@ public sealed class ProductCommandService(
 
             var documentKey = entry.DocumentKey.Trim();
 
-            if (!documentKeys.Add(documentKey))
+            var entryClaimTypes = (entry.ClaimTypeKeys ?? [])
+                .Where(key => !string.IsNullOrWhiteSpace(key))
+                .Select(key => key.Trim().ToLowerInvariant())
+                .Distinct()
+                .ToArray();
+            foreach (var claimTypeKey in entryClaimTypes)
             {
-                throw new ProductValidationException("documentMatrix", $"Document key '{documentKey}' is used more than once.");
+                if (!claimTypeKeys.Contains(claimTypeKey))
+                {
+                    throw new ProductValidationException(
+                        "documentMatrix",
+                        $"Document '{documentKey}' refers to claim type '{claimTypeKey}', which this product does not have.");
+                }
+            }
+
+            if (entryClaimTypes.Length == 0)
+            {
+                if (!allClaimTypeKeysSeen.Add(documentKey))
+                {
+                    throw new ProductValidationException("documentMatrix", $"Document key '{documentKey}' is used more than once for every claim type.");
+                }
+            }
+            else
+            {
+                foreach (var claimTypeKey in entryClaimTypes)
+                {
+                    if (!specificSeen.Add($"{documentKey}|{claimTypeKey}"))
+                    {
+                        throw new ProductValidationException("documentMatrix", $"Document '{documentKey}' is set up twice for claim type '{claimTypeKey}'.");
+                    }
+                }
+            }
+
+            DocumentKind kind;
+            if (string.IsNullOrWhiteSpace(entry.Kind))
+            {
+                kind = Enum.TryParse<DocumentType>(documentKey, ignoreCase: true, out var builtIn)
+                    ? DocumentSlotDefaults.KindFor(builtIn)
+                    : DocumentKind.Document;
+            }
+            else if (!Enum.TryParse(entry.Kind.Trim(), ignoreCase: true, out kind) || !Enum.IsDefined(kind))
+            {
+                throw new ProductValidationException("documentMatrix", $"Document '{documentKey}' has an unknown kind '{entry.Kind}'. Use Document or Evidence.");
+            }
+
+            var allowsMultiple = kind == DocumentKind.Evidence || entry.AllowsMultiplePages;
+            var maxFiles = entry.MaxFiles is null or 0 ? DocumentSlotDefaults.MaxFilesFor(kind, allowsMultiple) : entry.MaxFiles.Value;
+            if (maxFiles < 1 || maxFiles > DocumentSlotDefaults.AbsoluteMaxFiles)
+            {
+                throw new ProductValidationException("documentMatrix", $"Document '{documentKey}' can hold between 1 and {DocumentSlotDefaults.AbsoluteMaxFiles} files.");
+            }
+
+            if (!allowsMultiple)
+            {
+                maxFiles = 1;
+            }
+
+            var formats = (entry.AcceptedFormats ?? [])
+                .Select(format => format.Trim().TrimStart('.').ToLowerInvariant())
+                .Where(format => format.Length > 0)
+                .Distinct()
+                .ToArray();
+            var unsupported = formats.FirstOrDefault(format => !DocumentSlotDefaults.AllSlotFormats.Contains(format));
+            if (unsupported is not null)
+            {
+                throw new ProductValidationException(
+                    "documentMatrix",
+                    $"Document '{documentKey}' accepts '{unsupported}', which is not a supported file type. Supported: {string.Join(", ", DocumentSlotDefaults.AllSlotFormats)}.");
+            }
+
+            if (formats.Length == 0)
+            {
+                formats = DocumentSlotDefaults.FormatsFor(kind).ToArray();
             }
 
             if (string.IsNullOrWhiteSpace(entry.CustomerLabel))
@@ -515,7 +598,12 @@ public sealed class ProductCommandService(
                 entry.Reason.Trim(),
                 entry.IsRequired,
                 entry.RequiredAtStageKey.Trim(),
-                entry.IsRegulatoryOrWordingMandated));
+                entry.IsRegulatoryOrWordingMandated,
+                entryClaimTypes,
+                kind,
+                allowsMultiple,
+                maxFiles,
+                formats));
         }
 
         return result;
@@ -563,6 +651,21 @@ public sealed class ProductCommandService(
         return result;
     }
 
+    private static void EnsureMatrixClaimTypesExist(IReadOnlyList<ProductDocumentRequirement> matrix, IReadOnlyList<ClaimTypeDefinition> claimTypes)
+    {
+        var keys = new HashSet<string>(claimTypes.Select(type => type.Key), StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in matrix)
+        {
+            var missing = entry.ClaimTypeKeys?.FirstOrDefault(key => !keys.Contains(key));
+            if (missing is not null)
+            {
+                throw new ProductValidationException(
+                    "claimTypes",
+                    $"Claim type '{missing}' is still used by the document '{entry.DocumentKey}'. Remove it from that document first, or keep the claim type and switch it off.");
+            }
+        }
+    }
+
     internal static ProductDto ToDto(Product product) =>
         new(
             product.ProductId,
@@ -592,7 +695,12 @@ public sealed class ProductCommandService(
                     entry.Reason,
                     entry.IsRequired,
                     entry.RequiredAtStageKey,
-                    entry.IsRegulatoryOrWordingMandated))
+                    entry.IsRegulatoryOrWordingMandated,
+                    entry.ClaimTypeKeys ?? [],
+                    entry.ToSlot().Kind.ToString(),
+                    entry.ToSlot().AllowsMultiplePages,
+                    entry.ToSlot().MaxFiles,
+                    entry.ToSlot().AcceptedFormats))
                 .ToArray(),
             product.UpdatedByUserId,
             product.UpdatedAt,

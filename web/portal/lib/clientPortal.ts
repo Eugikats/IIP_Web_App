@@ -27,6 +27,13 @@ export type ClientPortalDocumentRequirement = {
   disagreesWithClassifier: boolean;
   /** True when the file could not be read and the customer can ask for another attempt. */
   canRetry?: boolean;
+  /** "Document" is paperwork; "Evidence" is photos that are kept exactly as taken. */
+  kind?: "Document" | "Evidence";
+  allowsMultipleFiles?: boolean;
+  maxFiles?: number;
+  acceptedFormats?: string[];
+  fileCount?: number;
+  files?: { documentId: string; fileName: string; status: string; uploadedAt: string }[];
 };
 
 export type ClientPortalTimelineStep = {

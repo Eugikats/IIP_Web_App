@@ -294,7 +294,26 @@ public static class ClientPortalEndpoints
 
         if (documentTypeKey is not null)
         {
-            await SupersedeActiveDocumentsAsync(documentRepository, auditRepository, caseId, scope, documentTypeKey, actor, correlationId, cancellationToken);
+            var existingDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+            var slot = (await checklistProvider.BuildChecklistAsync(claimCase, existingDocuments, cancellationToken))
+                .Slots.FirstOrDefault(candidate => string.Equals(candidate.Key, documentTypeKey, StringComparison.OrdinalIgnoreCase));
+            if (slot is null)
+            {
+                return Validation("documentTypeKey", "That is not one of the documents asked for on this claim.");
+            }
+
+            var slotError = SlotUploadError(slot, files, existingDocuments);
+            if (slotError is not null)
+            {
+                return Validation("files", slotError);
+            }
+
+            // A single-file slot is replaced by a new upload; a multi-file slot (pages of one
+            // document, or several photos) keeps what is already there and adds to it.
+            if (!slot.AllowsMultipleFiles)
+            {
+                await SupersedeActiveDocumentsAsync(documentRepository, auditRepository, caseId, scope, documentTypeKey, actor, correlationId, cancellationToken);
+            }
         }
 
         foreach (var file in files)
@@ -579,41 +598,51 @@ public static class ClientPortalEndpoints
     {
         var activeDocuments = documents.Where(document => !document.IsSuperseded).ToArray();
 
-        ClientPortalDocumentRequirement RowFor(string key, string label, string description, bool required)
+        ClientPortalDocumentRequirement RowFor(ResolvedDocumentSlot slot)
         {
-            var active = activeDocuments
-                .Where(document => string.Equals(document.DocumentTypeKey ?? document.DocumentType.ToString(), key, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(document => document.UploadedAt)
-                .FirstOrDefault();
-            var failed = active is not null && active.ProcessingStatus == DocumentProcessingStatus.Failed;
-            var isProcessed = active is not null
-                && active.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved
-                    or DocumentProcessingStatus.ReviewRequired or DocumentProcessingStatus.Reviewed;
-            var status = active is null ? "Not uploaded" : failed ? "Could not be read" : isProcessed ? "Received" : "Being checked";
+            var inSlot = activeDocuments
+                .Where(document => string.Equals(document.EffectiveKey, slot.Key, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(document => document.UploadedAt)
+                .ToArray();
+            var latest = inSlot.LastOrDefault();
+            var failed = inSlot.Any(document => document.ProcessingStatus == DocumentProcessingStatus.Failed);
+            var allProcessed = inSlot.Length > 0 && inSlot.All(document =>
+                document.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved
+                    or DocumentProcessingStatus.ReviewRequired or DocumentProcessingStatus.Reviewed);
+            var status = inSlot.Length == 0 ? "Not uploaded" : failed ? "Could not be read" : allProcessed ? "Received" : "Being checked";
             // A disagreement between the customer's choice and the classifier's independent guess
             // is flagged for staff, never shown to the customer as an error (outcome B).
-            var disagreesWithClassifier = active?.DisagreesWithClassifier ?? false;
+            var disagreesWithClassifier = inSlot.Any(document => document.DisagreesWithClassifier);
 
             return new ClientPortalDocumentRequirement(
-                key,
-                label,
-                description,
-                required,
-                active is not null,
-                active?.CountsTowardsCompleteness == true,
+                slot.Key,
+                slot.Label,
+                slot.Description,
+                slot.Required,
+                inSlot.Length > 0,
+                inSlot.Any(document => document.CountsTowardsCompleteness),
                 status,
-                active?.OriginalFileName,
-                active?.UploadedAt,
+                latest?.OriginalFileName,
+                latest?.UploadedAt,
                 disagreesWithClassifier,
-                CanRetry: failed);
+                CanRetry: failed,
+                Kind: slot.Kind.ToString(),
+                AllowsMultipleFiles: slot.AllowsMultipleFiles,
+                MaxFiles: slot.MaxFiles,
+                AcceptedFormats: slot.AcceptedFormats,
+                FileCount: inSlot.Length,
+                Files: inSlot
+                    .Select(document => new ClientPortalSlotFile(document.DocumentId, document.OriginalFileName, document.ProcessingStatus.ToString(), document.UploadedAt))
+                    .ToArray());
         }
 
-        var requiredDocuments = checklist.RequiredDocuments
-            .Select(documentType => RowFor(documentType.ToString(), Label(documentType), Description(documentType), required: true))
-            .Concat(checklist.CustomRequired.Select(custom => RowFor(custom.Key, custom.Label, custom.Description, required: true)))
-            .Concat(checklist.OptionalDocuments.Select(documentType => RowFor(documentType.ToString(), Label(documentType), Description(documentType), required: false)))
-            .Concat(checklist.CustomOptional.Select(custom => RowFor(custom.Key, custom.Label, custom.Description, required: false)))
-            .ToArray();
+        // The slots come from the claim's pinned product and claim type; a checklist built by code
+        // that predates slots falls back to the built-in rules with their default wording.
+        var slots = checklist.Slots.Count > 0
+            ? checklist.Slots
+            : new DocumentChecklistRuleSet(
+                checklist.RequiredDocuments, checklist.OptionalDocuments, checklist.CustomRequired, checklist.CustomOptional).Slots;
+        var requiredDocuments = slots.Select(RowFor).ToArray();
 
         var messages = communications
             .Where(communication => IsCustomerSafeMessage(communication.MessageBody))
@@ -854,6 +883,39 @@ public static class ClientPortalEndpoints
         };
     }
 
+    /// <summary>Why these files cannot go into this slot, in words for the customer, or null.</summary>
+    internal static string? SlotUploadError(ResolvedDocumentSlot slot, IReadOnlyList<IFormFile> files, IReadOnlyCollection<CaseDocument> existing)
+    {
+        foreach (var file in files)
+        {
+            if (!slot.Accepts(file.FileName))
+            {
+                return $"This one takes {FormatList(slot.AcceptedFormats)} files. {Path.GetFileName(file.FileName)} is a different kind of file.";
+            }
+        }
+
+        if (!slot.AllowsMultipleFiles)
+        {
+            return files.Count > 1 ? "Send one file for this document." : null;
+        }
+
+        var alreadyThere = existing.Count(document => !document.IsSuperseded
+            && document.ProcessingStatus != DocumentProcessingStatus.Failed
+            && string.Equals(document.EffectiveKey, slot.Key, StringComparison.OrdinalIgnoreCase));
+        if (alreadyThere + files.Count > slot.MaxFiles)
+        {
+            var room = Math.Max(0, slot.MaxFiles - alreadyThere);
+            return room == 0
+                ? $"You have already sent the most this can hold ({slot.MaxFiles}). Remove one to add another."
+                : $"You can add {room} more here (up to {slot.MaxFiles}).";
+        }
+
+        return null;
+    }
+
+    private static string FormatList(IReadOnlyList<string> formats) =>
+        string.Join(", ", formats.Select(format => format.ToUpperInvariant()));
+
     private static string? ValidateUploadFile(IFormFile file) =>
         DocumentUploadValidation.Validate(file.Length, file.FileName);
 
@@ -865,32 +927,6 @@ public static class ClientPortalEndpoints
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });
-
-    private static string Label(DocumentType documentType) =>
-        documentType switch
-        {
-            DocumentType.ClaimForm => "Completed claim form",
-            DocumentType.PoliceAbstract => "Police report",
-            DocumentType.PhotoEvidence => "Photos of the damage",
-            DocumentType.Invoice => "Repair estimate or invoice",
-            DocumentType.MedicalReport => "Medical report",
-            DocumentType.CustomerId => "Customer identification",
-            DocumentType.GarageEstimate => "Garage estimate",
-            _ => "Supporting document"
-        };
-
-    private static string Description(DocumentType documentType) =>
-        documentType switch
-        {
-            DocumentType.ClaimForm => "The completed claim form for this loss.",
-            DocumentType.PoliceAbstract => "Confirms the incident was reported to the police.",
-            DocumentType.PhotoEvidence => "Photos showing what happened.",
-            DocumentType.Invoice => "Shows the cost of repair, replacement or treatment.",
-            DocumentType.MedicalReport => "A doctor's account of the injury or treatment.",
-            DocumentType.CustomerId => "Confirms the claim is yours.",
-            DocumentType.GarageEstimate => "A garage's estimate to repair the vehicle.",
-            _ => "A document that supports your claim."
-        };
 }
 
 public sealed record ClientPortalClaimResponse(
@@ -940,7 +976,17 @@ public sealed record ClientPortalDocumentRequirement(
     string? FileName,
     DateTimeOffset? UploadedAt,
     bool DisagreesWithClassifier,
-    bool CanRetry = false);
+    bool CanRetry = false,
+    // What this slot holds and allows (build-loop item 4). Kind is "Document" (paperwork, can be
+    // scanned and turned into a PDF) or "Evidence" (kept exactly as taken).
+    string Kind = "Document",
+    bool AllowsMultipleFiles = false,
+    int MaxFiles = 1,
+    IReadOnlyList<string>? AcceptedFormats = null,
+    int FileCount = 0,
+    IReadOnlyList<ClientPortalSlotFile>? Files = null);
+
+public sealed record ClientPortalSlotFile(Guid DocumentId, string FileName, string Status, DateTimeOffset UploadedAt);
 
 public sealed record ClientPortalRemoveDocumentRequest(string? DocumentTypeKey);
 

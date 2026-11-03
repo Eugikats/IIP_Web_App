@@ -57,6 +57,10 @@ public class Program
                 services.AddScoped<InsuranceIntelligence.Application.Notifications.INotificationEmitter>(
                     serviceProvider => serviceProvider.GetRequiredService<InsuranceIntelligence.Application.Notifications.NotificationService>());
                 services.AddScoped<InsuranceIntelligence.Application.Cases.IMissingDocumentRequestService, InsuranceIntelligence.Application.Cases.MissingDocumentRequestService>();
+                // The follow-through timer builds the same checklist the customer page does (the
+                // pinned product's matrix for the claim type), not the built-in rules alone.
+                services.AddSingleton<InsuranceIntelligence.Domain.Documents.ICompletenessScoringService, InsuranceIntelligence.Application.Documents.DocumentCompletenessScorer>();
+                services.AddScoped<InsuranceIntelligence.Domain.Documents.IDocumentChecklistProvider, InsuranceIntelligence.Application.Documents.ProductAwareDocumentChecklistProvider>();
                 services.AddScoped<InsuranceIntelligence.Application.Cases.ICaseFollowThroughService, InsuranceIntelligence.Application.Cases.CaseFollowThroughService>();
                 if (options.QueueProvider.Equals("AzureServiceBus", StringComparison.OrdinalIgnoreCase))
                 {

@@ -21,6 +21,13 @@ export type DocumentMatrixEntry = {
   isRequired: boolean;
   requiredAtStageKey: string;
   isRegulatoryOrWordingMandated: boolean;
+  /** Claim type keys this applies to; empty means every claim type of the product. */
+  claimTypeKeys?: string[];
+  /** "Document" is paperwork (can be scanned to PDF); "Evidence" is kept exactly as taken. */
+  kind?: "Document" | "Evidence";
+  allowsMultiplePages?: boolean;
+  maxFiles?: number;
+  acceptedFormats?: string[];
 };
 
 export type ProductWordingFact = {

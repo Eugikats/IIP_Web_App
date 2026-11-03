@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Documents;
 
 namespace InsuranceIntelligence.Domain.Products;
 
@@ -244,13 +245,53 @@ public sealed record ClaimStageDefinition(
 /// days". UpToValueUgx null means the open-ended top tier ("and above").</summary>
 public sealed record ValueTierServiceStandard(decimal? UpToValueUgx, int WorkingDays);
 
+/// <summary>
+/// One document or evidence slot a product asks for (build-loop item 4). <c>ClaimTypeKeys</c>
+/// limits it to certain claim types; empty means it applies to every claim type of the product.
+/// <c>Kind</c> says whether it is paperwork (can be scanned and turned into a PDF) or evidence
+/// (kept exactly as taken). The remaining fields are the slot's limits. Every added field has a
+/// default so a requirement stored before they existed reads exactly as it always did.
+/// </summary>
 public sealed record ProductDocumentRequirement(
     string DocumentKey,
     string CustomerLabel,
     string Reason,
     bool IsRequired,
     string RequiredAtStageKey,
-    bool IsRegulatoryOrWordingMandated);
+    bool IsRegulatoryOrWordingMandated,
+    IReadOnlyList<string>? ClaimTypeKeys = null,
+    DocumentKind? Kind = null,
+    bool AllowsMultiplePages = false,
+    int MaxFiles = 0,
+    IReadOnlyList<string>? AcceptedFormats = null)
+{
+    public bool AppliesTo(string? claimTypeKey) =>
+        ClaimTypeKeys is not { Count: > 0 }
+        || (!string.IsNullOrWhiteSpace(claimTypeKey)
+            && ClaimTypeKeys.Any(key => string.Equals(key, claimTypeKey, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>The slot a customer sees: configured limits where given, the kind's defaults
+    /// otherwise (MaxFiles 0 means "use the default for this kind").</summary>
+    public ResolvedDocumentSlot ToSlot()
+    {
+        // No stored kind means "the default for this document": photos of the damage are evidence,
+        // everything else is paperwork. That keeps every requirement saved before kinds existed
+        // behaving sensibly without a migration.
+        var kind = Kind ?? (Enum.TryParse<DocumentType>(DocumentKey, ignoreCase: true, out var builtIn)
+            ? DocumentSlotDefaults.KindFor(builtIn)
+            : DocumentKind.Document);
+        var multiple = kind == DocumentKind.Evidence || AllowsMultiplePages;
+        var maxFiles = MaxFiles > 0 ? MaxFiles : DocumentSlotDefaults.MaxFilesFor(kind, multiple);
+        if (!multiple)
+        {
+            maxFiles = 1;
+        }
+
+        var formats = AcceptedFormats is { Count: > 0 } ? AcceptedFormats : DocumentSlotDefaults.FormatsFor(kind);
+        return new ResolvedDocumentSlot(
+            DocumentKey.Trim(), CustomerLabel, Reason, IsRequired, kind, multiple, maxFiles, formats, IsRegulatoryOrWordingMandated);
+    }
+}
 
 public sealed record ProductWordingFact(
     string Category,

@@ -45,9 +45,9 @@ public sealed class DocumentEndpointsTests
     }
 
     [Fact]
-    public void PreviewChecklist_ReturnsMotorRules_ForMotorProductLine()
+    public async Task PreviewChecklist_ReturnsMotorRules_ForMotorProductLine()
     {
-        var result = DocumentEndpoints.PreviewChecklist(
+        var result = await DocumentEndpoints.PreviewChecklist(
             "Motor",
             "Accident",
             null,
@@ -62,12 +62,12 @@ public sealed class DocumentEndpointsTests
     }
 
     [Fact]
-    public void PreviewChecklist_ReturnsMedicalRules_NotInjuryRules_ForMedicalProductLine()
+    public async Task PreviewChecklist_ReturnsMedicalRules_NotInjuryRules_ForMedicalProductLine()
     {
         // WO-15: the exact regression this work order fixes, before, this returned the
         // motor InjuryFatality checklist (PoliceAbstract/PhotoEvidence) because the claim type
         // text contained "medical".
-        var result = DocumentEndpoints.PreviewChecklist(
+        var result = await DocumentEndpoints.PreviewChecklist(
             "Medical",
             "Medical reimbursement",
             null,
@@ -86,7 +86,7 @@ public sealed class DocumentEndpointsTests
     [Fact]
     public async Task PreviewChecklist_RequiresProductLine()
     {
-        var result = DocumentEndpoints.PreviewChecklist(
+        var result = await DocumentEndpoints.PreviewChecklist(
             null,
             "Accident",
             null,

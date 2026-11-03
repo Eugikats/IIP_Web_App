@@ -170,10 +170,10 @@ test.describe("Item 2: known defects", () => {
     const { token } = await claimantLinkFor(request);
     await openClaimantPortal(page, token);
 
-    const policeRow = page.locator("li", { hasText: "Police report" }).first();
+    const policeRow = page.locator("li", { hasText: "Police abstract" }).first();
     await policeRow.locator('input[type="file"]').setInputFiles({
-      name: "police.txt",
-      mimeType: "text/plain",
+      name: "police.pdf",
+      mimeType: "application/pdf",
       buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract IIP-MOCK-FAIL-ONCE"),
     });
     await expect(policeRow.getByText("Could not be read")).toBeVisible();
@@ -273,5 +273,65 @@ test.describe("Item 3: claim types per product", () => {
     const other = (await (await request.get(`${API}/api/v1/claim-types?productLine=Motor`, { headers: scopeHeaders(newTenant()) })).json()) as { configured: boolean; claimTypes: unknown[] };
     expect(other.configured).toBe(false);
     expect(other.claimTypes).toEqual([]);
+  });
+});
+
+test.describe("Item 4: documents and evidence per claim type", () => {
+  test("an admin scopes a document to a claim type and marks photos as evidence; the API reports it", async ({ page, request }) => {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const created = await request.post(`${API}/api/v1/products`, {
+      headers,
+      data: { name: "Cargo Cover", productClass: `Cargo${Math.random().toString(36).slice(2, 6)}`, changeReason: "e2e" },
+    });
+    const { productId } = (await created.json()) as { productId: string };
+    const configured = await request.put(`${API}/api/v1/products/${productId}`, {
+      headers,
+      data: {
+        changeReason: "claim types",
+        claimTypes: [{ name: "Cargo loss", active: true }, { name: "Hull damage", active: true }],
+      },
+    });
+    expect(configured.ok(), await configured.text()).toBeTruthy();
+
+    await page.goto(`/app/admin/products/${productId}`);
+    await page.getByLabel("Show what a claim of this type is asked for").selectOption("hull-damage");
+    await page.getByRole("button", { name: "Add document" }).click();
+
+    const slot = page.getByTestId("document-slot-settings").first();
+    await expect(slot).toBeVisible();
+    await page.getByLabel("Document key").first().selectOption("PhotoEvidence");
+    await page.getByLabel("What the customer sees").first().fill("Photos of the hull");
+    await page.getByLabel("Why it is needed").first().fill("Shows the damage");
+    await expect(page.getByLabel("Kind of Photos of the hull")).toHaveValue("Document");
+    await page.getByLabel("Kind of Photos of the hull").selectOption("Evidence");
+    await page.getByLabel("File types for Photos of the hull").fill("jpg, png");
+    await page.getByLabel("Most files for Photos of the hull").fill("6");
+
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await page.getByLabel("Reason for audit trail").fill("Photos of the hull are evidence");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+
+    await expect.poll(async () => {
+      const saved = (await (await request.get(`${API}/api/v1/products/${productId}`, { headers })).json()) as {
+        documentMatrix: { documentKey: string; kind: string; claimTypeKeys: string[]; maxFiles: number; acceptedFormats: string[] }[];
+      };
+      const entry = saved.documentMatrix[0];
+      return entry && `${entry.documentKey}|${entry.kind}|${entry.claimTypeKeys.join(",")}|${entry.maxFiles}|${entry.acceptedFormats.join(",")}`;
+    }).toBe("PhotoEvidence|Evidence|hull-damage|6|jpg,png");
+  });
+
+  test("at 390px the customer sees photos as evidence, adds several, and the count is kept", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+    await expect(photos.getByText("These photos are kept exactly as you take them.")).toBeVisible();
+    const damage = fixture("damage_photo.jpg");
+    await photos.locator('input[type="file"]').setInputFiles([damage, { ...damage, name: "damage_photo_2.jpg" }]);
+    await expect(photos.getByText("2 of 10 sent")).toBeVisible();
+    await expect(photos.getByRole("button", { name: /Remove/ })).toBeVisible();
+    await photos.locator('input[type="file"]').setInputFiles([{ ...damage, name: "damage_photo_3.jpg" }]);
+    await expect(photos.getByText("3 of 10 sent")).toBeVisible();
   });
 });

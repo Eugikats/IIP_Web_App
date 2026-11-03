@@ -83,7 +83,8 @@ public static class DocumentMapper
             checklist.OptionalDocuments.Select(documentType => ToChecklistItem(documentType, checklist.ReceivedDocuments.Contains(documentType))).ToArray(),
             checklist.ReceivedDocuments.Select(documentType => ToChecklistItem(documentType, Received: true)).ToArray(),
             checklist.MissingRequiredDocuments.Select(missing => new ChecklistDocumentResponse(missing.Key, missing.Label, Received: false)).ToArray(),
-            ToDetails(checklist));
+            ToDetails(checklist),
+            ToSlotResponses(checklist));
 
     private static ChecklistDetailsResponse ToDetails(DocumentCompletenessChecklist checklist)
     {
@@ -97,6 +98,18 @@ public static class DocumentMapper
                 .SelectMany(check => check.Missing.Select(field => new ChecklistMissingDetail(check.DocumentLabel, field.Label)))
                 .ToArray(),
             checklist.UnreadDocuments.Select(check => check.DocumentLabel).ToArray());
+    }
+
+    private static IReadOnlyCollection<ChecklistSlotResponse> ToSlotResponses(DocumentCompletenessChecklist checklist)
+    {
+        var receivedKeys = checklist.ReceivedDocuments.Select(type => type.ToString())
+            .Concat(checklist.CustomReceived)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return checklist.Slots
+            .Select(slot => new ChecklistSlotResponse(
+                slot.Key, slot.Label, slot.Description, slot.Required, slot.Kind.ToString(),
+                slot.AllowsMultipleFiles, slot.MaxFiles, slot.AcceptedFormats, receivedKeys.Contains(slot.Key)))
+            .ToArray();
     }
 
     public static SafeAuditSummary ToAuditSummary(IReadOnlyCollection<AuditEvent> auditEvents)
