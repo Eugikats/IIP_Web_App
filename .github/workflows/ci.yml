@@ -23,19 +23,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Config injection guard
+        run: bash scripts/guard/check-config-injection.sh .
+
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
 
       - name: Restore
-        run: dotnet restore InsuranceIntelligence.sln
+        run: |
+          bash scripts/guard/check-config-injection.sh .
+          dotnet restore InsuranceIntelligence.sln
 
       - name: Build
-        run: dotnet build InsuranceIntelligence.sln --no-restore -c Release
+        run: |
+          bash scripts/guard/check-config-injection.sh .
+          dotnet build InsuranceIntelligence.sln --no-restore -c Release
 
       - name: Test
-        run: dotnet test InsuranceIntelligence.sln --no-build -c Release --verbosity normal
+        run: |
+          bash scripts/guard/check-config-injection.sh .
+          dotnet test InsuranceIntelligence.sln --no-build -c Release --verbosity normal
 
       - name: Vulnerable package scan (report-only)
         continue-on-error: true
@@ -50,6 +59,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Config injection guard
+        run: bash ../../scripts/guard/check-config-injection.sh ../..
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -63,26 +75,38 @@ jobs:
           cache-dependency-path: web/portal/pnpm-lock.yaml
 
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: |
+          bash ../../scripts/guard/check-config-injection.sh ../..
+          pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm lint
+        run: |
+          bash ../../scripts/guard/check-config-injection.sh ../..
+          pnpm lint
 
       - name: Runtime-data / provider / role / release-gate checks
-        run: pnpm test
+        run: |
+          bash ../../scripts/guard/check-config-injection.sh ../..
+          pnpm test
 
       - name: Build
-        run: pnpm build
+        run: |
+          bash ../../scripts/guard/check-config-injection.sh ../..
+          pnpm build
         env:
           NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:5167
           NEXT_PUBLIC_AUTH_MODE: Development
           NEXT_PUBLIC_RUNTIME_PROFILE: Development
 
       - name: Install release-gate browser
-        run: pnpm exec playwright install --with-deps chromium
+        run: |
+          bash ../../scripts/guard/check-config-injection.sh ../..
+          pnpm exec playwright install --with-deps chromium
 
       - name: Release 1 browser gates
-        run: pnpm test:release-gates
+        run: |
+          bash ../../scripts/guard/check-config-injection.sh ../..
+          pnpm test:release-gates
 
   infra:
     name: Infra (bicep compile)
@@ -90,11 +114,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Config injection guard
+        run: bash scripts/guard/check-config-injection.sh .
+
       - name: Compile Bicep templates
         run: |
+          bash scripts/guard/check-config-injection.sh .
           az bicep install
+          bash scripts/guard/check-config-injection.sh .
           az bicep build --file infra/bicep/phase3-dev-foundation.bicep
+          bash scripts/guard/check-config-injection.sh .
           az bicep build --file infra/bicep/phase6-functions-runtime.bicep
+          bash scripts/guard/check-config-injection.sh .
           az bicep build --file infra/mainTemplate.bicep
+          bash scripts/guard/check-config-injection.sh .
           az bicep build --file infra/modules/compute/functionapp.bicep
+          bash scripts/guard/check-config-injection.sh .
           az bicep build --file infra/modules/messaging/servicebus.bicep

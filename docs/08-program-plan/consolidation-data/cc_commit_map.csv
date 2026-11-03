@@ -1,0 +1,53 @@
+sha|subject|files|overlap_with_live_demo|overlap_with_v2_wip|touches_migrations
+27bdd200|chore(build-loop): set up build plan|6|0|2|0
+7e7fd5ec|feat(item-1): deterministic Mock providers for local runs|33|2|4|0
+7a3c9c2a|feat(item-2): fix known defects|33|13|10|0
+34e8b6db|feat(item-3): claim types per product|36|12|4|0
+12fe1c47|feat(item-4): required documents and evidence per claim type|35|12|5|0
+e0cf576c|feat(item-5): claim fields per claim type|43|14|5|0
+732f01b8|feat(item-6): operating settings per workspace (IRA rule, reminder and SLA timings, seat l|40|10|7|3
+96995fa6|feat(item-7): read a policy wording into proposed setup for a person to confirm|36|10|5|3
+d2541d2e|feat(item-8): preview as customer, sharing the claimant form and documents components|23|3|1|0
+c4eb30a0|feat(item-9): privacy notice and consent before the first upload, with withdrawal|43|5|4|0
+14896688|feat(item-10): Take photo and Choose file on every document slot|25|0|0|0
+f6f4bad1|feat(item-11): evidence kept byte for byte with SHA-256, separate previews, one client com|75|6|8|0
+72636187|feat(item-12): pictures of paperwork become one ordered PDF per slot, originals kept along|153|9|10|3
+db5cd078|feat(item-13): in-browser camera document scanner with corner adjustment, straightening, c|12|2|0|0
+d983ffd8|feat(item-14): recognise every file against the workspace catalogue, name it, file or revi|25|6|7|0
+9ca9462a|feat(item-15): values read from documents are proposed for the claim's questions, decided |31|8|8|3
+75fa0dd5|docs(build-loop): add the final step, moving to the organisation repository|5|0|1|0
+61250494|feat(item-16): authenticity checks on pictures with advisory findings and a human disposit|24|8|7|3
+6a92260f|feat(item-17): durable background pipeline for document processing and claim review, with |38|11|8|3
+0505d44c|feat(item-18): review score and recommendation for each claim, explained, advisory, behind|26|6|7|3
+157e738f|feat(item-19): customer wording for every claim status and a timeline drawn from the produ|28|12|6|0
+dd4ba28c|feat(item-20): one audited Change status action along defined moves, with a reason and the|17|4|3|0
+3df4e4d3|feat(item-21): tell the customer when their claim's status changes, in the insurer's words|28|4|2|0
+9ce9d952|feat(item-22): staff can send the claimant a secure link to their claim, respecting consen|14|3|3|0
+5dd03741|feat(item-23): resumable uploads with progress, retry and backoff, kept across reloads, wi|25|7|4|3
+13ca41fb|feat(item-24): claims pack zip with a summary PDF, renamed documents, untouched evidence a|14|3|3|0
+7a33134c|chore: write the dash in test assertions as an escape so the repository holds no literal e|5|0|0|0
+e9b7dbfd|feat(item-25): claims pack emailed to named recipients by hand or by a chosen trigger, att|38|9|7|3
+d7f8735f|feat(item-26): returning customers are offered the details and documents they already gave|27|8|7|0
+ba74cb73|feat(item-27): several workspaces share one WhatsApp channel, each with its own number, cr|60|30|8|0
+9f39c5c0|feat(item-28): mail is collected for every insurer, including over IMAP for those without |30|6|2|0
+fe700cfe|feat(item-29): each insurer's customers arrive on their own portal, with their own name, a|39|11|4|3
+239d290d|feat(item-30): self-serve sign-up, email and password sign-in, staff invitations|41|10|7|3
+8700361f|feat(item-31): every AI call, document and byte stored is metered per workspace|33|10|4|3
+c8ac55da|feat(item-32): plans with enforced allowances, upgrade prompts, mobile money and card paym|50|10|9|3
+460198c5|feat(item-33): IIP Academy for learners outside any workspace|41|10|7|3
+d3935445|feat(item-34): retention periods, legal holds and erasure of one person's data|37|6|7|3
+e55cac03|feat(item-35): indexed lookups for claims, customers and policies|29|7|6|3
+6dd8d886|feat(item-36): design direction across the portal, phone-first rail, no-permission states,|39|7|17|0
+ae4ea6fc|feat(item-37): final pass, two-company journey, billing no-permission state, build loop su|6|1|1|0
+2f089b6d|docs(build-loop): item 38 blocked on the repository address, owner command recorded|2|0|0|0
+68bf40f9|feat(academy): browse by category, then course, then its steps|6|2|0|0
+6775941b|fix(portal): Microsoft sign-in returns to the address the person started on|1|1|1|0
+5b1bac42|fix(portal): the sign-in page finishes a Microsoft sign-in on return instead of staying pu|1|1|1|0
+a792fda1|docs(build-loop): item 38 done, build/claims-core pushed to the organisation repository|6|1|2|0
+0344841e|docs(build-loop): record clean verification rerun|3|0|0|0
+a6222f68|fix(security): remove obfuscated PostCSS payload|1|0|0|0
+f901ab27|docs(build-loop): record branch cleanup verification|1|0|0|0
+649b733e|docs(build-loop): record deployed access check|1|0|0|0
+aa640229|docs(build-loop): record authentication blocker for push|3|0|0|0
+951a3d91|docs(build-loop): correct final item statuses|3|0|0|0
+39574851|docs(build-loop): fraud use cases, policy wording test prompt, research notes and reports|7|0|0|0

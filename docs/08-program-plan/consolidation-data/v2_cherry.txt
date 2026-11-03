@@ -1,0 +1,13 @@
+- e8b2b42692fb5245be5634573a27cc49d53f9e7b fix(portal): sign-in says why it failed and recovers from an interrupted earlier sign-in
++ 76bf49bc78a78b0310fff9565e861f664317408c chore(portal): remove the demo banner and the bottom status bar
++ cfb3bb289871ff437d986af28f0aa71c117df727 feat(acquisition): a new WhatsApp contact is in acquisition from the first message under the name
++ 4475ae29820ae19695c1b943df23275fa6705c72 docs: proposal for a multi-insurer marketplace behind one shared WhatsApp number
++ da258523b7437e7f7925a666ab4b3ff2325ae377 docs: plan for the Old Mutual and Britam meetings: outreach, onboarding, WhatsApp number flow, te
++ 9ad47c9a0a8359b948712232b8a126d9c9db0bb3 docs: add demo scenarios, bank first-touch flow and market research to the insurer meeting plan
++ 6e24a74d2fb890799039f4392a475cd557ba22c1 docs: bancassurance as an agent, event triggers and approved rules, and the full ordered build
++ 406081e6bdd9ff5b56b0d9db84d692ef48d11a49 docs: ten questions a bank's technical team will ask, with what we can truthfully say and what to
+- cc8240ea6f8490e460ba0eb8e67d3e3d553c46f3 chore(deploy): refuse to deploy a portal that still contains the demo-data banner or status bar
++ 44d6810be955d2a0f09b75e4db22c95ea1bdcb42 wip(v2): social channels, Inbox, channel identity, follow-ups, notification routing, languages, e
++ 2d9a3458a7a644c64dd64a0105e1ef1711cf0f5b docs(v2): plans, audits, research notes and build-loop prompts from the v2 working tree
++ 14bbf5426bdd9895260eec20bc14b7866de63571 docs(academy): course authoring material, flagship content and catalog from the v2 working tree
++ ebe5ec7cd5f5cbb8923fdc5a83decead9161f682 chore(fixtures): synthetic claim packs and reference images from the v2 working tree
