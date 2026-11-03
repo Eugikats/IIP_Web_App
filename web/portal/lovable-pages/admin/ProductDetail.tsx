@@ -242,6 +242,14 @@ export default function ProductDetail() {
         title={product ? product.name : "Product"}
         sub="A product's claim process, document matrix and IRA approval. Every save is a new version; nothing is overwritten."
         breadcrumb={[{ label: "Products", href: "/app/admin/products" }, { label: product?.name ?? "Product" }]}
+        action={product ? (
+          <a
+            href={`/app/admin/products/${productId}/preview`}
+            className="dls-focus-outline inline-flex min-h-9 items-center rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-1.5 text-[13px] font-semibold text-dls-text-secondary hover:bg-dls-bg-page"
+          >
+            Preview as customer
+          </a>
+        ) : undefined}
       />
 
       {loading && <GlassCard><LoadingSkeleton rows={6} /></GlassCard>}

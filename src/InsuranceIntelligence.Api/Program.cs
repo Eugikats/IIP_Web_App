@@ -1415,6 +1415,9 @@ app.MapPost("/api/v1/claim-types/suggest", InsuranceIntelligence.Api.Products.Cl
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim, Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ManageProducts));
 app.MapPost("/api/v1/products/{productId:guid}/claim-types/import-existing", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.ImportExisting)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+// Preview as customer (build-loop item 8): read only, nothing stored or sent.
+app.MapGet("/api/v1/products/{productId:guid}/customer-preview", InsuranceIntelligence.Api.Products.ProductPreviewEndpoints.CustomerPreview)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 // Policy wording to drafted setup (build-loop item 7): the model proposes, a person accepts, edits or
 // rejects each item, and applying makes a draft version of the product (publishing still needs a
 // second approver).

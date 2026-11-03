@@ -126,6 +126,16 @@ public sealed class ClaimFieldService(
         return (product, claimCase.ClaimTypeKey ?? product?.FindClaimType(claimCase.ClaimType)?.Key);
     }
 
+    /// <summary>The questions a customer would be asked for a product (draft or published) and
+    /// claim type, with no answers. Used by "Preview as customer"; reads nothing from storage.</summary>
+    public static ClaimFieldFormDto FormFor(Product product, string? claimTypeKey) =>
+        ToForm(
+            claimTypeKey,
+            product.ClaimFields.Count > 0,
+            ClaimFieldResolver.ForProduct(product, product.ProductClass, claimTypeKey),
+            new Dictionary<string, string>(),
+            customerAudience: true);
+
     private static ClaimFieldFormDto ToForm(
         string? claimTypeKey,
         bool configured,

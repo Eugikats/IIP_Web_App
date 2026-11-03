@@ -575,3 +575,93 @@ test.describe("Item 7: policy wording to drafted configuration", () => {
     expect((await request.post(`${API}/api/v1/products/${productId}/wording-drafts/${draftId}/apply`, { headers: other, data: {} })).status()).toBe(404);
   });
 });
+
+test.describe("Item 8: preview as customer", () => {
+  async function productWithClaimTypes(request: APIRequestContext) {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const created = await request.post(`${API}/api/v1/products`, {
+      headers,
+      data: { name: "Preview Cover", productClass: `Preview${Math.random().toString(36).slice(2, 6)}`, changeReason: "e2e" },
+    });
+    const { productId } = (await created.json()) as { productId: string };
+    const stage = "acknowledgement_and_document_request";
+    const updated = await request.put(`${API}/api/v1/products/${productId}`, {
+      headers,
+      data: {
+        claimTypes: [
+          { name: "Accident", description: "Collision", active: true, sortOrder: 1 },
+          { name: "Theft", description: "Stolen", active: true, sortOrder: 2 },
+        ],
+        documentMatrix: [
+          { documentKey: "ClaimForm", customerLabel: "Signed claim form", reason: "needed", isRequired: true, requiredAtStageKey: stage, isRegulatoryOrWordingMandated: false },
+          { documentKey: "PoliceAbstract", customerLabel: "Police report", reason: "needed", isRequired: true, requiredAtStageKey: stage, isRegulatoryOrWordingMandated: false, claimTypeKeys: ["theft"] },
+          { documentKey: "PhotoEvidence", customerLabel: "Photos of the damage", reason: "needed", isRequired: true, requiredAtStageKey: stage, isRegulatoryOrWordingMandated: false, claimTypeKeys: ["accident"], kind: "Evidence" },
+        ],
+        claimFields: [
+          { label: "Where did it happen", type: "Text", required: true, sortOrder: 1, customerVisible: true, claimTypeKeys: [] },
+          { label: "Was the car driveable", type: "YesNo", required: false, sortOrder: 2, customerVisible: true, claimTypeKeys: ["accident"] },
+        ],
+        changeReason: "e2e",
+      },
+    });
+    expect(updated.ok(), await updated.text()).toBeTruthy();
+    return { productId, headers };
+  }
+
+  test("an admin previews a draft product as a customer for each claim type and nothing is saved", async ({ page, request }) => {
+    const { productId, headers } = await productWithClaimTypes(request);
+    const casesBefore = ((await (await request.get(`${API}/api/v1/cases`, { headers })).json()) as unknown[]).length;
+
+    await page.goto(`/app/admin/products/${productId}`);
+    await page.getByRole("link", { name: "Preview as customer" }).click();
+
+    const preview = page.getByTestId("customer-preview");
+    await expect(preview.getByText("Draft, customers do not see this yet")).toBeVisible();
+    const frame = preview.getByTestId("customer-preview-frame");
+    await expect(frame).toHaveAttribute("data-width", "phone");
+    const box = await frame.boundingBox();
+    expect(box!.width).toBeLessThanOrEqual(390);
+
+    // Step 1: the questions this claim type asks, and a submit that cannot be pressed.
+    await expect(frame.getByText("Where did it happen")).toBeVisible();
+    await expect(frame.getByText("Was the car driveable")).toBeVisible();
+    await expect(frame.getByRole("button", { name: /Submit claim/ })).toBeDisabled();
+
+    // Step 2: the documents for Accident, then for Theft.
+    await preview.getByRole("button", { name: "2. Send documents" }).click();
+    await expect(frame.getByText("Photos of the damage")).toBeVisible();
+    await expect(frame.getByText("These photos are kept exactly as you take them.")).toBeVisible();
+    await expect(frame.getByText("Police report")).toHaveCount(0);
+    await expect(frame.getByText("Preview only. Nothing can be sent from here.")).toBeVisible();
+
+    await preview.getByLabel("Claim type").selectOption("Theft");
+    await expect(frame.getByText("Police report")).toBeVisible();
+    await expect(frame.getByText("Photos of the damage")).toHaveCount(0);
+
+    await preview.getByRole("button", { name: "1. Start the claim" }).click();
+    await expect(frame.getByText("Was the car driveable")).toHaveCount(0);
+
+    await preview.getByRole("button", { name: "Wide" }).click();
+    await expect(frame).toHaveAttribute("data-width", "wide");
+
+    const casesAfter = ((await (await request.get(`${API}/api/v1/cases`, { headers })).json()) as unknown[]).length;
+    expect(casesAfter).toBe(casesBefore);
+  });
+
+  test("the preview has no horizontal scroll at 390px", async ({ page, request }) => {
+    const { productId } = await productWithClaimTypes(request);
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await page.goto(`/app/admin/products/${productId}/preview`);
+    await expect(page.getByTestId("customer-preview-frame")).toBeVisible();
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("another tenant cannot preview the product", async ({ request }) => {
+    const { productId } = await productWithClaimTypes(request);
+    const other = await request.get(`${API}/api/v1/products/${productId}/customer-preview`, { headers: scopeHeaders(newTenant()) });
+    expect(other.status()).toBe(404);
+  });
+});

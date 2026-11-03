@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Circle, Loader2, LogOut, MessageSquare, Paperclip, RefreshCw, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, Loader2, LogOut, MessageSquare, ShieldCheck } from "lucide-react";
 import iipLogo from "@/assets/iip-logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -19,8 +19,7 @@ import {
   uploadClaimDocuments,
 } from "@/lib/clientPortal";
 import { downscalePhotoIfNeeded } from "@/lib/photoDownscale";
-
-const SOMETHING_ELSE_KEY = "__something_else__";
+import { ClaimantDocumentsCard, SOMETHING_ELSE_KEY } from "@/components/iip/ClaimantDocumentsCard";
 
 // "LastExpenseClaim" is a stored name; a person reads "Last expense claim".
 function plainClaimType(value: string): string {
@@ -287,121 +286,17 @@ export default function ClaimAccessStatus() {
               </div>
             </div>
 
-            <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6">
-              <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">Documents</div>
-              <p className="mt-1 text-xs leading-5 text-dls-text-muted">Send each document below. You can replace or remove anything you send.</p>
-              {requiredTotal > 0 && claim.status !== "Settled" && claim.status !== "Closed" ? (
-                <p className={`mt-3 rounded-dls-control px-3 py-2 text-xs font-semibold leading-5 ${stillNeeded.length === 0 ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-warning-tint text-dls-warning-text"}`}>
-                  {stillNeeded.length === 0 ? "Everything we asked for has been sent. Our team will let you know if they need anything else." : `Still needed: ${stillNeeded.join(", ")}.`}
-                </p>
-              ) : null}
-              <ul className="mt-3 divide-y divide-dls-border-subtle">
-                {claim.requiredDocuments.map((doc) => (
-                  <li key={doc.documentTypeKey} className="py-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="flex items-start gap-2">
-                        <Paperclip className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dls-text-muted" aria-hidden="true" />
-                        <div>
-                          <div className="text-sm font-semibold text-dls-text-primary">
-                            {doc.label}
-                            {!doc.required && <span className="ml-1.5 text-xs font-normal text-dls-text-muted">(optional)</span>}
-                          </div>
-                          <div className="text-xs leading-5 text-dls-text-muted">{doc.description}</div>
-                        </div>
-                      </div>
-                      <span className={`shrink-0 text-xs font-semibold ${doc.canRetry ? "text-dls-danger-text" : doc.uploaded ? "text-dls-success-text" : "text-dls-warning-text"}`}>{doc.status}</span>
-                    </div>
-
-                    {doc.uploaded && (
-                      // The classifier disagreeing with the customer's own choice
-                      // (doc.disagreesWithClassifier) is for staff to see, never shown to the
-                      // customer as an error (claim intake build prompt outcome B).
-                      <div className="mt-2 ml-5.5 text-xs text-dls-text-muted">
-                        <span className="truncate">{doc.fileName}{doc.uploadedAt ? ` · ${formatDate(doc.uploadedAt)}` : ""}</span>
-                      </div>
-                    )}
-
-                    {doc.kind === "Evidence" && (
-                      <div className="mt-1 ml-5.5 text-[11px] leading-4 text-dls-text-muted">
-                        These photos are kept exactly as you take them.
-                      </div>
-                    )}
-                    {doc.allowsMultipleFiles && (doc.fileCount ?? 0) > 0 && (
-                      <div className="mt-1 ml-5.5 text-[11px] leading-4 text-dls-text-muted">
-                        {doc.fileCount} of {doc.maxFiles} sent
-                      </div>
-                    )}
-
-                    <div className="mt-2 ml-5.5 flex items-center gap-2">
-                      <label className="dls-focus-outline focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-dls-primary inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
-                        {busyKey === doc.documentTypeKey ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                        ) : doc.uploaded && !doc.allowsMultipleFiles ? (
-                          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-                        ) : (
-                          <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
-                        )}
-                        {doc.allowsMultipleFiles ? (doc.uploaded ? "Add more" : "Upload") : doc.uploaded ? "Replace" : "Upload"}
-                        <input
-                          type="file"
-                          accept={doc.acceptedFormats?.length ? doc.acceptedFormats.map((format) => `.${format}`).join(",") : "image/*,application/pdf"}
-                          multiple={doc.allowsMultipleFiles === true}
-                          className="sr-only"
-                          disabled={busyKey !== null || (doc.allowsMultipleFiles === true && (doc.fileCount ?? 0) >= (doc.maxFiles ?? 1))}
-                          onChange={(event) => onUpload(event, doc.documentTypeKey, doc.label)}
-                        />
-                      </label>
-                      {doc.canRetry && (
-                        <Button
-                          variant="secondary"
-                          icon={<RefreshCw aria-hidden="true" />}
-                          onClick={() => onRetry(doc.documentTypeKey, doc.label)}
-                          disabled={busyKey !== null}
-                        >
-                          Try again
-                        </Button>
-                      )}
-                      {doc.uploaded && (
-                        <Button
-                          variant="ghost"
-                          icon={<Trash2 aria-hidden="true" />}
-                          onClick={() => onRemove(doc.documentTypeKey, doc.label)}
-                          disabled={busyKey !== null}
-                        >
-                          Remove
-                        </Button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-                <li className="py-3">
-                  <div className="flex items-start gap-2">
-                    <Paperclip className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dls-text-muted" aria-hidden="true" />
-                    <div>
-                      <div className="text-sm font-semibold text-dls-text-primary">Something else</div>
-                      <div className="text-xs leading-5 text-dls-text-muted">Anything else that supports your claim.</div>
-                    </div>
-                  </div>
-                  <div className="mt-2 ml-5.5">
-                    <label className="dls-focus-outline focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-dls-primary inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary hover:bg-dls-bg-page">
-                      {busyKey === SOMETHING_ELSE_KEY ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />}
-                      Upload
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*,application/pdf"
-                        className="sr-only"
-                        disabled={busyKey !== null}
-                        onChange={(event) => onUpload(event, SOMETHING_ELSE_KEY, "Document")}
-                      />
-                    </label>
-                  </div>
-                </li>
-              </ul>
-              <p role={uploadFailed ? "alert" : "status"} aria-live="polite" className={`mt-3 text-xs leading-5 ${uploadNotice ? (uploadFailed ? "font-semibold text-dls-danger-text" : "text-dls-text-secondary") : "sr-only"}`}>
-                {uploadNotice ?? ""}
-              </p>
-            </div>
+            <ClaimantDocumentsCard
+              documents={claim.requiredDocuments}
+              busyKey={busyKey}
+              notice={uploadNotice}
+              noticeFailed={uploadFailed}
+              requiredSummary={requiredTotal > 0 && claim.status !== "Settled" && claim.status !== "Closed" ? (stillNeeded.length === 0 ? "Everything we asked for has been sent. Our team will let you know if they need anything else." : `Still needed: ${stillNeeded.join(", ")}.`) : null}
+              requiredComplete={requiredTotal > 0 && stillNeeded.length === 0}
+              onUpload={onUpload}
+              onRemove={onRemove}
+              onRetry={onRetry}
+            />
 
             {claim.messages.length > 0 && (
               <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6">
