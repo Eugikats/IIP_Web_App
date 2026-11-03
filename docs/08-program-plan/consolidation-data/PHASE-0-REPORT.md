@@ -1,6 +1,6 @@
 # Phase 0 report: prepare the live baseline
 
-Date: 2026-11-03. Status: IN PROGRESS. Main has not been created or advanced.
+Date: 2026-11-03. Baseline publication status: COMPLETE. The `main` branch was created from this phase and currently remains at `80155dc` (`fix(portal): clarify unavailable claim recovery state`). It has not advanced to B1 because the full section 8 gate is still open.
 
 ## Source and authorization
 
@@ -70,6 +70,10 @@ Backend TRX evidence is in `C:/work/iip-consolidation-evidence/backend-baseline`
 - The claims-core journey and Item 37 suite are not present in the live baseline. They arrive in Phase C and have not been claimed as run here.
 - Baseline tag, phase push, main creation and remote verification.
 - Final phase report update with complete results and any additional fixes.
+
+## Current execution addendum
+
+The baseline branch has been pushed as `main` at `80155dc`. The B1 branch is being validated without moving `main`. Since the initial phase report, the Academy browser matrix passed 30 of 30 checks across phone, desktop and tablet; the workspace browser matrix passed 140 of 140 checks across desktop and tablet. The broad visual suite previously reported 95 passed, 54 failed and 49 skipped, and the deployed DOM suite reported 1 passed, 2 failed and 3 skipped. Those two broad checks remain unresolved and continue to block advancing `main`.
 
 ## Decisions and deviations
 

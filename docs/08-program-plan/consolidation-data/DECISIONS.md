@@ -45,3 +45,11 @@ The live baseline has 735 Domain and 1,741 API tests. It does not contain `playw
 ### D-013 Push reviewable phase work without moving main
 
 The phase branch and baseline tag may be pushed while local browser checks are still running, so the unchanged CI jobs can also validate the phase. The phase report remains explicitly IN PROGRESS. Main is not created or advanced until the applicable phase gate is green. This follows the handover's distinction between pushing a phase branch and advancing main.
+
+### D-014 Correct workspace browser checks exposed by the full matrix
+
+The Nile Life renewal test selected the insurer's organisation in the browser, then queried the default tenant and expected the bank-only events tab. It now verifies that the tab stays hidden for an insurer and reads policy-date event provenance from the API using Nile Life's own tenant and workspace. This preserves both the tenant-scope assertion and the insurer/bank UI boundary. A tablet sidebar test was also blocked by Next.js's development badge covering the profile menu; `devIndicators: false` removes that developer-only badge while leaving Next's error overlay enabled. Evidence: the focused desktop renewal suite passed 2/2; the focused tablet renewal/demo-customer scenarios passed 3/3; the tablet sidebar test passed 1/1 after disabling the badge. Alternative: expose a bank-only tab to insurers, query another tenant's events, or force the click through the overlay; all would misrepresent the intended product behavior or test environment.
+
+### D-015 Keep main frozen while stacking remaining consolidation phases
+
+The section 8 global gate is still red, so `main` stays at `80155dc`. To continue the owner's request without publishing a phase that has not passed its required gate, B2 will be based on the reviewable B1 phase branch, and B3 and C will stack in order above it. The combined branch will be eligible for one fast-forward to `main` only after the complete section 8 gate passes. This changes the phase-branch ancestry from the plan's per-phase `main` base but does not relax any test, migration, security, or release gate. The alternative is to stop all merge work until unrelated visual/deployed checks are repaired, which would prevent the requested remaining phases from progressing while `main` remains equally protected.
