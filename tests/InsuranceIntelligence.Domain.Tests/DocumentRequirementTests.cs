@@ -166,6 +166,6 @@ public sealed class DocumentRequirementTests
 
         Assert.Equal(new[] { "ClaimForm", "PoliceAbstract", "PhotoEvidence", "Invoice", "GarageEstimate", "CustomerId" }, slots.Select(slot => slot.Key));
         Assert.Equal(DocumentKind.Evidence, slots.Single(slot => slot.Key == "PhotoEvidence").Kind);
-        Assert.Equal("Police report", slots.Single(slot => slot.Key == "PoliceAbstract").Label);
+        Assert.Equal("Police abstract", slots.Single(slot => slot.Key == "PoliceAbstract").Label);
     }
 }

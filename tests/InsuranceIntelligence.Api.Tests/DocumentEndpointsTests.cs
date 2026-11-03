@@ -144,7 +144,7 @@ public sealed class DocumentEndpointsTests
     }
 
     [Fact]
-    public async Task UploadDocuments_WhenProcessingIsNotConfigured_PreservesUploadedDocumentAndReportsCapability()
+    public async Task UploadDocuments_WhenProcessingIsNotConfigured_StoresFailedRetryableDocumentAndReportsCapability()
     {
         var dependencies = CreateDependencies(processingProvider: new MissingProcessingProvider());
         var claimCase = await CreateCaseAsync(dependencies);
@@ -164,12 +164,12 @@ public sealed class DocumentEndpointsTests
 
         var (statusCode, response) = await ExecuteAsync<DocumentUploadResponse>(result);
 
-        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, statusCode);
         Assert.Equal("DocumentProcessing", response!.ProcessingCapability);
         var document = Assert.Single(response.Documents);
-        Assert.Equal("Uploaded", document.ProcessingStatus);
-        Assert.Contains(response.Checklist.ReceivedDocuments, requirement => requirement.DocumentType == "ClaimForm");
-        Assert.DoesNotContain(response.Checklist.MissingRequiredDocuments, requirement => requirement.DocumentType == "ClaimForm");
+        Assert.Equal("Failed", document.ProcessingStatus);
+        Assert.DoesNotContain(response.Checklist.ReceivedDocuments, requirement => requirement.DocumentType == "ClaimForm");
+        Assert.Contains(response.Checklist.MissingRequiredDocuments, requirement => requirement.DocumentType == "ClaimForm");
         Assert.Empty(document.Fields);
         Assert.Null(document.ProcessedAt);
         var persisted = await dependencies.DocumentRepository.ListForCaseAsync(claimCase.CaseId, claimCase.Scope);

@@ -99,7 +99,7 @@ public static class DocumentProcessingRunner
                             : "This file could not be read. It can be retried.",
                         "error"))
                     .ToArray(),
-                ProcessedAt = DateTimeOffset.UtcNow
+                ProcessedAt = null
             };
             await documentRepository.SaveAsync(failed, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentProcessingFailed(failed, correlationId), cancellationToken);

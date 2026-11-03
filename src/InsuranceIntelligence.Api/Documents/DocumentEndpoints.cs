@@ -158,22 +158,18 @@ public static class DocumentEndpoints
             correlationId,
             writeWhenUnchanged: true,
             cancellationToken);
-        if (notConfiguredFailure is not null)
-        {
-            // The files are stored and marked Failed (retryable), but an honest "not configured"
-            // answer is what the caller needs: the structured 503 names the missing capability.
-            throw notConfiguredFailure;
-        }
-
         var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         var checklist = await checklistProvider.BuildChecklistAsync(updatedCase, allDocuments, cancellationToken);
         var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
 
-        return Results.Ok(new DocumentUploadResponse(
+        var response = new DocumentUploadResponse(
             documents.Select(document => DocumentMapper.ToResponse(document, confidenceThreshold)).ToArray(),
             DocumentMapper.ToResponse(checklist),
             DocumentMapper.ToAuditSummary(auditEvents),
-            notConfiguredFailure is not null ? "DocumentProcessing" : null));
+            notConfiguredFailure is not null ? "DocumentProcessing" : null);
+        return notConfiguredFailure is null
+            ? Results.Ok(response)
+            : Results.Json(response, statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 
     public static async Task<IResult> ListDocuments(

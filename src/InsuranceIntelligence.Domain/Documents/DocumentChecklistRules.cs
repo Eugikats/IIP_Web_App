@@ -12,7 +12,7 @@ public static class BuiltInDocumentWording
         documentType switch
         {
             DocumentType.ClaimForm => "Completed claim form",
-            DocumentType.PoliceAbstract => "Police report",
+            DocumentType.PoliceAbstract => "Police abstract",
             DocumentType.PhotoEvidence => "Photos of the damage",
             DocumentType.Invoice => "Repair estimate or invoice",
             DocumentType.MedicalReport => "Medical report",

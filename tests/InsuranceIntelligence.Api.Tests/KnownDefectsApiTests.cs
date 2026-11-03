@@ -120,7 +120,7 @@ public sealed class KnownDefectsApiTests(MockedApiFactory factory) : IClassFixtu
         var upload = await brokenStaff.PostAsync($"/api/v1/cases/{info.CaseId}/documents", form);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, upload.StatusCode);
-        Assert.Equal("DocumentProcessing", (await MockedApiFactory.ReadJsonAsync(upload)).GetProperty("capability").GetString());
+        Assert.Equal("DocumentProcessing", (await MockedApiFactory.ReadJsonAsync(upload)).GetProperty("processingCapability").GetString());
 
         var documents = await MockedApiFactory.ReadJsonAsync(await brokenStaff.GetAsync($"/api/v1/cases/{info.CaseId}/documents"));
         var document = Assert.Single(documents.EnumerateArray());
