@@ -37,3 +37,11 @@ The copied migration inventory's trailing blank line was removed to pass `git di
 ### D-011 Consolidation authorization overrides the older PR-only process
 
 The owner's handover explicitly permits direct phase pushes and fast-forward main updates after gates pass. That task-specific authorization supersedes the older repository's PR-only process for this consolidation. All three CI jobs and the broader phase checks remain in force; nothing is deployed. A refused push triggers the plan's stop-and-report rule.
+
+### D-012 Phase 0 validates the tests present in the live baseline
+
+The live baseline has 735 Domain and 1,741 API tests. It does not contain `playwright.claims-core.config.ts`, the `test:claims-core` package script, or the Item 37 journey; those are scheduled for Phase C. Phase 0 runs the baseline's existing suites and records the absent future suites as not yet applicable, never as passed. The tests present at baseline are retained and their counts must not fall. Phase C and final gates must include the imported tests and journeys. Alternative: silently claim future suites ran, or port test-dependent features out of the prescribed order, both rejected.
+
+### D-013 Push reviewable phase work without moving main
+
+The phase branch and baseline tag may be pushed while local browser checks are still running, so the unchanged CI jobs can also validate the phase. The phase report remains explicitly IN PROGRESS. Main is not created or advanced until the applicable phase gate is green. This follows the handover's distinction between pushing a phase branch and advancing main.
