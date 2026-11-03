@@ -10,6 +10,16 @@ public sealed class AcademyContentTests
     private static readonly AcademyContentProvider Content = new();
 
     [Fact]
+    public void EveryCatalogueCourseHasAnEditablePriceOfOneHundredAndTwentyDollarsByDefault()
+    {
+        foreach (var course in Content.Catalogue.Courses)
+        {
+            Assert.Contains(course.Id, AcademyPricing.CourseIds);
+            Assert.Equal(120m, AcademyPricing.DefaultPrice(course.Id));
+        }
+    }
+
+    [Fact]
     public void CourseOne_HasTheSuppliedShape_TwelveUnitsTenQuestionsEach_FifteenPerModuleAndTheFinalTask()
     {
         var course = Content.Course("ai-agentic-insurance")!;
@@ -93,7 +103,7 @@ public sealed class AcademyContentTests
     {
         var ready = Content.Catalogue.Courses.Where(c => c.IsReady).ToArray();
         Assert.Equal(9, ready.Length);
-        foreach (var course in ready.Where(c => c.Id != "ai-agentic-insurance"))
+        foreach (var course in ready.Where(c => c.Id != "ai-agentic-insurance" && c.Id != "ai-sales-distribution"))
         {
             Assert.NotNull(course.Check);
             Assert.True(course.Check!.Questions.Count >= 3);
@@ -129,4 +139,23 @@ public sealed class AcademyContentTests
     }
 
     private static string AcademyStatus(AcademyCourse course) => course.IsReady ? "ready" : "coming_soon";
+
+    [Theory]
+    [InlineData("ai-agentic-insurance")]
+    [InlineData("ai-sales-distribution")]
+    public void FlagshipsHaveCompleteMediaMappingsAndPrivateAssessments(string courseId)
+    {
+        var course = Content.Course(courseId)!;
+        Assert.False(course.PaidReleaseApproved);
+        Assert.Equal(4, course.Modules.Count);
+        Assert.Equal(12, course.AllLessons.Count());
+        Assert.All(course.AllLessons, lesson =>
+        {
+            Assert.Matches("^C0[12]_U[1-4]-[1-3]$", lesson.MediaUnitId!);
+            Assert.Equal(10, lesson.Quiz!.Questions.Count);
+            Assert.Equal(10, lesson.Quiz.Questions.Select(question => question.Q).Distinct().Count());
+        });
+        Assert.All(course.Modules, module => Assert.Equal(15, module.Assessment!.Questions.Count));
+        Assert.Equal(100, course.FinalTask!.Rubric.Sum(row => row.Marks));
+    }
 }

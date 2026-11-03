@@ -235,7 +235,24 @@ public sealed class AcademyLearnerService(IAcademyRecordStore store, IAcademyCon
     private Task BeginSittingAsync(string userId, string key, string what, TimeSpan length, CancellationToken ct) =>
         WriteAsync(AcademyKinds.Sitting, Owner(userId), key, new Sitting(what, clock.GetUtcNow().Add(length)), ct);
 
-    public Task EndSittingAsync(string userId, string key, CancellationToken ct) => store.DeleteAsync(AcademyKinds.Sitting, Owner(userId), key, ct);
+    public async Task EndSittingAsync(string userId, string key, CancellationToken ct)
+    {
+        await store.DeleteAsync(AcademyKinds.Sitting, Owner(userId), key, ct);
+        if (key.StartsWith("assessment-", StringComparison.Ordinal))
+        {
+            var sittings = await store.ListByOwnerAsync(AcademyKinds.Sitting, Owner(userId), ct);
+            foreach (var sitting in sittings.Where(item => item.Key.StartsWith(key + "-", StringComparison.Ordinal)))
+                await store.DeleteAsync(AcademyKinds.Sitting, Owner(userId), sitting.Key, ct);
+        }
+    }
+
+    public async Task LeaveAssessmentAsync(string userId, string courseId, string assessmentId, string? sittingId, CancellationToken ct)
+    {
+        var course = await EnrolledCourseAsync(userId, courseId, ct);
+        var found = FindAssessment(course, assessmentId);
+        if (!Guid.TryParseExact(sittingId, "N", out var lease)) return;
+        await store.DeleteAsync(AcademyKinds.Sitting, Owner(userId), $"assessment-{found.Assessment.Id}-{lease:N}", ct);
+    }
 
     /// <summary>The final task page calls this every minute or so while it is open.</summary>
     public async Task FinalTaskOpenAsync(string userId, string courseId, CancellationToken ct)
@@ -307,10 +324,18 @@ public sealed class AcademyLearnerService(IAcademyRecordStore store, IAcademyCon
             sources = lesson.Sources,
             tryIt = lesson.TryIt,
             video = lesson.Video,
+            mediaUnitId = lesson.MediaUnitId,
             note = progress.Notes.GetValueOrDefault(lesson.Id, string.Empty),
             hasQuiz = lesson.Quiz is not null,
             done = progress.DoneLessons.Contains(lesson.Id),
         };
+    }
+
+    public async Task<string> MediaUnitAsync(string userId, string courseId, string lessonId, CancellationToken ct)
+    {
+        var course = await EnrolledCourseAsync(userId, courseId, ct);
+        var (_, lesson) = FindLesson(course, lessonId);
+        return lesson.MediaUnitId ?? throw new AcademyRuleException(503, "Lesson media is not configured.");
     }
 
     private static object BlockView(AcademyBlock block) => new
@@ -432,11 +457,13 @@ public sealed class AcademyLearnerService(IAcademyRecordStore store, IAcademyCon
             throw new AcademyRuleException(409, "You have used every attempt. Ask the Academy team to reset this assessment.", "no_attempts");
         }
 
-        await BeginSittingAsync(userId, "assessment-" + found.Assessment.Id, "assessment", AssessmentSitting, ct);
+        var sittingId = Guid.NewGuid().ToString("N");
+        await BeginSittingAsync(userId, "assessment-" + found.Assessment.Id + "-" + sittingId, "assessment", AssessmentSitting, ct);
 
         return new
         {
             id = found.Assessment.Id,
+            sittingId,
             courseId = course.Id,
             title = found.Assessment.Title,
             kind = found.Kind,

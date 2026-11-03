@@ -31,7 +31,7 @@ export default function CoursePage({ courseId }: { courseId: string }) {
     return () => { cancelled = true; };
   }, [courseId]);
 
-  const barVisible = Boolean(course) && course?.status !== "coming_soon" && !isEnrolled(courseId);
+  const barVisible = Boolean(course) && course?.status !== "coming_soon" && course?.paidReleaseApproved !== false && !isEnrolled(courseId);
   useEffect(() => {
     document.getElementById("iipa")?.classList.toggle("hasbar", barVisible);
     return () => document.getElementById("iipa")?.classList.remove("hasbar");
@@ -92,6 +92,12 @@ export default function CoursePage({ courseId }: { courseId: string }) {
       )}
       {ZENITH_READY && signedIn ? <button type="button" className="btn ghost block" style={{ marginTop: 10 }} onClick={() => { setZenithOpen(true); void askZenith(`Summarise ${course.title}`); }}><Icon name="sparkle" size={16} />Ask Zenith about this course</button> : null}
     </section>
+  ) : course.paidReleaseApproved === false ? (
+    <section className="card pricecard" data-testid="reviewer-edition">
+      <div className="tagline">Reviewer edition</div>
+      <div className="price">{formatMoney(course.price, course.currency)}</div>
+      <p className="pnote">Planned release price. Paid enrolment is blocked while content, assessment and audio reviews are pending. An Academy operator can grant reviewer access.</p>
+    </section>
   ) : (
     <section className="card pricecard">
       <div className="tagline">Full course access</div>
@@ -129,7 +135,7 @@ export default function CoursePage({ courseId }: { courseId: string }) {
         <Thumb course={course} badge={status} />
       </section>
 
-      {course.contentStatus ? (
+      {course.contentStatus && course.id !== "ai-agentic-insurance" && course.id !== "ai-sales-distribution" ? (
         <div className="notice" style={{ marginTop: 18 }} data-testid="content-status"><Icon name="bulb" size={18} /><span>{course.contentStatus}</span></div>
       ) : null}
 
@@ -218,7 +224,7 @@ export default function CoursePage({ courseId }: { courseId: string }) {
         <aside>{priceCard}</aside>
       </div>
 
-      {!soon && !enrolled ? (
+      {!soon && !enrolled && course.paidReleaseApproved !== false ? (
         <div className="mbar"><div><small>Full course access</small><b>{formatMoney(course.price, course.currency)}</b></div><button type="button" className="btn primary" onClick={enrol}>{signedIn ? "Enrol now" : "Sign in to enrol"}</button></div>
       ) : null}
     </>

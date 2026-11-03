@@ -115,6 +115,8 @@ public sealed class AcademyPaymentService(
 
     public async Task<CheckoutResult> CheckoutAsync(AcademyLearner learner, string courseId, string? method, CancellationToken ct)
     {
+        if (!SellableCourse(courseId).PaidReleaseApproved)
+            throw new AcademyRuleException(409, "This course is in editorial review. Paid enrolment is not available; an Academy operator can arrange reviewer access.", "editorial_review");
         if (!gateway.Configured)
         {
             throw new AcademyRuleException(409, "Payments are not set up yet.", "payments_not_configured");

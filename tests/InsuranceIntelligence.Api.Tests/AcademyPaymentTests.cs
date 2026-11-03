@@ -112,7 +112,18 @@ public sealed class AcademyPaymentTests
     private static async Task<List<JsonElement>> OrdersOf(Rig rig) =>
         JsonSerializer.SerializeToElement(await rig.Payments.OrdersAsync(default)).GetProperty("orders").EnumerateArray().ToList();
 
-    private const string Course = "ai-agentic-insurance";
+    private const string Course = "claims";
+
+    [Theory]
+    [InlineData("ai-agentic-insurance")]
+    [InlineData("ai-sales-distribution")]
+    public async Task ReviewerEditionsCannotTakePayment(string courseId)
+    {
+        var rig = NewRig();
+        var refusal = await Refused(() => rig.Payments.CheckoutAsync(rig.Learner, courseId, "card", default));
+        Assert.Equal("editorial_review", refusal.Code);
+        Assert.Empty(rig.Gateway.Checkouts);
+    }
 
     [Fact]
     public async Task TheOffer_IsWorkedOutOnTheServer_InDollarsAndInRoundedShillings()

@@ -12,6 +12,17 @@ export class AcademyApiError extends Error {
   }
 }
 
+let lastSessionHeaders: Record<string, string> = {};
+
+export function academyLeave(path: string, json: unknown): Promise<Response> {
+  return fetch(`${apiBaseUrl}/api/v1/academy${path}`, {
+    method: "POST",
+    keepalive: true,
+    headers: { ...lastSessionHeaders, "Content-Type": "application/json" },
+    body: JSON.stringify(json),
+  });
+}
+
 export async function academyFetch<T = unknown>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const token = await tryGetEntraApiAccessToken();
   const headers: Record<string, string> = {
@@ -20,6 +31,7 @@ export async function academyFetch<T = unknown>(path: string, init: RequestInit 
     ...((init.headers as Record<string, string> | undefined) ?? {}),
   };
   if (init.json !== undefined) headers["Content-Type"] = "application/json";
+  lastSessionHeaders = headers;
   const response = await fetch(`${apiBaseUrl}/api/v1/academy${path}`, {
     ...init,
     cache: "no-store",
@@ -39,6 +51,16 @@ export async function academyFetch<T = unknown>(path: string, init: RequestInit 
 }
 
 export const academyGet = <T,>(path: string) => academyFetch<T>(path);
+export async function academyMedia(path: string, signal?: AbortSignal): Promise<Blob> {
+  const token = await tryGetEntraApiAccessToken();
+  const headers = {
+    ...(canUseLocalTestDoubles ? scopedHeaders("Admin", "") : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  const response = await fetch(`${apiBaseUrl}/api/v1/academy${path}`, { headers, signal, cache: "no-store" });
+  if (!response.ok) throw new AcademyApiError(response.status, response.status === 403 ? "Enrol in this course to open its media." : "Lesson media could not be loaded. Try again.");
+  return response.blob();
+}
 export const academyPost = <T,>(path: string, json?: unknown) => academyFetch<T>(path, { method: "POST", json: json ?? {} });
 export const academyPut = <T,>(path: string, json: unknown) => academyFetch<T>(path, { method: "PUT", json });
 export const academyDelete = <T,>(path: string) => academyFetch<T>(path, { method: "DELETE" });

@@ -22,6 +22,7 @@ export type CourseSummary = {
   price: number;
   currency: string;
   hasCertificate: boolean;
+  paidReleaseApproved?: boolean;
 };
 
 export type CurriculumLesson = { id: string; number: string | null; title: string; minutes: number; hasQuiz: boolean };
@@ -76,6 +77,7 @@ export type LessonView = {
   sources: string[];
   tryIt: string | null;
   video: string | null;
+  mediaUnitId?: string | null;
   note: string;
   hasQuiz: boolean;
   done: boolean;

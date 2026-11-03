@@ -41,6 +41,17 @@ public sealed class AcademyLearnerServiceTests
 
     private static AcademyLearnerService NewService() => new(new MemoryStore(), Content, TimeProvider.System);
 
+    [Fact]
+    public async Task MediaRequiresTheActualLearnersEnrolmentAndAnExistingLesson()
+    {
+        var service = NewService();
+        Assert.Equal(403, (await Refused(() => service.MediaUnitAsync("reviewer", "ai-agentic-insurance", "unit-1-1", default))).Status);
+        await service.EnrolAsync("reviewer", "ai-agentic-insurance", "operator", "Reviewer", default);
+        Assert.Equal("C01_U1-1", await service.MediaUnitAsync("reviewer", "ai-agentic-insurance", "unit-1-1", default));
+        Assert.Equal(403, (await Refused(() => service.MediaUnitAsync("other", "ai-agentic-insurance", "unit-1-1", default))).Status);
+        Assert.Equal(404, (await Refused(() => service.MediaUnitAsync("reviewer", "ai-agentic-insurance", "../unit", default))).Status);
+    }
+
     private static AcademyLearner Person(string id, string name = "Aisha Namutebi") => new(id, name, $"{id}@example.test", false, false);
 
     private static JsonElement J(object value) => JsonSerializer.SerializeToElement(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -227,12 +238,14 @@ public sealed class AcademyLearnerServiceTests
         Assert.Null(await service.VerifyAsync("", default));
     }
 
-    [Fact]
-    public async Task CourseOne_NeedsTheFinalTaskMarkedAndPassed_BeforeACertificateExists()
+    [Theory]
+    [InlineData("ai-agentic-insurance")]
+    [InlineData("ai-sales-distribution")]
+    public async Task Flagships_NeedTheFinalTaskMarkedAndPassed_BeforeACertificateExists(string courseId)
     {
         var service = NewService();
         var learner = Person("u1", "Aisha Namutebi");
-        var course = Content.Course("ai-agentic-insurance")!;
+        var course = Content.Course(courseId)!;
         await service.EnrolAsync("u1", course.Id, "u1", null, default);
 
         var locked = J(await service.FinalTaskAsync("u1", course.Id, default));

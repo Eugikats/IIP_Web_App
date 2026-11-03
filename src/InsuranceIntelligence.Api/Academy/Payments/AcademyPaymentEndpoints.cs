@@ -68,8 +68,10 @@ public static class AcademyPaymentEndpoints
     public static Task<IResult> FinalLeave(string courseId, HttpContext http, InfrastructureOptions o, ITenantContextAccessor t, AcademyOperator op, AcademyLearnerService learners, CancellationToken ct) =>
         Go(http, o, t, op, async learner => { await learners.EndSittingAsync(learner.UserId, "final-" + courseId.Trim(), ct); return Results.Ok(new { left = true }); });
 
-    public static Task<IResult> AssessmentLeave(string courseId, string assessmentId, HttpContext http, InfrastructureOptions o, ITenantContextAccessor t, AcademyOperator op, AcademyLearnerService learners, CancellationToken ct) =>
-        Go(http, o, t, op, async learner => { await learners.EndSittingAsync(learner.UserId, "assessment-" + assessmentId, ct); return Results.Ok(new { left = true }); });
+    public sealed record AssessmentLeaveRequest(string? SittingId);
+
+    public static Task<IResult> AssessmentLeave(string courseId, string assessmentId, AssessmentLeaveRequest request, HttpContext http, InfrastructureOptions o, ITenantContextAccessor t, AcademyOperator op, AcademyLearnerService learners, CancellationToken ct) =>
+        Go(http, o, t, op, async learner => { await learners.LeaveAssessmentAsync(learner.UserId, courseId, assessmentId, request.SittingId, ct); return Results.Ok(new { left = true }); });
 }
 
 /// <summary>Every few minutes, re-checks orders that are still pending, so a payment is never lost because a browser tab was closed.</summary>

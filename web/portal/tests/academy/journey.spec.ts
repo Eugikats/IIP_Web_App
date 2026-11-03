@@ -55,9 +55,11 @@ test.describe("learner journey", () => {
   test("enrol, take a quiz, edit the profile, finish the course, earn and verify a certificate", async ({ page, request }) => {
     // Enrol from the course page.
     await page.goto(`/academy/courses/${course.id}`);
-    await page.getByTestId("enrol").click();
-    await page.getByTestId("confirm-enrol").click();
-    await page.getByRole("button", { name: /Start learning/ }).click();
+    await expect(page.getByTestId("reviewer-edition")).toBeVisible();
+    const access = await request.post(`${API}/operator/enrol`, { headers: HEADERS, data: { courseId: course.id, userId: "user-1" } });
+    expect(access.ok()).toBeTruthy();
+    await page.reload();
+    await page.getByTestId("continue-course").click();
 
     // The first lesson opens, and finishing it needs its quiz.
     await expect(page.getByRole("heading", { level: 1 })).toContainText("What AI, machine learning");

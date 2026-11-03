@@ -25,6 +25,7 @@
 .iipa .field small{display:block;margin-top:6px;font-weight:500;color:var(--muted)}
 .iipa .btn:focus-visible,.iipa .chip:focus-visible,.iipa a:focus-visible,.iipa button:focus-visible{outline:3px solid #9DB8F5;outline-offset:2px}
 .iipa .srcs.lesson .src{cursor:default}
+.iipa .thumb .tphoto{display:block;width:100%;height:100%;object-fit:cover}
 
 /* the page itself scrolls (the portal otherwise makes the body the scroller) */
 html.iipa-page,body.iipa-page{height:auto;min-height:100%;overflow-x:clip;overflow-y:visible;background:#EEF3FB}
@@ -80,3 +81,8 @@ html.iipa-page,body.iipa-page{height:auto;min-height:100%;overflow-x:clip;overfl
 @media (max-width:1180px){.iipa .tnav a{padding:11px 11px}.iipa .top .logo small{display:none}}
 .iipa .setrow input[type=text],.iipa .setrow input[type=email],.iipa .setrow select,.iipa .setrow textarea{width:300px;max-width:100%}
 .iipa .setrow input[readonly]{background:#F5F8FF;color:var(--muted)}
+.iipa .learn{grid-template-columns:minmax(0,1fr) 340px}
+.iipa .learn>*{min-width:0}
+.iipa .lcontent{min-width:0;overflow-wrap:anywhere}
+.iipa .lcontent .tablewrap{max-width:100%;overflow-x:auto}
+@media(max-width:980px){.iipa .learn{grid-template-columns:minmax(0,1fr)}.iipa .lside{position:static;max-height:none}.iipa .lcontent{padding:24px 16px}}

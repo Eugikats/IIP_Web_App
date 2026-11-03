@@ -6,11 +6,12 @@ import { Icon } from "@/components/academy/Icon";
 import { useAcademy } from "@/components/academy/AcademyProvider";
 import { PageState, SkeletonCards } from "@/components/academy/PageState";
 import { SignInCard, useCourse } from "@/components/academy/pages/shared";
-import { academyGet, academyPost, AcademyApiError } from "@/lib/academy/api";
+import { academyGet, academyPost, academyLeave, AcademyApiError } from "@/lib/academy/api";
 import { buildSequence } from "@/lib/academy/sequence";
 
 type Started = {
   id: string;
+  sittingId: string;
   courseId: string;
   title: string;
   kind: "quiz" | "module" | "check";
@@ -51,14 +52,27 @@ export default function AssessmentPage({ courseId, assessmentId }: { courseId: s
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
   const submittedRef = useRef(false);
+  const sittingRef = useRef<string | null>(null);
+  const generationRef = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++generationRef.current;
+    submittedRef.current = false;
+    const previous = sittingRef.current;
+    sittingRef.current = null;
+    if (previous) void academyLeave(`/courses/${courseId}/assessments/${assessmentId}/leave`, { sittingId: previous }).catch(() => undefined);
     setStarted(null);
     setResult(null);
     setAnswers({});
     setProblem(null);
     try {
-      setStarted(await academyGet<Started>(`/courses/${courseId}/assessments/${assessmentId}`));
+      const opened = await academyGet<Started>(`/courses/${courseId}/assessments/${assessmentId}`);
+      if (generation !== generationRef.current) {
+        void academyLeave(`/courses/${courseId}/assessments/${assessmentId}/leave`, { sittingId: opened.sittingId }).catch(() => undefined);
+        return;
+      }
+      sittingRef.current = opened.sittingId;
+      setStarted(opened);
     } catch (failure) {
       setProblem(failure instanceof AcademyApiError
         ? { status: failure.status, code: failure.code, message: failure.message }
@@ -72,8 +86,16 @@ export default function AssessmentPage({ courseId, assessmentId }: { courseId: s
 
   // Leaving without submitting hands Zenith back. (A submission hands it back on the server.)
   useEffect(() => {
+    const leave = () => {
+      const sittingId = sittingRef.current;
+      if (sittingId && !submittedRef.current) void academyLeave(`/courses/${courseId}/assessments/${assessmentId}/leave`, { sittingId }).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", leave);
     return () => {
-      if (!submittedRef.current) void academyPost(`/courses/${courseId}/assessments/${assessmentId}/leave`).catch(() => undefined);
+      generationRef.current += 1;
+      window.removeEventListener("pagehide", leave);
+      leave();
+      sittingRef.current = null;
     };
   }, [courseId, assessmentId]);
 

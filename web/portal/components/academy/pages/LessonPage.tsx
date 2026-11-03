@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/academy/Icon";
 import { LessonBlocks } from "@/components/academy/LessonBlocks";
+import { LessonMedia } from "@/components/academy/LessonMedia";
 import { useAcademy } from "@/components/academy/AcademyProvider";
 import { PageState, SkeletonCards } from "@/components/academy/PageState";
 import { academyGet, academyPost, academyPut, AcademyApiError } from "@/lib/academy/api";
@@ -13,8 +14,6 @@ import { ZENITH_READY } from "@/lib/academy/flags";
 import { askZenith } from "@/lib/academy/zenithStore";
 import type { CourseDetail, LessonView } from "@/lib/academy/types";
 
-// A lesson, as designed: the player area on top, the lesson beside the course outline, a place for the learner's own
-// note, and the way to the next step. There are no recordings yet, so the player area says so and the lesson is read.
 export default function LessonPage({ courseId, lessonId }: { courseId: string; lessonId: string | null }) {
   const router = useRouter();
   const { me, loadingMe, learner, loadingLearner, isEnrolled, progressOf, refreshLearner, toast, signIn, setZenithOpen } = useAcademy();
@@ -148,7 +147,7 @@ export default function LessonPage({ courseId, lessonId }: { courseId: string; l
         <span>Lesson {index + 1 - sequence.slice(0, index).filter((item) => item.kind !== "lesson").length}</span>
       </div>
 
-      <div className="player" id="player" style={{ background: `linear-gradient(135deg,${course.hue[0]},${course.hue[1]})` }}>
+      {lesson.mediaUnitId ? <LessonMedia courseId={courseId} lessonId={lesson.id} /> : <div className="player" id="player" style={{ background: "var(--text)" }}>
         <div className="shade" />
         <div className="ptitle"><Icon name="video" size={17} /><span>Module {lesson.moduleNumber}, Lesson {lesson.indexInModule}: {lesson.title}</span></div>
         {lesson.video ? (
@@ -160,12 +159,12 @@ export default function LessonPage({ courseId, lessonId }: { courseId: string; l
             <div>Read the lesson below. It has everything the lesson covers.</div>
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="learn">
         <div>
           <section className="card lcontent">
-            <div className="lmeta">Module {lesson.moduleNumber} · Lesson {lesson.indexInModule} of {lesson.lessonsInModule} · about {lesson.minutes} min read</div>
+            <div className="lmeta">Module {lesson.moduleNumber} · Lesson {lesson.indexInModule} of {lesson.lessonsInModule} · about {lesson.minutes} min {lesson.mediaUnitId ? "recording" : "read"}</div>
             <h1>{lesson.title}</h1>
             {lesson.outcome ? <p><b>By the end of this lesson you can:</b> {lesson.outcome}</p> : null}
             <LessonBlocks blocks={lesson.blocks} />

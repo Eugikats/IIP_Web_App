@@ -24,7 +24,9 @@ public sealed class AcademyPricingServiceTests
         var pricing = await service.GetAsync();
 
         Assert.Equal(AcademyPricing.CourseIds.Count, pricing.Prices.Count);
-        Assert.All(pricing.Prices, price => Assert.Equal(85m, price.Amount));
+        Assert.All(pricing.Prices, price => Assert.Equal(120m, price.Amount));
+        Assert.Equal(120m, pricing.Prices.Single(price => price.CourseId == "ai-agentic-insurance").Amount);
+        Assert.Equal(120m, pricing.Prices.Single(price => price.CourseId == "ai-sales-distribution").Amount);
         Assert.All(pricing.Prices, price => Assert.Equal("USD", price.Currency));
     }
 
@@ -35,7 +37,7 @@ public sealed class AcademyPricingServiceTests
 
         var ids = (await service.GetAsync()).Prices.Select(price => price.CourseId).ToArray();
 
-        foreach (var id in new[] { "ai-agentic-insurance", "ai-claims-fraud", "ai-underwriting-risk", "ai-sales-distribution", "agentic-systems", "claims", "underwriting", "fraud-identity", "governance" })
+        foreach (var id in new[] { "ai-agentic-insurance", "ai-claims-fraud", "ai-underwriting-risk", "ai-sales-distribution", "agentic-systems", "claims", "underwriting", "fraud-identity", "governance", "claims-communication" })
         {
             Assert.Contains(id, ids);
         }
@@ -46,11 +48,11 @@ public sealed class AcademyPricingServiceTests
     {
         var (service, repo, audit) = Build();
 
-        await service.SaveAsync([new CoursePrice("claims", 120m)]);
+        await service.SaveAsync([new CoursePrice("claims", 175m)]);
         var again = await service.GetAsync();
 
-        Assert.Equal(120m, again.Prices.Single(price => price.CourseId == "claims").Amount);
-        Assert.Equal(85m, again.Prices.Single(price => price.CourseId == "governance").Amount);
+        Assert.Equal(175m, again.Prices.Single(price => price.CourseId == "claims").Amount);
+        Assert.Equal(120m, again.Prices.Single(price => price.CourseId == "governance").Amount);
         Assert.NotNull(repo.Saved);
         Assert.Contains(audit.Events, entry => entry.ActionName == "academy.pricing_changed");
     }
@@ -64,7 +66,7 @@ public sealed class AcademyPricingServiceTests
 
         var claims = (await service.GetAsync()).Prices.Single(price => price.CourseId == "claims");
 
-        Assert.Equal(85m, claims.Amount);
+        Assert.Equal(120m, claims.Amount);
         Assert.Equal("USD", claims.Currency);
     }
 

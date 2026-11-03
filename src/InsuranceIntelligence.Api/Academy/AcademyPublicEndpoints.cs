@@ -47,7 +47,7 @@ public static class AcademyPublicEndpoints
     }
 
     internal static decimal PriceOf(IReadOnlyDictionary<string, decimal> prices, string courseId) =>
-        prices.TryGetValue(courseId, out var amount) ? amount : AcademyPricing.SeedPrice;
+        prices.TryGetValue(courseId, out var amount) ? amount : AcademyPricing.DefaultPrice(courseId);
 
     public static object Summary(AcademyCourse course, IReadOnlyDictionary<string, decimal> prices) => new
     {
@@ -68,6 +68,7 @@ public static class AcademyPublicEndpoints
         price = PriceOf(prices, course.Id),
         currency = AcademyPricing.Currency,
         hasCertificate = course.IsReady,
+        paidReleaseApproved = course.PaidReleaseApproved,
     };
 
     public static object Detail(AcademyCourse course, IReadOnlyDictionary<string, decimal> prices) => new
@@ -89,6 +90,7 @@ public static class AcademyPublicEndpoints
         iipAreas = course.IipAreas,
         requirements = course.Requirements,
         contentStatus = course.ContentStatus,
+        paidReleaseApproved = course.PaidReleaseApproved,
         price = PriceOf(prices, course.Id),
         currency = AcademyPricing.Currency,
         modules = course.Modules.Select(module => new

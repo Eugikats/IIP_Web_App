@@ -34,6 +34,7 @@ public sealed record AcademyCourse
     public string Requirements { get; init; } = string.Empty;
     public IReadOnlyList<AcademySource> Sources { get; init; } = [];
     public string? ContentStatus { get; init; }
+    public bool PaidReleaseApproved { get; init; } = true;
 
     public bool IsReady => string.Equals(Status, "ready", StringComparison.OrdinalIgnoreCase) && Modules.Count > 0;
 
@@ -61,6 +62,7 @@ public sealed record AcademyLesson
 
     /// <summary>A recording, when there is one. None has been produced yet, so this is empty and the page says so.</summary>
     public string? Video { get; init; }
+    public string? MediaUnitId { get; init; }
 
     public AcademyAssessment? Quiz { get; init; }
 }

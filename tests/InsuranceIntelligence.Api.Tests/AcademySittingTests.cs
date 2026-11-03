@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using InsuranceIntelligence.Api.Academy;
 using InsuranceIntelligence.Domain.Academy;
 using Microsoft.Extensions.Configuration;
@@ -96,6 +97,22 @@ public sealed class AcademySittingTests
         Assert.True((await zenith.StatusAsync("u1", default)).Locked);
 
         await learners.EndSittingAsync("u1", "assessment-" + quiz.Id, default);
+        Assert.False((await zenith.StatusAsync("u1", default)).Locked);
+    }
+
+    [Fact]
+    public async Task AStaleBrowserCleanupCannotUnlockAnotherAssessmentSitting()
+    {
+        var (zenith, learners, _, _) = Build();
+        await learners.EnrolAsync("u1", "ai-agentic-insurance", "operator", null, default);
+        var quiz = Content.Course("ai-agentic-insurance")!.Modules[0].Lessons[0].Quiz!;
+        var first = JsonSerializer.SerializeToElement(await learners.StartAssessmentAsync("u1", "ai-agentic-insurance", quiz.Id, default)).GetProperty("sittingId").GetString();
+        var second = JsonSerializer.SerializeToElement(await learners.StartAssessmentAsync("u1", "ai-agentic-insurance", quiz.Id, default)).GetProperty("sittingId").GetString();
+        await learners.LeaveAssessmentAsync("u1", "ai-agentic-insurance", quiz.Id, first, default);
+        Assert.True((await zenith.StatusAsync("u1", default)).Locked);
+        await learners.LeaveAssessmentAsync("u1", "ai-agentic-insurance", quiz.Id, null, default);
+        Assert.True((await zenith.StatusAsync("u1", default)).Locked);
+        await learners.LeaveAssessmentAsync("u1", "ai-agentic-insurance", quiz.Id, second, default);
         Assert.False((await zenith.StatusAsync("u1", default)).Locked);
     }
 

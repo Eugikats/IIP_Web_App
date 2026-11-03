@@ -1212,6 +1212,7 @@ app.MapPost("/api/v1/academy/learner/notifications/read", InsuranceIntelligence.
 app.MapGet("/api/v1/academy/learner/certificates/{certificateId}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Certificate).RequireRateLimiting("academy-learner");
 app.MapPost("/api/v1/academy/courses/{courseId}/enrol", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Enrol).RequireRateLimiting("academy-learner");
 app.MapGet("/api/v1/academy/courses/{courseId}/lessons/{lessonId}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Lesson).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/lessons/{lessonId}/media/{fileName}", InsuranceIntelligence.Api.Academy.AcademyMediaEndpoints.Get).RequireRateLimiting("academy-learner");
 app.MapPost("/api/v1/academy/courses/{courseId}/lessons/{lessonId}/complete", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Complete).RequireRateLimiting("academy-learner");
 app.MapPut("/api/v1/academy/courses/{courseId}/lessons/{lessonId}/note", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Note).RequireRateLimiting("academy-learner");
 app.MapGet("/api/v1/academy/courses/{courseId}/assessments/{assessmentId}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.StartAssessment).RequireRateLimiting("academy-learner");

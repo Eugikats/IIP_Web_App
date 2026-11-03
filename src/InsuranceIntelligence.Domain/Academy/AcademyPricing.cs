@@ -14,18 +14,20 @@ public sealed record AcademyPricing(TenantScope Scope, IReadOnlyList<CoursePrice
 {
     /// <summary>Prices are in US dollars. A price saved before that change was in shillings and is not carried over as dollars.</summary>
     public const string Currency = "USD";
-    public const decimal SeedPrice = 85m;
+    public const decimal SeedPrice = 120m;
     public const decimal MaxPrice = 10_000m;
 
     /// <summary>The courses IIP Academy offers. A price for any other id is rejected.</summary>
     public static readonly IReadOnlyList<string> CourseIds =
     [
         "ai-agentic-insurance", "ai-claims-fraud", "ai-underwriting-risk", "ai-sales-distribution", "agentic-systems",
-        "claims", "underwriting", "fraud-identity", "governance",
+        "claims", "underwriting", "fraud-identity", "governance", "claims-communication",
     ];
 
     public static AcademyPricing Seed(TenantScope scope) =>
-        new(scope, CourseIds.Select(id => new CoursePrice(id, SeedPrice)).ToArray());
+        new(scope, CourseIds.Select(id => new CoursePrice(id, DefaultPrice(id))).ToArray());
+
+    public static decimal DefaultPrice(string courseId) => SeedPrice;
 
     /// <summary>Every known course with its saved price, or the seed price where none was saved.</summary>
     public AcademyPricing WithDefaults() =>
@@ -33,7 +35,7 @@ public sealed record AcademyPricing(TenantScope Scope, IReadOnlyList<CoursePrice
         {
             Prices = CourseIds
                 .Select(id => Prices.FirstOrDefault(price => string.Equals(price.CourseId, id, StringComparison.OrdinalIgnoreCase)
-                        && string.Equals(price.Currency, Currency, StringComparison.OrdinalIgnoreCase)) ?? new CoursePrice(id, SeedPrice))
+                        && string.Equals(price.Currency, Currency, StringComparison.OrdinalIgnoreCase)) ?? new CoursePrice(id, DefaultPrice(id)))
                 .ToArray(),
         };
 
