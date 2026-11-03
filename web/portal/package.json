@@ -17,6 +17,7 @@
     "test:runtime-recovery:production": "node scripts/run-runtime-recovery-production.mjs",
     "test:trust-truth": "playwright test --config tests/trust-truth/playwright.config.ts",
     "test:authority-permissions": "playwright test --config tests/authority-permissions/playwright.config.ts",
+    "test:claims-core": "playwright test --config playwright.claims-core.config.ts",
     "test:release-gates": "playwright test --config tests/visual/playwright.config.ts --grep \"Gate (13|15|16|17|18)|signed-in authority\"",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",

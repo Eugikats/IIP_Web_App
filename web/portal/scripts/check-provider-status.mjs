@@ -39,6 +39,7 @@ for (const status of [
   "Degraded",
   "Disabled",
   "Missing",
+  "Mock",
   "Not configured",
   "not_configured",
   "not-configured",
@@ -56,3 +57,6 @@ for (const status of [
 assert.equal(formatProviderStatusLabel("not_configured"), "Not configured");
 assert.equal(formatProviderStatusLabel("Not configured"), "Not configured");
 assert.equal(formatProviderStatusLabel("configured"), "Configured");
+
+assert.equal(formatProviderStatusLabel("mock"), "Mock");
+assert.equal(providerStatusTone("mock"), "warning");

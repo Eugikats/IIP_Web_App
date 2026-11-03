@@ -148,9 +148,9 @@ public static class AdminEndpoints
         {
             Health("database", options.StorageProvider, DatabaseStatus(options), DatabaseDetail(options)),
             Health("blobStorage", options.BlobProvider, BlobStatus(options), BlobDetail(options)),
-            Health("documentIntelligence", options.DocumentProvider, DocumentProcessingStatus(options), DocumentProcessingDetail(options)),
-            Health("aiSearch", options.RetrievalProvider, RetrievalStatus(options), RetrievalDetail(options)),
-            Health("azureOpenAI", options.AiProvider, AiStatus(options), AiDetail(options)),
+            Health("documentIntelligence", options.DocumentProvider, RequiredStatus(options, options.DocumentProvider, "AzureDocumentIntelligence", options.DocumentIntelligence.Endpoint), RequiredDetail(options, options.DocumentProvider, "AzureDocumentIntelligence", "DocumentIntelligence:Endpoint")),
+            Health("aiSearch", options.RetrievalProvider, RequiredStatus(options, options.RetrievalProvider, "AzureAiSearch", options.AzureAiSearch.Endpoint, options.AzureAiSearch.IndexName), RequiredDetail(options, options.RetrievalProvider, "AzureAiSearch", "AzureAiSearch:Endpoint and AzureAiSearch:IndexName")),
+            Health("azureOpenAI", options.AiProvider, RequiredStatus(options, options.AiProvider, "AzureOpenAI", options.AzureOpenAI.Endpoint, options.AzureOpenAI.ChatDeployment, options.AzureOpenAI.EmbeddingDeployment), RequiredDetail(options, options.AiProvider, "AzureOpenAI", "AzureOpenAI:Endpoint, AzureOpenAI:ChatDeployment, and AzureOpenAI:EmbeddingDeployment")),
             Health("serviceBus", options.QueueProvider, RequiredStatus(options, options.QueueProvider, "AzureServiceBus", options.ServiceBus.FullyQualifiedNamespace), RequiredDetail(options, options.QueueProvider, "AzureServiceBus", "ServiceBus:FullyQualifiedNamespace")),
             Health("graphMail", options.EmailProvider, GraphStatus(options), GraphDetail(options)),
             Health("communications", options.CommunicationProvider, CommunicationStatus(options), CommunicationDetail(options)),
@@ -159,10 +159,12 @@ public static class AdminEndpoints
 
         if (options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
         {
-            items.Add(Health("mockProviders", "Mock", "healthy", "Mock providers remain available for local development."));
+            items.Add(Health("mockProviders", "Mock", "mock", "Deterministic mock providers are active for local runs. Their output is not real and is never produced outside a developer runtime."));
         }
 
-        var overall = items.Any(item => item.Status is "missing" or "not_configured") ? "degraded" : "healthy";
+        var overall = items.Any(item => item.Status is "missing" or "not_configured")
+            ? "degraded"
+            : items.Any(item => item.Status == "mock") ? "mock" : "healthy";
         return new ProviderHealthResponse(overall, items);
     }
 
@@ -486,7 +488,7 @@ public static class AdminEndpoints
 
         if (!options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
         {
-            return IsDevelopmentAuth(options) ? "healthy" : "missing";
+            return IsDevelopmentAuth(options) ? "mock" : "missing";
         }
 
         return HasConfiguredGraphMailboxAccess(options) ? "configured" : "missing";
@@ -520,7 +522,7 @@ public static class AdminEndpoints
 
         if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
         {
-            return "not_configured";
+            return IsDevelopmentAuth(options) ? "mock" : "missing";
         }
 
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
@@ -542,7 +544,9 @@ public static class AdminEndpoints
 
         if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
         {
-            return "No mock communication sender is registered. Configure GraphEmail before expecting customer messages to be sent.";
+            return IsDevelopmentAuth(options)
+                ? "Mock communications are available only for local development."
+                : "A real communication provider must be configured or the feature must be unavailable.";
         }
 
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
@@ -562,13 +566,11 @@ public static class AdminEndpoints
             return "not_configured";
         }
 
-        return options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase) && !IsDevelopmentAuth(options)
-            ? "missing"
-            : options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase)
-                ? "healthy"
-                : options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase)
-                    ? "configured"
-                    : "missing";
+        return options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase)
+            ? IsDevelopmentAuth(options) ? "not_configured" : "missing"
+            : options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase)
+                ? "configured"
+                : "missing";
     }
 
     private static string NotificationDetail(InfrastructureOptions options)
@@ -580,7 +582,7 @@ public static class AdminEndpoints
 
         return options.NotificationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase)
             ? IsDevelopmentAuth(options)
-                ? "Mock notifications are available only for local development."
+                ? "No mock Teams adapter exists. Teams notifications are not sent in local runs."
                 : "A real notification provider must be configured or notification features must be unavailable."
             : options.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase)
                 ? "IncomingWebhook Teams notification provider is configured."
@@ -630,7 +632,7 @@ public static class AdminEndpoints
 
         if (!options.BlobProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase))
         {
-            return IsDevelopmentAuth(options) ? "healthy" : "missing";
+            return IsDevelopmentAuth(options) ? "mock" : "missing";
         }
 
         return string.IsNullOrWhiteSpace(options.AzureBlob.Endpoint)
@@ -658,41 +660,11 @@ public static class AdminEndpoints
 
         if (!selectedMode.Equals(liveMode, StringComparison.OrdinalIgnoreCase))
         {
-            return IsDevelopmentAuth(options) && selectedMode.Equals("Mock", StringComparison.OrdinalIgnoreCase) ? "healthy" : "missing";
+            return IsDevelopmentAuth(options) && selectedMode.Equals("Mock", StringComparison.OrdinalIgnoreCase) ? "mock" : "missing";
         }
 
         return required.Any(string.IsNullOrWhiteSpace) ? "missing" : "configured";
     }
-
-    private static string DocumentProcessingStatus(InfrastructureOptions options) =>
-        options.DocumentProvider.Equals("AzureDocumentIntelligence", StringComparison.OrdinalIgnoreCase)
-            ? RequiredStatus(options, options.DocumentProvider, "AzureDocumentIntelligence", options.DocumentIntelligence.Endpoint)
-            : "not_configured";
-
-    private static string DocumentProcessingDetail(InfrastructureOptions options) =>
-        options.DocumentProvider.Equals("AzureDocumentIntelligence", StringComparison.OrdinalIgnoreCase)
-            ? RequiredDetail(options, options.DocumentProvider, "AzureDocumentIntelligence", "DocumentIntelligence:Endpoint")
-            : "No document-processing provider is registered for this mode. Configure Azure Document Intelligence before expecting extracted fields.";
-
-    private static string RetrievalStatus(InfrastructureOptions options) =>
-        options.RetrievalProvider.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase)
-            ? RequiredStatus(options, options.RetrievalProvider, "AzureAiSearch", options.AzureAiSearch.Endpoint, options.AzureAiSearch.IndexName)
-            : "not_configured";
-
-    private static string RetrievalDetail(InfrastructureOptions options) =>
-        options.RetrievalProvider.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase)
-            ? RequiredDetail(options, options.RetrievalProvider, "AzureAiSearch", "AzureAiSearch:Endpoint and AzureAiSearch:IndexName")
-            : "No knowledge retrieval provider is registered for this mode. Configure Azure AI Search before expecting grounded knowledge answers.";
-
-    private static string AiStatus(InfrastructureOptions options) =>
-        options.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase)
-            ? RequiredStatus(options, options.AiProvider, "AzureOpenAI", options.AzureOpenAI.Endpoint, options.AzureOpenAI.ChatDeployment, options.AzureOpenAI.EmbeddingDeployment)
-            : "not_configured";
-
-    private static string AiDetail(InfrastructureOptions options) =>
-        options.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase)
-            ? RequiredDetail(options, options.AiProvider, "AzureOpenAI", "AzureOpenAI:Endpoint, AzureOpenAI:ChatDeployment, and AzureOpenAI:EmbeddingDeployment")
-            : "No chat or embedding provider is registered for this mode. Configure Azure OpenAI before expecting generated responses.";
 
     private static string RequiredDetail(InfrastructureOptions options, string selectedMode, string liveMode, string settingNames) =>
         IsNotConfiguredMode(selectedMode)

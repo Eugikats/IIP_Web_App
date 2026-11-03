@@ -34,7 +34,7 @@ public sealed class Phase7ProviderTests
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
-    public async Task ProviderHealth_ReturnsMockProvidersHealthyWithoutSecrets()
+    public async Task ProviderHealth_ReturnsMockProvidersAsMockWithoutSecrets()
     {
         var result = AdminEndpoints.GetProviderHealth(new InfrastructureOptions { AuthMode = "Development" }, Context());
         var (status, body) = await ExecuteAsync<JsonElement>(result);
@@ -44,20 +44,21 @@ public sealed class Phase7ProviderTests
         Assert.Equal("degraded", body.GetProperty("overallStatus").GetString());
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "mockProviders"
-            && item.GetProperty("status").GetString() == "healthy");
+            && item.GetProperty("status").GetString() == "mock");
+        Assert.DoesNotContain(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("status").GetString() == "healthy");
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "documentIntelligence"
-            && item.GetProperty("status").GetString() == "not_configured"
-            && item.GetProperty("detail").GetString()!.Contains("No document-processing provider is registered", StringComparison.Ordinal));
+            && item.GetProperty("status").GetString() == "mock");
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "aiSearch"
-            && item.GetProperty("status").GetString() == "not_configured");
+            && item.GetProperty("status").GetString() == "mock");
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "azureOpenAI"
-            && item.GetProperty("status").GetString() == "not_configured");
+            && item.GetProperty("status").GetString() == "mock");
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "communications"
-            && item.GetProperty("status").GetString() == "not_configured");
+            && item.GetProperty("status").GetString() == "mock");
         Assert.DoesNotContain("connectionstring", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("secret", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("token", json, StringComparison.OrdinalIgnoreCase);
@@ -78,7 +79,7 @@ public sealed class Phase7ProviderTests
             item.GetProperty("name").GetString() == "documentIntelligence");
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "documentIntelligence"
-            && item.GetProperty("status").GetString() == "not_configured");
+            && item.GetProperty("status").GetString() == "mock");
         Assert.DoesNotContain("connectionstring", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("clientsecret", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("token", json, StringComparison.OrdinalIgnoreCase);

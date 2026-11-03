@@ -338,7 +338,14 @@ else if (infrastructureOptions.BlobProvider.Equals("Mock", StringComparison.Ordi
 {
     builder.Services.AddSingleton<IDocumentStorageProvider, LocalMockDocumentStorageProvider>();
     builder.Services.AddSingleton<IKnowledgeStorageProvider, LocalMockKnowledgeStorageProvider>();
-    builder.Services.AddSingleton<IEvidencePackStorageProvider, NotConfiguredEvidencePackStorageProvider>();
+    if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsLocalDeveloperRuntime(runtimeProfile))
+    {
+        builder.Services.AddSingleton<IEvidencePackStorageProvider, InsuranceIntelligence.Api.Local.Mock.LocalMockEvidencePackStorageProvider>();
+    }
+    else
+    {
+        builder.Services.AddSingleton<IEvidencePackStorageProvider, NotConfiguredEvidencePackStorageProvider>();
+    }
 }
 else
 {
@@ -350,6 +357,10 @@ else
 if (infrastructureOptions.DocumentProvider.Equals("AzureDocumentIntelligence", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddSingleton<IDocumentProcessingProvider, AzureDocumentIntelligenceProvider>();
+}
+else if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infrastructureOptions.DocumentProvider, runtimeProfile))
+{
+    builder.Services.AddSingleton<IDocumentProcessingProvider, InsuranceIntelligence.Api.Local.Mock.MockDocumentProcessingProvider>();
 }
 else
 {
@@ -391,6 +402,11 @@ if (infrastructureOptions.RetrievalProvider.Equals("AzureAiSearch", StringCompar
     builder.Services.AddSingleton<IKnowledgeIndexProvider, AzureAiSearchKnowledgeIndexProvider>();
     builder.Services.AddSingleton<IRetrievalProvider, AzureAiSearchRetrievalProvider>();
 }
+else if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infrastructureOptions.RetrievalProvider, runtimeProfile))
+{
+    builder.Services.AddSingleton<IKnowledgeIndexProvider, InsuranceIntelligence.Api.Local.Mock.MockKnowledgeIndexProvider>();
+    builder.Services.AddSingleton<IRetrievalProvider, InsuranceIntelligence.Api.Local.Mock.MockRetrievalProvider>();
+}
 else
 {
     builder.Services.AddSingleton<IKnowledgeIndexProvider, NotConfiguredKnowledgeIndexProvider>();
@@ -414,6 +430,16 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
     builder.Services.AddScoped<IToolCallingChatProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedToolCallingChatProvider(
         sp.GetRequiredService<AzureOpenAiToolCallingChatProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
     builder.Services.AddScoped<IConversationInsightsService, ConversationInsightsService>();
+}
+else if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infrastructureOptions.AiProvider, runtimeProfile))
+{
+    // Deterministic Mock adapters, developer runtimes only (MockProviderPolicy). The conversation
+    // insights agent is not registered: it needs a model that returns structured JSON, which a
+    // scripted mock cannot honestly provide.
+    builder.Services.AddSingleton<IAiAssistantProvider, InsuranceIntelligence.Api.Local.Mock.MockAiAssistantProvider>();
+    builder.Services.AddSingleton<IEmbeddingProvider, InsuranceIntelligence.Api.Local.Mock.MockEmbeddingProvider>();
+    builder.Services.AddSingleton<IChatCompletionProvider, InsuranceIntelligence.Api.Local.Mock.MockChatCompletionProvider>();
+    builder.Services.AddSingleton<IToolCallingChatProvider, InsuranceIntelligence.Api.Local.Mock.MockToolCallingChatProvider>();
 }
 else
 {
@@ -440,6 +466,10 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
     // Scoped, not Singleton, see the AzureOpenAiAssistantProvider registration above; same reason.
     builder.Services.AddScoped<ICustomerUpdateDraftingProvider, AzureOpenAiCustomerUpdateDraftingProvider>();
 }
+else if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infrastructureOptions.AiProvider, runtimeProfile))
+{
+    builder.Services.AddSingleton<ICustomerUpdateDraftingProvider, InsuranceIntelligence.Api.Local.Mock.MockCustomerUpdateDraftingProvider>();
+}
 else
 {
     builder.Services.AddSingleton<ICustomerUpdateDraftingProvider, NotConfiguredCustomerUpdateDraftingProvider>();
@@ -447,6 +477,14 @@ else
 if (infrastructureOptions.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddSingleton<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
+}
+else if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infrastructureOptions.CommunicationProvider, runtimeProfile))
+{
+    // Mock sending records into an in-memory outbox (readable at /api/v1/dev/mock-outbox) and
+    // replaces the Disabled sender the infrastructure registered. Nothing leaves the process.
+    builder.Services.AddSingleton<InsuranceIntelligence.Api.Local.Mock.MockOutbox>();
+    builder.Services.AddScoped<InsuranceIntelligence.Domain.Communications.ICommunicationSendingProvider, InsuranceIntelligence.Api.Local.Mock.MockCommunicationSendingProvider>();
+    builder.Services.AddScoped<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
 }
 else
 {
@@ -1192,6 +1230,11 @@ app.MapGet("/api/v1/admin/db-migrate/diagnose", InsuranceIntelligence.Api.Admin.
 if (developmentDiagnosticsEnabled)
 {
     app.MapPost("/api/v1/admin/debug-teams-notification", DebugEndpoints.TriggerTeamsNotification)
+        .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+    // What the Mock communication adapters "sent" (Mock communication provider only).
+    app.MapGet("/api/v1/dev/mock-outbox", InsuranceIntelligence.Api.Local.Mock.MockOutboxEndpoints.List)
+        .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+    app.MapDelete("/api/v1/dev/mock-outbox", InsuranceIntelligence.Api.Local.Mock.MockOutboxEndpoints.Clear)
         .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 }
 

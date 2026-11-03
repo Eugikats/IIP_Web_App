@@ -37,6 +37,7 @@ const WARNING_PROVIDER_STATUSES = new Set([
   "degraded",
   "disabled",
   "missing",
+  "mock",
   "not configured",
   "pending",
   "unavailable",
@@ -116,7 +117,9 @@ export function customerUpdateSendAvailability(
   const provider = providerByName(health, "communications");
   const mode = provider?.mode.toLowerCase();
   const normalizedChannel = channel.toLowerCase();
-  const localMockEnabled = canUseLocalTestDoubles && isProviderConfigured(provider) && mode === "mock";
+  // "mock" is reported by the API only under a developer runtime, when the deterministic Mock
+  // communication adapter is active. It is never "healthy": its output is not real.
+  const localMockEnabled = canUseLocalTestDoubles && mode === "mock" && (isProviderConfigured(provider) || provider?.status.toLowerCase() === "mock");
 
   if (normalizedChannel === "email") {
     if ((isProviderConfigured(provider) && mode === "graphemail") || localMockEnabled) {
