@@ -35,4 +35,5 @@ public sealed class MockDocumentProcessingProvider : IDocumentProcessingProvider
         return Task.FromResult(result);
     }
 
+    private static DocumentType Classify(string fileName) => DocumentFileNameClassifier.Classify(fileName);
 }

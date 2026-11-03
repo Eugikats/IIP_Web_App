@@ -64,14 +64,14 @@ public static class DocumentMapper
             Blocked(document),
             document.DocumentTypeKey,
             document.IsSuperseded,
-            MissingProcessingCapability(document));
+            MissingProcessingCapability(document),
+            document.DisagreesWithClassifier);
 
     private static string? MissingProcessingCapability(CaseDocument document) =>
         document.ProcessingStatus == DocumentProcessingStatus.Uploaded
         && string.Equals(document.Extraction.ProviderName, "NotConfigured", StringComparison.OrdinalIgnoreCase)
             ? "DocumentProcessing"
             : null;
-
     public static DocumentChecklistResponse ToResponse(DocumentCompletenessChecklist checklist) =>
         new(
             checklist.CaseId,
@@ -132,6 +132,11 @@ public static class DocumentMapper
             actions.Add(Action("reclassifyDocument", "Reclassify document", Permission.UploadDocument));
         }
 
+        if (ReprocessBlockedReason(document) is null)
+        {
+            actions.Add(Action("reprocessDocument", "Retry processing", Permission.UploadDocument));
+        }
+
         if (ApproveExtractionBlockedReason(document) is null)
         {
             actions.Add(Action("approveDocumentExtraction", "Approve extraction", Permission.UploadDocument));
@@ -154,6 +159,12 @@ public static class DocumentMapper
             actions.Add(Action("reclassifyDocument", "Reclassify document", Permission.UploadDocument, reclassifyReason));
         }
 
+        var reprocessReason = ReprocessBlockedReason(document);
+        if (reprocessReason is not null)
+        {
+            actions.Add(Action("reprocessDocument", "Retry processing", Permission.UploadDocument, reprocessReason));
+        }
+
         var approveReason = ApproveExtractionBlockedReason(document);
         if (approveReason is not null)
         {
@@ -168,6 +179,16 @@ public static class DocumentMapper
 
         return actions;
     }
+
+    /// <summary>Only a document that failed or is stuck before processing can be retried; a
+    /// processed document is final until reclassified, and an approved extraction is locked.</summary>
+    public static string? ReprocessBlockedReason(CaseDocument document) =>
+        document.ProcessingStatus switch
+        {
+            DocumentProcessingStatus.Failed or DocumentProcessingStatus.Uploaded => null,
+            DocumentProcessingStatus.ExtractionApproved => "Approved extractions are locked and cannot be reprocessed.",
+            _ => "Only a failed or unprocessed document can be retried."
+        };
 
     public static string? ReclassifyBlockedReason(CaseDocument document) =>
         document.ProcessingStatus switch

@@ -54,8 +54,8 @@ public sealed record AgentRegistryEntry(
 
 public static class AgentCatalog
 {
-    // The ten canonical agents from the governing architecture. Adding or
-    // removing an agent requires an ADR; tenant state may only disable them.
+    // The agents the platform can run (the count is asserted in AgentWorkflowCatalogTests, not
+    // repeated here). Adding or removing an agent requires an ADR; tenant state may only disable them.
     public static readonly IReadOnlyList<AgentDescriptor> Agents =
     [
         new("command-center", "Command Center Agent", "Prepares grounded operational briefings and structured command responses.", "Medium", HumanApprovalRequired: false,
@@ -93,12 +93,13 @@ public static class AgentCatalog
         // Rule-based: UnderwritingRuleEngine. No chat/LLM call site exists.
         new("underwriting-intelligence", "Underwriting Intelligence Agent", "Supports proposal and risk review with referral notes; never accepts, rejects, or prices risk.", "High", HumanApprovalRequired: true,
             AgentImplementationKind.RuleBased, ["knowledge.search", "document.read", "policy.read"]),
-        // Customer-facing, not staff-facing, a different category from the ten above (see
+        // Customer-facing, not staff-facing, a different category from the staff agents above (see
         // docs/03-design-architecture/iip_ai_agent_architecture_tool_registry_updated.md's
-        // Customer-Facing Agents section). Intent classification is deterministic/rule-based
-        // (KeywordCustomerIntentClassifier); grounded GeneralQuestion answers are produced by
-        // delegating to policy-intelligence's own model-backed path, not a separate model call
-        // this agent owns. RiskLevel is High and HumanApprovalRequired is true because this is the
+        // Customer-Facing Agents section). Intent classification is deterministic
+        // (KeywordCustomerIntentClassifier), but Kato's replies are produced by a tool-calling model
+        // loop (CustomerAssistantService.Agent.cs) whenever an AI provider is configured, which is
+        // why this is ModelBacked: the output quality depends on a live model, not fixed logic.
+        // RiskLevel is High and HumanApprovalRequired is true because this is the
         // one agent in the catalog that can act on an unauthenticated inbound message with no
         // staff user in the loop at all, disabling it (Admin > Agents) is the fail-closed switch:
         // CustomerAssistantService checks it before processing any inbound message and escalates
@@ -117,7 +118,7 @@ public static class AgentCatalog
         new("outreach", "Outreach Agent", "Drafts a personal message for each person with a recommended cover, and follow-ups for people who have gone quiet or whose policy is ending. It only drafts: a named person reads, edits and approves every message, and each send is checked for consent, sending hours and WhatsApp rules.", "Medium", HumanApprovalRequired: true,
             AgentImplementationKind.RuleBased, ["lead.read", "lead.update", "message.draft"]),
         new("customer-assistant", "Customer Assistant (WhatsApp)", "Classifies inbound WhatsApp messages into six intents; answers general questions from approved knowledge, opens provisional claims, and captures sales leads, never discloses case-specific detail without a matched policy number.", "High", HumanApprovalRequired: true,
-            AgentImplementationKind.RuleBased, ["customer.intent.classify", "knowledge.search", "case.create", "lead.create"]),
+            AgentImplementationKind.ModelBacked, ["customer.intent.classify", "knowledge.search", "case.create", "lead.create"]),
     ];
 
     public static AgentDescriptor? Find(string key) =>

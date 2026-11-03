@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -50,6 +50,59 @@ export async function createMotorClaim(request: APIRequestContext, tenantId: str
   });
   expect(response.ok(), await response.text()).toBeTruthy();
   return (await response.json()) as { caseId: string };
+}
+
+
+// The portal under test is built for one tenant (NEXT_PUBLIC_TENANT_ID); item 29 removes that
+// limit. Until then, browser journeys for a customer run in the seeded demo tenant.
+export const PORTAL_TENANT = "tenant-demo";
+export const PORTAL_WORKSPACE = "workspace-operations";
+
+/** Creates a claim in the portal's tenant and returns the access link a customer would be sent
+ *  (read from the mock outbox, because the Mock communication provider "delivers" it there). */
+export async function claimantLinkFor(request: APIRequestContext, claimType = "Own damage") {
+  const policyNumber = `POL-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  const email = `claimant.${Math.random().toString(36).slice(2, 8)}@example.com`;
+  const created = await request.post(`${API}/api/v1/cases`, {
+    headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE),
+    data: {
+      customerName: "Portal Customer",
+      customerEmail: email,
+      customerPhone: "+256700000777",
+      policyNumber,
+      productLine: "Motor",
+      claimType,
+      channel: "Phone",
+      incidentDate: new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10),
+      incidentDescription: "Collision on the highway.",
+    },
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const { caseId } = (await created.json()) as { caseId: string };
+
+  const asked = await request.post(`${API}/api/v1/client-portal/magic-links`, {
+    headers: { "X-Tenant-Id": PORTAL_TENANT, "X-Workspace-Id": PORTAL_WORKSPACE },
+    data: { policyNumber, contactValue: email },
+  });
+  expect(asked.ok(), await asked.text()).toBeTruthy();
+
+  let link: string | undefined;
+  for (let attempt = 0; attempt < 10 && !link; attempt++) {
+    const outbox = (await (await request.get(`${API}/api/v1/dev/mock-outbox`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) })).json()) as { recipient: string; body: string }[];
+    const mail = outbox.find((message) => message.recipient === email && /token=/.test(message.body));
+    link = mail?.body.match(/https?:\/\/[^\s"]*token=[A-Za-z0-9_-]+/)?.[0];
+    if (!link) await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  expect(link, "the access link was not delivered to the mock outbox").toBeTruthy();
+  // The mock outbox holds the link as the API built it (its configured portal base URL); the
+  // browser under test is on a different origin, so keep only the token.
+  const token = new URL(link!).searchParams.get("token")!;
+  return { caseId, policyNumber, email, token };
+}
+
+export async function openClaimantPortal(page: Page, token: string) {
+  await page.goto(`/access/verify?token=${token}`);
+  await expect(page.getByText("Your claim", { exact: true })).toBeVisible();
 }
 
 test.describe("Item 1: mock providers", () => {
@@ -108,5 +161,54 @@ test.describe("Item 1: mock providers", () => {
     expect(await outboxB.json()).toEqual([]);
     const claimB = await request.get(`${API}/api/v1/cases/${caseId}`, { headers: scopeHeaders(tenantB) });
     expect(claimB.status()).toBe(404);
+  });
+});
+
+test.describe("Item 2: known defects", () => {
+  test("a file that fails to read is marked Could not be read, can be retried, then counts", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const policeRow = page.locator("li", { hasText: "Police report" }).first();
+    await policeRow.locator('input[type="file"]').setInputFiles({
+      name: "police.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract IIP-MOCK-FAIL-ONCE"),
+    });
+    await expect(policeRow.getByText("Could not be read")).toBeVisible();
+    const documentProgress = page.getByText("Documents we asked for").locator("..");
+    await expect(documentProgress).toContainText("0 of 3 sent");
+
+    await policeRow.getByRole("button", { name: "Try again" }).click();
+    await expect(policeRow.getByText("Received")).toBeVisible();
+    await expect(policeRow.getByRole("button", { name: "Try again" })).toHaveCount(0);
+    await expect(documentProgress).toContainText("1 of 3 sent");
+  });
+
+  test("a slot the customer filled counts even when the file name tells nothing", async ({ request }) => {
+    const tenant = newTenant();
+    const { caseId } = await createMotorClaim(request, tenant);
+    const upload = await request.post(`${API}/api/v1/cases/${caseId}/documents`, {
+      headers: scopeHeaders(tenant),
+      multipart: { files: { name: "accident_report.txt", mimeType: "text/plain", buffer: Buffer.from("plain text, no marker") } },
+    });
+    expect(upload.ok(), await upload.text()).toBeTruthy();
+    const documents = (await (await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers: scopeHeaders(tenant) })).json()) as { documentType: string }[];
+    // The old substring matcher filed this as a customer ID because "accident" contains "id".
+    expect(documents[0].documentType).toBe("Unknown");
+  });
+
+  test("customer service cannot manage products; the permission mirror matches the server", async ({ request }) => {
+    const denied = await request.post(`${API}/api/v1/products`, {
+      headers: scopeHeaders(newTenant(), "workspace-main", "CustomerService"),
+      data: { name: "Sneaky", productClass: "Motor" },
+    });
+    expect(denied.status()).toBe(403);
+    const me = await request.get(`${API}/api/v1/me`, { headers: scopeHeaders(newTenant(), "workspace-main", "CustomerService") });
+    const permissions = ((await me.json()) as { permissions: string[] }).permissions;
+    expect(permissions).not.toContain("ManageProducts");
+    expect(permissions).not.toContain("ManageTenantOnboarding");
+    expect(permissions).toContain("CreateClaim");
   });
 });

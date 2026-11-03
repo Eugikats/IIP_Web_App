@@ -18,11 +18,25 @@ public sealed class MockDocumentProcessingProvider : IDocumentProcessingProvider
     public const string ProviderName = "Mock";
     public const string DocMarker = "IIP-MOCK-DOC:";
     public const string FieldMarker = "IIP-MOCK-FIELD:";
+
+    /// <summary>A file containing this text makes the first processing attempt of that document
+    /// fail, and every later attempt succeed, so failure and retry can be exercised end to end.
+    /// A file containing <c>IIP-MOCK-FAIL-ALWAYS</c> never succeeds.</summary>
+    public const string FailOnceMarker = "IIP-MOCK-FAIL-ONCE";
+    public const string FailAlwaysMarker = "IIP-MOCK-FAIL-ALWAYS";
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, int> Attempts = new();
     private const int ScanBytes = 4 * 1024 * 1024;
 
     public async Task<DocumentProcessingResult> ProcessAsync(DocumentProcessingRequest request, CancellationToken cancellationToken = default)
     {
         var scanned = await ReadHeadAsync(request, cancellationToken);
+        var attempt = Attempts.AddOrUpdate(request.DocumentId, 1, (_, previous) => previous + 1);
+        if (scanned.Contains(FailAlwaysMarker, StringComparison.Ordinal)
+            || (scanned.Contains(FailOnceMarker, StringComparison.Ordinal) && attempt == 1))
+        {
+            throw new InvalidOperationException("Simulated mock processing failure.");
+        }
+
         var markerType = ParseMarkerType(scanned);
         var documentType = markerType ?? ClassifyFileName(request.OriginalFileName);
         var confidence = markerType is not null ? 0.96m : documentType == DocumentType.Unknown ? 0.30m : 0.78m;
@@ -64,24 +78,7 @@ public sealed class MockDocumentProcessingProvider : IDocumentProcessingProvider
             warnings);
     }
 
-    /// <summary>Whole-token file name match: "police_letter.pdf" is a police abstract, but
-    /// "accident_report.pdf" is not a customer ID just because it contains the letters "id".</summary>
-    public static DocumentType ClassifyFileName(string fileName)
-    {
-        var tokens = Path.GetFileNameWithoutExtension(fileName)
-            .Split(new[] { '_', '-', ' ', '.', '(', ')' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(token => token.ToLowerInvariant())
-            .ToHashSet();
-
-        if (tokens.Contains("claim") && tokens.Contains("form")) return DocumentType.ClaimForm;
-        if (tokens.Contains("police") || tokens.Contains("abstract")) return DocumentType.PoliceAbstract;
-        if (tokens.Contains("invoice") || tokens.Contains("receipt")) return DocumentType.Invoice;
-        if (tokens.Contains("medical")) return DocumentType.MedicalReport;
-        if (tokens.Contains("garage") || tokens.Contains("estimate")) return DocumentType.GarageEstimate;
-        if (tokens.Contains("photo") || tokens.Contains("damage")) return DocumentType.PhotoEvidence;
-        if (tokens.Contains("id") || tokens.Contains("passport") || tokens.Contains("licence") || tokens.Contains("license")) return DocumentType.CustomerId;
-        return DocumentType.Unknown;
-    }
+    public static DocumentType ClassifyFileName(string fileName) => DocumentFileNameClassifier.Classify(fileName);
 
     private static IEnumerable<(string Key, string Value)> DefaultFieldsFor(DocumentType type) => type switch
     {

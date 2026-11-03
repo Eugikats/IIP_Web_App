@@ -19,15 +19,8 @@ public sealed class StaticDocumentChecklistProvider(
         CancellationToken cancellationToken = default)
     {
         var rules = await ResolveRulesAsync(claimCase, cancellationToken);
-        // Receipt and processing are separate facts. A file that was durably uploaded into a
-        // selected slot counts as received even when OCR is not configured; its classification
-        // and extraction remain untouched and can still be Unknown/NotConfigured.
-        var receivedDocuments = documents
-            .Where(document => !document.IsSuperseded
-                && document.ProcessingStatus is DocumentProcessingStatus.Uploaded
-                    or DocumentProcessingStatus.Processed
-                    or DocumentProcessingStatus.ExtractionApproved)
-            .ToArray();
+        // A stored, non-failed file counts for its slot even while its extraction is being reviewed.
+        var counted = documents.Where(document => document.CountsTowardsCompleteness).ToArray();
         var processed = documents
             .Where(document => !document.IsSuperseded
                 && document.ProcessingStatus is DocumentProcessingStatus.Processed
@@ -36,9 +29,15 @@ public sealed class StaticDocumentChecklistProvider(
         // Which document this is follows the customer's own choice of slot when they made one and it names a built-in
         // type, because they know what they are holding and a scan called scan001.pdf tells the classifier nothing.
         // The classifier's independent guess is kept on the document so a disagreement can be shown to a person.
-        var received = receivedDocuments
-            .Select(EffectiveType)
-            .Where(documentType => documentType != DocumentType.Unknown)
+        // Custom requirements are matched using the configured key; built-in document kinds use
+        // the customer's selected slot or the classifier's type when no slot was selected.
+        var receivedKeys = counted
+            .Select(document => document.EffectiveKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var received = receivedKeys
+            .Select(key => Enum.TryParse<DocumentType>(key, ignoreCase: true, out var type) ? type : DocumentType.Unknown)
+            .Where(type => type != DocumentType.Unknown)
             .Distinct()
             .ToArray();
         var fieldChecks = processed
@@ -50,13 +49,6 @@ public sealed class StaticDocumentChecklistProvider(
                 .First())
             .Where(check => check.DocumentType != DocumentType.Unknown)
             .ToArray();
-        // A custom document type has no DocumentType of its own, so it is matched on the key the
-        // customer chose (outcome B), falling back to the classifier's DocumentType name for a
-        // document nobody was asked to name (see CaseDocument.DocumentTypeKey).
-        var receivedKeys = receivedDocuments
-            .Select(document => document.DocumentTypeKey ?? document.DocumentType.ToString())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var customReceivedCount = rules.CustomRequired.Count(entry => receivedKeys.Contains(entry.Key));
         var score = scoringService.Calculate(rules.RequiredDocuments, received, rules.CustomRequired.Count, customReceivedCount);
 

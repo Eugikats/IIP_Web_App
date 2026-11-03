@@ -40,17 +40,6 @@ public sealed class MockedApiFactory : WebApplicationFactory<Program>
 
     public static string NewTenant() => $"t-{Guid.NewGuid():N}"[..14];
 
-    /// <summary>An HTTP client that identifies as the given role in the given tenant workspace.</summary>
-    public HttpClient CreateScopedClient(string tenantId, string workspaceId = "workspace-main", string role = "Admin", string userId = "test-admin")
-    {
-        var client = CreateClient();
-        client.DefaultRequestHeaders.Add("X-Tenant-Id", tenantId);
-        client.DefaultRequestHeaders.Add("X-Workspace-Id", workspaceId);
-        client.DefaultRequestHeaders.Add("x-demo-role", role);
-        client.DefaultRequestHeaders.Add("x-demo-user-id", userId);
-        return client;
-    }
-
     public static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)
     {
         var text = await response.Content.ReadAsStringAsync();
@@ -59,4 +48,24 @@ public sealed class MockedApiFactory : WebApplicationFactory<Program>
 
     public static async Task<T> ReadAsAsync<T>(HttpResponseMessage response) =>
         (await response.Content.ReadFromJsonAsync<T>(Json))!;
+}
+
+public static class ApiFactoryExtensions
+{
+    /// <summary>An HTTP client that identifies as the given role in the given tenant workspace.
+    /// An extension on the base factory so it also works on hosts made with WithWebHostBuilder.</summary>
+    public static HttpClient CreateScopedClient(
+        this WebApplicationFactory<Program> factory,
+        string tenantId,
+        string workspaceId = "workspace-main",
+        string role = "Admin",
+        string userId = "test-admin")
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Tenant-Id", tenantId);
+        client.DefaultRequestHeaders.Add("X-Workspace-Id", workspaceId);
+        client.DefaultRequestHeaders.Add("x-demo-role", role);
+        client.DefaultRequestHeaders.Add("x-demo-user-id", userId);
+        return client;
+    }
 }

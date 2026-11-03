@@ -151,6 +151,31 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
         // Note: no ModelVersion or BoundingBoxes on the not-configured fallback path, those require a real extraction.
     }
 
+    private static DocumentType Classify(string fileName, AnalyzeResult? analyzeResult = null)
+    {
+        var azureType = analyzeResult?.Documents.FirstOrDefault()?.DocumentType;
+        if (!string.IsNullOrWhiteSpace(azureType))
+        {
+            if (azureType.Contains("invoice", StringComparison.OrdinalIgnoreCase)) return DocumentType.Invoice;
+            if (azureType.Contains("receipt", StringComparison.OrdinalIgnoreCase)) return DocumentType.Invoice;
+            if (azureType.Contains("medical", StringComparison.OrdinalIgnoreCase)) return DocumentType.MedicalReport;
+            if (azureType.Contains("identity", StringComparison.OrdinalIgnoreCase)) return DocumentType.CustomerId;
+        }
+
+        // Whole-token file name match (see DocumentFileNameClassifier); "accident_report.pdf" is
+        // not a customer ID just because it contains the letters "id".
+        return DocumentFileNameClassifier.Classify(fileName);
+    }
+
+    private static decimal ClassificationConfidence(AnalyzeResult analyzeResult)
+    {
+        var confidence = analyzeResult.Documents.FirstOrDefault()?.Confidence;
+        return confidence is null or <= 0 ? 0.70m : DecimalConfidence(confidence);
+    }
+
+    private static decimal DecimalConfidence(float? confidence) =>
+        confidence is null or <= 0 ? 0.70m : Math.Clamp((decimal)confidence.Value, 0m, 1m);
+
     private static string NormalizeKey(string value)
     {
         var cleaned = string.Join('_', value.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));

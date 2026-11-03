@@ -209,6 +209,19 @@ public sealed record AuditEvent(
             correlationId: correlationId,
             confidence: document.Classification.ConfidenceScore);
 
+    /// <summary>Processing could not read the file (provider unavailable, unsupported or unreadable
+    /// content). The document is kept, marked Failed, and can be retried; nothing is lost.</summary>
+    public static AuditEvent DocumentProcessingFailed(CaseDocument document, string correlationId) =>
+        ForDocument(
+            document,
+            userId: null,
+            actorType: ActorType.Agent,
+            actionName: "document.processing.failed",
+            BeforeStatus: DocumentProcessingStatus.Uploaded.ToString(),
+            AfterStatus: DocumentProcessingStatus.Failed.ToString(),
+            ValidationResult: "failed",
+            correlationId: correlationId);
+
     /// <summary>A customer's "remove" or "replace" (claim intake build prompt outcome B): the
     /// document itself is never deleted, only marked superseded, and this is its audit trail
     /// entry.</summary>
@@ -1125,7 +1138,7 @@ public sealed record AuditEvent(
             BeforeStatus,
             AfterStatus,
             EvidenceIds: [document.ObjectKey],
-            ModelProvider: "Mock",
+            ModelProvider: document.Classification.ProviderName,
             Confidence: confidence,
             ValidationResult,
             ApprovalId: null,

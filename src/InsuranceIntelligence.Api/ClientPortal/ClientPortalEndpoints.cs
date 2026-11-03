@@ -316,49 +316,19 @@ public static class ClientPortalEndpoints
             await documentRepository.SaveAsync(uploadedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentUploaded(uploadedDocument, actor, correlationId), cancellationToken);
 
-            var processingResult = await processingProvider.ProcessAsync(
-                new DocumentProcessingRequest(
-                    documentId,
-                    caseId,
-                    uploadedDocument.OriginalFileName,
-                    uploadedDocument.ContentType,
-                    uploadedDocument.FileSizeBytes,
-                    uploadedDocument.ObjectKey,
-                    ct => storageProvider.ReadAsync(scope, uploadedDocument.ObjectKey, ct)),
+            // A failure here (provider missing or unreadable file) leaves the document marked
+            // Failed with a retry, never stuck at "Being checked"; the customer is not shown a
+            // server error for something they cannot fix.
+            await DocumentProcessingRunner.RunAsync(
+                uploadedDocument,
+                claimCase,
+                storageProvider,
+                processingProvider,
+                fieldValidationRuleRepository,
+                documentRepository,
+                auditRepository,
+                correlationId,
                 cancellationToken);
-            // The customer chose which required document this is. That choice is what the document counts as; the
-            // classifier's own guess stays on the record, and a disagreement is raised for a person to look at.
-            var namedType = Local.StaticDocumentChecklistProvider.EffectiveType(uploadedDocument);
-            var classifiedType = processingResult.Classification.DocumentType;
-            var effectiveType = namedType != DocumentType.Unknown ? namedType : classifiedType;
-            var typeWarnings = namedType != DocumentType.Unknown && classifiedType != DocumentType.Unknown && classifiedType != namedType
-                ? new[]
-                {
-                    new DocumentValidationWarning(
-                        "document.type.mismatch",
-                        $"Sent as {DocumentMapper.LabelFor(namedType)}, but the content looks like {DocumentMapper.LabelFor(classifiedType)}. Check it before relying on it.",
-                        "warning"),
-                }
-                : Array.Empty<DocumentValidationWarning>();
-            var fieldValidationRules = DocumentFieldValidator.ResolveRules(
-                scope, await fieldValidationRuleRepository.ListAsync(scope, cancellationToken));
-            var fieldValidationWarnings = DocumentFieldValidator.Evaluate(
-                fieldValidationRules,
-                effectiveType,
-                claimCase.ProductLine,
-                processingResult.Extraction.Fields);
-            var processedDocument = uploadedDocument with
-            {
-                DocumentType = effectiveType,
-                ProcessingStatus = DocumentProcessingStatus.Processed,
-                Classification = processingResult.Classification,
-                Extraction = processingResult.Extraction,
-                ValidationWarnings = processingResult.ValidationWarnings.Concat(typeWarnings).Concat(fieldValidationWarnings).ToArray(),
-                ProcessedAt = DateTimeOffset.UtcNow
-            };
-
-            await documentRepository.SaveAsync(processedDocument, cancellationToken);
-            await auditRepository.WriteAsync(AuditEvent.DocumentProcessed(processedDocument, correlationId), cancellationToken);
         }
 
         var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
@@ -442,6 +412,71 @@ public static class ClientPortalEndpoints
     /// <summary>"Remove", with no replacement file (outcome B). Never deletes anything
     /// (non-negotiable 2): marks the active document(s) for this requirement superseded, so the
     /// requirement goes back to not satisfied and staff still see what was originally sent.</summary>
+    /// <summary>The customer taps "Try again" on a file that could not be read. The stored file is
+    /// processed again; nothing is uploaded a second time.</summary>
+    public static async Task<IResult> RetryDocument(
+        Guid caseId,
+        ClientPortalRemoveDocumentRequest request,
+        ICaseRepository caseRepository,
+        ICaseDocumentRepository documentRepository,
+        IDocumentStorageProvider storageProvider,
+        IDocumentProcessingProvider processingProvider,
+        IDocumentChecklistProvider checklistProvider,
+        IDocumentFieldValidationRuleRepository fieldValidationRuleRepository,
+        ICommunicationRepository communicationRepository,
+        IAuditRepository auditRepository,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!ResolveScope(httpContext, out var scope, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
+        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext, options))
+        {
+            return Results.NotFound(new { message = "Claim was not found for the signed-in customer." });
+        }
+
+        var key = NormalizeDocumentTypeKey(request.DocumentTypeKey);
+        if (key is null)
+        {
+            return Validation("documentTypeKey", "Say which document to try again.");
+        }
+
+        var documents = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        var failed = documents
+            .Where(document => !document.IsSuperseded && document.ProcessingStatus == DocumentProcessingStatus.Failed)
+            .Where(document => string.Equals(document.EffectiveKey, key, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(document => document.UploadedAt)
+            .FirstOrDefault();
+        if (failed is null)
+        {
+            return Results.Conflict(new { message = "There is nothing to try again for that document." });
+        }
+
+        var correlationId = httpContext.TraceIdentifier;
+        await DocumentProcessingRunner.RunAsync(
+            failed with { ProcessingStatus = DocumentProcessingStatus.Uploaded },
+            claimCase,
+            storageProvider,
+            processingProvider,
+            fieldValidationRuleRepository,
+            documentRepository,
+            auditRepository,
+            correlationId,
+            cancellationToken);
+
+        var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        var checklist = await checklistProvider.BuildChecklistAsync(claimCase, allDocuments, cancellationToken);
+        var updatedCase = claimCase with { CompletenessScore = checklist.CompletenessScore.Percentage, UpdatedAt = DateTimeOffset.UtcNow };
+        await caseRepository.SaveAsync(updatedCase, cancellationToken);
+        var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        return Results.Ok(ToResponse(updatedCase, checklist, allDocuments, communications));
+    }
+
     public static async Task<IResult> RemoveDocument(
         Guid caseId,
         ClientPortalRemoveDocumentRequest body,
@@ -550,13 +585,14 @@ public static class ClientPortalEndpoints
                 .Where(document => string.Equals(document.DocumentTypeKey ?? document.DocumentType.ToString(), key, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(document => document.UploadedAt)
                 .FirstOrDefault();
-            var isProcessed = active is not null && active.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved;
-            var status = active is null ? "Not uploaded" : isProcessed ? "Received" : "Being checked";
+            var failed = active is not null && active.ProcessingStatus == DocumentProcessingStatus.Failed;
+            var isProcessed = active is not null
+                && active.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved
+                    or DocumentProcessingStatus.ReviewRequired or DocumentProcessingStatus.Reviewed;
+            var status = active is null ? "Not uploaded" : failed ? "Could not be read" : isProcessed ? "Received" : "Being checked";
             // A disagreement between the customer's choice and the classifier's independent guess
             // is flagged for staff, never shown to the customer as an error (outcome B).
-            var disagreesWithClassifier = active?.DocumentTypeKey is not null
-                && active.Classification.DocumentType != DocumentType.Unknown
-                && !string.Equals(active.DocumentTypeKey, active.Classification.DocumentType.ToString(), StringComparison.OrdinalIgnoreCase);
+            var disagreesWithClassifier = active?.DisagreesWithClassifier ?? false;
 
             return new ClientPortalDocumentRequirement(
                 key,
@@ -564,10 +600,12 @@ public static class ClientPortalEndpoints
                 description,
                 required,
                 active is not null,
+                active?.CountsTowardsCompleteness == true,
                 status,
                 active?.OriginalFileName,
                 active?.UploadedAt,
-                disagreesWithClassifier);
+                disagreesWithClassifier,
+                CanRetry: failed);
         }
 
         var requiredDocuments = checklist.RequiredDocuments
@@ -610,6 +648,8 @@ public static class ClientPortalEndpoints
             claimCase.CreatedAt,
             claimCase.UpdatedAt,
             checklist.CompletenessScore.Percentage,
+            checklist.CompletenessScore.RequiredReceived,
+            checklist.CompletenessScore.RequiredTotal,
             requiredDocuments,
             BuildTimeline(claimCase),
             messages,
@@ -863,6 +903,8 @@ public sealed record ClientPortalClaimResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     decimal CompletenessScore,
+    int RequiredDocumentsReceived,
+    int RequiredDocumentsTotal,
     // Every row from the claim's pinned product version, required and optional alike, each
     // carrying its own Required flag (outcome B); not only the required ones despite the name
     // this field has always had.
@@ -893,10 +935,12 @@ public sealed record ClientPortalDocumentRequirement(
     string Description,
     bool Required,
     bool Uploaded,
+    bool Received,
     string Status,
     string? FileName,
     DateTimeOffset? UploadedAt,
-    bool DisagreesWithClassifier);
+    bool DisagreesWithClassifier,
+    bool CanRetry = false);
 
 public sealed record ClientPortalRemoveDocumentRequest(string? DocumentTypeKey);
 

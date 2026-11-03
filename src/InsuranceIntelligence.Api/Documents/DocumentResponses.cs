@@ -33,7 +33,10 @@ public sealed record DocumentResponse(
     // compares the two itself for the disagreement marker (claim intake build prompt outcome B).
     string? CustomerDocumentTypeKey,
     bool IsSuperseded,
-    string? ProcessingCapability = null);
+    string? ProcessingCapability = null,
+    // True when the customer filed this under one type and the classifier confidently reads a
+    // different one. A flag for staff only; never shown to the customer as an error.
+    bool ClassifierDisagrees = false);
 
 public sealed record BoundingBoxResponse(
     int PageNumber,

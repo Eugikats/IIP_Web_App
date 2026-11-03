@@ -20,10 +20,13 @@ export type ClientPortalDocumentRequirement = {
   description: string;
   required: boolean;
   uploaded: boolean;
+  received: boolean;
   status: string;
   fileName: string | null;
   uploadedAt: string | null;
   disagreesWithClassifier: boolean;
+  /** True when the file could not be read and the customer can ask for another attempt. */
+  canRetry?: boolean;
 };
 
 export type ClientPortalTimelineStep = {
@@ -59,6 +62,8 @@ export type ClientPortalClaim = {
   createdAt: string;
   updatedAt: string;
   completenessScore: number;
+  requiredDocumentsReceived: number;
+  requiredDocumentsTotal: number;
   requiredDocuments: ClientPortalDocumentRequirement[];
   timeline: ClientPortalTimelineStep[];
   messages: ClientPortalMessage[];
@@ -264,6 +269,25 @@ export async function uploadClaimDocuments(
     return { ok: true, claim: (await response.json()) as ClientPortalClaim };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "We could not upload your document.") };
+  }
+}
+
+export async function retryClaimDocument(session: ClientPortalSession, documentTypeKey: string): Promise<RemoveDocumentResult> {
+  if (!session.caseId) {
+    return { ok: false, error: "No claim has been submitted on this access link yet." };
+  }
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claims/${session.caseId}/documents/retry`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...clientPortalHeaders(session.sessionToken) },
+      body: JSON.stringify({ documentTypeKey }),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "We could not try that again. Try again shortly.") };
+    }
+    return { ok: true, claim: (await response.json()) as ClientPortalClaim };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "We could not try that again.") };
   }
 }
 

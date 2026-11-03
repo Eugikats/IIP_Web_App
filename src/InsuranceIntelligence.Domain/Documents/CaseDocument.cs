@@ -39,4 +39,24 @@ public sealed record CaseDocument
     public bool IsSuperseded { get; init; }
 
     public DateTimeOffset? SupersededAt { get; init; }
+
+    /// <summary>The catalog key this document is filed under: the customer's own choice when they
+    /// uploaded into a named slot, otherwise the classifier's type. This is the one key that
+    /// completeness, the customer page and the staff checklist all match on.</summary>
+    public string EffectiveKey => DocumentTypeKey ?? DocumentType.ToString();
+
+    /// <summary>True when this file stands in for a required slot. The customer did their part as
+    /// soon as the file is stored in the slot, so it counts whether or not it has finished being
+    /// read, but not once it is superseded, failed to process, or was rejected by a person.</summary>
+    public bool CountsTowardsCompleteness =>
+        !IsSuperseded
+        && ProcessingStatus is not (DocumentProcessingStatus.Failed or DocumentProcessingStatus.Rejected)
+        && !string.Equals(EffectiveKey, nameof(Documents.DocumentType.Unknown), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The customer filed this in one slot but the classifier confidently reads it as a
+    /// different built-in type. Never shown to the customer as an error; a flag for staff.</summary>
+    public bool DisagreesWithClassifier =>
+        DocumentTypeKey is not null
+        && Classification.DocumentType != Documents.DocumentType.Unknown
+        && !string.Equals(DocumentTypeKey, Classification.DocumentType.ToString(), StringComparison.OrdinalIgnoreCase);
 }

@@ -15,6 +15,7 @@ import {
   loadStoredSession,
   removeClaimDocument,
   requestClaimReview,
+  retryClaimDocument,
   uploadClaimDocuments,
 } from "@/lib/clientPortal";
 import { downscalePhotoIfNeeded } from "@/lib/photoDownscale";
@@ -141,6 +142,21 @@ export default function ClaimAccessStatus() {
     setUploadNotice(`${label} removed.`);
   }
 
+  async function onRetry(documentTypeKey: string, label: string) {
+    if (!session) return;
+    setBusyKey(documentTypeKey);
+    setUploadNotice(null);
+    const result = await retryClaimDocument(session, documentTypeKey);
+    setBusyKey(null);
+    if (!result.ok) {
+      setUploadNotice(result.error);
+      return;
+    }
+    setClaim(result.claim);
+    const row = result.claim.requiredDocuments.find((item) => item.documentTypeKey === documentTypeKey);
+    setUploadNotice(row?.canRetry ? `${label} still could not be read. You can try again or send it again.` : `${label} checked.`);
+  }
+
   async function onRequestReview(event: FormEvent) {
     event.preventDefault();
     if (!session || !reviewReason.trim()) return;
@@ -166,9 +182,9 @@ export default function ClaimAccessStatus() {
   if (!session) return null;
 
   const requiredList = claim?.requiredDocuments.filter((doc) => doc.required) ?? [];
-  const requiredTotal = requiredList.length;
-  const requiredSent = requiredList.filter((doc) => doc.uploaded).length;
-  const stillNeeded = requiredList.filter((doc) => !doc.uploaded).map((doc) => doc.label);
+  const requiredTotal = claim?.requiredDocumentsTotal ?? 0;
+  const requiredSent = claim?.requiredDocumentsReceived ?? 0;
+  const stillNeeded = requiredList.filter((doc) => !doc.received).map((doc) => doc.label);
 
   return (
     <main className="min-h-screen bg-dls-bg-page text-dls-text-primary">
@@ -293,7 +309,7 @@ export default function ClaimAccessStatus() {
                           <div className="text-xs leading-5 text-dls-text-muted">{doc.description}</div>
                         </div>
                       </div>
-                      <span className={`shrink-0 text-xs font-semibold ${doc.uploaded ? "text-dls-success-text" : "text-dls-warning-text"}`}>{doc.status}</span>
+                      <span className={`shrink-0 text-xs font-semibold ${doc.canRetry ? "text-dls-danger-text" : doc.uploaded ? "text-dls-success-text" : "text-dls-warning-text"}`}>{doc.status}</span>
                     </div>
 
                     {doc.uploaded && (
@@ -323,6 +339,16 @@ export default function ClaimAccessStatus() {
                           onChange={(event) => onUpload(event, doc.documentTypeKey, doc.label)}
                         />
                       </label>
+                      {doc.canRetry && (
+                        <Button
+                          variant="secondary"
+                          icon={<RefreshCw aria-hidden="true" />}
+                          onClick={() => onRetry(doc.documentTypeKey, doc.label)}
+                          disabled={busyKey !== null}
+                        >
+                          Try again
+                        </Button>
+                      )}
                       {doc.uploaded && (
                         <Button
                           variant="ghost"

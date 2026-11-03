@@ -84,7 +84,7 @@ public static class DocumentEndpoints
         }
 
         var documents = new List<CaseDocument>();
-        var processingNotConfigured = false;
+        InsuranceIntelligence.Api.Local.ProviderNotConfiguredException? notConfiguredFailure = null;
 
         foreach (var file in files)
         {
@@ -106,54 +106,27 @@ public static class DocumentEndpoints
             await documentRepository.SaveAsync(uploadedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentUploaded(uploadedDocument, uploadedBy, correlationId), cancellationToken);
 
-            if (processingNotConfigured)
+            var run = await DocumentProcessingRunner.RunAsync(
+                uploadedDocument,
+                claimCase,
+                storageProvider,
+                processingProvider,
+                fieldValidationRuleRepository,
+                documentRepository,
+                auditRepository,
+                correlationId,
+                cancellationToken);
+            var processedDocument = run.Document;
+            if (run.NotConfigured is not null)
             {
-                documents.Add(uploadedDocument);
-                continue;
+                notConfiguredFailure ??= run.NotConfigured;
             }
 
-            DocumentProcessingResult processingResult;
-            try
+            if (run.Failed)
             {
-                processingResult = await processingProvider.ProcessAsync(
-                    new DocumentProcessingRequest(
-                        documentId,
-                        caseId,
-                        uploadedDocument.OriginalFileName,
-                        uploadedDocument.ContentType,
-                        uploadedDocument.FileSizeBytes,
-                        uploadedDocument.ObjectKey,
-                        ct => storageProvider.ReadAsync(scope, uploadedDocument.ObjectKey, ct)),
-                    cancellationToken);
-            }
-            catch (ProviderNotConfiguredException exception) when (exception.Capability == "DocumentProcessing")
-            {
-                // The source file is already durably stored and audited. Keep it visible as
-                // Uploaded, report the missing capability explicitly, and avoid inviting a retry
-                // that would create duplicate document records. Do not fabricate extraction data.
-                processingNotConfigured = true;
-                documents.Add(uploadedDocument);
+                documents.Add(processedDocument);
                 continue;
             }
-            var fieldValidationRules = DocumentFieldValidator.ResolveRules(
-                scope, await fieldValidationRuleRepository.ListAsync(scope, cancellationToken));
-            var fieldValidationWarnings = DocumentFieldValidator.Evaluate(
-                fieldValidationRules,
-                processingResult.Classification.DocumentType,
-                claimCase.ProductLine,
-                processingResult.Extraction.Fields);
-            var processedDocument = uploadedDocument with
-            {
-                DocumentType = processingResult.Classification.DocumentType,
-                ProcessingStatus = DocumentProcessingStatus.Processed,
-                Classification = processingResult.Classification,
-                Extraction = processingResult.Extraction,
-                ValidationWarnings = processingResult.ValidationWarnings.Concat(fieldValidationWarnings).ToArray(),
-                ProcessedAt = DateTimeOffset.UtcNow
-            };
-
-            await documentRepository.SaveAsync(processedDocument, cancellationToken);
-            await auditRepository.WriteAsync(AuditEvent.DocumentProcessed(processedDocument, correlationId), cancellationToken);
 
             // Reuses the exact same low-confidence/warned/not-yet-approved condition that blocks
             // ApproveExtraction (DocumentActionState.BlockedActions), a document only notifies here
@@ -184,6 +157,13 @@ public static class DocumentEndpoints
             correlationId,
             writeWhenUnchanged: true,
             cancellationToken);
+        if (notConfiguredFailure is not null)
+        {
+            // The files are stored and marked Failed (retryable), but an honest "not configured"
+            // answer is what the caller needs: the structured 503 names the missing capability.
+            throw notConfiguredFailure;
+        }
+
         var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         var checklist = await checklistProvider.BuildChecklistAsync(updatedCase, allDocuments, cancellationToken);
         var auditEvents = await auditRepository.ListForCaseAsync(caseId, cancellationToken);
@@ -192,7 +172,7 @@ public static class DocumentEndpoints
             documents.Select(document => DocumentMapper.ToResponse(document, confidenceThreshold)).ToArray(),
             DocumentMapper.ToResponse(checklist),
             DocumentMapper.ToAuditSummary(auditEvents),
-            processingNotConfigured ? "DocumentProcessing" : null));
+            notConfiguredFailure is not null ? "DocumentProcessing" : null));
     }
 
     public static async Task<IResult> ListDocuments(
@@ -285,6 +265,67 @@ public static class DocumentEndpoints
             stream,
             document.ContentType,
             enableRangeProcessing: true);
+    }
+
+    /// <summary>Re-runs processing on a stored document that failed (or never finished), from the
+    /// original stored file. Nothing is re-uploaded and nothing is lost.</summary>
+    public static async Task<IResult> ReprocessDocument(
+        Guid caseId,
+        Guid documentId,
+        ICaseRepository caseRepository,
+        ICaseDocumentRepository documentRepository,
+        IDocumentStorageProvider storageProvider,
+        IDocumentProcessingProvider processingProvider,
+        IDocumentFieldValidationRuleRepository fieldValidationRuleRepository,
+        IDocumentChecklistProvider checklistProvider,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        ITenantConfigurationRepository? tenantConfigurationRepository = null)
+    {
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Validation("tenantScope", validationError);
+        }
+
+        var claimCase = await GetScopedCaseAsync(caseRepository, caseId, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
+        var document = await documentRepository.GetAsync(caseId, documentId, scope, cancellationToken);
+        if (document is null)
+        {
+            return Results.NotFound(new { message = "Document was not found for the requested tenant workspace." });
+        }
+
+        var blockedReason = DocumentMapper.ReprocessBlockedReason(document);
+        if (blockedReason is not null)
+        {
+            return Results.Conflict(new { message = blockedReason, blockedAction = "reprocessDocument" });
+        }
+
+        var correlationId = GetCorrelationId(httpContext);
+        var run = await DocumentProcessingRunner.RunAsync(
+            document with { ProcessingStatus = DocumentProcessingStatus.Uploaded },
+            claimCase,
+            storageProvider,
+            processingProvider,
+            fieldValidationRuleRepository,
+            documentRepository,
+            auditRepository,
+            correlationId,
+            cancellationToken);
+        await UpdateCompletenessAsync(
+            claimCase, caseRepository, documentRepository, checklistProvider, auditRepository, scope, correlationId,
+            writeWhenUnchanged: true, cancellationToken);
+        if (run.NotConfigured is not null)
+        {
+            throw run.NotConfigured;
+        }
+
+        return Results.Ok(DocumentMapper.ToResponse(run.Document, await ResolveConfidenceThresholdAsync(tenantConfigurationRepository, scope, cancellationToken)));
     }
 
     public static async Task<IResult> ReclassifyDocument(
