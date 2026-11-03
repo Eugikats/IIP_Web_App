@@ -417,7 +417,12 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
       <>
         {crumb}
         <GlassCard>
-          <ErrorStateSurface message={error?.message ?? "No claim found for this workspace."} correlationId={error?.correlationId} onRetry={error?.retryable ? () => void reload() : undefined} />
+          <ErrorStateSurface
+            title={error?.kind === "terminal_failure" ? "Claim unavailable" : undefined}
+            message={error?.message ?? "No claim found for this workspace."}
+            correlationId={error?.correlationId}
+            onRetry={error?.retryable ? () => void reload() : undefined}
+          />
           <div className="flex flex-wrap justify-center gap-2 px-5 pb-4">
             <Link to="/app/claims" className="dls-focus-outline inline-flex items-center justify-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-4 py-[9px] text-[13px] font-bold text-dls-text-primary hover:bg-dls-bg-page">
               Return to claims

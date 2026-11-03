@@ -32,7 +32,10 @@ test("fixture claim navigation recovers and unavailable detail shows safe metada
       page.getByRole("main").getByRole("link", { name: "Review" }).first().click(),
     ]);
     await expect(page.getByRole("heading", { name: /CLM-1048 · Aisha Nakato/ })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Rear-end collision, Kampala Rd")).toBeVisible();
+    const incidentDescription = page.getByText("Rear-end collision, Kampala Rd");
+    await expect(incidentDescription).toHaveCount(2);
+    await expect(incidentDescription.nth(0)).toBeVisible();
+    await expect(incidentDescription.nth(1)).toBeVisible();
     await expect(page.getByText("Claim unavailable")).toHaveCount(0);
     await page.goBack();
     await page.waitForURL("**/app/claims");
