@@ -22,6 +22,15 @@ public sealed class ExplicitLanguageRequestParserTests
         Assert.Equal(SupportedLanguageCode.Sw, ExplicitLanguageRequestParser.Parse("can we talk in swahili"));
     }
 
+    [Theory]
+    [InlineData("Please reply in Acholi", SupportedLanguageCode.Ach)]
+    [InlineData("Can we use Kinyarwanda?", SupportedLanguageCode.Kin)]
+    [InlineData("Reply in Runyankole", SupportedLanguageCode.Nyn)]
+    public void A_language_from_the_extended_catalog_is_recognised(string text, SupportedLanguageCode expected)
+    {
+        Assert.Equal(expected, ExplicitLanguageRequestParser.Parse(text));
+    }
+
     [Fact]
     public void A_request_for_english_is_recognised()
     {
@@ -32,6 +41,12 @@ public sealed class ExplicitLanguageRequestParserTests
     public void A_message_naming_no_language_returns_null()
     {
         Assert.Null(ExplicitLanguageRequestParser.Parse("I had an accident yesterday"));
+    }
+
+    [Fact]
+    public void A_language_name_inside_another_word_is_not_treated_as_a_request()
+    {
+        Assert.Null(ExplicitLanguageRequestParser.Parse("Habari"));
     }
 
     [Fact]

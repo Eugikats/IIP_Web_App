@@ -1,27 +1,43 @@
 using InsuranceIntelligence.Application.CustomerAssistant;
+using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Translation;
 using InsuranceIntelligence.Infrastructure.Configuration;
 
 namespace InsuranceIntelligence.Api.Local;
 
-/// <summary>Reads the assistant's language settings from <see cref="TranslationOptions"/>. An
-/// unknown code, and "en", are ignored: English is always available and nothing else is guessed.</summary>
-public sealed class ConfiguredAssistantLanguageSettings : IAssistantLanguageSettings
+/// <summary>Loads the enabled language set from the tenant configuration. The deployment setting
+/// is retained only for workspaces that have not yet saved their tenant-level choice.</summary>
+public sealed class ConfiguredAssistantLanguageSettings(
+    ITenantConfigurationRepository repository,
+    TranslationOptions options) : IAssistantLanguageSettings
 {
-    public ConfiguredAssistantLanguageSettings(TranslationOptions options)
+    private readonly HashSet<SupportedLanguageCode> legacyDeploymentLanguages = options.EnabledLanguages
+        .Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(SupportedLanguage.FromIso)
+        .OfType<SupportedLanguage>()
+        .Select(language => language.Code)
+        .Where(code => code != SupportedLanguageCode.En)
+        .ToHashSet();
+
+    public bool AllowUnreviewedTranslations { get; } = options.AllowUnreviewedTranslations;
+
+    public async Task<IReadOnlyCollection<SupportedLanguageCode>> GetEnabledLanguagesAsync(
+        TenantScope scope,
+        CancellationToken cancellationToken = default)
     {
-        EnabledLanguages = options.EnabledLanguages
-            .Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        var configuration = await repository.GetAsync(scope, cancellationToken);
+        if (configuration.AssistantLanguages is null)
+        {
+            return legacyDeploymentLanguages.ToArray();
+        }
+
+        return configuration.AssistantLanguages
             .Select(SupportedLanguage.FromIso)
             .OfType<SupportedLanguage>()
             .Select(language => language.Code)
             .Where(code => code != SupportedLanguageCode.En)
             .Distinct()
             .ToArray();
-        AllowUnreviewedTranslations = options.AllowUnreviewedTranslations;
     }
-
-    public IReadOnlyCollection<SupportedLanguageCode> EnabledLanguages { get; }
-
-    public bool AllowUnreviewedTranslations { get; }
 }

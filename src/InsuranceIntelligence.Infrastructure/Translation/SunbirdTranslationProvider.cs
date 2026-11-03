@@ -148,7 +148,7 @@ public sealed class SunbirdTranslationProvider(SunbirdSettings settings, HttpCli
     /// <summary>Full language names from the Domain's own catalog, independent of AfriSLM's tuned
     /// naming (which deliberately says "Swahili" rather than "Kiswahili" to match its own model
     /// card); Sunbird is a different model with no such documented preference.</summary>
-    public static string PromptName(SupportedLanguageCode code) => SupportedLanguage.For(code).DisplayName;
+    public static string PromptName(SupportedLanguageCode code) => SupportedLanguage.For(code).SunbirdLanguageName;
 
     public static string BuildRequestBody(string text, SupportedLanguageCode from, SupportedLanguageCode to, string model)
     {

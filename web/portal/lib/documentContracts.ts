@@ -34,6 +34,9 @@ export type DocumentItem = {
   contentType: string;
   fileSizeBytes: number;
   documentType: string;
+  customerDocumentTypeKey?: string | null;
+  processingCapability?: string | null;
+  isSuperseded?: boolean;
   processingStatus: string;
   confidenceScore: number;
   fields: DocumentFieldVerification[];

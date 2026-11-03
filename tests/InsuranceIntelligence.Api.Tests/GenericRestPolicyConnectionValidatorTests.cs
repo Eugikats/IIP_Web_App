@@ -30,6 +30,17 @@ public sealed class GenericRestPolicyConnectionValidatorTests
         Assert.False(result.Success);
     }
 
+    [Theory]
+    [InlineData("http://pas.partner.example/api")]
+    [InlineData("https://user:password@pas.partner.example/api")]
+    [InlineData("https://localhost:5167/api")]
+    public async Task ValidateAsync_InsecureOrLocalDestination_Fails(string baseUrl)
+    {
+        var result = await validator.ValidateAsync(new Dictionary<string, string> { ["baseUrl"] = baseUrl });
+
+        Assert.False(result.Success);
+    }
+
     [Fact]
     public async Task ValidateAsync_AuthHeaderNameWithoutValue_Fails()
     {

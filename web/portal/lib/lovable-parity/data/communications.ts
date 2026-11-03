@@ -183,3 +183,69 @@ export function useCustomerUpdateQueue() {
 
   return { items, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, approve, reject, send, reload: load };
 }
+
+export type CustomerFollowUpQueueItem = {
+  taskId: string;
+  customerName: string;
+  channel: string;
+  purpose: string;
+  dueAtUtc: string;
+  timeZoneId: string;
+  approvalMode: string;
+  status: string;
+  createdAt: string;
+  canCancel: boolean;
+};
+
+export function useCustomerFollowUpQueue() {
+  const { roleDef } = useUI();
+  const role = roleDef.key;
+  const [items, setItems] = useState<CustomerFollowUpQueueItem[]>([]);
+  const [loading, setLoading] = useState(!LOVABLE_VISUAL_PARITY_MODE);
+  const [error, setError] = useState<string | null>(null);
+  const [noPermission, setNoPermission] = useState(false);
+
+  const load = useCallback(async () => {
+    if (LOVABLE_VISUAL_PARITY_MODE) {
+      setItems([]);
+      setLoading(false);
+      setError(null);
+      setNoPermission(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setNoPermission(false);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/customer-follow-ups`, { headers: scopedHeaders(role, "") });
+      if (response.status === 403) {
+        setNoPermission(true);
+        setItems([]);
+        return;
+      }
+      if (!response.ok) throw new Error(await readSafeApiError(response, "Customer follow-ups failed to load."));
+      setItems((await response.json()) as CustomerFollowUpQueueItem[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Customer follow-ups failed to load.");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [role]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const cancel = useCallback(async (taskId: string, auditReason: string): Promise<{ ok: boolean; message?: string }> => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/customer-follow-ups/${encodeURIComponent(taskId)}/cancel`, {
+      method: "POST",
+      headers: { ...scopedHeaders(role, ""), "X-Audit-Reason": auditReason },
+    });
+    if (!response.ok) return { ok: false, message: await readSafeApiError(response, "Could not cancel this follow-up.") };
+    await load();
+    return { ok: true };
+  }, [role, load]);
+
+  return { items, loading, error, noPermission, parityMode: LOVABLE_VISUAL_PARITY_MODE, cancel, reload: load };
+}

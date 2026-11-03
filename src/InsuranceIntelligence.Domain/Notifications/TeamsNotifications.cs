@@ -8,6 +8,10 @@ public enum TeamsNotificationType
     SlaAtRisk,
     SlaBreached,
     CustomerUpdatePending,
+    ClaimEscalated,
+    DocumentReviewNeeded,
+    ReviewRequested,
+    ClaimAssigned,
 
     /// <summary>Outcome P: "capture interest as a lead in the existing list and route it to a
     /// licensed person." A lead has no assigned officer at creation (nothing decided that yet),

@@ -1,4 +1,6 @@
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Fraud;
+using InsuranceIntelligence.Domain.Notifications;
 
 namespace InsuranceIntelligence.Domain.Administration;
 
@@ -19,6 +21,15 @@ public sealed record TenantConfiguration
     // to decide rather than being treated as reliable. A tenant setting, not a fixed literal
     // (AGENTS.md non-negotiable 11), defaulting to the platform's long-standing 0.8.
     public decimal DocumentClassificationConfidenceThreshold { get; init; } = 0.8m;
+    public FraudRuleOptions FraudRules { get; init; } = FraudRuleOptions.Default;
+    /// <summary>Enabled non-English customer assistant languages, stored as normalized language
+    /// codes. Null preserves the prior deployment-level setting during configuration migration;
+    /// an empty collection explicitly means English only.</summary>
+    public IReadOnlyCollection<string>? AssistantLanguages { get; init; }
+    /// <summary>Outbound customer messaging defaults to human review. Autopilot is only effective
+    /// when the deployment has also enabled the WhatsApp assistant capability.</summary>
+    public CustomerMessagingMode CustomerMessagingMode { get; init; } = CustomerMessagingMode.Review;
+    public NotificationRoutingConfiguration NotificationRouting { get; init; } = NotificationRoutingConfiguration.Empty;
     public required DateTimeOffset UpdatedAt { get; init; }
 
     public IReadOnlyCollection<string> Validate()
@@ -33,6 +44,8 @@ public sealed record TenantConfiguration
         {
             errors.Add("Document classification confidence threshold must be between 0 and 1.");
         }
+
+        errors.AddRange(FraudRules.Validate().Select(error => $"Fraud rules: {error}"));
 
         if (string.IsNullOrWhiteSpace(Country))
         {
@@ -116,9 +129,33 @@ public sealed record TenantConfiguration
         };
 }
 
+public enum NotificationDestination
+{
+    InApp,
+    MicrosoftTeams,
+}
+
+/// <summary>Optional, tenant-scoped routing overrides for real staff notifications. When no
+/// rule exists, existing in-app delivery to the event's assigned recipient is preserved.</summary>
+public sealed record NotificationRoutingConfiguration(IReadOnlyCollection<NotificationRoutingRule> Rules)
+{
+    public static readonly NotificationRoutingConfiguration Empty = new([]);
+}
+
+public sealed record NotificationRoutingRule(
+    NotificationType Type,
+    IReadOnlyCollection<string> AdditionalRecipientUserIds,
+    IReadOnlyCollection<NotificationDestination> AdditionalDestinations);
+
 public sealed record BusinessLineConfiguration(string Name, bool Enabled);
 
 public sealed record ChannelConfiguration(string Name, bool Enabled);
+
+public enum CustomerMessagingMode
+{
+    Review,
+    Autopilot,
+}
 
 public sealed record ApprovalThresholdConfiguration(string ProductLine, decimal Amount, string RequiredRole);
 

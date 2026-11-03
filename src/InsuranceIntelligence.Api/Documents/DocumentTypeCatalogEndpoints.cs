@@ -15,6 +15,41 @@ namespace InsuranceIntelligence.Api.Documents;
 /// </summary>
 public static class DocumentTypeCatalogEndpoints
 {
+    public static async Task<IResult> ListUploadOptions(
+        IDocumentTypeCatalogRepository repository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return WorkflowEndpoints.Validation("tenantScope", validationError);
+        }
+
+        var current = await repository.ListCurrentAsync(scope, cancellationToken);
+        var byKey = current.ToDictionary(definition => definition.Key, StringComparer.OrdinalIgnoreCase);
+        var options = new List<DocumentTypeUploadOption>();
+        foreach (var builtIn in DefaultDocumentTypeCatalog.Defaults())
+        {
+            if (byKey.TryGetValue(builtIn.Key, out var configured))
+            {
+                if (configured.Active)
+                {
+                    options.Add(new DocumentTypeUploadOption(configured.Key, configured.CustomerLabel, configured.Description));
+                }
+
+                continue;
+            }
+
+            options.Add(new DocumentTypeUploadOption(builtIn.Key, builtIn.CustomerLabel, builtIn.Description));
+        }
+
+        options.AddRange(current
+            .Where(definition => definition.Active && definition.BuiltInType is null)
+            .Select(definition => new DocumentTypeUploadOption(definition.Key, definition.CustomerLabel, definition.Description)));
+
+        return Results.Ok(options.OrderBy(option => option.CustomerLabel, StringComparer.OrdinalIgnoreCase).ToArray());
+    }
+
     public static async Task<IResult> ListCurrent(
         IDocumentTypeCatalogRepository repository,
         HttpContext httpContext,
@@ -224,6 +259,8 @@ public sealed record DocumentTypeDefinitionResponse(
     string UpdatedByUserId,
     DateTimeOffset UpdatedAt,
     string ChangeReason);
+
+public sealed record DocumentTypeUploadOption(string Key, string CustomerLabel, string Description);
 
 public sealed record UnresolvedProductDocumentKeysResponse(
     Guid ProductId,

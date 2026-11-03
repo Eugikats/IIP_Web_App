@@ -138,6 +138,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/admin/users", requiredAny: ["ManageTenantSettings"] },
   // Prefix-matched below covers /app/admin/agents/{key}/behaviour too, no separate entry needed.
   { path: "/app/admin/agents", requiredAny: ["ManageAgents"] },
+  { path: "/app/admin/languages", requiredAny: ["ManageAgents"] },
   { path: "/app/admin/products", requiredAny: ["ManageProducts"] },
   { path: "/app/admin/policy-import", requiredAny: ["ManageProducts"] },
   { path: "/app/admin/billing", requiredAny: ["ViewBilling"] },
@@ -148,6 +149,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/admin/setup", requiredAny: ["ManageTenantSettings"] },
   { path: "/app/admin/whatsapp-support", requiredAny: ["ManageTenantOnboarding"] },
   { path: "/app/admin/templates", requiredAny: ["ManageCustomerCommunications", "ConfigureIntegrations"] },
+  { path: "/app/admin/notifications", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin/email", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin/connections", requiredAny: ["ConfigureIntegrations"] },
   { path: "/app/admin", requiredAny: ["ManageTenantSettings"], exact: true },

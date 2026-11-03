@@ -8,10 +8,11 @@ import { useEffect, useState } from "react";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 
 export default function RoleSwitcher() {
-  const { role, setRole } = useUI();
+  const { role, setRole, hydrated } = useUI();
   const { runtimeContext } = useRuntimeContext();
   const announcementKey = "iip.preview-role-announcement";
   const [announcement, setAnnouncement] = useState("");
+  const [pendingNavigation, setPendingNavigation] = useState<{ role: Role; route: string } | null>(null);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -26,6 +27,13 @@ export default function RoleSwitcher() {
     }, 5_000);
     return () => window.clearTimeout(timer);
   }, [announcement]);
+
+  useEffect(() => {
+    if (!pendingNavigation || role !== pendingNavigation.role) return;
+    nav(pendingNavigation.route);
+    setPendingNavigation(null);
+  }, [nav, pendingNavigation, role]);
+
   if (!canUseLocalTestDoubles && !LOVABLE_VISUAL_PARITY_MODE) {
     return null;
   }
@@ -46,15 +54,16 @@ export default function RoleSwitcher() {
       <select
         aria-label="Preview staff experience"
         value={role}
+        disabled={!hydrated}
         onChange={(e) => {
           const next = e.target.value as Role;
           const nextAnnouncement = `Previewing ${ROLES[next].label} experience. Signed-in authority remains ${runtimeContext?.roleLabel ?? "unchanged"}.`;
           setRole(next);
           setAnnouncement(nextAnnouncement);
           try { sessionStorage.setItem(announcementKey, nextAnnouncement); } catch { /* best effort */ }
-          nav(previewLandingRoute(next));
+          setPendingNavigation({ role: next, route: previewLandingRoute(next) });
         }}
-        className="min-w-0 truncate bg-transparent outline-none text-ink font-medium pr-1"
+        className="min-w-0 truncate bg-transparent outline-none text-ink font-medium pr-1 disabled:cursor-wait disabled:opacity-60"
       >
         {STAFF_ROLES.map((key) => ROLES[key]).map((r) => (
           <option key={r.key} value={r.key}>{r.label}</option>

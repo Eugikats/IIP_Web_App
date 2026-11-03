@@ -310,7 +310,7 @@ export default function CopilotPanel() {
 
             {ctx.footer && (
               <div className="rounded-dls-card border border-dls-primary-border bg-dls-primary-soft-alt p-4">
-                <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-primary">Human review reminder</div>
+                <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-secondary">Human review reminder</div>
                 <p className="text-[13px] leading-[19px] text-dls-text-secondary">{ctx.footer}</p>
               </div>
             )}

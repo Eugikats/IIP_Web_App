@@ -77,7 +77,9 @@ public sealed record DocumentSummaryDto(
     Guid DocumentId,
     string DocumentType,
     string ProcessingStatus,
-    decimal ClassificationConfidence);
+    decimal ClassificationConfidence,
+    string? CustomerDocumentTypeKey = null,
+    string? ProcessingCapability = null);
 
 public sealed record ClaimsDailySummaryDto(
     DateOnly Date,

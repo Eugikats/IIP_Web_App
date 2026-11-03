@@ -19,15 +19,26 @@ public sealed class StaticDocumentChecklistProvider(
         CancellationToken cancellationToken = default)
     {
         var rules = await ResolveRulesAsync(claimCase, cancellationToken);
+        // Receipt and processing are separate facts. A file that was durably uploaded into a
+        // selected slot counts as received even when OCR is not configured; its classification
+        // and extraction remain untouched and can still be Unknown/NotConfigured.
+        var receivedDocuments = documents
+            .Where(document => !document.IsSuperseded
+                && document.ProcessingStatus is DocumentProcessingStatus.Uploaded
+                    or DocumentProcessingStatus.Processed
+                    or DocumentProcessingStatus.ExtractionApproved)
+            .ToArray();
         var processed = documents
             .Where(document => !document.IsSuperseded
-                && document.ProcessingStatus is DocumentProcessingStatus.Processed or DocumentProcessingStatus.ExtractionApproved)
+                && document.ProcessingStatus is DocumentProcessingStatus.Processed
+                    or DocumentProcessingStatus.ExtractionApproved)
             .ToArray();
         // Which document this is follows the customer's own choice of slot when they made one and it names a built-in
         // type, because they know what they are holding and a scan called scan001.pdf tells the classifier nothing.
         // The classifier's independent guess is kept on the document so a disagreement can be shown to a person.
-        var received = processed
+        var received = receivedDocuments
             .Select(EffectiveType)
+            .Where(documentType => documentType != DocumentType.Unknown)
             .Distinct()
             .ToArray();
         var fieldChecks = processed
@@ -42,7 +53,7 @@ public sealed class StaticDocumentChecklistProvider(
         // A custom document type has no DocumentType of its own, so it is matched on the key the
         // customer chose (outcome B), falling back to the classifier's DocumentType name for a
         // document nobody was asked to name (see CaseDocument.DocumentTypeKey).
-        var receivedKeys = processed
+        var receivedKeys = receivedDocuments
             .Select(document => document.DocumentTypeKey ?? document.DocumentType.ToString())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -106,4 +117,5 @@ public sealed class StaticDocumentChecklistProvider(
             DocumentType.GarageEstimate => "Garage estimate",
             _ => "Unknown document"
         };
+
 }

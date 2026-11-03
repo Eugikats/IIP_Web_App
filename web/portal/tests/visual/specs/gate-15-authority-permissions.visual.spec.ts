@@ -25,6 +25,7 @@ for (const role of STAFF_ROLES) {
       if (message.type() === "error") pageErrors.push(message.text());
     });
     const preview = page.getByRole("combobox", { name: "Preview staff experience" });
+    await expect(preview).toBeEnabled();
     if (role !== "Admin") await preview.selectOption(role);
     const route = previewLandingRoute(role).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     await expect(page).toHaveURL(new RegExp(`${route}$`));

@@ -63,6 +63,37 @@ public sealed record FraudRuleOptions
     public decimal HighValueSumInsuredThreshold { get; init; } = 100_000_000m;
 
     public static readonly FraudRuleOptions Default = new();
+
+    public IReadOnlyCollection<string> Validate()
+    {
+        var errors = new List<string>();
+        if (VelocityWindowDays is < 1 or > 365)
+        {
+            errors.Add("Fraud velocity window must be between 1 and 365 days.");
+        }
+
+        if (VelocityClaimCount is < 2 or > 100)
+        {
+            errors.Add("Fraud velocity claim count must be between 2 and 100.");
+        }
+
+        if (LowCompletenessThreshold is < 0m or > 1m)
+        {
+            errors.Add("Fraud completeness threshold must be between 0 and 1.");
+        }
+
+        if (EarlyClaimWindowDays is < 0 or > 365)
+        {
+            errors.Add("Early-claim review window must be between 0 and 365 days.");
+        }
+
+        if (HighValueSumInsuredThreshold <= 0m)
+        {
+            errors.Add("High-value sum-insured threshold must be greater than zero.");
+        }
+
+        return errors;
+    }
 }
 
 /// <summary>

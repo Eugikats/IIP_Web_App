@@ -164,7 +164,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
 
   // `pinned` is the saved choice (expanded or the 64px rail). `peek` is a temporary opening of the
   // rail while the pointer is over it, so the page does not shift. `expanded` is what is drawn.
-  const [pinned, setExpanded] = useState(true);
+  const [pinned, setExpanded] = useState(false);
   const [peek, setPeek] = useState(false);
   const [expandOnHover, setExpandOnHover] = useState(true);
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -189,13 +189,14 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const [searchQuery, setSearchQuery] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const [scrollClipped, setScrollClipped] = useState<{ top: boolean; bottom: boolean }>({ top: false, bottom: false });
+  const [supportsHover, setSupportsHover] = useState(false);
   const profileTriggerRef = useRef<HTMLButtonElement>(null);
   const searchAnchorRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navRef = useRef<HTMLElement>(null);
 
-  // Expanded is the default for new users, collapsed is an expert affordance a returning user
-  // opts into, not something anyone should discover by accident on their first day.
+  // The approved shell starts with the compact 64px rail at every viewport width. Users can
+  // expand it when they need visible destination labels; the saved choice is restored on return.
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(EXPANDED_STORAGE_KEY);
@@ -207,6 +208,14 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
       // Private browsing / blocked storage, keep the default.
     }
     setExpandedLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () => setSupportsHover(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
   }, []);
 
   function toggleExpanded() {
@@ -236,7 +245,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
 
   function openPeek() {
     if (peekTimer.current) clearTimeout(peekTimer.current);
-    if (expandOnHover && !pinned) setPeek(true);
+    if (supportsHover && expandOnHover && !pinned) setPeek(true);
   }
 
   function closePeekSoon() {

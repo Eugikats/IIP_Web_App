@@ -1,6 +1,8 @@
 using InsuranceIntelligence.Application.Core;
+using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Notifications;
+using System.Text.Json;
 
 namespace InsuranceIntelligence.Application.Notifications;
 
@@ -57,9 +59,12 @@ public sealed class NotificationNotFoundException : Exception;
 
 public sealed class NotificationService(
     ITenantContextAccessor tenantContextAccessor,
-    INotificationRepository repository) : INotificationEmitter, INotificationFeedService
+    INotificationRepository repository,
+    ITenantConfigurationRepository? tenantConfigurationRepository = null,
+    ITeamsNotificationQueue? teamsNotificationQueue = null,
+    IUserAccountRepository? userAccountRepository = null) : INotificationEmitter, INotificationFeedService
 {
-    public Task NotifyAsync(
+    public async Task NotifyAsync(
         TenantScope scope,
         string recipientUserId,
         NotificationType type,
@@ -71,10 +76,13 @@ public sealed class NotificationService(
         {
             // No known recipient (e.g. an unassigned approval), nothing to notify. Not an error;
             // the caller's own action still completes.
-            return Task.CompletedTask;
+            return;
         }
 
-        return repository.SaveAsync(Build(scope, recipientUserId, type, message, caseId), cancellationToken);
+        var rule = await GetRoutingRuleAsync(scope, type, cancellationToken);
+        await repository.SaveAsync(Build(scope, recipientUserId, type, message, caseId), cancellationToken);
+        await NotifyAdditionalRecipientsAsync(scope, rule, type, message, caseId, deduplicate: false, cancellationToken);
+        await SendTeamsNotificationAsync(scope, rule, type, caseId, cancellationToken);
     }
 
     public async Task NotifyOnceAsync(
@@ -90,12 +98,80 @@ public sealed class NotificationService(
             return;
         }
 
+        var rule = await GetRoutingRuleAsync(scope, type, cancellationToken);
         if (await repository.ExistsAsync(scope, recipientUserId, type, caseId, cancellationToken))
         {
             return;
         }
 
         await repository.SaveAsync(Build(scope, recipientUserId, type, message, caseId), cancellationToken);
+        await NotifyAdditionalRecipientsAsync(scope, rule, type, message, caseId, deduplicate: true, cancellationToken);
+        await SendTeamsNotificationAsync(scope, rule, type, caseId, cancellationToken);
+    }
+
+    private async Task<NotificationRoutingRule?> GetRoutingRuleAsync(
+        TenantScope scope,
+        NotificationType type,
+        CancellationToken cancellationToken)
+    {
+        if (tenantConfigurationRepository is null) return null;
+        var configuration = await tenantConfigurationRepository.GetAsync(scope, cancellationToken);
+        return configuration.NotificationRouting.Rules.FirstOrDefault(rule => rule.Type == type);
+    }
+
+    private async Task NotifyAdditionalRecipientsAsync(
+        TenantScope scope,
+        NotificationRoutingRule? rule,
+        NotificationType type,
+        string message,
+        Guid caseId,
+        bool deduplicate,
+        CancellationToken cancellationToken)
+    {
+        if (rule is null || !rule.AdditionalDestinations.Contains(NotificationDestination.InApp)) return;
+        foreach (var userId in rule.AdditionalRecipientUserIds)
+        {
+            if (userAccountRepository is not null)
+            {
+                var account = await userAccountRepository.GetAsync(userId, scope, cancellationToken);
+                if (account is null || !string.Equals(account.Status, "Active", StringComparison.OrdinalIgnoreCase)) continue;
+            }
+            if (deduplicate && await repository.ExistsAsync(scope, userId, type, caseId, cancellationToken)) continue;
+            await repository.SaveAsync(Build(scope, userId, type, message, caseId), cancellationToken);
+        }
+    }
+
+    private async Task SendTeamsNotificationAsync(
+        TenantScope scope,
+        NotificationRoutingRule? rule,
+        NotificationType type,
+        Guid caseId,
+        CancellationToken cancellationToken)
+    {
+        if (teamsNotificationQueue is null || rule is null
+            || !rule.AdditionalDestinations.Contains(NotificationDestination.MicrosoftTeams)) return;
+        var teamsType = type switch
+        {
+            NotificationType.ApprovalAssigned => TeamsNotificationType.ApprovalRequired,
+            NotificationType.SlaAtRisk => TeamsNotificationType.SlaAtRisk,
+            NotificationType.SlaBreach => TeamsNotificationType.SlaBreached,
+            NotificationType.ClaimEscalated => TeamsNotificationType.ClaimEscalated,
+            NotificationType.DocumentReviewNeeded => TeamsNotificationType.DocumentReviewNeeded,
+            NotificationType.ReviewRequested => TeamsNotificationType.ReviewRequested,
+            NotificationType.ClaimAssigned => TeamsNotificationType.ClaimAssigned,
+            _ => (TeamsNotificationType?)null,
+        };
+        if (teamsType is null) return;
+
+        var notification = new TeamsNotification
+        {
+            Scope = scope,
+            CaseId = caseId,
+            NotificationType = teamsType.Value,
+            PayloadJson = JsonSerializer.Serialize(new { EventType = type.ToString() }),
+            DeepLinkUrl = string.Empty,
+        };
+        await teamsNotificationQueue.EnqueueAsync(notification, cancellationToken);
     }
 
     private static Notification Build(TenantScope scope, string recipientUserId, NotificationType type, string message, Guid caseId) =>

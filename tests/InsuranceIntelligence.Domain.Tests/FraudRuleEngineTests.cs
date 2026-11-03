@@ -77,6 +77,52 @@ public sealed class FraudRuleEngineTests
     }
 
     [Fact]
+    public void Evaluate_UsesWorkspaceVelocityOptions()
+    {
+        var start = new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero);
+        var claims = new[]
+        {
+            Claim("Sarah Akello", phone: "+256711000099", createdAt: start),
+            Claim("Sarah Akello", phone: "+256711000099", createdAt: start.AddDays(1)),
+            Claim("Sarah Akello", phone: "+256711000099", createdAt: start.AddDays(2)),
+            Claim("Sarah Akello", phone: "+256711000099", createdAt: start.AddDays(3)),
+        };
+
+        var signal = Assert.Single(FraudRuleEngine.Evaluate(claims, FraudRuleOptions.Default with
+        {
+            VelocityClaimCount = 4,
+            VelocityWindowDays = 3
+        }), item => item.RuleId == "R-VELOCITY");
+
+        Assert.Equal(4, signal.RelatedCaseIds.Count);
+        Assert.Contains("within 3 days", signal.Description, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(0, 3, 0.4, 14, 100000000)]
+    [InlineData(30, 1, 0.4, 14, 100000000)]
+    [InlineData(30, 3, 1.1, 14, 100000000)]
+    [InlineData(30, 3, 0.4, 14, 0)]
+    public void FraudRuleOptions_RejectsUnsafeOrInvalidThresholds(
+        int velocityWindowDays,
+        int velocityClaimCount,
+        decimal completenessThreshold,
+        int earlyClaimWindowDays,
+        decimal highValueThreshold)
+    {
+        var errors = (FraudRuleOptions.Default with
+        {
+            VelocityWindowDays = velocityWindowDays,
+            VelocityClaimCount = velocityClaimCount,
+            LowCompletenessThreshold = completenessThreshold,
+            EarlyClaimWindowDays = earlyClaimWindowDays,
+            HighValueSumInsuredThreshold = highValueThreshold
+        }).Validate();
+
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
     public void Evaluate_ThreeClaimsSpreadBeyondWindow_DoesNotRaiseVelocitySignal()
     {
         var start = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);

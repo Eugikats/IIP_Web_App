@@ -12,6 +12,8 @@ public sealed class EfWhatsAppMessageRepository(InsuranceIntelligenceDbContext d
         {
             record.CaseId = message.CaseId;
             record.ThreadId = message.ThreadId;
+            record.AccountId = message.BusinessPhoneNumberId;
+            record.ExternalRecipientId = message.ContactWaId;
             record.ProviderMessageId = message.ProviderMessageId;
             record.IdempotencyKey = message.IdempotencyKey;
             record.CreatedAt = message.CreatedAt;
@@ -55,6 +57,18 @@ public sealed class EfWhatsAppMessageRepository(InsuranceIntelligenceDbContext d
             .OrderBy(item => item.CreatedAt)
             .Select(item => item.PayloadJson)
             .ToListAsync(cancellationToken);
+        return payloads.Select(Deserialize<WhatsAppMessage>).ToArray();
+    }
+
+    public async Task<IReadOnlyList<WhatsAppMessage>> ListForRecipientAsync(
+        TenantScope scope, string accountId, string recipientId, CancellationToken cancellationToken = default)
+    {
+        var payloads = await Scoped(DbContext.WhatsAppMessages.AsNoTracking(), scope)
+            .Where(item => item.AccountId == accountId && item.ExternalRecipientId == recipientId)
+            .OrderByDescending(item => item.CreatedAt)
+            .Take(500)
+            .Select(item => item.PayloadJson)
+            .ToArrayAsync(cancellationToken);
         return payloads.Select(Deserialize<WhatsAppMessage>).ToArray();
     }
 }

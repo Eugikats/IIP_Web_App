@@ -26,9 +26,18 @@ public sealed class GenericRestPolicyConnectionValidator : IConnectionValidator
             return Task.FromResult(new ConnectionValidationResult(false, "A base URL is required."));
         }
 
-        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var parsed) || (parsed.Scheme != Uri.UriSchemeHttps && parsed.Scheme != Uri.UriSchemeHttp))
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var parsed)
+            || parsed.Scheme != Uri.UriSchemeHttps
+            || !string.IsNullOrEmpty(parsed.UserInfo)
+            || !string.IsNullOrEmpty(parsed.Fragment)
+            || !string.IsNullOrEmpty(parsed.Query))
         {
-            return Task.FromResult(new ConnectionValidationResult(false, "The base URL must be a valid absolute http(s) URL."));
+            return Task.FromResult(new ConnectionValidationResult(false, "The base URL must use HTTPS and must not include embedded credentials, a query, or a fragment."));
+        }
+
+        if (parsed.IsLoopback || parsed.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(new ConnectionValidationResult(false, "The base URL cannot target localhost or a loopback address."));
         }
 
         var authHeaderName = settings.GetValueOrDefault("authHeaderName");

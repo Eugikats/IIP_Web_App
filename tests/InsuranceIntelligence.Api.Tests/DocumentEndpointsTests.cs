@@ -144,6 +144,42 @@ public sealed class DocumentEndpointsTests
     }
 
     [Fact]
+    public async Task UploadDocuments_WhenProcessingIsNotConfigured_PreservesUploadedDocumentAndReportsCapability()
+    {
+        var dependencies = CreateDependencies(processingProvider: new MissingProcessingProvider());
+        var claimCase = await CreateCaseAsync(dependencies);
+
+        var result = await DocumentEndpoints.UploadDocuments(
+            claimCase.CaseId,
+            dependencies.CaseRepository,
+            dependencies.DocumentRepository,
+            dependencies.StorageProvider,
+            dependencies.ProcessingProvider,
+            dependencies.ChecklistProvider,
+            dependencies.FieldValidationRuleRepository,
+            dependencies.AuditRepository,
+            dependencies.NotificationEmitter,
+            UploadContext("claim-form.pdf", documentTypeKey: "ClaimForm"),
+            CancellationToken.None);
+
+        var (statusCode, response) = await ExecuteAsync<DocumentUploadResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        Assert.Equal("DocumentProcessing", response!.ProcessingCapability);
+        var document = Assert.Single(response.Documents);
+        Assert.Equal("Uploaded", document.ProcessingStatus);
+        Assert.Contains(response.Checklist.ReceivedDocuments, requirement => requirement.DocumentType == "ClaimForm");
+        Assert.DoesNotContain(response.Checklist.MissingRequiredDocuments, requirement => requirement.DocumentType == "ClaimForm");
+        Assert.Empty(document.Fields);
+        Assert.Null(document.ProcessedAt);
+        var persisted = await dependencies.DocumentRepository.ListForCaseAsync(claimCase.CaseId, claimCase.Scope);
+        var stored = Assert.Single(persisted);
+        Assert.Equal(document.DocumentId, stored.DocumentId);
+        Assert.Equal("NotConfigured", stored.Extraction.ProviderName);
+        Assert.Contains(await dependencies.AuditRepository.ListForCaseAsync(claimCase.CaseId), item => item.ActionName == "document.uploaded");
+    }
+
+    [Fact]
     public async Task CorrectExtractionField_PersistsCorrectionAndAuditWithoutLoggingCorrectedValue()
     {
         var dependencies = CreateDependencies();
@@ -1044,7 +1080,8 @@ public sealed class DocumentEndpointsTests
     private static DefaultHttpContext UploadContext(
         string fileName,
         string? tenantId = "tenant-demo",
-        string? workspaceId = "workspace-claims")
+        string? workspaceId = "workspace-claims",
+        string? documentTypeKey = null)
     {
         var context = ScopedContext(tenantId, workspaceId);
         var bytes = Encoding.UTF8.GetBytes("synthetic test document");
@@ -1057,7 +1094,8 @@ public sealed class DocumentEndpointsTests
         var form = new FormCollection(
             new Dictionary<string, StringValues>
             {
-                ["uploadedByUserId"] = "user-claims-1"
+                ["uploadedByUserId"] = "user-claims-1",
+                ["documentTypeKey"] = documentTypeKey ?? string.Empty,
             },
             files);
 
@@ -1187,6 +1225,12 @@ public sealed class DocumentEndpointsTests
             string? auditReason = null,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<AgentWorkflowRun>>([]);
+    }
+
+    private sealed class MissingProcessingProvider : IDocumentProcessingProvider
+    {
+        public Task<DocumentProcessingResult> ProcessAsync(DocumentProcessingRequest request, CancellationToken cancellationToken = default) =>
+            throw new InsuranceIntelligence.Api.Local.ProviderNotConfiguredException("DocumentProcessing", "Document processing provider is not configured.");
     }
 
     private sealed class StubDocumentStorageProvider : IDocumentStorageProvider

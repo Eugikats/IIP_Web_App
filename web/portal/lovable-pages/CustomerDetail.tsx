@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "@/components/iip/NextRouterCompat";
 import { ArrowLeft, ArrowRight, ClipboardList, FileText, MessageSquare, RefreshCw, Shield, ShieldOff, Sparkles } from "lucide-react";
 import { GlassCard, SectionHeader, StatusBadge } from "@/components/iip/Primitives";
@@ -14,6 +14,7 @@ import { useUI } from "@/context/UIStateContext";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 import { canPreviewPermission, hasPermission } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
+import { getCustomerChannelTimeline, type CustomerChannelTimeline } from "@/lib/channelIdentities";
 import { channelLabel, claimReference, formatDate, formatDateTime, formatPercent, humanizeIdentifier, isGuid, policyStanding } from "@/lib/format";
 
 // Customer 360. Each record type gets its own purpose-built row, never a generic key/value dump:
@@ -122,6 +123,78 @@ function InteractionRow({ message }: { message: Row }) {
       <div className="mt-1 text-[12.5px] text-dls-text-secondary">{v(message, "messageSnippet") ?? "No message text recorded."}</div>
       {v(message, "deliveryStatus") ? <div className="mt-1 text-[11px] text-dls-text-muted">{humanizeIdentifier(v(message, "deliveryStatus"))}</div> : null}
     </div>
+  );
+}
+
+function LinkedChannelTimelineCard({ customerId }: { customerId: string }) {
+  const { roleDef } = useUI();
+  const { runtimeContext } = useRuntimeContext();
+  const canView = (canUseLocalTestDoubles || !runtimeContext?.permissions)
+    ? canPreviewPermission(roleDef.key, "ViewChannels") && canPreviewPermission(roleDef.key, "ViewCustomers")
+    : hasPermission(runtimeContext.permissions, "ViewChannels") && hasPermission(runtimeContext.permissions, "ViewCustomers");
+  const [timeline, setTimeline] = useState<CustomerChannelTimeline | null>(null);
+  const [loading, setLoading] = useState(canView);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!canView) { setLoading(false); setTimeline(null); return; }
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    void getCustomerChannelTimeline(roleDef.key, customerId, 1, 50, controller.signal)
+      .then(setTimeline)
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Linked channel conversations could not be loaded.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [canView, customerId, roleDef.key]);
+
+  async function loadOlder() {
+    if (!timeline || !timeline.hasMore || loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const next = await getCustomerChannelTimeline(roleDef.key, customerId, timeline.page + 1, timeline.pageSize);
+      setTimeline({ ...next, entries: [...timeline.entries, ...next.entries] });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Older linked channel messages could not be loaded.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  return (
+    <GlassCard>
+      <SectionTitle icon={MessageSquare}>Verified cross-channel timeline</SectionTitle>
+      <p className="mb-3 text-[11.5px] text-dls-text-muted">Messages appear here only while the verified identity link, channel connection and customer consent remain active.</p>
+      {!canView ? (
+        <Empty>You do not have permission to view channel conversations.</Empty>
+      ) : loading ? (
+        <LoadingSkeleton rows={2} />
+      ) : error && !timeline ? (
+        <ErrorStateSurface title="Linked conversations unavailable" message={error} onRetry={() => window.location.reload()} />
+      ) : !timeline || timeline.entries.length === 0 ? (
+        <Empty>No consented linked channel conversations are available.</Empty>
+      ) : (
+        <div className="divide-y divide-dls-border-subtle">
+          {timeline.entries.map((entry) => (
+            <div key={entry.messageId} className="py-3 first:pt-0 last:pb-0">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-dls-text-muted">
+                <span>{humanizeIdentifier(entry.direction)} · {channelLabel(entry.channel)}</span>
+                <span>{formatDateTime(entry.createdAt)}</span>
+              </div>
+              <div className="mt-1 whitespace-pre-wrap break-words text-[12.5px] text-dls-text-secondary">{entry.body}</div>
+              {entry.caseId ? <div className="mt-1 text-[11px] text-dls-text-muted">Linked claim recorded</div> : null}
+            </div>
+          ))}
+          {error ? <p className="pt-2 text-[11.5px] text-dls-danger-text">{error}</p> : null}
+          {timeline.hasMore ? <Button variant="secondary" disabled={loadingMore} onClick={() => void loadOlder()} className="mt-3 !min-h-9 !px-3 !text-[12px]">{loadingMore ? "Loading older messages" : "Load older messages"}</Button> : null}
+          {timeline.sourceHistoryCapped ? <p className="pt-2 text-[11px] text-dls-text-muted">Some older messages are outside the timeline history window. Open the channel in Inbox to review its full thread.</p> : null}
+        </div>
+      )}
+    </GlassCard>
   );
 }
 
@@ -378,6 +451,8 @@ export default function CustomerDetail() {
                 </div>
               )}
             </GlassCard>
+
+            <LinkedChannelTimelineCard customerId={profile.customerId} />
           </div>
 
           <div className="space-y-4">

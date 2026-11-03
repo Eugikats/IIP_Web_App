@@ -44,11 +44,46 @@ public static class PolicyLookupEndpoints
             });
         }
 
-        var policy = await policyLookupProvider.FindPolicyByNumberAsync(policyNumber.Trim(), scope, cancellationToken);
-        if (policy is null)
+        var lookup = await policyLookupProvider.FindPolicyByNumberAsync(policyNumber.Trim(), scope, cancellationToken);
+        if (lookup.Status != PolicyLookupStatus.Found || lookup.Policy is null)
         {
-            return Results.NotFound(new { message = $"No policy found for number \"{policyNumber.Trim()}\" in this workspace." });
+            return lookup.Status switch
+            {
+                PolicyLookupStatus.NotFound => Results.NotFound(new { status = "NotFound", source = lookup.Source, message = $"No policy found for number \"{policyNumber.Trim()}\" in this workspace." }),
+                PolicyLookupStatus.NotConfigured => Results.Problem(
+                    statusCode: StatusCodes.Status503ServiceUnavailable,
+                    title: "Not configured",
+                    detail: "The policy-system connection is not configured for this workspace.",
+                    extensions: ProviderExtensions(lookup)),
+                PolicyLookupStatus.Unauthorized => Results.Problem(
+                    statusCode: StatusCodes.Status502BadGateway,
+                    title: "Policy-system authorization failed",
+                    detail: "The connected policy system rejected its configured credentials. Ask an integration administrator to review the connection.",
+                    extensions: ProviderExtensions(lookup)),
+                PolicyLookupStatus.Unavailable => Results.Problem(
+                    statusCode: StatusCodes.Status503ServiceUnavailable,
+                    title: "Policy system unavailable",
+                    detail: "The connected policy system could not be reached. Retry after the service is available.",
+                    extensions: ProviderExtensions(lookup)),
+                PolicyLookupStatus.Malformed => Results.Problem(
+                    statusCode: StatusCodes.Status502BadGateway,
+                    title: "Policy data could not be read",
+                    detail: "The connected policy system returned data that does not match the configured field mapping.",
+                    extensions: ProviderExtensions(lookup)),
+                PolicyLookupStatus.ProviderRejected => Results.Problem(
+                    statusCode: StatusCodes.Status502BadGateway,
+                    title: "Policy lookup was rejected",
+                    detail: "The connected policy system rejected the lookup request. Ask an integration administrator to review the configured endpoint and mapping.",
+                    extensions: ProviderExtensions(lookup)),
+                _ => Results.Problem(
+                    statusCode: StatusCodes.Status503ServiceUnavailable,
+                    title: "Policy provider unavailable",
+                    detail: "This policy provider is not supported by the current deployment.",
+                    extensions: ProviderExtensions(lookup))
+            };
         }
+
+        var policy = lookup.Policy;
 
         var customer = string.IsNullOrWhiteSpace(policy.CustomerId)
             ? null
@@ -77,8 +112,15 @@ public static class PolicyLookupEndpoints
             policy.EffectiveFrom,
             policy.EffectiveTo,
             isActive,
-            possibleDuplicates));
+            possibleDuplicates,
+            lookup.Source));
     }
+
+    private static IDictionary<string, object?> ProviderExtensions(PolicyLookupResult lookup) => new Dictionary<string, object?>
+    {
+        ["providerStatus"] = lookup.Status.ToString(),
+        ["source"] = lookup.Source
+    };
 }
 
 public sealed record PolicyLookupResponse(
@@ -92,6 +134,7 @@ public sealed record PolicyLookupResponse(
     DateOnly? EffectiveFrom,
     DateOnly? EffectiveTo,
     bool IsActive,
-    IReadOnlyCollection<DuplicateClaimWarning> PossibleDuplicateClaims);
+    IReadOnlyCollection<DuplicateClaimWarning> PossibleDuplicateClaims,
+    string Source);
 
 public sealed record DuplicateClaimWarning(Guid CaseId, string Status, DateOnly? IncidentDate, DateTimeOffset CreatedAt);

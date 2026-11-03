@@ -12,8 +12,11 @@ import {
   type WhatsAppConfigurationStatus,
   deleteWhatsAppConfiguration,
   getWhatsAppConfigurationStatus,
+  type WhatsAppMessagingMode,
+  getWhatsAppMessagingMode,
   saveWhatsAppConfiguration,
   testWhatsAppConfiguration,
+  updateWhatsAppMessagingMode,
 } from "@/lib/whatsappSettings";
 import DeliveryPanel from "@/components/whatsapp/DeliveryPanel";
 
@@ -39,6 +42,9 @@ export default function WhatsAppSettings() {
   const { roleDef } = useUI();
   const role = roleDef.key;
   const [status, setStatus] = useState<WhatsAppConfigurationStatus | null>(null);
+  const [modeStatus, setModeStatus] = useState<WhatsAppMessagingMode | null>(null);
+  const [requestedMode, setRequestedMode] = useState<WhatsAppMessagingMode["mode"] | null>(null);
+  const [modeError, setModeError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -53,13 +59,17 @@ export default function WhatsAppSettings() {
   async function load() {
     setLoading(true);
     setLoadError(null);
-    const result = await getWhatsAppConfigurationStatus(role);
+    const [result, modeResult] = await Promise.all([
+      getWhatsAppConfigurationStatus(role),
+      getWhatsAppMessagingMode(role),
+    ]);
     setLoading(false);
-    if (!result.ok) {
-      setLoadError(result.error);
+    if (!result.ok || !modeResult.ok) {
+      setLoadError(!result.ok ? result.error : !modeResult.ok ? modeResult.error : "Settings could not be loaded.");
       return;
     }
     setStatus(result.value);
+    setModeStatus(modeResult.value);
   }
 
   useEffect(() => { void load(); }, [role]);
@@ -107,6 +117,18 @@ export default function WhatsAppSettings() {
     void load();
   }
 
+  async function onModeChange(reason: string) {
+    if (!requestedMode) return;
+    setModeError(null);
+    const result = await updateWhatsAppMessagingMode(role, requestedMode, reason);
+    if (!result.ok) {
+      setModeError(result.error);
+      throw new Error(result.error);
+    }
+    setModeStatus(result.value);
+    setRequestedMode(null);
+  }
+
   async function copyCallbackUrl(url: string) {
     try {
       await navigator.clipboard.writeText(url);
@@ -135,6 +157,49 @@ export default function WhatsAppSettings() {
 
       {!loading && !loadError && status && (
         <div className="space-y-4">
+          {modeStatus && (
+            <GlassCard>
+              <div className="mb-1 text-[14px] font-bold text-dls-text-primary">Customer messaging mode</div>
+              <p className="mb-4 text-[12px] leading-5 text-dls-text-secondary">
+                This setting currently governs WhatsApp only. Choose whether eligible replies are held for staff review or sent automatically. Autopilot is limited to grounded general questions that pass the server safety gate; claim decisions and customer specific assertions still require staff.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {(["Review", "Autopilot"] as const).map((mode) => {
+                  const selected = modeStatus.mode === mode;
+                  const disabled = mode === "Autopilot" && !modeStatus.autopilotAvailable;
+                  return (
+                    <div key={mode} className={`rounded-dls-card border p-4 ${selected ? "border-dls-primary-border bg-dls-primary-soft-alt" : "border-dls-border-subtle bg-dls-surface"}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-[13px] font-semibold text-dls-text-primary">{mode === "Review" ? "Review before sending" : "Autopilot for eligible replies"}</div>
+                        {selected && <Badge tone="info">Selected</Badge>}
+                      </div>
+                      <p className="mt-2 min-h-10 text-[11.5px] leading-5 text-dls-text-secondary">
+                        {mode === "Review"
+                          ? "AI prepares eligible answers for an authorized team member to review and send."
+                          : disabled
+                            ? "Autopilot is not enabled for this deployment. The workspace remains in Review mode."
+                            : "Send only grounded general answers that pass the current server rules; other messages remain for staff."}
+                      </p>
+                      {!selected && (
+                        <Button
+                          variant="secondary"
+                          className="mt-3"
+                          disabled={disabled}
+                          onClick={() => { setModeError(null); setRequestedMode(mode); }}
+                        >
+                          Select {mode}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {modeStatus.mode === "Autopilot" && modeStatus.effectiveMode !== "Autopilot" && (
+                <p className="mt-3 text-[11.5px] text-dls-warning-text">Autopilot is selected for this workspace but disabled by deployment configuration. Replies stay in Review mode.</p>
+              )}
+              {modeError && <div className="mt-3 rounded-dls-control bg-dls-danger-tint px-3 py-2 text-[12px] text-dls-danger-text">{modeError}</div>}
+            </GlassCard>
+          )}
           <GlassCard>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -263,6 +328,19 @@ export default function WhatsAppSettings() {
           )}
         </div>
       )}
+
+      <GovernedActionDialog
+        open={requestedMode !== null}
+        title={requestedMode === "Autopilot" ? "Enable WhatsApp Autopilot" : "Return WhatsApp to Review"}
+        target={requestedMode ?? "WhatsApp messaging mode"}
+        impact={requestedMode === "Autopilot"
+          ? "Eligible, grounded general answers may be sent automatically when the deployment also enables Autopilot. All other messages remain subject to the existing staff and consent controls."
+          : "Customer replies will be held for staff review before sending."}
+        auditNotice="Changing the customer messaging mode is recorded in the workspace audit trail. Provide the operational reason for this change."
+        confirmLabel={requestedMode === "Autopilot" ? "Enable Autopilot" : "Use Review mode"}
+        onClose={() => setRequestedMode(null)}
+        onConfirm={onModeChange}
+      />
 
       <GovernedActionDialog
         open={connectDialogOpen}

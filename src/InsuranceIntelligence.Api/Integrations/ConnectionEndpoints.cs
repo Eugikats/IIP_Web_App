@@ -6,6 +6,7 @@ using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Infrastructure.Configuration;
+using System.Security.Cryptography;
 
 namespace InsuranceIntelligence.Api.Integrations;
 
@@ -87,6 +88,7 @@ public static class ConnectionEndpoints
         IIntegrationConnectionRepository repository,
         IConnectionSecretProtector protector,
         IEnumerable<IConnectionValidator> validators,
+        ITelegramWebhookRegistrar telegramWebhookRegistrar,
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
@@ -105,6 +107,16 @@ public static class ConnectionEndpoints
         if (string.IsNullOrWhiteSpace(request.ProviderKey))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["providerKey"] = ["A provider must be selected."] });
+        }
+
+        if (request.SecretFields is null || request.NonSecretFields is null)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["settings"] = ["Connection settings are required."] });
+        }
+        var fieldError = ConnectionFieldPolicy.Validate(type, request.SecretFields, request.NonSecretFields);
+        if (fieldError is not null)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["settings"] = [fieldError] });
         }
 
         var validator = validators.FirstOrDefault(v => v.ConnectionType == type
@@ -134,18 +146,60 @@ public static class ConnectionEndpoints
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["auditReason"] = ["An audit reason is required to change connection settings."] });
         }
 
-        var allFields = new Dictionary<string, string>(request.SecretFields, StringComparer.OrdinalIgnoreCase);
+        if (type == ConnectionType.Telegram
+            && (!Uri.TryCreate(options.ApiPublicBaseUrl, UriKind.Absolute, out var publicApiUri)
+                || publicApiUri.Scheme != Uri.UriSchemeHttps))
+            return Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "Not configured", detail: "A public HTTPS API URL is required before Telegram can be connected.");
+
+        var storedSecretFields = new Dictionary<string, string>(request.SecretFields, StringComparer.OrdinalIgnoreCase);
+        var allFields = new Dictionary<string, string>(storedSecretFields, StringComparer.OrdinalIgnoreCase);
         foreach (var (key, value) in request.NonSecretFields) allFields[key] = value;
+        var webhookSecret = type == ConnectionType.Telegram ? CreateWebhookSecret() : null;
+        if (webhookSecret is not null) allFields["webhookSecret"] = webhookSecret;
 
         // Guide-through validation: confirm the credentials actually work against the real
         // provider before anything is persisted, never store a connection that is silently broken.
         var validation = await validator.ValidateAsync(allFields, cancellationToken);
         if (!validation.Success)
         {
+            await auditRepository.WriteAsync(
+                AuditEvent.ConnectionChecked(scope, userId, connectionType, validator.ProviderKey, false, GetCorrelationId(httpContext)),
+                cancellationToken);
             return Results.BadRequest(new { deliveryStatus = "ValidationFailed", message = validation.SafeError });
         }
 
-        var (encryptedSecretJson, nonSecretJson) = ConnectionSettingsCodec.Encode(protector, request.SecretFields, request.NonSecretFields);
+        IReadOnlyDictionary<string, string>? discoveredSettings = validation.DiscoveredSettings;
+        if ((type is ConnectionType.Instagram or ConnectionType.Messenger or ConnectionType.TikTok or ConnectionType.X)
+            && validation.DiscoveredSettings is { } discoveredAccount
+            && discoveredAccount.TryGetValue("accountId", out var externalAccountId)
+            && !string.IsNullOrWhiteSpace(externalAccountId))
+        {
+            var existingOwner = await repository.FindByExternalAccountAsync(type, externalAccountId, cancellationToken);
+            if (existingOwner is not null && !existingOwner.Scope.Matches(scope))
+                return Results.Conflict(new { deliveryStatus = "AccountAlreadyConnected", message = "This provider account is already connected to another workspace." });
+        }
+        if (type == ConnectionType.Telegram)
+        {
+            var botToken = storedSecretFields["botToken"];
+            var botId = validation.DiscoveredSettings?.GetValueOrDefault("accountId");
+            if (string.IsNullOrWhiteSpace(botId) || webhookSecret is null)
+                return Results.BadRequest(new { deliveryStatus = "ValidationFailed", message = "Telegram did not confirm a bot account ID." });
+            var existingOwner = await repository.FindByExternalAccountAsync(type, botId, cancellationToken);
+            if (existingOwner is not null && !existingOwner.Scope.Matches(scope))
+                return Results.Conflict(new { deliveryStatus = "AccountAlreadyConnected", message = "This Telegram bot is already connected to another workspace." });
+            var callbackUrl = $"{options.ApiPublicBaseUrl!.TrimEnd('/')}/api/v1/integrations/telegram/bots/{Uri.EscapeDataString(botId)}/webhook";
+            var registration = await telegramWebhookRegistrar.RegisterAsync(botToken, callbackUrl, webhookSecret, cancellationToken);
+            if (!registration.Success)
+                return Results.BadRequest(new { deliveryStatus = "WebhookRegistrationFailed", message = registration.SafeError });
+            storedSecretFields["webhookSecret"] = webhookSecret;
+            var discovered = new Dictionary<string, string>(validation.DiscoveredSettings ?? new Dictionary<string, string>(), StringComparer.Ordinal)
+            {
+                ["messagingStatus"] = "Human replies",
+            };
+            discoveredSettings = discovered;
+        }
+
+        var (encryptedSecretJson, nonSecretJson) = ConnectionSettingsCodec.Encode(protector, storedSecretFields, request.NonSecretFields);
         var now = DateTimeOffset.UtcNow;
         var connection = new IntegrationConnection
         {
@@ -160,7 +214,7 @@ public static class ConnectionEndpoints
             LastValidatedAt = now,
             LastValidationStatus = "Success",
             LastValidationError = null,
-            LastValidationDiscoveredJson = ConnectionSettingsCodec.EncodeDiscovered(validation.DiscoveredSettings),
+            LastValidationDiscoveredJson = ConnectionSettingsCodec.EncodeDiscovered(discoveredSettings),
         };
         await repository.SaveAsync(connection, cancellationToken);
 
@@ -178,7 +232,7 @@ public static class ConnectionEndpoints
             LastValidatedAt: connection.LastValidatedAt,
             LastValidationStatus: connection.LastValidationStatus,
             LastValidationError: connection.LastValidationError,
-            LastValidationDiscovered: validation.DiscoveredSettings));
+            LastValidationDiscovered: discoveredSettings));
     }
 
     public static async Task<IResult> TestConfiguration(
@@ -186,6 +240,7 @@ public static class ConnectionEndpoints
         IIntegrationConnectionRepository repository,
         IConnectionSecretProtector protector,
         IEnumerable<IConnectionValidator> validators,
+        IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken)
@@ -229,6 +284,10 @@ public static class ConnectionEndpoints
             LastValidationDiscoveredJson = ConnectionSettingsCodec.EncodeDiscovered(validation.DiscoveredSettings),
         };
         await repository.SaveAsync(updated, cancellationToken);
+        await auditRepository.WriteAsync(
+            AuditEvent.ConnectionChecked(scope, DemoAuthorization.GetUserId(httpContext, fallback: string.Empty),
+                connectionType, connection.ProviderKey, validation.Success, GetCorrelationId(httpContext)),
+            cancellationToken);
 
         return Results.Ok(new { success = validation.Success, message = validation.SafeError, discovered = validation.DiscoveredSettings });
     }
@@ -273,8 +332,13 @@ public static class ConnectionEndpoints
         return Results.Ok(new { message = $"{connectionType} connection removed." });
     }
 
-    private static bool TryParseType(string raw, out ConnectionType type) =>
-        Enum.TryParse(raw, ignoreCase: true, out type);
+    private static bool TryParseType(string raw, out ConnectionType type)
+    {
+        type = default;
+        return !int.TryParse(raw, out _)
+            && Enum.TryParse(raw, ignoreCase: true, out type)
+            && Enum.IsDefined(type);
+    }
 
     private static string GetCorrelationId(HttpContext httpContext)
     {
@@ -285,12 +349,56 @@ public static class ConnectionEndpoints
 
         return httpContext.TraceIdentifier;
     }
+
+    private static string CreateWebhookSecret() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+        .TrimEnd('=')
+        .Replace('+', '-')
+        .Replace('/', '_');
 }
 
 public sealed record SaveConnectionRequest(
     string ProviderKey,
     IReadOnlyDictionary<string, string> SecretFields,
     IReadOnlyDictionary<string, string> NonSecretFields);
+
+internal static class ConnectionFieldPolicy
+{
+    private static readonly HashSet<string> SensitiveNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "apiKey", "password", "accessToken", "accessTokenSecret", "consumerSecret", "pageAccessToken", "appSecret", "botToken",
+        "authHeaderValue", "clientSecret", "refreshToken", "webhookSecret"
+    };
+
+    public static string? Validate(
+        ConnectionType type,
+        IReadOnlyDictionary<string, string> secretFields,
+        IReadOnlyDictionary<string, string> nonSecretFields)
+    {
+        if (nonSecretFields.Keys.Any(SensitiveNames.Contains))
+            return "Credentials must be entered as secret fields.";
+
+        var socialFields = type switch
+        {
+            ConnectionType.Instagram => (Secrets: new[] { "accessToken", "appSecret" }, Public: new[] { "accountId" }),
+            ConnectionType.Messenger => (Secrets: new[] { "pageAccessToken", "appSecret" }, Public: new[] { "pageId" }),
+            ConnectionType.TikTok => (Secrets: new[] { "accessToken", "appSecret" }, Public: new[] { "businessId" }),
+            ConnectionType.X => (Secrets: new[] { "clientSecret", "accessToken" }, Public: new[] { "userId" }),
+            ConnectionType.Telegram => (Secrets: new[] { "botToken" }, Public: Array.Empty<string>()),
+            _ => (Secrets: Array.Empty<string>(), Public: Array.Empty<string>()),
+        };
+        if (socialFields.Secrets.Length == 0) return null;
+
+        if (secretFields.Keys.Any(key => !socialFields.Secrets.Contains(key, StringComparer.Ordinal))
+            || nonSecretFields.Keys.Any(key => !socialFields.Public.Contains(key, StringComparer.Ordinal)))
+            return "This channel received an unsupported setting.";
+
+        if (socialFields.Secrets.Any(key => !secretFields.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
+            || socialFields.Public.Any(key => !nonSecretFields.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value)))
+            return "Complete every required account and credential field.";
+
+        return null;
+    }
+}
 
 public sealed record ConnectionStatusResponse(
     string ConnectionType,

@@ -33,6 +33,7 @@ export default function ClaimDecisionCard({
   const [primary, ...rest] = visibleActions;
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const moreTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -42,7 +43,10 @@ export default function ClaimDecisionCard({
       }
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setMoreOpen(false);
+      if (event.key === "Escape") {
+        moreTriggerRef.current?.focus();
+        setMoreOpen(false);
+      }
     }
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
@@ -81,7 +85,7 @@ export default function ClaimDecisionCard({
           </Button>
           {rest.length > 0 && (
             <div ref={moreRef} className="relative">
-              <Button variant="secondary" icon={<MoreHorizontal aria-hidden="true" />} onClick={() => setMoreOpen((open) => !open)} aria-haspopup="menu" aria-expanded={moreOpen}>
+              <Button ref={moreTriggerRef} variant="secondary" icon={<MoreHorizontal aria-hidden="true" />} onClick={() => setMoreOpen((open) => !open)} aria-haspopup="menu" aria-expanded={moreOpen}>
                 More actions
               </Button>
               {moreOpen && (
@@ -93,6 +97,9 @@ export default function ClaimDecisionCard({
                       role="menuitem"
                       disabled={action.disabled}
                       onClick={() => {
+                        // The menu item is removed as its dialog opens. Return focus to the
+                        // persistent menu trigger first so the dialog captures a live target.
+                        moreTriggerRef.current?.focus();
                         setMoreOpen(false);
                         action.onClick();
                       }}

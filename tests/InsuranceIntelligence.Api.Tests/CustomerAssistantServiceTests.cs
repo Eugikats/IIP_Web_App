@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Domain.Acquisition;
 using Microsoft.EntityFrameworkCore;
 using InsuranceIntelligence.Application.Ai;
+using InsuranceIntelligence.Application.Channels;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Application.Translation;
@@ -10,6 +11,7 @@ using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.Channels;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Customers;
@@ -58,6 +60,35 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal("[verification code redacted]", fixture.Conversations.Saved[^1].InboundMessageText);
         await fixture.HandleAsync("I had an accident and need to make a claim");
         Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
+    }
+
+    [Fact]
+    public async Task Assistant_UsesOnlyConsentedAndValidatedLinkedChannelHistory_AndMasksPhoneNumbers()
+    {
+        var agent = new ScriptedAgentModel().Says("I will pick this up from here.");
+        var fixture = Fixture.Create(agent: agent, withCrossChannelContext: true);
+
+        await fixture.HandleAsync("Hello again");
+
+        var context = Assert.Single(agent.Conversations);
+        var sharedHistory = Assert.Single(context, message => message.Content?.Contains("Recorded customer conversation context", StringComparison.Ordinal) == true);
+        Assert.Contains("[instagram inbound", sharedHistory.Content, StringComparison.Ordinal);
+        Assert.Contains("appointment is Tuesday", sharedHistory.Content, StringComparison.Ordinal);
+        Assert.Contains("[phone masked]", sharedHistory.Content, StringComparison.Ordinal);
+        Assert.DoesNotContain("0772123456", sharedHistory.Content, StringComparison.Ordinal);
+        Assert.Contains(fixture.Audit.Written, audit => audit.ActionName == "customer_assistant.cross_channel_context_read");
+    }
+
+    [Fact]
+    public async Task Assistant_DoesNotLoadLinkedChannelHistory_WhenThatChannelConsentIsMissing()
+    {
+        var agent = new ScriptedAgentModel().Says("I can help with that.");
+        var fixture = Fixture.Create(agent: agent, withCrossChannelContext: true, consentOtherChannel: false);
+
+        await fixture.HandleAsync("Hello again");
+
+        Assert.DoesNotContain(agent.Conversations.Single(), message => message.Content?.Contains("appointment is Tuesday", StringComparison.Ordinal) == true);
+        Assert.DoesNotContain(fixture.Audit.Written, audit => audit.ActionName == "customer_assistant.cross_channel_context_read");
     }
 
     private const string ValidPolicyNumber = "NSA/MO/2026/00009";
@@ -1103,13 +1134,29 @@ public sealed partial class CustomerAssistantServiceTests
     private const string AgentDemoPhone = "+256772118001"; // the fixture default sender
 
     [Fact]
+    public async Task Agent_InReviewMode_SendsOnlyTheFixedHoldingReplyAndStoresTheDraftSeparately()
+    {
+        const string draft = "I can help with that question.";
+        var fixture = Fixture.Create(agent: new ScriptedAgentModel().Says(draft));
+
+        await fixture.HandleAsync("Hello");
+
+        var sent = Assert.Single(fixture.Outbound.SentRequests);
+        Assert.DoesNotContain(draft, sent.CustomerSafeBody, StringComparison.Ordinal);
+        var turn = Assert.Single(fixture.Conversations.Saved);
+        Assert.Equal(CustomerAssistantOutcome.QueuedForHumanApproval, turn.Outcome);
+        Assert.Equal(draft, turn.PendingReplyDraftText);
+        Assert.Equal(sent.CustomerSafeBody, turn.OutboundReplyText);
+    }
+
+    [Fact]
     public async Task Agent_OnTheDemoPhone_RegistersANewPerson_AndIssuesTheCoverTheyChoose()
     {
         var model = new ScriptedAgentModel()
             .Calls("register_customer", """{"full_name":"Grace Nakato","occupation":"boutique owner","area":"Jinja road"}""")
             .Calls("apply_for_cover", """{"product":"Small Business Shop"}""")
             .Says("Done, Grace. Your Small Business Shop Cover is active.");
-        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone);
+        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone, autoReplyEnabled: true);
 
         await fixture.HandleAsync("I'm Grace Nakato, I own a boutique on Jinja road. Register me for shop cover");
 
@@ -1130,7 +1177,7 @@ public sealed partial class CustomerAssistantServiceTests
             .Calls("register_customer", """{"full_name":"Grace Nakato"}""")
             .Calls("apply_for_cover", """{"product":"Small Business Shop","cover_amount_ugx":3000000}""")
             .Says("Done.");
-        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone);
+        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone, autoReplyEnabled: true);
 
         await fixture.HandleAsync("Go ahead, about 3 million in stock");
 
@@ -1206,7 +1253,7 @@ public sealed partial class CustomerAssistantServiceTests
             .Says(question)
             .Calls("record_contact_consent", """{"agreed":true}""")
             .Says("Thank you, we will.");
-        var fixture = Fixture.Create(agent: model);
+        var fixture = Fixture.Create(agent: model, autoReplyEnabled: true);
 
         await fixture.HandleAsync("I am thinking about shop cover");
         await fixture.HandleAsync("Yes please");
@@ -1226,7 +1273,7 @@ public sealed partial class CustomerAssistantServiceTests
             .Says("Would you like Nile Shield to message you later about cover?")
             .Calls("record_contact_consent", """{"agreed":true}""")
             .Says("Shop cover is UGX 15,000 a month.");
-        var fixture = Fixture.Create(agent: model);
+        var fixture = Fixture.Create(agent: model, autoReplyEnabled: true);
 
         await fixture.HandleAsync("I am thinking about shop cover");
         await fixture.HandleAsync("How much does it cost?");
@@ -1335,7 +1382,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         var second = model.Conversations[1];
         Assert.Contains(second, m => m.Role == "user" && m.Content == "Hello");
-        Assert.Contains(second, m => m.Role == "assistant" && m.Content == "Hello Grace, how can I help?");
+        Assert.Contains(second, m => m.Role == "assistant" && m.Content == KatoReplies.CheckingAnswer(null));
         Assert.Equal("Then for businesses?", second[^1].Content);
     }
 
@@ -1690,7 +1737,9 @@ public sealed partial class CustomerAssistantServiceTests
             InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null,
             bool stopHandling = false,
             InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null,
-            IClaimIdentityVerifier? claimIdentity = null)
+            IClaimIdentityVerifier? claimIdentity = null,
+            bool withCrossChannelContext = false,
+            bool consentOtherChannel = true)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -1710,6 +1759,51 @@ public sealed partial class CustomerAssistantServiceTests
             var linkIssuer = new FakeAccessLinkIssuer();
             var languagePreferences = new InMemoryCustomerLanguagePreferenceRepository();
             var insightsQueue = new RecordingInsightsQueue();
+            var channelIdentityLinks = withCrossChannelContext ? new FakeChannelIdentityLinkRepository() : null;
+            var channelMessages = withCrossChannelContext ? new FakeChannelMessageRepository() : null;
+            var integrationConnections = withCrossChannelContext ? new FakeIntegrationConnectionRepository() : null;
+            if (withCrossChannelContext)
+            {
+                var recordedAt = DateTimeOffset.UtcNow;
+                const string customerId = "customer-123";
+                foreach (var channel in new[] { ChannelValues.WhatsApp, ChannelValues.Instagram })
+                {
+                    var purpose = ChannelIdentityConsentPurposes.ForChannel(channel);
+                    if (channel == ChannelValues.WhatsApp || consentOtherChannel)
+                    {
+                        consent.SaveAsync(new ConsentRecord
+                        {
+                            RecordId = Guid.NewGuid(), Scope = scope, CustomerIdentifier = customerId,
+                            Basis = ConsentBasis.ExplicitOptIn, Purpose = purpose, Channel = channel,
+                            RecordedByUserId = "staff-1", RecordedAt = recordedAt, CorrelationId = "linked-consent",
+                        }).GetAwaiter().GetResult();
+                    }
+                    channelIdentityLinks!.Items.Add(new ChannelIdentityLink
+                    {
+                        LinkId = Guid.NewGuid(), Scope = scope, CustomerId = customerId, Channel = channel,
+                        AccountId = channel == ChannelValues.WhatsApp ? "phone-1" : "instagram-account",
+                        ExternalRecipientId = channel == ChannelValues.WhatsApp ? "256772118001" : "ig-recipient-1",
+                        VerificationMethod = ChannelIdentityVerificationMethod.StaffVerifiedCustomerChallenge,
+                        EvidenceReference = "test-evidence", ConsentPurpose = purpose, LinkedByUserId = "staff-1",
+                        LinkedAt = recordedAt, IsActive = true,
+                    });
+                }
+                channelMessages!.Items.Add(new ChannelMessage
+                {
+                    MessageId = Guid.NewGuid(), Scope = scope, Channel = ChannelValues.Instagram,
+                    AccountId = "instagram-account", ThreadId = "instagram-thread", ExternalRecipientId = "ig-recipient-1",
+                    Direction = ChannelMessageDirection.Inbound, ContentType = "Text",
+                    CustomerSafeBody = "My appointment is Tuesday; call me at 0772123456.",
+                    DeliveryState = ChannelMessageDeliveryState.Received, CreatedAt = recordedAt.AddMinutes(-2),
+                    UpdatedAt = recordedAt.AddMinutes(-2), CorrelationId = "cross-channel-message",
+                });
+                integrationConnections!.Connections[ConnectionType.Instagram] = new IntegrationConnection
+                {
+                    Scope = scope, ConnectionType = ConnectionType.Instagram, ProviderKey = "Meta",
+                    EncryptedSecretSettingsJson = "test-cipher", ConfiguredByUserId = "staff-1", ConfiguredAt = recordedAt,
+                    IsActive = true, LastValidationStatus = "Success", LastValidationDiscoveredJson = "{\"accountId\":\"instagram-account\"}",
+                };
+            }
             IChatCompletionProvider? model = modelThrows
                 ? new FakeChatCompletionProvider(null)
                 : modelAnswer is null ? null : new FakeChatCompletionProvider(modelAnswer);
@@ -1747,7 +1841,10 @@ public sealed partial class CustomerAssistantServiceTests
                 decisionLog: decisionLog,
                 companyProfile: companyProfile,
                 outcomes: stopHandling ? new InsuranceIntelligence.Application.Rules.OutcomeService(OutcomeStore(), decisionLog ?? new InsuranceIntelligence.Application.Rules.DecisionLog(OutcomeStore()), salesLeads, consent) : null,
-                claimIdentity: claimIdentity ?? new VerifiedClaimIdentity());
+                claimIdentity: claimIdentity ?? new VerifiedClaimIdentity(),
+                channelIdentityLinks: channelIdentityLinks,
+                channelMessages: channelMessages,
+                integrationConnections: integrationConnections);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {
@@ -2058,6 +2155,43 @@ public sealed partial class CustomerAssistantServiceTests
             Task.FromResult<IReadOnlyCollection<ConsentRecord>>(records.Where(r => r.Scope.Matches(scope) && r.CustomerIdentifier == customerIdentifier).ToArray());
     }
 
+    private sealed class FakeChannelIdentityLinkRepository : IChannelIdentityLinkRepository
+    {
+        public List<ChannelIdentityLink> Items { get; } = [];
+        public Task<ChannelIdentityLink?> FindByExternalIdentityAsync(TenantScope scope, string channel, string accountId, string externalRecipientId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Items.FirstOrDefault(item => item.Scope.Matches(scope) && item.Channel == channel && item.AccountId == accountId && item.ExternalRecipientId == externalRecipientId));
+        public Task<ChannelIdentityLink?> GetAsync(TenantScope scope, Guid linkId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Items.FirstOrDefault(item => item.Scope.Matches(scope) && item.LinkId == linkId));
+        public Task<IReadOnlyList<ChannelIdentityLink>> ListForCustomerAsync(TenantScope scope, string customerId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ChannelIdentityLink>>(Items.Where(item => item.Scope.Matches(scope) && item.CustomerId == customerId).ToArray());
+        public Task SaveAsync(ChannelIdentityLink link, CancellationToken cancellationToken = default)
+        {
+            Items.RemoveAll(item => item.LinkId == link.LinkId);
+            Items.Add(link);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeChannelMessageRepository : IChannelMessageRepository
+    {
+        public List<ChannelMessage> Items { get; } = [];
+        public Task<IReadOnlyList<ChannelMessage>> ListForExternalRecipientAsync(TenantScope scope, string channel, string accountId, string externalRecipientId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ChannelMessage>>(Items.Where(item => item.Scope.Matches(scope) && item.Channel == channel && item.AccountId == accountId && item.ExternalRecipientId == externalRecipientId).ToArray());
+        public Task<IReadOnlyList<ChannelMessage>> ListThreadAsync(TenantScope scope, string channel, string threadId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ChannelMessage>>([]);
+        public Task<bool> SaveInboundIfNewAsync(ChannelMessage message, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task SaveAsync(ChannelMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<ChannelMessage?> FindByIdempotencyKeyAsync(TenantScope scope, string channel, string accountId, string idempotencyKey, CancellationToken cancellationToken = default) => Task.FromResult<ChannelMessage?>(null);
+    }
+
+    private sealed class FakeIntegrationConnectionRepository : IIntegrationConnectionRepository
+    {
+        public Dictionary<ConnectionType, IntegrationConnection> Connections { get; } = [];
+        public Task<IntegrationConnection?> GetAsync(TenantScope scope, ConnectionType connectionType, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Connections.GetValueOrDefault(connectionType));
+        public Task SaveAsync(IntegrationConnection connection, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteAsync(TenantScope scope, ConnectionType connectionType, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
     private sealed class NoOpNotificationEmitter : INotificationEmitter
     {
         public Task NotifyAsync(TenantScope scope, string recipientUserId, NotificationType type, string message, Guid caseId, CancellationToken cancellationToken = default) =>
@@ -2093,7 +2227,8 @@ public sealed partial class CustomerAssistantServiceTests
 
     private sealed class TestLanguageSettings(IReadOnlyCollection<SupportedLanguageCode> enabled, bool allowUnreviewed) : IAssistantLanguageSettings
     {
-        public IReadOnlyCollection<SupportedLanguageCode> EnabledLanguages => enabled;
+        public Task<IReadOnlyCollection<SupportedLanguageCode>> GetEnabledLanguagesAsync(
+            TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(enabled);
 
         public bool AllowUnreviewedTranslations => allowUnreviewed;
     }

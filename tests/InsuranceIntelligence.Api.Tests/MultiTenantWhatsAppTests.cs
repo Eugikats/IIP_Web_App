@@ -306,7 +306,8 @@ public sealed class MultiTenantWhatsAppTests
 
         var result = await WhatsAppIntegrationEndpoints.ReceiveWebhook(
             http.Request, ingestion, messaging, queue,
-            http.RequestServices.GetRequiredService<IServiceScopeFactory>(), provider, options, receipts,
+            http.RequestServices.GetRequiredService<IServiceScopeFactory>(), provider,
+            new InMemoryTenantConfigurationRepository(), options, receipts,
             NullLogger<WhatsAppCustomerAssistantLogMarker>.Instance, CancellationToken.None);
 
         await result.ExecuteAsync(http);

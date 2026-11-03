@@ -62,6 +62,7 @@ public static class AdminEndpoints
             ApprovalThresholds = request.ApprovalThresholds,
             Checklists = request.Checklists,
             AuditRetentionDays = request.AuditRetentionDays,
+            FraudRules = request.FraudRules ?? current.FraudRules,
             UpdatedAt = DateTimeOffset.UtcNow
         };
         var errors = updated.Validate();
@@ -147,9 +148,9 @@ public static class AdminEndpoints
         {
             Health("database", options.StorageProvider, DatabaseStatus(options), DatabaseDetail(options)),
             Health("blobStorage", options.BlobProvider, BlobStatus(options), BlobDetail(options)),
-            Health("documentIntelligence", options.DocumentProvider, RequiredStatus(options, options.DocumentProvider, "AzureDocumentIntelligence", options.DocumentIntelligence.Endpoint), RequiredDetail(options, options.DocumentProvider, "AzureDocumentIntelligence", "DocumentIntelligence:Endpoint")),
-            Health("aiSearch", options.RetrievalProvider, RequiredStatus(options, options.RetrievalProvider, "AzureAiSearch", options.AzureAiSearch.Endpoint, options.AzureAiSearch.IndexName), RequiredDetail(options, options.RetrievalProvider, "AzureAiSearch", "AzureAiSearch:Endpoint and AzureAiSearch:IndexName")),
-            Health("azureOpenAI", options.AiProvider, RequiredStatus(options, options.AiProvider, "AzureOpenAI", options.AzureOpenAI.Endpoint, options.AzureOpenAI.ChatDeployment, options.AzureOpenAI.EmbeddingDeployment), RequiredDetail(options, options.AiProvider, "AzureOpenAI", "AzureOpenAI:Endpoint, AzureOpenAI:ChatDeployment, and AzureOpenAI:EmbeddingDeployment")),
+            Health("documentIntelligence", options.DocumentProvider, DocumentProcessingStatus(options), DocumentProcessingDetail(options)),
+            Health("aiSearch", options.RetrievalProvider, RetrievalStatus(options), RetrievalDetail(options)),
+            Health("azureOpenAI", options.AiProvider, AiStatus(options), AiDetail(options)),
             Health("serviceBus", options.QueueProvider, RequiredStatus(options, options.QueueProvider, "AzureServiceBus", options.ServiceBus.FullyQualifiedNamespace), RequiredDetail(options, options.QueueProvider, "AzureServiceBus", "ServiceBus:FullyQualifiedNamespace")),
             Health("graphMail", options.EmailProvider, GraphStatus(options), GraphDetail(options)),
             Health("communications", options.CommunicationProvider, CommunicationStatus(options), CommunicationDetail(options)),
@@ -410,6 +411,7 @@ public static class AdminEndpoints
         AddChanged(changedFields, "approvalThresholds", !current.ApprovalThresholds.SequenceEqual(updated.ApprovalThresholds));
         AddChanged(changedFields, "documentChecklists", !ChecklistsEqual(current.Checklists, updated.Checklists));
         AddChanged(changedFields, "auditRetention", current.AuditRetentionDays != updated.AuditRetentionDays);
+        AddChanged(changedFields, "fraudRules", current.FraudRules != updated.FraudRules);
         return changedFields;
     }
 
@@ -518,7 +520,7 @@ public static class AdminEndpoints
 
         if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
         {
-            return IsDevelopmentAuth(options) ? "healthy" : "missing";
+            return "not_configured";
         }
 
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
@@ -540,9 +542,7 @@ public static class AdminEndpoints
 
         if (options.CommunicationProvider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
         {
-            return IsDevelopmentAuth(options)
-                ? "Mock communications are available only for local development."
-                : "A real communication provider must be configured or the feature must be unavailable.";
+            return "No mock communication sender is registered. Configure GraphEmail before expecting customer messages to be sent.";
         }
 
         if (options.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
@@ -663,6 +663,36 @@ public static class AdminEndpoints
 
         return required.Any(string.IsNullOrWhiteSpace) ? "missing" : "configured";
     }
+
+    private static string DocumentProcessingStatus(InfrastructureOptions options) =>
+        options.DocumentProvider.Equals("AzureDocumentIntelligence", StringComparison.OrdinalIgnoreCase)
+            ? RequiredStatus(options, options.DocumentProvider, "AzureDocumentIntelligence", options.DocumentIntelligence.Endpoint)
+            : "not_configured";
+
+    private static string DocumentProcessingDetail(InfrastructureOptions options) =>
+        options.DocumentProvider.Equals("AzureDocumentIntelligence", StringComparison.OrdinalIgnoreCase)
+            ? RequiredDetail(options, options.DocumentProvider, "AzureDocumentIntelligence", "DocumentIntelligence:Endpoint")
+            : "No document-processing provider is registered for this mode. Configure Azure Document Intelligence before expecting extracted fields.";
+
+    private static string RetrievalStatus(InfrastructureOptions options) =>
+        options.RetrievalProvider.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase)
+            ? RequiredStatus(options, options.RetrievalProvider, "AzureAiSearch", options.AzureAiSearch.Endpoint, options.AzureAiSearch.IndexName)
+            : "not_configured";
+
+    private static string RetrievalDetail(InfrastructureOptions options) =>
+        options.RetrievalProvider.Equals("AzureAiSearch", StringComparison.OrdinalIgnoreCase)
+            ? RequiredDetail(options, options.RetrievalProvider, "AzureAiSearch", "AzureAiSearch:Endpoint and AzureAiSearch:IndexName")
+            : "No knowledge retrieval provider is registered for this mode. Configure Azure AI Search before expecting grounded knowledge answers.";
+
+    private static string AiStatus(InfrastructureOptions options) =>
+        options.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase)
+            ? RequiredStatus(options, options.AiProvider, "AzureOpenAI", options.AzureOpenAI.Endpoint, options.AzureOpenAI.ChatDeployment, options.AzureOpenAI.EmbeddingDeployment)
+            : "not_configured";
+
+    private static string AiDetail(InfrastructureOptions options) =>
+        options.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase)
+            ? RequiredDetail(options, options.AiProvider, "AzureOpenAI", "AzureOpenAI:Endpoint, AzureOpenAI:ChatDeployment, and AzureOpenAI:EmbeddingDeployment")
+            : "No chat or embedding provider is registered for this mode. Configure Azure OpenAI before expecting generated responses.";
 
     private static string RequiredDetail(InfrastructureOptions options, string selectedMode, string liveMode, string settingNames) =>
         IsNotConfiguredMode(selectedMode)

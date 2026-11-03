@@ -41,3 +41,8 @@ Thumbs.db
 # from blob storage at deploy time, never committed.
 languages/
 *.gguf
+/docs/iip-academy/media/
+
+# Python bytecode
+__pycache__/
+*.pyc

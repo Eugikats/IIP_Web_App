@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
+using InsuranceIntelligence.Api.Local;
 using InsuranceIntelligence.Application.AgentWorkflows;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
@@ -30,7 +31,8 @@ public static class DocumentEndpoints
         INotificationEmitter notificationEmitter,
         HttpContext httpContext,
         CancellationToken cancellationToken,
-        ITenantConfigurationRepository? tenantConfigurationRepository = null)
+        ITenantConfigurationRepository? tenantConfigurationRepository = null,
+        IDocumentTypeCatalogRepository? documentTypeCatalogRepository = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
@@ -74,7 +76,15 @@ public static class DocumentEndpoints
 
         var correlationId = GetCorrelationId(httpContext);
         var uploadedBy = GetActor(httpContext, form["uploadedByUserId"].ToString());
+        var selectedDocumentTypeKey = await ResolveSelectedDocumentTypeKeyAsync(
+            form["documentTypeKey"].ToString(), scope, documentTypeCatalogRepository, cancellationToken);
+        if (!selectedDocumentTypeKey.IsValid)
+        {
+            return Validation("documentTypeKey", selectedDocumentTypeKey.Error!);
+        }
+
         var documents = new List<CaseDocument>();
+        var processingNotConfigured = false;
 
         foreach (var file in files)
         {
@@ -91,20 +101,40 @@ public static class DocumentEndpoints
                     stream),
                 cancellationToken);
 
-            var uploadedDocument = CreateUploadedDocument(documentId, claimCase, file, storageResult, uploadedBy, correlationId);
+            var uploadedDocument = CreateUploadedDocument(
+                documentId, claimCase, file, storageResult, uploadedBy, correlationId, selectedDocumentTypeKey.Key);
             await documentRepository.SaveAsync(uploadedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentUploaded(uploadedDocument, uploadedBy, correlationId), cancellationToken);
 
-            var processingResult = await processingProvider.ProcessAsync(
-                new DocumentProcessingRequest(
-                    documentId,
-                    caseId,
-                    uploadedDocument.OriginalFileName,
-                    uploadedDocument.ContentType,
-                    uploadedDocument.FileSizeBytes,
-                    uploadedDocument.ObjectKey,
-                    ct => storageProvider.ReadAsync(scope, uploadedDocument.ObjectKey, ct)),
-                cancellationToken);
+            if (processingNotConfigured)
+            {
+                documents.Add(uploadedDocument);
+                continue;
+            }
+
+            DocumentProcessingResult processingResult;
+            try
+            {
+                processingResult = await processingProvider.ProcessAsync(
+                    new DocumentProcessingRequest(
+                        documentId,
+                        caseId,
+                        uploadedDocument.OriginalFileName,
+                        uploadedDocument.ContentType,
+                        uploadedDocument.FileSizeBytes,
+                        uploadedDocument.ObjectKey,
+                        ct => storageProvider.ReadAsync(scope, uploadedDocument.ObjectKey, ct)),
+                    cancellationToken);
+            }
+            catch (ProviderNotConfiguredException exception) when (exception.Capability == "DocumentProcessing")
+            {
+                // The source file is already durably stored and audited. Keep it visible as
+                // Uploaded, report the missing capability explicitly, and avoid inviting a retry
+                // that would create duplicate document records. Do not fabricate extraction data.
+                processingNotConfigured = true;
+                documents.Add(uploadedDocument);
+                continue;
+            }
             var fieldValidationRules = DocumentFieldValidator.ResolveRules(
                 scope, await fieldValidationRuleRepository.ListAsync(scope, cancellationToken));
             var fieldValidationWarnings = DocumentFieldValidator.Evaluate(
@@ -161,7 +191,8 @@ public static class DocumentEndpoints
         return Results.Ok(new DocumentUploadResponse(
             documents.Select(document => DocumentMapper.ToResponse(document, confidenceThreshold)).ToArray(),
             DocumentMapper.ToResponse(checklist),
-            DocumentMapper.ToAuditSummary(auditEvents)));
+            DocumentMapper.ToAuditSummary(auditEvents),
+            processingNotConfigured ? "DocumentProcessing" : null));
     }
 
     public static async Task<IResult> ListDocuments(
@@ -583,6 +614,39 @@ public static class DocumentEndpoints
         return configuration.DocumentClassificationConfidenceThreshold;
     }
 
+    private static async Task<(bool IsValid, string? Key, string? Error)> ResolveSelectedDocumentTypeKeyAsync(
+        string? value,
+        TenantScope scope,
+        IDocumentTypeCatalogRepository? catalogRepository,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return (true, null, null);
+        }
+
+        var key = value.Trim();
+        var current = catalogRepository is null
+            ? Array.Empty<DocumentTypeDefinition>()
+            : await catalogRepository.ListCurrentAsync(scope, cancellationToken);
+        var definition = current.FirstOrDefault(item => item.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (definition is not null)
+        {
+            return definition.Active
+                ? (true, definition.Key, null)
+                : (false, null, "This document type is inactive for the workspace.");
+        }
+
+        var builtIn = DefaultDocumentTypeCatalog.Defaults()
+            .FirstOrDefault(item => item.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(builtIn.Key))
+        {
+            return (true, builtIn.Key, null);
+        }
+
+        return (false, null, "Choose a document type from the active workspace catalog.");
+    }
+
     private static Task RecordLabelledExampleAsync(
         IDocumentLabelledExampleRepository? labelledExampleRepository,
         DocumentLabelledExample example,
@@ -644,7 +708,8 @@ public static class DocumentEndpoints
         IFormFile file,
         DocumentStorageResult storageResult,
         string uploadedBy,
-        string correlationId)
+        string correlationId,
+        string? documentTypeKey)
     {
         var now = DateTimeOffset.UtcNow;
 
@@ -658,12 +723,13 @@ public static class DocumentEndpoints
             FileSizeBytes = storageResult.FileSizeBytes,
             ObjectKey = storageResult.ObjectKey,
             DocumentType = DocumentType.Unknown,
+            DocumentTypeKey = documentTypeKey,
             ProcessingStatus = DocumentProcessingStatus.Uploaded,
-            Classification = new DocumentClassificationResult(DocumentType.Unknown, 0m, "Mock", now),
+            Classification = new DocumentClassificationResult(DocumentType.Unknown, 0m, "NotConfigured", now),
             Extraction = new DocumentExtractionResult(
                 new Dictionary<string, string>(),
                 new Dictionary<string, decimal>(),
-                "Mock",
+                "NotConfigured",
                 now,
                 Approved: false,
                 ApprovedByUserId: null,

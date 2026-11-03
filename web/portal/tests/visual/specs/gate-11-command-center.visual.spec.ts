@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("Gate 11 Command Center summarizes implemented workflow state", async ({ page }, testInfo) => {
-  await page.goto("/app");
+  await page.goto("/app/assistant");
   await page.waitForLoadState("networkidle");
 
   // Navigation model §6.2, the chat-first landing is exactly four elements (orb, greeting,

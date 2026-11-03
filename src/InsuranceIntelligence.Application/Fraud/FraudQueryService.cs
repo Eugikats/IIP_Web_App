@@ -18,7 +18,8 @@ public sealed class FraudQueryService(
     IPolicyRepository policyRepository,
     IPermissionService permissionService,
     ITenantContextAccessor tenantContextAccessor,
-    IFraudSignalDispositionRepository dispositionRepository) : IFraudQueryService
+    IFraudSignalDispositionRepository dispositionRepository,
+    ITenantConfigurationRepository tenantConfigurationRepository) : IFraudQueryService
 {
     // Analyse a bounded, recent window of claims. Fraud patterns are cross-claim,
     // so we pull a generous page rather than a single-claim view.
@@ -45,7 +46,8 @@ public sealed class FraudQueryService(
                 string.IsNullOrWhiteSpace(claim.PolicyNumber) ? null : policiesByNumber.GetValueOrDefault(claim.PolicyNumber.Trim())))
             .ToList();
 
-        var signals = FraudRuleEngine.Evaluate(inputs);
+        var tenantConfiguration = await tenantConfigurationRepository.GetAsync(scope, cancellationToken);
+        var signals = FraudRuleEngine.Evaluate(inputs, tenantConfiguration.FraudRules);
         // WO-19: signals are recomputed fresh every call, join each one to its persisted
         // disposition (if any) by the same deterministic id the disposition service uses, so the
         // workflow state survives even though the signal itself is never stored.

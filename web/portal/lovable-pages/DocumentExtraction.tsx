@@ -19,6 +19,24 @@ import { isValidWorkReference } from "@/lib/workItemLinks";
 // architectural slice), so this is the platform's fixed set, not fetched from an endpoint.
 const DOCUMENT_TYPES = ["ClaimForm", "PoliceAbstract", "Invoice", "MedicalReport", "PhotoEvidence", "CustomerId", "GarageEstimate", "Unknown"];
 
+function formatProcessingDuration(uploadedAt: string, processedAt?: string | null) {
+  if (!processedAt) return null;
+  const elapsedMs = Date.parse(processedAt) - Date.parse(uploadedAt);
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return null;
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  if (totalSeconds < 60) return `${totalSeconds} seconds`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `${minutes} minutes` : `${minutes} minutes ${seconds} seconds`;
+}
+
+function formatTimestamp(value: string) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp)
+    ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" }).format(timestamp)
+    : "Time unavailable";
+}
+
 export default function DocumentExtraction() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -45,6 +63,9 @@ export default function DocumentExtraction() {
   }, [documents, requestedDocumentId, selectedId, validDocumentId]);
 
   const selected = documents.find((document) => document.documentId === selectedId) ?? null;
+  const submittedDocumentLabel = selected?.customerDocumentTypeKey
+    ? documentContractLabel(selected.customerDocumentTypeKey)
+    : null;
 
   useEffect(() => {
     setValues(Object.fromEntries((selected?.fields ?? []).map((field) => [field.name, field.effectiveValue])));
@@ -111,9 +132,9 @@ export default function DocumentExtraction() {
       <SectionHeader
         eyebrow="Release 1 · Document-to-Decision"
         eyebrowClassName="text-dls-text-secondary"
-        title={selected ? `Extraction Review · ${documentContractLabel(selected.documentType)}` : "Extraction Review"}
+        title={selected ? `Extraction Review · ${submittedDocumentLabel ?? documentContractLabel(selected.documentType)}` : "Extraction Review"}
         sub={selected ? `${selected.originalFileName} · Claim ${caseId} · Compare every effective value with the authorized source.` : `Claim ${caseId} · Source-grounded document review.`}
-        action={selected ? <div className="flex flex-wrap items-center gap-2"><StatusBadge status={selected.processingStatus} /><ConfidenceBadge value={selected.confidenceScore} />{selected.extractionApproved ? <Badge tone="success">Human approved</Badge> : <Badge tone="warning">Review required</Badge>}</div> : undefined}
+        action={selected ? <div className="flex flex-wrap items-center gap-2"><StatusBadge status={selected.processingStatus} />{selected.processingCapability === "DocumentProcessing" ? <Badge tone="warning">Awaiting processing</Badge> : <ConfidenceBadge value={selected.confidenceScore} />}{selected.extractionApproved ? <Badge tone="success">Human approved</Badge> : selected.processingCapability === "DocumentProcessing" ? null : <Badge tone="warning">Review required</Badge>}</div> : undefined}
       />
       <div className="mb-5"><GuardrailBanner text="This screen reviews extracted document facts only. Approval does not approve a claim, coverage position, settlement, payment, or fraud conclusion." /></div>
 
@@ -139,11 +160,23 @@ export default function DocumentExtraction() {
           <div className="mb-4 max-w-sm">
             <Field label="Document" htmlFor="extraction-document">
               <Select id="extraction-document" value={selected.documentId} onChange={(event) => setSelectedId(event.target.value)}>
-                {documents.map((document) => <option key={document.documentId} value={document.documentId}>{document.originalFileName} · {documentContractLabel(document.documentType)}</option>)}
+                {documents.map((document) => <option key={document.documentId} value={document.documentId}>{document.originalFileName} · {document.customerDocumentTypeKey ? documentContractLabel(document.customerDocumentTypeKey) : documentContractLabel(document.documentType)}</option>)}
               </Select>
             </Field>
           </div>
         ) : null}
+
+        <GlassCard className="mb-4">
+          <div className="text-[12px] font-bold text-dls-text-primary">Processing timeline</div>
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11.5px] text-dls-text-secondary">
+            <span>Uploaded {formatTimestamp(selected.uploadedAt)}</span>
+            {selected.processedAt ? <span>Processing completed {formatTimestamp(selected.processedAt)}</span> : <span>Processing has not completed</span>}
+            {formatProcessingDuration(selected.uploadedAt, selected.processedAt) ? <span>Elapsed time {formatProcessingDuration(selected.uploadedAt, selected.processedAt)}</span> : null}
+          </div>
+          {selected.processingCapability === "DocumentProcessing" ? (
+            <div className="mt-2 text-[12px] font-semibold text-dls-warning-text">Document processing is not configured. No fields were extracted.</div>
+          ) : null}
+        </GlassCard>
 
         <div className="mb-4 grid grid-cols-2 rounded-dls-control border border-dls-border-subtle bg-dls-surface p-1 xl:hidden" role="tablist" aria-label="Evidence workspace view">
           <button
@@ -184,6 +217,13 @@ export default function DocumentExtraction() {
           </div>
 
           <div id="evidence-review-panel" data-testid="evidence-review-panel" role="tabpanel" aria-labelledby="review-fields-tab" ref={reviewPanelRef} tabIndex={-1} className={`${compactPanel === "review" ? "block" : "hidden"} min-w-0 max-h-[calc(100dvh-12rem)] space-y-4 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] focus:outline-none xl:block xl:max-h-none xl:overflow-visible xl:pb-0`}>
+            {selected.processingCapability === "DocumentProcessing" ? (
+              <GlassCard>
+                <div className="text-[12px] font-bold text-dls-text-primary">Extraction is not configured</div>
+                {submittedDocumentLabel ? <div className="mt-2 text-[12px] text-dls-text-secondary">Submitted as {submittedDocumentLabel}</div> : null}
+                <p className="mt-2 text-[12px] leading-5 text-dls-text-secondary">The document is saved, but the document processor has not run. No fields, classification, or source coordinates are available to review.</p>
+              </GlassCard>
+            ) : <>
             <GlassCard>
               <div className="mb-3 flex items-center justify-between"><div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Document type</div><ConfidenceBadge value={selected.confidenceScore} /></div>
               <div className="flex flex-wrap items-center gap-2">
@@ -239,6 +279,7 @@ export default function DocumentExtraction() {
               {!allowed("approveDocumentExtraction") && blockedReason("approveDocumentExtraction") ? <div className="mt-1 text-[11px] text-dls-text-muted">Approval unavailable: {blockedReason("approveDocumentExtraction")}</div> : null}
               <Link href="/app/work-items" className="dls-focus-outline mt-3 inline-flex items-center gap-2 rounded-dls-tight text-[11.5px] font-bold text-dls-primary hover:underline"><ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" /> Open Review & Approvals</Link>
             </GlassCard>
+            </>}
           </div>
         </div>
       </> : null}

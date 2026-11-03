@@ -24,6 +24,12 @@ public enum ConnectionType
     /// <summary>A local-language translation engine (e.g. Sunbird AI), behind ITranslationProvider.
     /// Same StorageKey-by-name guarantee: adding this does not disturb any existing type's key.</summary>
     Translation,
+
+    Instagram,
+    Messenger,
+    TikTok,
+    X,
+    Telegram,
 }
 
 /// <summary>
@@ -74,6 +80,9 @@ public interface IIntegrationConnectionRepository
 {
     Task<IntegrationConnection?> GetAsync(TenantScope scope, ConnectionType connectionType, CancellationToken cancellationToken = default);
 
+    Task<IntegrationConnection?> FindByExternalAccountAsync(ConnectionType connectionType, string accountId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IntegrationConnection?>(null);
+
     Task SaveAsync(IntegrationConnection connection, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(TenantScope scope, ConnectionType connectionType, CancellationToken cancellationToken = default);
@@ -88,6 +97,17 @@ public interface IConnectionSecretProtector
     string Protect(string plaintext);
 
     string Unprotect(string ciphertext);
+}
+
+public sealed record TelegramWebhookRegistrationResult(bool Success, string? SafeError);
+
+public interface ITelegramWebhookRegistrar
+{
+    Task<TelegramWebhookRegistrationResult> RegisterAsync(
+        string botToken,
+        string callbackUrl,
+        string webhookSecret,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Proves a connection's credentials actually work against the real provider before

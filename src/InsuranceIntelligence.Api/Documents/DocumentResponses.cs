@@ -6,7 +6,8 @@ namespace InsuranceIntelligence.Api.Documents;
 public sealed record DocumentUploadResponse(
     IReadOnlyCollection<DocumentResponse> Documents,
     DocumentChecklistResponse Checklist,
-    SafeAuditSummary Audit);
+    SafeAuditSummary Audit,
+    string? ProcessingCapability = null);
 
 public sealed record DocumentResponse(
     Guid DocumentId,
@@ -31,7 +32,8 @@ public sealed record DocumentResponse(
     // asked to name. DocumentType is always the classifier's independent guess, so a reader
     // compares the two itself for the disagreement marker (claim intake build prompt outcome B).
     string? CustomerDocumentTypeKey,
-    bool IsSuperseded);
+    bool IsSuperseded,
+    string? ProcessingCapability = null);
 
 public sealed record BoundingBoxResponse(
     int PageNumber,

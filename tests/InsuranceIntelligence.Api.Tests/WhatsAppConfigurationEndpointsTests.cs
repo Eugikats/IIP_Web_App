@@ -1,5 +1,7 @@
 using System.Text.Json;
 using InsuranceIntelligence.Api.Integrations;
+using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.LocalTestDoubles;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Infrastructure.Configuration;
@@ -12,6 +14,54 @@ namespace InsuranceIntelligence.Api.Tests;
 public sealed class WhatsAppConfigurationEndpointsTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public async Task MessagingMode_DefaultsToReviewAndReportsDeploymentGate()
+    {
+        var repository = new InMemoryTenantConfigurationRepository();
+        var result = await WhatsAppMessagingModeEndpoints.Get(repository, Options(), Context(), CancellationToken.None);
+        var (status, body) = await ExecuteAsync<WhatsAppMessagingModeResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal("Review", body!.Mode);
+        Assert.Equal("Review", body.EffectiveMode);
+        Assert.False(body.AutopilotAvailable);
+    }
+
+    [Fact]
+    public async Task MessagingMode_UpdateIsTenantScopedAuditedAndCannotBypassDeploymentGate()
+    {
+        var repository = new InMemoryTenantConfigurationRepository();
+        var audit = new InMemoryAuditRepository();
+        var options = Options() with { WhatsApp = new WhatsAppOptions { AssistantAutoReplyEnabled = false } };
+
+        var result = await WhatsAppMessagingModeEndpoints.Update(
+            new UpdateWhatsAppMessagingModeRequest("Autopilot"), repository, audit, options,
+            Context(auditReason: "Enable guarded replies after the pilot review."), CancellationToken.None);
+        var (status, body) = await ExecuteAsync<WhatsAppMessagingModeResponse>(result);
+
+        Assert.Equal(StatusCodes.Status200OK, status);
+        Assert.Equal("Autopilot", body!.Mode);
+        Assert.Equal("Review", body.EffectiveMode);
+        Assert.False(body.AutopilotAvailable);
+        Assert.Equal(CustomerMessagingMode.Autopilot, (await repository.GetAsync(Scope())).CustomerMessagingMode);
+        Assert.Contains(await audit.ListAsync(Scope()), e =>
+            e.ActionName == "integration.whatsapp.messaging_mode_updated"
+            && e.BeforeStatus == "Review"
+            && e.AfterStatus == "Autopilot"
+            && e.AuditReason == "Enable guarded replies after the pilot review.");
+    }
+
+    [Fact]
+    public async Task MessagingMode_RejectsMissingAuditReason()
+    {
+        var result = await WhatsAppMessagingModeEndpoints.Update(
+            new UpdateWhatsAppMessagingModeRequest("Autopilot"), new InMemoryTenantConfigurationRepository(),
+            new InMemoryAuditRepository(), Options(), Context(), CancellationToken.None);
+        var (status, _) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, status);
+    }
 
     [Fact]
     public async Task GetStatus_WithNoSavedConfiguration_ReportsNotConnected()

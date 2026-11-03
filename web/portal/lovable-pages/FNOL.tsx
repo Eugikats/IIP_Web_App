@@ -81,6 +81,7 @@ type PolicyLookupResponse = {
   effectiveTo: string | null;
   isActive: boolean;
   possibleDuplicateClaims: DuplicateClaimWarning[];
+  source: string;
 };
 type PolicyLookupState =
   | { status: "idle" }
@@ -185,7 +186,16 @@ export default function FNOL() {
         setLookup({ status: "not-found" });
         return;
       }
-      if (!response.ok) throw new Error(`Policy lookup failed.`);
+      if (!response.ok) {
+        let safeMessage = "Policy lookup failed. Try again or ask an integration administrator to check the connection.";
+        try {
+          const problem = (await response.json()) as { detail?: string; message?: string };
+          safeMessage = problem.detail ?? problem.message ?? safeMessage;
+        } catch {
+          // The generic safe message is used when a provider or proxy returned no problem body.
+        }
+        throw new Error(safeMessage);
+      }
       const result = (await response.json()) as PolicyLookupResponse;
       setLookup({ status: "found", result });
       if (result.productLine === "Motor" || result.productLine === "Medical") {
@@ -414,6 +424,7 @@ export default function FNOL() {
                     <SummaryRow label="Cover type" value={lookup.result.coverType ?? "-"} />
                     <SummaryRow label="Policy holder on file" value={lookup.result.customerName ?? "-"} />
                     <SummaryRow label="Cover status" value={lookup.result.isActive ? "Active" : "Not active for today's date"} warn={!lookup.result.isActive} />
+                    <SummaryRow label="Record source" value={lookup.result.source === "ExternalPolicySystem" ? "Connected policy system" : "IIP policy register"} />
                   </div>
                   {lookup.result.customerName && lookup.result.customerName.trim().toLowerCase() !== form.customerName.trim().toLowerCase() && (
                     <div className="mt-2 text-[11.5px] font-semibold text-dls-warning-text">
@@ -595,7 +606,12 @@ export default function FNOL() {
                 <ReviewGroup title="Policy">
                   <SummaryRow label="Policy number" value={form.policyNumber} />
                   <SummaryRow label="Product line" value={productLine} />
-                  {lookup.status === "found" && <SummaryRow label="Cover status" value={lookup.result.isActive ? "Active" : "Not active for today's date"} warn={!lookup.result.isActive} />}
+                  {lookup.status === "found" && (
+                    <>
+                      <SummaryRow label="Cover status" value={lookup.result.isActive ? "Active" : "Not active for today's date"} warn={!lookup.result.isActive} />
+                      <SummaryRow label="Record source" value={lookup.result.source === "ExternalPolicySystem" ? "Connected policy system" : "IIP policy register"} />
+                    </>
+                  )}
                 </ReviewGroup>
                 <ReviewGroup title="Incident">
                   <SummaryRow label="Claim type" value={form.claimType} />

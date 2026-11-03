@@ -6,6 +6,7 @@ interface UIState {
   sidebarOpen: boolean;
   copilotOpen: boolean;
   role: Role;
+  hydrated: boolean;
   setSidebarOpen: (v: boolean) => void;
   setCopilotOpen: (v: boolean) => void;
   toggleSidebar: () => void;
@@ -55,13 +56,13 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
   }, [hydrated, role]);
 
   const value = useMemo<UIState>(() => ({
-    sidebarOpen, copilotOpen, role,
+    sidebarOpen, copilotOpen, role, hydrated,
     setSidebarOpen, setCopilotOpen,
     toggleSidebar: () => setSidebarOpen((v) => !v),
     toggleCopilot: () => setCopilotOpen((v) => !v),
     setRole,
     roleDef: ROLES[role],
-  }), [sidebarOpen, copilotOpen, role]);
+  }), [sidebarOpen, copilotOpen, role, hydrated]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

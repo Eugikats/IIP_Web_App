@@ -8,17 +8,18 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("Gate 6 Case Review exposes approved tabs, record fields and action state", async ({ page }, testInfo) => {
+  await page.addInitScript(() => localStorage.setItem("iip.role", JSON.stringify("ClaimsSupervisor")));
   await page.goto(casePath);
   await page.waitForLoadState("networkidle");
 
-  await expect(page.getByRole("heading", { name: /CLM-2026 · Sarah N\./ })).toBeVisible();
-  await expect(page.getByText("Motor claim lifecycle")).toBeVisible();
-  await expect(page.getByText("Human review actions")).toBeVisible();
-  for (const action of ["Draft customer update", "Request supervisor review", "Draft document follow-up", "Export claim pack"]) {
-    await expect(page.getByRole("button", { name: action })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /CLM-2026-00491 · Sarah N\./ })).toBeVisible();
+  await expect(page.getByText(/This claim has no product configured/)).toBeVisible();
+  await page.getByRole("button", { name: "More actions" }).click();
+  for (const action of ["Draft customer update", "Request supervisor review", "Export claim pack"]) {
+    await expect(page.getByRole("menuitem", { name: action })).toBeVisible();
   }
   await expect(page.getByRole("main").getByText("Customer updates")).toBeVisible();
-  await expect(page.getByRole("main").getByText("Documents received")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Documents received", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open extraction review" })).toHaveAttribute("href", /\/app\/claims\/CLM-2026-00491\/extraction/);
   await expect(page.getByRole("main").getByText("Policy & customer")).toBeVisible();
   await expect(page.getByRole("main").getByText("Completeness", { exact: true })).toBeVisible();
@@ -30,12 +31,15 @@ test("Gate 6 Case Review exposes approved tabs, record fields and action state",
 });
 
 test("Gate 6 Case Review documents, approvals and governed action confirmation are operable", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("iip.role", JSON.stringify("ClaimsSupervisor")));
   await page.goto(casePath);
   await page.waitForLoadState("networkidle");
 
-  const exportBtn = page.getByRole("button", { name: "Export claim pack" });
+  await page.getByRole("button", { name: "More actions" }).click();
+  const exportBtn = page.getByRole("menuitem", { name: "Export claim pack" });
   await expect(exportBtn).toBeVisible({ timeout: 15_000 });
-  await exportBtn.click();
+  await exportBtn.focus();
+  await exportBtn.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Export claim evidence pack" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("textbox", { name: "Reason for audit trail" })).toBeVisible();
@@ -44,7 +48,10 @@ test("Gate 6 Case Review documents, approvals and governed action confirmation a
   await expect(dialog.getByRole("button", { name: "Export claim pack" })).toBeEnabled();
   await dialog.getByRole("button", { name: "Cancel" }).click();
 
-  await page.getByRole("button", { name: "Request supervisor review" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  const reviewRequest = page.getByRole("menuitem", { name: "Request supervisor review" });
+  await reviewRequest.focus();
+  await reviewRequest.press("Enter");
   await expect(page.getByText(/Supervisor review requested|Could not request supervisor review/)).toBeVisible();
 });
 

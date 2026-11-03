@@ -2,6 +2,7 @@ using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Domain.CustomerAssistant;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Infrastructure.Configuration;
@@ -78,6 +79,7 @@ public static class WhatsAppIntegrationEndpoints
         IWhatsAppAssistantQueue assistantQueue,
         IServiceScopeFactory scopeFactory,
         IWhatsAppRuntimeSettingsProvider settingsProvider,
+        ITenantConfigurationRepository tenantConfigurationRepository,
         InfrastructureOptions options,
         IWhatsAppWebhookReceiptRepository receipts,
         ILogger<WhatsAppCustomerAssistantLogMarker> logger,
@@ -156,8 +158,11 @@ public static class WhatsAppIntegrationEndpoints
                     // after the message was saved, so the retry saw it as already handled and the
                     // customer was never answered. Only messages seen for the first time reach the
                     // queue, so a redelivered webhook neither answers twice nor loses the message.
+                    var tenantConfiguration = await tenantConfigurationRepository.GetAsync(scope, cancellationToken);
                     var assistantRequest = new WhatsAppAssistantRequest(
-                        scope, newInbound, request.HttpContext.TraceIdentifier, options.WhatsApp.AssistantAutoReplyEnabled);
+                        scope, newInbound, request.HttpContext.TraceIdentifier,
+                        options.WhatsApp.AssistantAutoReplyEnabled
+                        && tenantConfiguration.CustomerMessagingMode == CustomerMessagingMode.Autopilot);
                     if (!assistantQueue.TryEnqueue(assistantRequest))
                     {
                         // The queue is full. Never drop a customer's message: handle it here instead,

@@ -1,7 +1,7 @@
 "use client";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
-import { Building2, Users, FileText, Workflow, Sparkles, Plug, ShieldCheck, ScrollText, Bot, CreditCard, Gavel, ArrowRight, MessageCircle, Mail, Radio, PackageCheck, UploadCloud, Presentation, MessageSquareText, ClipboardCheck } from "lucide-react";
+import { Building2, Users, FileText, Workflow, Sparkles, Plug, ShieldCheck, ScrollText, Bot, CreditCard, Gavel, ArrowRight, MessageCircle, Mail, Radio, PackageCheck, UploadCloud, Presentation, MessageSquareText, ClipboardCheck, Bell } from "lucide-react";
 import { useUI } from "@/context/UIStateContext";
 import { canAccess, canAccessWithPermissions } from "@/lib/roles";
 import { useRuntimeContext } from "@/lib/runtimeContext";
@@ -26,6 +26,7 @@ const cards = [
     ? [{ to: "/app/admin/demonstrations", icon: Presentation, title: "Demonstrations", desc: "Switch between the ready-made worlds: Mavuno Bank, Nile Life and Nile General. Invented people only." }]
     : []),
   { to: "/app/admin/connections", icon: Radio, title: "Connections", desc: "Connect SMS and other outbound channels, enter credentials, validated live, no redeploy needed." },
+  { to: "/app/admin/notifications", icon: Bell, title: "Team notifications", desc: "Route claim events to additional workspace members and a configured Teams channel." },
 ];
 
 // Informational only, deliberately not clickable. None of these has a management surface yet

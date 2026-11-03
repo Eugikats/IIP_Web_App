@@ -149,7 +149,12 @@ public sealed class ClaimsQueryService(
             document.DocumentId,
             document.DocumentType.ToString(),
             document.ProcessingStatus.ToString(),
-            document.Classification.ConfidenceScore);
+            document.Classification.ConfidenceScore,
+            document.DocumentTypeKey,
+            document.ProcessingStatus == DocumentProcessingStatus.Uploaded
+            && string.Equals(document.Extraction.ProviderName, "NotConfigured", StringComparison.OrdinalIgnoreCase)
+                ? "DocumentProcessing"
+                : null);
 
     private static string ResolveSlaStatus(ClaimCase claim)
     {

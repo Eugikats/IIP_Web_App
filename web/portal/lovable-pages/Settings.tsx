@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut, User, Building2, Loader2 } from "lucide-react";
+import { LogOut, User, Building2, Loader2, Radio, MessageCircle, Bell, Languages } from "lucide-react";
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { SectionHeader, GlassCard, Badge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
@@ -8,6 +9,9 @@ import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurface
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 import { signOut, getEntraApiAccessToken } from "@/lib/entraAuth";
+import { useUI } from "@/context/UIStateContext";
+import { canAccess, canAccessWithPermissions } from "@/lib/roles";
+import FraudRuleSettings from "@/components/iip/FraudRuleSettings";
 import {
   apiBaseUrl,
   canUseLocalTestDoubles,
@@ -27,7 +31,11 @@ import {
 // honoring it, a switch to a workspace the user doesn't belong to fails closed with 403. This
 // is server-side scope re-resolution, not client-side scope substitution (I5).
 export default function Settings() {
+  const { roleDef } = useUI();
   const { runtimeContext, loading, error, parityMode, refresh } = useRuntimeContext();
+  const canOpenChannelSettings = (path: string) => canUseLocalTestDoubles || parityMode
+    ? canAccess(roleDef.key, path)
+    : canAccessWithPermissions(runtimeContext?.permissions ?? [], path);
   const [signingOut, setSigningOut] = useState(false);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
@@ -158,6 +166,25 @@ export default function Settings() {
                 : "Switching re-resolves your permissions and data on the server for the selected workspace."}
             </p>
           </GlassCard>
+
+          <GlassCard className="lg:col-span-2">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="grid h-9 w-9 place-items-center rounded-dls-chip bg-dls-bg-page text-dls-text-secondary"><Radio className="h-4 w-4" aria-hidden="true" /></div>
+              <div className="text-[14px] font-bold text-dls-text-primary">Channel settings</div>
+            </div>
+            <p className="mb-3 text-[12px] leading-5 text-dls-text-secondary">Manage workspace messaging connections. Telegram, Meta messaging, and X have local inbound and staff reply paths; TikTok inbound remains unavailable. Provider approval, subscriptions, and live account verification are still required before a channel can be activated.</p>
+            <div className="flex flex-wrap gap-2">
+              {canOpenChannelSettings("/app/admin/connections") && <Link href="/app/admin/connections" className="dls-focus-outline inline-flex items-center gap-2 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[11.5px] font-semibold text-dls-text-primary hover:bg-dls-bg-page"><Radio className="h-3.5 w-3.5" aria-hidden="true" /> Messaging connections</Link>}
+              {canOpenChannelSettings("/app/admin/whatsapp") && <Link href="/app/admin/whatsapp" className="dls-focus-outline inline-flex items-center gap-2 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[11.5px] font-semibold text-dls-text-primary hover:bg-dls-bg-page"><MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> WhatsApp Business</Link>}
+              {canOpenChannelSettings("/app/admin/languages") && <Link href="/app/admin/languages" className="dls-focus-outline inline-flex items-center gap-2 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[11.5px] font-semibold text-dls-text-primary hover:bg-dls-bg-page"><Languages className="h-3.5 w-3.5" aria-hidden="true" /> Customer languages</Link>}
+              {canOpenChannelSettings("/app/admin/notifications") && <Link href="/app/admin/notifications" className="dls-focus-outline inline-flex items-center gap-2 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[11.5px] font-semibold text-dls-text-primary hover:bg-dls-bg-page"><Bell className="h-3.5 w-3.5" aria-hidden="true" /> Team notifications</Link>}
+              {!canOpenChannelSettings("/app/admin/connections") && !canOpenChannelSettings("/app/admin/whatsapp") && <span className="text-[12px] text-dls-text-muted">Your workspace administrator manages channel connections.</span>}
+            </div>
+          </GlassCard>
+
+          {!parityMode && runtimeContext.permissions.includes("ManageTenantSettings") && (
+            <FraudRuleSettings role={runtimeContext.role} />
+          )}
 
           <GlassCard className="lg:col-span-2">
             <div className="mb-3 flex items-center gap-2">

@@ -12,7 +12,8 @@ public sealed record UpdateTenantConfigurationRequest(
     IReadOnlyCollection<ChannelConfiguration> Channels,
     IReadOnlyCollection<ApprovalThresholdConfiguration> ApprovalThresholds,
     IReadOnlyCollection<ChecklistConfiguration> Checklists,
-    int AuditRetentionDays);
+    int AuditRetentionDays,
+    InsuranceIntelligence.Domain.Fraud.FraudRuleOptions? FraudRules = null);
 
 public sealed record CreateUserRequest(
     string UserId,

@@ -63,7 +63,14 @@ public static class DocumentMapper
             Allowed(document),
             Blocked(document),
             document.DocumentTypeKey,
-            document.IsSuperseded);
+            document.IsSuperseded,
+            MissingProcessingCapability(document));
+
+    private static string? MissingProcessingCapability(CaseDocument document) =>
+        document.ProcessingStatus == DocumentProcessingStatus.Uploaded
+        && string.Equals(document.Extraction.ProviderName, "NotConfigured", StringComparison.OrdinalIgnoreCase)
+            ? "DocumentProcessing"
+            : null;
 
     public static DocumentChecklistResponse ToResponse(DocumentCompletenessChecklist checklist) =>
         new(

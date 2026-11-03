@@ -41,9 +41,8 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
                 cancellationToken: cancellationToken);
             var analyzeResult = operation.Value;
             var modelVersion = analyzeResult.ModelId ?? modelId;
-            var (fields, confidences, boundingBoxes) = BuildExtraction(request, analyzeResult, modelId);
+            var (fields, confidences, boundingBoxes) = BuildExtraction(analyzeResult);
             var warnings = BuildWarnings(analyzeResult);
-
             // The printed words decide first; the file name is only a weak hint and says so in its low confidence.
             var guess = DocumentContentClassifier.Classify(
                 request.OriginalFileName, analyzeResult.Content, analyzeResult.Documents.FirstOrDefault()?.DocumentType);
@@ -62,27 +61,18 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
     }
 
     private static (Dictionary<string, string> Fields, Dictionary<string, decimal> Confidences, Dictionary<string, BoundingBox> BoundingBoxes) BuildExtraction(
-        DocumentProcessingRequest request,
-        AnalyzeResult analyzeResult,
-        string modelId)
+        AnalyzeResult analyzeResult)
     {
         var boundingBoxes = new Dictionary<string, BoundingBox>();
-        var fields = new Dictionary<string, string>
-        {
-            ["sourceFileName"] = request.OriginalFileName,
-            ["objectKey"] = request.ObjectKey,
-            ["modelId"] = modelId,
-            ["contentType"] = request.ContentType,
-            ["pageCount"] = analyzeResult.Pages.Count.ToString()
-        };
-        var confidences = fields.Keys.ToDictionary(key => key, _ => 0.70m);
+        var fields = new Dictionary<string, string>();
+        var confidences = new Dictionary<string, decimal>();
 
         foreach (var document in analyzeResult.Documents)
         {
             if (!string.IsNullOrWhiteSpace(document.DocumentType))
             {
                 fields.TryAdd("azureDocumentType", document.DocumentType);
-                confidences["azureDocumentType"] = DecimalConfidence(document.Confidence);
+                confidences["azureDocumentType"] = AzureDocumentIntelligenceMapping.NormalizeConfidence(document.Confidence);
             }
 
             foreach (var field in document.Fields)
@@ -95,7 +85,7 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
 
                 var fieldKey = $"field.{field.Key}";
                 fields[fieldKey] = value;
-                confidences[fieldKey] = DecimalConfidence(field.Value.Confidence);
+                confidences[fieldKey] = AzureDocumentIntelligenceMapping.NormalizeConfidence(field.Value.Confidence);
 
                 // Capture bounding box from first polygon region if available
                 var regions = field.Value.BoundingRegions;
@@ -125,7 +115,7 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
 
             var key = $"keyValue.{NormalizeKey(pair.Key.Content)}";
             fields[key] = pair.Value.Content;
-            confidences[key] = DecimalConfidence(pair.Confidence);
+            confidences[key] = AzureDocumentIntelligenceMapping.NormalizeConfidence(pair.Confidence);
         }
 
         return (fields, confidences, boundingBoxes);
@@ -149,24 +139,17 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
 
     private static DocumentProcessingResult SafeMissingConfiguration(DocumentProcessingRequest request, string message)
     {
-        var fields = new Dictionary<string, string>
-        {
-            ["sourceFileName"] = request.OriginalFileName,
-            ["objectKey"] = request.ObjectKey
-        };
+        var fields = new Dictionary<string, string>();
         var warnings = new[]
         {
             new DocumentValidationWarning("document.provider.configuration_required", message, "error")
         };
         return new DocumentProcessingResult(
-            new DocumentClassificationResult(DocumentType.Unknown, 0.05m, "AzureDocumentIntelligence", DateTimeOffset.UtcNow),
-            new DocumentExtractionResult(fields, fields.Keys.ToDictionary(key => key, _ => 0.05m), "AzureDocumentIntelligence", DateTimeOffset.UtcNow, false, null, null),
+            new DocumentClassificationResult(DocumentType.Unknown, 0m, "AzureDocumentIntelligence", DateTimeOffset.UtcNow),
+            new DocumentExtractionResult(fields, fields.Keys.ToDictionary(key => key, _ => 0m), "AzureDocumentIntelligence", DateTimeOffset.UtcNow, false, null, null),
             warnings);
         // Note: no ModelVersion or BoundingBoxes on the not-configured fallback path, those require a real extraction.
     }
-
-    private static decimal DecimalConfidence(float? confidence) =>
-        confidence is null or <= 0 ? 0.70m : Math.Clamp((decimal)confidence.Value, 0m, 1m);
 
     private static string NormalizeKey(string value)
     {

@@ -52,11 +52,13 @@ public sealed class GenericRestPolicyLookupProvider(
     HttpClient httpClient,
     ILogger<GenericRestPolicyLookupProvider> logger) : IPolicyLookupProvider
 {
-    public async Task<Policy?> FindPolicyByNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default)
+    private const string Source = "ExternalPolicySystem";
+
+    public async Task<PolicyLookupResult> FindPolicyByNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(settings.BaseUrl))
         {
-            return null; // Honest no-op, never fabricate a policy from an unconfigured adapter.
+            return new(PolicyLookupStatus.NotConfigured, null, Source);
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.BaseUrl}/policies/{Uri.EscapeDataString(policyNumber)}");
@@ -69,25 +71,37 @@ public sealed class GenericRestPolicyLookupProvider(
             using var response = await httpClient.SendAsync(request, timeout.Token);
             if (!response.IsSuccessStatusCode)
             {
-                return null;
+                return new(MapStatus(response.StatusCode), null, Source);
             }
 
             using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-            return MapPolicy(document.RootElement, scope);
+            var policy = MapPolicy(document.RootElement, scope);
+            return policy is null
+                ? new(PolicyLookupStatus.Malformed, null, Source)
+                : new(PolicyLookupStatus.Found, policy, Source);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (HttpRequestException ex)
         {
             logger.LogWarning(ex, "Generic REST policy lookup failed. Tenant={TenantId} Workspace={WorkspaceId}", scope.TenantId, scope.WorkspaceId);
-            return null;
+            return new(PolicyLookupStatus.Unavailable, null, Source);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new(PolicyLookupStatus.Unavailable, null, Source);
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Generic REST policy response was malformed. Tenant={TenantId} Workspace={WorkspaceId}", scope.TenantId, scope.WorkspaceId);
+            return new(PolicyLookupStatus.Malformed, null, Source);
         }
     }
 
-    public async Task<IReadOnlyCollection<Policy>> FindPoliciesByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default)
+    public async Task<PolicyCollectionLookupResult> FindPoliciesByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(settings.BaseUrl))
         {
-            return [];
+            return new(PolicyLookupStatus.NotConfigured, [], Source);
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.BaseUrl}/customers/{Uri.EscapeDataString(customerId)}/policies");
@@ -100,26 +114,42 @@ public sealed class GenericRestPolicyLookupProvider(
             using var response = await httpClient.SendAsync(request, timeout.Token);
             if (!response.IsSuccessStatusCode)
             {
-                return [];
+                return new(MapStatus(response.StatusCode), [], Source);
             }
 
             using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
             if (document.RootElement.ValueKind != JsonValueKind.Array)
             {
-                return [];
+                return new(PolicyLookupStatus.Malformed, [], Source);
             }
 
-            return document.RootElement.EnumerateArray()
-                .Select(element => MapPolicy(element, scope))
-                .Where(policy => policy is not null)
-                .Select(policy => policy!)
-                .ToArray();
+            var policies = new List<Policy>();
+            foreach (var element in document.RootElement.EnumerateArray())
+            {
+                var policy = MapPolicy(element, scope);
+                if (policy is null)
+                {
+                    return new(PolicyLookupStatus.Malformed, [], Source);
+                }
+                policies.Add(policy);
+            }
+
+            return new(policies.Count == 0 ? PolicyLookupStatus.NotFound : PolicyLookupStatus.Found, policies, Source);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (HttpRequestException ex)
         {
             logger.LogWarning(ex, "Generic REST policy lookup by customer failed. Tenant={TenantId} Workspace={WorkspaceId}", scope.TenantId, scope.WorkspaceId);
-            return [];
+            return new(PolicyLookupStatus.Unavailable, [], Source);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new(PolicyLookupStatus.Unavailable, [], Source);
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Generic REST policy response by customer was malformed. Tenant={TenantId} Workspace={WorkspaceId}", scope.TenantId, scope.WorkspaceId);
+            return new(PolicyLookupStatus.Malformed, [], Source);
         }
     }
 
@@ -134,9 +164,17 @@ public sealed class GenericRestPolicyLookupProvider(
     private Policy? MapPolicy(JsonElement root, TenantScope scope)
     {
         var policyNumber = GetString(root, settings.PolicyNumberField);
-        if (string.IsNullOrWhiteSpace(policyNumber))
+        var productLine = GetString(root, settings.ProductLineField);
+        if (string.IsNullOrWhiteSpace(policyNumber) || string.IsNullOrWhiteSpace(productLine))
         {
-            return null; // The one field every mapping must resolve, without it there is no policy.
+            return null;
+        }
+
+        var effectiveFrom = GetDate(root, settings.EffectiveFromField, out var effectiveFromValid);
+        var effectiveTo = GetDate(root, settings.EffectiveToField, out var effectiveToValid);
+        if (!effectiveFromValid || !effectiveToValid || (effectiveFrom is not null && effectiveTo is not null && effectiveTo < effectiveFrom))
+        {
+            return null;
         }
 
         return new Policy(
@@ -144,12 +182,14 @@ public sealed class GenericRestPolicyLookupProvider(
             TenantId: scope.TenantId,
             WorkspaceId: scope.WorkspaceId,
             PolicyNumber: policyNumber,
-            ProductLine: GetString(root, settings.ProductLineField) ?? "Unknown",
+            ProductLine: productLine,
             CoverType: GetString(root, settings.CoverTypeField),
             CustomerId: GetString(root, settings.CustomerIdField),
             BranchId: null,
-            EffectiveFrom: GetDate(root, settings.EffectiveFromField),
-            EffectiveTo: GetDate(root, settings.EffectiveToField));
+            EffectiveFrom: effectiveFrom,
+            EffectiveTo: effectiveTo,
+            RecordSource: PolicyRecordSource.ExternalLookup,
+            LastRefreshedAt: DateTimeOffset.UtcNow);
     }
 
     private static string? GetString(JsonElement root, string fieldName) =>
@@ -157,6 +197,34 @@ public sealed class GenericRestPolicyLookupProvider(
             ? value.GetString()
             : null;
 
-    private static DateOnly? GetDate(JsonElement root, string fieldName) =>
-        GetString(root, fieldName) is { } raw && DateOnly.TryParse(raw, out var date) ? date : null;
+    private static DateOnly? GetDate(JsonElement root, string fieldName, out bool valid)
+    {
+        valid = true;
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(fieldName, out var value) || value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(value.GetString()))
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.String || !DateOnly.TryParse(value.GetString(), out var date))
+        {
+            valid = false;
+            return null;
+        }
+
+        return date;
+    }
+
+    private static PolicyLookupStatus MapStatus(System.Net.HttpStatusCode statusCode) => statusCode switch
+    {
+        System.Net.HttpStatusCode.NotFound => PolicyLookupStatus.NotFound,
+        System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden => PolicyLookupStatus.Unauthorized,
+        System.Net.HttpStatusCode.TooManyRequests => PolicyLookupStatus.Unavailable,
+        _ when (int)statusCode >= 500 => PolicyLookupStatus.Unavailable,
+        _ => PolicyLookupStatus.ProviderRejected
+    };
 }

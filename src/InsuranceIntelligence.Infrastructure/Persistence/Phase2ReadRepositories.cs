@@ -404,7 +404,7 @@ public sealed class EfCustomerReadRepository(InsuranceIntelligenceDbContext dbCo
 }
 
 /// <summary>
-/// Tenant-scoped channel overview projected from durable WhatsApp messages and inbound email,
+/// Tenant-scoped channel overview projected from durable WhatsApp, generic channel messages, and inbound email,
 /// every channel that can land a claim, so an officer working the inbox sees all of them in one
 /// place rather than needing a separate admin screen per channel.
 /// </summary>
@@ -427,7 +427,12 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                 .ToArrayAsync(cancellationToken))
             .Select(Deserialize<InboundEmailMessage>)
             .ToArray();
-        if (whatsAppMessages.Length == 0 && emailMessages.Length == 0) return [];
+        var channelMessages = (await Scoped(DbContext.ChannelMessages.AsNoTracking(), scope)
+                .Select(record => record.PayloadJson)
+                .ToArrayAsync(cancellationToken))
+            .Select(Deserialize<InsuranceIntelligence.Domain.Channels.ChannelMessage>)
+            .ToArray();
+        if (whatsAppMessages.Length == 0 && emailMessages.Length == 0 && channelMessages.Length == 0) return [];
 
         // The customer assistant already classified every inbound WhatsApp message and recorded
         // what it did about it (CustomerConversationTurn). Without reading that back, this screen
@@ -531,8 +536,25 @@ public sealed class EfChannelReadRepository(InsuranceIntelligenceDbContext dbCon
                 claimCase?.CustomerEmail ?? message.Sender);
         });
 
+        var channelRows = channelMessages
+            .GroupBy(message => (message.Channel, message.ThreadId))
+            .Select(group => group.OrderByDescending(message => message.CreatedAt).First())
+            .Select(message => new ChannelConversationReadModel(
+                message.ThreadId,
+                $"{message.Channel} contact",
+                message.Channel,
+                ChannelDetectedIntentValues.GeneralService,
+                "Review conversation",
+                0m,
+                message.DeliveryState.ToString(),
+                null,
+                message.CustomerSafeBody.Length <= 160 ? message.CustomerSafeBody : message.CustomerSafeBody[..160],
+                message.CreatedAt,
+                message.ExternalRecipientId));
+
         return whatsAppRows
             .Concat(emailRows)
+            .Concat(channelRows)
             .OrderByDescending(row => row.LastActivityAt)
             .ToArray();
     }

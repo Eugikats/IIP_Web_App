@@ -52,7 +52,13 @@ public sealed record ChannelConversationRowDto(
 
 public static class ChannelValues
 {
+    public const string Unknown = "unknown";
     public const string WhatsApp = "whatsapp";
+    public const string Instagram = "instagram";
+    public const string Messenger = "messenger";
+    public const string TikTok = "tiktok";
+    public const string X = "x";
+    public const string Telegram = "telegram";
     public const string WebChat = "webchat";
     public const string Sms = "sms";
     public const string Email = "email";

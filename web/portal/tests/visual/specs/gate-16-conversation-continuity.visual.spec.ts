@@ -15,7 +15,11 @@ test("Gate 16 conversations stay findable and distinguish changed evidence", asy
   await page.getByPlaceholder("Find by title, claim, work item, or owner").fill("no such work");
   await expect(page.getByText("No matching conversations")).toBeVisible();
   await page.getByRole("button", { name: "Clear filter" }).click();
-  await main.getByText("Review motor claim evidence").click();
+  const conversationLink = main.getByRole("link", { name: /Review motor claim evidence/ });
+  await expect(conversationLink).toBeVisible();
+  await expect(conversationLink).toHaveAttribute("href", "/app/conversations/11111111-1111-4111-8111-111111111111");
+  await conversationLink.click();
+  await expect(page).toHaveURL(/\/app\/conversations\/11111111-1111-4111-8111-111111111111$/);
 
   await expect(page.getByText("Evidence changed since this answer")).toBeVisible();
   await expect(page.getByText(/Historical responses are shown for continuity/)).toBeVisible();
@@ -35,7 +39,7 @@ test("Gate 16 archive is reversible and is not deletion", async ({ page }) => {
 test("Gate 16 preserves a safe unsent draft through interruption", async ({ page }) => {
   const href = "/app/conversations/11111111-1111-4111-8111-111111111111";
   await page.goto(href);
-  const composer = page.getByPlaceholder("Ask IIP anything, claims, documents, customers, policies, workflows…");
+  const composer = page.getByPlaceholder("Ask about claims, documents or customers…");
   await composer.fill("Check the updated police report before continuing");
   await page.reload();
   await expect(composer).toHaveValue("Check the updated police report before continuing");

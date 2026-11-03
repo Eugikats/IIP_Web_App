@@ -44,7 +44,7 @@ export const trendData = [
 ];
 
 // ---------- Channels ----------
-export type Channel = "WhatsApp" | "Email" | "Web" | "SMS" | "Broker" | "Teams";
+export type Channel = "WhatsApp" | "Instagram" | "Messenger" | "TikTok" | "X" | "Telegram" | "Email" | "Web" | "SMS" | "Broker" | "Teams" | "Unknown";
 export interface ChannelConversation {
   /** Who is answering a WhatsApp conversation. Absent on channels with no such control. */
   controlMode?: "Kato" | "Person";

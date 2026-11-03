@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, ChevronLeft, Info, Loader2, Paperclip, RefreshCw, Send, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import type { ChannelConversation } from "@/lib/lovable-parity/mock";
-import type { ConversationControl, WhatsAppMessage } from "@/lib/lovable-parity/data/channels";
+import type { ChannelMessage, ConversationControl } from "@/lib/lovable-parity/data/channels";
 import { describePerson, usePeople } from "@/lib/people";
 import { conversationInitials } from "./ConversationListPane";
 
@@ -19,9 +19,8 @@ const TEXT_LIMIT = 4096;
 
 type Sender = "customer" | "kato" | "person";
 
-function senderOf(message: WhatsAppMessage): Sender {
-  // The API sends the direction as a word; older builds sent 0 for inbound, so both are read.
-  if (message.direction === "Inbound" || (message.direction as unknown) === 0) return "customer";
+function senderOf(message: ChannelMessage): Sender {
+  if (message.direction === "Inbound") return "customer";
   return (message.sentByUserId ?? "").toLowerCase().startsWith("system:") || !message.sentByUserId ? "kato" : "person";
 }
 
@@ -41,7 +40,7 @@ function timeLabel(iso: string): string {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
-function deliveryLabel(state: WhatsAppMessage["deliveryState"]): { text: string; failed: boolean } {
+function deliveryLabel(state: ChannelMessage["deliveryState"]): { text: string; failed: boolean } {
   switch (state) {
     case "Read": return { text: "Read", failed: false };
     case "Delivered": return { text: "Delivered", failed: false };
@@ -53,7 +52,7 @@ function deliveryLabel(state: WhatsAppMessage["deliveryState"]): { text: string;
   }
 }
 
-function Bubble({ message, personName }: { message: WhatsAppMessage; personName: string }) {
+function Bubble({ message, personName }: { message: ChannelMessage; personName: string }) {
   const sender = senderOf(message);
   const customer = sender === "customer";
   const status = !customer ? deliveryLabel(message.deliveryState) : null;
@@ -72,7 +71,7 @@ function Bubble({ message, personName }: { message: WhatsAppMessage; personName:
                 : "whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-[#EEF4FF] px-3 py-2 text-left text-[14px] leading-relaxed text-[#0B1640] shadow-sm"
           }
         >
-          {message.customerSafeBody}
+          {message.body}
         </div>
         <div className={`mt-1 flex items-center gap-2 text-[10px] text-slate-400 ${customer ? "" : "justify-end"}`}>
           <span>{timeLabel(message.createdAt)}</span>
@@ -86,6 +85,8 @@ function Bubble({ message, personName }: { message: WhatsAppMessage; personName:
 export default function ChatThreadPane({
   conversation,
   messages,
+  pendingReplyDraft,
+  canReplyInInbox,
   loading,
   error,
   onRefresh,
@@ -99,7 +100,9 @@ export default function ChatThreadPane({
   onOpenInfo,
 }: {
   conversation: ChannelConversation;
-  messages: WhatsAppMessage[];
+  messages: ChannelMessage[];
+  pendingReplyDraft?: string | null;
+  canReplyInInbox: boolean;
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
@@ -114,6 +117,8 @@ export default function ChatThreadPane({
 }) {
   const { people, currentUserId } = usePeople();
   const isWhatsApp = conversation.channel === "WhatsApp";
+  const isTelegram = conversation.channel === "Telegram";
+  const canUseComposer = (isWhatsApp || isTelegram) && canReplyInInbox;
   const withPerson = (control?.mode ?? conversation.controlMode ?? "Kato") === "Person";
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -127,7 +132,7 @@ export default function ChatThreadPane({
   const language = "en";
 
   const grouped = useMemo(() => {
-    const groups: { day: string; items: WhatsAppMessage[] }[] = [];
+    const groups: { day: string; items: ChannelMessage[] }[] = [];
     for (const message of messages) {
       const day = dayLabel(message.createdAt);
       const last = groups[groups.length - 1];
@@ -155,7 +160,13 @@ export default function ChatThreadPane({
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
   }, [text]);
 
-  const personName = (message: WhatsAppMessage) => describePerson(message.sentByUserId, people, currentUserId, "A colleague");
+  function usePendingDraft() {
+    if (!pendingReplyDraft) return;
+    setText(pendingReplyDraft);
+    textareaRef.current?.focus();
+  }
+
+  const personName = (message: ChannelMessage) => describePerson(message.sentByUserId, people, currentUserId, "A colleague");
 
   async function send() {
     const body = text.trim();
@@ -184,10 +195,10 @@ export default function ChatThreadPane({
             <ChevronLeft className="h-5 w-5" />
           </button>
         ) : null}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EEF4FF] text-[12px] font-bold text-[#1769FF]">
+        <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EEF4FF] text-[12px] font-bold text-[#1769FF] sm:flex">
           {conversationInitials(conversation.customer)}
         </div>
-        <div className="min-w-[6rem] flex-1">
+        <div className="min-w-0 flex-1">
           <p className="m-0 truncate text-[14px] font-bold text-[#0B1640]">{conversation.customer}</p>
           <p className="m-0 truncate text-[11px] text-slate-500">
             {conversation.channel}
@@ -196,7 +207,7 @@ export default function ChatThreadPane({
           </p>
         </div>
 
-        {isWhatsApp ? (
+        {isWhatsApp && canReplyInInbox ? (
           withPerson ? (
             <div className="flex shrink-0 items-center gap-2">
               <span className="hidden items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold text-sky-700 2xl:inline-flex">
@@ -207,10 +218,11 @@ export default function ChatThreadPane({
                 type="button"
                 disabled={controlSaving}
                 onClick={() => void onHandBack()}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#1769FF]/30 px-2.5 py-1.5 text-[11px] font-semibold text-[#1769FF] hover:bg-[#EEF4FF] disabled:opacity-50"
+                aria-label="Hand back to Kato"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#1769FF]/30 text-[11px] font-semibold text-[#1769FF] hover:bg-[#EEF4FF] disabled:opacity-50 sm:h-auto sm:w-auto sm:px-2.5 sm:py-1.5"
               >
                 {controlSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Bot className="h-3.5 w-3.5" aria-hidden />}
-                Hand back to Kato
+                <span className="hidden sm:inline">Hand back to Kato</span>
               </button>
             </div>
           ) : (
@@ -223,10 +235,11 @@ export default function ChatThreadPane({
                 type="button"
                 disabled={controlSaving}
                 onClick={() => void onTakeOver()}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1769FF] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-[#1258d6] disabled:opacity-50"
+                aria-label="Take over conversation"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1769FF] text-[11px] font-semibold text-white hover:bg-[#1258d6] disabled:opacity-50 sm:h-auto sm:w-auto sm:px-2.5 sm:py-1.5"
               >
                 {controlSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <UserRound className="h-3.5 w-3.5" aria-hidden />}
-                Take over
+                <span className="hidden sm:inline">Take over</span>
               </button>
             </div>
           )
@@ -238,19 +251,14 @@ export default function ChatThreadPane({
         {onOpenInfo ? (
           <button type="button" onClick={onOpenInfo} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#E6EAF2] px-2 py-1.5 text-[11px] font-semibold text-[#0B1640] hover:bg-[#F7F9FC]" aria-label="Open customer information">
             <Info className="h-3.5 w-3.5 text-[#1769FF]" aria-hidden />
-            Info
+            <span className="hidden sm:inline">Info</span>
           </button>
         ) : null}
       </div>
       {controlError ? <p className="m-0 border-b border-rose-100 bg-rose-50 px-4 py-1.5 text-[11px] text-rose-700" role="alert">{controlError}</p> : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-4">
-        {!isWhatsApp ? (
-          <div className="space-y-3">
-            <div className="max-w-[82%] rounded-2xl rounded-tl-sm border border-[#E6EAF2] bg-white px-3 py-2 text-[14px] leading-relaxed text-[#0B1640] shadow-sm">{conversation.snippet || "No message content available."}</div>
-            <p className="m-0 text-[11px] text-slate-500">This channel shows only the latest permitted message. Replies to it are written from Communications.</p>
-          </div>
-        ) : loading && messages.length === 0 ? (
+        {loading && messages.length === 0 ? (
           <div className="space-y-3">
             {[...Array(4)].map((_, index) => <div key={index} className={`h-12 animate-pulse rounded-2xl bg-white ${index % 2 ? "ml-auto w-2/3" : "w-2/3"}`} />)}
           </div>
@@ -260,6 +268,7 @@ export default function ChatThreadPane({
           <p className="text-[12px] text-slate-500">No retained messages are available for this conversation.</p>
         ) : (
           <div className="space-y-3">
+            {messages.some((message) => message.isPreview) ? <p className="m-0 text-[11px] text-slate-500">Only the retained email preview is available here.</p> : null}
             {grouped.map((group) => (
               <div key={group.day}>
                 <div className="mb-3 flex justify-center">
@@ -275,14 +284,25 @@ export default function ChatThreadPane({
         )}
       </div>
 
-      {isWhatsApp ? (
+      {loading && messages.length === 0 ? (
+        <div className="border-t border-[#E6EAF2] bg-white px-4 py-3 text-[12px] text-slate-500">Loading conversation.</div>
+      ) : canUseComposer ? (
         <div className="border-t border-[#E6EAF2] bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          {!withPerson ? (
+          {pendingReplyDraft ? (
+            <section aria-label="Assistant reply draft for review" className="mb-3 rounded-lg border border-[#E6EAF2] bg-[#F7F9FC] p-3 text-left">
+              <p className="m-0 text-[12px] font-semibold text-[#0B1640]">Assistant reply draft · Review before sending</p>
+              <p className="m-0 mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-[#35415F]">{pendingReplyDraft}</p>
+              <button type="button" onClick={usePendingDraft} className="mt-2 rounded-lg border border-[#CBD5E1] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#0B1640] hover:bg-[#F7F9FC]">
+                Use draft
+              </button>
+            </section>
+          ) : null}
+          {isWhatsApp && !withPerson ? (
             <p className="m-0 mb-2 text-[11px] text-slate-500">
               Kato is answering. Sending a message here takes the conversation from Kato; he takes it back if you hand it over or do not reply for two hours.
             </p>
           ) : null}
-          {needsTemplate ? (
+          {isWhatsApp && needsTemplate ? (
             <label className="mb-2 block">
               <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">The 24-hour window has ended: approved template name</span>
               <input
@@ -325,14 +345,20 @@ export default function ChatThreadPane({
             </button>
           </div>
           <p className="m-0 mt-2 text-[10px] text-slate-400">
-            Sent as you, through the connected WhatsApp number. {text.length}/{TEXT_LIMIT}
+            {isWhatsApp ? "Sent as you, through the connected WhatsApp number." : "Sent by you, through the connected Telegram bot."} {text.length}/{TEXT_LIMIT}
           </p>
           {sendError ? <p className="m-0 mt-1 text-[11px] text-rose-600" role="alert">{sendError}</p> : null}
         </div>
-      ) : (
+      ) : conversation.channel === "Email" ? (
         <div className="border-t border-[#E6EAF2] bg-white px-4 py-3 text-[12px] text-slate-500">
-          <Link href="/app/communications" className="font-semibold text-[#1769FF] hover:underline">Write a reply in Communications</Link>
+          <Link href="/app/communications" className="font-semibold text-[#1769FF] hover:underline">Send an email in Communications</Link>
         </div>
+      ) : isWhatsApp || isTelegram ? (
+        <div className="border-t border-[#E6EAF2] bg-white px-4 py-3 text-[12px] text-slate-500">
+          {isTelegram ? "Telegram replies are unavailable. Check the bot connection, customer consent, and your communication permissions." : "You do not have permission to reply in this conversation."}
+        </div>
+      ) : (
+        <div className="border-t border-[#E6EAF2] bg-white px-4 py-3 text-[12px] text-slate-500">Not configured: replies are unavailable for this channel.</div>
       )}
     </div>
   );

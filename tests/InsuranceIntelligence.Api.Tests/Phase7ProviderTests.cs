@@ -41,10 +41,23 @@ public sealed class Phase7ProviderTests
         var json = body.ToString();
 
         Assert.Equal(StatusCodes.Status200OK, status);
-        Assert.Equal("healthy", body.GetProperty("overallStatus").GetString());
+        Assert.Equal("degraded", body.GetProperty("overallStatus").GetString());
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "mockProviders"
             && item.GetProperty("status").GetString() == "healthy");
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "documentIntelligence"
+            && item.GetProperty("status").GetString() == "not_configured"
+            && item.GetProperty("detail").GetString()!.Contains("No document-processing provider is registered", StringComparison.Ordinal));
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "aiSearch"
+            && item.GetProperty("status").GetString() == "not_configured");
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "azureOpenAI"
+            && item.GetProperty("status").GetString() == "not_configured");
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "communications"
+            && item.GetProperty("status").GetString() == "not_configured");
         Assert.DoesNotContain("connectionstring", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("secret", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("token", json, StringComparison.OrdinalIgnoreCase);
@@ -58,11 +71,14 @@ public sealed class Phase7ProviderTests
         var json = body.ToString();
 
         Assert.Equal(StatusCodes.Status200OK, status);
-        Assert.Equal("healthy", body.GetProperty("overallStatus").GetString());
+        Assert.Equal("degraded", body.GetProperty("overallStatus").GetString());
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "graphMail");
         Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
             item.GetProperty("name").GetString() == "documentIntelligence");
+        Assert.Contains(body.GetProperty("providers").EnumerateArray(), item =>
+            item.GetProperty("name").GetString() == "documentIntelligence"
+            && item.GetProperty("status").GetString() == "not_configured");
         Assert.DoesNotContain("connectionstring", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("clientsecret", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("token", json, StringComparison.OrdinalIgnoreCase);

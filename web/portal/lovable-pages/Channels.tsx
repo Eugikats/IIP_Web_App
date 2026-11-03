@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import ChatThreadPane from "@/components/cip/inbox/ChatThreadPane";
 import ConversationListPane from "@/components/cip/inbox/ConversationListPane";
 import CustomerInfoPanel from "@/components/cip/inbox/CustomerInfoPanel";
+import ChannelIdentityPanel from "@/components/iip/ChannelIdentityPanel";
 import { SideDrawer } from "@/components/ui/SideDrawer";
-import { useChannelConversations, useConversationControl, useWhatsAppThread } from "@/lib/lovable-parity/data/channels";
+import { useChannelConversations, useChannelThread, useConversationControl } from "@/lib/lovable-parity/data/channels";
 import { useThreadProspect } from "@/lib/lovable-parity/data/salesLeads";
 
 // The chat screen in CIP's three-pane layout: conversations, the thread, and what is known about the
@@ -49,26 +50,28 @@ export default function Channels() {
   const isWhatsApp = active?.channel === "WhatsApp";
   const threadId = !parityMode && isWhatsApp ? active!.id : null;
 
-  const whatsapp = useWhatsAppThread(threadId);
+  const channelThread = useChannelThread(!parityMode ? active?.channel : null, !parityMode ? active?.id : null);
   const control = useConversationControl(threadId);
   const prospect = useThreadProspect(threadId);
 
   // Keep the screen live: new messages, a person taking over, and fresh insights appear on their own.
-  const { reload: reloadThread } = whatsapp;
+  const { reload: reloadThread } = channelThread;
   const { reload: reloadControl } = control;
   const { reload: reloadProspect } = prospect;
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void reload();
-      if (threadId) {
+      if (!parityMode && active) {
         void reloadThread();
-        void reloadControl();
-        void reloadProspect();
+        if (threadId) {
+          void reloadControl();
+          void reloadProspect();
+        }
       }
     }, REFRESH_MS);
     return () => window.clearInterval(timer);
-  }, [reload, reloadThread, reloadControl, reloadProspect, threadId]);
+  }, [reload, reloadThread, reloadControl, reloadProspect, threadId, active, parityMode]);
 
   const select = useCallback((id: string) => {
     setActiveId(id);
@@ -76,8 +79,8 @@ export default function Channels() {
   }, []);
 
   const onSend = useCallback(async (input: { body: string; templateName?: string; caseId?: string | null; language: string }) => {
-    const recipient = whatsapp.messages.find((message) => message.direction === "Inbound")?.contactWaId ?? whatsapp.messages[0]?.contactWaId ?? "";
-    const result = await whatsapp.send({
+    const recipient = channelThread.recipientId ?? "";
+    const result = await channelThread.send({
       caseId: input.caseId ?? null,
       recipientWaId: recipient,
       customerSafeBody: input.body,
@@ -87,11 +90,11 @@ export default function Channels() {
       templateName: input.templateName,
       humanApproved: true,
     });
-    if (result.deliveryState === "Failed") throw new Error(result.safeError || "WhatsApp did not accept the message.");
-    if (result.deliveryState === "Unknown") toast("Not confirmed yet", { description: "WhatsApp did not answer clearly. Check that it arrived before sending again." });
-    void control.reload();
+    if (result.deliveryState === "Failed") throw new Error(result.safeError || `${active?.channel ?? "Message"} did not accept the message.`);
+    if (result.deliveryState === "Unknown") toast("Not confirmed yet", { description: `${active?.channel ?? "The provider"} did not confirm. Check the conversation before sending again.` });
+    if (isWhatsApp) void control.reload();
     void reload();
-  }, [whatsapp, control, reload]);
+  }, [active?.channel, channelThread, control, isWhatsApp, reload]);
 
   return (
     <div className="cip-acq space-y-3">
@@ -119,9 +122,11 @@ export default function Channels() {
           {active ? (
             <ChatThreadPane
               conversation={{ ...active, controlMode: control.control?.mode ?? active.controlMode }}
-              messages={whatsapp.messages}
-              loading={whatsapp.loading}
-              error={whatsapp.error}
+              messages={channelThread.messages}
+              pendingReplyDraft={channelThread.pendingReplyDraft}
+              canReplyInInbox={channelThread.canReplyInInbox}
+              loading={channelThread.loading}
+              error={channelThread.error}
               onRefresh={() => { void reloadThread(); void reloadControl(); void reloadProspect(); }}
               control={control.control}
               controlSaving={control.saving}
@@ -130,7 +135,7 @@ export default function Channels() {
               onHandBack={control.handBack}
               onSend={onSend}
               onBack={layout === "one" ? () => setMobileView("list") : undefined}
-              onOpenInfo={isWhatsApp && layout !== "three" ? () => setInfoOpen(true) : undefined}
+              onOpenInfo={layout !== "three" ? () => setInfoOpen(true) : undefined}
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center bg-[#F7F9FC] px-6 text-center">
@@ -142,42 +147,51 @@ export default function Channels() {
         </div>
 
         <div className={`min-h-0 border-l border-[#E6EAF2] ${layout === "three" ? "" : "hidden"}`}>
-          {active && isWhatsApp ? (
-            <CustomerInfoPanel
-              conversation={active}
-              detail={prospect.detail}
-              loading={prospect.loading}
-              error={prospect.error}
-              addNote={prospect.addNote}
-              assign={prospect.assign}
-              refreshInsights={prospect.refreshInsights}
-              capture={prospect.capture}
-              onChanged={() => void prospect.reload()}
-            />
-          ) : (
+          {active ? <>
+            {isWhatsApp ? (
+              <CustomerInfoPanel
+                conversation={active}
+                detail={prospect.detail}
+                loading={prospect.loading}
+                error={prospect.error}
+                addNote={prospect.addNote}
+                assign={prospect.assign}
+                refreshInsights={prospect.refreshInsights}
+                capture={prospect.capture}
+                onChanged={() => void prospect.reload()}
+              />
+            ) : <div className="px-4 py-4">
+              <p className="m-0 text-[14px] font-bold text-[#0B1640]">Customer information</p>
+              <p className="m-0 mt-1 text-[12px] text-slate-600">Not configured: customer details and insights are unavailable for {active.channel}. You can still record a verified identity link to an existing customer.</p>
+            </div>}
+            <ChannelIdentityPanel channel={active.channel} threadId={active.id} />
+          </> : (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center">
               <p className="m-0 text-[14px] font-bold text-[#0B1640]">Customer information</p>
-              <p className="m-0 mt-1 text-[12.5px] text-slate-500">{active ? `Not configured: customer details and insights are prepared for WhatsApp conversations, not for ${active.channel.toLowerCase()} yet.` : "Select a conversation to see who they are and what they want."}</p>
+              <p className="m-0 mt-1 text-[12.5px] text-slate-500">Select a conversation to see identity and customer information.</p>
             </div>
           )}
         </div>
       </div>
 
-      {active && isWhatsApp ? (
+      {active ? (
         <SideDrawer open={infoOpen} title="Customer information" onClose={() => setInfoOpen(false)}>
           <div className="-mx-[22px] -my-5 h-[calc(100vh-9rem)]">
-            <CustomerInfoPanel
-              showTitle={false}
-              conversation={active}
-              detail={prospect.detail}
-              loading={prospect.loading}
-              error={prospect.error}
-              addNote={prospect.addNote}
-              assign={prospect.assign}
-              refreshInsights={prospect.refreshInsights}
-              capture={prospect.capture}
-              onChanged={() => void prospect.reload()}
-            />
+            {isWhatsApp ? <CustomerInfoPanel
+                showTitle={false}
+                conversation={active}
+                detail={prospect.detail}
+                loading={prospect.loading}
+                error={prospect.error}
+                addNote={prospect.addNote}
+                assign={prospect.assign}
+                refreshInsights={prospect.refreshInsights}
+                capture={prospect.capture}
+                onChanged={() => void prospect.reload()}
+              /> : null}
+            <div className={isWhatsApp ? "" : "pt-3"}>
+              <ChannelIdentityPanel channel={active.channel} threadId={active.id} />
+            </div>
           </div>
         </SideDrawer>
       ) : null}

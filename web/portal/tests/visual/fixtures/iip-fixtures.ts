@@ -495,6 +495,7 @@ const responses: Record<string, unknown> = {
     knowledgeDocumentsApproved: 14,
     totalDocuments: 221
   },
+  "/api/v1/brief": { items: [], handledForYou: [], retention: null },
   "/api/v1/claims": claimRows,
   ...claimDetails,
   "/api/v1/cases": [claim, readyClaim, breachedClaim],
@@ -845,9 +846,32 @@ async function fulfillJson(route: Route, value: unknown, status = 200) {
 
 export async function installVisualApiFixtures(page: Page) {
   let conversationArchived = false;
-  await page.route("http://127.0.0.1:5167/**", async (route) => {
+  let followUpCancelled = false;
+  await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
+
+    if (path === "/api/v1/customer-follow-ups" && route.request().method() === "GET") {
+      await fulfillJson(route, followUpCancelled ? [] : [{
+        taskId: "11111111-1111-4111-8111-111111111111",
+        customerName: "Amina T.",
+        channel: "WhatsApp",
+        purpose: "RequestedCallback",
+        dueAtUtc: "2026-11-05T09:00:00+03:00",
+        timeZoneId: "Africa/Kampala",
+        approvalMode: "Review",
+        status: "PendingReview",
+        createdAt: "2026-11-02T08:00:00+03:00",
+        canCancel: true
+      }]);
+      return;
+    }
+
+    if (path.endsWith("/cancel") && path.includes("/api/v1/customer-follow-ups/") && route.request().method() === "POST") {
+      followUpCancelled = true;
+      await fulfillJson(route, { status: "Cancelled", cancelledAt: "2026-11-02T08:10:00+03:00" });
+      return;
+    }
 
     if (path === "/api/v1/me") {
       const requestedRole = route.request().headers()["x-demo-role"];

@@ -710,6 +710,48 @@ public sealed record AuditEvent(
             AuditReason: auditReason,
             CorrelationId: correlationId);
 
+    public static AuditEvent ConnectionChecked(
+        TenantScope scope, string userId, string connectionType, string providerKey, bool success, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            $"integration.connection.{connectionType.ToLowerInvariant()}.checked",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: success ? "Verified" : "Needs attention",
+            EvidenceIds: [providerKey],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: success ? "validated" : "failed",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    public static AuditEvent ChannelMessageIngested(
+        TenantScope scope, string channel, bool duplicate, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            CaseId: null,
+            DocumentId: null,
+            UserId: null,
+            ActorType.Integration,
+            duplicate ? "channel.message.duplicate" : "channel.message.received",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: duplicate ? "Duplicate" : "Received",
+            EvidenceIds: [],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: duplicate ? "deduplicated" : "accepted",
+            ApprovalId: null,
+            AuditReason: $"Channel: {channel}; message content and recipient omitted.",
+            CorrelationId: correlationId);
+
     public static AuditEvent AssistantPolicyQuestionAnswered(AgentActionLog actionLog) =>
         new(
             Guid.NewGuid(),

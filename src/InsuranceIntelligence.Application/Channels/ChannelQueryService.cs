@@ -41,13 +41,18 @@ public sealed class ChannelQueryService(
         value.Trim().ToLowerInvariant() switch
         {
             ChannelValues.WhatsApp => ChannelValues.WhatsApp,
+            ChannelValues.Instagram => ChannelValues.Instagram,
+            ChannelValues.Messenger => ChannelValues.Messenger,
+            ChannelValues.TikTok => ChannelValues.TikTok,
+            ChannelValues.X => ChannelValues.X,
+            ChannelValues.Telegram => ChannelValues.Telegram,
             ChannelValues.WebChat => ChannelValues.WebChat,
             ChannelValues.Sms => ChannelValues.Sms,
             ChannelValues.Email => ChannelValues.Email,
             ChannelValues.CallCenter => ChannelValues.CallCenter,
             ChannelValues.Broker => ChannelValues.Broker,
             ChannelValues.WebsiteForm => ChannelValues.WebsiteForm,
-            _ => ChannelValues.Email
+            _ => ChannelValues.Unknown
         };
 
     private static string NormalizeIntent(string value) =>

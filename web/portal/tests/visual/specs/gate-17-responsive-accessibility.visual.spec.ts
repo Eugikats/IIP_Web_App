@@ -100,16 +100,14 @@ test("Gate 17 mobile targets, long content, reduced motion and composer remain u
   expect(["0s", "0.00001s", "1e-05s"]).toContain(motionDuration);
 
   await page.goto("/app");
-  const composer = page.getByLabel("Message IIP Operations");
+  const composer = page.getByLabel("Ask the assistant");
   await expect(composer).toBeVisible();
   await composer.fill("Resume my interrupted evidence review");
   const geometry = await page.evaluate(() => {
-    const input = document.querySelector<HTMLTextAreaElement>('[aria-label="Message IIP Operations"]');
-    const main = document.querySelector("main");
+    const input = document.querySelector<HTMLInputElement>('[aria-label="Ask the assistant"]');
     const inputRect = input?.getBoundingClientRect();
-    const mainRect = main?.getBoundingClientRect();
-    return { inputBottom: inputRect?.bottom ?? Infinity, mainBottom: mainRect?.bottom ?? 0 };
+    return { inputBottom: inputRect?.bottom ?? Infinity, viewportBottom: window.innerHeight };
   });
-  expect(geometry.inputBottom).toBeLessThanOrEqual(geometry.mainBottom);
+  expect(geometry.inputBottom).toBeLessThanOrEqual(geometry.viewportBottom);
   await expect(composer).toHaveValue("Resume my interrupted evidence review");
 });

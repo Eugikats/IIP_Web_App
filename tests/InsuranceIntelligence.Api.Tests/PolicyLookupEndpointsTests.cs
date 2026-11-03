@@ -46,6 +46,7 @@ public sealed class PolicyLookupEndpointsTests
 
         Assert.Equal(StatusCodes.Status200OK, statusCode);
         Assert.Equal("Motor", body!.ProductLine);
+        Assert.Equal("IIPPolicyRegister", body.Source);
         Assert.Equal("Patricia Okello", body.CustomerName);
         Assert.True(body.IsActive);
         Assert.Empty(body.PossibleDuplicateClaims);
@@ -82,6 +83,36 @@ public sealed class PolicyLookupEndpointsTests
         var (statusCode, _) = await ExecuteAsync<JsonElement>(result);
 
         Assert.Equal(StatusCodes.Status404NotFound, statusCode);
+    }
+
+    [Theory]
+    [InlineData(PolicyLookupStatus.NotConfigured, StatusCodes.Status503ServiceUnavailable)]
+    [InlineData(PolicyLookupStatus.Unauthorized, StatusCodes.Status502BadGateway)]
+    [InlineData(PolicyLookupStatus.Unavailable, StatusCodes.Status503ServiceUnavailable)]
+    [InlineData(PolicyLookupStatus.Malformed, StatusCodes.Status502BadGateway)]
+    [InlineData(PolicyLookupStatus.ProviderRejected, StatusCodes.Status502BadGateway)]
+    [InlineData(PolicyLookupStatus.UnsupportedProvider, StatusCodes.Status503ServiceUnavailable)]
+    public async Task LookupByPolicyNumber_DistinguishesConnectorHealthFromMissingPolicy(
+        PolicyLookupStatus providerStatus,
+        int expectedStatusCode)
+    {
+        var dependencies = CreateDependencies();
+        var provider = new FixedPolicyLookupProvider(providerStatus);
+
+        var result = await PolicyLookupEndpoints.LookupByPolicyNumber(
+            "POL-1",
+            provider,
+            dependencies.CustomerRepository,
+            dependencies.CaseRepository,
+            ScopedContext(),
+            CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync<JsonElement>(result);
+
+        Assert.Equal(expectedStatusCode, statusCode);
+        Assert.NotEqual(StatusCodes.Status404NotFound, statusCode);
+        Assert.True(body.TryGetProperty("detail", out _));
+        Assert.Equal(providerStatus.ToString(), body.GetProperty("providerStatus").GetString());
+        Assert.Equal("ExternalPolicySystem", body.GetProperty("source").GetString());
     }
 
     [Fact]
@@ -195,6 +226,15 @@ public sealed class PolicyLookupEndpointsTests
         IPolicyLookupProvider PolicyLookupProvider,
         InMemoryCustomerRepository CustomerRepository,
         InMemoryCaseRepository CaseRepository);
+
+    private sealed class FixedPolicyLookupProvider(PolicyLookupStatus status) : IPolicyLookupProvider
+    {
+        public Task<PolicyLookupResult> FindPolicyByNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PolicyLookupResult(status, null, "ExternalPolicySystem"));
+
+        public Task<PolicyCollectionLookupResult> FindPoliciesByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PolicyCollectionLookupResult(status, [], "ExternalPolicySystem"));
+    }
 
     private static Dependencies CreateDependencies()
     {

@@ -33,6 +33,7 @@ import { useCaseReview } from "@/lib/lovable-parity/data/caseReview";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
 import { useUI } from "@/context/UIStateContext";
 import { extractionHref } from "@/lib/workItemLinks";
+import { documentContractLabel } from "@/lib/documentContracts";
 import { canPreviewPermission, hasPermission } from "@/lib/roles";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useRuntimeContext } from "@/lib/runtimeContext";
@@ -803,7 +804,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                       <FileText className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="break-words text-[13px] font-semibold text-dls-text-primary">{documentTypeLabel(document.documentType)}</div>
+                      <div className="break-words text-[13px] font-semibold text-dls-text-primary">{documentContractLabel(document.customerDocumentTypeKey ?? document.documentType)}</div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="text-[11px] text-dls-text-muted">{document.processingStatus}</span>
                         {document.classificationConfidence > 0 ? (
@@ -812,6 +813,9 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                           <Badge tone="neutral">Not scored</Badge>
                         )}
                       </div>
+                      {document.processingCapability === "DocumentProcessing" ? (
+                        <div className="mt-2 text-[11.5px] text-dls-warning-text">Document processing is not configured. No fields were extracted.</div>
+                      ) : null}
                     </div>
                   </div>
                 ))}

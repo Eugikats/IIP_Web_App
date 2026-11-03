@@ -6,12 +6,12 @@ import { SectionHeader, GlassCard, Badge, StatusBadge } from "@/components/iip/P
 import { Button } from "@/components/ui/Button";
 import { FilterTab } from "@/components/ui/FilterTab";
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
-import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, EmptyFilteredStateSurface } from "@/components/ui/StateSurfaces";
+import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, EmptyFilteredStateSurface, NoPermissionStateSurface, NotConfiguredStateSurface } from "@/components/ui/StateSurfaces";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { useCustomerUpdateQueue, type CustomerUpdateQueueItem } from "@/lib/lovable-parity/data/communications";
+import { useCustomerFollowUpQueue, useCustomerUpdateQueue, type CustomerFollowUpQueueItem, type CustomerUpdateQueueItem } from "@/lib/lovable-parity/data/communications";
 
 type PendingAction = { kind: "approve" | "reject" | "send"; item: CustomerUpdateQueueItem };
 
@@ -63,6 +63,8 @@ export default function Communications() {
         sub="AI drafts customer-safe messages. Every send requires named human approval, no sensitive message is dispatched automatically."
       />
       <div className="mb-4"><GuardrailBanner text="Drafts must not promise settlement, coverage, or payment. Approved drafts are dispatched via the configured provider and logged in Audit." /></div>
+
+      <CustomerFollowUpQueue />
 
       <div className="mb-4 flex flex-wrap gap-1.5">
         {TABS.map((t) => (
@@ -167,4 +169,128 @@ export default function Communications() {
       />
     </>
   );
+}
+
+const FOLLOW_UP_TABS = ["Pending review", "Scheduled", "History", "All"] as const;
+
+function CustomerFollowUpQueue() {
+  const { items, loading, error, noPermission, cancel } = useCustomerFollowUpQueue();
+  const [tab, setTab] = useState<(typeof FOLLOW_UP_TABS)[number]>("Pending review");
+  const [pending, setPending] = useState<CustomerFollowUpQueueItem | null>(null);
+
+  const filtered = useMemo(() => items.filter((item) => {
+    if (tab === "All") return true;
+    if (tab === "Pending review") return item.status === "PendingReview";
+    if (tab === "Scheduled") return item.status === "Scheduled";
+    return !["PendingReview", "Scheduled", "Processing"].includes(item.status);
+  }), [items, tab]);
+
+  const counts = useMemo(() => ({
+    "Pending review": items.filter((item) => item.status === "PendingReview").length,
+    Scheduled: items.filter((item) => item.status === "Scheduled").length,
+    History: items.filter((item) => !["PendingReview", "Scheduled", "Processing"].includes(item.status)).length,
+    All: items.length,
+  }), [items]);
+
+  async function handleCancel(auditReason: string) {
+    if (!pending) return;
+    const result = await cancel(pending.taskId, auditReason);
+    if (result.ok) toast.success("Follow-up cancelled.");
+    else toast.error(result.message ?? "Could not cancel this follow-up.");
+    setPending(null);
+  }
+
+  return (
+    <section aria-labelledby="follow-up-queue-title" className="mb-7">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 id="follow-up-queue-title" className="text-[16px] font-bold text-dls-text-primary">Requested follow-ups</h2>
+          <p className="mt-1 text-[12px] text-dls-text-secondary">Review customer-requested reminders and cancel them when needed. This queue does not send messages.</p>
+        </div>
+      </div>
+      <GlassCard className="mb-3 !p-0">
+        <NotConfiguredStateSurface what="Automatic follow-up dispatch is not configured. Existing tasks remain visible with their current status, and cancellation is audited." />
+      </GlassCard>
+
+      <div className="mb-3 flex flex-wrap gap-1.5" aria-label="Follow-up status">
+        {FOLLOW_UP_TABS.map((value) => (
+          <FilterTab key={value} active={tab === value} onClick={() => setTab(value)} count={counts[value]}>
+            {value}
+          </FilterTab>
+        ))}
+      </div>
+
+      {loading ? (
+        <GlassCard><LoadingSkeleton rows={2} /></GlassCard>
+      ) : noPermission ? (
+        <GlassCard><NoPermissionStateSurface permission="Manage customer communications" /></GlassCard>
+      ) : error ? (
+        <GlassCard><ErrorStateSurface title="Follow-ups could not be loaded" message={error} /></GlassCard>
+      ) : items.length === 0 ? (
+        <GlassCard><EmptyStateSurface title="No requested follow-ups" message="Customer-requested reminders will appear here when they are recorded." /></GlassCard>
+      ) : filtered.length === 0 ? (
+        <GlassCard><EmptyFilteredStateSurface title="No follow-ups in this state" onClear={() => setTab("All")} /></GlassCard>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((item) => (
+            <GlassCard key={item.taskId} className="!p-3 sm:!px-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] font-semibold text-dls-text-primary">{item.customerName}</span>
+                    <StatusBadge status={followUpStatusLabel(item.status)} />
+                  </div>
+                  <p className="mt-1 text-[12px] text-dls-text-secondary">{item.purpose.replaceAll("_", " ")} · {item.channel}</p>
+                  <p className="mt-1 text-[11.5px] text-dls-text-muted">Due {formatFollowUpTime(item.dueAtUtc, item.timeZoneId)} · {item.approvalMode} mode</p>
+                </div>
+                {item.canCancel ? (
+                  <Button variant="secondary" onClick={() => setPending(item)}>Cancel reminder</Button>
+                ) : null}
+              </div>
+            </GlassCard>
+          ))}
+        </div>
+      )}
+
+      <GovernedActionDialog
+        open={pending !== null}
+        title="Cancel customer follow-up"
+        target={pending ? `${pending.customerName} · ${pending.channel} · ${formatFollowUpTime(pending.dueAtUtc, pending.timeZoneId)}` : ""}
+        impact="This removes the reminder from the active follow-up queue. It does not send a message. A new reminder must be requested if contact is needed later."
+        auditNotice="The cancellation and reason are written to the tenant audit trail. Provider recipient and thread identifiers are not shown here."
+        confirmLabel="Cancel reminder"
+        tone="danger"
+        onClose={() => setPending(null)}
+        onConfirm={handleCancel}
+      />
+    </section>
+  );
+}
+
+function followUpStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    PendingReview: "Pending review",
+    Scheduled: "Scheduled",
+    Processing: "Processing",
+    Sent: "Sent",
+    Cancelled: "Cancelled",
+    NeedsHuman: "Needs human",
+    Failed: "Failed",
+    Unknown: "Unknown",
+  };
+  return labels[status] ?? status;
+}
+
+function formatFollowUpTime(value: string, timeZoneId: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: timeZoneId,
+    }).format(date);
+  } catch {
+    return date.toLocaleString();
+  }
 }

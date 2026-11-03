@@ -11,7 +11,22 @@ export default function portalConfig(phase: string): NextConfig {
 
   const runtimeProfile = (configuredRuntimeProfile || "Development").toLowerCase();
   const protectedRuntime = ["staging", "production", "managedapplicationreviewer"].includes(runtimeProfile);
-  const distDir = phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next";
+  const requestedBuildDistDir = process.env.IIP_PORTAL_BUILD_DIST_DIR?.trim();
+  if (phase !== PHASE_DEVELOPMENT_SERVER && requestedBuildDistDir
+    && !/^\.next-[a-z0-9-]{1,48}$/i.test(requestedBuildDistDir)) {
+    throw new Error("IIP_PORTAL_BUILD_DIST_DIR must be a local .next-* directory name.");
+  }
+  const distDir = phase === PHASE_DEVELOPMENT_SERVER
+    ? ".next-dev"
+    : requestedBuildDistDir || ".next";
+  const localApiProxyTarget = process.env.IIP_LOCAL_API_PROXY_TARGET?.trim() || "http://localhost:5167";
+  if (!protectedRuntime) {
+    const proxyTarget = new URL(localApiProxyTarget);
+    if (!["http:", "https:"].includes(proxyTarget.protocol) || proxyTarget.username || proxyTarget.password
+      || proxyTarget.search || proxyTarget.hash || proxyTarget.pathname !== "/") {
+      throw new Error("IIP_LOCAL_API_PROXY_TARGET must be an HTTP(S) origin without credentials, path, query, or fragment.");
+    }
+  }
 
   if (protectedRuntime && !process.env.NEXT_PUBLIC_API_BASE_URL?.trim()) {
     throw new Error("NEXT_PUBLIC_API_BASE_URL is required for protected portal builds.");
@@ -39,7 +54,7 @@ export default function portalConfig(phase: string): NextConfig {
       return [
         {
           source: "/api/:path*",
-          destination: "http://localhost:5167/api/:path*",
+          destination: `${localApiProxyTarget.replace(/\/$/, "")}/api/:path*`,
         },
       ];
     },

@@ -3,11 +3,13 @@ using InsuranceIntelligence.Domain.Translation;
 using System.Text.RegularExpressions;
 using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Ai;
+using InsuranceIntelligence.Application.Channels;
 using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Domain.Agents;
+using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Acquisition;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
@@ -133,7 +135,12 @@ public sealed partial class CustomerAssistantService(
     InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null,
     InsuranceIntelligence.Application.Rules.OutcomeService? outcomes = null,
     InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null,
-    IClaimIdentityVerifier? claimIdentity = null) : ICustomerAssistantService
+    IClaimIdentityVerifier? claimIdentity = null,
+    InsuranceIntelligence.Domain.Channels.IChannelIdentityLinkRepository? channelIdentityLinks = null,
+    InsuranceIntelligence.Domain.Channels.IChannelMessageRepository? channelMessages = null,
+    IIntegrationConnectionRepository? integrationConnections = null,
+    ICustomerFollowUpRepository? customerFollowUps = null,
+    ITenantConfigurationRepository? tenantConfigurationRepository = null) : ICustomerAssistantService
 {
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
@@ -181,6 +188,23 @@ public sealed partial class CustomerAssistantService(
         {
             try
             {
+                if (customerFollowUps is not null)
+                {
+                    var recipientId = NormalizeWaId(inbound.SenderWaId);
+                    var cancelled = await customerFollowUps.CancelPendingForRecipientAsync(
+                        scope, ChannelValues.WhatsApp, inbound.BusinessPhoneNumberId, recipientId,
+                        DateTimeOffset.UtcNow, "customer_replied_before_due", cancellationToken);
+                    if (cancelled > 0)
+                    {
+                        await auditRepository.WriteAsync(new AuditEvent(
+                            Guid.NewGuid(), scope, null, null, SystemActorId, ActorType.Integration,
+                            "customer_assistant.follow_up_cancelled_on_reply", DateTimeOffset.UtcNow, "pending", "cancelled",
+                            [], "CustomerFollowUp", null, "cancelled_on_customer_reply", null,
+                            $"Cancelled {cancelled} pending WhatsApp follow-up task(s) after a new customer message; recipient and content omitted.",
+                            correlationId), cancellationToken);
+                    }
+                }
+
                 contactFirstName = FirstNameOf(inbound.ProfileName);
 
                 // Checked before anything else, including the agent kill switch: resetting the
@@ -750,7 +774,7 @@ public sealed partial class CustomerAssistantService(
             try
             {
                 outcome = await RunAgentAsync(
-                    scope, original, text, waId, threadId, turnId, thread, language.Reply,
+                    scope, original, text, waId, inbound.BusinessPhoneNumberId, inbound.ProviderMessageId, threadId, turnId, thread, language.Reply,
                     understood.Status == TranslationStatus.Translated ? new CustomerOwnWords(original, SupportedLanguage.For(language.Inbound).Iso) : null,
                     correlationId, now, cancellationToken);
             }
@@ -781,6 +805,16 @@ public sealed partial class CustomerAssistantService(
         // or recorded, so the stored CustomerConversationTurn is exactly what the customer got.
         // A no-op for the fixed replies, which contain no markdown to begin with.
         var reply = outcome.Reply is null ? null : PlainTextForCustomerChannel.Convert(outcome.Reply);
+        // The workspace/deployment gate passed to this service is the effective Autopilot mode.
+        // Tool-calling model replies must not bypass Review mode just because they came from the
+        // agent path instead of the grounded policy-question path.
+        var heldForReview = outcome.Outcome == CustomerAssistantOutcome.QueuedForHumanApproval
+            || (outcome.FromAgent && !autoReplyEnabled);
+        if (heldForReview
+            && outcome.Outcome is CustomerAssistantOutcome.AutoReplied or CustomerAssistantOutcome.QueuedForHumanApproval)
+        {
+            outcome = outcome with { Outcome = CustomerAssistantOutcome.QueuedForHumanApproval };
+        }
 
         // QueuedForHumanApproval means the five-condition gate (CustomerAutoReplyGate) declined to
         // auto-send an AI-composed answer, it must be logged for a human to review, never sent to
@@ -798,7 +832,7 @@ public sealed partial class CustomerAssistantService(
         LocalisedReply? localised = null;
         if (reply is not null)
         {
-            var textToSend = outcome.Outcome == CustomerAssistantOutcome.QueuedForHumanApproval ? HoldingReply(sender) : reply;
+            var textToSend = heldForReview ? HoldingReply(sender) : reply;
             localised = await LocaliseAsync(scope, textToSend, language.Reply, sender?.FirstName, cancellationToken,
                 noteAlreadyShown: thread.Any(turn => turn.OutboundTranslationStatus == TranslationStatus.Translated));
             await SendReplyAsync(scope, inbound, threadId, waId, localised.Text, outcome.CaseId, cancellationToken, LanguageIsoFor(localised.Status, language.Reply),
@@ -813,7 +847,8 @@ public sealed partial class CustomerAssistantService(
             ContactWaId = waId,
             InboundMessageText = identityCodeSubmitted ? "[verification code redacted]" : text,
             ClassifiedIntent = outcome.Intent,
-            OutboundReplyText = reply,
+            OutboundReplyText = heldForReview ? HoldingReply(sender) : reply,
+            PendingReplyDraftText = heldForReview ? reply : null,
             Outcome = outcome.Outcome,
             CitationTitles = outcome.Citations,
             CaseId = outcome.CaseId,
@@ -1322,10 +1357,11 @@ public sealed partial class CustomerAssistantService(
             // A photo has no words to detect a language from, so use the one this customer already
             // chose. Nothing remembered means English, as it always was.
             var replyLanguage = SupportedLanguageCode.En;
-            if (LanguagesEnabled)
+            var enabledLanguages = await EnabledLanguagesAsync(scope, cancellationToken);
+            if (LanguageServicesAvailable && enabledLanguages.Count > 0)
             {
                 var remembered = await languageResolution!.ResolveAsync(scope, waId, string.Empty, false, cancellationToken);
-                if (remembered.Source == LanguageResolutionSource.RememberedPreference && languageSettings!.EnabledLanguages.Contains(remembered.Language))
+                if (remembered.Source == LanguageResolutionSource.RememberedPreference && enabledLanguages.Contains(remembered.Language))
                 {
                     replyLanguage = remembered.Language;
                 }
@@ -1964,23 +2000,33 @@ public sealed partial class CustomerAssistantService(
 
     private const string MachineTranslatedNote = "This message was translated by a computer.";
 
-    private bool LanguagesEnabled =>
+    private bool LanguageServicesAvailable =>
         translationService is not null
         && languageResolution is not null
         && languageDetector is not null
-        && languageSettings is { EnabledLanguages.Count: > 0 };
+        && languageSettings is not null;
+
+    private Task<IReadOnlyCollection<SupportedLanguageCode>> EnabledLanguagesAsync(
+        TenantScope scope, CancellationToken cancellationToken) =>
+        languageSettings?.GetEnabledLanguagesAsync(scope, cancellationToken)
+        ?? Task.FromResult<IReadOnlyCollection<SupportedLanguageCode>>([]);
 
     private async Task<ConversationLanguage> ResolveConversationLanguageAsync(
         TenantScope scope, string waId, string original, CustomerConversationTurn? previousTurn, CancellationToken cancellationToken)
     {
-        if (!LanguagesEnabled)
+        if (!LanguageServicesAvailable)
+        {
+            return English;
+        }
+
+        var enabled = await EnabledLanguagesAsync(scope, cancellationToken);
+        if (enabled.Count == 0)
         {
             return English;
         }
 
         var previousWasChoice = previousTurn?.Outcome == CustomerAssistantOutcome.AwaitingLanguageChoice;
         var resolution = await languageResolution!.ResolveAsync(scope, waId, original, previousWasChoice, cancellationToken);
-        var enabled = languageSettings!.EnabledLanguages;
         var detected = languageDetector!.Detect(original);
 
         if (previousWasChoice && LanguageChoicePrompt.ParseAnswer(original) is not null)
@@ -1992,6 +2038,11 @@ public sealed partial class CustomerAssistantService(
         if (resolution.Source == LanguageResolutionSource.ExplicitRequest)
         {
             var requested = enabled.Contains(resolution.Language) ? resolution.Language : SupportedLanguageCode.En;
+            if (requested != SupportedLanguageCode.En)
+            {
+                await languageResolution!.RememberAsync(scope, waId, requested, cancellationToken);
+            }
+
             var onlyAskedForALanguage = original.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length <= 6
                 && intentClassifier.Classify(original) == CustomerIntent.Unknown;
             return onlyAskedForALanguage
@@ -2096,7 +2147,13 @@ public sealed partial class CustomerAssistantService(
             return new LocalisedReply(english, TranslationStatus.NotNeeded);
         }
 
-        if (!LanguagesEnabled || languageSettings is not { AllowUnreviewedTranslations: true })
+        if (!LanguageServicesAvailable || languageSettings is not { AllowUnreviewedTranslations: true })
+        {
+            return new LocalisedReply(english, TranslationStatus.FellBackToEnglish);
+        }
+
+        var enabled = await EnabledLanguagesAsync(scope, cancellationToken);
+        if (!enabled.Contains(reply))
         {
             return new LocalisedReply(english, TranslationStatus.FellBackToEnglish);
         }
@@ -2204,7 +2261,7 @@ public sealed partial class CustomerAssistantService(
     {
         var asking = language.Step == LanguageStep.AskChoice;
         var english = asking
-            ? $"{(firstContact ? Welcome(sender) + " " : "")}I can reply in English, Luganda or Kiswahili. {LanguageChoicePrompt.Text}"
+            ? $"{(firstContact ? Welcome(sender) + " " : "")}I can reply in English, Luganda or Kiswahili. To use another enabled language, tell me its name. {LanguageChoicePrompt.Text}"
             : Welcome(sender);
         var localised = asking
             ? new LocalisedReply(english, TranslationStatus.NotNeeded)

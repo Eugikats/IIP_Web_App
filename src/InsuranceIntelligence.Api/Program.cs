@@ -11,6 +11,7 @@ using InsuranceIntelligence.Api.Channels;
 using InsuranceIntelligence.Api.Claims;
 using InsuranceIntelligence.Api.ClientPortal;
 using InsuranceIntelligence.Api.Customer;
+using InsuranceIntelligence.Api.CustomerAssistant;
 using InsuranceIntelligence.Api.SalesLeads;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.Audit;
@@ -20,6 +21,7 @@ using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Compliance;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Customers;
+using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.Search;
 using InsuranceIntelligence.Domain.Administration;
@@ -33,6 +35,7 @@ using InsuranceIntelligence.Api.Health;
 using InsuranceIntelligence.Api.Integrations;
 using InsuranceIntelligence.Api.Knowledge;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Api.Notifications;
 using InsuranceIntelligence.Api.Reports;
 using InsuranceIntelligence.Api.Search;
 using InsuranceIntelligence.Api.Workflow;
@@ -367,8 +370,10 @@ builder.Services.AddScoped<InsuranceIntelligence.Infrastructure.Translation.Tena
 builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ITranslationProvider>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.TenantAwareTranslationProvider>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ITranslationEngineHealth>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.TenantAwareTranslationProvider>());
 
-builder.Services.AddSingleton<InsuranceIntelligence.Application.CustomerAssistant.IAssistantLanguageSettings>(
-    new InsuranceIntelligence.Api.Local.ConfiguredAssistantLanguageSettings(infrastructureOptions.Translation));
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IAssistantLanguageSettings>(sp =>
+    new InsuranceIntelligence.Api.Local.ConfiguredAssistantLanguageSettings(
+        sp.GetRequiredService<InsuranceIntelligence.Domain.Administration.ITenantConfigurationRepository>(),
+        infrastructureOptions.Translation));
 
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Translation.ITranslationCache, InsuranceIntelligence.Infrastructure.Translation.InMemoryTranslationCache>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ITranslationService, InsuranceIntelligence.Application.Translation.TranslationService>();
@@ -481,6 +486,11 @@ builder.Services.AddScoped<ICommandCenterConversationService, CommandCenterConve
 builder.Services.AddScoped<IConversationGroundingService, ConversationGroundingService>();
 // W2.5: Phase 2 core-workspace query services.
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
+builder.Services.AddScoped<IChannelThreadQueryService, ChannelThreadQueryService>();
+builder.Services.AddScoped<IChannelMessageIngestionService, ChannelMessageIngestionService>();
+builder.Services.AddScoped<IChannelMessageSendService, ChannelMessageSendService>();
+builder.Services.AddScoped<ICustomerFollowUpManagementService, CustomerFollowUpManagementService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Channels.IChannelIdentityService, ChannelIdentityService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Policies.IPolicyImportService, InsuranceIntelligence.Application.Policies.PolicyImportService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Customers.ICustomerConsentService, InsuranceIntelligence.Application.Customers.CustomerConsentService>();
@@ -1130,6 +1140,10 @@ app.MapPost("/api/v1/cases/{caseId:guid}/customer-updates/write", CustomerUpdate
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 app.MapPost("/api/v1/cases/{caseId:guid}/customer-updates/from-template", CustomerUpdateEndpoints.CreateCustomerUpdateFromTemplate)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapGet("/api/v1/customer-follow-ups", CustomerFollowUpEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/customer-follow-ups/{taskId:guid}/cancel", CustomerFollowUpEndpoints.Cancel)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 
 // Message template library (outcome D), versioned exactly like agent behaviour and products.
 app.MapGet("/api/v1/communication-templates", InsuranceIntelligence.Api.Workflow.CommunicationTemplateEndpoints.ListTemplates)
@@ -1184,6 +1198,20 @@ if (developmentDiagnosticsEnabled)
 // W2.5: Phase 2 core-workspace read routes (see docs/02-development-engineering/iip_api_specification.md).
 app.MapGet("/api/v1/channels/overview", ChannelEndpoints.GetOverview)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapGet("/api/v1/channels/conversations/{channel}/{threadId}", ChannelEndpoints.GetThread)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapPost("/api/v1/channels/conversations/{channel}/{threadId}/messages", ChannelEndpoints.SendMessage)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications, Permission.SendCustomerUpdate));
+app.MapPost("/api/v1/channels/conversations/{channel}/{threadId}/identity-link", ChannelIdentityEndpoints.Link)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications, Permission.ViewCustomers));
+app.MapGet("/api/v1/channels/conversations/{channel}/{threadId}/identity-link", ChannelIdentityEndpoints.GetForThread)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapGet("/api/v1/customers/{customerId}/channel-identities", ChannelIdentityEndpoints.ListForCustomer)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers, Permission.ViewChannels));
+app.MapGet("/api/v1/customers/{customerId}/channel-timeline", ChannelIdentityEndpoints.GetCustomerTimeline)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers, Permission.ViewChannels));
+app.MapPost("/api/v1/channel-identities/{linkId:guid}/revoke", ChannelIdentityEndpoints.Revoke)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 app.MapGet("/api/v1/customers", CustomerProfileEndpoints.ListCustomers)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustomerProfile)
@@ -1355,6 +1383,8 @@ app.MapPost("/api/v1/products/wording-extractions/{knowledgeDocumentId:guid}", I
 // Document type catalog (claim intake build prompt outcome A): the eight built-in types plus
 // whatever an insurer adds, versioned like communication templates. Backs the document matrix
 // dropdown and the report of products whose matrix already holds a key the catalog does not know.
+app.MapGet("/api/v1/document-types/upload-options", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.ListUploadOptions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));
 app.MapGet("/api/v1/document-types", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.ListCurrent)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 app.MapGet("/api/v1/document-types/{key}/versions", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.ListVersions)
@@ -1623,8 +1653,21 @@ app.MapGet("/api/v1/integrations/whatsapp/receipts", WhatsAppIntegrationEndpoint
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapDelete("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.DeleteConfiguration)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/whatsapp/messaging-mode", WhatsAppMessagingModeEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPut("/api/v1/integrations/whatsapp/messaging-mode", WhatsAppMessagingModeEndpoints.Update)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/admin/notification-routing", NotificationRoutingEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPut("/api/v1/admin/notification-routing", NotificationRoutingEndpoints.Update)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
 app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook).RequireRateLimiting("webhook");
+app.MapPost("/api/v1/integrations/telegram/bots/{botId}/webhook", TelegramIntegrationEndpoints.ReceiveWebhook);
+app.MapGet("/api/v1/integrations/meta/{channel}/{accountId}/webhook", MetaMessagingWebhookEndpoints.Verify);
+app.MapPost("/api/v1/integrations/meta/{channel}/{accountId}/webhook", MetaMessagingWebhookEndpoints.Receive);
+app.MapGet("/api/v1/integrations/x/{accountId}/webhook", XActivityWebhookEndpoints.Challenge);
+app.MapPost("/api/v1/integrations/x/{accountId}/webhook", XActivityWebhookEndpoints.Receive);
 
 // Generic connection settings surface (blueprint §3.4), the /app/admin/connections screen's
 // backend. {connectionType} is "sms", "email" or "translation"; adding a type is a new
@@ -1657,6 +1700,10 @@ app.MapPost("/api/v1/agents/{agentKey}/behaviour/test", InsuranceIntelligence.Ap
 app.MapGet("/api/v1/agents/customer-assistant/translation", InsuranceIntelligence.Api.Agents.TranslationStatusEndpoints.Get)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 app.MapPost("/api/v1/agents/customer-assistant/translation/test", InsuranceIntelligence.Api.Agents.TranslationStatusEndpoints.Test)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapGet("/api/v1/admin/assistant-languages", InsuranceIntelligence.Api.Agents.AssistantLanguageEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapPut("/api/v1/admin/assistant-languages", InsuranceIntelligence.Api.Agents.AssistantLanguageEndpoints.Update)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 
 // Tenant agent policy (blueprint §6.4, WO 3.4), real enforcement-source data, not a hardcoded array.

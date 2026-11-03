@@ -50,7 +50,8 @@ public static class TranslationStatusEndpoints
         }
 
         var status = await health.CheckAsync(scope, cancellationToken);
-        var languages = settings.EnabledLanguages
+        var enabledLanguages = await settings.GetEnabledLanguagesAsync(scope, cancellationToken);
+        var languages = enabledLanguages
             .Select(SupportedLanguage.For)
             .Select(language => new TranslationLanguageResponse(language.Iso, language.DisplayName))
             .ToArray();
@@ -94,10 +95,10 @@ public static class TranslationStatusEndpoints
 
         if (from is null || to is null || from.Code == to.Code)
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]> { ["language"] = ["Choose two different languages from English, Luganda and Kiswahili."] });
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["language"] = ["Choose two different languages from the supported language catalog."] });
         }
 
-        var enabled = settings.EnabledLanguages;
+        var enabled = await settings.GetEnabledLanguagesAsync(scope, cancellationToken);
         if ((from.Code != SupportedLanguageCode.En && !enabled.Contains(from.Code)) || (to.Code != SupportedLanguageCode.En && !enabled.Contains(to.Code)))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["language"] = ["That language is not switched on for this workspace."] });

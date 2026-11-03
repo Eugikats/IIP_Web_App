@@ -48,6 +48,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedTenantOnboarding> TenantOnboardings => Set<PersistedTenantOnboarding>();
     public DbSet<PersistedCommandCenterConversation> CommandCenterConversations => Set<PersistedCommandCenterConversation>();
     public DbSet<PersistedWhatsAppMessage> WhatsAppMessages => Set<PersistedWhatsAppMessage>();
+    public DbSet<PersistedChannelMessage> ChannelMessages => Set<PersistedChannelMessage>();
+    public DbSet<PersistedChannelIdentityLink> ChannelIdentityLinks => Set<PersistedChannelIdentityLink>();
     public DbSet<PersistedAgentRun> AgentRuns => Set<PersistedAgentRun>();
     public DbSet<PersistedNotification> Notifications => Set<PersistedNotification>();
     public DbSet<PersistedFraudSignalDisposition> FraudSignalDispositions => Set<PersistedFraudSignalDisposition>();
@@ -79,6 +81,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedRetentionReminder> RetentionReminders => Set<PersistedRetentionReminder>();
     public DbSet<PersistedSatisfactionResponse> SatisfactionResponses => Set<PersistedSatisfactionResponse>();
     public DbSet<PersistedCustomerLanguagePreference> CustomerLanguagePreferences => Set<PersistedCustomerLanguagePreference>();
+    public DbSet<PersistedCustomerFollowUp> CustomerFollowUps => Set<PersistedCustomerFollowUp>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -146,11 +149,33 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedCommandCenterConversation>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.OwnerUserId, entity.Status, entity.LastActivityAt });
         ConfigureScopedJson(modelBuilder.Entity<PersistedWhatsAppMessage>(), "WhatsAppMessages", "MessageId");
         modelBuilder.Entity<PersistedWhatsAppMessage>().Property(entity => entity.ThreadId).HasMaxLength(320).IsRequired();
+        modelBuilder.Entity<PersistedWhatsAppMessage>().Property(entity => entity.AccountId).HasMaxLength(240);
+        modelBuilder.Entity<PersistedWhatsAppMessage>().Property(entity => entity.ExternalRecipientId).HasMaxLength(320);
         modelBuilder.Entity<PersistedWhatsAppMessage>().Property(entity => entity.ProviderMessageId).HasMaxLength(320);
         modelBuilder.Entity<PersistedWhatsAppMessage>().Property(entity => entity.IdempotencyKey).HasMaxLength(128);
         modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ThreadId, entity.CreatedAt });
+        modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.AccountId, entity.ExternalRecipientId, entity.CreatedAt });
         modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ProviderMessageId }).IsUnique();
         modelBuilder.Entity<PersistedWhatsAppMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.IdempotencyKey }).IsUnique();
+        ConfigureScopedJson(modelBuilder.Entity<PersistedChannelMessage>(), "ChannelMessages", "MessageId");
+        modelBuilder.Entity<PersistedChannelMessage>().Property(entity => entity.Channel).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedChannelMessage>().Property(entity => entity.AccountId).HasMaxLength(240).IsRequired();
+        modelBuilder.Entity<PersistedChannelMessage>().Property(entity => entity.ThreadId).HasMaxLength(320).IsRequired();
+        modelBuilder.Entity<PersistedChannelMessage>().Property(entity => entity.ExternalRecipientId).HasMaxLength(320);
+        modelBuilder.Entity<PersistedChannelMessage>().Property(entity => entity.ProviderMessageId).HasMaxLength(320);
+        modelBuilder.Entity<PersistedChannelMessage>().Property(entity => entity.IdempotencyKey).HasMaxLength(128);
+        modelBuilder.Entity<PersistedChannelMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Channel, entity.AccountId, entity.ThreadId, entity.CreatedAt });
+        modelBuilder.Entity<PersistedChannelMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Channel, entity.AccountId, entity.ExternalRecipientId, entity.CreatedAt });
+        modelBuilder.Entity<PersistedChannelMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Channel, entity.AccountId, entity.ProviderMessageId }).IsUnique();
+        modelBuilder.Entity<PersistedChannelMessage>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Channel, entity.AccountId, entity.IdempotencyKey }).IsUnique();
+        ConfigureScopedJson(modelBuilder.Entity<PersistedChannelIdentityLink>(), "ChannelIdentityLinks", "LinkId");
+        modelBuilder.Entity<PersistedChannelIdentityLink>().Property(entity => entity.CustomerId).HasMaxLength(64).IsRequired();
+        modelBuilder.Entity<PersistedChannelIdentityLink>().Property(entity => entity.Channel).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedChannelIdentityLink>().Property(entity => entity.AccountId).HasMaxLength(240).IsRequired();
+        modelBuilder.Entity<PersistedChannelIdentityLink>().Property(entity => entity.ExternalRecipientId).HasMaxLength(320).IsRequired();
+        modelBuilder.Entity<PersistedChannelIdentityLink>().Property(entity => entity.IsActive).IsRequired();
+        modelBuilder.Entity<PersistedChannelIdentityLink>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Channel, entity.AccountId, entity.ExternalRecipientId }).IsUnique();
+        modelBuilder.Entity<PersistedChannelIdentityLink>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CustomerId, entity.IsActive });
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentRun>(), "AgentRuns", "AgentRunId");
         modelBuilder.Entity<PersistedAgentRun>().Property(entity => entity.AgentKey).HasMaxLength(80).IsRequired();
         modelBuilder.Entity<PersistedAgentRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.AgentKey });
@@ -224,12 +249,28 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedOutboundDelivery>().Property(entity => entity.Status).HasMaxLength(20).IsRequired();
         modelBuilder.Entity<PersistedOutboundDelivery>().HasIndex(entity => new { entity.Status, entity.NextAttemptAt });
         modelBuilder.Entity<PersistedOutboundDelivery>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.SubscriptionId, entity.CreatedAt });
+        modelBuilder.Entity<PersistedIntegrationConnection>().Property(entity => entity.ConnectionType).HasMaxLength(40);
+        modelBuilder.Entity<PersistedIntegrationConnection>().Property(entity => entity.ExternalAccountId).HasMaxLength(240);
+        modelBuilder.Entity<PersistedIntegrationConnection>().HasIndex(entity => new { entity.ConnectionType, entity.ExternalAccountId })
+            .IsUnique().HasFilter("[ExternalAccountId] IS NOT NULL");
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentBehaviourProfile>(), "AgentBehaviourProfiles", "VersionId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomerConversationTurn>(), "CustomerConversationTurns", "TurnId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedConsentRecord>(), "ConsentRecords", "RecordId");
         modelBuilder.Entity<PersistedConsentRecord>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CustomerIdentifier });
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomerLanguagePreference>(), "CustomerLanguagePreferences", "PreferenceId");
         modelBuilder.Entity<PersistedCustomerLanguagePreference>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ContactWaId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedCustomerFollowUp>(), "CustomerFollowUps", "TaskId");
+        modelBuilder.Entity<PersistedCustomerFollowUp>().Property(entity => entity.CustomerId).HasMaxLength(64).IsRequired();
+        modelBuilder.Entity<PersistedCustomerFollowUp>().Property(entity => entity.Channel).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedCustomerFollowUp>().Property(entity => entity.AccountId).HasMaxLength(240).IsRequired();
+        modelBuilder.Entity<PersistedCustomerFollowUp>().Property(entity => entity.RecipientId).HasMaxLength(320).IsRequired();
+        modelBuilder.Entity<PersistedCustomerFollowUp>().Property(entity => entity.ThreadId).HasMaxLength(320).IsRequired();
+        modelBuilder.Entity<PersistedCustomerFollowUp>().Property(entity => entity.OriginatingMessageId).HasMaxLength(320).IsRequired();
+        modelBuilder.Entity<PersistedCustomerFollowUp>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedCustomerFollowUp>().Property(entity => entity.ClaimVersion).IsConcurrencyToken().IsRequired();
+        modelBuilder.Entity<PersistedCustomerFollowUp>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Status, entity.DueAtUtc });
+        modelBuilder.Entity<PersistedCustomerFollowUp>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Channel, entity.AccountId, entity.RecipientId, entity.Status });
+        modelBuilder.Entity<PersistedCustomerFollowUp>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.OriginatingMessageId }).IsUnique();
         ConfigureScopedJson(modelBuilder.Entity<PersistedRetentionReminder>(), "RetentionReminders", "ReminderId");
         modelBuilder.Entity<PersistedRetentionReminder>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PolicyId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedSatisfactionResponse>(), "SatisfactionResponses", "ResponseId");
@@ -462,9 +503,29 @@ public sealed class PersistedWhatsAppMessage : PersistedScopedJson
 {
     public Guid? CaseId { get; set; }
     public string ThreadId { get; set; } = string.Empty;
+    public string? AccountId { get; set; }
+    public string? ExternalRecipientId { get; set; }
     public string? ProviderMessageId { get; set; }
     public string? IdempotencyKey { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+}
+public sealed class PersistedChannelMessage : PersistedScopedJson
+{
+    public string Channel { get; set; } = string.Empty;
+    public string AccountId { get; set; } = string.Empty;
+    public string ThreadId { get; set; } = string.Empty;
+    public string? ExternalRecipientId { get; set; }
+    public string? ProviderMessageId { get; set; }
+    public string? IdempotencyKey { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+public sealed class PersistedChannelIdentityLink : PersistedScopedJson
+{
+    public string CustomerId { get; set; } = string.Empty;
+    public string Channel { get; set; } = string.Empty;
+    public string AccountId { get; set; } = string.Empty;
+    public string ExternalRecipientId { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
 }
 public sealed class PersistedAgentRun : PersistedScopedJson
 {
@@ -496,7 +557,6 @@ public sealed class PersistedClaimantPortalSession : PersistedScopedJson
     public string SessionTokenHash { get; set; } = string.Empty;
 }
 public sealed class PersistedWhatsAppChannelConfiguration : PersistedScopedJson;
-public sealed class PersistedIntegrationConnection : PersistedScopedJson;
 public sealed class PersistedUserFileConnection : PersistedScopedJson;
 public sealed class PersistedUserSecurityProfile : PersistedScopedJson;
 public sealed class PersistedMfaPolicy : PersistedScopedJson;
@@ -538,10 +598,33 @@ public sealed class PersistedOutboundDelivery : PersistedScopedJson
     public DateTimeOffset NextAttemptAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
+public sealed class PersistedIntegrationConnection : PersistedScopedJson
+{
+    public string? ConnectionType { get; set; }
+    public string? ExternalAccountId { get; set; }
+}
 public sealed class PersistedAgentBehaviourProfile : PersistedScopedJson { public string AgentKey { get; set; } = string.Empty; }
 public sealed class PersistedCustomerConversationTurn : PersistedScopedJson { public string ThreadId { get; set; } = string.Empty; }
 public sealed class PersistedConsentRecord : PersistedScopedJson { public string CustomerIdentifier { get; set; } = string.Empty; }
 public sealed class PersistedCustomerLanguagePreference : PersistedScopedJson { public string ContactWaId { get; set; } = string.Empty; }
+public sealed class PersistedCustomerFollowUp : PersistedScopedJson
+{
+    public string CustomerId { get; set; } = string.Empty;
+    public string Channel { get; set; } = string.Empty;
+    public string AccountId { get; set; } = string.Empty;
+    public string RecipientId { get; set; } = string.Empty;
+    public string ThreadId { get; set; } = string.Empty;
+    public string OriginatingMessageId { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public int ClaimVersion { get; set; }
+    public DateTimeOffset DueAtUtc { get; set; }
+    public DateTimeOffset? ProcessedAt { get; set; }
+    public DateTimeOffset? CancelledAt { get; set; }
+    public string? CancellationReason { get; set; }
+    public string? ProviderMessageId { get; set; }
+    public int AttemptCount { get; set; }
+    public string? SafeFailureReason { get; set; }
+}
 public sealed class PersistedRetentionReminder : PersistedScopedJson { public string PolicyId { get; set; } = string.Empty; }
 public sealed class PersistedSatisfactionResponse : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedRetentionPolicy : PersistedScopedJson;

@@ -14,9 +14,7 @@ public sealed partial class LocalMockDocumentStorageProvider(IWebHostEnvironment
             request.Scope.WorkspaceId,
             request.CaseId,
             $"{request.DocumentId}_{safeFileName}");
-        var storageRoot = configuration["INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_STORAGE_PATH"]
-            ?? Path.Combine(environment.ContentRootPath, ".local", "document-storage");
-        var fullPath = Path.Combine(storageRoot, objectKey.Replace('/', Path.DirectorySeparatorChar));
+        var fullPath = ResolvePath(request.Scope, objectKey);
         var directory = Path.GetDirectoryName(fullPath);
 
         if (!string.IsNullOrWhiteSpace(directory))
@@ -30,6 +28,43 @@ public sealed partial class LocalMockDocumentStorageProvider(IWebHostEnvironment
         return new DocumentStorageResult(objectKey, request.ContentType, request.FileSizeBytes);
     }
 
+    public Task<Stream> ReadAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string objectKey, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fullPath = ResolvePath(scope, objectKey);
+        Stream stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return Task.FromResult(stream);
+    }
+
+    private string ResolvePath(InsuranceIntelligence.Domain.Common.TenantScope scope, string objectKey)
+    {
+        var segments = objectKey.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length < 4
+            || !string.Equals(segments[0], scope.TenantId, StringComparison.Ordinal)
+            || !string.Equals(segments[1], scope.WorkspaceId, StringComparison.Ordinal)
+            || segments.Any(segment => segment is "." or ".." || !SafePathSegmentPattern().IsMatch(segment)))
+        {
+            throw new UnauthorizedAccessException("The document storage key is outside the resolved tenant workspace.");
+        }
+
+        var storageRoot = configuration["INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_STORAGE_PATH"]
+            ?? Path.Combine(environment.ContentRootPath, ".local", "document-storage");
+        var fullRoot = Path.GetFullPath(storageRoot);
+        var fullPath = Path.GetFullPath(Path.Combine(fullRoot, Path.Combine(segments)));
+        var rootPrefix = fullRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? fullRoot
+            : fullRoot + Path.DirectorySeparatorChar;
+        if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("The document storage key is outside the local document storage directory.");
+        }
+
+        return fullPath;
+    }
+
     [GeneratedRegex("[^a-zA-Z0-9._-]")]
     private static partial Regex SafeFileNamePattern();
+
+    [GeneratedRegex("^[a-zA-Z0-9._-]+$")]
+    private static partial Regex SafePathSegmentPattern();
 }

@@ -8,6 +8,7 @@ using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
+using InsuranceIntelligence.Domain.Channels;
 using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
@@ -15,6 +16,7 @@ using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Communications;
+using InsuranceIntelligence.Infrastructure.Connections;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.Persistence;
 using InsuranceIntelligence.Infrastructure.Email;
@@ -141,6 +143,17 @@ public static class InfrastructureRegistration
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, AfricasTalkingConnectionValidator>();
         services.AddSingleton<IEmailSendingProviderFactory, EmailSendingProviderFactory>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, SmtpConnectionValidator>();
+        foreach (var socialType in new[] { ConnectionType.Instagram, ConnectionType.Messenger, ConnectionType.TikTok, ConnectionType.X })
+        {
+            services.AddTransient<IConnectionValidator>(provider =>
+                new SocialAccountConnectionValidator(socialType, provider.GetRequiredService<IHttpClientFactory>().CreateClient()));
+        }
+        services.AddSingleton<IConnectionValidator, TelegramConnectionValidator>();
+        services.AddSingleton<ITelegramWebhookRegistrar, TelegramWebhookRegistrar>();
+        services.AddSingleton<ITelegramTextSender, TelegramTextSender>();
+        services.AddSingleton<IMetaTextSender, MetaTextSender>();
+        services.AddHttpClient<ITikTokTextSender, TikTokTextSender>();
+        services.AddHttpClient<IXDirectMessageSender, XDirectMessageSender>();
 
         // ISmsProvider/IEmailSendingProvider are always the tenant-aware resolvers now, the
         // three-step order (tenant Connection, then env var fallback, then Not configured).
@@ -150,9 +163,10 @@ public static class InfrastructureRegistration
         services.AddScoped<ISmsProvider, TenantAwareSmsProvider>();
         services.AddScoped<IEmailSendingProvider, TenantAwareEmailSendingProvider>();
 
-        // Policy lookup port (blueprint §14 Phase 7, WO 7.1/7.2), same tenant-aware resolution
-        // shape as SMS/email above, except the fallback (this platform's own policy storage) is
-        // always a meaningful answer, so there is no third "not configured" state.
+        // Policy lookup port with distinct external provider outcomes. Automatic redirects are
+        // disabled so credentials cannot be forwarded to a different destination after a redirect.
+        services.AddHttpClient(nameof(InsuranceIntelligence.Infrastructure.Policies.GenericRestPolicyLookupProvider))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, InsuranceIntelligence.Infrastructure.Policies.GenericRestPolicyConnectionValidator>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.Policies.InternalPolicyLookupProvider>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.IPolicyLookupProvider, InsuranceIntelligence.Infrastructure.Policies.TenantAwarePolicyLookupProvider>();
@@ -309,10 +323,13 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
         services.AddScoped<ICommandCenterConversationRepository, EfCommandCenterConversationRepository>();
         services.AddScoped<IWhatsAppMessageRepository, EfWhatsAppMessageRepository>();
+        services.AddScoped<IChannelMessageRepository, EfChannelMessageRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Channels.IChannelIdentityLinkRepository, EfChannelIdentityLinkRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerConversationRepository, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfCustomerConversationRepository>();
         services.AddScoped<InsuranceIntelligence.Application.SalesLeads.IConversationActivityReader, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfConversationActivityReader>();
         services.AddScoped<InsuranceIntelligence.Domain.Compliance.IConsentRepository, InsuranceIntelligence.Infrastructure.Compliance.EfConsentRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Translation.ICustomerLanguagePreferenceRepository, InsuranceIntelligence.Infrastructure.Translation.EfCustomerLanguagePreferenceRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerFollowUpRepository, EfCustomerFollowUpRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Retention.IRetentionReminderRepository, InsuranceIntelligence.Infrastructure.Retention.EfRetentionReminderRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Cases.ISatisfactionResponseRepository, InsuranceIntelligence.Infrastructure.Cases.EfSatisfactionResponseRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Compliance.IRetentionPolicyRepository, InsuranceIntelligence.Infrastructure.Compliance.EfRetentionPolicyRepository>();

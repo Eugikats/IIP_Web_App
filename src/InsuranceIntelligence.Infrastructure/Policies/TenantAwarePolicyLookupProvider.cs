@@ -10,14 +10,11 @@ namespace InsuranceIntelligence.Infrastructure.Policies;
 /// establish, applied to policy lookup, registered as the one IPolicyLookupProvider the rest of
 /// the application ever sees:
 ///
-///   1. An active PolicySystem Connection for this tenant → the generic REST adapter (WO 7.2).
-///   2. Otherwise → InternalPolicyLookupProvider (this platform's own data, demo-seeded or
-///      manually onboarded).
+///   1. An active PolicySystem Connection for this tenant → the configured provider adapter.
+///   2. Otherwise → InternalPolicyLookupProvider (the workspace's own registered policy data).
 ///
-/// Unlike SMS/email, there is no third "ConfigurationRequired" state: InternalPolicyLookupProvider
-/// is always a meaningful, real answer, every tenant has policy data in this platform's own
-/// storage, whether or not a PAS partner is connected, so falling back to it is never dishonest
-/// the way silently no-op'ing an unconfigured SMS send would be.
+/// Once a connection exists, failures are returned as explicit provider states. They never fall
+/// back to the internal register, which could otherwise hide stale data behind an apparent success.
 /// </summary>
 public sealed class TenantAwarePolicyLookupProvider(
     IIntegrationConnectionRepository connectionRepository,
@@ -26,13 +23,13 @@ public sealed class TenantAwarePolicyLookupProvider(
     IHttpClientFactory httpClientFactory,
     ILoggerFactory loggerFactory) : IPolicyLookupProvider
 {
-    public async Task<Policy?> FindPolicyByNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default)
+    public async Task<PolicyLookupResult> FindPolicyByNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default)
     {
         var provider = await ResolveAsync(scope, cancellationToken);
         return await provider.FindPolicyByNumberAsync(policyNumber, scope, cancellationToken);
     }
 
-    public async Task<IReadOnlyCollection<Policy>> FindPoliciesByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default)
+    public async Task<PolicyCollectionLookupResult> FindPoliciesByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default)
     {
         var provider = await ResolveAsync(scope, cancellationToken);
         return await provider.FindPoliciesByCustomerAsync(customerId, scope, cancellationToken);
@@ -49,7 +46,7 @@ public sealed class TenantAwarePolicyLookupProvider(
         var settings = ConnectionSettingsCodec.Decode(protector, connection);
         if (!string.Equals(connection.ProviderKey, "GenericRest", StringComparison.OrdinalIgnoreCase))
         {
-            return fallback; // Unrecognized provider key, fall back rather than fail policy lookup entirely.
+            return new UnsupportedPolicyLookupProvider(connection.ProviderKey);
         }
 
         var restSettings = GenericRestPolicySettings.FromSettings(settings);
@@ -58,4 +55,13 @@ public sealed class TenantAwarePolicyLookupProvider(
             httpClientFactory.CreateClient(nameof(GenericRestPolicyLookupProvider)),
             loggerFactory.CreateLogger<GenericRestPolicyLookupProvider>());
     }
+}
+
+internal sealed class UnsupportedPolicyLookupProvider(string providerKey) : IPolicyLookupProvider
+{
+    public Task<PolicyLookupResult> FindPolicyByNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new PolicyLookupResult(PolicyLookupStatus.UnsupportedProvider, null, providerKey));
+
+    public Task<PolicyCollectionLookupResult> FindPoliciesByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new PolicyCollectionLookupResult(PolicyLookupStatus.UnsupportedProvider, [], providerKey));
 }

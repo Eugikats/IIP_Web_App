@@ -102,4 +102,9 @@ public static class ConsentPurposes
     public const string WhatsApp = "whatsapp_messaging";
     public const string Sms = "sms_messaging";
     public const string Email = "email_messaging";
+    public const string Telegram = "telegram_messaging";
+    public const string Instagram = "instagram_messaging";
+    public const string Messenger = "messenger_messaging";
+    public const string TikTok = "tiktok_messaging";
+    public const string X = "x_messaging";
 }

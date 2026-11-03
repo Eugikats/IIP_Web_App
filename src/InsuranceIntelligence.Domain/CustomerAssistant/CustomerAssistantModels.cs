@@ -92,6 +92,9 @@ public sealed record CustomerConversationTurn
     public required string InboundMessageText { get; init; }
     public required CustomerIntent ClassifiedIntent { get; init; }
     public string? OutboundReplyText { get; init; }
+    /// <summary>Model-authored reply held for staff review. It is kept apart from
+    /// <see cref="OutboundReplyText"/>, which records the text actually sent to the customer.</summary>
+    public string? PendingReplyDraftText { get; init; }
     public required CustomerAssistantOutcome Outcome { get; init; }
     public IReadOnlyCollection<string> CitationTitles { get; init; } = [];
     public Guid? CaseId { get; init; }

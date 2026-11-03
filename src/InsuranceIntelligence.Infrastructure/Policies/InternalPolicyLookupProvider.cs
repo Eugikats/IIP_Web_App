@@ -9,9 +9,15 @@ namespace InsuranceIntelligence.Infrastructure.Policies;
 /// TenantAwarePolicyLookupProvider for the resolution order between the two.</summary>
 public sealed class InternalPolicyLookupProvider(IPolicyRepository policyRepository) : IPolicyLookupProvider
 {
-    public Task<Policy?> FindPolicyByNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default) =>
-        policyRepository.GetByPolicyNumberAsync(policyNumber, scope, cancellationToken);
+    public async Task<PolicyLookupResult> FindPolicyByNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var policy = await policyRepository.GetByPolicyNumberAsync(policyNumber, scope, cancellationToken);
+        return new(policy is null ? PolicyLookupStatus.NotFound : PolicyLookupStatus.Found, policy, "IIPPolicyRegister");
+    }
 
-    public Task<IReadOnlyCollection<Policy>> FindPoliciesByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default) =>
-        policyRepository.ListByCustomerAsync(customerId, scope, cancellationToken);
+    public async Task<PolicyCollectionLookupResult> FindPoliciesByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var policies = await policyRepository.ListByCustomerAsync(customerId, scope, cancellationToken);
+        return new(policies.Count == 0 ? PolicyLookupStatus.NotFound : PolicyLookupStatus.Found, policies, "IIPPolicyRegister");
+    }
 }

@@ -25,7 +25,7 @@ export default function AssistantBar() {
   }
 
   return (
-    <div className="shrink-0 border-t border-dls-border-subtle bg-dls-surface px-4 py-2">
+    <section aria-label="Assistant prompt" className="shrink-0 border-t border-dls-border-subtle bg-dls-surface px-4 py-2">
       <div className="mx-auto flex max-w-[780px] items-center gap-2 rounded-dls-control border border-transparent px-2 py-1 focus-within:border-dls-primary focus-within:ring-[3px] focus-within:ring-dls-primary/[0.12]">
         <Sparkles className="h-4 w-4 shrink-0 text-dls-primary" aria-hidden="true" />
         <input
@@ -48,6 +48,6 @@ export default function AssistantBar() {
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
-    </div>
+    </section>
   );
 }

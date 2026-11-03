@@ -15,6 +15,12 @@ export type DocumentTypeDefinition = {
   changeReason: string;
 };
 
+export type DocumentTypeUploadOption = {
+  key: string;
+  customerLabel: string;
+  description: string;
+};
+
 export type UnresolvedProductDocumentKeys = {
   productId: string;
   productName: string;
@@ -49,6 +55,10 @@ async function call<T>(role: string, input: RequestInfo, init: RequestInit, fall
 
 export function listDocumentTypes(role: string) {
   return call<DocumentTypeDefinition[]>(role, `${apiBaseUrl}/api/v1/document-types`, {}, "The document type catalog could not be loaded.");
+}
+
+export function listDocumentUploadOptions(role: string) {
+  return call<DocumentTypeUploadOption[]>(role, `${apiBaseUrl}/api/v1/document-types/upload-options`, {}, "The document type choices could not be loaded.");
 }
 
 export function seedDefaultDocumentTypes(role: string) {

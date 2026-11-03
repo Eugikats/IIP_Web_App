@@ -88,6 +88,10 @@ public static class TeamsAdaptiveCardBuilder
         TeamsNotificationType.SlaAtRisk => "SLA at Risk",
         TeamsNotificationType.SlaBreached => "SLA Breached",
         TeamsNotificationType.CustomerUpdatePending => "Customer Update Pending",
+        TeamsNotificationType.ClaimEscalated => "Claim Escalated",
+        TeamsNotificationType.DocumentReviewNeeded => "Document Review Needed",
+        TeamsNotificationType.ReviewRequested => "Review Requested",
+        TeamsNotificationType.ClaimAssigned => "Claim Assigned",
         _ => "Notification"
     };
 }

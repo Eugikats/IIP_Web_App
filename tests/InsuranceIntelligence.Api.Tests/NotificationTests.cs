@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.LocalTestDoubles;
 
@@ -108,6 +109,49 @@ public sealed class NotificationTests
 
         var feed = await service.GetFeedAsync(20);
         Assert.Equal(2, feed.Notifications.Count);
+    }
+
+    [Fact]
+    public async Task ConfiguredRouting_NotifiesAdditionalWorkspaceRecipientsAndTeamsChannel()
+    {
+        var repository = new InMemoryNotificationRepository();
+        var configurationRepository = new InMemoryTenantConfigurationRepository();
+        await configurationRepository.SaveAsync(TenantConfiguration.Demo() with
+        {
+            Scope = Scope,
+            NotificationRouting = new NotificationRoutingConfiguration([
+                new NotificationRoutingRule(
+                    NotificationType.ClaimEscalated,
+                    ["backup-officer"],
+                    [NotificationDestination.InApp, NotificationDestination.MicrosoftTeams])
+            ]),
+        });
+        var teamsQueue = new CapturingTeamsQueue();
+        var service = new NotificationService(ContextFor("officer-1"), repository, configurationRepository, teamsQueue);
+        var caseId = Guid.NewGuid();
+
+        await service.NotifyOnceAsync(Scope, "officer-1", NotificationType.ClaimEscalated, "Claim escalated.", caseId);
+        await service.NotifyOnceAsync(Scope, "officer-1", NotificationType.ClaimEscalated, "Claim escalated.", caseId);
+
+        var assignedFeed = await service.GetFeedAsync(20);
+        var additionalRecipientFeed = await new NotificationService(ContextFor("backup-officer"), repository).GetFeedAsync(20);
+        Assert.Single(assignedFeed.Notifications);
+        Assert.Single(additionalRecipientFeed.Notifications);
+        var teams = Assert.Single(teamsQueue.Notifications);
+        Assert.Equal(TeamsNotificationType.ClaimEscalated, teams.NotificationType);
+        Assert.Equal(caseId, teams.CaseId);
+        Assert.DoesNotContain("Claim escalated", teams.PayloadJson, StringComparison.Ordinal);
+    }
+
+    private sealed class CapturingTeamsQueue : ITeamsNotificationQueue
+    {
+        public List<TeamsNotification> Notifications { get; } = [];
+
+        public Task EnqueueAsync(TeamsNotification notification, CancellationToken cancellationToken = default)
+        {
+            Notifications.Add(notification);
+            return Task.CompletedTask;
+        }
     }
 
     private static ITenantContextAccessor ContextFor(string userId)

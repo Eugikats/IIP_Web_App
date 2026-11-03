@@ -106,6 +106,66 @@ public sealed class StaticDocumentChecklistProviderProductTests
     }
 
     [Fact]
+    public async Task BuildChecklistAsync_UploadedSelectedBuiltInTypeCountsAsReceivedWithoutClaimingItWasClassified()
+    {
+        var repository = new FakeProductRepository();
+        var product = BaseProduct(
+        [
+            new ProductDocumentRequirement("ClaimForm", "Claim form", "Required to register the claim", IsRequired: true, "intimation_and_reference", false),
+        ]);
+        await repository.SaveAsync(product);
+        var provider = new StaticDocumentChecklistProvider(new CompletenessScoringService(), repository);
+        var claimCase = MotorClaim(product.ProductId, product.Version);
+        var uploaded = ReceivedDocument(claimCase.CaseId, documentTypeKey: "ClaimForm") with
+        {
+            ProcessingStatus = DocumentProcessingStatus.Uploaded,
+            DocumentType = DocumentType.Unknown,
+            Classification = new DocumentClassificationResult(DocumentType.Unknown, 0m, "NotConfigured", DateTimeOffset.UtcNow),
+            Extraction = new DocumentExtractionResult(
+                new Dictionary<string, string>(),
+                new Dictionary<string, decimal>(),
+                "NotConfigured",
+                DateTimeOffset.UtcNow,
+                Approved: false,
+                ApprovedByUserId: null,
+                ApprovedAt: null),
+            ProcessedAt = null,
+        };
+
+        var checklist = await provider.BuildChecklistAsync(claimCase, [uploaded]);
+
+        Assert.Contains(DocumentType.ClaimForm, checklist.ReceivedDocuments);
+        Assert.Empty(checklist.MissingRequiredDocuments);
+        Assert.Equal(100m, checklist.CompletenessScore.Percentage);
+        Assert.Equal(DocumentType.Unknown, uploaded.DocumentType);
+        Assert.Equal("NotConfigured", uploaded.Classification.ProviderName);
+        Assert.Equal("NotConfigured", uploaded.Extraction.ProviderName);
+    }
+
+    [Fact]
+    public async Task BuildChecklistAsync_UploadedWithoutSelectedTypeDoesNotSatisfyBuiltInRequirement()
+    {
+        var repository = new FakeProductRepository();
+        var product = BaseProduct(
+        [
+            new ProductDocumentRequirement("ClaimForm", "Claim form", "Required to register the claim", IsRequired: true, "intimation_and_reference", false),
+        ]);
+        await repository.SaveAsync(product);
+        var provider = new StaticDocumentChecklistProvider(new CompletenessScoringService(), repository);
+        var claimCase = MotorClaim(product.ProductId, product.Version);
+        var uploaded = ReceivedDocument(claimCase.CaseId) with
+        {
+            ProcessingStatus = DocumentProcessingStatus.Uploaded,
+            DocumentType = DocumentType.Unknown,
+        };
+
+        var checklist = await provider.BuildChecklistAsync(claimCase, [uploaded]);
+
+        Assert.Empty(checklist.ReceivedDocuments);
+        Assert.Contains(checklist.MissingRequiredDocuments, missing => missing.Key == "ClaimForm");
+    }
+
+    [Fact]
     public async Task BuildChecklistAsync_AnOlderDocumentWithNoStoredKey_StillSatisfiesItsBuiltInEnumRequirement()
     {
         // Pre-existing documents were persisted before DocumentTypeKey existed, so it deserializes

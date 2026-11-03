@@ -41,10 +41,12 @@ async function semanticsAudit(page: Page) {
 }
 
 test("Gate 13 records keyboard, focus-return and dialog semantics evidence", async ({ page }, testInfo) => {
+  await page.addInitScript(() => localStorage.setItem("iip.role", JSON.stringify("ClaimsSupervisor")));
   await page.goto("/app/claims/CLM-2026-00491");
   await page.waitForLoadState("networkidle");
 
-  const trigger = page.getByRole("button", { name: "Export claim pack" });
+  await page.getByRole("button", { name: "More actions" }).click();
+  const trigger = page.getByRole("menuitem", { name: "Export claim pack" });
   await expect(trigger).toBeVisible({ timeout: 15_000 });
   await trigger.focus();
   await trigger.press("Enter");
@@ -72,7 +74,7 @@ test("Gate 13 records keyboard, focus-return and dialog semantics evidence", asy
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(trigger).toBeFocused();
+  await expect(page.getByRole("button", { name: "More actions" })).toBeFocused();
   const focusAfterEscape = await page.evaluate(() => ({
     tag: document.activeElement?.tagName,
     name: document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent?.trim().slice(0, 100),
@@ -95,13 +97,18 @@ test("Gate 13 records target-size, semantic and automated-rule evidence", async 
     await page.goto(route);
     await page.waitForLoadState("networkidle");
     const axe = await new AxeBuilder({ page }).analyze();
+    expect(axe.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical")).toEqual([]);
     results[route] = {
       targets: await targetAudit(page),
       semantics: await semanticsAudit(page),
       axe: axe.violations.map((violation) => ({
         id: violation.id,
         impact: violation.impact,
-        nodes: violation.nodes.length,
+        nodes: violation.nodes.map((node) => ({
+          target: node.target,
+          html: node.html,
+          failureSummary: node.failureSummary,
+        })),
       })),
     };
   }
@@ -112,6 +119,7 @@ test("Gate 13 records target-size, semantic and automated-rule evidence", async 
 
 test("Gate 13 records reduced-motion and visible-focus behavior", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => localStorage.setItem("iip.role", JSON.stringify("ClaimsSupervisor")));
   await page.goto("/app/claims/CLM-2026-00491");
   await page.waitForLoadState("networkidle");
 
@@ -130,7 +138,8 @@ test("Gate 13 records reduced-motion and visible-focus behavior", async ({ page 
     }));
   }
 
-  const trigger = page.getByRole("button", { name: "Export claim pack" });
+  await page.getByRole("button", { name: "More actions" }).click();
+  const trigger = page.getByRole("menuitem", { name: "Export claim pack" });
   await expect(trigger).toBeVisible({ timeout: 15_000 });
   await trigger.click();
   const motion = await page.getByRole("dialog", { name: "Export claim evidence pack" }).evaluate((node) => {

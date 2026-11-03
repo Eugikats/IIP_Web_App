@@ -61,6 +61,9 @@ public static class RolePermissionMap
                 Permission.ReviewAgentWorkItems,
                 Permission.ManageProducts
             ],
+            // Customer service handles claim intake, customer communication and sales leads. It
+            // holds no administrative permission (products, tenant settings, onboarding, billing,
+            // agents, integrations, audit or evidence export) and cannot approve settlements.
             [PlatformRole.CustomerService] =
             [
                 Permission.ViewCommandCenter,

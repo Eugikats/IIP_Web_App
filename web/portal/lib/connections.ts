@@ -2,7 +2,7 @@
 
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 
-export type ConnectionType = "sms" | "email" | "translation";
+export type ConnectionType = "sms" | "email" | "translation" | "policysystem" | "instagram" | "messenger" | "tiktok" | "x" | "telegram";
 
 export type ConnectionStatus = {
   connectionType: string;
@@ -206,4 +206,47 @@ export const TRANSLATION_PROVIDER_FIELDS: Record<string, ConnectionFieldSpec[]> 
     { key: "endpoint", label: "API endpoint (optional)", placeholder: "https://api.sunbird.ai", help: "Leave blank to use Sunbird's default API address.", secret: false, optional: true },
     { key: "model", label: "Model (optional)", placeholder: "sunflower-9b", help: "Leave blank to use Sunbird's broader-language default (sunflower-9b).", secret: false, optional: true },
   ],
+};
+
+export const POLICY_SYSTEM_PROVIDER_FIELDS: Record<string, ConnectionFieldSpec[]> = {
+  GenericRest: [
+    { key: "baseUrl", label: "HTTPS base URL", placeholder: "https://claims.example.org/api", help: "Use an insurer-approved HTTPS endpoint. Localhost, embedded credentials, query strings, and redirects are rejected.", secret: false },
+    { key: "authHeaderName", label: "Authentication header name (optional)", placeholder: "Authorization", help: "For example, Authorization or X-Api-Key. Leave both authentication fields blank only when the endpoint requires no authentication.", secret: false, optional: true },
+    { key: "authHeaderValue", label: "Authentication header value (optional)", placeholder: "Bearer token or API key", help: "Stored encrypted and never returned to the browser after saving.", secret: true, optional: true },
+    { key: "policyNumberField", label: "Policy number response field", placeholder: "policyNumber", help: "JSON property name returned by the endpoint. Blank uses policyNumber.", secret: false, optional: true },
+    { key: "productLineField", label: "Product line response field", placeholder: "productLine", help: "JSON property name returned by the endpoint. Blank uses productLine.", secret: false, optional: true },
+    { key: "coverTypeField", label: "Cover type response field", placeholder: "coverType", help: "JSON property name returned by the endpoint. Blank uses coverType.", secret: false, optional: true },
+    { key: "customerIdField", label: "Customer ID response field", placeholder: "customerId", help: "JSON property name returned by the endpoint. Blank uses customerId.", secret: false, optional: true },
+    { key: "effectiveFromField", label: "Cover start date response field", placeholder: "effectiveFrom", help: "JSON property name returned by the endpoint. Blank uses effectiveFrom.", secret: false, optional: true },
+    { key: "effectiveToField", label: "Cover end date response field", placeholder: "effectiveTo", help: "JSON property name returned by the endpoint. Blank uses effectiveTo.", secret: false, optional: true },
+    { key: "requestTimeoutSeconds", label: "Request timeout (seconds)", placeholder: "15", help: "The adapter applies a 5 to 60 second timeout. Blank uses 15 seconds.", secret: false, optional: true },
+  ],
+};
+
+export const SOCIAL_PROVIDER_FIELDS: Record<"instagram" | "messenger" | "tiktok" | "x" | "telegram", Record<string, ConnectionFieldSpec[]>> = {
+  instagram: { MetaInstagram: [
+    { key: "accountId", label: "Instagram professional account ID", placeholder: "Account ID", help: "The professional account ID for this workspace.", secret: false },
+    { key: "accessToken", label: "Access token", placeholder: "Access token", help: "A token granted to the professional account with the required Instagram permissions.", secret: true },
+    { key: "appSecret", label: "Meta app secret", placeholder: "App secret", help: "Verifies signed messages sent by Meta to the webhook.", secret: true },
+    { key: "webhookVerifyToken", label: "Webhook verification token", placeholder: "A private verification phrase", help: "Choose a private token and use the same value when registering the webhook in Meta.", secret: true },
+  ] },
+  messenger: { MetaMessenger: [
+    { key: "pageId", label: "Facebook Page ID", placeholder: "Page ID", help: "The Page that will own customer conversations.", secret: false },
+    { key: "pageAccessToken", label: "Page access token", placeholder: "Page access token", help: "A Page token with Messenger permissions.", secret: true },
+    { key: "appSecret", label: "Meta app secret", placeholder: "App secret", help: "Verifies signed messages sent by Meta to the webhook.", secret: true },
+    { key: "webhookVerifyToken", label: "Webhook verification token", placeholder: "A private verification phrase", help: "Choose a private token and use the same value when registering the webhook in Meta.", secret: true },
+  ] },
+  tiktok: { TikTokBusiness: [
+    { key: "businessId", label: "TikTok business ID", placeholder: "Business ID", help: "The approved business account ID.", secret: false },
+    { key: "accessToken", label: "Business API access token", placeholder: "Access token", help: "A token authorized for the business account.", secret: true },
+    { key: "appSecret", label: "TikTok app secret", placeholder: "App secret", help: "Used to verify TikTok webhook signatures.", secret: true },
+  ] },
+  x: { XApi: [
+    { key: "userId", label: "X user ID", placeholder: "User ID", help: "The account that will own direct messages.", secret: false },
+    { key: "clientSecret", label: "OAuth 2.0 client secret", placeholder: "Client secret", help: "Used to verify X v2 webhook signatures and CRC.", secret: true },
+    { key: "accessToken", label: "OAuth 2.0 user access token", placeholder: "User access token", help: "Use a user-context token with users.read, dm.read and dm.write for account verification, inbound events and replies.", secret: true },
+  ] },
+  telegram: { TelegramBot: [
+    { key: "botToken", label: "Bot token", placeholder: "Bot token", help: "Create a bot with BotFather and paste its token here.", secret: true },
+  ] },
 };

@@ -17,7 +17,14 @@ async function readSafeApiError(response: Response, fallback: string): Promise<s
   }
   return fallback;
 }
-export type ClaimDocumentView = { documentId: string; documentType: string; processingStatus: string; classificationConfidence: number };
+export type ClaimDocumentView = {
+  documentId: string;
+  documentType: string;
+  processingStatus: string;
+  classificationConfidence: number;
+  customerDocumentTypeKey?: string | null;
+  processingCapability?: string | null;
+};
 export type MotorFnolDetailsView = {
   vehicleRegistration: string | null;
   accidentTime: string | null;
@@ -147,6 +154,8 @@ function parityClaimDetail(claimId: string): ClaimDetailView | null {
         documentType: document.type,
         processingStatus: document.status,
         classificationConfidence: document.confidence ?? 0,
+          customerDocumentTypeKey: null,
+          processingCapability: null,
       })),
   };
 }

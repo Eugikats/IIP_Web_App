@@ -120,7 +120,7 @@ requireText("lib/providerHealth.ts", "not configured", "communication/provider u
 requireText("lib/uiLoadState.ts", "export type UiLoadState<T>", "shared UI load states must distinguish loading, success, empty, authority, configuration, offline, retryable, and terminal outcomes.");
 requireText("lib/uiLoadState.ts", "export class UiServiceError", "service failures must use a safe structured UI error model.");
 requireText("lovable-pages/UniversalMyWork.tsx", 'value={error ? "-"', "My Work summaries must not render numeric zero when the request failed.");
-requireText("next.config.ts", 'phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next"', "development and production servers must use isolated Next.js output directories.");
+requirePattern("next.config.ts", /phase === PHASE_DEVELOPMENT_SERVER[\s\S]*?"\.next-dev"[\s\S]*?requestedBuildDistDir \|\| "\.next"/, "development and production servers must use isolated Next.js output directories, with only a validated build-specific override.");
 requireText("package.json", '"dev": "node scripts/run-next-dev.mjs"', "all development servers must use the shared compiler lock.");
 requireText("package.json", '"build": "node scripts/run-next-build.mjs"', "all production builds must use fail-closed configuration validation.");
 requireText("next.config.ts", "NEXT_PUBLIC_RUNTIME_PROFILE and NEXT_PUBLIC_AUTH_MODE are required", "production builds must fail closed when runtime authority configuration is missing.");

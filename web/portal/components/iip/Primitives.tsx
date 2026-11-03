@@ -21,9 +21,7 @@ export function SectionHeader({
   breadcrumb,
 }: {
   eyebrow?: string;
-  // Escape hatch for a single screen's eyebrow to use a different, already-AA-compliant token
-  // instead of the default text-dls-text-muted (see the /app/claims "Claims Intelligence" label,
-  // gate-17) without changing the shared muted token every other of the ~30 eyebrow callers uses.
+  // Escape hatch for a single screen's eyebrow to use a different token when its surface needs it.
   eyebrowClassName?: string;
   title: string;
   sub?: string;
@@ -62,7 +60,7 @@ export function SectionHeader({
       <div className="flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
         <div className="min-w-0">
           {eyebrow && (
-            <div className={cn("mb-1.5 text-[11.5px] font-bold uppercase tracking-[0.05em]", eyebrowClassName ?? "text-dls-text-muted")}>
+            <div className={cn("mb-1.5 text-[11.5px] font-bold uppercase tracking-[0.05em]", eyebrowClassName ?? "text-dls-text-secondary")}>
               {eyebrow}
             </div>
           )}

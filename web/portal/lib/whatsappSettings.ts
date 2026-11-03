@@ -27,6 +27,12 @@ export type SaveWhatsAppConfigurationInput = {
   businessDisplayName?: string;
 };
 
+export type WhatsAppMessagingMode = {
+  mode: "Review" | "Autopilot";
+  effectiveMode: "Review" | "Autopilot";
+  autopilotAvailable: boolean;
+};
+
 async function safeError(response: Response, fallback: string): Promise<string> {
   try {
     const payload = (await response.json()) as { message?: string; errors?: Record<string, string[]> };
@@ -59,6 +65,36 @@ export async function getWhatsAppConfigurationStatus(role: string): Promise<What
     return { ok: true, value: (await response.json()) as WhatsAppConfigurationStatus };
   } catch (reason) {
     return { ok: false, error: safeNetworkFailure(reason, "WhatsApp connection status could not be loaded.") };
+  }
+}
+
+export async function getWhatsAppMessagingMode(role: string): Promise<WhatsAppResult<WhatsAppMessagingMode>> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/integrations/whatsapp/messaging-mode`, {
+      headers: scopedHeaders(role, ""),
+    });
+    if (!response.ok) return { ok: false, error: await safeError(response, "Messaging mode could not be loaded.") };
+    return { ok: true, value: (await response.json()) as WhatsAppMessagingMode };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "Messaging mode could not be loaded.") };
+  }
+}
+
+export async function updateWhatsAppMessagingMode(
+  role: string,
+  mode: WhatsAppMessagingMode["mode"],
+  auditReason: string,
+): Promise<WhatsAppResult<WhatsAppMessagingMode>> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/integrations/whatsapp/messaging-mode`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-Audit-Reason": auditReason, ...scopedHeaders(role, "") },
+      body: JSON.stringify({ mode }),
+    });
+    if (!response.ok) return { ok: false, error: await safeError(response, "Messaging mode could not be changed.") };
+    return { ok: true, value: (await response.json()) as WhatsAppMessagingMode };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "Messaging mode could not be changed.") };
   }
 }
 

@@ -10,6 +10,7 @@ using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Documents;
+using InsuranceIntelligence.Domain.Fraud;
 using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Storage;
 using InsuranceIntelligence.Domain.Workflow;
@@ -209,12 +210,15 @@ public sealed class Phase5InfrastructureTests
 
         Assert.Equal(StatusCodes.Status200OK, status);
         Assert.Equal("Updated Insurer", body!.InsurerName);
+        Assert.Equal(4, body.FraudRules.VelocityClaimCount);
+        Assert.Equal(3, body.FraudRules.VelocityWindowDays);
         Assert.Contains(auditEvents, auditEvent =>
             auditEvent.ActionName == "admin.tenant_configuration.updated"
             && auditEvent.UserId == "local-admin"
             && auditEvent.AuditReason == auditReason
             && auditEvent.EvidenceIds.Contains("insurerProfile")
-            && auditEvent.EvidenceIds.Contains("auditRetention"));
+            && auditEvent.EvidenceIds.Contains("auditRetention")
+            && auditEvent.EvidenceIds.Contains("fraudRules"));
     }
 
     [Fact]
@@ -890,7 +894,8 @@ public sealed class Phase5InfrastructureTests
             [new ChannelConfiguration("Email", true)],
             [new ApprovalThresholdConfiguration("Motor", 1000m, "ClaimsSupervisor")],
             [new ChecklistConfiguration("Motor", ["ClaimForm"])],
-            365);
+            365,
+            FraudRuleOptions.Default with { VelocityWindowDays = 3, VelocityClaimCount = 4 });
 
     private static DefaultHttpContext ScopedContext(string role = "Admin", string? auditReason = null)
     {

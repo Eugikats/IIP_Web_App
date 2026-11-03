@@ -88,8 +88,8 @@ test("Gate 5 Claims Intelligence does not present zero counts for an unavailable
   await page.goto("/app/claims");
   await expect(page.getByText("Claims could not be loaded")).toBeVisible();
   await expect(page.getByText("Reference corr-claims-recovery")).toBeVisible();
-  await expect(page.getByRole("button", { name: "All," })).toBeVisible();
-  await expect(page.getByRole("button", { name: "SLA attention," })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^All -/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^SLA attention -/ })).toBeVisible();
 
   const search = page.getByRole("textbox", { name: "Search claims" });
   await search.fill("CLM-1048");

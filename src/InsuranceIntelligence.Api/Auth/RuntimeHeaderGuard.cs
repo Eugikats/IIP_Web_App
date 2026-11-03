@@ -6,6 +6,9 @@ public static class RuntimeHeaderGuard
 {
     private const string GraphWebhookPath = "/api/v1/integrations/email/graph/webhook";
     private const string WhatsAppWebhookPath = "/api/v1/integrations/whatsapp/webhook";
+    private const string TelegramWebhookPath = "/api/v1/integrations/telegram/bots";
+    private const string MetaWebhookPath = "/api/v1/integrations/meta";
+    private const string XWebhookPath = "/api/v1/integrations/x";
     private const string ClientPortalPath = "/api/v1/client-portal";
 
     // IIP Academy is open to visitors who have not signed in: the course catalogue, certificate checks and "who am I"
@@ -83,6 +86,9 @@ public static class RuntimeHeaderGuard
         // with 401 in any deployed environment.
         if (httpContext.Request.Path.StartsWithSegments(GraphWebhookPath, StringComparison.OrdinalIgnoreCase)
             || httpContext.Request.Path.StartsWithSegments(WhatsAppWebhookPath, StringComparison.OrdinalIgnoreCase)
+            || httpContext.Request.Path.StartsWithSegments(TelegramWebhookPath, StringComparison.OrdinalIgnoreCase)
+            || httpContext.Request.Path.StartsWithSegments(MetaWebhookPath, StringComparison.OrdinalIgnoreCase)
+            || httpContext.Request.Path.StartsWithSegments(XWebhookPath, StringComparison.OrdinalIgnoreCase)
             || IsClientPortal(httpContext)
             || httpContext.Request.Path.StartsWithSegments(AcademyPublicPath, StringComparison.OrdinalIgnoreCase)
             || httpContext.Request.Path.Equals(AcademyMePath, StringComparison.OrdinalIgnoreCase)

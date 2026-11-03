@@ -7,7 +7,9 @@ namespace InsuranceIntelligence.Application.CustomerAssistant;
 /// read from configuration because the Application layer does not see Infrastructure.</summary>
 public interface IAssistantLanguageSettings
 {
-    IReadOnlyCollection<SupportedLanguageCode> EnabledLanguages { get; }
+    Task<IReadOnlyCollection<SupportedLanguageCode>> GetEnabledLanguagesAsync(
+        InsuranceIntelligence.Domain.Common.TenantScope scope,
+        CancellationToken cancellationToken = default);
 
     bool AllowUnreviewedTranslations { get; }
 }
@@ -15,7 +17,9 @@ public interface IAssistantLanguageSettings
 /// <summary>English only. What the assistant runs on when nothing else is configured.</summary>
 public sealed class EnglishOnlyAssistantLanguageSettings : IAssistantLanguageSettings
 {
-    public IReadOnlyCollection<SupportedLanguageCode> EnabledLanguages => [];
+    public Task<IReadOnlyCollection<SupportedLanguageCode>> GetEnabledLanguagesAsync(
+        InsuranceIntelligence.Domain.Common.TenantScope scope,
+        CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyCollection<SupportedLanguageCode>>([]);
 
     public bool AllowUnreviewedTranslations => false;
 }

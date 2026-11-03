@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("Gate 10 Command Center exposes provenance and source-grounded answers", async ({ page }, testInfo) => {
-  await page.goto("/app");
+  await page.goto("/app/assistant");
   await page.waitForLoadState("networkidle");
 
   // Navigation model §6.2, the chat-first landing is exactly four elements (orb, greeting,
@@ -15,16 +15,16 @@ test("Gate 10 Command Center exposes provenance and source-grounded answers", as
   await expect(page.getByRole("main").getByText("How can I help with your work today?")).toBeVisible();
   await expect(page.getByRole("main").getByRole("button", { name: "Which claims are waiting on documents?" })).toBeVisible();
 
-  await page.getByPlaceholder("Ask IIP anything, claims, documents, customers, policies, workflows…").fill("Show claims that need attention.");
+  await page.getByRole("textbox", { name: "Message IIP Operations" }).fill("Show claims that need attention.");
   await page.getByRole("button", { name: "Send to IIP Operations" }).click();
 
   await expect(page.getByText("Claims needing attention")).toBeVisible();
-  await expect(page.getByRole("link", { name: /CLM-2026-00491 Sarah N\./ })).toHaveAttribute("href", /\/app\/claims\/CLM-2026-00491/);
+  await expect(page.getByRole("link", { name: /CLM-2026-00491 Sarah N\. Motor/ })).toHaveAttribute("href", /\/app\/claims\/CLM-2026-00491/);
   await expect(page.getByText("Police report")).toBeVisible();
   // DESIGN.md's "Absent capability renders Not configured" rule now goes through the shared
   // NotConfiguredStateSurface primitive ("Not configured" pill + "<provider>, <adminAction>"),
   // not the old ad-hoc "<provider> not configured." sentence.
-  await expect(page.getByText("Azure OpenAI, Configure Azure OpenAI before production AI generation.")).toBeVisible();
+  await expect(page.getByText("Azure OpenAI. Configure Azure OpenAI before production AI generation.")).toBeVisible();
 
   await testInfo.attach(`gate-10-ai-conversations-${testInfo.project.name}.png`, {
     body: await page.screenshot({ fullPage: true }),
@@ -33,10 +33,10 @@ test("Gate 10 Command Center exposes provenance and source-grounded answers", as
 });
 
 test("Gate 10 Command Center escalates unsupported questions instead of answering from memory", async ({ page }) => {
-  await page.goto("/app");
+  await page.goto("/app/assistant");
   await page.waitForLoadState("networkidle");
 
-  await page.getByPlaceholder("Ask IIP anything, claims, documents, customers, policies, workflows…").fill("Does an unlisted benefit apply?");
+  await page.getByRole("textbox", { name: "Message IIP Operations" }).fill("Does an unlisted benefit apply?");
   await page.getByRole("button", { name: "Send to IIP Operations" }).click();
 
   await expect(page.getByText("Does an unlisted benefit apply?")).toBeVisible();

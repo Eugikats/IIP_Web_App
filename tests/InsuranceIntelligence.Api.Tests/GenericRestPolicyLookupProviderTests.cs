@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using InsuranceIntelligence.Domain.Common;
+using InsuranceIntelligence.Domain.Policies;
 using InsuranceIntelligence.Infrastructure.Policies;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -18,15 +19,18 @@ public sealed class GenericRestPolicyLookupProviderTests
             """);
         var provider = CreateProvider(handler);
 
-        var policy = await provider.FindPolicyByNumberAsync("NSA/MO/2026/00033", Scope);
+        var lookup = await provider.FindPolicyByNumberAsync("NSA/MO/2026/00033", Scope);
 
-        Assert.NotNull(policy);
-        Assert.Equal("NSA/MO/2026/00033", policy!.PolicyNumber);
-        Assert.Equal("Motor", policy.ProductLine);
-        Assert.Equal("Comprehensive", policy.CoverType);
-        Assert.Equal("cust-1", policy.CustomerId);
-        Assert.Equal(new DateOnly(2026, 1, 1), policy.EffectiveFrom);
-        Assert.Equal(Scope.TenantId, policy.TenantId);
+        Assert.Equal(PolicyLookupStatus.Found, lookup.Status);
+        Assert.Equal("ExternalPolicySystem", lookup.Source);
+        Assert.NotNull(lookup.Policy);
+        Assert.Equal("NSA/MO/2026/00033", lookup.Policy!.PolicyNumber);
+        Assert.Equal("Motor", lookup.Policy.ProductLine);
+        Assert.Equal("Comprehensive", lookup.Policy.CoverType);
+        Assert.Equal("cust-1", lookup.Policy.CustomerId);
+        Assert.Equal(new DateOnly(2026, 1, 1), lookup.Policy.EffectiveFrom);
+        Assert.Equal(Scope.TenantId, lookup.Policy.TenantId);
+        Assert.Equal(PolicyRecordSource.ExternalLookup, lookup.Policy.RecordSource);
         Assert.Contains("/policies/NSA%2FMO%2F2026%2F00033", handler.LastRequestUri!.ToString());
     }
 
@@ -43,26 +47,28 @@ public sealed class GenericRestPolicyLookupProviderTests
     }
 
     [Fact]
-    public async Task FindPolicyByNumberAsync_NotFoundResponse_ReturnsNullRatherThanThrowing()
+    public async Task FindPolicyByNumberAsync_NotFoundResponse_IsDistinguishedFromProviderFailure()
     {
         var handler = new CapturingHandler("""{"message":"not found"}""", HttpStatusCode.NotFound);
         var provider = CreateProvider(handler);
 
-        var policy = await provider.FindPolicyByNumberAsync("POL-UNKNOWN", Scope);
+        var lookup = await provider.FindPolicyByNumberAsync("POL-UNKNOWN", Scope);
 
-        Assert.Null(policy);
+        Assert.Equal(PolicyLookupStatus.NotFound, lookup.Status);
+        Assert.Null(lookup.Policy);
     }
 
     [Fact]
-    public async Task FindPolicyByNumberAsync_MissingBaseUrl_ReturnsNullWithoutCallingAnything()
+    public async Task FindPolicyByNumberAsync_MissingBaseUrlIsNotConfiguredAndDoesNotCallAnything()
     {
         var handler = new CapturingHandler("""{}""");
         var settings = new GenericRestPolicySettings(string.Empty, null, null, "policyNumber", "productLine", "coverType", "customerId", "effectiveFrom", "effectiveTo", 15);
         var provider = new GenericRestPolicyLookupProvider(settings, new HttpClient(handler), NullLogger<GenericRestPolicyLookupProvider>.Instance);
 
-        var policy = await provider.FindPolicyByNumberAsync("POL-1", Scope);
+        var lookup = await provider.FindPolicyByNumberAsync("POL-1", Scope);
 
-        Assert.Null(policy);
+        Assert.Equal(PolicyLookupStatus.NotConfigured, lookup.Status);
+        Assert.Null(lookup.Policy);
         Assert.Null(handler.LastRequestUri);
     }
 
@@ -74,11 +80,12 @@ public sealed class GenericRestPolicyLookupProviderTests
             """);
         var provider = CreateProvider(handler);
 
-        var policies = await provider.FindPoliciesByCustomerAsync("cust-1", Scope);
+        var lookup = await provider.FindPoliciesByCustomerAsync("cust-1", Scope);
 
-        Assert.Equal(2, policies.Count);
-        Assert.Contains(policies, p => p.PolicyNumber == "POL-1" && p.ProductLine == "Motor");
-        Assert.Contains(policies, p => p.PolicyNumber == "POL-2" && p.ProductLine == "Medical");
+        Assert.Equal(PolicyLookupStatus.Found, lookup.Status);
+        Assert.Equal(2, lookup.Policies.Count);
+        Assert.Contains(lookup.Policies, p => p.PolicyNumber == "POL-1" && p.ProductLine == "Motor");
+        Assert.Contains(lookup.Policies, p => p.PolicyNumber == "POL-2" && p.ProductLine == "Medical");
     }
 
     [Fact]
@@ -87,9 +94,37 @@ public sealed class GenericRestPolicyLookupProviderTests
         var handler = new CapturingHandler("""{"productLine":"Motor"}""");
         var provider = CreateProvider(handler);
 
-        var policy = await provider.FindPolicyByNumberAsync("POL-1", Scope);
+        var lookup = await provider.FindPolicyByNumberAsync("POL-1", Scope);
 
-        Assert.Null(policy);
+        Assert.Equal(PolicyLookupStatus.Malformed, lookup.Status);
+        Assert.Null(lookup.Policy);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, PolicyLookupStatus.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden, PolicyLookupStatus.Unauthorized)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, PolicyLookupStatus.Unavailable)]
+    [InlineData(HttpStatusCode.BadRequest, PolicyLookupStatus.ProviderRejected)]
+    public async Task FindPolicyByNumberAsync_PreservesExternalFailureCategory(HttpStatusCode statusCode, PolicyLookupStatus expected)
+    {
+        var provider = CreateProvider(new CapturingHandler("{}", statusCode));
+
+        var result = await provider.FindPolicyByNumberAsync("POL-1", Scope);
+
+        Assert.Equal(expected, result.Status);
+        Assert.Null(result.Policy);
+    }
+
+    [Fact]
+    public async Task FindPolicyByNumberAsync_InvalidMappedFieldsAreMalformedInsteadOfUnknownPolicy()
+    {
+        var handler = new CapturingHandler("""{"policyNumber":"POL-1","productLine":"Motor","effectiveFrom":"not-a-date"}""");
+        var provider = CreateProvider(handler);
+
+        var result = await provider.FindPolicyByNumberAsync("POL-1", Scope);
+
+        Assert.Equal(PolicyLookupStatus.Malformed, result.Status);
+        Assert.Null(result.Policy);
     }
 
     private static GenericRestPolicyLookupProvider CreateProvider(CapturingHandler handler, string? authHeaderName = null, string? authHeaderValue = null)

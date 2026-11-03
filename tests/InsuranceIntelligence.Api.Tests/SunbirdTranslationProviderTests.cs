@@ -61,7 +61,7 @@ public sealed class SunbirdTranslationProviderTests
         Assert.False(root.GetProperty("stream").GetBoolean());
         var messages = root.GetProperty("messages");
         Assert.Equal("system", messages[0].GetProperty("role").GetString());
-        Assert.Contains("from Kiswahili to English", messages[0].GetProperty("content").GetString());
+        Assert.Contains("from Swahili to English", messages[0].GetProperty("content").GetString());
         Assert.Contains("<<<\nHabari\n>>>", messages[1].GetProperty("content").GetString());
     }
 
