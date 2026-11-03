@@ -40,6 +40,17 @@ public sealed record ClaimTypeDto(
     int SortOrder,
     IReadOnlyList<string>? Aliases);
 
+public sealed record ClaimFieldDto(
+    string? Key,
+    string Label,
+    string Type,
+    bool Required,
+    IReadOnlyList<string>? Options,
+    string? HelpText,
+    int SortOrder,
+    bool CustomerVisible,
+    IReadOnlyList<string>? ClaimTypeKeys);
+
 public sealed record ProductDto(
     Guid ProductId,
     int Version,
@@ -63,7 +74,8 @@ public sealed record ProductDto(
     DateTimeOffset? PublishRejectedAt,
     string? PublishRejectionReason,
     IReadOnlyList<ProductWordingFactDto> WordingFacts,
-    IReadOnlyList<ClaimTypeDto>? ClaimTypes = null);
+    IReadOnlyList<ClaimTypeDto>? ClaimTypes = null,
+    IReadOnlyList<ClaimFieldDto>? ClaimFields = null);
 
 public sealed record ProductVersionSummaryDto(
     int Version,
@@ -97,7 +109,8 @@ public sealed record UpdateProductRequest(
     IReadOnlyList<DocumentMatrixEntryDto>? DocumentMatrix,
     string? ChangeReason,
     IReadOnlyList<ProductWordingFactDto>? WordingFacts = null,
-    IReadOnlyList<ClaimTypeDto>? ClaimTypes = null);
+    IReadOnlyList<ClaimTypeDto>? ClaimTypes = null,
+    IReadOnlyList<ClaimFieldDto>? ClaimFields = null);
 
 public sealed record SubmitProductRequest(string? ChangeReason);
 

@@ -31,4 +31,10 @@ public sealed record CreateCaseCommand(
     /// has configured claim types, the claim type must be one of them, otherwise intake throws
     /// ClaimTypeNotConfiguredException. Automatic channels (email, WhatsApp) leave this false and
     /// get a best-guess type that staff confirm.</summary>
-    bool RequireConfiguredClaimType = false);
+    bool RequireConfiguredClaimType = false,
+    /// <summary>Answers to the product's claim fields, keyed by field key. Validated against the
+    /// definitions for the claim's product and claim type.</summary>
+    IReadOnlyDictionary<string, string>? FieldValues = null,
+    /// <summary>True when the claimant filled the form themselves: only customer-visible fields
+    /// are accepted.</summary>
+    bool FieldsFromCustomer = false);

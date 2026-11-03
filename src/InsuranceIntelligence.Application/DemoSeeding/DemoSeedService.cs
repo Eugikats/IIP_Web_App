@@ -265,6 +265,7 @@ public sealed class DemoSeedService(
                 Stages = DefaultClaimStageLibrary.Default(),
                 DocumentMatrix = matrix,
                 ClaimTypes = ToDemoClaimTypes(line.ClaimTypes),
+                ClaimFields = BuiltInClaimFields.For(line.Name),
                 UpdatedByUserId = seededByUserId,
                 UpdatedAt = now,
                 ChangeReason = "Seeded demo product, so a seeded claim has a real configured claim process and document matrix to pin against.",

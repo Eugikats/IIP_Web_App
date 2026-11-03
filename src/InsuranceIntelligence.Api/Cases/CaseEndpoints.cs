@@ -61,7 +61,8 @@ public static class CaseEndpoints
                 request.MotorFnolDetails,
                 request.MedicalFnolDetails,
                 request.ClaimedAmount,
-                RequireConfiguredClaimType: true);
+                RequireConfiguredClaimType: true,
+                FieldValues: request.FieldValues);
 
             var claimCase = await service.CreateCaseAsync(command, cancellationToken);
 
@@ -111,6 +112,10 @@ public static class CaseEndpoints
             var response = CaseMapper.ToResponse(claimCase, auditEvents, checklist);
 
             return Results.Created($"/api/v1/cases/{claimCase.CaseId}", response);
+        }
+        catch (ClaimFieldsInvalidException ex)
+        {
+            return ClaimFieldEndpoints.FieldErrors(ex.Errors);
         }
         catch (ArgumentException ex)
         {

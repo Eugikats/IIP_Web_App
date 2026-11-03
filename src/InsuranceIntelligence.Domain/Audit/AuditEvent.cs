@@ -209,6 +209,33 @@ public sealed record AuditEvent(
             correlationId: correlationId,
             confidence: document.Classification.ConfidenceScore);
 
+    /// <summary>Someone saved answers to a claim's fields. Records which fields changed, never the
+    /// values, which can be personal.</summary>
+    public static AuditEvent CaseFieldsUpdated(
+        ClaimCaseSnapshot snapshot,
+        string userId,
+        ActorType actorType,
+        IReadOnlyCollection<string> fieldKeys,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            snapshot.Scope,
+            snapshot.CaseId,
+            null,
+            userId,
+            actorType,
+            "case.fields.updated",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: string.Join(",", fieldKeys.OrderBy(key => key, StringComparer.Ordinal)),
+            EvidenceIds: [],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>Processing could not read the file (provider unavailable, unsupported or unreadable
     /// content). The document is kept, marked Failed, and can be retried; nothing is lost.</summary>
     public static AuditEvent DocumentProcessingFailed(CaseDocument document, string correlationId) =>

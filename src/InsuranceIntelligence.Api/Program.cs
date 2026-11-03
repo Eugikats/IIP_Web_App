@@ -587,6 +587,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQu
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCommandService, InsuranceIntelligence.Application.Products.ProductCommandService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductWordingExtractionService, InsuranceIntelligence.Application.Products.ProductWordingExtractionService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimTypeService, InsuranceIntelligence.Application.Products.ClaimTypeService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.ITenantOnboardingService, InsuranceIntelligence.Application.Onboarding.TenantOnboardingService>();
@@ -1410,6 +1411,19 @@ app.MapPost("/api/v1/claim-types/suggest", InsuranceIntelligence.Api.Products.Cl
 app.MapPost("/api/v1/products/{productId:guid}/claim-types/import-existing", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.ImportExisting)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 app.MapGet("/api/v1/client-portal/claim-types", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.ListForClaimant)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+// Claim fields (build-loop item 5): the questions a product asks about a claim and a claim's answers.
+app.MapGet("/api/v1/claim-fields", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.GetForm)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim, Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ManageProducts));
+app.MapGet("/api/v1/cases/{caseId:guid}/fields", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.GetForClaim)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPut("/api/v1/cases/{caseId:guid}/field-values", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.SaveForClaim)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim, Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/client-portal/claim-fields", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.GetFormForClaimant)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapGet("/api/v1/client-portal/claims/{caseId:guid}/fields", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.GetForClaimByClaimant)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPut("/api/v1/client-portal/claims/{caseId:guid}/field-values", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.SaveForClaimant)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapGet("/api/v1/products", InsuranceIntelligence.Api.Products.ProductEndpoints.ListProducts)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));

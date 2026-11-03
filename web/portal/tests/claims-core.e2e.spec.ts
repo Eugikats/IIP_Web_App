@@ -335,3 +335,85 @@ test.describe("Item 4: documents and evidence per claim type", () => {
     await expect(photos.getByText("3 of 10 sent")).toBeVisible();
   });
 });
+
+test.describe("Item 5: claim fields per claim type", () => {
+  test("an admin builds questions in the portal, including a choice, and they are saved in order", async ({ page, request }) => {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const created = await request.post(`${API}/api/v1/products`, {
+      headers,
+      data: { name: "Fleet Cover", productClass: `Fleet${Math.random().toString(36).slice(2, 6)}`, changeReason: "e2e" },
+    });
+    const { productId } = (await created.json()) as { productId: string };
+
+    await page.goto(`/app/admin/products/${productId}`);
+    const editor = page.getByTestId("claim-fields-editor");
+    await expect(editor.getByText("No questions yet.")).toBeVisible();
+
+    await editor.getByRole("button", { name: "Add question" }).click();
+    await editor.getByLabel("Question 1 label").fill("Police report number");
+    await editor.getByRole("button", { name: "Add question" }).click();
+    await editor.getByLabel("Question 2 label").fill("Was the vehicle driveable?");
+    await editor.getByLabel("Question 2 type").selectOption("YesNo");
+    await editor.getByRole("button", { name: "Add question" }).click();
+    await editor.getByLabel("Question 3 label").fill("Damage level");
+    await editor.getByLabel("Question 3 type").selectOption("Select");
+    await editor.getByLabel("Question 3 choices").fill("Minor, Major, Total loss");
+    await editor.getByRole("button", { name: "Move Damage level up" }).click();
+
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await page.getByLabel("Reason for audit trail").fill("Set up the fleet questions");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+
+    await expect.poll(async () => {
+      const saved = (await (await request.get(`${API}/api/v1/products/${productId}`, { headers })).json()) as { claimFields: { key: string; type: string; options: string[] }[] };
+      return saved.claimFields.map((field) => `${field.key}:${field.type}`).join(",");
+    }).toBe("policeReportNumber:Text,damageLevel:Select,wasTheVehicleDriveable:YesNo");
+  });
+
+  test("staff see a claim's answers on its page and can correct one", async ({ page, request }) => {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const created = await request.post(`${API}/api/v1/cases`, {
+      headers,
+      data: {
+        customerName: "Fields Tester", customerEmail: "ft@example.com", customerPhone: "+256700000444",
+        policyNumber: `POL-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, productLine: "Motor", claimType: "Accident",
+        channel: "Phone", incidentDate: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10), incidentDescription: "Fields test",
+        fieldValues: { vehicleRegistration: "UAX 123A", accidentLocation: "Jinja Road" },
+      },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const { caseId } = (await created.json()) as { caseId: string };
+
+    await page.goto(`/app/claims/${caseId}`);
+    const card = page.getByTestId("claim-details-card");
+    await expect(card.getByText("UAX 123A")).toBeVisible();
+    await expect(card.getByText("Jinja Road")).toBeVisible();
+
+    await card.getByRole("button", { name: "Edit details" }).click();
+    await card.getByLabel("Where it happened").fill("Northern Bypass");
+    await card.getByRole("button", { name: "Save details" }).click();
+    await expect(card.getByText("Northern Bypass")).toBeVisible();
+
+    const stored = (await (await request.get(`${API}/api/v1/cases/${caseId}`, { headers })).json()) as { fieldValues: Record<string, string> };
+    expect(stored.fieldValues.accidentLocation).toBe("Northern Bypass");
+    expect(stored.fieldValues.vehicleRegistration).toBe("UAX 123A");
+  });
+
+  test("another tenant cannot read a claim's answers", async ({ request }) => {
+    const tenant = newTenant();
+    const headers = scopeHeaders(tenant);
+    const created = await request.post(`${API}/api/v1/cases`, {
+      headers,
+      data: {
+        customerName: "Iso Tester", customerEmail: "iso@example.com", customerPhone: "+256700000333", policyNumber: "POL-ISO1",
+        productLine: "Motor", claimType: "Own damage", channel: "Phone",
+        incidentDate: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10), incidentDescription: "Iso",
+        fieldValues: { vehicleRegistration: "UBB 777B" },
+      },
+    });
+    const { caseId } = (await created.json()) as { caseId: string };
+
+    const other = await request.get(`${API}/api/v1/cases/${caseId}/fields`, { headers: scopeHeaders(newTenant()) });
+    expect(other.status()).toBe(404);
+  });
+});

@@ -20,6 +20,7 @@ import {
   submitProductForPublishApproval,
   updateProductDraft,
   type ClaimStage,
+  type ClaimFieldConfig,
   type ClaimTypeConfig,
   type DocumentMatrixEntry,
   type Product,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/products";
 import { ensureDocumentTypeCatalog, type DocumentTypeDefinition } from "@/lib/documentTypes";
 import { ClaimTypesEditor } from "@/components/iip/ClaimTypesEditor";
+import { ClaimFieldsEditor } from "@/components/iip/ClaimFieldsEditor";
 
 const STATUS_TONE: Record<ProductStatus, PillTone> = {
   Draft: "neutral",
@@ -66,6 +68,7 @@ export default function ProductDetail() {
   const [stages, setStages] = useState<ClaimStage[]>([]);
   const [documentMatrix, setDocumentMatrix] = useState<DocumentMatrixEntry[]>([]);
   const [claimTypes, setClaimTypes] = useState<ClaimTypeConfig[]>([]);
+  const [claimFields, setClaimFields] = useState<ClaimFieldConfig[]>([]);
   const [importNotice, setImportNotice] = useState<string | null>(null);
   // "all" shows every requirement; a claim type key shows what a claim of that type is asked for
   // (the requirements for every type plus the ones for that type), and a new one added while
@@ -82,6 +85,7 @@ export default function ProductDetail() {
     setStages(loaded.stages);
     setDocumentMatrix(loaded.documentMatrix);
     setClaimTypes(loaded.claimTypes ?? []);
+    setClaimFields(loaded.claimFields ?? []);
   }
 
   const load = useCallback(async () => {
@@ -128,6 +132,7 @@ export default function ProductDetail() {
       || JSON.stringify(stages) !== JSON.stringify(product.stages)
       || JSON.stringify(documentMatrix) !== JSON.stringify(product.documentMatrix)
       || JSON.stringify(claimTypes) !== JSON.stringify(product.claimTypes ?? [])
+      || JSON.stringify(claimFields) !== JSON.stringify(product.claimFields ?? [])
     : false;
 
   async function onConfirmGoverned(reason: string) {
@@ -137,7 +142,7 @@ export default function ProductDetail() {
       case "save":
         result = await updateProductDraft(role, productId, {
           name, productClass, iraApprovalReference: iraApprovalReference || null,
-          iraApprovalEffectiveDate: iraApprovalEffectiveDate || null, stages, documentMatrix, claimTypes, changeReason: reason,
+          iraApprovalEffectiveDate: iraApprovalEffectiveDate || null, stages, documentMatrix, claimTypes, claimFields, changeReason: reason,
         });
         break;
       case "submit":
@@ -337,6 +342,10 @@ export default function ProductDetail() {
               ) : null}
             />
             {importNotice && <p className="mt-3 text-[12px] text-dls-text-secondary">{importNotice}</p>}
+          </GlassCard>
+
+          <GlassCard>
+            <ClaimFieldsEditor value={claimFields} onChange={setClaimFields} claimTypes={claimTypes} disabled={!canEdit} />
           </GlassCard>
 
           <GlassCard>

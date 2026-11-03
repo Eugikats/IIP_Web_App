@@ -54,6 +54,11 @@ public sealed record ClaimCase
 
     /// <summary>ISO code of the language OriginalIncidentText is in, for example "lg".</summary>
     public string? OriginalIncidentLanguage { get; init; }
+
+    /// <summary>The answers to the product's claim fields, keyed by field key (build-loop item 5).
+    /// Read through <see cref="InsuranceIntelligence.Domain.Products.ClaimFieldValues.For"/>, which
+    /// also reads the original Motor/Medical FNOL records for claims filed before fields existed.</summary>
+    public IReadOnlyDictionary<string, string>? FieldValues { get; init; }
     public MotorFnolDetails? MotorFnolDetails { get; init; }
     public MedicalFnolDetails? MedicalFnolDetails { get; init; }
     public required CaseStatus Status { get; init; }

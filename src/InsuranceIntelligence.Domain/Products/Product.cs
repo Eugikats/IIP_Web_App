@@ -44,6 +44,11 @@ public sealed record Product
     /// free-text claim type and the built-in Motor/Medical rules, exactly as before.</summary>
     public IReadOnlyList<ClaimTypeDefinition> ClaimTypes { get; init; } = [];
 
+    /// <summary>The questions this product asks about a claim (build-loop item 5), part of the
+    /// version snapshot like the claim types and document matrix. Empty means the built-in
+    /// definitions for the product line apply (see <see cref="ClaimFieldResolver"/>).</summary>
+    public IReadOnlyList<ClaimFieldDefinition> ClaimFields { get; init; } = [];
+
     public IReadOnlyList<ClaimTypeDefinition> ActiveClaimTypes =>
         ClaimTypes.Where(type => type.Active).OrderBy(type => type.SortOrder).ToArray();
 

@@ -38,7 +38,8 @@ public sealed record CaseResponse(
     IReadOnlyCollection<string>? AdvisoryRiskSignals = null,
     string? OriginalIncidentText = null,
     string? OriginalIncidentLanguage = null,
-    string? ClaimTypeKey = null);
+    string? ClaimTypeKey = null,
+    IReadOnlyDictionary<string, string>? FieldValues = null);
 
 /// <summary>The document-completeness check at the moment this response was built, WO 5.3: tell
 /// the submitter what is missing at submission, not only after extraction runs later. Null when

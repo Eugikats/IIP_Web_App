@@ -60,6 +60,9 @@ public sealed class ProductCommandService(
             Stages = request.UseDefaultStageLibrary ? DefaultClaimStageLibrary.Default() : [],
             DocumentMatrix = [],
             WordingFacts = wordingFacts,
+            // A new product starts from the built-in questions for its line (Motor and Medical
+            // have them; other lines start empty), which the administrator then edits.
+            ClaimFields = BuiltInClaimFields.For(request.ProductClass.Trim()),
             UpdatedByUserId = context.UserId,
             UpdatedAt = now,
             ChangeReason = reason,
@@ -111,6 +114,12 @@ public sealed class ProductCommandService(
             ? current.WordingFacts
             : await ValidateWordingFacts(current.Scope, request.WordingFacts, cancellationToken);
 
+        var claimFields = request.ClaimFields is null ? current.ClaimFields : ValidateClaimFields(request.ClaimFields, claimTypes);
+        if (request.ClaimFields is null && request.ClaimTypes is not null)
+        {
+            EnsureFieldClaimTypesExist(claimFields, claimTypes);
+        }
+
         var context = tenantContextAccessor.Current;
         var updated = current with
         {
@@ -119,6 +128,7 @@ public sealed class ProductCommandService(
             Name = name,
             ProductClass = productClass,
             ClaimTypes = claimTypes,
+            ClaimFields = claimFields,
             IraApprovalReference = request.IraApprovalReference is null ? current.IraApprovalReference : NormalizeOrNull(request.IraApprovalReference),
             IraApprovalEffectiveDate = request.IraApprovalEffectiveDate ?? current.IraApprovalEffectiveDate,
             ApprovedWordingKnowledgeDocumentId = request.ApprovedWordingKnowledgeDocumentId is null
@@ -651,6 +661,131 @@ public sealed class ProductCommandService(
         return result;
     }
 
+    private const int MaxClaimFields = 80;
+
+    /// <summary>Field keys are camelCase identifiers (letters and digits). A blank key is derived
+    /// from the label. Order in the list is the order shown.</summary>
+    internal static IReadOnlyList<ClaimFieldDefinition> ValidateClaimFields(
+        IReadOnlyList<ClaimFieldDto> fields,
+        IReadOnlyList<ClaimTypeDefinition> claimTypes)
+    {
+        if (fields.Count > MaxClaimFields)
+        {
+            throw new ProductValidationException("claimFields", $"A product can have at most {MaxClaimFields} claim fields.");
+        }
+
+        var claimTypeKeys = new HashSet<string>(claimTypes.Select(type => type.Key), StringComparer.OrdinalIgnoreCase);
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<ClaimFieldDefinition>(fields.Count);
+        foreach (var field in fields)
+        {
+            var label = field.Label?.Trim() ?? string.Empty;
+            if (label.Length == 0 || label.Length > 120)
+            {
+                throw new ProductValidationException("claimFields", "Every field needs a label of up to 120 characters.");
+            }
+
+            var key = string.IsNullOrWhiteSpace(field.Key) ? CamelKey(label) : field.Key.Trim();
+            if (!IsValidFieldKey(key))
+            {
+                throw new ProductValidationException("claimFields", $"'{key}' is not a valid field key. Use letters and digits, starting with a letter.");
+            }
+
+            if (!keys.Add(key))
+            {
+                throw new ProductValidationException("claimFields", $"Field key '{key}' is used more than once.");
+            }
+
+            if (!Enum.TryParse<ClaimFieldType>(field.Type?.Trim(), ignoreCase: true, out var type) || !Enum.IsDefined(type))
+            {
+                throw new ProductValidationException("claimFields", $"Field '{label}' has an unknown type '{field.Type}'. Use Text, Number, Date, Select, Phone, Currency or YesNo.");
+            }
+
+            var options = (field.Options ?? [])
+                .Select(option => option?.Trim() ?? string.Empty)
+                .Where(option => option.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (type == ClaimFieldType.Select && (options.Length < 2 || options.Length > 30 || options.Any(option => option.Length > 80)))
+            {
+                throw new ProductValidationException("claimFields", $"Field '{label}' is a choice, so it needs between 2 and 30 options of up to 80 characters.");
+            }
+
+            var help = field.HelpText?.Trim();
+            if (help is { Length: > 300 })
+            {
+                throw new ProductValidationException("claimFields", $"The help text of '{label}' is longer than 300 characters.");
+            }
+
+            var fieldClaimTypes = (field.ClaimTypeKeys ?? [])
+                .Where(claimTypeKey => !string.IsNullOrWhiteSpace(claimTypeKey))
+                .Select(claimTypeKey => claimTypeKey.Trim().ToLowerInvariant())
+                .Distinct()
+                .ToArray();
+            var unknown = fieldClaimTypes.FirstOrDefault(claimTypeKey => !claimTypeKeys.Contains(claimTypeKey));
+            if (unknown is not null)
+            {
+                throw new ProductValidationException("claimFields", $"Field '{label}' refers to claim type '{unknown}', which this product does not have.");
+            }
+
+            result.Add(new ClaimFieldDefinition(
+                key,
+                label,
+                type,
+                field.Required,
+                type == ClaimFieldType.Select ? options : null,
+                string.IsNullOrWhiteSpace(help) ? null : help,
+                result.Count,
+                field.CustomerVisible,
+                fieldClaimTypes));
+        }
+
+        return result;
+    }
+
+    internal static string CamelKey(string label)
+    {
+        var words = System.Text.RegularExpressions.Regex.Split(label.Trim(), "[^A-Za-z0-9]+").Where(word => word.Length > 0).ToArray();
+        if (words.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new System.Text.StringBuilder(words[0].ToLowerInvariant());
+        foreach (var word in words.Skip(1))
+        {
+            builder.Append(char.ToUpperInvariant(word[0])).Append(word[1..].ToLowerInvariant());
+        }
+
+        var key = builder.ToString();
+        if (key.Length > 0 && !char.IsLetter(key[0]))
+        {
+            key = "field" + key;
+        }
+
+        return key.Length > 40 ? key[..40] : key;
+    }
+
+    private static bool IsValidFieldKey(string key) =>
+        key.Length is >= 1 and <= 40
+        && char.IsAsciiLetter(key[0])
+        && key.All(char.IsAsciiLetterOrDigit);
+
+    private static void EnsureFieldClaimTypesExist(IReadOnlyList<ClaimFieldDefinition> fields, IReadOnlyList<ClaimTypeDefinition> claimTypes)
+    {
+        var keys = new HashSet<string>(claimTypes.Select(type => type.Key), StringComparer.OrdinalIgnoreCase);
+        foreach (var field in fields)
+        {
+            var missing = field.ClaimTypeKeys?.FirstOrDefault(key => !keys.Contains(key));
+            if (missing is not null)
+            {
+                throw new ProductValidationException(
+                    "claimTypes",
+                    $"Claim type '{missing}' is still used by the field '{field.Label}'. Remove it from that field first, or keep the claim type and switch it off.");
+            }
+        }
+    }
+
     private static void EnsureMatrixClaimTypesExist(IReadOnlyList<ProductDocumentRequirement> matrix, IReadOnlyList<ClaimTypeDefinition> claimTypes)
     {
         var keys = new HashSet<string>(claimTypes.Select(type => type.Key), StringComparer.OrdinalIgnoreCase);
@@ -717,5 +852,11 @@ public sealed class ProductCommandService(
             product.ClaimTypes
                 .OrderBy(type => type.SortOrder)
                 .Select(type => new ClaimTypeDto(type.Key, type.Name, type.Description, type.Active, type.SortOrder, type.Aliases ?? []))
+                .ToArray(),
+            product.ClaimFields
+                .OrderBy(field => field.SortOrder)
+                .Select(field => new ClaimFieldDto(
+                    field.Key, field.Label, field.Type.ToString(), field.Required, field.Options ?? [],
+                    field.HelpText, field.SortOrder, field.CustomerVisible, field.ClaimTypeKeys ?? []))
                 .ToArray());
 }

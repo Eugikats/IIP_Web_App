@@ -237,6 +237,15 @@ public sealed class ClaimsSummaryService(
         return (string.Join('\n', summaryLines).Trim(), signals);
     }
 
+    private static string DescribeDetails(ClaimCase claimCase)
+    {
+        var values = InsuranceIntelligence.Domain.Products.ClaimFieldValues.For(claimCase);
+        return values.Count == 0
+            ? "No further details have been given yet."
+            : string.Join(Environment.NewLine, values.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .Select(pair => $"- {InsuranceIntelligence.Domain.Products.ClaimFieldValues.LabelFor(pair.Key)}: {pair.Value}"));
+    }
+
     private static string BuildPrompt(
         ClaimCase claimCase,
         IReadOnlyCollection<CaseDocument> fairInputDocuments,
@@ -271,6 +280,9 @@ public sealed class ClaimsSummaryService(
             $"Product line: {claimCase.ProductLine} | Claim type: {claimCase.ClaimType} | Status: {claimCase.Status}",
             $"Incident date: {claimCase.IncidentDate} | Description: {claimCase.IncidentDescription}",
             $"Completeness: {claimCase.CompletenessScore}%",
+            string.Empty,
+            "DETAILS GIVEN FOR THIS CLAIM (answers to the questions the insurer asks):",
+            DescribeDetails(claimCase),
             string.Empty,
             "DOCUMENTS (extracted fields shown with the extraction confidence, where available):",
             documentLines,

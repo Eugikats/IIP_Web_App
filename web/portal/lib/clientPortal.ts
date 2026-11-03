@@ -357,6 +357,8 @@ export type CreateClaimRequest = {
   incidentDate: string;
   incidentDescription: string;
   motorFnolDetails?: MotorFnolDetails;
+  /** Answers to the questions the insurer configured for this claim type, keyed by question key. */
+  fieldValues?: Record<string, string>;
 };
 
 export type CreateClaimResult = { ok: true; caseId: string } | { ok: false; error: string };

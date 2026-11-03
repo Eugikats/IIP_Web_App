@@ -13,6 +13,8 @@ import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurface
 import { useUI } from "@/context/UIStateContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { fetchClaimTypes } from "@/lib/claimTypes";
+import { fetchClaimFieldForm, missingRequired, type ClaimFieldForm } from "@/lib/claimFields";
+import { DynamicFieldsForm } from "@/components/iip/DynamicFieldsForm";
 
 // Six-step FNOL intake (docs/03-design-architecture/iip_fnol_six_step_intake_design.md):
 // 1 Identify the claimant, 2 Find the policy, 3 Describe the incident, 4 Product-line specifics,
@@ -169,6 +171,11 @@ export default function FNOL() {
   // The claim types this insurer configured for the product line. Null means none are configured
   // (or they could not be read), so the built-in list below is used and nothing is blocked.
   const [configuredClaimTypes, setConfiguredClaimTypes] = useState<string[] | null>(null);
+  // The product's own questions for this claim type (null until loaded). When the product has
+  // configured its questions, step 4 is drawn from them; otherwise the built-in form is used.
+  const [fieldForm, setFieldForm] = useState<ClaimFieldForm | null>(null);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -184,6 +191,17 @@ export default function FNOL() {
     });
     return () => { cancelled = true; };
   }, [productLine, roleDef.key]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchClaimFieldForm(roleDef.key, productLine, form.claimType).then((result) => {
+      if (cancelled) return;
+      setFieldForm(result.ok ? result.value : null);
+    });
+    return () => { cancelled = true; };
+  }, [productLine, form.claimType, roleDef.key]);
+
+  const useConfiguredFields = Boolean(fieldForm?.configured && fieldForm.fields.length > 0);
 
   function selectProductLine(next: ProductLine) {
     setProductLine(next);
@@ -307,8 +325,9 @@ export default function FNOL() {
             ["Treatment date", form.medical.treatmentDate],
             ["Preferred communication channel", form.medical.preferredCommunicationChannel],
           ];
+    if (useConfiguredFields && fieldForm) return missingRequired(fieldForm.fields, fieldValues);
     return required.filter(([, value]) => !value.trim()).map(([label]) => label);
-  }, [productLine, form.motor, form.medical]);
+  }, [productLine, form.motor, form.medical, useConfiguredFields, fieldForm, fieldValues]);
 
   const stepMissing: Record<number, string[]> = {
     1: step1Missing, 2: step2Missing, 3: step3Missing, 4: step4Missing, 5: [], 6: [],
@@ -318,7 +337,9 @@ export default function FNOL() {
   const canAdvance = stepMissing[step].length === 0;
   // Live completeness against the same required-field counts that gate step advancement, not a
   // separate invented metric. Steps 5-6 have no required fields of their own.
-  const totalRequiredFields = 2 + 1 + 3 + (productLine === "Motor" ? 6 : 4);
+  const totalRequiredFields = 2 + 1 + 3 + (useConfiguredFields && fieldForm
+    ? Math.max(1, fieldForm.fields.filter((field) => field.required).length)
+    : productLine === "Motor" ? 6 : 4);
   const completenessPercent = Math.round(((totalRequiredFields - allMissing.length) / totalRequiredFields) * 100);
 
   function goTo(next: number) {
@@ -344,13 +365,32 @@ export default function FNOL() {
           channel: "StaffEntry",
           incidentDate: form.accidentDate,
           incidentDescription: form.incidentDescription,
-          motorFnolDetails: productLine === "Motor" ? { ...form.motor, uploadedDocuments: form.motor.uploadedDocuments || null } : null,
-          medicalFnolDetails: productLine === "Medical" ? { ...form.medical, uploadedDocuments: form.medical.uploadedDocuments || null } : null,
+          motorFnolDetails: !useConfiguredFields && productLine === "Motor" ? { ...form.motor, uploadedDocuments: form.motor.uploadedDocuments || null } : null,
+          medicalFnolDetails: !useConfiguredFields && productLine === "Medical" ? { ...form.medical, uploadedDocuments: form.medical.uploadedDocuments || null } : null,
+          // Only answers to the questions currently shown: a different claim type has different ones.
+          fieldValues: useConfiguredFields && fieldForm
+            ? Object.fromEntries(fieldForm.fields.filter((field) => (fieldValues[field.key] ?? "").trim()).map((field) => [field.key, fieldValues[field.key].trim()]))
+            : undefined,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Claim intake failed.`);
+        // A refusal names what to fix (a missing required answer, a bad number) in words a person
+        // can act on; show it rather than a generic failure.
+        let detail = "";
+        try {
+          const body = (await response.json()) as { errors?: Record<string, string[]> };
+          const entries = Object.entries(body.errors ?? {});
+          const fieldMessages: Record<string, string> = {};
+          for (const [name, messages] of entries) {
+            if (name.startsWith("fieldValues.") && messages[0]) fieldMessages[name.slice("fieldValues.".length)] = messages[0];
+          }
+          setFieldErrors(fieldMessages);
+          detail = entries[0]?.[1]?.[0] ?? "";
+        } catch {
+          // Keep the generic message.
+        }
+        throw new Error(detail || `Claim intake failed.`);
       }
 
       const created = (await response.json()) as CreateCaseResponse;
@@ -532,7 +572,19 @@ export default function FNOL() {
             </StepSection>
           )}
 
-          {step === 4 && (
+          {step === 4 && useConfiguredFields && fieldForm && (
+            <StepSection icon={FileText} title={`${productLine} details`} sub="What this insurer asks about this kind of claim. These are saved with the claim.">
+              <DynamicFieldsForm
+                fields={fieldForm.fields}
+                values={fieldValues}
+                errors={fieldErrors}
+                onChange={(key, value) => setFieldValues((current) => ({ ...current, [key]: value }))}
+                showStaffOnlyBadge
+              />
+            </StepSection>
+          )}
+
+          {step === 4 && !useConfiguredFields && (
             <StepSection icon={FileText} title={`${productLine} details`} sub={`Details specific to ${productLine.toLowerCase()} claims. These are saved with the claim.`}>
               <div className="grid gap-4 md:grid-cols-2">
                 {productLine === "Motor" ? (

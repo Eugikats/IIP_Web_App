@@ -61,6 +61,18 @@ export type ClaimTypeConfig = {
   aliases: string[] | null;
 };
 
+export type ClaimFieldConfig = {
+  key: string | null;
+  label: string;
+  type: "Text" | "Number" | "Date" | "Select" | "Phone" | "Currency" | "YesNo";
+  required: boolean;
+  options: string[] | null;
+  helpText: string | null;
+  sortOrder: number;
+  customerVisible: boolean;
+  claimTypeKeys: string[] | null;
+};
+
 export type ProductStatus = "Draft" | "PendingPublishApproval" | "Published" | "Retired";
 
 export type Product = {
@@ -77,6 +89,7 @@ export type Product = {
   documentMatrix: DocumentMatrixEntry[];
   wordingFacts: ProductWordingFact[];
   claimTypes: ClaimTypeConfig[];
+  claimFields: ClaimFieldConfig[];
   updatedByUserId: string;
   updatedAt: string;
   changeReason: string;
@@ -115,6 +128,7 @@ export type UpdateProductInput = {
   stages?: ClaimStage[] | null;
   documentMatrix?: DocumentMatrixEntry[] | null;
   claimTypes?: ClaimTypeConfig[] | null;
+  claimFields?: ClaimFieldConfig[] | null;
   changeReason: string;
 };
 

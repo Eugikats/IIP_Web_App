@@ -266,12 +266,18 @@ public static class ClaimantAuthenticationEndpoints
             session.ContactValue,
             correlationId,
             request.MotorFnolDetails,
-            RequireConfiguredClaimType: true);
+            RequireConfiguredClaimType: true,
+            FieldValues: request.FieldValues,
+            FieldsFromCustomer: true);
 
         ClaimCase claimCase;
         try
         {
             claimCase = await caseIntakeService.CreateCaseAsync(command, cancellationToken);
+        }
+        catch (ClaimFieldsInvalidException ex)
+        {
+            return InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.FieldErrors(ex.Errors);
         }
         catch (ArgumentException ex)
         {
@@ -413,7 +419,8 @@ public sealed record ClaimantCreateClaimRequest(
     string ClaimType,
     DateOnly? IncidentDate,
     string IncidentDescription,
-    MotorFnolDetails? MotorFnolDetails = null);
+    MotorFnolDetails? MotorFnolDetails = null,
+    Dictionary<string, string>? FieldValues = null);
 
 public sealed record ClaimantCreateClaimResponse(Guid CaseId);
 

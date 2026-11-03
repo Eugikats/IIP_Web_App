@@ -14,6 +14,8 @@ import {
   loadStoredSession,
   storeSession,
 } from "@/lib/clientPortal";
+import { fetchClaimantFieldForm, missingRequired, type ClaimFieldForm } from "@/lib/claimFields";
+import { DynamicFieldsForm } from "@/components/iip/DynamicFieldsForm";
 
 const MOTOR_CLAIM_TYPES = ["Own damage", "Third-party property", "Theft", "Bodily injury"];
 const MEDICAL_CLAIM_TYPES = ["Medical reimbursement", "Hospitalisation", "Outpatient treatment"];
@@ -29,6 +31,11 @@ export default function ClaimAccessNewClaim() {
   // The claim types this insurer configured for the policy's product. Null means none are
   // configured (or they could not be read), so the built-in list is used.
   const [configuredClaimTypes, setConfiguredClaimTypes] = useState<string[] | null>(null);
+  // The insurer's own questions for this claim type. When it has configured them they replace the
+  // built-in vehicle questions; otherwise the built-in ones stay.
+  const [fieldForm, setFieldForm] = useState<ClaimFieldForm | null>(null);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [incidentDate, setIncidentDate] = useState("");
   const [incidentDescription, setIncidentDescription] = useState("");
   const [vehicleRegistration, setVehicleRegistration] = useState("");
@@ -74,8 +81,18 @@ export default function ClaimAccessNewClaim() {
     return () => { cancelled = true; };
   }, [session, productLine]);
 
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    void fetchClaimantFieldForm(session, productLine, claimType).then((result) => {
+      if (!cancelled) setFieldForm(result.ok ? result.value : null);
+    });
+    return () => { cancelled = true; };
+  }, [session, productLine, claimType]);
+
   if (!session) return null;
 
+  const useConfiguredFields = Boolean(fieldForm?.configured && fieldForm.fields.length > 0);
   const productLineSupported = SUPPORTED_PRODUCT_LINES.includes(productLine);
   const claimTypeOptions = configuredClaimTypes ?? (productLine === "Medical" ? MEDICAL_CLAIM_TYPES : MOTOR_CLAIM_TYPES);
 
@@ -86,10 +103,19 @@ export default function ClaimAccessNewClaim() {
       return;
     }
 
+    if (useConfiguredFields && fieldForm) {
+      const missing = missingRequired(fieldForm.fields, fieldValues);
+      if (missing.length > 0) {
+        setError(`Please answer: ${missing.join(", ")}.`);
+        return;
+      }
+    }
+
     setSubmitting(true);
     setError(null);
+    setFieldErrors({});
     const motorFnolDetails: MotorFnolDetails | undefined =
-      productLine === "Motor"
+      productLine === "Motor" && !useConfiguredFields
         ? {
             vehicleRegistration: vehicleRegistration.trim() || undefined,
             accidentLocation: accidentLocation.trim() || undefined,
@@ -104,6 +130,9 @@ export default function ClaimAccessNewClaim() {
       incidentDate,
       incidentDescription: incidentDescription.trim(),
       motorFnolDetails,
+      fieldValues: useConfiguredFields && fieldForm
+        ? Object.fromEntries(fieldForm.fields.filter((field) => (fieldValues[field.key] ?? "").trim()).map((field) => [field.key, fieldValues[field.key].trim()]))
+        : undefined,
     });
     setSubmitting(false);
     if (!result.ok) {
@@ -193,7 +222,19 @@ export default function ClaimAccessNewClaim() {
               </div>
             </div>
 
-            {productLine === "Motor" && (
+            {useConfiguredFields && fieldForm && (
+              <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6">
+                <div className="mb-4 text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">A few details</div>
+                <DynamicFieldsForm
+                  fields={fieldForm.fields}
+                  values={fieldValues}
+                  errors={fieldErrors}
+                  onChange={(key, value) => setFieldValues((current) => ({ ...current, [key]: value }))}
+                />
+              </div>
+            )}
+
+            {productLine === "Motor" && !useConfiguredFields && (
               <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6">
                 <div className="mb-4 text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">Vehicle details</div>
 

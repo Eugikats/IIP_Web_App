@@ -54,6 +54,7 @@ public static class CaseMapper
             claimCase.AdvisoryRiskSignals,
             claimCase.OriginalIncidentText,
             claimCase.OriginalIncidentLanguage,
-            claimCase.ClaimTypeKey);
+            claimCase.ClaimTypeKey,
+            InsuranceIntelligence.Domain.Products.ClaimFieldValues.For(claimCase));
     }
 }

@@ -738,7 +738,7 @@ public static class ClientPortalEndpoints
     /// The claimant identity for this request, preferring a server-verified magic-link session
     /// (stashed by ClaimantSessionEndpointFilter) over anything the browser sent as a header.
     /// </summary>
-    private static string ResolveActor(HttpContext httpContext) =>
+    internal static string ResolveActor(HttpContext httpContext) =>
         httpContext.Items.TryGetValue(ClaimantSessionEndpointFilter.ContactValueItemKey, out var stashed) && stashed is string verified
             ? verified
             : WorkflowEndpoints.GetActor(httpContext, "client-portal-user");
@@ -754,7 +754,7 @@ public static class ClientPortalEndpoints
     /// reachable unconditionally, an unauthenticated request could set X-User-Id to any claimant's
     /// email and read their case in any AuthMode. Tier 3 closes that.
     /// </summary>
-    private static bool BelongsToCustomer(ClaimCase claimCase, HttpContext httpContext, InfrastructureOptions options)
+    internal static bool BelongsToCustomer(ClaimCase claimCase, HttpContext httpContext, InfrastructureOptions options)
     {
         if (httpContext.Items.TryGetValue(ClaimantSessionEndpointFilter.ContactValueItemKey, out var stashed) && stashed is string verified)
         {

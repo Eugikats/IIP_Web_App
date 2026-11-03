@@ -14,4 +14,5 @@ public sealed record CreateCaseRequest(
     string? IncidentDescription,
     MotorFnolDetails? MotorFnolDetails = null,
     MedicalFnolDetails? MedicalFnolDetails = null,
-    decimal? ClaimedAmount = null);
+    decimal? ClaimedAmount = null,
+    Dictionary<string, string>? FieldValues = null);

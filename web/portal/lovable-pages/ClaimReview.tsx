@@ -41,6 +41,7 @@ import { channelLabel, claimReference, documentTypeLabel, formatDate, humanizeId
 import { usePeople } from "@/lib/people";
 import AssignClaimControl from "@/components/iip/AssignClaimControl";
 import { getFileConnectionStatus, type FileConnectionStatus } from "@/lib/files/fileConnections";
+import { ClaimDetailsCard } from "@/components/iip/ClaimDetailsCard";
 
 const POLICY_SOURCE_LABEL: Record<string, string> = {
   Manual: "Entered manually",
@@ -160,6 +161,10 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   // "Export claim pack" calls POST /compliance/cases/{id}/audit-pack/export, which requires
   // ExportEvidencePack, most claim-viewing roles (ClaimsOfficer, CustomerService, Broker) do
   // not hold it; only ClaimsSupervisor and Compliance do.
+  // Editing the answers to a claim's questions needs the same permission as filing a claim.
+  const canEditClaimDetails = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "CreateClaim")
+    : hasPermission(runtimeContext?.permissions ?? [], "CreateClaim");
   const canExportEvidencePack = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "ExportEvidencePack")
     : hasPermission(runtimeContext?.permissions ?? [], "ExportEvidencePack");
@@ -867,6 +872,116 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
                 No structured details were captured for this {detail.productLine} claim beyond the description above. Ask the customer for what is missing.
               </p>
             ) : null}
+          </GlassCard>
+
+          <GlassCard>
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[14px] font-bold text-dls-text-primary">Claim summary</div>
+                <div className="mt-1 text-[11.5px] text-dls-text-muted">
+                  Prepared by the claims agent from this claim&apos;s facts, documents, policy and approved knowledge. It prepares the claim for a decision and is not a decision itself.
+                </div>
+              </div>
+              <Button variant="secondary" icon={<MessageSquareText />} disabled={summarizing} onClick={() => { void generateSummary(); }} className="shrink-0">
+                {displayedSummary ? "Regenerate summary" : "Generate summary"}
+              </Button>
+            </div>
+            {summaryError ? (
+              <div className="flex items-start gap-2 rounded-dls-control border border-dls-warning-dot bg-dls-warning-tint px-3 py-2 text-[12.5px] text-dls-warning-text">
+                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span>{summaryError}</span>
+              </div>
+            ) : summaryIsLoading && !displayedSummary && !awaitingAutomaticReview ? (
+              <LoadingSkeleton rows={3} />
+            ) : displayedSummary ? (
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What happened</div>
+                  <MarkdownText className="text-[13px] text-dls-text-secondary leading-relaxed" content={displayedSummary.summary} />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What we have</div>
+                    {documentItems.filter((item) => item.present).length === 0 ? (
+                      <p className="text-[12.5px] text-dls-text-muted">No documents received yet.</p>
+                    ) : (
+                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                        {documentItems.filter((item) => item.present).map((item) => (
+                          <li key={item.label} className="flex items-center gap-1.5">
+                            <CheckCircle2 className="h-3 w-3 shrink-0 text-dls-success-dot" aria-hidden="true" /> {item.label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What is missing</div>
+                    {documentItems.filter((item) => !item.present).length === 0 ? (
+                      <p className="text-[12.5px] text-dls-text-muted">Nothing outstanding.</p>
+                    ) : (
+                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                        {documentItems.filter((item) => !item.present).map((item) => (
+                          <li key={item.label}>{item.label}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                {(displayedSummary.openQuestions.length > 0 || displayedSummary.riskSignals?.length > 0) ? (
+                  <div>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">What to watch</div>
+                    {displayedSummary.riskSignals?.length > 0 ? (
+                      <ul className="mb-2 space-y-2">
+                        {displayedSummary.riskSignals.map((signal, i) => (
+                          <li key={i} className="flex items-start gap-2 text-[12.5px] text-dls-text-secondary">
+                            <Badge tone={signal.category === "Fraud" ? "warning" : "neutral"} className="mt-0.5 shrink-0">
+                              {signal.category === "Fraud" ? "Fraud signal" : "Underwriting"}
+                            </Badge>
+                            <span>{signal.note}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {displayedSummary.openQuestions.length > 0 ? (
+                      <ul className="space-y-1 text-[12.5px] text-dls-text-secondary">
+                        {displayedSummary.openQuestions.map((question) => (
+                          <li key={question}>- {question}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <div className="mt-2 text-[11px] text-dls-text-muted">
+                      Advisory observations only. A person decides what, if anything, to do.
+                    </div>
+                  </div>
+                ) : null}
+
+                {displayedSummary.knowledgeSources.length > 0 ? (
+                  <div>
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Sources</div>
+                    <div className="space-y-1">
+                      {displayedSummary.knowledgeSources.map((source) => (
+                        <div key={source.chunkId} className="flex items-center gap-2 text-[12px] text-dls-text-muted">
+                          <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          {source.label}: {source.documentName}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 text-[12.5px] text-dls-text-muted">
+                {awaitingAutomaticReview
+                  ? "The claims agent reviews every new claim as soon as it arrives. Its review usually appears here within a minute."
+                  : "No review yet. Use Generate summary to ask the claims agent for one."}
+              </div>
+            )}
+          </GlassCard>
+
+          <GlassCard>
+            <ClaimDetailsCard caseId={claimId} role={roleDef.key} canEdit={canEditClaimDetails} />
           </GlassCard>
 
           <GlassCard>

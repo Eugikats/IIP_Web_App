@@ -38,6 +38,7 @@ public sealed class CaseIntakeService(
         var pinnedProduct = await ResolveProductAsync(command.Scope, command.ProductLine, cancellationToken);
         var (productId, productVersion) = (pinnedProduct?.ProductId, pinnedProduct?.Version);
         var claimTypeResolution = ResolveClaimType(pinnedProduct, command.ClaimType, command.IncidentDescription, command.RequireConfiguredClaimType);
+        var fieldValues = ResolveFieldValues(command, pinnedProduct, claimTypeResolution.Key, ref motorFnol, ref medicalFnol);
         var advisoryRiskSignals = await ResolveAdvisoryRiskSignalsAsync(command.Scope, command.PolicyNumber, command.IncidentDate, command.ClaimedAmount, cancellationToken);
 
         var claimCase = new ClaimCase
@@ -55,6 +56,7 @@ public sealed class CaseIntakeService(
             AdvisoryRiskSignals = advisoryRiskSignals,
             ClaimType = claimTypeResolution.Name,
             ClaimTypeKey = claimTypeResolution.Key,
+            FieldValues = fieldValues,
             Channel = command.Channel.Trim(),
             IncidentDate = command.IncidentDate,
             IncidentDescription = command.IncidentDescription.Trim(),
@@ -214,6 +216,60 @@ public sealed class CaseIntakeService(
         return await productRepository.GetVersionAsync(claimCase.Scope, productId, version, cancellationToken);
     }
 
+    /// <summary>Checks the submitted answers against the claim's field definitions. A person filling
+    /// a form must satisfy required fields; the original Motor/Medical FNOL details count as answers
+    /// so existing callers keep working, and answers for the built-in keys also fill the FNOL records
+    /// that injury detection and routing read.</summary>
+    private static IReadOnlyDictionary<string, string>? ResolveFieldValues(
+        CreateCaseCommand command,
+        Product? product,
+        string? claimTypeKey,
+        ref MotorFnolDetails? motorFnol,
+        ref MedicalFnolDetails? medicalFnol)
+    {
+        var definitions = ClaimFieldResolver.ForProduct(product, command.ProductLine, claimTypeKey);
+
+        // Type-check only what was submitted as field values. The original FNOL records are not
+        // re-validated (older clients send free wording there), but they do count as answers for
+        // the purpose of "is this required field present".
+        var result = ClaimFieldValidator.Validate(
+            definitions,
+            command.FieldValues ?? new Dictionary<string, string>(),
+            requireRequired: false,
+            customerAudience: command.FieldsFromCustomer);
+        var errors = new Dictionary<string, string>(result.Errors, StringComparer.OrdinalIgnoreCase);
+        if (command.RequireConfiguredClaimType && product is { ClaimFields.Count: > 0 })
+        {
+            var present = new HashSet<string>(result.Values.Keys, StringComparer.OrdinalIgnoreCase);
+            foreach (var (key, _) in ClaimFieldValues.FromFnol(motorFnol, medicalFnol))
+            {
+                present.Add(key);
+            }
+
+            foreach (var definition in definitions.Where(candidate => candidate.Required && (!command.FieldsFromCustomer || candidate.CustomerVisible)))
+            {
+                if (!present.Contains(definition.Key) && !errors.ContainsKey(definition.Key))
+                {
+                    errors[definition.Key] = $"{definition.Label} is needed.";
+                }
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new ClaimFieldsInvalidException(errors);
+        }
+
+        if (command.FieldValues is null)
+        {
+            return null;
+        }
+
+        motorFnol = ClaimFieldValues.ToMotorFnol(result.Values, motorFnol);
+        medicalFnol = ClaimFieldValues.ToMedicalFnol(result.Values, medicalFnol);
+        return result.Values;
+    }
+
     private static (string Name, string? Key) ResolveClaimType(Product? product, string typed, string? description, bool requireConfigured)
     {
         var trimmed = typed.Trim();
@@ -283,4 +339,11 @@ public sealed class ClaimTypeNotConfiguredException(string chosen, IReadOnlyList
 {
     public string Chosen { get; } = chosen;
     public IReadOnlyList<string> Allowed { get; } = allowed;
+}
+
+/// <summary>The submitted answers do not satisfy the claim's fields. Errors are keyed by field key.</summary>
+public sealed class ClaimFieldsInvalidException(IReadOnlyDictionary<string, string> errors)
+    : ArgumentException(errors.Values.First(), "fieldValues")
+{
+    public IReadOnlyDictionary<string, string> Errors { get; } = errors;
 }
