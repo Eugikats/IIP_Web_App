@@ -301,10 +301,44 @@ public static class ClientPortalEndpoints
             }
         }
 
+        return await StoreUploadedFilesAsync(
+            caseId, scope, claimCase, files, form["documentTypeKey"], caseRepository, documentRepository, storageProvider, processingProvider,
+            checklistProvider, fieldValidationRuleRepository, communicationRepository, auditRepository, httpContext, derivativeProvider,
+            slotPdfService, slotPdfRepository, claimantStatus, derivativeLoggerFactory, cancellationToken);
+    }
+
+    /// <summary>
+    /// Stores files a claimant sent for one claim and slot, whether they arrived in one multipart request or were
+    /// put back together from pieces (build-loop item 23): checks the slot, keeps each original byte for byte,
+    /// starts the reading, rebuilds the slot's PDF and returns the claim as the claimant sees it. Callers have
+    /// already checked who the claimant is, that the claim is theirs, and their consent.
+    /// </summary>
+    internal static async Task<IResult> StoreUploadedFilesAsync(
+        Guid caseId,
+        InsuranceIntelligence.Domain.Common.TenantScope scope,
+        ClaimCase claimCase,
+        IReadOnlyList<IFormFile> files,
+        string? rawDocumentTypeKey,
+        ICaseRepository caseRepository,
+        ICaseDocumentRepository documentRepository,
+        IDocumentStorageProvider storageProvider,
+        IDocumentProcessingProvider processingProvider,
+        IDocumentChecklistProvider checklistProvider,
+        IDocumentFieldValidationRuleRepository fieldValidationRuleRepository,
+        ICommunicationRepository communicationRepository,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        IImageDerivativeProvider? derivativeProvider,
+        ISlotPdfService? slotPdfService,
+        ISlotPdfRepository? slotPdfRepository,
+        IClaimantStatusPresenter? claimantStatus,
+        ILoggerFactory? derivativeLoggerFactory,
+        CancellationToken cancellationToken)
+    {
         // The customer's own choice of which required document this is (outcome B). Absent for an
         // older client and for the catch-all "something else" slot, in which case the classifier's
         // guess decides, exactly as before.
-        var documentTypeKey = NormalizeDocumentTypeKey(form["documentTypeKey"]);
+        var documentTypeKey = NormalizeDocumentTypeKey(rawDocumentTypeKey);
         // "Something else" has no slot: it is treated as paperwork, not as evidence.
         DocumentKind? slotKind = documentTypeKey is null ? null : DocumentKind.Document;
         var nextPageOrder = 1;
@@ -903,7 +937,7 @@ public static class ClientPortalEndpoints
     /// (ClientPortalScopeReader): safe here because knowing a tenant id alone grants no case
     /// access, BelongsToCustomer below is the actual gate.
     /// </summary>
-    private static bool ResolveScope(HttpContext httpContext, out InsuranceIntelligence.Domain.Common.TenantScope scope, out string validationError) =>
+    internal static bool ResolveScope(HttpContext httpContext, out InsuranceIntelligence.Domain.Common.TenantScope scope, out string validationError) =>
         WorkflowEndpoints.TryResolveScope(httpContext, out scope, out _, out validationError)
         || ClientPortalScopeReader.TryGetFromHeaders(httpContext, out scope, out validationError);
 

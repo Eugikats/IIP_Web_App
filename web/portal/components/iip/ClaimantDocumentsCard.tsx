@@ -5,6 +5,7 @@ import type { ChangeEvent, ComponentType } from "react";
 import { Camera, Loader2, Paperclip, RefreshCw, ScanLine, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { ClientPortalClaim } from "@/lib/clientPortal";
+import { MAX_ATTEMPTS, type UnfinishedUpload, type UploadProgress } from "@/lib/resumableUpload";
 
 export const SOMETHING_ELSE_KEY = "__something_else__";
 
@@ -84,9 +85,34 @@ function SlotPicker({ slotKey, scannable, onScan, formats, multiple, pages = fal
   );
 }
 
+/** How far the file being sent has got, in words a customer on a poor connection can follow. */
+function UploadProgressLine({ progress }: { progress: UploadProgress }) {
+  const many = progress.fileCount > 1 ? ` (file ${progress.fileIndex + 1} of ${progress.fileCount})` : "";
+  const text =
+    progress.phase === "retrying"
+      ? `The connection dropped. Trying again in ${progress.retryInSeconds ?? 1} s (try ${(progress.attempt ?? 1) + 1} of ${MAX_ATTEMPTS}).`
+      : progress.phase === "waiting"
+        ? "You are offline. Sending carries on as soon as you are back online."
+        : progress.phase === "finishing"
+          ? `Finishing ${progress.fileName}${many}`
+          : `Sending ${progress.fileName}${many}: ${progress.percent}%${progress.resumed ? ", carrying on from where it stopped" : ""}`;
+  return (
+    <div className="mt-2 ml-5.5" role="status" aria-live="polite" data-testid="upload-progress" data-phase={progress.phase} data-percent={progress.percent}>
+      <div className="h-1.5 overflow-hidden rounded-full bg-dls-bg-page" aria-hidden="true">
+        <div className="h-full rounded-full bg-dls-primary" style={{ width: `${progress.percent}%` }} />
+      </div>
+      <p className="mt-1 text-[11.5px] leading-4 text-dls-text-secondary">{text}</p>
+    </div>
+  );
+}
+
 type ClaimantDocumentsCardProps = {
   documents: ClaimantDocumentRow[];
   busyKey: string | null;
+  /** How far the file being sent has got, for the slot that is busy. */
+  progress?: UploadProgress | null;
+  /** Uploads that were started and not finished, remembered from before a reload. */
+  unfinished?: UnfinishedUpload[];
   notice: string | null;
   noticeFailed?: boolean;
   requiredSummary?: string | null;
@@ -109,7 +135,7 @@ type ClaimantDocumentsCardProps = {
  * "Preview as customer", so what an administrator previews is the same component the customer
  * sees, not a copy that can drift.
  */
-export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed = false, requiredSummary, requiredComplete = false, onUpload, onRemove, onRetry, onRemovePage, onMovePage, previewOnly = false, uploadsBlockedReason = null }: ClaimantDocumentsCardProps) {
+export function ClaimantDocumentsCard({ documents, busyKey, progress = null, unfinished = [], notice, noticeFailed = false, requiredSummary, requiredComplete = false, onUpload, onRemove, onRetry, onRemovePage, onMovePage, previewOnly = false, uploadsBlockedReason = null }: ClaimantDocumentsCardProps) {
   const locked = previewOnly || busyKey !== null || uploadsBlockedReason !== null;
   const rootRef = useRef<HTMLDivElement | null>(null);
   // The scanner is fetched only when someone taps Scan, so a page that never scans never loads it.
@@ -217,6 +243,13 @@ export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed
                 )}
               </div>
             )}
+
+            {progress && busyKey === doc.documentTypeKey && <UploadProgressLine progress={progress} />}
+            {busyKey !== doc.documentTypeKey && unfinished.filter((entry) => entry.slotKey === doc.documentTypeKey).map((entry) => (
+              <p key={entry.fingerprint} className="mt-2 ml-5.5 text-[11.5px] leading-4 text-dls-warning-text" data-testid="unfinished-upload">
+                Sending {entry.fileName} was interrupted. Choose that same file again and it carries on from where it stopped.
+              </p>
+            ))}
 
             <div className="mt-2 ml-5.5 flex flex-wrap items-center gap-2">
               <SlotPicker

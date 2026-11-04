@@ -1,6 +1,7 @@
 "use client";
 
 import { apiBaseUrl, defaultTenantId, defaultWorkspaceId } from "@/lib/config";
+import { SINGLE_REQUEST_LIMIT, sendFileInPieces, sendSmallFile, type UploadHandlers } from "@/lib/resumableUpload";
 
 const SESSION_STORAGE_KEY = "iip.client-portal-session";
 const SCOPE_STORAGE_KEY = "iip.client-portal-scope";
@@ -260,30 +261,34 @@ export async function getClaim(session: ClientPortalSession): Promise<GetClaimRe
 
 export type UploadDocumentsResult = { ok: true; claim: ClientPortalClaim } | { ok: false; error: string };
 
+/**
+ * Sends the files for one document, one after another (build-loop item 23). A small file goes in a single
+ * request; a larger one is cut into pieces that are each retried with a growing wait and can be picked up
+ * again after a reload. Progress is reported as it goes. Returns the claim as it stands after the last file.
+ */
 export async function uploadClaimDocuments(
   session: ClientPortalSession,
   files: File[],
   documentTypeKey?: string,
+  handlers: UploadHandlers = {},
 ): Promise<UploadDocumentsResult> {
   if (!session.caseId) {
     return { ok: false, error: "No claim has been submitted on this access link yet." };
   }
-  try {
-    const form = new FormData();
-    files.forEach((file) => form.append("files", file));
-    if (documentTypeKey) form.append("documentTypeKey", documentTypeKey);
-    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claims/${session.caseId}/documents`, {
-      method: "POST",
-      headers: clientPortalHeaders(session.sessionToken),
-      body: form,
-    });
-    if (!response.ok) {
-      return { ok: false, error: await safeError(response, "We could not upload your document. Try again shortly.") };
-    }
-    return { ok: true, claim: (await response.json()) as ClientPortalClaim };
-  } catch (reason) {
-    return { ok: false, error: safeNetworkFailure(reason, "We could not upload your document.") };
+
+  const baseHeaders = clientPortalHeaders(null);
+  let claim: ClientPortalClaim | null = null;
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    const position = { fileIndex: index, fileCount: files.length };
+    const result = file.size > SINGLE_REQUEST_LIMIT
+      ? await sendFileInPieces<ClientPortalClaim>(file, documentTypeKey, session.sessionToken, session.caseId, baseHeaders, handlers, position)
+      : await sendSmallFile<ClientPortalClaim>(file, documentTypeKey, session.sessionToken, session.caseId, baseHeaders, handlers, position);
+    if (!result.ok) return { ok: false, error: result.error };
+    claim = result.value;
   }
+
+  return claim ? { ok: true, claim } : { ok: false, error: "There was nothing to send." };
 }
 
 export async function retryClaimDocument(session: ClientPortalSession, documentTypeKey: string): Promise<RemoveDocumentResult> {

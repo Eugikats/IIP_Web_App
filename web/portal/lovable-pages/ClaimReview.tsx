@@ -47,6 +47,8 @@ import { FieldProposalsCard } from "@/components/iip/FieldProposalsCard";
 import { AuthenticityCard } from "@/components/iip/AuthenticityCard";
 import { ClaimAssessmentCard } from "@/components/iip/ClaimAssessmentCard";
 import { ClaimStatusChange } from "@/components/iip/ClaimStatusChange";
+import { SendClaimLink } from "@/components/iip/SendClaimLink";
+import { ClaimsPackDownload } from "@/components/iip/ClaimsPackDownload";
 
 const POLICY_SOURCE_LABEL: Record<string, string> = {
   Manual: "Entered manually",
@@ -180,6 +182,10 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const canRespondToAssessment = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "OverrideAiRecommendation")
     : hasPermission(runtimeContext?.permissions ?? [], "OverrideAiRecommendation");
+  // Sending the customer a link to their claim is messaging the customer, the same permission as sending an update.
+  const canSendClaimLink = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "SendCustomerUpdate")
+    : hasPermission(runtimeContext?.permissions ?? [], "SendCustomerUpdate");
   const canExportEvidencePack = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "ExportEvidencePack")
     : hasPermission(runtimeContext?.permissions ?? [], "ExportEvidencePack");
@@ -1073,6 +1079,18 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           <GlassCard>
             <ClaimStatusChange caseId={detail.claimId} role={roleDef.key} status={detail.status} notice={statusNotice} onChanged={(confirmation) => { setStatusNotice(confirmation); void reload(); }} />
           </GlassCard>
+
+          {canExportEvidencePack && (
+            <GlassCard>
+              <ClaimsPackDownload caseId={detail.claimId} role={roleDef.key} />
+            </GlassCard>
+          )}
+
+          {canSendClaimLink && (
+            <GlassCard>
+              <SendClaimLink caseId={detail.claimId} role={roleDef.key} />
+            </GlassCard>
+          )}
 
           {(detail.status === "Settled" || detail.status === "Closed") && (
             <GlassCard>

@@ -27,6 +27,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedFieldProposal> FieldProposals => Set<PersistedFieldProposal>();
     public DbSet<PersistedAuthenticityReport> AuthenticityReports => Set<PersistedAuthenticityReport>();
     public DbSet<PersistedClaimAssessment> ClaimAssessments => Set<PersistedClaimAssessment>();
+    public DbSet<PersistedUploadSession> UploadSessions => Set<PersistedUploadSession>();
+    public DbSet<PersistedUploadPart> UploadParts => Set<PersistedUploadPart>();
     public DbSet<PersistedBackgroundJob> BackgroundJobs => Set<PersistedBackgroundJob>();
     public DbSet<UserTenantMembershipEntity> UserTenantMemberships => Set<UserTenantMembershipEntity>();
     public DbSet<OrganisationEntity> Organisations => Set<OrganisationEntity>();
@@ -134,6 +136,11 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedAuthenticityReport>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PerceptualHash });
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimAssessment>(), "ClaimAssessments", "AssessmentId");
         modelBuilder.Entity<PersistedClaimAssessment>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId, entity.GeneratedAt });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedUploadSession>(), "UploadSessions", "UploadId");
+        modelBuilder.Entity<PersistedUploadSession>().Property(entity => entity.Fingerprint).HasMaxLength(200).IsRequired();
+        modelBuilder.Entity<PersistedUploadSession>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId, entity.Fingerprint });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedUploadPart>(), "UploadParts", "PartId");
+        modelBuilder.Entity<PersistedUploadPart>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.UploadId, entity.PartIndex });
         ConfigureScopedJson(modelBuilder.Entity<PersistedFieldProposal>(), "FieldProposals", "ProposalId");
         modelBuilder.Entity<PersistedFieldProposal>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedSlotPdf>(), "SlotPdfs", "SlotPdfId");
@@ -497,6 +504,8 @@ public sealed class PersistedWordingDraft : PersistedScopedJson { public Guid Pr
 public sealed class PersistedSlotPdf : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedFieldProposal : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedAuthenticityReport : PersistedScopedJson { public Guid CaseId { get; set; } public string? PerceptualHash { get; set; } }
+public sealed class PersistedUploadSession : PersistedScopedJson { public Guid CaseId { get; set; } public string Fingerprint { get; set; } = string.Empty; }
+public sealed class PersistedUploadPart : PersistedScopedJson { public Guid UploadId { get; set; } public int PartIndex { get; set; } public byte[] Data { get; set; } = []; }
 public sealed class PersistedClaimAssessment : PersistedScopedJson { public Guid CaseId { get; set; } public DateTimeOffset GeneratedAt { get; set; } }
 public sealed class PersistedBackgroundJob : PersistedScopedJson
 {

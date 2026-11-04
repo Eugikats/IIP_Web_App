@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // The claims-core end-to-end oracle. It grows with every build-loop item and, when the loop ends,
@@ -1552,5 +1553,184 @@ test.describe("Item 21: customer messages on status change", () => {
     expect((await request.get(`${API}/api/v1/admin/status-notifications`, { headers: officer })).status()).toBe(403);
     const other = await request.get(`${API}/api/v1/admin/status-notifications`, { headers: scopeHeaders(newTenant()) });
     expect(((await other.json()) as { notifyCustomerOnStatusChange: boolean }).notifyCustomerOnStatusChange).toBe(false);
+  });
+});
+
+test.describe("Item 22: staff send a claim link", () => {
+  test("an officer sends the customer a link from the claim page and the customer opens the claim with it", async ({ page, request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    await page.goto(`/app/claims/${caseId}`);
+    const panel = page.getByTestId("send-claim-link");
+    await expect(panel.getByText("Send claim link", { exact: true }).first()).toBeVisible();
+
+    await panel.getByRole("button", { name: "Send claim link" }).click();
+    await expect(panel.getByRole("status")).toContainText("Link sent by text message to +256");
+    // The screen shows where it went, masked, and never the link.
+    await expect(panel).not.toContainText("/access/verify");
+
+    const outbox = (await (await request.get(`${API}/api/v1/dev/mock-outbox`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) })).json()) as { body: string }[];
+    const body = outbox.find((message) => message.body.includes("/access/verify?token=") && message.body.includes(`CLM-${caseId.replace(/-/g, "").slice(0, 8).toUpperCase()}`))!.body;
+    const token = decodeURIComponent(/token=([^\s]+)/.exec(body)![1]);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openClaimantPortal(page, token);
+    await expect(page.getByTestId("claim-status-headline")).toBeVisible();
+  });
+
+  test("a role without messaging rights cannot send a link and another tenant cannot send one for this claim", async ({ request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const broker = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "Broker", "e2e-broker");
+    expect((await request.post(`${API}/api/v1/cases/${caseId}/claim-link`, { headers: broker, data: {} })).status()).toBe(403);
+    const other = await request.post(`${API}/api/v1/cases/${caseId}/claim-link`, { headers: scopeHeaders(newTenant()), data: {} });
+    expect(other.status()).toBe(404);
+  });
+});
+
+test.describe("Item 23: slow connections", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+
+  /** A photo-sized file of random bytes with a JPEG start, large enough to need several pieces. */
+  function bigPhoto(): Buffer {
+    const bytes = Buffer.alloc(1_150_000);
+    for (let index = 0; index < bytes.length; index += 1) bytes[index] = (index * 131 + 17) & 0xff;
+    bytes[0] = 0xff;
+    bytes[1] = 0xd8;
+    return bytes;
+  }
+
+  /** About 2G: a third of a second to reach the server, and 120 kilobytes a second up. Returns a switch for the signal. */
+  async function slowDown(page: Page) {
+    const session = await page.context().newCDPSession(page);
+    await session.send("Network.enable");
+    const conditions = { latency: 300, downloadThroughput: 250 * 1024, uploadThroughput: 120 * 1024 };
+    await session.send("Network.emulateNetworkConditions", { offline: false, ...conditions });
+    return async (online: boolean) => {
+      await session.send("Network.emulateNetworkConditions", { offline: !online, ...conditions });
+    };
+  }
+
+  async function percentNow(page: Page) {
+    return Number((await page.getByTestId("upload-progress").getAttribute("data-percent").catch(() => "0")) ?? 0);
+  }
+
+  async function documentsOf(request: APIRequestContext, caseId: string) {
+    return (await (await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers })).json()) as { sha256: string; originalFileName: string }[];
+  }
+
+  test("on a slow phone connection a large photo shows progress, survives the signal dropping, and arrives byte for byte", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    const signal = await slowDown(page);
+    const photo = bigPhoto();
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+
+    await photos.locator('input[data-upload="choose"]').setInputFiles({ name: "IMG_slow.jpg", mimeType: "image/jpeg", buffer: photo });
+    const progress = photos.getByTestId("upload-progress");
+    await expect(progress).toBeVisible();
+    await expect(progress).toContainText("Sending IMG_slow.jpg");
+    await expect.poll(() => percentNow(page), { timeout: 30_000 }).toBeGreaterThanOrEqual(20);
+
+    // The signal drops in the middle: the screen says so instead of failing.
+    await signal(false);
+    await expect(progress).toContainText(/offline|connection dropped|Trying again/i, { timeout: 15_000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    // It comes back and the upload carries on by itself.
+    await signal(true);
+    await expect(photos.getByText("1 of 10 sent")).toBeVisible({ timeout: 90_000 });
+    await expect(photos.getByTestId("upload-progress")).toHaveCount(0);
+
+    const stored = await documentsOf(request, caseId);
+    expect(stored).toHaveLength(1);
+    expect(stored[0].originalFileName).toBe("IMG_slow.jpg");
+    expect(stored[0].sha256).toBe(createHash("sha256").update(photo).digest("hex"));
+  });
+
+  test("after a reload in the middle of a send the same file carries on from where it stopped", async ({ page, request }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    await slowDown(page);
+    const photo = bigPhoto();
+    // A real file on disk keeps the same identity (name, size, last modified) when it is chosen again.
+    const onDisk = join(testInfo.outputDir, "IMG_resume.jpg");
+    mkdirSync(testInfo.outputDir, { recursive: true });
+    writeFileSync(onDisk, photo);
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+
+    await photos.locator('input[data-upload="choose"]').setInputFiles(onDisk);
+    await expect.poll(() => percentNow(page), { timeout: 30_000 }).toBeGreaterThanOrEqual(40);
+    await page.reload();
+
+    // The row remembers the unfinished send and nothing was stored yet.
+    const reloaded = page.locator("li", { hasText: "Photos of the damage" }).first();
+    await expect(reloaded.getByTestId("unfinished-upload")).toContainText("IMG_resume.jpg was interrupted");
+    expect(await documentsOf(request, caseId)).toHaveLength(0);
+
+    const pieces: string[] = [];
+    page.on("request", (sent) => {
+      if (sent.method() === "PUT" && sent.url().includes("/chunks/")) pieces.push(sent.url().split("/chunks/")[1]);
+    });
+    await slowDown(page);
+    await reloaded.locator('input[data-upload="choose"]').setInputFiles(onDisk);
+    await expect(reloaded.getByText("1 of 10 sent")).toBeVisible({ timeout: 90_000 });
+
+    // Fewer pieces went the second time than the file has, and the stored file is exact.
+    expect(pieces.length).toBeGreaterThan(0);
+    expect(pieces.length).toBeLessThan(Math.ceil(photo.length / (256 * 1024)));
+    const stored = await documentsOf(request, caseId);
+    expect(stored).toHaveLength(1);
+    expect(stored[0].sha256).toBe(createHash("sha256").update(photo).digest("hex"));
+    await expect(reloaded.getByTestId("unfinished-upload")).toHaveCount(0);
+  });
+});
+
+test.describe("Item 24: claims pack", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+
+  test("a supervisor downloads a pack from the claim page with the summary, the renamed documents, the untouched evidence and a manifest that matches", async ({ page, request }, testInfo) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    const police = page.locator("li", { hasText: "Police abstract" }).first();
+    await police.locator('input[data-upload="choose"]').setInputFiles({ name: "scan_001.pdf", mimeType: "application/pdf", buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract the police abstract") });
+    await expect(police.getByText("Received")).toBeVisible({ timeout: 30_000 });
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+    await photos.locator('input[data-upload="choose"]').setInputFiles(join(FIXTURES, "damage_photo.jpg"));
+    await expect(photos.getByText("1 of 10 sent")).toBeVisible();
+    await waitForDocumentsRead(request, caseId);
+
+    await page.goto(`/app/claims/${caseId}`);
+    const box = page.getByTestId("claims-pack");
+    await expect(box.getByText("Parts prepared by the platform are marked advisory.")).toBeVisible();
+    const [download] = await Promise.all([page.waitForEvent("download"), box.getByRole("button", { name: "Download claims pack" }).click()]);
+    const reference = `CLM-${caseId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+    expect(download.suggestedFilename()).toBe(`ClaimsPack_${reference}.zip`);
+    await expect(box.getByRole("status")).toContainText(`Downloaded ClaimsPack_${reference}.zip`);
+
+    // What was downloaded is the same pack the API serves, and its contents are right.
+    const target = join(testInfo.outputDir, "pack.zip");
+    mkdirSync(testInfo.outputDir, { recursive: true });
+    await download.saveAs(target);
+    const bytes = readFileSync(target);
+    expect(bytes.subarray(0, 2).toString()).toBe("PK");
+    const listing = (await (await request.get(`${API}/api/v1/compliance/cases/${caseId}/claims-pack`, { headers })).body()).toString("latin1");
+    for (const name of [`00_ClaimSummary_${reference}.pdf`, `01_Documents/PoliceAbstract_${reference}.pdf`, "02_Evidence/", "manifest.json"]) {
+      expect(listing).toContain(name);
+    }
+    // The zip's own index lists the same files by name (the bytes are checked against the manifest in the API tests).
+    const downloaded = bytes.toString("latin1");
+    for (const name of [`00_ClaimSummary_${reference}.pdf`, `01_Documents/PoliceAbstract_${reference}.pdf`, "02_Evidence/", "manifest.json"]) {
+      expect(downloaded).toContain(name);
+    }
+    // Keep the downloaded pack where the run's other artefacts are, so it can be opened and checked by hand.
+    await testInfo.attach("claims-pack.zip", { path: target, contentType: "application/zip" });
+  });
+
+  test("an officer cannot download a pack and another tenant cannot either", async ({ request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
+    expect((await request.get(`${API}/api/v1/compliance/cases/${caseId}/claims-pack`, { headers: officer })).status()).toBe(403);
+    expect((await request.get(`${API}/api/v1/compliance/cases/${caseId}/claims-pack`, { headers: scopeHeaders(newTenant()) })).status()).toBe(404);
   });
 });

@@ -83,6 +83,9 @@ builder.Services.AddCors(options =>
 
         policy.AllowAnyHeader()
             .AllowAnyMethod()
+            // A browser on another origin can only read these response headers if they are exposed: the
+            // name a download was given (claims pack, item 24) and how many files it holds.
+            .WithExposedHeaders("Content-Disposition", "X-Pack-Files")
             .WithOrigins(allowedOrigins)
             .AllowCredentials();
     });
@@ -621,6 +624,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IClaimAssessm
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter, InsuranceIntelligence.Application.Cases.ClaimantStatusPresenter>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimStatusChangeService, InsuranceIntelligence.Application.Cases.ClaimStatusChangeService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimStatusNotifier, InsuranceIntelligence.Application.Cases.ClaimStatusNotifier>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimsPackBuilder, InsuranceIntelligence.Application.Compliance.ClaimsPackBuilder>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1034,6 +1038,16 @@ app.MapGet("/api/v1/client-portal/claims/{caseId:guid}", ClientPortalEndpoints.G
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents", ClientPortalEndpoints.UploadDocuments)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/uploads", InsuranceIntelligence.Api.ClientPortal.ResumableUploadEndpoints.Start)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapGet("/api/v1/client-portal/claims/{caseId:guid}/uploads/{uploadId:guid}", InsuranceIntelligence.Api.ClientPortal.ResumableUploadEndpoints.Status)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPut("/api/v1/client-portal/claims/{caseId:guid}/uploads/{uploadId:guid}/chunks/{index:int}", InsuranceIntelligence.Api.ClientPortal.ResumableUploadEndpoints.PutChunk)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/uploads/{uploadId:guid}/complete", InsuranceIntelligence.Api.ClientPortal.ResumableUploadEndpoints.Complete)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapDelete("/api/v1/client-portal/claims/{caseId:guid}/uploads/{uploadId:guid}", InsuranceIntelligence.Api.ClientPortal.ResumableUploadEndpoints.Cancel)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents/remove", ClientPortalEndpoints.RemoveDocument)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents/reorder", ClientPortalEndpoints.ReorderPages)
@@ -1079,6 +1093,8 @@ app.MapGet("/api/v1/cases/{caseId:guid}/status-options", InsuranceIntelligence.A
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/status", InsuranceIntelligence.Api.Cases.ClaimStatusEndpoints.Change)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/claim-link", InsuranceIntelligence.Api.ClientPortal.StaffClaimLinkEndpoints.Send)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.SendCustomerUpdate));
 app.MapPost("/api/v1/cases/{caseId:guid}/escalate", CaseEndpoints.EscalateCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/confirm", CaseEndpoints.ConfirmCase)
@@ -1689,6 +1705,8 @@ app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack", ComplianceEndpoi
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export", ComplianceEndpoints.ExportAuditPack)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/save", InsuranceIntelligence.Api.Compliance.EvidencePackSaveEndpoints.Save)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapGet("/api/v1/compliance/cases/{caseId:guid}/claims-pack", InsuranceIntelligence.Api.Compliance.ClaimsPackEndpoints.Download)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/download", ComplianceEndpoints.DownloadAuditPackExport)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));

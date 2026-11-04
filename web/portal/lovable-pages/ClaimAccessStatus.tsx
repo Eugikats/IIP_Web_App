@@ -20,6 +20,7 @@ import {
   uploadClaimDocuments,
 } from "@/lib/clientPortal";
 import { prepareFileForSlot } from "@/lib/photoDownscale";
+import { unfinishedUploads, type UnfinishedUpload, type UploadProgress } from "@/lib/resumableUpload";
 import { ClaimantDocumentsCard, SOMETHING_ELSE_KEY } from "@/components/iip/ClaimantDocumentsCard";
 import { ClaimantConsentCard } from "@/components/iip/ClaimantConsentCard";
 import { agreeToPrivacyNotice, fetchPrivacyConsent, withdrawPrivacyConsent, type PrivacyConsent } from "@/lib/privacyConsent";
@@ -72,6 +73,13 @@ export default function ClaimAccessStatus() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [uploadFailed, setUploadFailed] = useState(false);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [unfinished, setUnfinished] = useState<UnfinishedUpload[]>([]);
+  const claimCaseId = claim?.caseId ?? null;
+  // Uploads left half done before a reload are remembered in this browser, and shown against their slot.
+  useEffect(() => {
+    if (claimCaseId) setUnfinished(unfinishedUploads(claimCaseId));
+  }, [claimCaseId]);
   const [reviewReason, setReviewReason] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
@@ -164,8 +172,11 @@ export default function ClaimAccessStatus() {
     // Only a document slot may have its pictures scaled down; evidence is sent exactly as taken.
     const slotKind = claim?.requiredDocuments.find((row) => row.documentTypeKey === documentTypeKey)?.kind === "Evidence" ? "Evidence" : "Document";
     const files = await Promise.all(rawFiles.map((file) => prepareFileForSlot(file, slotKind)));
-    const result = await uploadClaimDocuments(session, files, documentTypeKey === SOMETHING_ELSE_KEY ? undefined : documentTypeKey);
+    setProgress(null);
+    const result = await uploadClaimDocuments(session, files, documentTypeKey === SOMETHING_ELSE_KEY ? undefined : documentTypeKey, { onProgress: setProgress });
     setBusyKey(null);
+    setProgress(null);
+    if (session.caseId) setUnfinished(unfinishedUploads(session.caseId));
     if (!result.ok) {
       setUploadFailed(true);
       setUploadNotice(result.error);
@@ -382,6 +393,8 @@ export default function ClaimAccessStatus() {
               uploadsBlockedReason={consent && consent.state !== "Given" ? "Read and agree to the privacy notice above to send documents." : null}
               documents={claim.requiredDocuments}
               busyKey={busyKey}
+              progress={progress}
+              unfinished={unfinished}
               notice={uploadNotice}
               noticeFailed={uploadFailed}
               requiredSummary={requiredTotal > 0 && claim.status !== "Settled" && claim.status !== "Closed" ? (stillNeeded.length === 0 ? "Everything we asked for has been sent. Our team will let you know if they need anything else." : `Still needed: ${stillNeeded.join(", ")}.`) : null}

@@ -439,6 +439,50 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>A claims pack (zip of summary, documents, evidence and manifest) was downloaded (build-loop item 24).
+    /// Records how many files and how many bytes, never their content.</summary>
+    public static AuditEvent ClaimsPackExported(TenantScope scope, Guid caseId, string userId, int fileCount, long sizeBytes, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            caseId.ToString(),
+            userId,
+            ActorType.User,
+            "claims_pack.exported",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: $"files:{fileCount};bytes:{sizeBytes}",
+            EvidenceIds: [caseId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    /// <summary>A staff member sent (or tried to send) a claimant the link to their claim (build-loop item 22).
+    /// Records the channel and the outcome; never the link.</summary>
+    public static AuditEvent ClaimLinkSent(TenantScope scope, Guid caseId, string userId, string channel, string outcome, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            caseId.ToString(),
+            userId,
+            ActorType.User,
+            "claim.link.sent",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: $"{channel}:{outcome}",
+            EvidenceIds: [caseId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: outcome == "Sent" ? "accepted" : "not_delivered",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>The customer was (or was not) told about a status change (build-loop item 21), and how it ended:
     /// Sent, QueuedForApproval, NoRecipient or NotSent with the reason.</summary>
     public static AuditEvent ClaimStatusNotified(TenantScope scope, Guid caseId, string status, string outcome, Guid? updateId, string correlationId) =>

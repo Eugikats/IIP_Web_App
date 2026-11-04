@@ -124,7 +124,8 @@ public sealed class ConfiguredCustomerUpdateCommunicationProvider(
             ContactWaId = waId,
             Direction = WhatsAppMessageDirection.Outbound,
             ContentType = template is null ? WhatsAppContentType.Text : WhatsAppContentType.Template,
-            CustomerSafeBody = update.MessageBody,
+            // A message that carries a claim link is kept as a plain sentence: the link opens the claim.
+            CustomerSafeBody = update.SourceTemplateKey == ClaimLinkPolicy.SourceKey ? ClaimLinkPolicy.RedactedBody : update.MessageBody,
             ProviderMessageId = result.ProviderMessageId,
             TemplateName = template?.Name,
             Language = template?.Language ?? "en",

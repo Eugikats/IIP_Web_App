@@ -60,6 +60,8 @@ export default defineConfig({
         NEXT_PUBLIC_TENANT_ID: "tenant-demo",
         NEXT_PUBLIC_WORKSPACE_ID: "workspace-operations",
         NEXT_PUBLIC_LOCAL_USER_ID: "local-admin",
+        // Retries wait a twentieth of the real time in tests, so a dropped connection is recovered in moments.
+        NEXT_PUBLIC_UPLOAD_BACKOFF_SCALE: "0.05",
       },
     },
   ],
