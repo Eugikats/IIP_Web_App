@@ -478,7 +478,8 @@ else
 }
 if (infrastructureOptions.CommunicationProvider.Equals("GraphEmail", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddSingleton<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
+    builder.Services.AddScoped<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
+    builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppSenderResolver, ConfiguredWhatsAppSenderResolver>();
 }
 else if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infrastructureOptions.CommunicationProvider, runtimeProfile))
 {
@@ -487,10 +488,12 @@ else if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infras
     builder.Services.AddSingleton<InsuranceIntelligence.Api.Local.Mock.MockOutbox>();
     builder.Services.AddScoped<InsuranceIntelligence.Domain.Communications.ICommunicationSendingProvider, InsuranceIntelligence.Api.Local.Mock.MockCommunicationSendingProvider>();
     builder.Services.AddScoped<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
+    builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppSenderResolver, MockWhatsAppSenderResolver>();
 }
 else
 {
     builder.Services.AddSingleton<ICommunicationProvider, NotConfiguredCommunicationProvider>();
+    builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppSenderResolver, ConfiguredWhatsAppSenderResolver>();
 }
 builder.Services.AddSingleton<ISlaCalculator, BasicSlaCalculator>();
 
@@ -617,6 +620,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IAuthenti
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IClaimAssessmentService, InsuranceIntelligence.Application.Fraud.ClaimAssessmentService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter, InsuranceIntelligence.Application.Cases.ClaimantStatusPresenter>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimStatusChangeService, InsuranceIntelligence.Application.Cases.ClaimStatusChangeService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimStatusNotifier, InsuranceIntelligence.Application.Cases.ClaimStatusNotifier>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1512,6 +1516,10 @@ app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/authenticit
 app.MapGet("/api/v1/admin/claim-status-wording", InsuranceIntelligence.Api.Admin.ClaimStatusWordingEndpoints.Get)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPut("/api/v1/admin/claim-status-wording", InsuranceIntelligence.Api.Admin.ClaimStatusWordingEndpoints.Put)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/admin/status-notifications", InsuranceIntelligence.Api.Admin.StatusNotificationSettingsEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPut("/api/v1/admin/status-notifications", InsuranceIntelligence.Api.Admin.StatusNotificationSettingsEndpoints.Put)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/cases/{caseId:guid}/assessment", InsuranceIntelligence.Api.Fraud.ClaimAssessmentEndpoints.Get)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));

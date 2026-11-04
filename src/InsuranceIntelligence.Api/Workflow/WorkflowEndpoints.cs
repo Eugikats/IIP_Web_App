@@ -196,6 +196,8 @@ public static class WorkflowEndpoints
             }
         }
 
+        await ClaimStatusNotifications.NotifyAsync(httpContext, beforeCase, claimForWorkflow, correlationId, cancellationToken);
+
         var createdTasks = new List<WorkflowTask>();
         var createdApprovals = new List<ApprovalRequest>();
 

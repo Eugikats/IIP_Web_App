@@ -45,7 +45,8 @@ public interface IClaimStatusChangeService
 public sealed class ClaimStatusChangeService(
     ICaseRepository caseRepository,
     IAuditRepository auditRepository,
-    IPermissionService permissionService) : IClaimStatusChangeService
+    IPermissionService permissionService,
+    IClaimStatusNotifier? statusNotifier = null) : IClaimStatusChangeService
 {
     public const int MaxReasonLength = 500;
 
@@ -132,6 +133,18 @@ public sealed class ClaimStatusChangeService(
         var updated = claim with { Status = target, UpdatedAt = DateTimeOffset.UtcNow };
         await caseRepository.SaveAsync(updated, cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.CaseStatusChanged(before, updated.ToAuditSnapshot(), actorId, correlationId, trimmed), cancellationToken);
+        if (statusNotifier is not null)
+        {
+            try
+            {
+                await statusNotifier.NotifyAsync(claim, updated, correlationId, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // The status change stands; telling the customer is best effort and audited by the notifier.
+            }
+        }
+
         return new StatusChangeResult(StatusChangeOutcome.Done, null, caseId, target.ToString(), ClaimStatusLabels.For(target));
     }
 }

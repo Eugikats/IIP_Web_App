@@ -51,7 +51,8 @@ public sealed class CommandCenterActionService(
     IClaimsSummaryService claimsSummaryService,
     IAgentGate agentGate,
     IAgentActionLogRepository actionLogRepository,
-    IAuditRepository auditRepository) : ICommandCenterActionService
+    IAuditRepository auditRepository,
+    InsuranceIntelligence.Application.Cases.IClaimStatusNotifier? statusNotifier = null) : ICommandCenterActionService
 {
     private const string Visibility = "Internal";
     private const string ActionPromptVersion = "command-center-actions-v1";
@@ -242,6 +243,17 @@ public sealed class CommandCenterActionService(
         await auditRepository.WriteAsync(
             AuditEvent.CaseAssigned(before, updated.ToAuditSnapshot(), context.UserId, correlationId, $"Assigned from the assistant: \"{Summarize(question)}\""),
             cancellationToken);
+        if (statusNotifier is not null)
+        {
+            try
+            {
+                await statusNotifier.NotifyAsync(claimCase, updated, correlationId, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Best effort: the assignment stands.
+            }
+        }
 
         return await RespondAsync(question, context, claimCase.CaseId, $"Assigned {reference} to {assigneeId}.",
             [

@@ -564,14 +564,12 @@ public static class CustomerUpdateEndpoints
         }
 
         var sent = await communicationProvider.SendAsync(update, actor, request.Recipient, cancellationToken);
-        if (sent.DeliveryStatus is "ApprovalRequired" or "ConfigurationRequired" or "Failed")
+        if (CustomerUpdateDelivery.IsFailure(sent.DeliveryStatus))
         {
             return Results.BadRequest(new
             {
                 deliveryStatus = sent.DeliveryStatus,
-                message = sent.DeliveryStatus == "ConfigurationRequired"
-                    ? "Customer update sending is not configured for this channel or recipient."
-                    : "Customer update could not be sent."
+                message = sent.DeliveryStatus == "Failed" ? "Customer update could not be sent." : CustomerUpdateDelivery.PlainReason(sent.DeliveryStatus)
             });
         }
 

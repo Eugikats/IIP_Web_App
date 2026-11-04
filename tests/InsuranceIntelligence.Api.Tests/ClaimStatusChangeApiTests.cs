@@ -35,8 +35,8 @@ public sealed class ClaimStatusChangeApiTests(MockedApiFactory factory) : IClass
         var options = await OptionsAsync(officer, claim.CaseId);
 
         Assert.Equal("New", options.GetProperty("currentStatus").GetString());
-        var choices = options.GetProperty("options").EnumerateArray().Select(option => option.GetProperty("status").GetString()).ToArray();
-        Assert.Equal(["InReview", "MissingDocuments"], choices.OrderBy(name => name).ToArray());
+        var choices = options.GetProperty("options").EnumerateArray().Select(option => option.GetProperty("status").GetString()!).OrderBy(name => name).ToArray();
+        Assert.Equal(new[] { "InReview", "MissingDocuments" }, choices);
         var others = options.GetProperty("others").EnumerateArray().ToDictionary(item => item.GetProperty("status").GetString()!, item => item.GetProperty("howItIsReached").GetString()!);
         Assert.Contains("Approvals queue", others["PendingApproval"]);
         Assert.Contains("Resolve", others["Settled"]);

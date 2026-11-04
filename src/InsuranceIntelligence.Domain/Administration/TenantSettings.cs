@@ -45,6 +45,18 @@ public sealed record TenantSettings
     /// by status name (build-loop item 19). A status with no entry uses the default wording.</summary>
     public IReadOnlyDictionary<string, Cases.StatusWording>? ClaimantStatusWording { get; init; }
 
+    /// <summary>Whether the customer is told, with the workspace's own status wording, when their claim's
+    /// status changes (build-loop item 21). Off until an administrator turns it on.</summary>
+    public bool NotifyCustomerOnStatusChange { get; init; }
+
+    /// <summary>Whether a status message may go out without a person approving it, for the kinds of message
+    /// the customer update policy allows that for. Statuses that announce an outcome always need a person.</summary>
+    public bool AutoSendStatusMessages { get; init; }
+
+    /// <summary>The WhatsApp template Meta approved for each status, by status name. WhatsApp only allows a
+    /// template once the customer's last message is more than 24 hours old.</summary>
+    public IReadOnlyDictionary<string, Cases.WhatsAppTemplateRef>? WhatsAppStatusTemplates { get; init; }
+
     public string? UpdatedByUserId { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
 
@@ -80,6 +92,7 @@ public sealed record TenantSettings
         }
 
         errors.AddRange(Cases.ClaimantStatusWords.Validate(ClaimantStatusWording));
+        errors.AddRange(Cases.WhatsAppTemplates.Validate(WhatsAppStatusTemplates));
 
         return errors;
     }
@@ -95,6 +108,9 @@ public sealed record TenantSettings
         if (ClaimsMeterLimit != previous.ClaimsMeterLimit) changed.Add(nameof(ClaimsMeterLimit));
         if (PrivacyNoticeText != previous.PrivacyNoticeText) changed.Add(nameof(PrivacyNoticeText));
         if (!Cases.ClaimantStatusWords.SameAs(ClaimantStatusWording, previous.ClaimantStatusWording)) changed.Add(nameof(ClaimantStatusWording));
+        if (NotifyCustomerOnStatusChange != previous.NotifyCustomerOnStatusChange) changed.Add(nameof(NotifyCustomerOnStatusChange));
+        if (AutoSendStatusMessages != previous.AutoSendStatusMessages) changed.Add(nameof(AutoSendStatusMessages));
+        if (!Cases.WhatsAppTemplates.SameAs(WhatsAppStatusTemplates, previous.WhatsAppStatusTemplates)) changed.Add(nameof(WhatsAppStatusTemplates));
         return changed;
     }
 }

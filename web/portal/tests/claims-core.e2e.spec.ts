@@ -1516,3 +1516,41 @@ test.describe("Item 20: change status", () => {
     expect(other.status()).toBe(404);
   });
 });
+
+test.describe("Item 21: customer messages on status change", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+
+  test("an administrator turns status messages on, and a status change then reaches the customer in the insurer's words", async ({ page, request }) => {
+    try {
+      await page.goto("/app/admin/status-wording");
+      const settings = page.getByTestId("status-messages-settings");
+      await expect(settings.getByText("Telling customers when the status changes")).toBeVisible();
+      await settings.getByLabel("Tell customers when their claim's status changes").check();
+      await settings.getByLabel(/Send them without a person approving each one/).check();
+      await settings.getByLabel("WhatsApp template name for Under review").fill("claim_in_review");
+      await settings.getByRole("button", { name: "Save message settings" }).click();
+      await expect(settings.getByRole("status")).toContainText("Saved");
+      await page.reload();
+      await expect(page.getByTestId("status-messages-settings").getByLabel("Tell customers when their claim's status changes")).toBeChecked();
+      await expect(page.getByTestId("status-messages-settings").getByLabel("WhatsApp template name for Under review")).toHaveValue("claim_in_review");
+
+      const { caseId } = await claimantLinkFor(request);
+      const changed = await request.post(`${API}/api/v1/cases/${caseId}/status`, { headers, data: { toStatus: "InReview", reason: "Started the review." } });
+      expect(changed.ok()).toBeTruthy();
+
+      const outbox = (await (await request.get(`${API}/api/v1/dev/mock-outbox`, { headers })).json()) as { body: string; recipient: string }[];
+      const sent = outbox.find((message) => message.body.includes(`CLM-${caseId.replace(/-/g, "").slice(0, 8).toUpperCase()}`) && message.body.includes("An update on your claim"));
+      expect(sent?.body).toContain("We are reviewing your claim");
+      expect(sent?.recipient).toBe("+256700000777");
+    } finally {
+      await request.put(`${API}/api/v1/admin/status-notifications`, { headers, data: { notifyCustomerOnStatusChange: false, autoSendStatusMessages: false, whatsAppTemplates: {} } });
+    }
+  });
+
+  test("an officer cannot read or change the message settings and another tenant has its own", async ({ request }) => {
+    const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
+    expect((await request.get(`${API}/api/v1/admin/status-notifications`, { headers: officer })).status()).toBe(403);
+    const other = await request.get(`${API}/api/v1/admin/status-notifications`, { headers: scopeHeaders(newTenant()) });
+    expect(((await other.json()) as { notifyCustomerOnStatusChange: boolean }).notifyCustomerOnStatusChange).toBe(false);
+  });
+});

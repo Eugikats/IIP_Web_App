@@ -439,6 +439,28 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>The customer was (or was not) told about a status change (build-loop item 21), and how it ended:
+    /// Sent, QueuedForApproval, NoRecipient or NotSent with the reason.</summary>
+    public static AuditEvent ClaimStatusNotified(TenantScope scope, Guid caseId, string status, string outcome, Guid? updateId, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            caseId.ToString(),
+            "system:status-notifier",
+            ActorType.System,
+            "claim.status.notified",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: $"{status}:{outcome}",
+            EvidenceIds: updateId is null ? [] : [updateId.Value.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: outcome.StartsWith("NotSent", StringComparison.Ordinal) || outcome == "NoRecipient" ? "not_delivered" : "accepted",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>A person changed a claim's status with the "Change status" action (build-loop item 20),
     /// with the reason they gave.</summary>
     public static AuditEvent CaseStatusChanged(ClaimCaseSnapshot before, ClaimCaseSnapshot after, string userId, string correlationId, string reason) =>

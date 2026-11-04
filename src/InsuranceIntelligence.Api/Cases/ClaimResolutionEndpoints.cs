@@ -87,6 +87,7 @@ public static class ClaimResolutionEndpoints
         await auditRepository.WriteAsync(
             AuditEvent.CaseStatusUpdated(beforeCase, updatedCase.ToAuditSnapshot(), actor, correlationId, auditReason),
             cancellationToken);
+        await ClaimStatusNotifications.NotifyAsync(httpContext, claimCase, updatedCase, correlationId, cancellationToken);
 
         // Best-effort: a failure to draft either message must never undo, or even be reported as
         // failing, a resolution that has already been recorded (same shape as the

@@ -265,6 +265,7 @@ public static class ApprovalEndpoints
                 auditReason),
             cancellationToken);
         await auditRepository.WriteAsync(AuditEvent.ApprovalNextStepExecuted(updatedApproval, executor, auditReason), cancellationToken);
+        await ClaimStatusNotifications.NotifyAsync(httpContext, claimCase, updatedCase, WorkflowEndpoints.GetCorrelationId(httpContext), cancellationToken);
 
         return Results.Ok(WorkflowMapper.ToResponse(updatedApproval));
     }

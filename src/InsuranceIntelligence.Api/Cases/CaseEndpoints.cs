@@ -258,6 +258,7 @@ public static class CaseEndpoints
         await auditRepository.WriteAsync(
             AuditEvent.CaseAssigned(before, updated.ToAuditSnapshot(), userId, correlationId, NormalizeOptional(request.AuditReason)),
             cancellationToken);
+        await ClaimStatusNotifications.NotifyAsync(httpContext, claimCase, updated, correlationId, cancellationToken);
 
         if (notificationEmitter is not null
             && !string.IsNullOrWhiteSpace(updated.AssignedUserId)
@@ -342,6 +343,7 @@ public static class CaseEndpoints
         await auditRepository.WriteAsync(
             AuditEvent.CaseEscalated(before, updated.ToAuditSnapshot(), userId, correlationId, request.AuditReason.Trim()),
             cancellationToken);
+        await ClaimStatusNotifications.NotifyAsync(httpContext, claimCase, updated, correlationId, cancellationToken);
 
         // Notify the officer already assigned to this claim, escalation doesn't reassign it,
         // it changes its priority/queue, so they need to know their claim's status changed.

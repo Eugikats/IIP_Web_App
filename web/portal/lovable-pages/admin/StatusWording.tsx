@@ -5,6 +5,7 @@ import { GlassCard, SectionHeader } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { ErrorStateSurface, LoadingSkeleton } from "@/components/ui/StateSurfaces";
+import { StatusMessagesSettings } from "@/components/iip/StatusMessagesSettings";
 import { useUI } from "@/context/UIStateContext";
 import { loadStatusWording, saveStatusWording, type StatusWordingRow } from "@/lib/statusWording";
 
@@ -61,6 +62,7 @@ export default function StatusWording() {
   return (
     <>
       <SectionHeader eyebrow="Admin" title="Claim status wording" sub="What customers read about where their claim stands. Staff keep their own status names; customers see these words on their claim page and in messages about it." />
+      <div className="mb-4"><StatusMessagesSettings role={role} /></div>
       {!rows && !loadError && <GlassCard><LoadingSkeleton rows={6} /></GlassCard>}
       {loadError && <GlassCard><ErrorStateSurface title="The wording could not be loaded" message={loadError} onRetry={load} /></GlassCard>}
       {rows && (
