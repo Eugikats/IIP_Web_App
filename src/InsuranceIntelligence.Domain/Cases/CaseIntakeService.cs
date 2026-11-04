@@ -15,11 +15,18 @@ public sealed class CaseIntakeService(
     ICaseRepository caseRepository,
     IAuditRepository auditRepository,
     IProductRepository? productRepository = null,
-    IPolicyRepository? policyRepository = null)
+    IPolicyRepository? policyRepository = null,
+    InsuranceIntelligence.Domain.Billing.IPlanAllowance? planAllowance = null)
 {
     public async Task<ClaimCase> CreateCaseAsync(CreateCaseCommand command, CancellationToken cancellationToken = default)
     {
         Validate(command);
+
+        // A workspace on a plan can open only as many claims a month as the plan allows (build-loop item 32).
+        if (planAllowance is not null)
+        {
+            await planAllowance.EnsureCanOpenClaimAsync(command.Scope, cancellationToken);
+        }
 
         var now = DateTimeOffset.UtcNow;
         var motorFnol = command.MotorFnolDetails?.Normalize();

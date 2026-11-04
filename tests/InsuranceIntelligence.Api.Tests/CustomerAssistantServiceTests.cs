@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Domain.Acquisition;
+using InsuranceIntelligence.Api.Tests.Support;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.Notifications;
@@ -1690,8 +1691,8 @@ public sealed partial class CustomerAssistantServiceTests
     /// latest version of each lead, in the order the leads were first saved; Saves is every write.</summary>
     private sealed class FakeSalesLeadWriteRepository : ISalesLeadWriteRepository
     {
-        public List<SalesLeadDetailReadModel> Created { get; } = [];
-        public List<SalesLeadDetailReadModel> Saves { get; } = [];
+        public SafeList<SalesLeadDetailReadModel> Created { get; } = [];
+        public SafeList<SalesLeadDetailReadModel> Saves { get; } = [];
 
         public Task CreateAsync(string tenantId, string workspaceId, SalesLeadDetailReadModel lead, CancellationToken cancellationToken = default)
         {
@@ -1721,7 +1722,7 @@ public sealed partial class CustomerAssistantServiceTests
 
     private sealed class RecordingInsightsQueue : IConversationInsightsQueue
     {
-        public List<(string WaId, string ThreadId)> Requests { get; } = [];
+        public SafeList<(string WaId, string ThreadId)> Requests { get; } = [];
 
         public void Enqueue(TenantScope scope, string waId, string threadId, string correlationId) => Requests.Add((waId, threadId));
     }
@@ -1729,10 +1730,10 @@ public sealed partial class CustomerAssistantServiceTests
     private sealed class FakeWhatsAppOutboundProvider : IWhatsAppOutboundProvider
     {
         public bool IsConfigured => true;
-        public List<WhatsAppProviderSendRequest> SentRequests { get; } = [];
+        public SafeList<WhatsAppProviderSendRequest> SentRequests { get; } = [];
 
         /// <summary>Typing indicators and sends in the order they happened, e.g. "typing:wamid.x", "send".</summary>
-        public List<string> Events { get; } = [];
+        public SafeList<string> Events { get; } = [];
 
         public Task<WhatsAppProviderSendResult> SendAsync(WhatsAppProviderSendRequest request, CancellationToken cancellationToken = default)
         {
@@ -1741,7 +1742,7 @@ public sealed partial class CustomerAssistantServiceTests
             return Task.FromResult(new WhatsAppProviderSendResult(true, $"wamid.out.{Guid.NewGuid():N}", null, null));
         }
 
-        public List<byte[]> VoiceNotes { get; } = [];
+        public SafeList<byte[]> VoiceNotes { get; } = [];
 
         public Task<WhatsAppProviderSendResult> SendVoiceNoteAsync(
             string businessPhoneNumberId, string recipientWaId, byte[] oggOpusAudio, string? replyToProviderMessageId, CancellationToken cancellationToken = default)
@@ -1760,7 +1761,7 @@ public sealed partial class CustomerAssistantServiceTests
 
     private sealed class FakeWhatsAppMessageRepository : IWhatsAppMessageRepository
     {
-        public List<WhatsAppMessage> Saved { get; } = [];
+        public SafeList<WhatsAppMessage> Saved { get; } = [];
         public Task SaveAsync(WhatsAppMessage message, CancellationToken cancellationToken = default)
         {
             Saved.Add(message);
@@ -1778,7 +1779,7 @@ public sealed partial class CustomerAssistantServiceTests
 
     private sealed class FakeConversationRepository : ICustomerConversationRepository
     {
-        public List<CustomerConversationTurn> Saved { get; } = [];
+        public SafeList<CustomerConversationTurn> Saved { get; } = [];
         public Task SaveAsync(CustomerConversationTurn turn, CancellationToken cancellationToken = default)
         {
             Saved.Add(turn);
@@ -1813,7 +1814,7 @@ public sealed partial class CustomerAssistantServiceTests
     // EfConsentRepository would for a single-message conversation.
     private sealed class FakeConsentRepository : IConsentRepository
     {
-        private readonly List<ConsentRecord> records = [];
+        private readonly SafeList<ConsentRecord> records = [];
         public Task SaveAsync(ConsentRecord record, CancellationToken cancellationToken = default)
         {
             records.Add(record);
@@ -1852,7 +1853,7 @@ public sealed partial class CustomerAssistantServiceTests
 
     private sealed class FakeTeamsNotificationQueue : ITeamsNotificationQueue
     {
-        public List<TeamsNotification> Enqueued { get; } = [];
+        public SafeList<TeamsNotification> Enqueued { get; } = [];
 
         public Task EnqueueAsync(TeamsNotification notification, CancellationToken cancellationToken = default)
         {
@@ -1878,7 +1879,7 @@ public sealed partial class CustomerAssistantServiceTests
 
     private sealed class FakeAuditRepository : IAuditRepository
     {
-        public List<AuditEvent> Written { get; } = [];
+        public SafeList<AuditEvent> Written { get; } = [];
         public Task WriteAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
         {
             Written.Add(auditEvent);

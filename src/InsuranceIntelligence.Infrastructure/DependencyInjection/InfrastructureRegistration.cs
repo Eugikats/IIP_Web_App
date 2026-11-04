@@ -204,6 +204,9 @@ public static class InfrastructureRegistration
         services.AddScoped<IAgentActionLogRepository, EfAgentActionLogRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Billing.IWorkspaceUsageReader, EfWorkspaceUsageReader>();
         services.AddScoped<InsuranceIntelligence.Application.Billing.IWorkspaceAiUsageRecorder, InsuranceIntelligence.Infrastructure.Billing.AgentActionLogUsageRecorder>();
+        services.AddScoped<InsuranceIntelligence.Infrastructure.Billing.EfBillingStore>();
+        services.AddScoped<InsuranceIntelligence.Domain.Billing.ISubscriptionStore>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Billing.EfBillingStore>());
+        services.AddScoped<InsuranceIntelligence.Domain.Billing.IPaymentStore>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Billing.EfBillingStore>());
         services.AddScoped<IWorkflowTaskRepository, EfWorkflowTaskRepository>();
         services.AddScoped<IApprovalRepository, EfApprovalRepository>();
         services.AddScoped<ICustomerUpdateRepository, EfCustomerUpdateRepository>();

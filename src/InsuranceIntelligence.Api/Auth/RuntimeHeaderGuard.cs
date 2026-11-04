@@ -92,7 +92,7 @@ public static class RuntimeHeaderGuard
     private static readonly string[] PublicIdentityPaths =
     [
         "/api/v1/signup", "/api/v1/auth/capabilities", "/api/v1/auth/sign-in", "/api/v1/auth/password/forgot",
-        "/api/v1/auth/password/reset", "/api/v1/invitations",
+        "/api/v1/auth/password/reset", "/api/v1/invitations", "/api/v1/payments/callback",
     ];
 
     private static bool IsPublicIdentityRoute(HttpContext httpContext) =>

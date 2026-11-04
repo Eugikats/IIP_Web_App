@@ -15,8 +15,8 @@ public static class MeteringRegistration
         services.AddSingleton(AiPricingOptions.Parse(configuration["INSURANCEINTELLIGENCE_AI_PRICING"]));
         services.AddSingleton<IAiCostModel, ConfiguredAiCostModel>();
 
-        Wrap<IChatCompletionProvider>(services, (inner, sp) => new MeteredChatCompletionProvider(inner, sp.GetRequiredService<IWorkspaceAiUsageRecorder>(), sp.GetRequiredService<InsuranceIntelligence.Application.Core.ITenantContextAccessor>()));
-        Wrap<IToolCallingChatProvider>(services, (inner, sp) => new MeteredToolCallingChatProvider(inner, sp.GetRequiredService<IWorkspaceAiUsageRecorder>(), sp.GetRequiredService<InsuranceIntelligence.Application.Core.ITenantContextAccessor>()));
+        Wrap<IChatCompletionProvider>(services, (inner, sp) => new MeteredChatCompletionProvider(inner, sp.GetRequiredService<IWorkspaceAiUsageRecorder>(), sp.GetRequiredService<InsuranceIntelligence.Application.Core.ITenantContextAccessor>(), sp.GetService<InsuranceIntelligence.Domain.Billing.IPlanAllowance>()));
+        Wrap<IToolCallingChatProvider>(services, (inner, sp) => new MeteredToolCallingChatProvider(inner, sp.GetRequiredService<IWorkspaceAiUsageRecorder>(), sp.GetRequiredService<InsuranceIntelligence.Application.Core.ITenantContextAccessor>(), sp.GetService<InsuranceIntelligence.Domain.Billing.IPlanAllowance>()));
         Wrap<IEmbeddingProvider>(services, (inner, sp) => new MeteredEmbeddingProvider(inner, sp.GetRequiredService<IWorkspaceAiUsageRecorder>(), sp.GetRequiredService<InsuranceIntelligence.Application.Core.ITenantContextAccessor>()));
         return services;
     }

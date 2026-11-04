@@ -65,7 +65,8 @@ public sealed class LocalIdentityService(
     IAuditRepository auditRepository,
     ITenantContextSetter tenantContextSetter,
     IProductCommandService productCommands,
-    TimeProvider? clock = null)
+    TimeProvider? clock = null,
+    InsuranceIntelligence.Application.Billing.PlanService? plans = null)
 {
     public static readonly TimeSpan SignupLifetime = TimeSpan.FromHours(24);
     public static readonly TimeSpan ResetLifetime = TimeSpan.FromHours(1);
@@ -199,6 +200,12 @@ public sealed class LocalIdentityService(
             UpdatedAt = now,
         }, cancellationToken);
         await CreateStarterProductsAsync(scope, userId, cancellationToken);
+        if (plans is not null)
+        {
+            // A company that signs up for itself starts on the Free plan, and its administrator receives the receipts.
+            await plans.StartFreeAsync(scope, request.Email, cancellationToken);
+        }
+
         await store.SaveSignupAsync(request with { ConsumedAt = now }, cancellationToken);
         await auditRepository.WriteAsync(Audit(scope, userId, "workspace.created", $"Workspace opened for {request.CompanyName} through self-serve sign-up.", correlationId), cancellationToken);
         return new SignedInUser(userId, request.AdminName, request.Email, tenantId, DefaultWorkspaceId, nameof(PlatformRole.Admin));
@@ -444,9 +451,10 @@ public sealed class LocalIdentityService(
         var existing = await store.ListInvitationsAsync(scope, cancellationToken);
         var settings = await settingsRepository.GetAsync(scope, cancellationToken);
         var pending = existing.Where(item => item.Status(now) == "Pending" && !string.Equals(item.Email, normalised, StringComparison.OrdinalIgnoreCase)).Count();
-        if (members.Count(member => member.Status == "Active") + pending >= settings.SeatLimit)
+        var seatLimit = await SeatLimitAsync(scope, settings, cancellationToken);
+        if (members.Count(member => member.Status == "Active") + pending >= seatLimit)
         {
-            return (null, $"This workspace is at its limit of {settings.SeatLimit} people, counting invitations that are still open. Raise the limit in the operating settings or revoke an invitation.", false);
+            return (null, $"This workspace is at its limit of {seatLimit} people, counting invitations that are still open. Upgrade the plan or revoke an invitation.", false);
         }
 
         var baseUrl = portalAddress.BaseUrlFor(scope);
@@ -531,9 +539,9 @@ public sealed class LocalIdentityService(
 
         var settings = await settingsRepository.GetAsync(invitation.Scope, cancellationToken);
         var members = await userAccounts.ListAsync(invitation.Scope, cancellationToken);
-        if (members.Count(member => member.Status == "Active") >= settings.SeatLimit)
+        if (members.Count(member => member.Status == "Active") >= await SeatLimitAsync(invitation.Scope, settings, cancellationToken))
         {
-            return (null, "This workspace is at its limit of people. Ask the administrator to raise it.");
+            return (null, "This workspace is at its limit of people. Ask the administrator to upgrade the plan.");
         }
 
         var now = Now;
@@ -595,6 +603,10 @@ public sealed class LocalIdentityService(
 
     private static bool IsEmail(string value) =>
         value.Length is > 3 and <= 120 && System.Net.Mail.MailAddress.TryCreate(value, out var parsed) && string.Equals(parsed.Address, value, StringComparison.OrdinalIgnoreCase) && value.Contains('.');
+
+    // The plan's seats are a ceiling over the workspace's own setting; a workspace on no plan keeps its setting.
+    private async Task<int> SeatLimitAsync(TenantScope scope, TenantSettings settings, CancellationToken cancellationToken) =>
+        plans is null ? settings.SeatLimit : (await plans.GetEntitlementsAsync(scope, cancellationToken)).Seats;
 
     private AuditEvent Audit(TenantScope scope, string actor, string action, string reason, string correlationId) =>
         new(

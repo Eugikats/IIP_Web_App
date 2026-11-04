@@ -2,6 +2,7 @@
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { useBilling, type UsageMeterView } from "@/lib/lovable-parity/data/billing";
+import { BillingPlans } from "@/components/iip/BillingPlans";
 
 /** Cost is counted in whole US cents; show it as dollars. Everything else is shown as the number it is. */
 function amount(m: UsageMeterView): string {
@@ -48,14 +49,14 @@ function Meter({ m }: { m: UsageMeterView }) {
 }
 
 export default function Billing() {
-  const { summary, loading, error } = useBilling();
+  const { summary, loading, error, reload } = useBilling();
 
   return (
     <>
       <SectionHeader
         eyebrow="Admin · Billing & Usage"
         title="Package & entitlements"
-        sub="AI is metered, human-in-loop and auditability are the core platform value. Usage controls protect provider costs."
+        sub="Your plan, what this month has used, and how to pay for a bigger plan."
       />
 
       {loading ? (
@@ -66,23 +67,14 @@ export default function Billing() {
         <GlassCard><ErrorStateSurface title="Billing unavailable" message="No billing data for this workspace." /></GlassCard>
       ) : (
         <>
-          <GlassCard className="mb-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">Current package</div>
-                <div className="text-[18px] font-bold text-dls-text-primary">{summary.packageName}</div>
-                <div className="text-[12px] text-dls-text-secondary">Seat limit · {summary.seatLimit}</div>
+          <BillingPlans
+            onChanged={() => void reload()}
+            usage={
+              <div className="mb-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {summary.meters.map((m) => <Meter key={m.key} m={m} />)}
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                <Badge tone="info">Human-in-loop enforced</Badge>
-                <Badge tone="info">Auditability included</Badge>
-              </div>
-            </div>
-          </GlassCard>
-
-          <div className="mb-6 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            {summary.meters.map((m) => <Meter key={m.key} m={m} />)}
-          </div>
+            }
+          />
 
           <GlassCard>
             <div className="mb-3 text-[14px] font-bold text-dls-text-primary">Module entitlements</div>
@@ -94,7 +86,6 @@ export default function Billing() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 text-[11.5px] text-dls-text-muted">Commercial plan changes are intentionally not simulated in the portal. A publisher-backed upgrade workflow must be configured before an upgrade action is exposed.</div>
           </GlassCard>
         </>
       )}

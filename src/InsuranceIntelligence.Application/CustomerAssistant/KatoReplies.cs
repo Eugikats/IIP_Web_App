@@ -168,6 +168,10 @@ public static class KatoReplies
     public static string NoCoversYet(string? firstName) =>
         $"Thank you{Comma(firstName)}. We do not have a cover to offer in this chat yet. Someone from {KatoBrand.Current.ShortName} will get back to you shortly.";
 
+    /// <summary>The claim could not be opened by the assistant just now. The customer is never told about the insurer's plan or limits.</summary>
+    public static string CannotOpenNow(string? firstName) =>
+        $"Thank you{Comma(firstName)}. I have noted what happened, but I could not open your claim myself just now. Someone from {KatoBrand.Current.ShortName} will contact you shortly to take it from here.";
+
     public static string CoverSuggestion(string? firstName, string explanation) =>
         $"Thank you{Comma(firstName)}. {explanation} " +
         "These are microinsurance covers we are trying out, so nothing is sold in this chat. " +

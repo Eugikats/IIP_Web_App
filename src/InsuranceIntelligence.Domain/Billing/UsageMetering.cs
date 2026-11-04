@@ -41,4 +41,7 @@ public interface IWorkspaceUsageReader
     Task<AiUsageTotals> GetAiUsageAsync(TenantScope scope, string periodKey, CancellationToken cancellationToken = default);
 
     Task<DocumentUsageTotals> GetDocumentUsageAsync(TenantScope scope, string periodKey, CancellationToken cancellationToken = default);
+
+    /// <summary>How many claims were opened in the period. Claims opened before month keys were kept are not counted.</summary>
+    Task<int> GetClaimsOpenedAsync(TenantScope scope, string periodKey, CancellationToken cancellationToken = default);
 }

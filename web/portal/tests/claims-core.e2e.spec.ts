@@ -2046,6 +2046,8 @@ async function passwordSignIn(page: Page, email: string, password: string) {
   await form.getByLabel("Email").fill(email);
   await form.getByLabel("Password").fill(password);
   await form.getByRole("button", { name: "Sign in" }).click();
+  // Wait for the outcome so a failure names the reason shown on the page rather than only a timeout.
+  await Promise.race([page.waitForURL(/\/app/, { timeout: 20_000 }), formAlert(page).waitFor({ timeout: 20_000 })]).catch(() => undefined);
 }
 
 test.describe("Item 30: self-serve sign-up and staff invitations", () => {
@@ -2174,5 +2176,118 @@ test.describe("Item 31: usage metering", () => {
     const billing = (await (await request.get(`${API}/api/v1/admin/billing`, { headers: scopeHeaders(quiet) })).json()) as { meters: { key: string; used: number }[] };
     expect(billing.meters.find((meter) => meter.key === "ai-calls")?.used).toBe(0);
     expect(billing.meters.find((meter) => meter.key === "ai-tokens")?.used).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Item 32: plans with allowances, and paying for a bigger one with mobile money or a card.
+// ---------------------------------------------------------------------------------------------
+
+/** Opens a company through the public sign-up, confirms its email and signs the browser in as its administrator. */
+async function newCompanySignedIn(page: Page, request: APIRequestContext) {
+  const email = `plans-${letters(10)}@example.test`;
+  const signUp = await request.post(`${API}/api/v1/signup`, { data: { companyName: `Plans ${letters(8)} Cover`, adminName: "Pia Plans", email, password: STRONG_PASSWORD, acceptTerms: true, website: "" } });
+  expect(signUp.status()).toBe(202);
+  const token = await emailedToken(request, PLATFORM_MAIL.tenant, PLATFORM_MAIL.workspace, email, "signup/verify");
+  expect((await request.post(`${API}/api/v1/signup/verify`, { data: { token } })).ok()).toBeTruthy();
+  await passwordSignIn(page, email, STRONG_PASSWORD);
+  await expect(page).toHaveURL(/\/app/);
+  const session = (await page.evaluate(() => JSON.parse(window.sessionStorage.getItem("iip.platform.session") ?? "null"))) as { user: { tenantId: string; workspaceId: string } };
+  return { email, tenantId: session.user.tenantId, workspaceId: session.user.workspaceId };
+}
+
+async function pendingMockPayments(request: APIRequestContext, tenantId: string, workspaceId: string) {
+  const entries = (await (await request.get(`${API}/api/v1/dev/mock-payments`, { headers: scopeHeaders(tenantId, workspaceId) })).json()) as { reference: string; status: string }[];
+  return entries.filter((entry) => entry.status === "Pending");
+}
+
+test.describe("Item 32: plans and payments", () => {
+  test("a new company on the Free plan buys the Agent plan with mobile money and gets a receipt", async ({ page, request }) => {
+    const company = await newCompanySignedIn(page, request);
+    await page.goto("/app/admin/billing");
+    await expect(page.getByTestId("current-plan-name")).toHaveText("Free");
+    await expect(page.getByTestId("plan-agent")).toContainText("UGX 75,000");
+    await page.getByRole("group", { name: "Currency" }).getByRole("button", { name: "USD" }).click();
+    await expect(page.getByTestId("plan-agent")).toContainText("US$ 20");
+    await page.getByRole("group", { name: "Currency" }).getByRole("button", { name: "UGX" }).click();
+
+    await page.getByTestId("plan-agent").getByRole("button", { name: /Choose Agent/ }).click();
+    const checkout = page.getByTestId("checkout");
+    await checkout.getByLabel("Mobile money number").fill("256700123456");
+    await checkout.getByRole("button", { name: /^Pay UGX 75,000/ }).click();
+    await expect(page.getByTestId("payment-status")).toContainText("Approve");
+
+    // The operator answers the way its own app would; the page notices on its next check.
+    const [waiting] = await pendingMockPayments(request, company.tenantId, company.workspaceId);
+    const settled = await request.post(`${API}/api/v1/dev/mock-payments/${waiting.reference}/settle`, { headers: scopeHeaders(company.tenantId, company.workspaceId), data: { outcome: "succeeded" } });
+    expect(settled.ok()).toBeTruthy();
+    await expect(page.getByTestId("current-plan-name")).toHaveText("Agent", { timeout: 20_000 });
+
+    const invoices = page.getByTestId("invoices");
+    await expect(invoices).toContainText("Paid");
+    await invoices.getByRole("button", { name: "View" }).click();
+    await expect(page.getByTestId("receipt-number")).toHaveText(/^RCT-\d{6}-[2-9A-HJ-NP-Z]{6}$/);
+    await expect(page.getByTestId("receipt")).toContainText("MTN Mobile Money");
+  });
+
+  test("a declined mobile money payment is explained plainly and the plan stays as it was", async ({ page, request }) => {
+    await newCompanySignedIn(page, request);
+    await page.goto("/app/admin/billing");
+    await page.getByTestId("plan-agent").getByRole("button", { name: /Choose Agent/ }).click();
+    const checkout = page.getByTestId("checkout");
+    await checkout.getByLabel("Mobile money number").fill("256700123499");
+    await checkout.getByRole("button", { name: /^Pay UGX 75,000/ }).click();
+
+    await expect(page.getByTestId("payment-status")).toContainText("did not go through", { timeout: 20_000 });
+    await expect(page.getByTestId("payment-status")).toContainText("not enough money");
+    await expect(page.getByTestId("current-plan-name")).toHaveText("Free");
+  });
+
+  test("a card payment goes to the gateway's page and back with the plan changed", async ({ page, request }) => {
+    const company = await newCompanySignedIn(page, request);
+    await page.goto("/app/admin/billing");
+    await page.getByTestId("plan-agent").getByRole("button", { name: /Choose Agent/ }).click();
+    const checkout = page.getByTestId("checkout");
+    await checkout.getByLabel("Card").check();
+    await checkout.getByRole("button", { name: /^Pay UGX 75,000/ }).click();
+
+    await expect(page).toHaveURL(/\/pay\/mock\?reference=/);
+    // The first visit compiles the page; a click before it has finished loading does nothing, so ask again until it takes.
+    await expect(async () => {
+      await page.getByRole("button", { name: "Approve the payment" }).click();
+      await expect(page.getByTestId("mock-card-done")).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: 30_000 });
+    expect((await pendingMockPayments(request, company.tenantId, company.workspaceId)).length).toBe(0);
+
+    await page.goto("/app/admin/billing");
+    await expect(page.getByTestId("current-plan-name")).toHaveText("Agent");
+  });
+
+  test("using up the monthly claims shows an upgrade prompt and refuses the next claim plainly", async ({ page, request }) => {
+    const company = await newCompanySignedIn(page, request);
+    const headers = scopeHeaders(company.tenantId, company.workspaceId);
+    for (let i = 0; i < 10; i++) {
+      await createMotorClaim(request, company.tenantId, company.workspaceId);
+    }
+
+    await page.goto("/app/admin/billing");
+    await expect(page.getByTestId("upgrade-prompt-claims")).toContainText("used all of your claims this month");
+    await expect(page.getByTestId("upgrade-prompt-claims")).toContainText("Upgrade to Agent");
+
+    const refused = await request.post(`${API}/api/v1/cases`, {
+      headers,
+      data: { customerName: "One Too Many", customerEmail: "late@example.com", customerPhone: "+256700000999", policyNumber: "POL-LATE01", productLine: "Motor", claimType: "Own damage", channel: "Phone", incidentDate: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10), incidentDescription: "Collision." },
+    });
+    expect(refused.status()).toBe(402);
+    const body = (await refused.json()) as { code: string; meter: string; upgradeToPlanKey: string };
+    expect(body).toMatchObject({ code: "plan_limit", meter: "claims", upgradeToPlanKey: "agent" });
+  });
+
+  test("another company's payments and invoices are never visible", async ({ request }) => {
+    const other = newTenant();
+    const headers = scopeHeaders(other);
+    expect(await (await request.get(`${API}/api/v1/admin/billing/invoices`, { headers })).json()).toEqual([]);
+    expect(await (await request.get(`${API}/api/v1/admin/billing/payments`, { headers })).json()).toEqual([]);
+    expect((await request.get(`${API}/api/v1/admin/billing/payments/${crypto.randomUUID()}`, { headers })).status()).toBe(404);
   });
 });

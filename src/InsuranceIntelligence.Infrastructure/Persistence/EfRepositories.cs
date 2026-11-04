@@ -17,7 +17,13 @@ public sealed class EfCaseRepository(InsuranceIntelligenceDbContext dbContext, I
     : JsonRepositoryBase(dbContext), ICaseRepository
 {
     public Task SaveAsync(ClaimCase claimCase, CancellationToken cancellationToken = default) =>
-        UpsertAsync(DbContext.Cases, claimCase.CaseId, claimCase.Scope, Serialize(claimCase), cancellationToken: cancellationToken);
+        UpsertAsync(
+            DbContext.Cases,
+            claimCase.CaseId,
+            claimCase.Scope,
+            Serialize(claimCase),
+            record => record.PeriodKey = InsuranceIntelligence.Domain.Billing.UsagePeriod.KeyFor(claimCase.CreatedAt),
+            cancellationToken);
 
     public async Task<ClaimCase?> GetAsync(Guid caseId, CancellationToken cancellationToken = default)
     {

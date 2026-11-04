@@ -99,6 +99,11 @@ public sealed partial class CustomerAssistantService
                 {
                     result = await RunToolAsync(run, call, cancellationToken);
                 }
+                catch (InsuranceIntelligence.Domain.Billing.PlanLimitExceededException)
+                {
+                    // Never explain the insurer's plan to a customer: say a person will take over, and promise nothing.
+                    result = Json(new { error = "cannot_open_claim_now", detail = "A claim cannot be opened automatically just now. Tell them kindly that you have noted what happened and that someone from the insurer will contact them shortly. Do not give a claim number and do not say why." });
+                }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     result = Json(new { error = "tool_failed", detail = "That did not work just now. Apologise briefly and offer to try again or to hand over to a person." });
@@ -849,7 +854,7 @@ public sealed partial class CustomerAssistantService
         }
 
         var customer = string.IsNullOrWhiteSpace(policy.CustomerId) ? null : await customerRepository.GetAsync(policy.CustomerId, run.Scope, cancellationToken);
-        var caseIntake = new CaseIntakeService(caseRepository, auditRepository, productRepository);
+        var caseIntake = new CaseIntakeService(caseRepository, auditRepository, productRepository, planAllowance: planAllowance);
         var claimCase = await caseIntake.CreateCaseAsync(new CreateCaseCommand(
             run.Scope,
             CustomerName: customer?.FullName ?? sender.FullName,

@@ -34,6 +34,11 @@ public sealed class EfWorkspaceUsageReader(InsuranceIntelligenceDbContext dbCont
         return new AiUsageTotals(calls, prompt, completion, cost, unpriced);
     }
 
+    public async Task<int> GetClaimsOpenedAsync(TenantScope scope, string periodKey, CancellationToken cancellationToken = default) =>
+        UsagePeriod.IsValid(periodKey)
+            ? await Scoped(DbContext.Cases.AsNoTracking(), scope).CountAsync(record => record.PeriodKey == periodKey, cancellationToken)
+            : 0;
+
     public async Task<DocumentUsageTotals> GetDocumentUsageAsync(TenantScope scope, string periodKey, CancellationToken cancellationToken = default)
     {
         var all = Scoped(DbContext.CaseDocuments.AsNoTracking(), scope);

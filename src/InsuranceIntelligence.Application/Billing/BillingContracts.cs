@@ -22,7 +22,9 @@ public sealed record BillingSummaryDto(
     string PackageName,
     IReadOnlyList<string> Modules,
     int SeatLimit,
-    IReadOnlyList<UsageMeterDto> Meters);
+    IReadOnlyList<UsageMeterDto> Meters,
+    string? PlanKey = null,
+    string? PlanStatus = null);
 
 public sealed record UsageMeterDto(
     string Key,

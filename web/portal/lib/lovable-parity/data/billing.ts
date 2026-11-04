@@ -62,5 +62,5 @@ export function useBilling() {
     void load();
   }, [load]);
 
-  return { summary, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  return { summary, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, reload: load };
 }

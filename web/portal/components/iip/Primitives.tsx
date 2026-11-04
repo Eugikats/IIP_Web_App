@@ -8,8 +8,8 @@ import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 // `level` is kept for API compatibility (two not-yet-migrated screens pass level={3}) but design
 // language v2 has no multi-tier elevation concept, every static card is a flat, bordered,
 // shadowless surface (craft guardrails §8: "box-shadow: none on every static card").
-export function GlassCard({ className, children }: { className?: string; children: ReactNode; level?: 1 | 2 | 3 }) {
-  return <div className={cn("rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6 shadow-dls-none", className)}>{children}</div>;
+export function GlassCard({ className, children, "data-testid": testId }: { className?: string; children: ReactNode; level?: 1 | 2 | 3; "data-testid"?: string }) {
+  return <div data-testid={testId} className={cn("rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6 shadow-dls-none", className)}>{children}</div>;
 }
 
 export function SectionHeader({

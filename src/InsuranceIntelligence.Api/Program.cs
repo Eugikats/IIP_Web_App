@@ -109,6 +109,8 @@ builder.Services.AddAuthorization();
 // of the generic 500 below; must be registered before AddProblemDetails' fallback so it runs
 // first (ASP.NET Core tries handlers in registration order).
 builder.Services.AddExceptionHandler<InsuranceIntelligence.Api.Local.ProviderNotConfiguredExceptionHandler>();
+// A used-up plan allowance is a clear "payment required" answer, not a server error (build-loop item 32).
+builder.Services.AddExceptionHandler<InsuranceIntelligence.Api.Admin.Billing.PlanLimitExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 // OpenAPI/Swagger. The generated document is the machine-checkable API contract map
@@ -169,6 +171,10 @@ builder.Services.AddRateLimiter(limiter =>
     var permits = int.TryParse(builder.Configuration["INSURANCEINTELLIGENCE_IDENTITY_RATE_LIMIT_PER_MINUTE"], out var configured)
         ? configured
         : IsLocalDeveloperRuntime(runtimeProfile) ? 100_000 : 20;
+    // Payment providers call back from a handful of addresses, sometimes in bursts; the secret in the address is the credential.
+    limiter.AddPolicy("payments-callback", httpContext => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions { PermitLimit = IsLocalDeveloperRuntime(runtimeProfile) ? 100_000 : 600, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     limiter.AddPolicy("identity", httpContext => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
         httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions { PermitLimit = permits, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -571,6 +577,7 @@ builder.Services.AddSingleton<InsuranceIntelligence.Api.Jobs.IBackgroundJobHandl
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Jobs.IBackgroundJobHandler, InsuranceIntelligence.Api.Agents.ClaimReviewJobHandler>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Jobs.IBackgroundJobProcessor, InsuranceIntelligence.Api.Jobs.BackgroundJobProcessor>();
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Jobs.BackgroundJobWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Admin.Billing.BillingWorker>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>();
 builder.Services.AddSingleton<IConversationInsightsQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>());
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ConversationInsightsWorker>();
@@ -623,6 +630,34 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IFnolAcknowle
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IMissingDocumentRequestService, InsuranceIntelligence.Application.Cases.MissingDocumentRequestService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.ICaseFollowThroughService, InsuranceIntelligence.Application.Cases.CaseFollowThroughService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingQueryService, InsuranceIntelligence.Application.Billing.BillingQueryService>();
+// Plans, allowances and payments (build-loop item 32).
+builder.Services.AddSingleton(InsuranceIntelligence.Domain.Billing.PlanCatalogue.Parse(builder.Configuration["INSURANCEINTELLIGENCE_PLAN_CATALOGUE"]));
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.PlanService>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Billing.IPlanAllowance>(sp => sp.GetRequiredService<InsuranceIntelligence.Application.Billing.PlanService>());
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IPaymentLinks, InsuranceIntelligence.Api.Admin.Billing.PaymentLinks>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.PaymentService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IPaymentOutcomeHandler, InsuranceIntelligence.Application.Billing.PlanPaymentOutcomeHandler>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.SubscriptionLifecycleService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.PaymentReconciliationService>();
+var paymentProviderSetting = builder.Configuration["INSURANCEINTELLIGENCE_PAYMENT_PROVIDER"] ?? "Disabled";
+if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(paymentProviderSetting, runtimeProfile))
+{
+    builder.Services.AddSingleton<InsuranceIntelligence.Api.Local.Mock.MockPaymentLedger>();
+    builder.Services.AddSingleton<InsuranceIntelligence.Domain.Billing.IPaymentProvider, InsuranceIntelligence.Api.Local.Mock.MockPaymentProvider>();
+}
+else if (paymentProviderSetting.Equals("Live", StringComparison.OrdinalIgnoreCase))
+{
+    // Each live adapter reports itself not configured until its own credentials are present, and is then not offered.
+    builder.Services.AddHttpClient("payments");
+    builder.Services.AddSingleton<InsuranceIntelligence.Domain.Billing.IPaymentProvider>(sp => new InsuranceIntelligence.Infrastructure.Payments.MtnMomoPaymentProvider(
+        InsuranceIntelligence.Infrastructure.Payments.MtnMomoOptions.From(builder.Configuration), sp.GetRequiredService<IHttpClientFactory>().CreateClient("payments")));
+    builder.Services.AddSingleton<InsuranceIntelligence.Domain.Billing.IPaymentProvider>(sp => new InsuranceIntelligence.Infrastructure.Payments.AirtelMoneyPaymentProvider(
+        InsuranceIntelligence.Infrastructure.Payments.AirtelMoneyOptions.From(builder.Configuration), sp.GetRequiredService<IHttpClientFactory>().CreateClient("payments")));
+    builder.Services.AddSingleton<InsuranceIntelligence.Domain.Billing.IPaymentProvider>(sp => new InsuranceIntelligence.Infrastructure.Payments.FlutterwaveCardPaymentProvider(
+        InsuranceIntelligence.Infrastructure.Payments.CardGatewayOptions.From(builder.Configuration), sp.GetRequiredService<IHttpClientFactory>().CreateClient("payments")));
+}
+
+builder.Services.AddSingleton<InsuranceIntelligence.Domain.Billing.IPaymentProviderSelector, InsuranceIntelligence.Infrastructure.Payments.PaymentProviderSelector>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IBillingUsageSource, InsuranceIntelligence.Api.Admin.Billing.RecordBackedBillingUsageSource>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentQueryService, InsuranceIntelligence.Application.Documents.DocumentQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentQualityService, InsuranceIntelligence.Application.Documents.DocumentQualityService>();
@@ -1106,6 +1141,18 @@ if (developmentDiagnosticsEnabled)
         .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
     app.MapDelete("/api/v1/dev/mock-outbox", InsuranceIntelligence.Api.Local.Mock.MockOutboxEndpoints.Clear)
         .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+    // The pretend payment operator, and the billing pass, for developer runtimes (build-loop item 32).
+    if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(paymentProviderSetting, runtimeProfile))
+    {
+        app.MapGet("/api/v1/dev/mock-payments", (InsuranceIntelligence.Api.Local.Mock.MockPaymentLedger ledger) => InsuranceIntelligence.Api.Local.Mock.MockPaymentEndpoints.List(ledger))
+            .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+        app.MapPost("/api/v1/dev/mock-payments/{reference}/settle", InsuranceIntelligence.Api.Local.Mock.MockPaymentEndpoints.Settle)
+            .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+    }
+
+    app.MapPost("/api/v1/dev/billing/run", async (InsuranceIntelligence.Application.Billing.SubscriptionLifecycleService lifecycle, InsuranceIntelligence.Application.Billing.PaymentReconciliationService reconciliation, CancellationToken cancellationToken) =>
+        Results.Ok(new { reconciliation = await reconciliation.RunAsync(null, cancellationToken), cycle = await lifecycle.RunAsync(null, cancellationToken) }))
+        .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
     // Puts a message into a pretend IMAP mailbox (Mock email provider only).
     app.MapPost("/api/v1/dev/mock-mailbox/deliver", InsuranceIntelligence.Api.Local.Mock.MockMailboxEndpoints.Deliver)
         .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
@@ -1381,6 +1428,26 @@ app.MapPost("/api/v1/agent-work-items/{workItemId:guid}/decision", InsuranceInte
 // Initiative LP: Billing & entitlements, default package + real usage meters (ADR-0003).
 app.MapGet("/api/v1/admin/billing", InsuranceIntelligence.Api.Admin.Billing.BillingEndpoints.GetSummary)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
+// Plans, upgrades and payments (build-loop item 32): reading needs ViewBilling, changing needs ManageTenantSettings.
+app.MapGet("/api/v1/admin/billing/plan", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.GetPlan)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
+app.MapPost("/api/v1/admin/billing/checkout", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.Checkout)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/admin/billing/payments", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.ListPayments)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
+app.MapGet("/api/v1/admin/billing/payments/{paymentIntentId:guid}", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.GetPayment)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
+app.MapGet("/api/v1/admin/billing/invoices", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.ListInvoices)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
+app.MapGet("/api/v1/admin/billing/invoices/{invoiceId:guid}/receipt", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.GetReceipt)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
+app.MapPost("/api/v1/admin/billing/cancel", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.Cancel)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/admin/billing/resume", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.Resume)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+// The payment provider's own call. The secret in the address is its only credential and the body is never read.
+app.MapMethods("/api/v1/payments/callback/{paymentIntentId:guid}/{secret}", ["GET", "POST"], InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.Callback)
+    .RequireRateLimiting("payments-callback");
 // Initiative LP: cross-case document library.
 app.MapGet("/api/v1/documents", InsuranceIntelligence.Api.Documents.DocumentLibraryEndpoints.ListDocuments)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAllClaims));

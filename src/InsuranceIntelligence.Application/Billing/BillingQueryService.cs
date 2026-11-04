@@ -14,7 +14,8 @@ public sealed class BillingQueryService(
     ITenantContextAccessor tenantContextAccessor,
     IPermissionService permissionService,
     IBillingUsageSource usageSource,
-    ITenantSettingsRepository? settingsRepository = null) : IBillingQueryService
+    ITenantSettingsRepository? settingsRepository = null,
+    PlanService? plans = null) : IBillingQueryService
 {
     public async Task<BillingSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
     {
@@ -24,6 +25,19 @@ public sealed class BillingQueryService(
         var meters = await usageSource.GetUsageAsync(context.TenantId, context.WorkspaceId, cancellationToken);
 
         var package = DefaultEntitlements.Package;
+        if (plans is not null)
+        {
+            var entitlements = await plans.GetEntitlementsAsync(context.Scope, cancellationToken);
+            var onPlan = entitlements.Plan.Key != PlanCatalogue.Standard;
+            return new BillingSummaryDto(
+                onPlan ? $"IIP Operations, {entitlements.Plan.Name}" : package.Name,
+                package.Modules,
+                entitlements.Seats,
+                meters,
+                entitlements.Plan.Key,
+                entitlements.Status);
+        }
+
         // The seat limit is a workspace setting; the package's own number is only the default.
         var seatLimit = settingsRepository is null
             ? package.SeatLimit

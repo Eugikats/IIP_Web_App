@@ -9,6 +9,9 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedKnowledgeDocument> KnowledgeDocuments => Set<PersistedKnowledgeDocument>();
     public DbSet<PersistedAuditEvent> AuditEvents => Set<PersistedAuditEvent>();
     public DbSet<PersistedAgentActionLog> AgentActionLogs => Set<PersistedAgentActionLog>();
+    public DbSet<PersistedSubscription> Subscriptions => Set<PersistedSubscription>();
+    public DbSet<PersistedInvoice> Invoices => Set<PersistedInvoice>();
+    public DbSet<PersistedPaymentIntent> PaymentIntents => Set<PersistedPaymentIntent>();
     public DbSet<PersistedWorkflowTask> WorkflowTasks => Set<PersistedWorkflowTask>();
     public DbSet<PersistedApproval> Approvals => Set<PersistedApproval>();
     public DbSet<PersistedCustomerUpdate> CustomerUpdates => Set<PersistedCustomerUpdate>();
@@ -102,6 +105,20 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureScopedJson(modelBuilder.Entity<PersistedAggregate>(), "Cases", "CaseId");
+        modelBuilder.Entity<PersistedAggregate>().Property(entity => entity.PeriodKey).HasMaxLength(7);
+        modelBuilder.Entity<PersistedAggregate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PeriodKey });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedSubscription>(), "Subscriptions", "SubscriptionId");
+        modelBuilder.Entity<PersistedSubscription>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId }).IsUnique();
+        modelBuilder.Entity<PersistedSubscription>().Property(entity => entity.PlanKey).HasMaxLength(60).IsRequired();
+        modelBuilder.Entity<PersistedSubscription>().Property(entity => entity.Status).HasMaxLength(20).IsRequired();
+        modelBuilder.Entity<PersistedSubscription>().HasIndex(entity => entity.PeriodEndUtc);
+        ConfigureScopedJson(modelBuilder.Entity<PersistedInvoice>(), "Invoices", "InvoiceId");
+        modelBuilder.Entity<PersistedInvoice>().Property(entity => entity.Number).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<PersistedInvoice>().Property(entity => entity.Status).HasMaxLength(20).IsRequired();
+        modelBuilder.Entity<PersistedInvoice>().HasIndex(entity => entity.Number).IsUnique();
+        ConfigureScopedJson(modelBuilder.Entity<PersistedPaymentIntent>(), "PaymentIntents", "PaymentIntentId");
+        modelBuilder.Entity<PersistedPaymentIntent>().Property(entity => entity.Status).HasMaxLength(20).IsRequired();
+        modelBuilder.Entity<PersistedPaymentIntent>().HasIndex(entity => new { entity.Status, entity.CreatedAtUtc });
         ConfigureScopedJson(modelBuilder.Entity<PersistedCaseDocument>(), "CaseDocuments", "DocumentId");
         modelBuilder.Entity<PersistedCaseDocument>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         modelBuilder.Entity<PersistedCaseDocument>().Property(entity => entity.PeriodKey).HasMaxLength(7);
@@ -504,7 +521,33 @@ public abstract class PersistedScopedJson
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
-public sealed class PersistedAggregate : PersistedScopedJson;
+public sealed class PersistedAggregate : PersistedScopedJson
+{
+    /// <summary>The month a claim was opened ("2026-10"), so a month's claims are an indexed count. Null on claims from before plans.</summary>
+    public string? PeriodKey { get; set; }
+}
+
+public sealed class PersistedSubscription : PersistedScopedJson
+{
+    public string PlanKey { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+
+    /// <summary>The end of the paid period in UTC, kept as a column so the platform's billing timer can find what is due without reading every workspace.</summary>
+    public DateTime? PeriodEndUtc { get; set; }
+}
+
+public sealed class PersistedInvoice : PersistedScopedJson
+{
+    public string Number { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime IssuedAtUtc { get; set; }
+}
+
+public sealed class PersistedPaymentIntent : PersistedScopedJson
+{
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAtUtc { get; set; }
+}
 public sealed class PersistedCaseDocument : PersistedScopedJson
 {
     public Guid CaseId { get; set; }

@@ -146,7 +146,9 @@ public sealed partial class CustomerAssistantService(
     // staff label is used, as before.
     InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null,
     // Optional: what the customer already gave on earlier claims (build-loop item 26). Without it nothing is mentioned.
-    InsuranceIntelligence.Application.Customers.ICustomerMemoryService? customerMemory = null) : ICustomerAssistantService
+    InsuranceIntelligence.Application.Customers.ICustomerMemoryService? customerMemory = null,
+    // Optional: the plan's monthly claim allowance (build-loop item 32). Without it nothing limits claims.
+    InsuranceIntelligence.Domain.Billing.IPlanAllowance? planAllowance = null) : ICustomerAssistantService
 {
     /// <summary>The papers this customer already sent on an earlier claim and may reuse, by name and claim. Empty when there are none.
     /// WhatsApp only names them: the reuse itself happens on the secure page, where papers are always handled.</summary>
@@ -1247,8 +1249,22 @@ public sealed partial class CustomerAssistantService(
         }
 
         var customer = string.IsNullOrWhiteSpace(policy.CustomerId) ? null : await customerRepository.GetAsync(policy.CustomerId, scope, cancellationToken);
-        var caseIntake = new CaseIntakeService(caseRepository, auditRepository, productRepository);
-        var claimCase = await caseIntake.CreateCaseAsync(new CreateCaseCommand(
+        var caseIntake = new CaseIntakeService(caseRepository, auditRepository, productRepository, planAllowance: planAllowance);
+        ClaimCase claimCase;
+        try
+        {
+            claimCase = await OpenAsync();
+        }
+        catch (InsuranceIntelligence.Domain.Billing.PlanLimitExceededException)
+        {
+            // The insurer's plan has no room for another claim this month. The customer is never told about plans or limits:
+            // they are told a person will follow up, and the conversation goes to the team.
+            return AssistantOutcome.Of(
+                KatoReplies.CannotOpenNow(sender.FirstName),
+                CustomerIntent.NewClaim, CustomerAssistantOutcome.Escalated, policyNumber: policy.PolicyNumber);
+        }
+
+        async Task<ClaimCase> OpenAsync() => await caseIntake.CreateCaseAsync(new CreateCaseCommand(
             scope,
             CustomerName: customer?.FullName ?? sender.FullName,
             CustomerEmail: customer?.Email,

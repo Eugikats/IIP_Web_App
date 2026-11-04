@@ -35,6 +35,8 @@ public sealed class MockedApiFactory : WebApplicationFactory<Program>
         // processor by hand (see BackgroundPipelineApiTests).
         Set("INSURANCEINTELLIGENCE_DOCUMENT_PIPELINE", "Inline");
         Set("INSURANCEINTELLIGENCE_PIPELINE_WORKER", "Off");
+        Set("INSURANCEINTELLIGENCE_BILLING_WORKER", "Off");
+        Set("INSURANCEINTELLIGENCE_PAYMENT_PROVIDER", "Mock");
         Set("INSURANCEINTELLIGENCE_SEED_DEMO_DATA", "false");
         Set("INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_STORAGE_PATH", StorageRoot);
     }

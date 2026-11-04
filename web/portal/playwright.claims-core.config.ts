@@ -41,6 +41,9 @@ export default defineConfig({
         INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER: "Mock",
         INSURANCEINTELLIGENCE_SMS_PROVIDER: "Mock",
         INSURANCEINTELLIGENCE_SEED_DEMO_DATA: "true",
+        // Payments are pretend, and the billing timer is off so a test settles a payment exactly when it says so.
+        INSURANCEINTELLIGENCE_PAYMENT_PROVIDER: "Mock",
+        INSURANCEINTELLIGENCE_BILLING_WORKER: "Off",
         // Documents are read in the background; failures are retried quickly so a test can see them.
         INSURANCEINTELLIGENCE_PIPELINE_BACKOFF_SECONDS: "1,1,1",
         INSURANCEINTELLIGENCE_PIPELINE_MAX_ATTEMPTS: "3",

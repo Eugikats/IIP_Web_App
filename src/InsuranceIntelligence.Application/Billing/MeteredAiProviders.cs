@@ -13,12 +13,19 @@ namespace InsuranceIntelligence.Application.Billing;
 public sealed class MeteredChatCompletionProvider(
     IChatCompletionProvider inner,
     IWorkspaceAiUsageRecorder recorder,
-    ITenantContextAccessor tenantContext) : IChatCompletionProvider
+    ITenantContextAccessor tenantContext,
+    InsuranceIntelligence.Domain.Billing.IPlanAllowance? allowance = null) : IChatCompletionProvider
 {
     public async Task<ChatCompletionResult> CompleteAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {
-        var result = await inner.CompleteAsync(request, cancellationToken);
         var scope = ScopeFor(request.TenantId, request.WorkspaceId, tenantContext);
+        if (scope is not null && allowance is not null)
+        {
+            // A workspace that has used its plan's AI allowance for the month gets a plain refusal before any model is paid for.
+            await allowance.EnsureCanUseAiAsync(scope, cancellationToken);
+        }
+
+        var result = await inner.CompleteAsync(request, cancellationToken);
         if (scope is not null)
         {
             await recorder.RecordAsync(
@@ -45,7 +52,8 @@ public sealed class MeteredChatCompletionProvider(
 public sealed class MeteredToolCallingChatProvider(
     IToolCallingChatProvider inner,
     IWorkspaceAiUsageRecorder recorder,
-    ITenantContextAccessor tenantContext) : IToolCallingChatProvider
+    ITenantContextAccessor tenantContext,
+    InsuranceIntelligence.Domain.Billing.IPlanAllowance? allowance = null) : IToolCallingChatProvider
 {
     public async Task<AgentChatStep> NextAsync(
         IReadOnlyList<AgentChatMessage> messages,
@@ -53,6 +61,11 @@ public sealed class MeteredToolCallingChatProvider(
         string? correlationId,
         CancellationToken cancellationToken = default)
     {
+        if (tenantContext.HasCurrent && allowance is not null)
+        {
+            await allowance.EnsureCanUseAiAsync(tenantContext.Current.Scope, cancellationToken);
+        }
+
         var step = await inner.NextAsync(messages, tools, correlationId, cancellationToken);
         if (tenantContext.HasCurrent)
         {
