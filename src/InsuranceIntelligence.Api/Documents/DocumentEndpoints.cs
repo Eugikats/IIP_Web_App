@@ -115,7 +115,8 @@ public static class DocumentEndpoints
                 correlationId,
                 cancellationToken,
                 recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService,
-                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService);
+                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService,
+                authenticity: httpContext.RequestServices?.GetService(typeof(IAuthenticityService)) as IAuthenticityService);
             var processedDocument = run.Document;
             if (run.NotConfigured is not null)
             {
@@ -393,7 +394,8 @@ public static class DocumentEndpoints
             correlationId,
             cancellationToken,
                 recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService,
-                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService);
+                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService,
+                authenticity: httpContext.RequestServices?.GetService(typeof(IAuthenticityService)) as IAuthenticityService);
         await UpdateCompletenessAsync(
             claimCase, caseRepository, documentRepository, checklistProvider, auditRepository, scope, correlationId,
             writeWhenUnchanged: true, cancellationToken);

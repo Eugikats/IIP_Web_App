@@ -35,7 +35,8 @@ public static class DocumentProcessingRunner
         string correlationId,
         CancellationToken cancellationToken,
         IDocumentRecognitionService? recognition = null,
-        IFieldProposalService? proposals = null)
+        IFieldProposalService? proposals = null,
+        IAuthenticityService? authenticity = null)
     {
         var scope = claimCase.Scope;
         try
@@ -106,6 +107,18 @@ public static class DocumentProcessingRunner
                 try
                 {
                     await proposals.ProposeAsync(processed, claimCase, correlationId, cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                }
+            }
+
+            if (authenticity is not null)
+            {
+                // Advice for a person to look at; never blocks the document or the claim.
+                try
+                {
+                    await authenticity.AnalyseAsync(processed, claimCase, correlationId, cancellationToken);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {

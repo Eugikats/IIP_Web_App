@@ -286,6 +286,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Products.IWordingDraftRepository, EfWordingDraftRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Documents.ISlotPdfRepository, EfSlotPdfRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Documents.IFieldProposalRepository, EfFieldProposalRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Documents.IAuthenticityReportRepository, EfAuthenticityReportRepository>();
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
         services.AddScoped<IMailboxConnectionRepository, EfMailboxConnectionRepository>();
         services.AddScoped<IInboundEmailRepository, EfInboundEmailRepository>();

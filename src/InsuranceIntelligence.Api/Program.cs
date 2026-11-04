@@ -612,6 +612,8 @@ else
 
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentRecognitionService, InsuranceIntelligence.Application.Documents.DocumentRecognitionService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IFieldProposalService, InsuranceIntelligence.Application.Documents.FieldProposalService>();
+builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IImageForensicsReader, InsuranceIntelligence.Api.Documents.MagickImageForensicsReader>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IAuthenticityService, InsuranceIntelligence.Application.Documents.AuthenticityService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1481,6 +1483,11 @@ app.MapGet("/api/v1/client-portal/claim-types", InsuranceIntelligence.Api.Produc
 app.MapGet("/api/v1/claim-fields", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.GetForm)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim, Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ManageProducts));
 // Extracted data into the claim (build-loop item 15): suggestions read from documents, decided by an officer.
+// Authenticity checks (build-loop item 16): advice on pictures, with a person's disposition.
+app.MapGet("/api/v1/cases/{caseId:guid}/authenticity", InsuranceIntelligence.Api.Documents.AuthenticityEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/authenticity/disposition", InsuranceIntelligence.Api.Documents.AuthenticityEndpoints.SetDisposition)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}/field-proposals", InsuranceIntelligence.Api.Cases.FieldProposalEndpoints.List)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/field-proposals/{proposalId:guid}/accept", InsuranceIntelligence.Api.Cases.FieldProposalEndpoints.Accept)

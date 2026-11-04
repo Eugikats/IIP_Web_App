@@ -396,6 +396,49 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>The authenticity checks looked at a picture (build-loop item 16). Records which kinds of
+    /// finding there were, never the picture or its details.</summary>
+    public static AuditEvent AuthenticityAnalysed(CaseDocument document, IReadOnlyCollection<string> findingCodes, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            document.Scope,
+            document.CaseId,
+            document.DocumentId.ToString(),
+            "system",
+            ActorType.System,
+            "document.authenticity.analysed",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: findingCodes.Count == 0 ? "no_findings" : string.Join(",", findingCodes),
+            EvidenceIds: [document.DocumentId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "human_review_required",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    /// <summary>A person gave their reading of a picture's authenticity findings (build-loop item 16).</summary>
+    public static AuditEvent AuthenticityDisposition(CaseDocument document, string userId, string disposition, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            document.Scope,
+            document.CaseId,
+            document.DocumentId.ToString(),
+            userId,
+            ActorType.User,
+            "document.authenticity.disposition",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: disposition,
+            EvidenceIds: [document.DocumentId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>A workspace administrator changed operating settings. Records which settings, by
     /// name.</summary>
     public static AuditEvent TenantSettingsUpdated(

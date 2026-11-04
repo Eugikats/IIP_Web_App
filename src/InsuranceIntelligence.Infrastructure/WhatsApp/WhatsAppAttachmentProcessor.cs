@@ -17,7 +17,8 @@ public sealed class WhatsAppAttachmentProcessor(
     IDocumentStorageProvider storageProvider,
     IDocumentProcessingProvider processingProvider,
     InsuranceIntelligence.Application.Documents.IDocumentRecognitionService? recognition = null,
-    InsuranceIntelligence.Application.Documents.IFieldProposalService? proposals = null) : IWhatsAppAttachmentProcessor
+    InsuranceIntelligence.Application.Documents.IFieldProposalService? proposals = null,
+    InsuranceIntelligence.Application.Documents.IAuthenticityService? authenticity = null) : IWhatsAppAttachmentProcessor
 {
     private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -115,6 +116,11 @@ public sealed class WhatsAppAttachmentProcessor(
         {
             // Offer what it says for the claim's questions; an officer decides.
             await proposals.ProposeAsync(processed, claimCase, $"whatsapp-{message.ProviderMessageId}", cancellationToken);
+        }
+
+        if (authenticity is not null && !processingFailed)
+        {
+            await authenticity.AnalyseAsync(processed, claimCase, $"whatsapp-{message.ProviderMessageId}", cancellationToken);
         }
 
         return [processed];

@@ -1250,3 +1250,39 @@ test.describe("Item 15: extracted data into the claim", () => {
     expect(other.status()).toBe(404);
   });
 });
+
+test.describe("Item 16: picture checks", () => {
+  test("staff see the checks on a customer's photo and record their own reading, which needs a note unless there is no concern", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+    await photos.locator('input[data-upload="choose"]').setInputFiles(fixture("damage_photo.jpg"));
+    await expect(photos.getByText("1 of 10 sent")).toBeVisible();
+
+    await page.goto(`/app/claims/${caseId}`);
+    const card = page.getByTestId("authenticity-card");
+    await expect(card.getByText("Picture checks")).toBeVisible();
+    await expect(card.getByText("These are reasons to look at a picture, not a finding that anything is wrong.")).toBeVisible();
+    const report = card.getByTestId("authenticity-report");
+    await expect(report).toHaveCount(1);
+    await expect(report.getByText("Not looked at yet")).toBeVisible();
+
+    await report.getByLabel(/Your reading of/).selectOption("NeedsFollowUp");
+    await report.getByRole("button", { name: /Save reading of/ }).click();
+    await expect(card.getByRole("alert")).toContainText("Say in a sentence");
+
+    await report.getByLabel(/Note about/).fill("Ask the customer for the original photo.");
+    await report.getByRole("button", { name: /Save reading of/ }).click();
+    await expect(report.getByText("Needs follow-up").first()).toBeVisible();
+    await expect(report.getByText(/Ask the customer for the original photo/)).toBeVisible();
+
+    const reports = (await (await request.get(`${API}/api/v1/cases/${caseId}/authenticity`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) })).json()) as { disposition: string; dispositionNote: string }[];
+    expect(reports[0].disposition).toBe("NeedsFollowUp");
+  });
+
+  test("another tenant cannot read a claim's picture checks", async ({ request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const other = await request.get(`${API}/api/v1/cases/${caseId}/authenticity`, { headers: scopeHeaders(newTenant()) });
+    expect(other.status()).toBe(404);
+  });
+});

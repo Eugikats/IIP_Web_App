@@ -44,6 +44,7 @@ import { getFileConnectionStatus, type FileConnectionStatus } from "@/lib/files/
 import { ClaimDetailsCard } from "@/components/iip/ClaimDetailsCard";
 import { PrivacyConsentLine } from "@/components/iip/PrivacyConsentLine";
 import { FieldProposalsCard } from "@/components/iip/FieldProposalsCard";
+import { AuthenticityCard } from "@/components/iip/AuthenticityCard";
 
 const POLICY_SOURCE_LABEL: Record<string, string> = {
   Manual: "Entered manually",
@@ -985,6 +986,9 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
 
           <GlassCard>
             <ClaimDetailsCard key={detailsVersion} caseId={claimId} role={roleDef.key} canEdit={canEditClaimDetails} />
+            <div className="mt-4 border-t border-dls-border-subtle pt-4">
+              <AuthenticityCard caseId={claimId} role={roleDef.key} canDecide={canEditClaimDetails} />
+            </div>
             <div className="mt-4 border-t border-dls-border-subtle pt-4">
               <FieldProposalsCard caseId={claimId} role={roleDef.key} canDecide={canEditClaimDetails} onAccepted={() => setDetailsVersion((value) => value + 1)} />
             </div>

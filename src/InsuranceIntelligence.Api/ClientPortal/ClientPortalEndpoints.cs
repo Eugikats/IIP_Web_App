@@ -366,7 +366,8 @@ public static class ClientPortalEndpoints
                 correlationId,
                 cancellationToken,
                 recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService,
-                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService);
+                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService,
+                authenticity: httpContext.RequestServices?.GetService(typeof(IAuthenticityService)) as IAuthenticityService);
         }
 
         // Pictures of paperwork become pages of one PDF, rebuilt from what the slot holds now.
@@ -514,7 +515,8 @@ public static class ClientPortalEndpoints
             correlationId,
             cancellationToken,
                 recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService,
-                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService);
+                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService,
+                authenticity: httpContext.RequestServices?.GetService(typeof(IAuthenticityService)) as IAuthenticityService);
 
         var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         var checklist = await checklistProvider.BuildChecklistAsync(claimCase, allDocuments, cancellationToken);

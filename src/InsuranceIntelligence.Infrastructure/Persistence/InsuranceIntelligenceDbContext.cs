@@ -25,6 +25,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedWordingDraft> WordingDrafts => Set<PersistedWordingDraft>();
     public DbSet<PersistedSlotPdf> SlotPdfs => Set<PersistedSlotPdf>();
     public DbSet<PersistedFieldProposal> FieldProposals => Set<PersistedFieldProposal>();
+    public DbSet<PersistedAuthenticityReport> AuthenticityReports => Set<PersistedAuthenticityReport>();
     public DbSet<UserTenantMembershipEntity> UserTenantMemberships => Set<UserTenantMembershipEntity>();
     public DbSet<OrganisationEntity> Organisations => Set<OrganisationEntity>();
     public DbSet<OrganisationInvitationEntity> OrganisationInvitations => Set<OrganisationInvitationEntity>();
@@ -116,6 +117,10 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedInboundEmail>(), "InboundEmails", "MessageId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedTeamsNotification>(), "TeamsNotifications", "NotificationId");
         modelBuilder.Entity<PersistedTeamsNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedAuthenticityReport>(), "AuthenticityReports", "DocumentId");
+        modelBuilder.Entity<PersistedAuthenticityReport>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        modelBuilder.Entity<PersistedAuthenticityReport>().Property(entity => entity.PerceptualHash).HasMaxLength(16);
+        modelBuilder.Entity<PersistedAuthenticityReport>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PerceptualHash });
         ConfigureScopedJson(modelBuilder.Entity<PersistedFieldProposal>(), "FieldProposals", "ProposalId");
         modelBuilder.Entity<PersistedFieldProposal>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedSlotPdf>(), "SlotPdfs", "SlotPdfId");
@@ -478,6 +483,7 @@ public sealed class PersistedTeamsNotification : PersistedScopedJson { public Gu
 public sealed class PersistedWordingDraft : PersistedScopedJson { public Guid ProductId { get; set; } }
 public sealed class PersistedSlotPdf : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedFieldProposal : PersistedScopedJson { public Guid CaseId { get; set; } }
+public sealed class PersistedAuthenticityReport : PersistedScopedJson { public Guid CaseId { get; set; } public string? PerceptualHash { get; set; } }
 public sealed class PersistedCustomer : PersistedScopedJson;
 public sealed class PersistedAgentState : PersistedScopedJson;
 public sealed class PersistedAgentWorkflowDefinition : PersistedScopedJson
