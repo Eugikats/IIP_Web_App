@@ -1,5 +1,6 @@
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
+using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.Domain.Workflow;
@@ -16,7 +17,14 @@ public sealed record ClaimFieldValueDto(
     string? HelpText,
     int SortOrder,
     bool CustomerVisible,
-    string? Value);
+    string? Value,
+    // Build-loop item 15: where the answer came from ("Customer", "Staff" or "Document") and who
+    // confirmed it. Staff-facing only; the claimant form never receives these.
+    string? Source = null,
+    Guid? SourceDocumentId = null,
+    int? SourcePage = null,
+    decimal? SourceConfidence = null,
+    string? ConfirmedBy = null);
 
 public sealed record ClaimFieldFormDto(string? ClaimTypeKey, bool Configured, IReadOnlyList<ClaimFieldValueDto> Fields);
 
@@ -38,7 +46,11 @@ public interface IClaimFieldService
         bool customerAudience,
         string actorId,
         string correlationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        FieldProvenance? provenance = null);
+
+    /// <summary>The questions this claim's product asks for its claim type, customer-visible or not.</summary>
+    Task<IReadOnlyList<ClaimFieldDefinition>> DefinitionsForAsync(ClaimCase claimCase, CancellationToken cancellationToken = default);
 }
 
 public sealed record ClaimFieldSaveResult(ClaimCase? Claim, IReadOnlyDictionary<string, string> Errors)
@@ -71,7 +83,7 @@ public sealed class ClaimFieldService(
     {
         var (product, claimTypeKey) = await ResolveAsync(claimCase, cancellationToken);
         var definitions = ClaimFieldResolver.ForProduct(product, claimCase.ProductLine, claimTypeKey);
-        return ToForm(claimTypeKey, product is { ClaimFields.Count: > 0 }, definitions, ClaimFieldValues.For(claimCase), customerAudience);
+        return ToForm(claimTypeKey, product is { ClaimFields.Count: > 0 }, definitions, ClaimFieldValues.For(claimCase), customerAudience, customerAudience ? null : claimCase.FieldProvenance);
     }
 
     public async Task<ClaimFieldSaveResult> SaveValuesAsync(
@@ -80,7 +92,8 @@ public sealed class ClaimFieldService(
         bool customerAudience,
         string actorId,
         string correlationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        FieldProvenance? provenance = null)
     {
         var (product, claimTypeKey) = await ResolveAsync(claimCase, cancellationToken);
         var definitions = ClaimFieldResolver.ForProduct(product, claimCase.ProductLine, claimTypeKey);
@@ -96,8 +109,16 @@ public sealed class ClaimFieldService(
             merged[key] = value;
         }
 
+        // Who stands behind each answer: whoever typed it, or the officer who accepted it from a document.
+        var provenanceMap = new Dictionary<string, FieldProvenance>(claimCase.FieldProvenance ?? new Dictionary<string, FieldProvenance>(), StringComparer.OrdinalIgnoreCase);
+        foreach (var key in result.Values.Keys)
+        {
+            provenanceMap[key] = provenance ?? new FieldProvenance(customerAudience ? "Customer" : "Staff", actorId, DateTimeOffset.UtcNow);
+        }
+
         var updated = claimCase with
         {
+            FieldProvenance = provenanceMap,
             FieldValues = merged,
             MotorFnolDetails = ClaimFieldValues.ToMotorFnol(result.Values, claimCase.MotorFnolDetails),
             MedicalFnolDetails = ClaimFieldValues.ToMedicalFnol(result.Values, claimCase.MedicalFnolDetails),
@@ -113,6 +134,12 @@ public sealed class ClaimFieldService(
                 correlationId),
             cancellationToken);
         return new ClaimFieldSaveResult(updated, new Dictionary<string, string>());
+    }
+
+    public async Task<IReadOnlyList<ClaimFieldDefinition>> DefinitionsForAsync(ClaimCase claimCase, CancellationToken cancellationToken = default)
+    {
+        var (product, claimTypeKey) = await ResolveAsync(claimCase, cancellationToken);
+        return ClaimFieldResolver.ForProduct(product, claimCase.ProductLine, claimTypeKey);
     }
 
     private async Task<(Product? Product, string? ClaimTypeKey)> ResolveAsync(ClaimCase claimCase, CancellationToken cancellationToken)
@@ -141,7 +168,8 @@ public sealed class ClaimFieldService(
         bool configured,
         IReadOnlyList<ClaimFieldDefinition> definitions,
         IReadOnlyDictionary<string, string> values,
-        bool customerAudience) =>
+        bool customerAudience,
+        IReadOnlyDictionary<string, FieldProvenance>? provenance = null) =>
         new(
             claimTypeKey,
             configured,
@@ -157,6 +185,11 @@ public sealed class ClaimFieldService(
                     definition.HelpText,
                     definition.SortOrder,
                     definition.CustomerVisible,
-                    values.TryGetValue(definition.Key, out var value) ? value : null))
+                    values.TryGetValue(definition.Key, out var value) ? value : null,
+                    provenance is not null && provenance.TryGetValue(definition.Key, out var source) ? source.Source : null,
+                    provenance is not null && provenance.TryGetValue(definition.Key, out var fromDocument) ? fromDocument.DocumentId : null,
+                    provenance is not null && provenance.TryGetValue(definition.Key, out var onPage) ? onPage.Page : null,
+                    provenance is not null && provenance.TryGetValue(definition.Key, out var sure) ? sure.Confidence : null,
+                    provenance is not null && provenance.TryGetValue(definition.Key, out var by) ? by.ConfirmedBy : null))
                 .ToArray());
 }

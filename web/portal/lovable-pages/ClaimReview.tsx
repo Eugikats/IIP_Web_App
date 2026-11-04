@@ -43,6 +43,7 @@ import AssignClaimControl from "@/components/iip/AssignClaimControl";
 import { getFileConnectionStatus, type FileConnectionStatus } from "@/lib/files/fileConnections";
 import { ClaimDetailsCard } from "@/components/iip/ClaimDetailsCard";
 import { PrivacyConsentLine } from "@/components/iip/PrivacyConsentLine";
+import { FieldProposalsCard } from "@/components/iip/FieldProposalsCard";
 
 const POLICY_SOURCE_LABEL: Record<string, string> = {
   Manual: "Entered manually",
@@ -163,6 +164,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   // ExportEvidencePack, most claim-viewing roles (ClaimsOfficer, CustomerService, Broker) do
   // not hold it; only ClaimsSupervisor and Compliance do.
   // Editing the answers to a claim's questions needs the same permission as filing a claim.
+  const [detailsVersion, setDetailsVersion] = useState(0);
   const canEditClaimDetails = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "CreateClaim")
     : hasPermission(runtimeContext?.permissions ?? [], "CreateClaim");
@@ -982,7 +984,10 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
           </GlassCard>
 
           <GlassCard>
-            <ClaimDetailsCard caseId={claimId} role={roleDef.key} canEdit={canEditClaimDetails} />
+            <ClaimDetailsCard key={detailsVersion} caseId={claimId} role={roleDef.key} canEdit={canEditClaimDetails} />
+            <div className="mt-4 border-t border-dls-border-subtle pt-4">
+              <FieldProposalsCard caseId={claimId} role={roleDef.key} canDecide={canEditClaimDetails} onAccepted={() => setDetailsVersion((value) => value + 1)} />
+            </div>
             <div className="mt-4 border-t border-dls-border-subtle pt-3">
               <PrivacyConsentLine caseId={claimId} role={roleDef.key} />
             </div>

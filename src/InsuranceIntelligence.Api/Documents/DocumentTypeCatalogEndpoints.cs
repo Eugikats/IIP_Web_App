@@ -120,6 +120,25 @@ public static class DocumentTypeCatalogEndpoints
         }
 
         var current = await repository.GetCurrentAsync(scope, key, cancellationToken);
+        IReadOnlyList<ExtractionFieldSpec>? extractionFields = current?.ExtractionFields;
+        if (request.ExtractionFields is not null)
+        {
+            var specs = request.ExtractionFields
+                .Where(spec => !string.IsNullOrWhiteSpace(spec.ExtractedKey) || !string.IsNullOrWhiteSpace(spec.ClaimFieldKey))
+                .ToArray();
+            if (specs.Any(spec => string.IsNullOrWhiteSpace(spec.ExtractedKey) || string.IsNullOrWhiteSpace(spec.ClaimFieldKey)))
+            {
+                return WorkflowEndpoints.Validation("extractionFields", "Each reading rule needs both the value to read and the question it fills in.");
+            }
+
+            if (specs.Length > 40 || specs.Select(spec => spec.ClaimFieldKey!.Trim().ToLowerInvariant()).Distinct().Count() != specs.Length)
+            {
+                return WorkflowEndpoints.Validation("extractionFields", "A document can fill in each question once, and at most 40 questions.");
+            }
+
+            extractionFields = specs.Select(spec => new ExtractionFieldSpec(spec.ExtractedKey!.Trim(), spec.ClaimFieldKey!.Trim())).ToArray();
+        }
+
         var builtInType = Enum.TryParse<DocumentType>(key, ignoreCase: true, out var parsed) ? parsed : (DocumentType?)null;
         var version = new DocumentTypeDefinition
         {
@@ -132,6 +151,7 @@ public static class DocumentTypeCatalogEndpoints
             Description = request.Description.Trim(),
             BuiltInType = builtInType,
             Active = request.Active,
+            ExtractionFields = extractionFields,
             UpdatedByUserId = actor,
             UpdatedAt = DateTimeOffset.UtcNow,
             ChangeReason = auditReason,
@@ -240,13 +260,17 @@ public static class DocumentTypeCatalogEndpoints
             definition.Active,
             definition.UpdatedByUserId,
             definition.UpdatedAt,
-            definition.ChangeReason);
+            definition.ChangeReason,
+            (definition.ExtractionFields ?? []).Select(spec => new ExtractionFieldSpecRequest(spec.ExtractedKey, spec.ClaimFieldKey)).ToArray());
 }
+
+public sealed record ExtractionFieldSpecRequest(string? ExtractedKey, string? ClaimFieldKey);
 
 public sealed record SaveDocumentTypeDefinitionRequest(
     string? CustomerLabel,
     string? Description,
-    bool Active);
+    bool Active,
+    IReadOnlyList<ExtractionFieldSpecRequest>? ExtractionFields = null);
 
 public sealed record DocumentTypeDefinitionResponse(
     Guid DefinitionId,
@@ -258,7 +282,8 @@ public sealed record DocumentTypeDefinitionResponse(
     bool Active,
     string UpdatedByUserId,
     DateTimeOffset UpdatedAt,
-    string ChangeReason);
+    string ChangeReason,
+    IReadOnlyList<ExtractionFieldSpecRequest>? ExtractionFields = null);
 
 public sealed record DocumentTypeUploadOption(string Key, string CustomerLabel, string Description);
 

@@ -47,6 +47,10 @@ public sealed record DocumentTypeDefinition
     /// readable) but is no longer offered when configuring a product.</summary>
     public required bool Active { get; init; }
 
+    /// <summary>What this kind of document can fill in on a claim (build-loop item 15). Null or
+    /// empty means the built-in rules for the type, if it has any.</summary>
+    public IReadOnlyList<ExtractionFieldSpec>? ExtractionFields { get; init; }
+
     public required string UpdatedByUserId { get; init; }
     public required DateTimeOffset UpdatedAt { get; init; }
     public required string ChangeReason { get; init; }

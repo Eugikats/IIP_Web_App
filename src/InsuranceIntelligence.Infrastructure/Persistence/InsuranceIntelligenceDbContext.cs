@@ -24,6 +24,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedTeamsNotification> TeamsNotifications => Set<PersistedTeamsNotification>();
     public DbSet<PersistedWordingDraft> WordingDrafts => Set<PersistedWordingDraft>();
     public DbSet<PersistedSlotPdf> SlotPdfs => Set<PersistedSlotPdf>();
+    public DbSet<PersistedFieldProposal> FieldProposals => Set<PersistedFieldProposal>();
     public DbSet<UserTenantMembershipEntity> UserTenantMemberships => Set<UserTenantMembershipEntity>();
     public DbSet<OrganisationEntity> Organisations => Set<OrganisationEntity>();
     public DbSet<OrganisationInvitationEntity> OrganisationInvitations => Set<OrganisationInvitationEntity>();
@@ -115,6 +116,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedInboundEmail>(), "InboundEmails", "MessageId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedTeamsNotification>(), "TeamsNotifications", "NotificationId");
         modelBuilder.Entity<PersistedTeamsNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedFieldProposal>(), "FieldProposals", "ProposalId");
+        modelBuilder.Entity<PersistedFieldProposal>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedSlotPdf>(), "SlotPdfs", "SlotPdfId");
         modelBuilder.Entity<PersistedSlotPdf>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedWordingDraft>(), "WordingDrafts", "DraftId");
@@ -474,6 +477,7 @@ public sealed class PersistedInboundEmail : PersistedScopedJson;
 public sealed class PersistedTeamsNotification : PersistedScopedJson { public Guid? CaseId { get; set; } }
 public sealed class PersistedWordingDraft : PersistedScopedJson { public Guid ProductId { get; set; } }
 public sealed class PersistedSlotPdf : PersistedScopedJson { public Guid CaseId { get; set; } }
+public sealed class PersistedFieldProposal : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedCustomer : PersistedScopedJson;
 public sealed class PersistedAgentState : PersistedScopedJson;
 public sealed class PersistedAgentWorkflowDefinition : PersistedScopedJson

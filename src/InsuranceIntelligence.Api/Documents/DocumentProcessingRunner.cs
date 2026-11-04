@@ -34,7 +34,8 @@ public static class DocumentProcessingRunner
         IAuditRepository auditRepository,
         string correlationId,
         CancellationToken cancellationToken,
-        IDocumentRecognitionService? recognition = null)
+        IDocumentRecognitionService? recognition = null,
+        IFieldProposalService? proposals = null)
     {
         var scope = claimCase.Scope;
         try
@@ -98,6 +99,19 @@ public static class DocumentProcessingRunner
 
             await documentRepository.SaveAsync(processed, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentProcessed(processed, correlationId), cancellationToken);
+            if (proposals is not null)
+            {
+                // What the document says is offered for the claim's questions; a person decides.
+                // A failure here never undoes a processed document.
+                try
+                {
+                    await proposals.ProposeAsync(processed, claimCase, correlationId, cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                }
+            }
+
             return new DocumentProcessingRun(processed, null);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

@@ -366,6 +366,36 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>Values read from a document were offered for a claim's questions, or an officer
+    /// decided one (build-loop item 15). Records the question keys and the decision, never the values.</summary>
+    public static AuditEvent FieldProposalEvent(
+        TenantScope scope,
+        Guid caseId,
+        string userId,
+        ActorType actorType,
+        string actionName,
+        IReadOnlyCollection<string> fieldKeys,
+        string? documentId,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            documentId,
+            userId,
+            actorType,
+            actionName,
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: string.Join(",", fieldKeys.OrderBy(key => key, StringComparer.Ordinal)),
+            EvidenceIds: documentId is null ? [] : [documentId],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "human_review_required",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>A workspace administrator changed operating settings. Records which settings, by
     /// name.</summary>
     public static AuditEvent TenantSettingsUpdated(

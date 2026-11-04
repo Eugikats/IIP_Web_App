@@ -59,6 +59,11 @@ public sealed record ClaimCase
     /// Read through <see cref="InsuranceIntelligence.Domain.Products.ClaimFieldValues.For"/>, which
     /// also reads the original Motor/Medical FNOL records for claims filed before fields existed.</summary>
     public IReadOnlyDictionary<string, string>? FieldValues { get; init; }
+
+    /// <summary>Where each answer came from and who confirmed it (build-loop item 15): the customer,
+    /// an officer, or a document an officer accepted it from. A field with no entry was put there by
+    /// a person before this was recorded, and is treated the same way: confirmed.</summary>
+    public IReadOnlyDictionary<string, InsuranceIntelligence.Domain.Documents.FieldProvenance>? FieldProvenance { get; init; }
     public MotorFnolDetails? MotorFnolDetails { get; init; }
     public MedicalFnolDetails? MedicalFnolDetails { get; init; }
     public required CaseStatus Status { get; init; }

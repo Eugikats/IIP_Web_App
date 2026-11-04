@@ -611,6 +611,7 @@ else
 }
 
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentRecognitionService, InsuranceIntelligence.Application.Documents.DocumentRecognitionService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IFieldProposalService, InsuranceIntelligence.Application.Documents.FieldProposalService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1479,6 +1480,13 @@ app.MapGet("/api/v1/client-portal/claim-types", InsuranceIntelligence.Api.Produc
 // Claim fields (build-loop item 5): the questions a product asks about a claim and a claim's answers.
 app.MapGet("/api/v1/claim-fields", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.GetForm)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim, Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ManageProducts));
+// Extracted data into the claim (build-loop item 15): suggestions read from documents, decided by an officer.
+app.MapGet("/api/v1/cases/{caseId:guid}/field-proposals", InsuranceIntelligence.Api.Cases.FieldProposalEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/field-proposals/{proposalId:guid}/accept", InsuranceIntelligence.Api.Cases.FieldProposalEndpoints.Accept)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/field-proposals/{proposalId:guid}/reject", InsuranceIntelligence.Api.Cases.FieldProposalEndpoints.Reject)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}/fields", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.GetForClaim)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPut("/api/v1/cases/{caseId:guid}/field-values", InsuranceIntelligence.Api.Cases.ClaimFieldEndpoints.SaveForClaim)

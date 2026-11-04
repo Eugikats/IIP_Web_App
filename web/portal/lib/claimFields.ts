@@ -16,6 +16,12 @@ export type ClaimFieldValue = {
   sortOrder: number;
   customerVisible: boolean;
   value: string | null;
+  /** Staff only (item 15): where the answer came from and who confirmed it. */
+  source?: "Customer" | "Staff" | "Document" | null;
+  sourceDocumentId?: string | null;
+  sourcePage?: number | null;
+  sourceConfidence?: number | null;
+  confirmedBy?: string | null;
 };
 
 export type ClaimFieldForm = {

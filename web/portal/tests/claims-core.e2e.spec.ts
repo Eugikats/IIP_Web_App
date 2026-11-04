@@ -1175,3 +1175,78 @@ test.describe("Item 14: recognise and name every file", () => {
     expect(other.status()).toBe(404);
   });
 });
+
+test.describe("Item 15: extracted data into the claim", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+
+  async function productThatReadsPoliceReports(request: APIRequestContext) {
+    const productClass = `Reads${Math.random().toString(36).slice(2, 7)}`;
+    const maker = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "Admin", "reads-maker");
+    const checker = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "Admin", "reads-checker");
+    const created = await request.post(`${API}/api/v1/products`, { headers: maker, data: { name: "Reads Cover", productClass, changeReason: "e2e" } });
+    const { productId } = (await created.json()) as { productId: string };
+    const updated = await request.put(`${API}/api/v1/products/${productId}`, {
+      headers: maker,
+      data: {
+        iraApprovalReference: "E2E-15",
+        iraApprovalEffectiveDate: "2026-01-01",
+        documentMatrix: [{ documentKey: "PoliceAbstract", customerLabel: "Police abstract", reason: "needed", isRequired: true, requiredAtStageKey: "acknowledgement_and_document_request", isRegulatoryOrWordingMandated: false }],
+        claimFields: [
+          { label: "Police report number", key: "policeReportNumber", type: "Text", required: false, sortOrder: 1, customerVisible: true, claimTypeKeys: [] },
+          { label: "Report date", key: "reportDate", type: "Date", required: false, sortOrder: 2, customerVisible: true, claimTypeKeys: [] },
+        ],
+        changeReason: "e2e",
+      },
+    });
+    expect(updated.ok(), await updated.text()).toBeTruthy();
+    expect((await request.post(`${API}/api/v1/products/${productId}/submit`, { headers: maker, data: { changeReason: "go" } })).ok()).toBeTruthy();
+    expect((await request.post(`${API}/api/v1/products/${productId}/approve`, { headers: checker, data: { changeReason: "ok" } })).ok()).toBeTruthy();
+    const rules = await request.post(`${API}/api/v1/document-types/PoliceAbstract`, {
+      headers: { ...headers, "X-Audit-Reason": "reading rules for the e2e" },
+      data: { customerLabel: "Police abstract", description: "Confirms the incident was reported to the police.", active: true, extractionFields: [{ extractedKey: "ReportNumber", claimFieldKey: "policeReportNumber" }, { extractedKey: "ReportDate", claimFieldKey: "reportDate" }] },
+    });
+    expect(rules.ok(), await rules.text()).toBeTruthy();
+    return productClass;
+  }
+
+  test("an officer sees what the document says, corrects one answer, rejects another, and the claim shows where its answer came from", async ({ page, request }) => {
+    const productClass = await productThatReadsPoliceReports(request);
+    const { caseId } = await claimantLinkFor(request, "Accident", productClass);
+    const upload = await request.post(`${API}/api/v1/cases/${caseId}/documents`, {
+      headers,
+      multipart: { files: { name: "scan.pdf", mimeType: "application/pdf", buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract") } },
+    });
+    expect(upload.ok(), await upload.text()).toBeTruthy();
+
+    await page.goto(`/app/claims/${caseId}`);
+    const card = page.getByTestId("field-proposals");
+    await expect(card.getByText("Suggested from the documents")).toBeVisible();
+    await expect(card.getByTestId("field-proposal")).toHaveCount(2);
+    await expect(card.getByText("MOCK-POL-0001")).toBeVisible();
+    await expect(card.getByText(/From PoliceAbstract_CLM-[0-9A-F]{8}\.pdf/).first()).toBeVisible();
+
+    // Nothing is on the claim yet.
+    const before = (await (await request.get(`${API}/api/v1/cases/${caseId}/fields`, { headers })).json()) as { fields: { key: string; value: string | null }[] };
+    expect(before.fields.find((field) => field.key === "policeReportNumber")?.value).toBeNull();
+
+    await card.getByLabel("Correct Police report number").fill("CRB/2026/4471");
+    await card.getByRole("button", { name: "Accept Police report number" }).click();
+    await card.getByRole("button", { name: "Reject Report date" }).click();
+
+    const details = page.getByTestId("claim-details-card");
+    await expect(details.getByText("CRB/2026/4471")).toBeVisible();
+    await expect(details.getByTestId("field-source").first()).toContainText("Read from a document");
+    await expect(card.getByText("Accepted")).toBeVisible();
+    await expect(card.getByText("Rejected")).toBeVisible();
+
+    const after = (await (await request.get(`${API}/api/v1/cases/${caseId}/fields`, { headers })).json()) as { fields: { key: string; value: string | null }[] };
+    expect(after.fields.find((field) => field.key === "policeReportNumber")?.value).toBe("CRB/2026/4471");
+    expect(after.fields.find((field) => field.key === "reportDate")?.value).toBeNull();
+  });
+
+  test("another tenant cannot read the suggestions", async ({ request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const other = await request.get(`${API}/api/v1/cases/${caseId}/field-proposals`, { headers: scopeHeaders(newTenant()) });
+    expect(other.status()).toBe(404);
+  });
+});

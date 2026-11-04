@@ -10,7 +10,8 @@ public sealed class GraphEmailAttachmentProcessor(
     IGraphMailClient graphClient,
     IDocumentStorageProvider storageProvider,
     IDocumentProcessingProvider processingProvider,
-    InsuranceIntelligence.Application.Documents.IDocumentRecognitionService? recognition = null) : IEmailAttachmentProcessor
+    InsuranceIntelligence.Application.Documents.IDocumentRecognitionService? recognition = null,
+    InsuranceIntelligence.Application.Documents.IFieldProposalService? proposals = null) : IEmailAttachmentProcessor
 {
     public async Task<IReadOnlyCollection<CaseDocument>> ProcessAsync(
         ClaimCase claimCase,
@@ -105,6 +106,12 @@ public sealed class GraphEmailAttachmentProcessor(
             {
                 // Name it, and file it into the claim's matching slot when sure; otherwise a person looks.
                 processed = await recognition.ApplyAsync(processed, claimCase, $"graph-email-{message.MessageId:N}-{attachment.AttachmentId:N}", cancellationToken);
+            }
+
+            if (proposals is not null && !processingFailed)
+            {
+                // Offer what it says for the claim's questions; an officer decides.
+                await proposals.ProposeAsync(processed, claimCase, $"graph-email-{message.MessageId:N}-{attachment.AttachmentId:N}", cancellationToken);
             }
 
             processedDocuments.Add(processed);

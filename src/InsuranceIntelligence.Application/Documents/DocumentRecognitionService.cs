@@ -119,7 +119,8 @@ public sealed class DocumentRecognitionService(
         else if (recognition.IsConfident)
         {
             var entry = catalogue.First(entry => string.Equals(entry.Key, recognition.TypeKey, StringComparison.OrdinalIgnoreCase));
-            label = entry.Label;
+            label = slots.FirstOrDefault(slot => string.Equals(slot.Key, entry.Key, StringComparison.OrdinalIgnoreCase))?.Label
+                ?? entry.Label;
             outcome = "review";
             var alreadyThere = slots.Any(slot => string.Equals(slot.Key, entry.Key, StringComparison.OrdinalIgnoreCase));
             result = result with

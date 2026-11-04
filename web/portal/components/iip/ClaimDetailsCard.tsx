@@ -106,6 +106,13 @@ export function ClaimDetailsCard({ caseId, role, canEdit, onSaved }: ClaimDetail
               <dd className="mt-1 text-[13px] text-dls-text-primary">
                 {field.value ?? <span className="text-dls-text-muted">{field.required ? "Needed, not given yet" : "Not given"}</span>}
               </dd>
+              {field.value && field.source && (
+                <p className="mt-1 text-[11px] text-dls-text-muted" data-testid="field-source">
+                  {field.source === "Document"
+                    ? `Read from a document${field.sourcePage ? `, page ${field.sourcePage}` : ""}${typeof field.sourceConfidence === "number" ? `, ${Math.round(field.sourceConfidence * 100)}% sure` : ""}, confirmed by ${field.confirmedBy}`
+                    : field.source === "Customer" ? "Given by the customer" : `Entered by ${field.confirmedBy}`}
+                </p>
+              )}
             </div>
           ))}
         </dl>
