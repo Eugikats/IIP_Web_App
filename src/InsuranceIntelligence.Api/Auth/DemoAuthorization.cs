@@ -23,7 +23,10 @@ public static class DemoAuthorization
         InfrastructureOptions options,
         IReadOnlyCollection<Permission> permissions)
     {
-        if (!options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+        // A request carrying a valid platform sign-in token is judged by the membership store even in a developer runtime
+        // (build-loop item 30), so the real sign-in path can be tried locally; header identities remain for everything else.
+        if (!options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)
+            || httpContext.User.Identity?.IsAuthenticated == true)
         {
             if (HasDemoIdentityHeaders(httpContext))
             {
@@ -76,8 +79,7 @@ public static class DemoAuthorization
     }
 
     public static PlatformRole GetEffectiveRole(HttpContext httpContext, InfrastructureOptions options) =>
-        !options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)
-            && httpContext.User.Identity?.IsAuthenticated == true
+        httpContext.User.Identity?.IsAuthenticated == true
             ? GetAuthenticatedRole(httpContext)
             : GetRole(httpContext);
 

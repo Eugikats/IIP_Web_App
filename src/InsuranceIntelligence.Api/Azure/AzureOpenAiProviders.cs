@@ -357,12 +357,15 @@ public sealed class AzureOpenAiEmbeddingProvider(
     private readonly HttpClient httpClient = httpClient ?? new HttpClient();
     private readonly TokenCredential tokenCredential = tokenCredential ?? AzureProviderSupport.Credential();
 
-    public async Task<IReadOnlyCollection<float>> EmbedAsync(string text, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyCollection<float>> EmbedAsync(string text, CancellationToken cancellationToken = default) =>
+        (await EmbedWithUsageAsync(text, cancellationToken)).Vector;
+
+    public async Task<EmbeddingResult> EmbedWithUsageAsync(string text, CancellationToken cancellationToken = default)
     {
         if (AzureProviderSupport.Missing(options.AzureOpenAI.Endpoint) || AzureProviderSupport.Missing(options.AzureOpenAI.EmbeddingDeployment))
         {
             logger.LogInformation("Azure OpenAI embedding provider is selected but not configured. Returning placeholder embedding.");
-            return Array.Empty<float>();
+            return new EmbeddingResult(Array.Empty<float>(), null);
         }
 
         try
@@ -380,12 +383,13 @@ public sealed class AzureOpenAiEmbeddingProvider(
             using var response = await httpClient.SendAsync(request, timeout.Token);
             response.EnsureSuccessStatusCode();
             var payload = await response.Content.ReadFromJsonAsync<EmbeddingResponse>(cancellationToken: cancellationToken);
-            return payload?.Data.FirstOrDefault()?.Embedding ?? Array.Empty<float>();
+            var vector = payload?.Data.FirstOrDefault()?.Embedding ?? Array.Empty<float>();
+            return new EmbeddingResult(vector, new ModelUsage("AzureOpenAI", options.AzureOpenAI.EmbeddingDeployment, payload?.Model, payload?.Usage?.PromptTokens, 0));
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
         {
             logger.LogWarning("Azure OpenAI embedding request failed safely. ErrorType={ErrorType}", exception.GetType().Name);
-            return Array.Empty<float>();
+            return new EmbeddingResult(Array.Empty<float>(), null);
         }
     }
 
@@ -400,7 +404,8 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
     IAgentBehaviourProfileRepository? behaviourProfileRepository = null,
     HttpClient? httpClient = null,
     TokenCredential? tokenCredential = null,
-    InsuranceIntelligence.Application.Billing.IAiUsageRecorder? usageRecorder = null) : ICustomerUpdateDraftingProvider
+    InsuranceIntelligence.Application.Billing.IAiUsageRecorder? usageRecorder = null,
+    InsuranceIntelligence.Application.Billing.IWorkspaceAiUsageRecorder? workspaceUsageRecorder = null) : ICustomerUpdateDraftingProvider
 {
     private const string CognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
     private const string DefaultSystemPrompt = "You draft short insurance customer updates for human-supervised claim workflows. Use only the supplied case facts. Do not deny claims, approve settlements, accuse fraud, promise payment, disclose internal notes, disclose reserves, or make final insurance decisions. If facts are insufficient, ask for a human-prepared update.";
@@ -542,6 +547,15 @@ public sealed class AzureOpenAiCustomerUpdateDraftingProvider(
                 throw new InvalidOperationException("Azure OpenAI response did not include customer update content.");
             }
 
+            if (workspaceUsageRecorder is not null)
+            {
+                await workspaceUsageRecorder.RecordAsync(
+                    new InsuranceIntelligence.Application.Billing.WorkspaceAiUsageEntry(
+                        claimCase.Scope, $"chat:{AgentKey}", "AzureOpenAI", options.AzureOpenAI.ChatDeployment, payload.Model,
+                        payload.Usage?.PromptTokens, payload.Usage?.CompletionTokens, correlationId, claimCase.CaseId),
+                    cancellationToken);
+            }
+
             return Sanitize(content);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
@@ -638,5 +652,8 @@ internal sealed record ChatMessage([property: JsonPropertyName("content")] strin
 internal sealed record ChatUsage(
     [property: JsonPropertyName("prompt_tokens")] int? PromptTokens,
     [property: JsonPropertyName("completion_tokens")] int? CompletionTokens);
-internal sealed record EmbeddingResponse([property: JsonPropertyName("data")] IReadOnlyCollection<EmbeddingItem> Data);
+internal sealed record EmbeddingResponse(
+    [property: JsonPropertyName("data")] IReadOnlyCollection<EmbeddingItem> Data,
+    [property: JsonPropertyName("model")] string? Model = null,
+    [property: JsonPropertyName("usage")] ChatUsage? Usage = null);
 internal sealed record EmbeddingItem([property: JsonPropertyName("embedding")] IReadOnlyCollection<float> Embedding);

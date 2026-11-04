@@ -2010,3 +2010,169 @@ test.describe("Item 29: each insurer's customers arrive on their own portal", ()
     expect((await request.put(`${API}/api/v1/admin/portal-identity`, { headers: scopeHeaders(newTenant()), data: { ...body, slug: taken, displayName: "Second" } })).status()).toBe(409);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Item 30: a company opens its own workspace, signs in without Microsoft 365, and invites staff.
+// ---------------------------------------------------------------------------------------------
+
+const PLATFORM_MAIL = { tenant: "iip-platform", workspace: "identity" };
+const STRONG_PASSWORD = "plum harbour lantern drift 4";
+
+function letters(count: number) {
+  return Array.from({ length: count }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+}
+
+/** Reads the one-time link an email carried from the mock outbox and returns its token. */
+async function emailedToken(request: APIRequestContext, tenant: string, workspace: string, recipient: string, pathPart: string) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const outbox = (await (await request.get(`${API}/api/v1/dev/mock-outbox`, { headers: scopeHeaders(tenant, workspace) })).json()) as { recipient: string; body: string }[];
+    const body = outbox.filter((message) => message.recipient === recipient && message.body.includes(pathPart)).pop()?.body;
+    const found = body ? /token=([A-Za-z0-9_%-]+)/.exec(body) : null;
+    if (found) return decodeURIComponent(found[1]);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+
+  throw new Error(`No email carrying ${pathPart} reached ${recipient}`);
+}
+
+/** The form error, not Next.js route announcer, which is also an alert. */
+function formAlert(page: Page) {
+  return page.locator('[role="alert"]:not(#__next-route-announcer__)');
+}
+
+async function passwordSignIn(page: Page, email: string, password: string) {
+  await page.goto("/signin");
+  const form = page.getByTestId("password-sign-in");
+  await form.getByLabel("Email").fill(email);
+  await form.getByLabel("Password").fill(password);
+  await form.getByRole("button", { name: "Sign in" }).click();
+}
+
+test.describe("Item 30: self-serve sign-up and staff invitations", () => {
+  test("a company signs up, confirms its email, signs in, and invites a colleague who joins", async ({ page, browser, request }) => {
+    const company = `Kampala ${letters(8)} Insurance`;
+    const email = `admin-${letters(10)}@example.test`;
+
+    await page.goto("/signup");
+    await page.getByLabel("Company name").fill(company);
+    await page.getByLabel("Your name").fill("Amina Admin");
+    await page.getByLabel("Work email").fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(STRONG_PASSWORD);
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Create workspace" }).click();
+    await expect(page.getByTestId("signup-sent")).toBeVisible();
+
+    // Nothing exists until the address is proved: signing in now is refused the same way a wrong password is.
+    await passwordSignIn(page, email, STRONG_PASSWORD);
+    await expect(formAlert(page)).toContainText(/not right/i);
+
+    const verifyToken = await emailedToken(request, PLATFORM_MAIL.tenant, PLATFORM_MAIL.workspace, email, "signup/verify");
+    await page.goto(`/signup/verify?token=${verifyToken}`);
+    await expect(page.getByTestId("signup-verified")).toContainText("Your workspace is ready");
+
+    await passwordSignIn(page, email, STRONG_PASSWORD);
+    await expect(page).toHaveURL(/\/app/);
+    const session = (await page.evaluate(() => JSON.parse(window.sessionStorage.getItem("iip.platform.session") ?? "null"))) as { user: { tenantId: string; workspaceId: string; role: string } };
+    expect(session.user.role).toBe("Admin");
+
+    // A reload keeps the session, and the administrator can reach the people screen.
+    await page.goto("/app/admin/users");
+    await expect(page.getByTestId("invitations-card")).toBeVisible();
+
+    const colleague = `officer-${letters(10)}@example.test`;
+    await page.getByLabel("Email", { exact: true }).fill(colleague);
+    await page.getByLabel("Role", { exact: true }).selectOption({ index: 1 });
+    await page.getByRole("button", { name: "Send invitation" }).click();
+    await expect(page.getByText(`Invitation sent to ${colleague}.`)).toBeVisible();
+    await expect(page.getByRole("table", { name: "Invitations" })).toContainText(colleague);
+
+    const inviteToken = await emailedToken(request, session.user.tenantId, session.user.workspaceId, colleague, "accept-invite");
+    const other = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    const joinPage = await other.newPage();
+    await joinPage.goto(`/accept-invite?token=${inviteToken}`);
+    await expect(joinPage.getByRole("heading", { name: /^Join / })).toBeVisible();
+    await joinPage.getByLabel("Your name").fill("Omar Officer");
+    await joinPage.getByLabel("Choose a password").fill("granite violet harbour mist 8");
+    await joinPage.getByRole("button", { name: "Join the workspace" }).click();
+    await expect(joinPage.getByTestId("invite-joined")).toBeVisible();
+
+    // The link works once.
+    await joinPage.goto(`/accept-invite?token=${inviteToken}`);
+    await expect(joinPage.getByRole("heading", { name: "This invitation cannot be used" })).toBeVisible();
+    await other.close();
+  });
+
+  test("a wrong password and an unknown email get the same plain refusal", async ({ page }) => {
+    await passwordSignIn(page, `nobody-${letters(8)}@example.test`, "whatever it is 12");
+    await expect(formAlert(page)).toBeVisible();
+    const unknown = await formAlert(page).innerText();
+    expect(unknown).toMatch(/not right/i);
+    expect(unknown).not.toMatch(/no account|not found|does not exist/i);
+  });
+
+  test("a forgotten password is reset from an emailed link", async ({ page, request }) => {
+    const email = `reset-${letters(10)}@example.test`;
+    const signedUp = await request.post(`${API}/api/v1/signup`, { data: { companyName: `Reset ${letters(8)} Cover`, adminName: "Rita Reset", email, password: STRONG_PASSWORD, acceptTerms: true, website: "" } });
+    expect(signedUp.status()).toBe(202);
+    const verify = await emailedToken(request, PLATFORM_MAIL.tenant, PLATFORM_MAIL.workspace, email, "signup/verify");
+    expect((await request.post(`${API}/api/v1/signup/verify`, { data: { token: verify } })).ok()).toBeTruthy();
+
+    await page.goto("/forgot-password");
+    await page.getByLabel("Email").fill(email);
+    await page.getByRole("button", { name: "Send the link" }).click();
+    await expect(page.getByTestId("forgot-sent")).toBeVisible();
+
+    const resetToken = await emailedToken(request, PLATFORM_MAIL.tenant, PLATFORM_MAIL.workspace, email, "reset-password");
+    await page.goto(`/reset-password?token=${resetToken}`);
+    await page.getByLabel("New password").fill("short");
+    await page.getByRole("button", { name: "Change password" }).click();
+    await expect(formAlert(page)).toBeVisible();
+    await page.getByLabel("New password").fill("amber pillar quiet river 9");
+    await page.getByRole("button", { name: "Change password" }).click();
+    await expect(page.getByTestId("reset-done")).toBeVisible();
+
+    await passwordSignIn(page, email, STRONG_PASSWORD);
+    await expect(formAlert(page)).toContainText(/not right/i);
+    await passwordSignIn(page, email, "amber pillar quiet river 9");
+    await expect(page).toHaveURL(/\/app/);
+  });
+
+  test("the sign-up and terms pages fit a phone and the terms say they are a draft", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const path of ["/signup", "/signin", "/terms", "/forgot-password"]) {
+      await page.goto(path);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${path} overflows a phone`).toBe(true);
+    }
+
+    await page.goto("/terms");
+    await expect(page.getByText("to be confirmed by legal").first()).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Item 31: every model call, document and byte stored is counted for the workspace that caused it.
+// ---------------------------------------------------------------------------------------------
+
+test.describe("Item 31: usage metering", () => {
+  test("a summary the model writes shows up as AI usage on the billing page", async ({ page, request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const summary = await request.post(`${API}/api/v1/cases/${caseId}/summary`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) });
+    expect(summary.ok(), await summary.text()).toBeTruthy();
+
+    await page.goto("/app/admin/billing");
+    const calls = page.getByTestId("meter-ai-calls");
+    await expect(calls).toContainText("AI calls this month");
+    await expect(calls).not.toContainText("0 calls");
+    await expect(page.getByTestId("meter-ai-tokens")).toContainText("tokens");
+    // The mock model is free; the page says so as a real amount, not as a missing counter.
+    await expect(page.getByTestId("meter-ai-cost-usd")).toContainText("US$ 0.00");
+    await expect(page.getByTestId("meter-storage")).toContainText("MB");
+  });
+
+  test("another workspace's usage is its own", async ({ request }) => {
+    const quiet = newTenant();
+    const billing = (await (await request.get(`${API}/api/v1/admin/billing`, { headers: scopeHeaders(quiet) })).json()) as { meters: { key: string; used: number }[] };
+    expect(billing.meters.find((meter) => meter.key === "ai-calls")?.used).toBe(0);
+    expect(billing.meters.find((meter) => meter.key === "ai-tokens")?.used).toBe(0);
+  });
+});

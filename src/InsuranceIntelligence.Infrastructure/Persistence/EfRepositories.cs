@@ -54,7 +54,12 @@ public sealed class EfCaseDocumentRepository(InsuranceIntelligenceDbContext dbCo
             document.DocumentId,
             document.Scope,
             Serialize(document),
-            record => record.CaseId = document.CaseId,
+            record =>
+            {
+                record.CaseId = document.CaseId;
+                record.SizeBytes = document.FileSizeBytes;
+                record.PeriodKey = InsuranceIntelligence.Domain.Billing.UsagePeriod.KeyFor(document.UploadedAt);
+            },
             cancellationToken);
 
     public async Task<CaseDocument?> GetAsync(Guid caseId, Guid documentId, TenantScope scope, CancellationToken cancellationToken = default)
@@ -210,17 +215,26 @@ public sealed class EfAgentActionLogRepository(InsuranceIntelligenceDbContext db
             actionLog.AgentActionLogId,
             actionLog.Scope,
             Serialize(actionLog),
-            record => record.CaseId = actionLog.CaseId,
+            record =>
+            {
+                record.CaseId = actionLog.CaseId;
+                record.RecordKind = actionLog.RecordKind;
+                record.PeriodKey = InsuranceIntelligence.Domain.Billing.UsagePeriod.KeyFor(actionLog.CreatedAt);
+                record.PromptTokens = actionLog.PromptTokens;
+                record.CompletionTokens = actionLog.CompletionTokens;
+                record.CostMicroUsd = actionLog.EstimatedCostUsd is { } cost ? (long)Math.Round(cost * 1_000_000m) : null;
+            },
             cancellationToken);
 
     public async Task<IReadOnlyCollection<AgentActionLog>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
         await Scoped(DbContext.AgentActionLogs.AsNoTracking(), scope)
+            .Where(record => record.RecordKind != InsuranceIntelligence.Domain.Knowledge.ActionLogKinds.ModelCall)
             .Select(record => Deserialize<AgentActionLog>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<AgentActionLog>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default) =>
         await Scoped(DbContext.AgentActionLogs.AsNoTracking(), scope)
-            .Where(record => record.CaseId == caseId)
+            .Where(record => record.CaseId == caseId && record.RecordKind != InsuranceIntelligence.Domain.Knowledge.ActionLogKinds.ModelCall)
             .Select(record => Deserialize<AgentActionLog>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
 }

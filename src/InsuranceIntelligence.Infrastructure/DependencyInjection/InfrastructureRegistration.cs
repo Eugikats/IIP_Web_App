@@ -202,6 +202,8 @@ public static class InfrastructureRegistration
         services.AddScoped<ICaseDocumentRepository, EfCaseDocumentRepository>();
         services.AddScoped<IKnowledgeDocumentRepository, EfKnowledgeDocumentRepository>();
         services.AddScoped<IAgentActionLogRepository, EfAgentActionLogRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Billing.IWorkspaceUsageReader, EfWorkspaceUsageReader>();
+        services.AddScoped<InsuranceIntelligence.Application.Billing.IWorkspaceAiUsageRecorder, InsuranceIntelligence.Infrastructure.Billing.AgentActionLogUsageRecorder>();
         services.AddScoped<IWorkflowTaskRepository, EfWorkflowTaskRepository>();
         services.AddScoped<IApprovalRepository, EfApprovalRepository>();
         services.AddScoped<ICustomerUpdateRepository, EfCustomerUpdateRepository>();
@@ -224,6 +226,7 @@ public static class InfrastructureRegistration
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
         services.AddScoped<IMailboxConnectionRepository, EfMailboxConnectionRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.ClientPortal.IPortalIdentityRepository, InsuranceIntelligence.Infrastructure.ClientPortal.EfPortalIdentityRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Identity.ILocalIdentityStore, InsuranceIntelligence.Infrastructure.Identity.EfLocalIdentityStore>();
         services.AddScoped<IInboundEmailRepository, EfInboundEmailRepository>();
         services.AddScoped<ITeamsNotificationRepository, EfTeamsNotificationRepository>();
         services.AddScoped<INotificationRepository, EfNotificationRepository>();

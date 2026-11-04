@@ -17,7 +17,7 @@ public sealed class InMemoryAgentActionLogRepository : IAgentActionLogRepository
     public Task<IReadOnlyCollection<AgentActionLog>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default)
     {
         var matches = actionLogs
-            .Where(actionLog => actionLog.Scope.Matches(scope))
+            .Where(actionLog => actionLog.Scope.Matches(scope) && actionLog.RecordKind != ActionLogKinds.ModelCall)
             .OrderByDescending(actionLog => actionLog.CreatedAt)
             .ToArray();
 
@@ -27,7 +27,7 @@ public sealed class InMemoryAgentActionLogRepository : IAgentActionLogRepository
     public Task<IReadOnlyCollection<AgentActionLog>> ListForCaseAsync(Guid caseId, TenantScope scope, CancellationToken cancellationToken = default)
     {
         var matches = actionLogs
-            .Where(actionLog => actionLog.CaseId == caseId && actionLog.Scope.Matches(scope))
+            .Where(actionLog => actionLog.CaseId == caseId && actionLog.Scope.Matches(scope) && actionLog.RecordKind != ActionLogKinds.ModelCall)
             .OrderByDescending(actionLog => actionLog.CreatedAt)
             .ToArray();
 

@@ -9,7 +9,11 @@ using InsuranceIntelligence.Domain.Knowledge;
 namespace InsuranceIntelligence.Api.Assistant;
 
 public static class AssistantEndpoints
-{
+{    private static InsuranceIntelligence.Application.Billing.IAiCostModel CostModel(HttpContext httpContext) =>
+        httpContext.RequestServices?.GetService<InsuranceIntelligence.Application.Billing.IAiCostModel>()
+        ?? new InsuranceIntelligence.Application.Billing.ConfiguredAiCostModel(InsuranceIntelligence.Application.Billing.AiPricingOptions.None);
+
+
     public static async Task<IResult> AskPolicyQuestion(
         PolicyQuestionRequest request,
         IRetrievalProvider retrievalProvider,
@@ -100,7 +104,7 @@ public static class AssistantEndpoints
             ModelVersion = answer.ModelVersion,
             PromptTokens = answer.PromptTokens,
             CompletionTokens = answer.CompletionTokens,
-            EstimatedCostUsd = AiCostEstimator.Estimate(answer.PromptTokens, answer.CompletionTokens)
+            EstimatedCostUsd = CostModel(httpContext).Estimate(answer.ModelProvider, answer.ModelDeployment, answer.ModelVersion, answer.PromptTokens, answer.CompletionTokens)
         };
 
         await actionLogRepository.SaveAsync(actionLog, cancellationToken);

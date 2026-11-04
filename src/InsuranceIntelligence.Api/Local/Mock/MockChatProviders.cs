@@ -92,6 +92,9 @@ public sealed class MockChatCompletionProvider : IChatCompletionProvider
 /// same text always yields the same vector. Not semantically meaningful.</summary>
 public sealed class MockEmbeddingProvider : IEmbeddingProvider
 {
+    public async Task<EmbeddingResult> EmbedWithUsageAsync(string text, CancellationToken cancellationToken = default) =>
+        new(await EmbedAsync(text, cancellationToken), new ModelUsage("Mock", "mock-embedding", "mock-embedding-v1", Math.Max(1, (text ?? string.Empty).Length / 4), 0));
+
     public Task<IReadOnlyCollection<float>> EmbedAsync(string text, CancellationToken cancellationToken = default)
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(text ?? string.Empty));
@@ -195,7 +198,7 @@ public sealed partial class MockToolCallingChatProvider : IToolCallingChatProvid
     private static string Labelled(string text) => $"(mock assistant) {text}";
 
     private static Task<AgentChatStep> Step(string? content, params AgentToolCall[] calls) =>
-        Task.FromResult(new AgentChatStep(content, calls));
+        Task.FromResult(new AgentChatStep(content, calls, new ModelUsage("Mock", "mock-chat", "mock-chat-v1", 40, Math.Max(1, ((content?.Length ?? 0) + (calls.Length * 20)) / 4))));
 
     private static AgentToolCall Call(string id, string name, object arguments) =>
         new(id, name, System.Text.Json.JsonSerializer.Serialize(arguments));

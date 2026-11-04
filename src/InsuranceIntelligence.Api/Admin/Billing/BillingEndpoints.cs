@@ -22,14 +22,16 @@ public static class BillingEndpoints
 }
 
 /// <summary>
-/// Computes usage from records the platform actually stores. Claims and AI token
-/// counts are aggregated from real AgentActionLog records; dimensions without a
-/// counter yet (storage) are returned Metered=false (ADR-0003).
+/// Computes this month's usage from records the platform actually stores: claims from the case store, model calls and
+/// tokens from the action log's metering records, documents and storage from the document store. A dimension that
+/// cannot be counted is returned Metered=false rather than as a made-up number (ADR-0003). Allowances are the
+/// workspace's own settings; 0 means none has been set.
 /// </summary>
 public sealed class RecordBackedBillingUsageSource(
     IClaimsReadRepository claimsReadRepository,
-    IAgentActionLogRepository actionLogRepository,
-    InsuranceIntelligence.Domain.Administration.ITenantSettingsRepository? settingsRepository = null) : IBillingUsageSource
+    InsuranceIntelligence.Domain.Billing.IWorkspaceUsageReader usageReader,
+    InsuranceIntelligence.Domain.Administration.ITenantSettingsRepository? settingsRepository = null,
+    TimeProvider? timeProvider = null) : IBillingUsageSource
 {
     public async Task<IReadOnlyList<UsageMeterDto>> GetUsageAsync(
         string tenantId,
@@ -43,20 +45,20 @@ public sealed class RecordBackedBillingUsageSource(
         var claims = await claimsReadRepository.ListAsync(new ClaimsQuery(Take: claimsLimit + 1), cancellationToken);
         var claimCount = claims.Count;
 
-        var actionLogs = await actionLogRepository.ListAsync(scope, cancellationToken);
-        var promptTokens = actionLogs.Sum(log => log.PromptTokens ?? 0);
-        var completionTokens = actionLogs.Sum(log => log.CompletionTokens ?? 0);
-        var totalTokens = promptTokens + completionTokens;
-        var estimatedCost = actionLogs.Sum(log => log.EstimatedCostUsd ?? 0m);
-        var aiCallsMetered = actionLogs.Any(log => log.PromptTokens.HasValue);
+        var period = InsuranceIntelligence.Domain.Billing.UsagePeriod.KeyFor((timeProvider ?? TimeProvider.System).GetUtcNow());
+        var ai = await usageReader.GetAiUsageAsync(scope, period, cancellationToken);
+        var documents = await usageReader.GetDocumentUsageAsync(scope, period, cancellationToken);
+        var costCents = ai.CostUsd is { } cost ? (int)Math.Round(cost * 100m, MidpointRounding.AwayFromZero) : 0;
 
         var meters = new[]
         {
             new UsageMeter("claims", "Claims processed", claimCount, claimsLimit, "claims", Metered: true),
-            new UsageMeter("documents", "Documents processed", 0, 0, "documents", Metered: false),
-            new UsageMeter("ai-tokens", "AI tokens consumed", totalTokens, 0, "tokens", Metered: aiCallsMetered),
-            new UsageMeter("ai-cost-usd", "Estimated AI cost (USD)", (int)(estimatedCost * 100), 0, "cents", Metered: aiCallsMetered),
-            new UsageMeter("storage", "Document storage", 0, 0, "GB", Metered: false),
+            new UsageMeter("documents", "Documents received this month", documents.DocumentsInPeriod, 0, "documents", Metered: true),
+            new UsageMeter("ai-calls", "AI calls this month", ai.Calls, 0, "calls", Metered: true),
+            new UsageMeter("ai-tokens", "AI tokens this month", (int)Math.Min(int.MaxValue, ai.TotalTokens), 0, "tokens", Metered: true),
+            // Cost needs a configured price for the model; without one it is shown as not configured, never guessed.
+            new UsageMeter("ai-cost-usd", "Estimated AI cost this month (USD)", costCents, 0, "cents", Metered: ai.CostUsd is not null),
+            new UsageMeter("storage", "Document storage", (int)Math.Min(int.MaxValue, documents.BytesHeld / (1024 * 1024)), 0, "MB", Metered: true),
         };
 
         return meters.Select(ToDto).ToArray();

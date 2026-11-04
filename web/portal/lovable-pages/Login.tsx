@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { ArrowRight, AlertTriangle, Check, Loader2, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useNavigate } from "@/components/iip/NextRouterCompat";
 import iipLogo from "@/assets/iip-logo";
-import { canUseEntraBrowserAuth, canUseExternalIdSignIn, canUseLocalTestDoubles, runtimeProfile } from "@/lib/config";
-import { describeSignInError, finishReturningSignIn, startSignIn, type SignInMethod } from "@/lib/entraAuth";
-import { EmailCodeIcon, GoogleIcon, MicrosoftIcon } from "@/components/brand/ProviderIcons";
+import { canUseEntraBrowserAuth, canUseLocalTestDoubles, runtimeProfile } from "@/lib/config";
+import { PasswordSignIn } from "@/components/iip/PasswordSignIn";
+import { describeSignInError, getEntraApiAccessToken } from "@/lib/entraAuth";
+import { loadCapabilities, type AuthCapabilities } from "@/lib/platformAuth";
 
 function environmentLabel() {
   if (runtimeProfile.toLowerCase() === "managedapplicationreviewer") return "Reviewer environment";
@@ -15,48 +16,32 @@ function environmentLabel() {
 
 export default function Login() {
   const navigate = useNavigate();
-  const [signingIn, setSigningIn] = useState<SignInMethod | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [finishing, setFinishing] = useState(canUseEntraBrowserAuth);
+  const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
 
-  // Microsoft has just returned the person to this page with their sign-in waiting to be finished: finish it and go in.
   useEffect(() => {
-    let cancelled = false;
-    void finishReturningSignIn().then((outcome) => {
-      if (cancelled) return;
-      if (outcome.signedIn) {
-        window.location.replace("/app");
-        return;
-      }
-
-      if (outcome.error) setError(outcome.error);
-      setFinishing(false);
-    });
-    return () => {
-      cancelled = true;
-    };
+    void loadCapabilities().then(setCapabilities);
   }, []);
 
-  // Arriving from the sign-up page carries the product the person chose.
-  const signingUp = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("signup") : null;
-  const signUpProduct = signingUp === "bancassurance" ? "IIP for Bancassurance" : signingUp === "insurance" ? "IIP for Insurance" : null;
-
-  async function signIn(method: SignInMethod) {
-    setSigningIn(method);
+  async function signIn() {
+    setSigningIn(true);
     setError(null);
     try {
       if (canUseLocalTestDoubles) {
         navigate("/app");
         return;
       }
-      await startSignIn(method);
+      const token = await getEntraApiAccessToken();
+      if (token) navigate("/app");
     } catch (failure) {
       setError(describeSignInError(failure));
-      setSigningIn(null);
+      setSigningIn(false);
     }
   }
 
-  const signInAvailable = canUseEntraBrowserAuth || canUseLocalTestDoubles;
+  const passwordAvailable = capabilities?.passwordSignIn === true;
+  const microsoftAvailable = canUseEntraBrowserAuth || canUseLocalTestDoubles;
 
   return (
     <main className="grid min-h-screen bg-white text-ink lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
@@ -109,51 +94,35 @@ export default function Login() {
             <span className="text-sm font-medium text-ink-soft">Staff access</span>
             <span className="text-xs text-muted">{environmentLabel()}</span>
           </div>
-          <h2 className="text-3xl font-semibold leading-tight text-ink">{signUpProduct ? "Create your account" : "Sign in to IIP"}</h2>
+          <h2 className="text-3xl font-semibold leading-tight text-ink">Sign in to IIP Operations</h2>
           <p className="mt-3 text-sm leading-6 text-muted">
-            {signUpProduct
-              ? `You chose ${signUpProduct}. Sign in with Microsoft, Google or an email code, and then name your organisation.`
-              : "Use the account you signed up with. Your organisation, role and permissions are worked out securely after sign-in."}
+            Use your organization account. Your tenant, workspace, role, and permissions are resolved securely after sign-in.
           </p>
 
-          <div className="mt-8 space-y-3">
-            {([
-              { method: "microsoft", label: canUseLocalTestDoubles ? "Enter local workspace" : "Continue with Microsoft", note: "Work or school account, checked by Microsoft Entra ID", available: signInAvailable },
-              { method: "google", label: "Continue with Google", note: "Any Google account", available: canUseLocalTestDoubles || canUseExternalIdSignIn },
-              { method: "email", label: "Continue with an email code", note: "We email you a one-time code", available: canUseLocalTestDoubles || canUseExternalIdSignIn },
-            ] as { method: SignInMethod; label: string; note: string; available: boolean }[])
-              .filter((option) => !canUseLocalTestDoubles || option.method === "microsoft")
-              .map((option) => (
-                <button
-                  key={option.method}
-                  type="button"
-                  onClick={() => void signIn(option.method)}
-                  disabled={signingIn !== null || finishing || !option.available}
-                  className="inline-flex min-h-12 w-full items-center gap-3 rounded-md border border-line bg-white px-5 py-3 text-left text-sm font-semibold text-ink transition-colors hover:bg-surface focus-ring disabled:cursor-not-allowed disabled:opacity-55"
-                >
-                  {signingIn === option.method ? (
-                    <Loader2 className="h-[18px] w-[18px] animate-spin" />
-                  ) : option.method === "microsoft" && !canUseLocalTestDoubles ? (
-                    <MicrosoftIcon />
-                  ) : option.method === "google" ? (
-                    <GoogleIcon />
-                  ) : option.method === "email" ? (
-                    <EmailCodeIcon />
-                  ) : (
-                    <LockKeyhole className="h-4 w-4" />
-                  )}
-                  <span className="flex-1">
-                    <span className="block">{signingIn === option.method ? "Connecting" : option.label}</span>
-                    <span className="block text-xs font-normal text-muted">
-                      {option.available ? option.note : "Not configured"}
-                    </span>
-                  </span>
-                  {signingIn !== option.method && <ArrowRight className="h-4 w-4" />}
-                </button>
-              ))}
-          </div>
+          {(microsoftAvailable || !passwordAvailable) && (
+            <>
+              <div className="mt-8 flex items-start gap-3 border-y border-line py-4">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+                <div>
+                  <div className="text-sm font-medium text-ink">Microsoft Entra ID</div>
+                  <div className="mt-1 text-xs leading-5 text-muted">Single sign-on and your organization&apos;s access policies apply.</div>
+                </div>
+              </div>
 
-          {!signInAvailable && (
+              <button
+                type="button"
+                onClick={signIn}
+                disabled={signingIn || !microsoftAvailable}
+                className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white shadow-l2 transition-colors hover:bg-primary/90 focus-ring disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {signingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
+                <span>{signingIn ? "Connecting to Microsoft" : canUseLocalTestDoubles ? "Enter local workspace" : "Continue with Microsoft"}</span>
+                {!signingIn && <ArrowRight className="h-4 w-4" />}
+              </button>
+            </>
+          )}
+
+          {!microsoftAvailable && !passwordAvailable && (
             <div className="mt-5 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-3 text-xs leading-5 text-ink-soft">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <span>Microsoft sign-in is not configured for this environment.</span>
@@ -165,6 +134,7 @@ export default function Login() {
               <span>{error}</span>
             </div>
           )}
+          {passwordAvailable && <PasswordSignIn onSignedIn={() => navigate("/app")} allowSignUp={capabilities?.signUp === true} />}
           <p className="mt-8 text-xs leading-5 text-muted">
             Access is limited to authorized staff. Consequential insurance decisions remain with accountable human reviewers.
           </p>

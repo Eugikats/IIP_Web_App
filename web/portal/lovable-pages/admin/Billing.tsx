@@ -3,13 +3,33 @@ import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { useBilling, type UsageMeterView } from "@/lib/lovable-parity/data/billing";
 
+/** Cost is counted in whole US cents; show it as dollars. Everything else is shown as the number it is. */
+function amount(m: UsageMeterView): string {
+  return m.unit === "cents" ? `US$ ${(m.used / 100).toFixed(2)}` : `${m.used.toLocaleString()} ${m.unit}`;
+}
+
+function unmeteredReason(m: UsageMeterView): string {
+  return m.key === "ai-cost-usd"
+    ? "No price is set for the AI model in use, so a cost cannot be shown."
+    : "No counter wired for this dimension yet.";
+}
+
 function Meter({ m }: { m: UsageMeterView }) {
   if (!m.metered) {
     return (
       <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
         <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">{m.label}</div>
         <div className="mt-2"><Badge tone="warning">Not configured</Badge></div>
-        <div className="mt-2 text-[11px] text-dls-text-muted">No counter wired for this dimension yet.</div>
+        <div className="mt-2 text-[11px] text-dls-text-muted">{unmeteredReason(m)}</div>
+      </div>
+    );
+  }
+  if (m.limit <= 0) {
+    return (
+      <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4" data-testid={`meter-${m.key}`}>
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-dls-text-muted">{m.label}</div>
+        <div className="text-[20px] font-bold text-dls-text-primary">{amount(m)}</div>
+        <div className="mt-2 text-[11px] text-dls-text-muted">No allowance is set, so this is only counted.</div>
       </div>
     );
   }

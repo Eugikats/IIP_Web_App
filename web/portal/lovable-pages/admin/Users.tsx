@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Select, Field as UIField } from "@/components/ui/Input";
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
 import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface } from "@/components/ui/StateSurfaces";
+import { InvitationsCard } from "@/components/iip/InvitationsCard";
 import GuardrailBanner from "@/components/iip/GuardrailBanner";
 import { GovernedActionDialog } from "@/components/GovernedActionDialog";
 import { useAdminUsers, type AdminUserView } from "@/lib/lovable-parity/data/adminUsers";
@@ -66,6 +67,8 @@ export default function Users() {
       <div className="mb-4">
         <GuardrailBanner text="Roles determine server-side permission, never client display state. The last active tenant administrator cannot be demoted." />
       </div>
+
+      <InvitationsCard roles={roles} />
 
       {showCreate ? (
         <GlassCard className="mb-4">

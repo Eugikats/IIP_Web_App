@@ -31,4 +31,15 @@ public sealed record AgentActionLog
     public int? CompletionTokens { get; init; }
     /// <summary>Estimated cost in USD based on known list prices. Null when not calculable.</summary>
     public decimal? EstimatedCostUsd { get; init; }
+
+    /// <summary><see cref="ActionLogKinds.Action"/> for something an agent or assistant did; <see cref="ActionLogKinds.ModelCall"/>
+    /// for the bare record of one call to a model, written only to meter usage. Model-call records carry no prompt and no
+    /// answer, and never appear in the lists people read. Absent on rows stored before metering, which are actions.</summary>
+    public string RecordKind { get; init; } = ActionLogKinds.Action;
+}
+
+public static class ActionLogKinds
+{
+    public const string Action = "Action";
+    public const string ModelCall = "ModelCall";
 }

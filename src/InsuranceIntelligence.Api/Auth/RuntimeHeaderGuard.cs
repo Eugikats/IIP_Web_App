@@ -6,18 +6,7 @@ public static class RuntimeHeaderGuard
 {
     private const string GraphWebhookPath = "/api/v1/integrations/email/graph/webhook";
     private const string WhatsAppWebhookPath = "/api/v1/integrations/whatsapp/webhook";
-    private const string TelegramWebhookPath = "/api/v1/integrations/telegram/bots";
-    private const string MetaWebhookPath = "/api/v1/integrations/meta";
-    private const string XWebhookPath = "/api/v1/integrations/x";
     private const string ClientPortalPath = "/api/v1/client-portal";
-
-    // IIP Academy is open to visitors who have not signed in: the course catalogue, certificate checks and "who am I"
-    // (which answers a visitor with "signed out"). Everything else under /api/v1/academy still needs a signed-in person.
-    private const string AcademyPublicPath = "/api/v1/academy/public";
-    private const string AcademyMePath = "/api/v1/academy/me";
-
-    // The payment provider calls this itself and cannot hold a sign-in. It is protected by the provider's secret hash.
-    private const string AcademyPaymentWebhookPath = "/api/v1/academy/payments/webhook";
 
     private static readonly string[] IdentityHeaders =
     [
@@ -86,13 +75,8 @@ public static class RuntimeHeaderGuard
         // with 401 in any deployed environment.
         if (httpContext.Request.Path.StartsWithSegments(GraphWebhookPath, StringComparison.OrdinalIgnoreCase)
             || httpContext.Request.Path.StartsWithSegments(WhatsAppWebhookPath, StringComparison.OrdinalIgnoreCase)
-            || httpContext.Request.Path.StartsWithSegments(TelegramWebhookPath, StringComparison.OrdinalIgnoreCase)
-            || httpContext.Request.Path.StartsWithSegments(MetaWebhookPath, StringComparison.OrdinalIgnoreCase)
-            || httpContext.Request.Path.StartsWithSegments(XWebhookPath, StringComparison.OrdinalIgnoreCase)
             || IsClientPortal(httpContext)
-            || httpContext.Request.Path.StartsWithSegments(AcademyPublicPath, StringComparison.OrdinalIgnoreCase)
-            || httpContext.Request.Path.Equals(AcademyMePath, StringComparison.OrdinalIgnoreCase)
-            || httpContext.Request.Path.Equals(AcademyPaymentWebhookPath, StringComparison.OrdinalIgnoreCase))
+            || IsPublicIdentityRoute(httpContext))
         {
             return null;
         }
@@ -101,6 +85,18 @@ public static class RuntimeHeaderGuard
             ? null
             : Results.Unauthorized();
     }
+
+    // Sign-up, sign-in, password reset and accepting an invitation are, by their nature, used by people who have no token yet. Each
+    // protects itself (secret links, rate limits, a password check). Changing a password and the administrator's invitation list are
+    // not here: they need a signed-in caller.
+    private static readonly string[] PublicIdentityPaths =
+    [
+        "/api/v1/signup", "/api/v1/auth/capabilities", "/api/v1/auth/sign-in", "/api/v1/auth/password/forgot",
+        "/api/v1/auth/password/reset", "/api/v1/invitations",
+    ];
+
+    private static bool IsPublicIdentityRoute(HttpContext httpContext) =>
+        PublicIdentityPaths.Any(path => httpContext.Request.Path.StartsWithSegments(path, StringComparison.OrdinalIgnoreCase));
 
     private static bool IsClientPortal(HttpContext httpContext) =>
         httpContext.Request.Path.StartsWithSegments(ClientPortalPath, StringComparison.OrdinalIgnoreCase);

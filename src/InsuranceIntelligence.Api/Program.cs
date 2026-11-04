@@ -139,7 +139,41 @@ builder.Services.AddSwaggerGen(swagger =>
     // hand-written contract map (docs/api/IIP_API_Contracts_Master.md).
     swagger.ResolveConflictingActions(descriptions => descriptions.First());
 });
-if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnoreCase))
+// The platform's own sign-in (build-loop item 30) sits beside Microsoft Entra: a token we issued is read by our scheme, any other
+// bearer token by Entra's. A deployment with no signing key simply has no platform tokens to accept.
+var localAuthOptions = InsuranceIntelligence.Api.Auth.LocalAuthOptions.From(builder.Configuration, IsLocalDeveloperRuntime(runtimeProfile));
+builder.Services.AddSingleton(localAuthOptions);
+var entraConfigured = infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnoreCase);
+builder.Services
+    .AddAuthentication(authentication =>
+    {
+        authentication.DefaultScheme = InsuranceIntelligence.Api.Auth.LocalAuthOptions.PolicySchemeName;
+        authentication.DefaultAuthenticateScheme = InsuranceIntelligence.Api.Auth.LocalAuthOptions.PolicySchemeName;
+        authentication.DefaultChallengeScheme = InsuranceIntelligence.Api.Auth.LocalAuthOptions.PolicySchemeName;
+    })
+    .AddPolicyScheme(InsuranceIntelligence.Api.Auth.LocalAuthOptions.PolicySchemeName, "Platform or Microsoft Entra sign-in", scheme =>
+        scheme.ForwardDefaultSelector = context => InsuranceIntelligence.Api.Auth.LocalAuthOptions.SelectScheme(context, entraConfigured))
+    .AddJwtBearer(InsuranceIntelligence.Api.Auth.LocalAuthOptions.SchemeName, jwt =>
+    {
+        jwt.MapInboundClaims = false;
+        jwt.TokenValidationParameters = localAuthOptions.ValidationParameters();
+    });
+builder.Services.AddScoped<InsuranceIntelligence.Application.Identity.ILocalTokenIssuer>(_ => new InsuranceIntelligence.Api.Auth.LocalTokenIssuer(localAuthOptions));
+builder.Services.AddScoped<InsuranceIntelligence.Application.Identity.IIdentityMailer, InsuranceIntelligence.Api.Identity.CommunicationIdentityMailer>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Identity.LocalIdentityService>();
+builder.Services.AddRateLimiter(limiter =>
+{
+    limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // The pages people use before they have a token: a handful of tries a minute per address is plenty for a person and slow
+    // for a program guessing passwords. A developer runtime is not limited, so tests and demos are not slowed.
+    var permits = int.TryParse(builder.Configuration["INSURANCEINTELLIGENCE_IDENTITY_RATE_LIMIT_PER_MINUTE"], out var configured)
+        ? configured
+        : IsLocalDeveloperRuntime(runtimeProfile) ? 100_000 : 20;
+    limiter.AddPolicy("identity", httpContext => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions { PermitLimit = permits, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
+if (entraConfigured)
 {
     // Multitenant Entra authentication for IIP's single app registration configured for
     // "Accounts in any organizational directory". Per the reconciled backend-wiring spec:
@@ -158,7 +192,7 @@ if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnor
         .ToArray();
 
     builder.Services
-        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddAuthentication()
         .AddMicrosoftIdentityWebApi(
             jwt =>
             {
@@ -203,10 +237,6 @@ if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnor
                 // Audience is validated on the JwtBearer options above; MicrosoftIdentityOptions
                 // (Microsoft.Identity.Web 4.x) exposes no Audience property.
             });
-}
-else
-{
-    builder.Services.AddAuthentication();
 }
 
 // In-memory storage is permitted only for developer-machine execution, so the team can run
@@ -342,6 +372,9 @@ else
     builder.Services.AddSingleton<IAiAssistantProvider, NotConfiguredAiAssistantProvider>();
     builder.Services.AddSingleton<IChatCompletionProvider, NotConfiguredChatCompletionProvider>();
 }
+
+// Every call to a model is counted against the workspace that caused it (item 31).
+InsuranceIntelligence.Api.Admin.Billing.MeteringRegistration.AddAiUsageMetering(builder.Services, builder.Configuration);
 
 if (infrastructureOptions.QueueProvider.Equals("AzureServiceBus", StringComparison.OrdinalIgnoreCase))
 {
@@ -650,6 +683,7 @@ if (developmentDiagnosticsEnabled)
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 // Baseline security response headers. The API only returns JSON, so a strict
 // content-security-policy and anti-framing headers are safe and reduce
@@ -688,7 +722,8 @@ app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/api/v1"))
     {
-        if (infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+        if (infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase)
+            && context.User.Identity?.IsAuthenticated != true)
         {
             // Development ONLY: demo/header scope + role (rejected in deployed profiles by RuntimeHeaderGuard).
             if (TenantScopeReader.TryGetFromHeadersOrQuery(context, out var tenantScope, out _))
@@ -758,6 +793,24 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "live" }));
 app.MapGet("/health/ready", HealthEndpoints.Ready);
 
 app.MapGet("/api/v1/me", RuntimeContextEndpoints.GetMe);
+
+// Self-serve sign-up, the platform's own sign-in, password reset and staff invitations (build-loop item 30). The public ones are
+// rate limited per address; the administrator's invitation list needs the settings permission.
+app.MapGet("/api/v1/auth/capabilities", InsuranceIntelligence.Api.Identity.IdentityEndpoints.Capabilities);
+app.MapPost("/api/v1/signup", InsuranceIntelligence.Api.Identity.IdentityEndpoints.SignUp).RequireRateLimiting("identity");
+app.MapPost("/api/v1/signup/verify", InsuranceIntelligence.Api.Identity.IdentityEndpoints.VerifySignUp).RequireRateLimiting("identity");
+app.MapPost("/api/v1/auth/sign-in", InsuranceIntelligence.Api.Identity.IdentityEndpoints.SignIn).RequireRateLimiting("identity");
+app.MapPost("/api/v1/auth/password/forgot", InsuranceIntelligence.Api.Identity.IdentityEndpoints.ForgotPassword).RequireRateLimiting("identity");
+app.MapPost("/api/v1/auth/password/reset", InsuranceIntelligence.Api.Identity.IdentityEndpoints.ResetPassword).RequireRateLimiting("identity");
+app.MapPost("/api/v1/auth/password/change", InsuranceIntelligence.Api.Identity.IdentityEndpoints.ChangePassword).RequireRateLimiting("identity");
+app.MapGet("/api/v1/invitations/preview", InsuranceIntelligence.Api.Identity.IdentityEndpoints.PreviewInvitation).RequireRateLimiting("identity");
+app.MapPost("/api/v1/invitations/accept", InsuranceIntelligence.Api.Identity.IdentityEndpoints.AcceptInvitation).RequireRateLimiting("identity");
+app.MapGet("/api/v1/admin/invitations", InsuranceIntelligence.Api.Identity.IdentityEndpoints.ListInvitations)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/admin/invitations", InsuranceIntelligence.Api.Identity.IdentityEndpoints.Invite)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapDelete("/api/v1/admin/invitations/{invitationId:guid}", InsuranceIntelligence.Api.Identity.IdentityEndpoints.Revoke)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 
 // WO-14: the recipient's own feed, self-scoped like /api/v1/me, no extra permission (any
 // authenticated tenant member can see their own notifications).

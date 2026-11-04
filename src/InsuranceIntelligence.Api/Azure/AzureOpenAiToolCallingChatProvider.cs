@@ -52,7 +52,8 @@ public sealed class AzureOpenAiToolCallingChatProvider(
             throw new InvalidOperationException($"Azure OpenAI returned HTTP {(int)response.StatusCode}.");
         }
 
-        return ParseStep(json);
+        var step = ParseStep(json);
+        return step.Usage is null ? step : step with { Usage = step.Usage with { Deployment = options.AzureOpenAI.ChatDeployment } };
     }
 
     public static JsonObject BuildRequestBody(IReadOnlyList<AgentChatMessage> messages, IReadOnlyList<AgentToolSpec> tools, string? reasoningEffort = null)
@@ -143,14 +144,17 @@ public sealed class AzureOpenAiToolCallingChatProvider(
             }
         }
 
-        int? promptTokens = null, completionTokens = null;
-        if (document.RootElement.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
+        InsuranceIntelligence.Domain.Knowledge.ModelUsage? usage = null;
+        if (document.RootElement.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
-            promptTokens = usage.TryGetProperty("prompt_tokens", out var p) && p.TryGetInt32(out var pv) ? pv : null;
-            completionTokens = usage.TryGetProperty("completion_tokens", out var c) && c.TryGetInt32(out var cv) ? cv : null;
+            usage = new InsuranceIntelligence.Domain.Knowledge.ModelUsage(
+                "AzureOpenAI",
+                null,
+                document.RootElement.TryGetProperty("model", out var modelElement) && modelElement.ValueKind == JsonValueKind.String ? modelElement.GetString() : null,
+                usageElement.TryGetProperty("prompt_tokens", out var promptElement) && promptElement.TryGetInt32(out var promptTokens) ? promptTokens : null,
+                usageElement.TryGetProperty("completion_tokens", out var completionElement) && completionElement.TryGetInt32(out var completionTokens) ? completionTokens : null);
         }
 
-        var model = document.RootElement.TryGetProperty("model", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
-        return new AgentChatStep(content, calls, promptTokens, completionTokens, model);
+        return new AgentChatStep(content, calls, usage);
     }
 }

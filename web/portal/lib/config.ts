@@ -23,16 +23,6 @@ export const entraClientId =
 export const entraApiScope = process.env.NEXT_PUBLIC_ENTRA_API_SCOPE || "";
 export const entraRedirectUri = process.env.NEXT_PUBLIC_ENTRA_REDIRECT_URI || "";
 
-/** "organizations" lets work accounts from any company sign in (the SaaS product); otherwise only IIP's own
- *  directory. Needs the app registration set to accept accounts from any organisation. */
-export const entraAuthorityTenant = process.env.NEXT_PUBLIC_ENTRA_AUTHORITY_TENANT || entraTenantId;
-
-/** Entra External ID, for Google and email-code sign-in (as CIP). For example
- *  https://contoso.ciamlogin.com/{tenant-id}. Absent: only Microsoft work accounts can sign in. */
-export const externalIdAuthority = (process.env.NEXT_PUBLIC_EXTERNAL_ID_AUTHORITY || "").replace(/\/$/, "");
-export const externalIdClientId = process.env.NEXT_PUBLIC_EXTERNAL_ID_CLIENT_ID || "";
-export const externalIdApiScope = process.env.NEXT_PUBLIC_EXTERNAL_ID_API_SCOPE || "";
-
 export const isDevelopmentAuth = authMode.toLowerCase() === "development";
 export const isDeployedRuntime = ["staging", "production", "managedapplicationreviewer"].includes(
   runtimeProfile.toLowerCase()
@@ -40,8 +30,6 @@ export const isDeployedRuntime = ["staging", "production", "managedapplicationre
 export const canUseLocalTestDoubles = !isDeployedRuntime && isDevelopmentAuth;
 export const canUseEntraBrowserAuth =
   !isDevelopmentAuth && Boolean(entraTenantId && entraClientId && entraApiScope);
-export const canUseExternalIdSignIn =
-  !isDevelopmentAuth && Boolean(externalIdAuthority && externalIdClientId && externalIdApiScope);
 
 let apiAccessToken = "";
 
@@ -49,44 +37,27 @@ export function setApiAccessToken(token: string | null) {
   apiAccessToken = token ?? "";
 }
 
+/** Where the platform's own sign-in keeps its session for this tab (see lib/platformAuth). */
+export const platformSessionKey = "iip.platform.session";
+
+/** The token held in memory, or else the one a platform sign-in stored for this tab, so a page reload stays signed in. */
+function currentAccessToken(): string {
+  if (apiAccessToken) return apiAccessToken;
+  if (typeof window === "undefined") return "";
+  try {
+    const raw = window.sessionStorage.getItem(platformSessionKey);
+    if (!raw) return "";
+    const session = JSON.parse(raw) as { accessToken?: string; expiresAt?: string };
+    return session.accessToken && session.expiresAt && new Date(session.expiresAt).getTime() > Date.now() ? session.accessToken : "";
+  } catch {
+    return "";
+  }
+}
+
 const ACTIVE_WORKSPACE_STORAGE_KEY = "iip.active-workspace-id";
 // The header the backend re-validates against the user's real membership before honoring
 // (see RuntimeClaimTypes.RequestedWorkspaceHeaderName), never trusted client-side.
 export const requestedWorkspaceHeaderName = "X-Requested-Workspace-Id";
-
-const ACTIVE_ORGANISATION_STORAGE_KEY = "iip.active-organisation-id";
-
-/** The organisation the person chose to act in, when they belong to several (for example the demonstrations). */
-export function getActiveOrganisationOverride(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage.getItem(ACTIVE_ORGANISATION_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function setActiveOrganisationOverride(organisationId: string | null, workspaceId: string | null = null) {
-  if (typeof window === "undefined") return;
-  try {
-    if (organisationId) {
-      window.localStorage.setItem(ACTIVE_ORGANISATION_STORAGE_KEY, organisationId);
-    } else {
-      window.localStorage.removeItem(ACTIVE_ORGANISATION_STORAGE_KEY);
-    }
-    // Each organisation has its own workspaces, so a workspace chosen in the old one means nothing here.
-    if (workspaceId) {
-      window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, workspaceId);
-    } else {
-      window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
-    }
-  } catch {
-    // Best effort, falling back to the server's default organisation is safe.
-  }
-}
-
-/** Demonstrations are offered only in the profiles that are demonstrations by definition. */
-export const isDemonstrationRuntime = ["Demo", "LocalTest", "Development"].includes(runtimeProfile);
 
 /** The workspace the user last chose via the settings workspace switcher, if any. */
 export function getActiveWorkspaceOverride(): string | null {
@@ -124,12 +95,13 @@ export function setActiveWorkspaceOverride(workspaceId: string | null) {
 export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<string, string> {
   const headers: Record<string, string> = {};
   const workspaceOverride = getActiveWorkspaceOverride();
-  const organisationOverride = getActiveOrganisationOverride();
 
-  if (canUseLocalTestDoubles) {
-    const tenantId = organisationOverride || defaultTenantId;
-    if (tenantId) {
-      headers["X-Tenant-Id"] = tenantId;
+  // A person who has signed in with the platform's own sign-in is a real identity, even on a developer machine:
+  // their token, not the developer headers, says who they are.
+  const accessToken = currentAccessToken();
+  if (canUseLocalTestDoubles && !accessToken) {
+    if (defaultTenantId) {
+      headers["X-Tenant-Id"] = defaultTenantId;
     }
 
     // A workspace chosen via the settings switcher overrides the configured default,
@@ -150,18 +122,14 @@ export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<strin
       headers["X-User-Id"] = effectiveUserId;
     }
   } else {
-    if (apiAccessToken) {
-      headers.Authorization = `Bearer ${apiAccessToken}`;
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
     }
 
     // A hint only, the API re-validates it against the signed-in user's real membership
     // and fails closed if they don't belong to it (never client-side scope substitution).
     if (workspaceOverride) {
       headers[requestedWorkspaceHeaderName] = workspaceOverride;
-    }
-    // Likewise a hint: the membership store confirms the person belongs to this organisation.
-    if (organisationOverride) {
-      headers["X-Organisation-Id"] = organisationOverride;
     }
   }
 

@@ -21,6 +21,10 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedUserAccount> UserAccounts => Set<PersistedUserAccount>();
     public DbSet<PersistedMailboxConnection> MailboxConnections => Set<PersistedMailboxConnection>();
     public DbSet<InsuranceIntelligence.Infrastructure.ClientPortal.PersistedPortalIdentity> PortalIdentities => Set<InsuranceIntelligence.Infrastructure.ClientPortal.PersistedPortalIdentity>();
+    public DbSet<InsuranceIntelligence.Infrastructure.Identity.PersistedLocalCredential> LocalCredentials => Set<InsuranceIntelligence.Infrastructure.Identity.PersistedLocalCredential>();
+    public DbSet<InsuranceIntelligence.Infrastructure.Identity.PersistedSignupRequest> SignupRequests => Set<InsuranceIntelligence.Infrastructure.Identity.PersistedSignupRequest>();
+    public DbSet<InsuranceIntelligence.Infrastructure.Identity.PersistedPasswordReset> PasswordResets => Set<InsuranceIntelligence.Infrastructure.Identity.PersistedPasswordReset>();
+    public DbSet<InsuranceIntelligence.Infrastructure.Identity.PersistedStaffInvitation> StaffInvitations => Set<InsuranceIntelligence.Infrastructure.Identity.PersistedStaffInvitation>();
     public DbSet<PersistedInboundEmail> InboundEmails => Set<PersistedInboundEmail>();
     public DbSet<PersistedTeamsNotification> TeamsNotifications => Set<PersistedTeamsNotification>();
     public DbSet<PersistedWordingDraft> WordingDrafts => Set<PersistedWordingDraft>();
@@ -100,11 +104,16 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedAggregate>(), "Cases", "CaseId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedCaseDocument>(), "CaseDocuments", "DocumentId");
         modelBuilder.Entity<PersistedCaseDocument>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        modelBuilder.Entity<PersistedCaseDocument>().Property(entity => entity.PeriodKey).HasMaxLength(7);
+        modelBuilder.Entity<PersistedCaseDocument>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PeriodKey });
         ConfigureScopedJson(modelBuilder.Entity<PersistedKnowledgeDocument>(), "KnowledgeDocuments", "KnowledgeDocumentId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedAuditEvent>(), "AuditEvents", "EventId");
         modelBuilder.Entity<PersistedAuditEvent>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentActionLog>(), "AgentActionLogs", "AgentActionLogId");
         modelBuilder.Entity<PersistedAgentActionLog>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        modelBuilder.Entity<PersistedAgentActionLog>().Property(entity => entity.RecordKind).HasMaxLength(16).HasDefaultValue("Action");
+        modelBuilder.Entity<PersistedAgentActionLog>().Property(entity => entity.PeriodKey).HasMaxLength(7);
+        modelBuilder.Entity<PersistedAgentActionLog>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PeriodKey });
         ConfigureScopedJson(modelBuilder.Entity<PersistedWorkflowTask>(), "WorkflowTasks", "TaskId");
         modelBuilder.Entity<PersistedWorkflowTask>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedApproval>(), "Approvals", "ApprovalId");
@@ -122,6 +131,10 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedUserAccount>(), "UserAccounts", "UserAccountKey");
         ConfigureScopedJson(modelBuilder.Entity<PersistedMailboxConnection>(), "MailboxConnections", "MailboxConnectionId");
         ConfigureScopedJson(modelBuilder.Entity<InsuranceIntelligence.Infrastructure.ClientPortal.PersistedPortalIdentity>(), "PortalIdentities", "PortalIdentityId");
+        ConfigureScopedJson(modelBuilder.Entity<InsuranceIntelligence.Infrastructure.Identity.PersistedLocalCredential>(), "LocalCredentials", "LocalCredentialId");
+        ConfigureScopedJson(modelBuilder.Entity<InsuranceIntelligence.Infrastructure.Identity.PersistedSignupRequest>(), "SignupRequests", "SignupRequestId");
+        ConfigureScopedJson(modelBuilder.Entity<InsuranceIntelligence.Infrastructure.Identity.PersistedPasswordReset>(), "PasswordResets", "PasswordResetId");
+        ConfigureScopedJson(modelBuilder.Entity<InsuranceIntelligence.Infrastructure.Identity.PersistedStaffInvitation>(), "StaffInvitations", "StaffInvitationId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedInboundEmail>(), "InboundEmails", "MessageId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedTeamsNotification>(), "TeamsNotifications", "NotificationId");
         modelBuilder.Entity<PersistedTeamsNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
@@ -492,10 +505,34 @@ public abstract class PersistedScopedJson
 }
 
 public sealed class PersistedAggregate : PersistedScopedJson;
-public sealed class PersistedCaseDocument : PersistedScopedJson { public Guid CaseId { get; set; } }
+public sealed class PersistedCaseDocument : PersistedScopedJson
+{
+    public Guid CaseId { get; set; }
+
+    /// <summary>The file's size, kept beside the payload so storage can be totalled without reading every document.</summary>
+    public long SizeBytes { get; set; }
+
+    /// <summary>The month the file was received ("2026-10"). Null on rows from before metering.</summary>
+    public string? PeriodKey { get; set; }
+}
 public sealed class PersistedKnowledgeDocument : PersistedScopedJson;
 public sealed class PersistedAuditEvent : PersistedScopedJson { public Guid? CaseId { get; set; } }
-public sealed class PersistedAgentActionLog : PersistedScopedJson { public Guid? CaseId { get; set; } }
+public sealed class PersistedAgentActionLog : PersistedScopedJson
+{
+    public Guid? CaseId { get; set; }
+
+    /// <summary>"Action" or "ModelCall" (see ActionLogKinds). Lists read actions only.</summary>
+    public string RecordKind { get; set; } = "Action";
+
+    /// <summary>The month the row belongs to ("2026-10"), so a month's usage is an indexed lookup. Null on rows from before metering.</summary>
+    public string? PeriodKey { get; set; }
+
+    public int? PromptTokens { get; set; }
+    public int? CompletionTokens { get; set; }
+
+    /// <summary>The estimated cost in millionths of a US dollar; null when the deployment has no configured price.</summary>
+    public long? CostMicroUsd { get; set; }
+}
 public sealed class PersistedWorkflowTask : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedApproval : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedCustomerUpdate : PersistedScopedJson { public Guid CaseId { get; set; } }

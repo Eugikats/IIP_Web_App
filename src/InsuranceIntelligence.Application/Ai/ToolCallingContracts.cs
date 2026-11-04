@@ -21,12 +21,18 @@ public sealed record AgentChatMessage(
 }
 
 /// <summary>What the model did next: asked for tools to be run, or answered.</summary>
-public sealed record AgentChatStep(
-    string? Content,
-    IReadOnlyList<AgentToolCall> ToolCalls,
-    int? PromptTokens = null,
-    int? CompletionTokens = null,
-    string? Model = null);
+public sealed record AgentChatStep(string? Content, IReadOnlyList<AgentToolCall> ToolCalls, InsuranceIntelligence.Domain.Knowledge.ModelUsage? Usage = null)
+{
+    public int? PromptTokens => Usage?.PromptTokens;
+    public int? CompletionTokens => Usage?.CompletionTokens;
+    public string? Model => Usage?.ModelVersion;
+
+    public AgentChatStep(string? content, IReadOnlyList<AgentToolCall> toolCalls, int? promptTokens, int? completionTokens, string? model)
+        : this(content, toolCalls, new InsuranceIntelligence.Domain.Knowledge.ModelUsage(
+            "AzureOpenAI", null, model, promptTokens, completionTokens))
+    {
+    }
+}
 
 /// <summary>A chat model that can call tools. Separate from <see cref="IChatCompletionProvider"/>,
 /// which takes one prompt and returns one answer.</summary>

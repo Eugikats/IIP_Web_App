@@ -1,16 +1,10 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
-import SignUpChooser from "@/components/marketing/SignUpChooser";
+import Component from "@/lovable-pages/SignUp";
 
-export const metadata: Metadata = {
-  title: { absolute: "Sign up | Insurance Intelligence Platform" },
-  description: "Choose IIP for Insurance or IIP for Bancassurance and create your account.",
-};
-
-export default function SignUpPage() {
+export default function Page() {
   return (
     <Suspense fallback={null}>
-      <SignUpChooser />
+      <Component />
     </Suspense>
   );
 }
