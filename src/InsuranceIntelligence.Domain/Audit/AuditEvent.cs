@@ -439,6 +439,49 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>The review score and recommendation for a claim were prepared (build-loop item 18).
+    /// Advisory: it changes nothing on the claim.</summary>
+    public static AuditEvent ClaimAssessmentPrepared(TenantScope scope, Guid caseId, string userId, string recommendation, int score, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            caseId.ToString(),
+            userId,
+            userId.StartsWith("system:", StringComparison.Ordinal) ? ActorType.System : ActorType.User,
+            "claim.assessment.prepared",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: $"{recommendation}:{score}",
+            EvidenceIds: [caseId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "human_review_required",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    /// <summary>A person agreed or disagreed with the recommendation (build-loop item 18).</summary>
+    public static AuditEvent ClaimAssessmentResponse(TenantScope scope, Guid caseId, string userId, string response, string recommendation, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            caseId.ToString(),
+            userId,
+            ActorType.User,
+            "claim.assessment.response",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: recommendation,
+            AfterStatus: response,
+            EvidenceIds: [caseId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>An administrator sent a background job that had given up back to the queue
     /// (build-loop item 17).</summary>
     public static AuditEvent BackgroundJobRequeued(TenantScope scope, string userId, Guid jobId, string jobType, Guid? caseId, string correlationId) =>

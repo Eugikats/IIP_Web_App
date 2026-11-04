@@ -1370,3 +1370,57 @@ test.describe("Item 17: background pipeline", () => {
     }
   });
 });
+
+test.describe("Item 18: review score and recommendation", () => {
+  test("a supervisor sees the score, its reasons and the advice with sources, and records a response that needs a reason to disagree", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+    await photos.locator('input[data-upload="choose"]').setInputFiles(fixture("damage_photo.jpg"));
+    await expect(photos.getByText("1 of 10 sent")).toBeVisible();
+    await waitForDocumentsRead(request, caseId);
+
+    await page.goto(`/app/claims/${caseId}`);
+    const card = page.getByTestId("claim-assessment");
+    await expect(card.getByText("Review score and recommendation")).toBeVisible();
+    await expect(card.getByText(/does not approve, reject or settle anything/)).toBeVisible();
+
+    // What the platform prepared and what a person answers are two separate containers.
+    const prepared = card.getByTestId("assessment-prepared");
+    const response = card.getByTestId("assessment-response");
+    await expect(prepared).toBeVisible();
+    await expect(response).toBeVisible();
+    await expect(prepared.getByTestId("assessment-score")).toHaveText(/^\d+$/);
+    await expect(prepared.getByText("It is not a chance that anyone has done wrong.")).toBeVisible();
+
+    // The advice names what is missing and where each reason comes from.
+    const recommendation = prepared.getByTestId("assessment-recommendation");
+    await expect(recommendation.getByText("Recommended next step")).toBeVisible();
+    await expect(recommendation.getByTestId("assessment-reason").first()).toContainText("Source:");
+    await expect(prepared.getByTestId("assessment-requests")).toContainText("Ask the customer for:");
+
+    // The written explanation is made on request and says it is a test model.
+    await expect(prepared.getByTestId("assessment-narrative")).toBeVisible();
+    await prepared.getByRole("button", { name: /Prepare the explanation|Write it again/ }).click();
+    await expect(prepared.getByTestId("assessment-narrative")).toContainText("MOCK AI OUTPUT", { timeout: 15_000 });
+    await expect(prepared.getByText(/\(test model\)/)).toBeVisible();
+
+    // Disagreeing needs a reason.
+    await response.getByLabel("Your response to the recommendation").selectOption("Disagree");
+    await response.getByRole("button", { name: "Record response" }).click();
+    await expect(response.getByRole("alert")).toContainText("why you disagree");
+    await response.getByLabel("Why, if you disagree").fill("The customer posted the missing form this morning.");
+    await response.getByRole("button", { name: "Record response" }).click();
+    await expect(response.getByTestId("assessment-response-recorded")).toContainText("Disagreed by local-admin: The customer posted the missing form this morning.");
+
+    await page.reload();
+    await expect(page.getByTestId("assessment-response-recorded")).toContainText("Disagreed by local-admin");
+  });
+
+  test("a claims officer does not see the review score, and another tenant cannot read it", async ({ request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
+    expect((await request.get(`${API}/api/v1/cases/${caseId}/assessment`, { headers: officer })).status()).toBe(403);
+    expect((await request.get(`${API}/api/v1/cases/${caseId}/assessment`, { headers: scopeHeaders(newTenant()) })).status()).toBe(404);
+  });
+});

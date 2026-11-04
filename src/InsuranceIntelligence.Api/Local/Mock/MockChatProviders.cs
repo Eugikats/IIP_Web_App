@@ -16,6 +16,9 @@ public sealed class MockChatCompletionProvider : IChatCompletionProvider
 {
     public const string Label = "MOCK AI OUTPUT, not produced by a real model.";
 
+    /// <summary>Put this in a claim's description and the mock summary adds one model-noticed concern.</summary>
+    public const string MockRiskMarker = "IIP-MOCK-RISK";
+
     public Task<ChatCompletionResult> CompleteAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {
         if (MockWordingExtractor.Handles(request.Prompt))
@@ -31,7 +34,21 @@ public sealed class MockChatCompletionProvider : IChatCompletionProvider
                 CompletionTokens: Math.Max(1, json.Length / 4)));
         }
 
+        if (request.Prompt.StartsWith(InsuranceIntelligence.Application.Fraud.ClaimAssessmentService.NarrativeMarker, StringComparison.Ordinal))
+        {
+            var narrative = MockRecommendationWriter.Respond(request.Prompt);
+            return Task.FromResult(new ChatCompletionResult(
+                narrative,
+                "Mock",
+                "mock-chat",
+                DateTimeOffset.UtcNow,
+                "mock-chat-v1",
+                PromptTokens: Math.Max(1, request.Prompt.Length / 4),
+                CompletionTokens: Math.Max(1, narrative.Length / 4)));
+        }
+
         var facts = new List<string>();
+        var mockRisk = request.Prompt.Contains(MockRiskMarker, StringComparison.Ordinal);
         foreach (var line in request.Prompt.Replace("\r\n", "\n").Split('\n'))
         {
             var trimmed = line.Trim();
@@ -53,6 +70,11 @@ public sealed class MockChatCompletionProvider : IChatCompletionProvider
         }
 
         body.AppendLine("Summary for the reviewer: the claim facts above were read from the case record and its documents. Nothing has been verified by this mock. A person must review the documents and decide.");
+        if (mockRisk)
+        {
+            // Lets tests and demos see what a model-noticed concern looks like in the review score.
+            body.AppendLine("RISK_SIGNAL|Fraud|The description mentions an item that the policy record does not list, which a person may want to check.");
+        }
         var content = InsuranceIntelligence.Domain.Common.DisplayText.WithoutEmDashes(body.ToString().Trim());
 
         return Task.FromResult(new ChatCompletionResult(

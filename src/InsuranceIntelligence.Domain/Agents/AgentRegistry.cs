@@ -77,6 +77,11 @@ public static class AgentCatalog
         // completeness signals). No chat/LLM call site exists.
         new("risk-fraud-signal", "Risk & Fraud Signal Agent", "Raises advisory risk and fraud indicators for human review, never accusations or verdicts.", "Medium", HumanApprovalRequired: false,
             AgentImplementationKind.RuleBased, ["claim.read", "document.read", "audit.read"]),
+        // Writes a short plain explanation of the claim recommendation from facts the platform has already
+        // worked out (score, missing documents, picture checks). Its wording is checked and dropped if it
+        // sounds like a decision or an accusation. The recommendation itself is rules, not this agent.
+        new("claim-recommendation", "Claim Recommendation Agent", "Explains the recommended next step on a claim from the facts already worked out, in advisory wording, for a person to agree or disagree with.", "Medium", HumanApprovalRequired: false,
+            AgentImplementationKind.ModelBacked, ["claim.read", "document.read"]),
         new("customer-update-drafting", "Customer Update Drafting Agent", "Drafts customer-safe communications; every external send requires named human approval.", "High", HumanApprovalRequired: true,
             AgentImplementationKind.ModelBacked, ["claim.read"]),
         // Rule-based: ClaimRoutingPolicy. No chat/LLM call site exists.

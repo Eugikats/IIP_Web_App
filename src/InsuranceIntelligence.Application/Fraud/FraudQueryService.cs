@@ -57,7 +57,7 @@ public sealed class FraudQueryService(
         return signals.Select(signal => ToDto(signal, dispositions)).ToArray();
     }
 
-    private static FraudClaimInput ToFraudInput(ClaimCase claim, Policy? policy) =>
+    internal static FraudClaimInput ToFraudInput(ClaimCase claim, Policy? policy) =>
         new(
             claim.CaseId,
             claim.CustomerName,

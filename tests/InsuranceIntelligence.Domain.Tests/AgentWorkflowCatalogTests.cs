@@ -16,8 +16,9 @@ public sealed class AgentWorkflowCatalogTests
         // customer-summary (September 2026) is a twelfth: a staff agent for the Customer 360 page.
         // conversation-insights (October 2026) is a thirteenth: it keeps a prospect's record current
         // from their WhatsApp conversation.
-        Assert.Equal(15, AgentCatalog.Agents.Count);
-        Assert.Equal(15, AgentCatalog.Agents.Select(agent => agent.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        // claim-recommendation (build-loop item 18) is a sixteenth: it explains the recommended next step on a claim in advisory wording.
+        Assert.Equal(16, AgentCatalog.Agents.Count);
+        Assert.Equal(16, AgentCatalog.Agents.Select(agent => agent.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "conversation-insights");
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "customer-summary");
         Assert.Contains(AgentCatalog.Agents, agent => agent.Key == "command-center");

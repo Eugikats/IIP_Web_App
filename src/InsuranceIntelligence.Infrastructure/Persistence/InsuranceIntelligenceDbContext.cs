@@ -26,6 +26,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedSlotPdf> SlotPdfs => Set<PersistedSlotPdf>();
     public DbSet<PersistedFieldProposal> FieldProposals => Set<PersistedFieldProposal>();
     public DbSet<PersistedAuthenticityReport> AuthenticityReports => Set<PersistedAuthenticityReport>();
+    public DbSet<PersistedClaimAssessment> ClaimAssessments => Set<PersistedClaimAssessment>();
     public DbSet<PersistedBackgroundJob> BackgroundJobs => Set<PersistedBackgroundJob>();
     public DbSet<UserTenantMembershipEntity> UserTenantMemberships => Set<UserTenantMembershipEntity>();
     public DbSet<OrganisationEntity> Organisations => Set<OrganisationEntity>();
@@ -131,6 +132,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedAuthenticityReport>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         modelBuilder.Entity<PersistedAuthenticityReport>().Property(entity => entity.PerceptualHash).HasMaxLength(16);
         modelBuilder.Entity<PersistedAuthenticityReport>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PerceptualHash });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedClaimAssessment>(), "ClaimAssessments", "AssessmentId");
+        modelBuilder.Entity<PersistedClaimAssessment>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId, entity.GeneratedAt });
         ConfigureScopedJson(modelBuilder.Entity<PersistedFieldProposal>(), "FieldProposals", "ProposalId");
         modelBuilder.Entity<PersistedFieldProposal>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedSlotPdf>(), "SlotPdfs", "SlotPdfId");
@@ -494,6 +497,7 @@ public sealed class PersistedWordingDraft : PersistedScopedJson { public Guid Pr
 public sealed class PersistedSlotPdf : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedFieldProposal : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedAuthenticityReport : PersistedScopedJson { public Guid CaseId { get; set; } public string? PerceptualHash { get; set; } }
+public sealed class PersistedClaimAssessment : PersistedScopedJson { public Guid CaseId { get; set; } public DateTimeOffset GeneratedAt { get; set; } }
 public sealed class PersistedBackgroundJob : PersistedScopedJson
 {
     public string Queue { get; set; } = string.Empty;

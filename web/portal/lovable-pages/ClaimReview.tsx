@@ -45,6 +45,7 @@ import { ClaimDetailsCard } from "@/components/iip/ClaimDetailsCard";
 import { PrivacyConsentLine } from "@/components/iip/PrivacyConsentLine";
 import { FieldProposalsCard } from "@/components/iip/FieldProposalsCard";
 import { AuthenticityCard } from "@/components/iip/AuthenticityCard";
+import { ClaimAssessmentCard } from "@/components/iip/ClaimAssessmentCard";
 
 const POLICY_SOURCE_LABEL: Record<string, string> = {
   Manual: "Entered manually",
@@ -169,6 +170,14 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const canEditClaimDetails = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "CreateClaim")
     : hasPermission(runtimeContext?.permissions ?? [], "CreateClaim");
+  // The review score and recommendation are limited to the roles that already see fraud signals, and
+  // responding to the recommendation is the permission that overrides an AI recommendation.
+  const canViewAssessment = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "ViewFraudSignals")
+    : hasPermission(runtimeContext?.permissions ?? [], "ViewFraudSignals");
+  const canRespondToAssessment = canUseLocalTestDoubles || parityMode
+    ? canPreviewPermission(roleDef.key, "OverrideAiRecommendation")
+    : hasPermission(runtimeContext?.permissions ?? [], "OverrideAiRecommendation");
   const canExportEvidencePack = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "ExportEvidencePack")
     : hasPermission(runtimeContext?.permissions ?? [], "ExportEvidencePack");
@@ -808,7 +817,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {detail.documents.map((document) => (
-                  <div key={document.documentId} className="flex items-start gap-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
+                  <div key={document.documentId} id={`document-${document.documentId}`} className="flex items-start gap-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3">
                     <div className="grid h-9 w-9 shrink-0 place-items-center rounded-dls-control bg-dls-info-tint text-dls-info-text">
                       <FileText className="h-4 w-4" aria-hidden="true" />
                     </div>
@@ -983,6 +992,12 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               </div>
             )}
           </GlassCard>
+
+          {canViewAssessment && (
+            <GlassCard>
+              <ClaimAssessmentCard caseId={claimId} role={roleDef.key} canRespond={canRespondToAssessment} />
+            </GlassCard>
+          )}
 
           <GlassCard>
             <ClaimDetailsCard key={detailsVersion} caseId={claimId} role={roleDef.key} canEdit={canEditClaimDetails} />
