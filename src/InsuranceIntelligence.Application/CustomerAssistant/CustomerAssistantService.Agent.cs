@@ -886,6 +886,7 @@ public sealed partial class CustomerAssistantService
 
         var documents = await DocumentsToRequestAsync(claimCase, cancellationToken);
         var link = await IssueAccessLinkAsync(run.Scope, claimCase, run.WaId, run.CorrelationId, cancellationToken);
+        var papersOnFile = await PapersOnFileAsync(claimCase, cancellationToken);
         run.CaseId = claimCase.CaseId;
         run.OpenedCase = true;
         run.PolicyNumber = policy.PolicyNumber;
@@ -895,10 +896,11 @@ public sealed partial class CustomerAssistantService
             claim_reference = ClaimReference.For(claimCase.CaseId),
             cover = policy.ProductLine,
             papers_needed = documents,
+            papers_already_on_file = papersOnFile,
             secure_link = link,
             instruction = link is null
                 ? "Tell them the reference, the papers needed, and that someone from the team will tell them how to share the papers safely. Never ask for papers in the chat."
-                : "Give the reference, the papers needed and the secure link, and say to share papers only through the link, not in the chat. Say the claims team will review it; never say it will be paid.",
+                : "Give the reference, the papers needed and the secure link, and say to share papers only through the link, not in the chat. If papers_already_on_file is not empty, say which ones we already have and that on the page they can choose Use the one on file instead of sending them again. Say the claims team will review it; never say it will be paid.",
         });
     }
 

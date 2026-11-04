@@ -90,7 +90,8 @@ public sealed class MockCommunicationSendingProvider(MockOutbox outbox) : ICommu
         }
 
         var message = outbox.Add(
-            request.Scope.TenantId, request.Scope.WorkspaceId, channel, request.Recipient, string.Empty, request.MessageBody);
+            request.Scope.TenantId, request.Scope.WorkspaceId, channel, request.Recipient, request.Subject ?? string.Empty, request.MessageBody,
+            request.Attachments?.Select(attachment => new MockOutboxAttachment(attachment.FileName, attachment.ContentType, attachment.Content.LongLength)).ToArray());
         return new CommunicationSendResult("Sent", $"mock-{message.MessageId:N}", null);
     }
 }

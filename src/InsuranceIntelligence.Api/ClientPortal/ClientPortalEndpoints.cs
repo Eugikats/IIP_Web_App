@@ -426,6 +426,7 @@ public static class ClientPortalEndpoints
                 updatedCase.CompletenessScore,
                 correlationId),
             cancellationToken);
+        await InsuranceIntelligence.Api.Compliance.ClaimsPackTriggers.OnCompletenessAsync(httpContext.RequestServices, updatedCase, correlationId, cancellationToken);
 
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken, claimantStatus, updatedCase));

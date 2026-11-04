@@ -625,6 +625,11 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimantStat
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimStatusChangeService, InsuranceIntelligence.Application.Cases.ClaimStatusChangeService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimStatusNotifier, InsuranceIntelligence.Application.Cases.ClaimStatusNotifier>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimsPackBuilder, InsuranceIntelligence.Application.Compliance.ClaimsPackBuilder>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Customers.ICustomerMemoryService, InsuranceIntelligence.Application.Customers.CustomerMemoryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimsPackEmailService, InsuranceIntelligence.Application.Compliance.ClaimsPackEmailService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimsPackTrigger, InsuranceIntelligence.Application.Compliance.ClaimsPackTrigger>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Compliance.IPortalBaseUrl, InsuranceIntelligence.Api.Compliance.ConfiguredPortalBaseUrl>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Jobs.IBackgroundJobHandler, InsuranceIntelligence.Api.Compliance.ClaimsPackJobHandler>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1047,6 +1052,14 @@ app.MapPut("/api/v1/client-portal/claims/{caseId:guid}/uploads/{uploadId:guid}/c
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/uploads/{uploadId:guid}/complete", InsuranceIntelligence.Api.ClientPortal.ResumableUploadEndpoints.Complete)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapDelete("/api/v1/client-portal/claims/{caseId:guid}/uploads/{uploadId:guid}", InsuranceIntelligence.Api.ClientPortal.ResumableUploadEndpoints.Cancel)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapGet("/api/v1/client-portal/claims/{caseId:guid}/on-file", InsuranceIntelligence.Api.ClientPortal.CustomerMemoryEndpoints.GetOnFile)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/on-file/use-document", InsuranceIntelligence.Api.ClientPortal.CustomerMemoryEndpoints.UseDocument)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/on-file/use-details", InsuranceIntelligence.Api.ClientPortal.CustomerMemoryEndpoints.UseDetails)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapGet("/api/v1/client-portal/known-details", InsuranceIntelligence.Api.ClientPortal.CustomerMemoryEndpoints.GetKnownDetails)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents/remove", ClientPortalEndpoints.RemoveDocument)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
@@ -1706,6 +1719,16 @@ app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export", Complian
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/save", InsuranceIntelligence.Api.Compliance.EvidencePackSaveEndpoints.Save)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapPost("/api/v1/compliance/cases/{caseId:guid}/claims-pack/send", InsuranceIntelligence.Api.Compliance.ClaimsPackEmailEndpoints.SendNow)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapGet("/api/v1/compliance/cases/{caseId:guid}/claims-pack/history", InsuranceIntelligence.Api.Compliance.ClaimsPackEmailEndpoints.History)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapGet("/api/v1/admin/claims-pack-delivery", InsuranceIntelligence.Api.Compliance.ClaimsPackEmailEndpoints.GetSettings)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPut("/api/v1/admin/claims-pack-delivery", InsuranceIntelligence.Api.Compliance.ClaimsPackEmailEndpoints.PutSettings)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+// Public: the secure link in an email for a pack too large to attach. The long random token is the whole proof.
+app.MapGet("/api/v1/shared/claims-packs/{token}", InsuranceIntelligence.Api.Compliance.ClaimsPackEmailEndpoints.DownloadShared);
 app.MapGet("/api/v1/compliance/cases/{caseId:guid}/claims-pack", InsuranceIntelligence.Api.Compliance.ClaimsPackEndpoints.Download)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/download", ComplianceEndpoints.DownloadAuditPackExport)

@@ -23,6 +23,8 @@ import { prepareFileForSlot } from "@/lib/photoDownscale";
 import { unfinishedUploads, type UnfinishedUpload, type UploadProgress } from "@/lib/resumableUpload";
 import { ClaimantDocumentsCard, SOMETHING_ELSE_KEY } from "@/components/iip/ClaimantDocumentsCard";
 import { ClaimantConsentCard } from "@/components/iip/ClaimantConsentCard";
+import { ClaimantOnFileCard } from "@/components/iip/ClaimantOnFileCard";
+import { fetchOnFile, applyDetailsOnFile, applyDocumentOnFile, type CustomerMemory } from "@/lib/customerMemory";
 import { agreeToPrivacyNotice, fetchPrivacyConsent, withdrawPrivacyConsent, type PrivacyConsent } from "@/lib/privacyConsent";
 
 // "LastExpenseClaim" is a stored name; a person reads "Last expense claim".
@@ -75,7 +77,41 @@ export default function ClaimAccessStatus() {
   const [uploadFailed, setUploadFailed] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [unfinished, setUnfinished] = useState<UnfinishedUpload[]>([]);
+  const [memory, setMemory] = useState<CustomerMemory>({ values: [], documents: [] });
+  const [memoryBusy, setMemoryBusy] = useState(false);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
+  const [memoryNotice, setMemoryNotice] = useState<string | null>(null);
   const claimCaseId = claim?.caseId ?? null;
+  // What the customer gave on earlier claims, offered again for this one.
+  useEffect(() => {
+    if (!session || !claimCaseId) return;
+    let cancelled = false;
+    void fetchOnFile(session).then((found) => { if (!cancelled) setMemory(found); });
+    return () => { cancelled = true; };
+  }, [session, claimCaseId]);
+
+  async function onUseDetails(keys: string[]) {
+    if (!session) return;
+    setMemoryBusy(true);
+    setMemoryError(null);
+    const result = await applyDetailsOnFile(session, keys);
+    setMemoryBusy(false);
+    if (!result.ok) return setMemoryError(result.error);
+    setMemory(result.value);
+    setMemoryNotice("Those details were added to your claim.");
+  }
+
+  async function onUseDocument(documentId: string, documentTypeKey: string) {
+    if (!session) return;
+    setMemoryBusy(true);
+    setMemoryError(null);
+    const result = await applyDocumentOnFile(session, documentId, documentTypeKey);
+    setMemoryBusy(false);
+    if (!result.ok) return setMemoryError(result.error);
+    setClaim(result.value);
+    setMemory(await fetchOnFile(session));
+    setMemoryNotice("The document on file was added to your claim.");
+  }
   // Uploads left half done before a reload are remembered in this browser, and shown against their slot.
   useEffect(() => {
     if (claimCaseId) setUnfinished(unfinishedUploads(claimCaseId));
@@ -388,6 +424,8 @@ export default function ClaimAccessStatus() {
             </div>
 
             <ClaimantConsentCard consent={consent} busy={consentBusy} error={consentError} onAgree={() => void onAgree()} onWithdraw={() => void onWithdrawConsent()} />
+
+            <ClaimantOnFileCard memory={memory} busy={memoryBusy} error={memoryError} notice={memoryNotice} onUseDetails={(keys) => void onUseDetails(keys)} onUseDocument={(id, key) => void onUseDocument(id, key)} />
 
             <ClaimantDocumentsCard
               uploadsBlockedReason={consent && consent.state !== "Given" ? "Read and agree to the privacy notice above to send documents." : null}

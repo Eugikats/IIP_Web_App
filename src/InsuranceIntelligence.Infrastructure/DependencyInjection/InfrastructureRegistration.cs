@@ -290,6 +290,8 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Fraud.IClaimAssessmentRepository, EfClaimAssessmentRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Uploads.IUploadSessionRepository, EfUploadSessionRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Uploads.IUploadPartStore, EfUploadPartStore>();
+        services.AddScoped<InsuranceIntelligence.Domain.Compliance.IClaimsPackDispatchRepository, EfClaimsPackDispatchRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.Compliance.IClaimsPackShareLinkRepository, EfClaimsPackShareLinkRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Jobs.IBackgroundJobStore, EfBackgroundJobStore>();
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
         services.AddScoped<IMailboxConnectionRepository, EfMailboxConnectionRepository>();

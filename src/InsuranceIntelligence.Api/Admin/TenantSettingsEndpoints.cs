@@ -17,7 +17,12 @@ public sealed record TenantSettingsResponse(
     TenantSettingsDefaults Defaults,
     string? PrivacyNoticeText = null,
     int PrivacyNoticeVersion = 1,
-    string DefaultPrivacyNoticeText = "");
+    string DefaultPrivacyNoticeText = "",
+    bool CustomerMemoryEnabled = true,
+    IReadOnlyList<string>? CustomerMemoryFieldKeys = null,
+    IReadOnlyList<string>? CustomerMemoryDocumentKeys = null,
+    IReadOnlyList<string>? DefaultCustomerMemoryFieldKeys = null,
+    IReadOnlyList<string>? DefaultCustomerMemoryDocumentKeys = null);
 
 /// <summary>What each setting is when nobody has changed it, so the screen can offer "reset".</summary>
 public sealed record TenantSettingsDefaults(
@@ -34,7 +39,10 @@ public sealed record SaveTenantSettingsRequest(
     int? SlaWarningLeadHours,
     int? SeatLimit,
     int? ClaimsMeterLimit,
-    string? PrivacyNoticeText = null);
+    string? PrivacyNoticeText = null,
+    bool? CustomerMemoryEnabled = null,
+    IReadOnlyList<string>? CustomerMemoryFieldKeys = null,
+    IReadOnlyList<string>? CustomerMemoryDocumentKeys = null);
 
 /// <summary>
 /// The operating settings a workspace administrator can change (build-loop item 6): the publishing
@@ -97,6 +105,13 @@ public static class TenantSettingsEndpoints
             }
         }
 
+        updated = updated with
+        {
+            CustomerMemoryEnabled = request.CustomerMemoryEnabled ?? current.CustomerMemoryEnabled,
+            CustomerMemoryFieldKeys = request.CustomerMemoryFieldKeys is null ? current.CustomerMemoryFieldKeys : CleanKeys(request.CustomerMemoryFieldKeys),
+            CustomerMemoryDocumentKeys = request.CustomerMemoryDocumentKeys is null ? current.CustomerMemoryDocumentKeys : CleanKeys(request.CustomerMemoryDocumentKeys),
+        };
+
         var problems = updated.Validate();
         if (problems.Count > 0)
         {
@@ -133,7 +148,18 @@ public static class TenantSettingsEndpoints
                 TenantSettings.DefaultClaimsMeterLimit),
             settings.PrivacyNoticeText,
             settings.PrivacyNoticeVersion,
-            InsuranceIntelligence.Domain.Compliance.PrivacyNotices.DefaultText);
+            InsuranceIntelligence.Domain.Compliance.PrivacyNotices.DefaultText,
+            settings.CustomerMemoryEnabled,
+            settings.CustomerMemoryFieldKeys,
+            settings.CustomerMemoryDocumentKeys,
+            InsuranceIntelligence.Domain.Customers.CustomerMemoryPolicy.DefaultFieldKeys,
+            InsuranceIntelligence.Domain.Customers.CustomerMemoryPolicy.DefaultDocumentKeys);
+
+    private static IReadOnlyList<string>? CleanKeys(IReadOnlyList<string> keys)
+    {
+        var cleaned = keys.Select(key => key?.Trim() ?? string.Empty).Where(key => key.Length > 0).Distinct(StringComparer.Ordinal).ToArray();
+        return cleaned.Length == 0 ? null : cleaned;
+    }
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });

@@ -72,6 +72,7 @@ public static class DocumentMapper
             DisplayName: document.DisplayName,
             NeedsReview: document.NeedsReview,
             ReviewReason: document.ReviewReason,
+            ReusedFromClaim: document.ReusedFromClaim,
             RecognisedTypeKey: document.Recognition?.TypeKey,
             RecognitionConfidence: document.Recognition?.Confidence,
             RecognitionReason: document.Recognition?.Reason,

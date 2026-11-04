@@ -38,6 +38,10 @@ public sealed record CaseDocument
     /// this field existed deserializes as not superseded.</summary>
     public bool IsSuperseded { get; init; }
 
+    /// <summary>The reference of the earlier claim this file was reused from, when the customer chose "use the one on file"
+    /// (build-loop item 26). Null for a file the customer sent for this claim.</summary>
+    public string? ReusedFromClaim { get; init; }
+
     /// <summary>The page number the customer gave this file within a multi-page slot (build-loop
     /// item 12); null means "in the order sent". Only the order matters, the numbers are renumbered
     /// whenever pages are rearranged.</summary>

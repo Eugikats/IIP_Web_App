@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -1732,5 +1732,129 @@ test.describe("Item 24: claims pack", () => {
     const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
     expect((await request.get(`${API}/api/v1/compliance/cases/${caseId}/claims-pack`, { headers: officer })).status()).toBe(403);
     expect((await request.get(`${API}/api/v1/compliance/cases/${caseId}/claims-pack`, { headers: scopeHeaders(newTenant()) })).status()).toBe(404);
+  });
+});
+
+test.describe("Item 25: claims pack by email", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+  const reset = (request: APIRequestContext) => request.put(`${API}/api/v1/admin/claims-pack-delivery`, { headers, data: { recipients: [], trigger: "Manual", triggerStatus: null } });
+
+  test("an administrator names who receives the pack, staff send it now, and a large pack goes as a secure link that downloads from the public page", async ({ page, request }) => {
+    try {
+      await page.goto("/app/admin/claims-pack");
+      const settings = page.getByTestId("claims-pack-email");
+      await settings.getByLabel("Who receives it").fill("reinsurer@example.com\nassessor@example.com");
+      await settings.getByLabel("When it is sent").selectOption("Complete");
+      await settings.getByRole("button", { name: "Save" }).click();
+      await expect(settings.getByRole("status")).toContainText("Saved");
+      await page.reload();
+      await expect(page.getByLabel("Who receives it")).toHaveValue("reinsurer@example.com\nassessor@example.com");
+      await expect(page.getByLabel("When it is sent")).toHaveValue("Complete");
+
+      const { token, caseId } = await claimantLinkFor(request);
+      await openClaimantPortal(page, token);
+      const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+      await photos.locator('input[data-upload="choose"]').setInputFiles({ name: "IMG_large.jpg", mimeType: "image/jpeg", buffer: randomBytes(3_600_000) });
+      await expect(photos.getByText("1 of 10 sent")).toBeVisible({ timeout: 60_000 });
+      await waitForDocumentsRead(request, caseId);
+
+      await page.goto(`/app/claims/${caseId}`);
+      const box = page.getByTestId("claims-pack");
+      await box.getByRole("button", { name: "Send pack now" }).click();
+      await expect(box.getByRole("status")).toContainText("Sent to 2 addresses as a secure link.");
+      await expect(box.getByTestId("claims-pack-history")).toContainText("sent as a secure link to r***@example.com, a***@example.com");
+
+      const outbox = (await (await request.get(`${API}/api/v1/dev/mock-outbox`, { headers })).json()) as { subject: string; body: string; recipient: string }[];
+      const reference = `CLM-${caseId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+      const mail = outbox.find((message) => message.subject === `Claims pack ${reference}` && message.recipient === "reinsurer@example.com")!;
+      const link = /(http\S+\/shared\/claims-pack\?token=\S+)/.exec(mail.body)![1];
+
+      // Someone with no account opens the link on a phone and downloads the pack.
+      await page.context().clearCookies();
+      await page.setViewportSize({ width: 390, height: 844 });
+      // The link points at the configured portal address; this run serves the portal on its own port, so use the same path here.
+      await page.goto(new URL(link).pathname + new URL(link).search);
+      await expect(page.getByRole("heading", { name: "Claims pack" })).toBeVisible();
+      const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download the pack" }).click()]);
+      expect(download.suggestedFilename()).toBe(`ClaimsPack_${reference}.zip`);
+      await expect(page.getByTestId("shared-pack-done")).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    } finally {
+      await reset(request);
+    }
+  });
+
+  test("a link that is not real says so plainly, and an officer cannot change who receives packs", async ({ page, request }) => {
+    await page.goto("/shared/claims-pack?token=not-a-real-token");
+    await page.getByRole("button", { name: "Download the pack" }).click();
+    await expect(page.getByTestId("shared-pack-error")).toContainText("expired or is no longer valid");
+
+    const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
+    expect((await request.put(`${API}/api/v1/admin/claims-pack-delivery`, { headers: officer, data: { recipients: ["a@example.com"], trigger: "Manual" } })).status()).toBe(403);
+    const other = await request.get(`${API}/api/v1/admin/claims-pack-delivery`, { headers: scopeHeaders(newTenant()) });
+    expect(((await other.json()) as { recipients: string[] }).recipients).toHaveLength(0);
+  });
+});
+
+test.describe("Item 26: customer memory", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+
+  test("a returning customer is offered the ID they sent before and reuses it with one press, on a phone", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const first = await claimantLinkFor(request);
+    await openClaimantPortal(page, first.token);
+    const idRow = page.locator("li", { hasText: "Your ID" }).first();
+    await idRow.locator('input[data-upload="choose"]').setInputFiles({ name: "national_id.jpg", mimeType: "image/jpeg", buffer: Buffer.from("IIP-MOCK-DOC:CustomerId national id card") });
+    await expect(idRow.getByText("Received")).toBeVisible({ timeout: 30_000 });
+    await waitForDocumentsRead(request, first.caseId);
+    const firstReference = `CLM-${first.caseId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+
+    // The same customer files again.
+    const second = await claimantLinkFor(request);
+    await openClaimantPortal(page, second.token);
+    const card = page.getByTestId("on-file-card");
+    await expect(card.getByText("What we already have")).toBeVisible();
+    const offer = card.getByTestId("on-file-documents").locator("li").filter({ hasText: "Your ID" }).first();
+    await expect(offer).toContainText("national_id.jpg");
+    await expect(offer.first()).toContainText(/from claim CLM-/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // Offered, not used: nothing is stored on the new claim yet.
+    expect(((await (await request.get(`${API}/api/v1/cases/${second.caseId}/documents`, { headers })).json()) as unknown[]).length).toBe(0);
+
+    await card.getByRole("button", { name: "Use the one on file for Your ID" }).click();
+    await expect(card.getByRole("status")).toContainText("The document on file was added to your claim.");
+    await expect(page.locator("li", { hasText: "Your ID" }).filter({ hasText: "Received" }).first()).toBeVisible();
+    await expect(card.getByTestId("on-file-documents")).toHaveCount(0);
+
+    const stored = (await (await request.get(`${API}/api/v1/cases/${second.caseId}/documents`, { headers })).json()) as { originalFileName: string; reusedFromClaim: string | null }[];
+    expect(stored).toHaveLength(1);
+    expect(stored[0].originalFileName).toBe("national_id.jpg");
+    expect(stored[0].reusedFromClaim).toMatch(/^CLM-[0-9A-F]{8}$/);
+    expect(firstReference).toMatch(/^CLM-/);
+  });
+
+  test("an administrator can switch memory off and a customer is then offered nothing", async ({ page, request }) => {
+    try {
+      await page.goto("/app/admin/settings");
+      const box = page.getByLabel("Offer a customer the details and documents they gave on an earlier claim");
+      await expect(box).toBeChecked();
+      await box.uncheck();
+      await page.getByRole("button", { name: "Save settings" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Settings saved." })).toBeVisible();
+
+      const next = await claimantLinkFor(request);
+      await openClaimantPortal(page, next.token);
+      await expect(page.getByTestId("claimant-documents")).toBeVisible();
+      await expect(page.getByTestId("on-file-card")).toHaveCount(0);
+    } finally {
+      await request.put(`${API}/api/v1/admin/tenant-settings`, { headers, data: { customerMemoryEnabled: true } });
+    }
+  });
+
+  test("an officer cannot change the memory settings and another tenant's customer is offered none of this workspace's papers", async ({ request }) => {
+    const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
+    expect((await request.put(`${API}/api/v1/admin/tenant-settings`, { headers: officer, data: { customerMemoryEnabled: false } })).status()).toBe(403);
+    const settings = await request.get(`${API}/api/v1/admin/tenant-settings`, { headers: scopeHeaders(newTenant()) });
+    expect(((await settings.json()) as { customerMemoryEnabled: boolean }).customerMemoryEnabled).toBe(true);
   });
 });

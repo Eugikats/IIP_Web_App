@@ -141,9 +141,10 @@ public sealed class GraphEmailSendingProvider(InfrastructureOptions options, IGr
                 new GraphMailSendRequest(
                     options.GraphMail.DefaultMailboxAddress,
                     request.Recipient,
-                    "Insurance claim update",
+                    string.IsNullOrWhiteSpace(request.Subject) ? "Insurance claim update" : request.Subject,
                     request.MessageBody,
-                    SaveToSentItems: true),
+                    SaveToSentItems: true,
+                    request.Attachments),
                 cancellationToken);
             return new CommunicationSendResult("Sent", result.ProviderMessageId, null);
         }
@@ -292,7 +293,14 @@ public sealed class MicrosoftGraphMailClient(HttpClient httpClient, Infrastructu
                     toRecipients = new[]
                     {
                         new { emailAddress = new { address = sendRequest.Recipient } }
-                    }
+                    },
+                    attachments = (sendRequest.Attachments ?? []).Select(file => new Dictionary<string, object>
+                    {
+                        ["@odata.type"] = "#microsoft.graph.fileAttachment",
+                        ["name"] = file.FileName,
+                        ["contentType"] = file.ContentType,
+                        ["contentBytes"] = Convert.ToBase64String(file.Content),
+                    }).ToArray()
                 },
                 saveToSentItems = sendRequest.SaveToSentItems
             })

@@ -143,8 +143,30 @@ public sealed partial class CustomerAssistantService(
     ITenantConfigurationRepository? tenantConfigurationRepository = null,
     // Optional: the customer's own wording for a claim's status (build-loop item 19). Without it the
     // staff label is used, as before.
-    InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null) : ICustomerAssistantService
+    InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null,
+    // Optional: what the customer already gave on earlier claims (build-loop item 26). Without it nothing is mentioned.
+    InsuranceIntelligence.Application.Customers.ICustomerMemoryService? customerMemory = null) : ICustomerAssistantService
 {
+    /// <summary>The papers this customer already sent on an earlier claim and may reuse, by name and claim. Empty when there are none.
+    /// WhatsApp only names them: the reuse itself happens on the secure page, where papers are always handled.</summary>
+    private async Task<IReadOnlyList<string>> PapersOnFileAsync(ClaimCase claim, CancellationToken cancellationToken)
+    {
+        if (customerMemory is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            return (await customerMemory.ForClaimAsync(claim, cancellationToken)).Documents.Select(document => $"{document.SlotLabel} (from claim {document.FromClaimReference})").ToArray();
+        }
+        catch (Exception)
+        {
+            // A memory problem never gets in the way of filing the claim.
+            return [];
+        }
+    }
+
     /// <summary>What to call a claim's status when talking to the customer: the workspace's wording, or the
     /// default, never the staff label.</summary>
     private async Task<string> CustomerStatusAsync(TenantScope scope, CaseStatus status, CancellationToken cancellationToken) =>
@@ -1261,8 +1283,9 @@ public sealed partial class CustomerAssistantService(
 
         var documents = await DocumentsToRequestAsync(claimCase, cancellationToken);
         var link = await IssueAccessLinkAsync(scope, claimCase, waId, correlationId, cancellationToken);
+        var onFile = await PapersOnFileAsync(claimCase, cancellationToken);
         return AssistantOutcome.Of(
-            KatoReplies.ClaimSent(sender.FirstName, ClaimReference.For(claimCase.CaseId), ClaimDocumentChecklist.AsSentenceList(documents), link),
+            KatoReplies.ClaimSent(sender.FirstName, ClaimReference.For(claimCase.CaseId), ClaimDocumentChecklist.AsSentenceList(documents), link, onFile),
             CustomerIntent.NewClaim, CustomerAssistantOutcome.CaseOpened,
             caseId: claimCase.CaseId, policyNumber: policy.PolicyNumber, openedCase: true);
     }

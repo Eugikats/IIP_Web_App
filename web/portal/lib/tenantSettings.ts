@@ -14,6 +14,12 @@ export type TenantSettings = {
   privacyNoticeText: string | null;
   privacyNoticeVersion: number;
   defaultPrivacyNoticeText: string;
+  /** Whether a returning customer is offered the details and documents from their earlier claims. */
+  customerMemoryEnabled: boolean;
+  customerMemoryFieldKeys: string[] | null;
+  customerMemoryDocumentKeys: string[] | null;
+  defaultCustomerMemoryFieldKeys: string[];
+  defaultCustomerMemoryDocumentKeys: string[];
   defaults: {
     requireIraApprovalForPublish: boolean;
     missingDocumentReminderDays: number;
@@ -23,7 +29,7 @@ export type TenantSettings = {
   };
 };
 
-export type TenantSettingsInput = Partial<Omit<TenantSettings, "updatedByUserId" | "updatedAt" | "defaults" | "privacyNoticeVersion" | "defaultPrivacyNoticeText">>;
+export type TenantSettingsInput = Partial<Omit<TenantSettings, "updatedByUserId" | "updatedAt" | "defaults" | "privacyNoticeVersion" | "defaultPrivacyNoticeText" | "defaultCustomerMemoryFieldKeys" | "defaultCustomerMemoryDocumentKeys">>;
 
 export type TenantSettingsResult = { ok: true; value: TenantSettings } | { ok: false; error: string };
 

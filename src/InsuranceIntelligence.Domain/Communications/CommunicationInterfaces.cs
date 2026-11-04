@@ -90,6 +90,13 @@ public sealed record CommunicationSendRequest(
     string SentByUserId,
     bool Approved,
     bool LowRisk,
-    string CorrelationId);
+    string CorrelationId,
+    // Email only (build-loop item 25). A subject line and files to attach; both are optional so every
+    // existing send is unchanged.
+    string? Subject = null,
+    IReadOnlyList<OutboundAttachment>? Attachments = null);
+
+/// <summary>A file sent with an email: its name, its type and its bytes.</summary>
+public sealed record OutboundAttachment(string FileName, string ContentType, byte[] Content);
 
 public sealed record CommunicationSendResult(string DeliveryStatus, string ProviderMessageId, string? SafeError);

@@ -845,6 +845,51 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
+    public async Task ARecognisedCustomerWithPapersOnFile_IsToldWhichOnesAndWhereToReuseThemButNeverAsksForThemInTheChat()
+    {
+        var memory = new FixedMemory(new InsuranceIntelligence.Domain.Customers.CustomerMemory([], [
+            new InsuranceIntelligence.Domain.Customers.DocumentOnFile(Guid.NewGuid(), "CustomerId", "Your ID", "id.jpg", "CLM-ABCD1234", DateTimeOffset.UtcNow)]));
+        var fixture = Fixture.Create(withAccessLinks: true, customerMemory: memory);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync("I had an accident");
+        await fixture.HandleAsync("A taxi hit the back of my car at the Kira roundabout this morning");
+        await fixture.HandleAsync("yes");
+
+        var reply = fixture.Conversations.Saved[2].OutboundReplyText!;
+        Assert.Contains("we already have Your ID (from claim CLM-ABCD1234)", reply);
+        Assert.Contains("Use the one on file", reply);
+        Assert.Contains("secure link", reply);
+    }
+
+    [Fact]
+    public async Task AMemoryThatFails_NeverStopsTheClaimBeingFiled()
+    {
+        var fixture = Fixture.Create(withAccessLinks: true, customerMemory: new FixedMemory(null));
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync("I had an accident");
+        await fixture.HandleAsync("A taxi hit the back of my car at the Kira roundabout this morning");
+        await fixture.HandleAsync("yes");
+
+        var reply = fixture.Conversations.Saved[2].OutboundReplyText!;
+        Assert.Equal(CustomerAssistantOutcome.CaseOpened, fixture.Conversations.Saved[2].Outcome);
+        Assert.DoesNotContain("already have", reply);
+    }
+
+    private sealed class FixedMemory(InsuranceIntelligence.Domain.Customers.CustomerMemory? memory) : InsuranceIntelligence.Application.Customers.ICustomerMemoryService
+    {
+        public Task<InsuranceIntelligence.Domain.Customers.CustomerMemory> ForClaimAsync(ClaimCase claim, CancellationToken cancellationToken = default) =>
+            memory is null ? throw new InvalidOperationException("memory is down") : Task.FromResult(memory);
+
+        public Task<InsuranceIntelligence.Domain.Customers.CustomerMemory> ForNewClaimAsync(TenantScope scope, string policyNumber, string? phone, string? email, string? productLine, string? claimType, CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsuranceIntelligence.Domain.Customers.CustomerMemory.Empty);
+
+        public Task<(InsuranceIntelligence.Domain.Customers.DocumentOnFile Offer, InsuranceIntelligence.Domain.Documents.CaseDocument Source)?> FindDocumentAsync(ClaimCase claim, Guid sourceDocumentId, string slotKey, CancellationToken cancellationToken = default) =>
+            Task.FromResult<(InsuranceIntelligence.Domain.Customers.DocumentOnFile, InsuranceIntelligence.Domain.Documents.CaseDocument)?>(null);
+    }
+
+    [Fact]
     public async Task RecognisedSender_WithOnePolicy_IsAskedWhatHappened_ThenTheClaimOpensWithoutAPolicyNumber()
     {
         var fixture = Fixture.Create(withAccessLinks: true);
@@ -1764,7 +1809,8 @@ public sealed partial class CustomerAssistantServiceTests
             IClaimIdentityVerifier? claimIdentity = null,
             bool withCrossChannelContext = false,
             bool consentOtherChannel = true,
-            InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null)
+            InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null,
+            InsuranceIntelligence.Application.Customers.ICustomerMemoryService? customerMemory = null)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -1870,7 +1916,8 @@ public sealed partial class CustomerAssistantServiceTests
                 channelIdentityLinks: channelIdentityLinks,
                 channelMessages: channelMessages,
                 integrationConnections: integrationConnections,
-                claimantStatus: claimantStatus);
+                claimantStatus: claimantStatus,
+                customerMemory: customerMemory);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {

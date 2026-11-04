@@ -15,6 +15,7 @@ import {
 } from "@/lib/clientPortal";
 import { fetchClaimantFieldForm, missingRequired, type ClaimFieldForm } from "@/lib/claimFields";
 import { ClaimantNewClaimForm } from "@/components/iip/ClaimantNewClaimForm";
+import { fetchKnownDetails, type RememberedValue } from "@/lib/customerMemory";
 
 const MOTOR_CLAIM_TYPES = ["Own damage", "Third-party property", "Theft", "Bodily injury"];
 const MEDICAL_CLAIM_TYPES = ["Medical reimbursement", "Hospitalisation", "Outpatient treatment"];
@@ -78,6 +79,25 @@ export default function ClaimAccessNewClaim() {
     let cancelled = false;
     void fetchClaimantFieldForm(session, productLine, claimType).then((result) => {
       if (!cancelled) setFieldForm(result.ok ? result.value : null);
+    });
+    return () => { cancelled = true; };
+  }, [session, productLine, claimType]);
+
+  // Details this customer gave on an earlier claim are put in the form to check, never submitted without them seeing them.
+  const [remembered, setRemembered] = useState<RememberedValue[]>([]);
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    void fetchKnownDetails(session, productLine, claimType).then((found) => {
+      if (cancelled) return;
+      setRemembered(found);
+      setFieldValues((current) => {
+        const next = { ...current };
+        for (const value of found) if (!next[value.key]) next[value.key] = value.value;
+        return next;
+      });
+      const registration = found.find((value) => value.key === "vehicleRegistration");
+      if (registration) setVehicleRegistration((current) => current || registration.value);
     });
     return () => { cancelled = true; };
   }, [session, productLine, claimType]);
@@ -168,6 +188,12 @@ export default function ClaimAccessNewClaim() {
             </p>
           </div>
         ) : (
+          <>
+          {remembered.length > 0 && (
+            <p className="mb-3 rounded-dls-card border border-dls-border-subtle bg-dls-bg-page p-3 text-xs leading-5 text-dls-text-secondary" data-testid="remembered-notice">
+              We filled in {remembered.map((value) => `${value.label.toLowerCase()} (from claim ${value.fromClaim})`).join(", ")} from your earlier claim. Check them and change anything that is different this time.
+            </p>
+          )}
           <ClaimantNewClaimForm
             policyNumber={session.policyNumber}
             productLine={productLine}
@@ -193,6 +219,7 @@ export default function ClaimAccessNewClaim() {
             error={error}
             onSubmit={onSubmit}
           />
+          </>
         )}
       </div>
     </main>

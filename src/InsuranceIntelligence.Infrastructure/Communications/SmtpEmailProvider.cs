@@ -99,7 +99,14 @@ public sealed class SmtpEmailProvider(SmtpSettings settings, ILogger<SmtpEmailPr
             Credentials = new NetworkCredential(settings.Username, settings.Password),
             Timeout = Math.Clamp(settings.RequestTimeoutSeconds, 5, 60) * 1000,
         };
-        using var message = new MailMessage(settings.FromAddress, recipient.Address, "Insurance claim update", request.MessageBody);
+        using var message = new MailMessage(settings.FromAddress, recipient.Address, string.IsNullOrWhiteSpace(request.Subject) ? "Insurance claim update" : request.Subject, request.MessageBody);
+        var attachmentStreams = new List<MemoryStream>();
+        foreach (var file in request.Attachments ?? [])
+        {
+            var stream = new MemoryStream(file.Content);
+            attachmentStreams.Add(stream);
+            message.Attachments.Add(new Attachment(stream, file.FileName, file.ContentType));
+        }
 
         try
         {
@@ -116,6 +123,13 @@ public sealed class SmtpEmailProvider(SmtpSettings settings, ILogger<SmtpEmailPr
                 "SMTP email send failed safely. CaseId={CaseId} CorrelationId={CorrelationId} ErrorType={ErrorType}",
                 request.CaseId, request.CorrelationId, exception.GetType().Name);
             return new CommunicationSendResult("ProviderError", string.Empty, "The mail server could not be reached or rejected the message. No email was sent.");
+        }
+        finally
+        {
+            foreach (var stream in attachmentStreams)
+            {
+                stream.Dispose();
+            }
         }
     }
 }

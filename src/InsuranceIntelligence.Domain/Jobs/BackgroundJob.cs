@@ -73,6 +73,7 @@ public static class BackgroundJobTypes
 {
     public const string DocumentProcess = "document.process";
     public const string ClaimReview = "claim.review";
+    public const string ClaimsPackSend = "claims.pack.send";
 }
 
 public interface IBackgroundJobStore

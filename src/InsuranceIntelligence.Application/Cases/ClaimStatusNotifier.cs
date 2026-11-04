@@ -49,7 +49,8 @@ public sealed class ClaimStatusNotifier(
     ITenantSettingsRepository settingsRepository,
     ICustomerUpdateRepository updateRepository,
     ICommunicationProvider communicationProvider,
-    IAuditRepository auditRepository) : IClaimStatusNotifier
+    IAuditRepository auditRepository,
+    InsuranceIntelligence.Application.Compliance.IClaimsPackTrigger? claimsPackTrigger = null) : IClaimStatusNotifier
 {
     public const string SystemActorId = "system:status-notifier";
 
@@ -58,6 +59,20 @@ public sealed class ClaimStatusNotifier(
         if (before.Status == after.Status)
         {
             return StatusNotificationOutcome.Unchanged;
+        }
+
+        // Every route that changes a status ends here, so this is also where the claims pack trigger hears of it
+        // (build-loop item 25). It is not a customer message and runs whether or not those are switched on.
+        if (claimsPackTrigger is not null)
+        {
+            try
+            {
+                await claimsPackTrigger.OnStatusChangedAsync(before, after, correlationId, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // The status change stands; a pack that could not be queued is sent by the next trigger or by hand.
+            }
         }
 
         var settings = await settingsRepository.GetAsync(after.Scope, cancellationToken);

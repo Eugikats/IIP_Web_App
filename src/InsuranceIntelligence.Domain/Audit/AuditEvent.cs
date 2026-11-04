@@ -439,6 +439,35 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>A returning customer chose to reuse details or a document from an earlier claim (build-loop item 26). Records which
+    /// kind and how many, never the content.</summary>
+    public static AuditEvent CustomerMemoryUsed(TenantScope scope, Guid caseId, string userId, string kind, int count, string correlationId) =>
+        new(
+            Guid.NewGuid(), scope, caseId, caseId.ToString(), userId, ActorType.User,
+            "customer_memory.used", DateTimeOffset.UtcNow,
+            BeforeStatus: null, AfterStatus: $"{kind}:{count}", EvidenceIds: [caseId.ToString()],
+            ModelProvider: null, Confidence: null, ValidationResult: "accepted",
+            ApprovalId: null, AuditReason: null, CorrelationId: correlationId);
+
+    /// <summary>A claims pack was emailed, or the send failed (build-loop item 25). Records how, to how many, and the outcome.</summary>
+    public static AuditEvent ClaimsPackEmailed(TenantScope scope, Guid caseId, string userId, string mode, int recipients, string outcome, string correlationId) =>
+        new(
+            Guid.NewGuid(), scope, caseId, caseId.ToString(), userId,
+            userId.StartsWith("system:", StringComparison.Ordinal) ? ActorType.System : ActorType.User,
+            "claims_pack.emailed", DateTimeOffset.UtcNow,
+            BeforeStatus: null, AfterStatus: $"{mode}:{recipients}:{outcome}", EvidenceIds: [caseId.ToString()],
+            ModelProvider: null, Confidence: null, ValidationResult: outcome == "Sent" ? "accepted" : "not_delivered",
+            ApprovalId: null, AuditReason: null, CorrelationId: correlationId);
+
+    /// <summary>Someone opened a shared claims pack link (build-loop item 25). There is no signed in user, so none is recorded.</summary>
+    public static AuditEvent ClaimsPackLinkOpened(TenantScope scope, Guid caseId, int downloadNumber, string correlationId) =>
+        new(
+            Guid.NewGuid(), scope, caseId, caseId.ToString(), "shared-link", ActorType.Integration,
+            "claims_pack.link.opened", DateTimeOffset.UtcNow,
+            BeforeStatus: null, AfterStatus: $"download:{downloadNumber}", EvidenceIds: [caseId.ToString()],
+            ModelProvider: null, Confidence: null, ValidationResult: "accepted",
+            ApprovalId: null, AuditReason: null, CorrelationId: correlationId);
+
     /// <summary>A claims pack (zip of summary, documents, evidence and manifest) was downloaded (build-loop item 24).
     /// Records how many files and how many bytes, never their content.</summary>
     public static AuditEvent ClaimsPackExported(TenantScope scope, Guid caseId, string userId, int fileCount, long sizeBytes, string correlationId) =>

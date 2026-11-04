@@ -57,6 +57,25 @@ public sealed record TenantSettings
     /// template once the customer's last message is more than 24 hours old.</summary>
     public IReadOnlyDictionary<string, Cases.WhatsAppTemplateRef>? WhatsAppStatusTemplates { get; init; }
 
+    /// <summary>Who a claims pack is emailed to (build-loop item 25), such as a reinsurer, an assessor or the insurer's own
+    /// claims inbox. Empty means nobody, so nothing is sent automatically.</summary>
+    public IReadOnlyList<string>? ClaimsPackRecipients { get; init; }
+
+    /// <summary>When the pack is emailed by itself: Manual (never), Complete or Status.</summary>
+    public string ClaimsPackTrigger { get; init; } = "Manual";
+
+    /// <summary>For the Status trigger: the status that sends it.</summary>
+    public string? ClaimsPackTriggerStatus { get; init; }
+
+    /// <summary>Whether a returning customer is offered the details and documents they gave on an earlier claim (build-loop item 26).</summary>
+    public bool CustomerMemoryEnabled { get; init; } = true;
+
+    /// <summary>The detail keys worth carrying between a customer's claims. Empty means the platform's short default list.</summary>
+    public IReadOnlyList<string>? CustomerMemoryFieldKeys { get; init; }
+
+    /// <summary>The document kinds a customer may reuse from an earlier claim. Empty means proof of identity only.</summary>
+    public IReadOnlyList<string>? CustomerMemoryDocumentKeys { get; init; }
+
     public string? UpdatedByUserId { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
 
@@ -93,6 +112,19 @@ public sealed record TenantSettings
 
         errors.AddRange(Cases.ClaimantStatusWords.Validate(ClaimantStatusWording));
         errors.AddRange(Cases.WhatsAppTemplates.Validate(WhatsAppStatusTemplates));
+        errors.AddRange(Compliance.ClaimsPackDeliveryRules.Validate(ClaimsPackRecipients, ClaimsPackTrigger, ClaimsPackTriggerStatus));
+        foreach (var key in (CustomerMemoryFieldKeys ?? []).Concat(CustomerMemoryDocumentKeys ?? []))
+        {
+            if (string.IsNullOrWhiteSpace(key) || key.Length > 60 || !key.All(character => char.IsLetterOrDigit(character) || character is '_' or '-'))
+            {
+                errors.Add($"'{key}' is not a valid detail or document key (letters, digits, dashes and underscores only).");
+            }
+        }
+
+        if ((CustomerMemoryFieldKeys?.Count ?? 0) > 30 || (CustomerMemoryDocumentKeys?.Count ?? 0) > 30)
+        {
+            errors.Add("At most 30 keys can be listed for customer memory.");
+        }
 
         return errors;
     }
@@ -111,6 +143,12 @@ public sealed record TenantSettings
         if (NotifyCustomerOnStatusChange != previous.NotifyCustomerOnStatusChange) changed.Add(nameof(NotifyCustomerOnStatusChange));
         if (AutoSendStatusMessages != previous.AutoSendStatusMessages) changed.Add(nameof(AutoSendStatusMessages));
         if (!Cases.WhatsAppTemplates.SameAs(WhatsAppStatusTemplates, previous.WhatsAppStatusTemplates)) changed.Add(nameof(WhatsAppStatusTemplates));
+        if (!(ClaimsPackRecipients ?? []).SequenceEqual(previous.ClaimsPackRecipients ?? [], StringComparer.OrdinalIgnoreCase)) changed.Add(nameof(ClaimsPackRecipients));
+        if (!string.Equals(ClaimsPackTrigger, previous.ClaimsPackTrigger, StringComparison.Ordinal)) changed.Add(nameof(ClaimsPackTrigger));
+        if (!string.Equals(ClaimsPackTriggerStatus, previous.ClaimsPackTriggerStatus, StringComparison.Ordinal)) changed.Add(nameof(ClaimsPackTriggerStatus));
+        if (CustomerMemoryEnabled != previous.CustomerMemoryEnabled) changed.Add(nameof(CustomerMemoryEnabled));
+        if (!(CustomerMemoryFieldKeys ?? []).SequenceEqual(previous.CustomerMemoryFieldKeys ?? [], StringComparer.Ordinal)) changed.Add(nameof(CustomerMemoryFieldKeys));
+        if (!(CustomerMemoryDocumentKeys ?? []).SequenceEqual(previous.CustomerMemoryDocumentKeys ?? [], StringComparer.Ordinal)) changed.Add(nameof(CustomerMemoryDocumentKeys));
         return changed;
     }
 }

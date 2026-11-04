@@ -209,11 +209,14 @@ public sealed class DocumentProcessJobHandler : IBackgroundJobHandler
         var checklist = await services.GetRequiredService<IDocumentChecklistProvider>().BuildChecklistAsync(claim, documents, cancellationToken);
         if (claim.CompletenessScore == checklist.CompletenessScore.Percentage)
         {
+            // Nothing changed, but a complete claim is offered to the claims pack trigger (it sends once per claim).
+            await InsuranceIntelligence.Api.Compliance.ClaimsPackTriggers.OnCompletenessAsync(services, claim, correlationId, cancellationToken);
             return;
         }
 
         var updated = claim with { CompletenessScore = checklist.CompletenessScore.Percentage, UpdatedAt = DateTimeOffset.UtcNow };
         await caseRepository.SaveAsync(updated, cancellationToken);
+        await InsuranceIntelligence.Api.Compliance.ClaimsPackTriggers.OnCompletenessAsync(services, updated, correlationId, cancellationToken);
         await services.GetRequiredService<IAuditRepository>().WriteAsync(
             AuditEvent.CaseCompletenessUpdated(claim.ToAuditSnapshot(), updated.ToAuditSnapshot(), updated.CompletenessScore, correlationId),
             cancellationToken);

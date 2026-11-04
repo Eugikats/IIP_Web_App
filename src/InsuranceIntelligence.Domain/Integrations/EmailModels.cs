@@ -90,6 +90,7 @@ public sealed record GraphMailSendRequest(
     string Recipient,
     string Subject,
     string Body,
-    bool SaveToSentItems);
+    bool SaveToSentItems,
+    IReadOnlyList<InsuranceIntelligence.Domain.Communications.OutboundAttachment>? Attachments = null);
 
 public sealed record GraphMailSendResult(string ProviderMessageId);

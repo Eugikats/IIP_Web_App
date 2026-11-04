@@ -102,13 +102,16 @@ public static class KatoReplies
         "I have added what you just said to it, so you don't need to start again. " +
         "If this is a different accident, reply NEW and I will start a new report.";
 
-    public static string ClaimSent(string? firstName, string reference, string documentsSentence, string? link) =>
+    public static string ClaimSent(string? firstName, string reference, string documentsSentence, string? link, IReadOnlyList<string>? papersOnFile = null) =>
         $"Thank you{Comma(firstName)}. I have sent your report to our claims team. Your reference is {reference}. " +
         "A person will check it and tell you here what happens next. " +
         $"To pay you, they will need {documentsSentence}. " +
         (link is null
             ? "Someone from our team will tell you how to share those papers safely."
-            : $"Please share those papers only through this secure link, not in this chat. It works for 24 hours: {link}");
+            : $"Please share those papers only through this secure link, not in this chat. It works for 24 hours: {link}") +
+        (papersOnFile is { Count: > 0 } && link is not null
+            ? $" You do not have to send everything again: we already have {string.Join(", ", papersOnFile)}. On the page, choose \"Use the one on file\" for it."
+            : string.Empty);
 
     // ---- Claim status and links ----
 

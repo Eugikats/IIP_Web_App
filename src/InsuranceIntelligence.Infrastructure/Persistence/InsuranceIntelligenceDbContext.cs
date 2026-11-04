@@ -28,6 +28,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedAuthenticityReport> AuthenticityReports => Set<PersistedAuthenticityReport>();
     public DbSet<PersistedClaimAssessment> ClaimAssessments => Set<PersistedClaimAssessment>();
     public DbSet<PersistedUploadSession> UploadSessions => Set<PersistedUploadSession>();
+    public DbSet<PersistedClaimsPackDispatch> ClaimsPackDispatches => Set<PersistedClaimsPackDispatch>();
+    public DbSet<PersistedClaimsPackShareLink> ClaimsPackShareLinks => Set<PersistedClaimsPackShareLink>();
     public DbSet<PersistedUploadPart> UploadParts => Set<PersistedUploadPart>();
     public DbSet<PersistedBackgroundJob> BackgroundJobs => Set<PersistedBackgroundJob>();
     public DbSet<UserTenantMembershipEntity> UserTenantMemberships => Set<UserTenantMembershipEntity>();
@@ -136,6 +138,11 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedAuthenticityReport>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PerceptualHash });
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimAssessment>(), "ClaimAssessments", "AssessmentId");
         modelBuilder.Entity<PersistedClaimAssessment>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId, entity.GeneratedAt });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedClaimsPackDispatch>(), "ClaimsPackDispatches", "DispatchId");
+        modelBuilder.Entity<PersistedClaimsPackDispatch>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedClaimsPackShareLink>(), "ClaimsPackShareLinks", "LinkId");
+        modelBuilder.Entity<PersistedClaimsPackShareLink>().Property(entity => entity.TokenHash).HasMaxLength(128).IsRequired();
+        modelBuilder.Entity<PersistedClaimsPackShareLink>().HasIndex(entity => entity.TokenHash).IsUnique();
         ConfigureScopedJson(modelBuilder.Entity<PersistedUploadSession>(), "UploadSessions", "UploadId");
         modelBuilder.Entity<PersistedUploadSession>().Property(entity => entity.Fingerprint).HasMaxLength(200).IsRequired();
         modelBuilder.Entity<PersistedUploadSession>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId, entity.Fingerprint });
@@ -504,6 +511,8 @@ public sealed class PersistedWordingDraft : PersistedScopedJson { public Guid Pr
 public sealed class PersistedSlotPdf : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedFieldProposal : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedAuthenticityReport : PersistedScopedJson { public Guid CaseId { get; set; } public string? PerceptualHash { get; set; } }
+public sealed class PersistedClaimsPackDispatch : PersistedScopedJson { public Guid CaseId { get; set; } }
+public sealed class PersistedClaimsPackShareLink : PersistedScopedJson { public Guid CaseId { get; set; } public string TokenHash { get; set; } = string.Empty; }
 public sealed class PersistedUploadSession : PersistedScopedJson { public Guid CaseId { get; set; } public string Fingerprint { get; set; } = string.Empty; }
 public sealed class PersistedUploadPart : PersistedScopedJson { public Guid UploadId { get; set; } public int PartIndex { get; set; } public byte[] Data { get; set; } = []; }
 public sealed class PersistedClaimAssessment : PersistedScopedJson { public Guid CaseId { get; set; } public DateTimeOffset GeneratedAt { get; set; } }

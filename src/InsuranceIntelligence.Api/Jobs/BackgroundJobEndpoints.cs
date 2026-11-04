@@ -135,6 +135,7 @@ public static class BackgroundJobEndpoints
             {
                 BackgroundJobTypes.DocumentProcess => "Reading an uploaded document",
                 BackgroundJobTypes.ClaimReview => "Reviewing a claim",
+                BackgroundJobTypes.ClaimsPackSend => "Emailing a claims pack",
                 _ => job.Type,
             },
             job.Status.ToString(),

@@ -16,6 +16,10 @@ type Draft = {
   claimsMeterLimit: string;
   /** The notice as shown: the workspace's own, or the default text while it has none. */
   privacyNoticeText: string;
+  customerMemoryEnabled: boolean;
+  /** Comma separated; empty means the platform's short default list. */
+  customerMemoryFieldKeys: string;
+  customerMemoryDocumentKeys: string;
 };
 
 function toDraft(settings: TenantSettings): Draft {
@@ -26,6 +30,9 @@ function toDraft(settings: TenantSettings): Draft {
     seatLimit: String(settings.seatLimit),
     claimsMeterLimit: String(settings.claimsMeterLimit),
     privacyNoticeText: settings.privacyNoticeText ?? settings.defaultPrivacyNoticeText,
+    customerMemoryEnabled: settings.customerMemoryEnabled,
+    customerMemoryFieldKeys: (settings.customerMemoryFieldKeys ?? []).join(", "),
+    customerMemoryDocumentKeys: (settings.customerMemoryDocumentKeys ?? []).join(", "),
   };
 }
 
@@ -75,6 +82,9 @@ export default function OperatingSettings() {
       // Text equal to the default is saved as "use the default", so it keeps following any
       // improvement to the default and does not count as the insurer's own wording.
       privacyNoticeText: draft.privacyNoticeText.trim() === settings?.defaultPrivacyNoticeText.trim() ? "" : draft.privacyNoticeText,
+      customerMemoryEnabled: draft.customerMemoryEnabled,
+      customerMemoryFieldKeys: draft.customerMemoryFieldKeys.split(/[,\n]+/).map((key) => key.trim()).filter(Boolean),
+      customerMemoryDocumentKeys: draft.customerMemoryDocumentKeys.split(/[,\n]+/).map((key) => key.trim()).filter(Boolean),
     });
     setSaving(false);
     if (!result.ok) {
@@ -156,6 +166,25 @@ export default function OperatingSettings() {
                 <span className="text-[11.5px] text-dls-text-muted">This is the default text, a draft. Have your legal team confirm it before you rely on it.</span>
               )}
             </div>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="text-[14px] font-bold text-dls-text-primary">Returning customers</div>
+            <label className="mt-3 flex items-start gap-3 text-[13px] text-dls-text-primary">
+              <input type="checkbox" className="mt-1 h-4 w-4" checked={draft.customerMemoryEnabled} onChange={(e) => setDraft({ ...draft, customerMemoryEnabled: e.target.checked })} />
+              <span>
+                Offer a customer the details and documents they gave on an earlier claim
+                <span className="mt-0.5 block text-[12px] text-dls-text-secondary">
+                  Only that customer sees them, only for their own claims in this workspace, and nothing is used until they choose to. Have your legal team confirm this fits your privacy notice.
+                </span>
+              </span>
+            </label>
+            <label htmlFor="memory-fields" className="mb-1 mt-3 block text-[12.5px] font-semibold text-dls-text-primary">Details worth carrying over</label>
+            <Input id="memory-fields" value={draft.customerMemoryFieldKeys} placeholder={settings.defaultCustomerMemoryFieldKeys.join(", ")} disabled={!draft.customerMemoryEnabled} onChange={(e) => setDraft({ ...draft, customerMemoryFieldKeys: e.target.value })} />
+            <p className="mt-1 text-[11.5px] text-dls-text-muted">The keys of the questions, separated by commas. Leave empty for the usual ones: {settings.defaultCustomerMemoryFieldKeys.join(", ")}.</p>
+            <label htmlFor="memory-documents" className="mb-1 mt-3 block text-[12.5px] font-semibold text-dls-text-primary">Documents that can be used again</label>
+            <Input id="memory-documents" value={draft.customerMemoryDocumentKeys} placeholder={settings.defaultCustomerMemoryDocumentKeys.join(", ")} disabled={!draft.customerMemoryEnabled} onChange={(e) => setDraft({ ...draft, customerMemoryDocumentKeys: e.target.value })} />
+            <p className="mt-1 text-[11.5px] text-dls-text-muted">The keys of the documents, separated by commas. Leave empty for proof of identity only ({settings.defaultCustomerMemoryDocumentKeys.join(", ")}).</p>
           </GlassCard>
 
           {saveError && <p role="alert" className="text-[12.5px] text-dls-danger-text">{saveError}</p>}

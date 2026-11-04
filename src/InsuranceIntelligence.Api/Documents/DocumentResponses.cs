@@ -57,7 +57,9 @@ public sealed record DocumentResponse(
     string? RecognisedTypeKey = null,
     decimal? RecognitionConfidence = null,
     string? RecognitionReason = null,
-    bool FiledByRecognition = false);
+    bool FiledByRecognition = false,
+    // Build-loop item 26: the earlier claim this file was reused from, when the customer chose "use the one on file".
+    string? ReusedFromClaim = null);
 
 public sealed record BoundingBoxResponse(
     int PageNumber,
