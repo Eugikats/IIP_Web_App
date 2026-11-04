@@ -125,7 +125,7 @@ public enum TimelineState
     Upcoming,
 }
 
-public sealed record ClaimantTimelineStep(string Key, string Label, TimelineState State);
+public sealed record ClaimantTimelineStep(string Key, string Label, TimelineState State, CaseStatus Milestone = CaseStatus.New);
 
 /// <summary>
 /// The steps a customer sees for their claim, taken from the product's own claim process (build-loop
@@ -213,7 +213,8 @@ public static class ClaimantTimeline
             .Select((step, index) => new ClaimantTimelineStep(
                 step.Key,
                 step.Label,
-                finished ? TimelineState.Done : currentIndex < 0 || index < currentIndex ? TimelineState.Done : index == currentIndex ? TimelineState.Current : TimelineState.Upcoming))
+                finished ? TimelineState.Done : currentIndex < 0 || index < currentIndex ? TimelineState.Done : index == currentIndex ? TimelineState.Current : TimelineState.Upcoming,
+                step.Milestone))
             .ToArray();
     }
 }

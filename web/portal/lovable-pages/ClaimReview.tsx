@@ -46,6 +46,7 @@ import { PrivacyConsentLine } from "@/components/iip/PrivacyConsentLine";
 import { FieldProposalsCard } from "@/components/iip/FieldProposalsCard";
 import { AuthenticityCard } from "@/components/iip/AuthenticityCard";
 import { ClaimAssessmentCard } from "@/components/iip/ClaimAssessmentCard";
+import { ClaimStatusChange } from "@/components/iip/ClaimStatusChange";
 
 const POLICY_SOURCE_LABEL: Record<string, string> = {
   Manual: "Entered manually",
@@ -167,6 +168,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   // not hold it; only ClaimsSupervisor and Compliance do.
   // Editing the answers to a claim's questions needs the same permission as filing a claim.
   const [detailsVersion, setDetailsVersion] = useState(0);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const canEditClaimDetails = canUseLocalTestDoubles || parityMode
     ? canPreviewPermission(roleDef.key, "CreateClaim")
     : hasPermission(runtimeContext?.permissions ?? [], "CreateClaim");
@@ -1066,6 +1068,10 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
               {detail.customerEmail ? <Row k="Email" v={detail.customerEmail} /> : null}
               {detail.customerPhone ? <Row k="Phone" v={detail.customerPhone} /> : null}
             </div>
+          </GlassCard>
+
+          <GlassCard>
+            <ClaimStatusChange caseId={detail.claimId} role={roleDef.key} status={detail.status} notice={statusNotice} onChanged={(confirmation) => { setStatusNotice(confirmation); void reload(); }} />
           </GlassCard>
 
           {(detail.status === "Settled" || detail.status === "Closed") && (

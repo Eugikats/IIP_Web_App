@@ -616,6 +616,7 @@ builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IImageForen
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IAuthenticityService, InsuranceIntelligence.Application.Documents.AuthenticityService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IClaimAssessmentService, InsuranceIntelligence.Application.Fraud.ClaimAssessmentService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter, InsuranceIntelligence.Application.Cases.ClaimantStatusPresenter>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimStatusChangeService, InsuranceIntelligence.Application.Cases.ClaimStatusChangeService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1069,6 +1070,10 @@ app.MapGet("/api/v1/cases/{caseId:guid}", CaseEndpoints.GetCase)
 app.MapGet("/api/v1/cases/{caseId:guid}/product-stages", CaseEndpoints.GetProductStages)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/assign", CaseEndpoints.AssignCase)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/cases/{caseId:guid}/status-options", InsuranceIntelligence.Api.Cases.ClaimStatusEndpoints.Options)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapPost("/api/v1/cases/{caseId:guid}/status", InsuranceIntelligence.Api.Cases.ClaimStatusEndpoints.Change)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/escalate", CaseEndpoints.EscalateCase)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));

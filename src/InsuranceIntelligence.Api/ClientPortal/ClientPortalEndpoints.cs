@@ -695,7 +695,7 @@ public static class ClientPortalEndpoints
                     .Select(step => new ClientPortalTimelineStep(
                         step.Label,
                         step.State == TimelineState.Done,
-                        step.State == TimelineState.Done && step.Key == view.Timeline[0].Key ? claim.CreatedAt : step.State == TimelineState.Current ? claim.UpdatedAt : null,
+                        view.ReachedAt is not null && view.ReachedAt.TryGetValue(step.Key, out var reachedAt) ? reachedAt : null,
                         step.State.ToString()))
                     .ToArray(),
             };

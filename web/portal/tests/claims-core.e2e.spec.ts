@@ -1476,3 +1476,43 @@ test.describe("Item 19: customer status wording and timeline", () => {
     await expect(page.locator("#headline-Closed")).toHaveValue("Your claim is closed");
   });
 });
+
+test.describe("Item 20: change status", () => {
+  test("an officer changes a claim's status with a reason, the customer sees it, and deciding statuses are explained rather than offered", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+
+    await page.goto(`/app/claims/${caseId}`);
+    const panel = page.getByTestId("claim-status-change");
+    await expect(panel.getByTestId("current-status")).toHaveText("Received");
+
+    // Only the moves an officer decides are offered; the rest say how they are reached.
+    const choice = panel.getByLabel("Move the claim to");
+    await expect(choice.locator("option")).toHaveText(["Choose a status", "Under review", "Waiting on documents"]);
+    await panel.getByText("How the other statuses are reached").click();
+    await expect(panel.getByTestId("other-statuses")).toContainText("Approvals queue");
+    await expect(panel.getByTestId("other-statuses")).toContainText("Use Resolve");
+
+    // A reason is needed.
+    await choice.selectOption("InReview");
+    await expect(panel.getByRole("button", { name: "Change status" })).toBeDisabled();
+    await panel.getByLabel("Why you are changing the status").fill("Started going through the documents.");
+    await panel.getByRole("button", { name: "Change status" }).click();
+    await expect(panel.getByRole("status")).toContainText("The claim is now under review.");
+    await expect(panel.getByTestId("current-status")).toHaveText("Under review");
+
+    // The customer sees the matching words and the step they are on.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openClaimantPortal(page, token);
+    await expect(page.getByTestId("claim-status-headline")).toHaveText("We are reviewing your claim");
+    await expect(page.getByTestId("claim-timeline").locator('li[data-state="Current"]')).toContainText("Assessment");
+  });
+
+  test("a deciding status cannot be chosen by hand and another tenant cannot change this claim", async ({ request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
+    const move = await request.post(`${API}/api/v1/cases/${caseId}/status`, { headers: officer, data: { toStatus: "Settled", reason: "Skipping ahead." } });
+    expect(move.status()).toBe(409);
+    const other = await request.post(`${API}/api/v1/cases/${caseId}/status`, { headers: scopeHeaders(newTenant()), data: { toStatus: "InReview", reason: "Not mine." } });
+    expect(other.status()).toBe(404);
+  });
+});

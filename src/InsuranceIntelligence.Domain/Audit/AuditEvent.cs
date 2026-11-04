@@ -439,6 +439,28 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>A person changed a claim's status with the "Change status" action (build-loop item 20),
+    /// with the reason they gave.</summary>
+    public static AuditEvent CaseStatusChanged(ClaimCaseSnapshot before, ClaimCaseSnapshot after, string userId, string correlationId, string reason) =>
+        new(
+            Guid.NewGuid(),
+            after.Scope,
+            after.CaseId,
+            DocumentId: null,
+            UserId: userId,
+            ActorType.User,
+            "case.status.changed",
+            DateTimeOffset.UtcNow,
+            before.Status,
+            after.Status,
+            EvidenceIds: Array.Empty<string>(),
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: reason,
+            CorrelationId: correlationId);
+
     /// <summary>The review score and recommendation for a claim were prepared (build-loop item 18).
     /// Advisory: it changes nothing on the claim.</summary>
     public static AuditEvent ClaimAssessmentPrepared(TenantScope scope, Guid caseId, string userId, string recommendation, int score, string correlationId) =>
