@@ -26,7 +26,8 @@ public sealed class WhatsAppClaimantAccessLinkIssuer(
     IClaimantMagicLinkTokenRepository tokenRepository,
     IPolicyRepository policyRepository,
     ICustomerRepository customerRepository,
-    InfrastructureOptions options) : IClaimantAccessLinkIssuer
+    InfrastructureOptions options,
+    InsuranceIntelligence.Application.ClientPortal.IPortalAddress? portalAddress = null) : IClaimantAccessLinkIssuer
 {
     public static readonly TimeSpan LinkLifetime = TimeSpan.FromHours(24);
 
@@ -38,7 +39,7 @@ public sealed class WhatsAppClaimantAccessLinkIssuer(
         string correlationId,
         CancellationToken cancellationToken = default)
     {
-        var baseUrl = ResolveBaseUrl(options);
+        var baseUrl = portalAddress is not null ? portalAddress.BaseUrlFor(scope) : ResolveBaseUrl(options);
         if (baseUrl is null)
         {
             return null;
@@ -72,8 +73,7 @@ public sealed class WhatsAppClaimantAccessLinkIssuer(
             DeliveryStatus = "SentInWhatsAppConversation",
         }, cancellationToken);
 
-        // The link names the organisation it is for, so one shared portal knows whose claim this is.
-        return $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}&t={Uri.EscapeDataString(scope.TenantId)}&w={Uri.EscapeDataString(scope.WorkspaceId)}";
+        return $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}{portalAddress?.LinkQueryFor(scope)}";
     }
 
     // Development falls back to the local portal, the same rule the magic-link page applies; any

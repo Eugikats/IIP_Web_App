@@ -20,6 +20,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedTenantSettings> TenantSettings => Set<PersistedTenantSettings>();
     public DbSet<PersistedUserAccount> UserAccounts => Set<PersistedUserAccount>();
     public DbSet<PersistedMailboxConnection> MailboxConnections => Set<PersistedMailboxConnection>();
+    public DbSet<InsuranceIntelligence.Infrastructure.ClientPortal.PersistedPortalIdentity> PortalIdentities => Set<InsuranceIntelligence.Infrastructure.ClientPortal.PersistedPortalIdentity>();
     public DbSet<PersistedInboundEmail> InboundEmails => Set<PersistedInboundEmail>();
     public DbSet<PersistedTeamsNotification> TeamsNotifications => Set<PersistedTeamsNotification>();
     public DbSet<PersistedWordingDraft> WordingDrafts => Set<PersistedWordingDraft>();
@@ -120,6 +121,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedTenantSettings>(), "TenantSettings", "TenantSettingsId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedUserAccount>(), "UserAccounts", "UserAccountKey");
         ConfigureScopedJson(modelBuilder.Entity<PersistedMailboxConnection>(), "MailboxConnections", "MailboxConnectionId");
+        ConfigureScopedJson(modelBuilder.Entity<InsuranceIntelligence.Infrastructure.ClientPortal.PersistedPortalIdentity>(), "PortalIdentities", "PortalIdentityId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedInboundEmail>(), "InboundEmails", "MessageId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedTeamsNotification>(), "TeamsNotifications", "NotificationId");
         modelBuilder.Entity<PersistedTeamsNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });

@@ -8,7 +8,6 @@ using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Communications;
-using InsuranceIntelligence.Domain.Channels;
 using InsuranceIntelligence.Domain.Contestability;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
@@ -16,7 +15,6 @@ using InsuranceIntelligence.Domain.Knowledge;
 using InsuranceIntelligence.Domain.Notifications;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Communications;
-using InsuranceIntelligence.Infrastructure.Connections;
 using InsuranceIntelligence.Infrastructure.Configuration;
 using InsuranceIntelligence.Infrastructure.Persistence;
 using InsuranceIntelligence.Infrastructure.Email;
@@ -28,7 +26,6 @@ using InsuranceIntelligence.Infrastructure.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace InsuranceIntelligence.Infrastructure.DependencyInjection;
@@ -109,38 +106,6 @@ public static class InfrastructureRegistration
         // the WhatsApp settings screen to every connection type. Scoped: resolves through
         // IIntegrationConnectionRepository, which is DbContext-backed.
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IIntegrationConnectionRepository, InsuranceIntelligence.Infrastructure.Connections.EfIntegrationConnectionRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Integrations.IUserFileConnectionRepository, InsuranceIntelligence.Infrastructure.Connections.EfUserFileConnectionRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Security.IUserSecurityRepository, InsuranceIntelligence.Infrastructure.Security.EfUserSecurityRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Security.IMfaPolicyRepository, InsuranceIntelligence.Infrastructure.Security.EfMfaPolicyRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Compliance.ILegalHoldRepository, InsuranceIntelligence.Infrastructure.Compliance.EfLegalHoldRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Academy.IAcademyRecordStore, InsuranceIntelligence.Infrastructure.Academy.EfAcademyRecordStore>();
-        services.AddScoped<InsuranceIntelligence.Application.Workspaces.IWorkspaceRecordStore, InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceRecordStore>();
-        services.AddScoped<InsuranceIntelligence.Application.Workspaces.WorkspaceBrandService>();
-        services.AddScoped<InsuranceIntelligence.Application.Organisations.CompanyProfileService>();
-        services.AddScoped<InsuranceIntelligence.Application.Templates.TemplateCatalogService>();
-        services.AddScoped<InsuranceIntelligence.Application.BankEvents.EventService>();
-        services.AddScoped<InsuranceIntelligence.Application.BankEvents.PolicySweepService>();
-        services.AddScoped<InsuranceIntelligence.Application.BankEvents.CaseSweepService>();
-        services.AddScoped<InsuranceIntelligence.Application.Rules.RuleService>();
-        services.AddScoped<InsuranceIntelligence.Application.Rules.DecisionLog>();
-        services.AddScoped<InsuranceIntelligence.Application.Rules.OutcomeService>();
-        services.AddScoped<InsuranceIntelligence.Application.Rules.PersonTimelineService>();
-        services.AddScoped<InsuranceIntelligence.Application.Rules.ConversionReportService>();
-        services.AddScoped<InsuranceIntelligence.Application.Rules.CampaignReportService>();
-        services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoCustomerService>();
-        services.AddScoped<InsuranceIntelligence.Application.Rules.RuleEngine>();
-        services.AddScoped<InsuranceIntelligence.Application.BankEvents.IBankEventFileSink, InsuranceIntelligence.Application.BankEvents.EventFileSink>();
-        services.AddScoped<InsuranceIntelligence.Application.Templates.TemplateMessageService>();
-        services.AddScoped<InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver>(sp => sp.GetRequiredService<InsuranceIntelligence.Application.Workspaces.WorkspaceBrandService>());
-        services.AddScoped<InsuranceIntelligence.Domain.Integrations.IDataConnectorRepository, InsuranceIntelligence.Infrastructure.Connectors.EfDataConnectorRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorRunRepository, InsuranceIntelligence.Infrastructure.Connectors.EfConnectorRunRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorItemRepository, InsuranceIntelligence.Infrastructure.Connectors.EfConnectorItemRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppWebhookReceiptRepository, InsuranceIntelligence.Infrastructure.WhatsApp.EfWhatsAppWebhookReceiptRepository>();
-        services.AddSingleton(InsuranceIntelligence.Application.Billing.AiCreditPricing.Default);
-        services.AddScoped<InsuranceIntelligence.Application.Billing.IAiUsageContext, InsuranceIntelligence.Application.Billing.AiUsageContext>();
-        services.AddScoped<InsuranceIntelligence.Application.Billing.IAiUsageRepository, InsuranceIntelligence.Infrastructure.Billing.EfAiUsageRepository>();
-        services.AddScoped<InsuranceIntelligence.Application.Billing.IAiCreditGate, InsuranceIntelligence.Infrastructure.Billing.AiCreditGate>();
-        services.AddScoped<InsuranceIntelligence.Application.Billing.IAiUsageRecorder, InsuranceIntelligence.Infrastructure.Billing.AiUsageRecorder>();
         services.AddScoped<InsuranceIntelligence.Domain.Agents.IAgentBehaviourProfileRepository, InsuranceIntelligence.Infrastructure.Agents.EfAgentBehaviourProfileRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Products.IProductRepository, InsuranceIntelligence.Infrastructure.Products.EfProductRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Workflow.ICommunicationTemplateRepository, InsuranceIntelligence.Infrastructure.Workflow.EfCommunicationTemplateRepository>();
@@ -152,17 +117,6 @@ public static class InfrastructureRegistration
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, AfricasTalkingConnectionValidator>();
         services.AddSingleton<IEmailSendingProviderFactory, EmailSendingProviderFactory>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, SmtpConnectionValidator>();
-        foreach (var socialType in new[] { ConnectionType.Instagram, ConnectionType.Messenger, ConnectionType.TikTok, ConnectionType.X })
-        {
-            services.AddTransient<IConnectionValidator>(provider =>
-                new SocialAccountConnectionValidator(socialType, provider.GetRequiredService<IHttpClientFactory>().CreateClient()));
-        }
-        services.AddSingleton<IConnectionValidator, TelegramConnectionValidator>();
-        services.AddSingleton<ITelegramWebhookRegistrar, TelegramWebhookRegistrar>();
-        services.AddSingleton<ITelegramTextSender, TelegramTextSender>();
-        services.AddSingleton<IMetaTextSender, MetaTextSender>();
-        services.AddHttpClient<ITikTokTextSender, TikTokTextSender>();
-        services.AddHttpClient<IXDirectMessageSender, XDirectMessageSender>();
 
         // ISmsProvider/IEmailSendingProvider are always the tenant-aware resolvers now, the
         // three-step order (tenant Connection, then env var fallback, then Not configured).
@@ -172,10 +126,9 @@ public static class InfrastructureRegistration
         services.AddScoped<ISmsProvider, TenantAwareSmsProvider>();
         services.AddScoped<IEmailSendingProvider, TenantAwareEmailSendingProvider>();
 
-        // Policy lookup port with distinct external provider outcomes. Automatic redirects are
-        // disabled so credentials cannot be forwarded to a different destination after a redirect.
-        services.AddHttpClient(nameof(InsuranceIntelligence.Infrastructure.Policies.GenericRestPolicyLookupProvider))
-            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        // Policy lookup port (blueprint §14 Phase 7, WO 7.1/7.2), same tenant-aware resolution
+        // shape as SMS/email above, except the fallback (this platform's own policy storage) is
+        // always a meaningful answer, so there is no third "not configured" state.
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IConnectionValidator, InsuranceIntelligence.Infrastructure.Policies.GenericRestPolicyConnectionValidator>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.Policies.InternalPolicyLookupProvider>();
         services.AddScoped<InsuranceIntelligence.Domain.Policies.IPolicyLookupProvider, InsuranceIntelligence.Infrastructure.Policies.TenantAwarePolicyLookupProvider>();
@@ -196,37 +149,10 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Integrations.IWhatsAppChannelConfigurationRepository, EfWhatsAppChannelConfigurationRepository>();
         services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IWhatsAppCredentialProtector, DataProtectionWhatsAppCredentialProtector>();
         services.AddSingleton<IWhatsAppRuntimeSettingsProvider, WhatsAppRuntimeSettingsProvider>();
-        services.AddScoped<InsuranceIntelligence.Domain.Common.IWorkspaceDirectory, InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceDirectory>();
-        services.AddScoped<InsuranceIntelligence.Domain.Organisations.IOrganisationRepository, InsuranceIntelligence.Infrastructure.Persistence.EfOrganisationRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Webhooks.IOutboundWebhookRepository, InsuranceIntelligence.Infrastructure.Webhooks.EfOutboundWebhookRepository>();
-        services.AddScoped<InsuranceIntelligence.Application.Webhooks.OutboundEventPublisher>();
-        services.AddSingleton<InsuranceIntelligence.Application.Webhooks.IWebhookHttpSender, InsuranceIntelligence.Infrastructure.Webhooks.SafeWebhookHttpSender>();
-        services.AddScoped<InsuranceIntelligence.Application.Webhooks.OutboundWebhookDispatcher>();
-        services.AddScoped<InsuranceIntelligence.Domain.Organisations.IApiKeyRepository, InsuranceIntelligence.Infrastructure.Persistence.EfApiKeyRepository>();
-        services.AddScoped<InsuranceIntelligence.Application.Organisations.ApiKeyService>();
-        services.AddScoped<InsuranceIntelligence.Application.Organisations.OrganisationService>();
-        services.AddScoped<InsuranceIntelligence.Application.Organisations.OrganisationOnboardingService>();
-        services.AddScoped<InsuranceIntelligence.Domain.Usage.IUsageMeter, InsuranceIntelligence.Infrastructure.Persistence.EfUsageMeter>();
-        services.AddScoped<InsuranceIntelligence.Infrastructure.Persistence.TenantDataService>();
-
-        // Microsoft Marketplace. The real client is used only when the deployment says it is a
-        // registered publisher (INSURANCEINTELLIGENCE_MARKETPLACE_ENABLED); otherwise every
-        // Marketplace route reports it is not connected rather than pretending.
-        services.AddSingleton(InsuranceIntelligence.Application.Marketplace.MarketplacePlanMap.Parse(configuration["INSURANCEINTELLIGENCE_MARKETPLACE_PLAN_MAP"]));
-        if (bool.TryParse(configuration["INSURANCEINTELLIGENCE_MARKETPLACE_ENABLED"], out var marketplaceEnabled) && marketplaceEnabled)
-        {
-            services.AddHttpClient<InsuranceIntelligence.Domain.Marketplace.IMarketplaceFulfillmentClient, InsuranceIntelligence.Infrastructure.Marketplace.MicrosoftMarketplaceFulfillmentClient>()
-                .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(30));
-            services.AddSingleton<Azure.Core.TokenCredential>(_ => new Azure.Identity.DefaultAzureCredential());
-        }
-        else
-        {
-            services.AddSingleton<InsuranceIntelligence.Domain.Marketplace.IMarketplaceFulfillmentClient, InsuranceIntelligence.Infrastructure.Marketplace.NotConfiguredMarketplaceFulfillmentClient>();
-        }
-
-        services.AddScoped<InsuranceIntelligence.Application.Marketplace.MarketplaceFulfillmentService>();
+        // Which workspace a customer's link or web address belongs to (build-loop item 29).
+        services.AddSingleton<InsuranceIntelligence.Infrastructure.ClientPortal.IHostnameVerifier, InsuranceIntelligence.Infrastructure.ClientPortal.HttpHostnameVerifier>();
+        services.AddSingleton<InsuranceIntelligence.Infrastructure.ClientPortal.IPortalDirectory, InsuranceIntelligence.Infrastructure.ClientPortal.PortalDirectory>();
         services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppGraphValidationClient, MetaGraphWhatsAppValidationClient>();
-        services.AddHttpClient<InsuranceIntelligence.Domain.Integrations.IWhatsAppPhoneNumberLifecycleClient, MetaPhoneNumberLifecycleClient>();
 
         // The real inbound/outbound providers are registered unconditionally now (blueprint §3.3,
         // §4.4) rather than gated on INSURANCEINTELLIGENCE_CHANNEL_PROVIDER, this was previously
@@ -240,14 +166,7 @@ public static class InfrastructureRegistration
         // reported). ChannelProvider itself is untouched and still governs the separate
         // AzureProviderStartupValidator fail-closed check for Staging/Production.
         services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
-        // Everything that leaves for a customer passes the content guard and the per-number rate limit first.
-        services.AddHttpClient<WhatsAppCloudApiOutboundProvider>();
-        services.TryAddSingleton(TimeProvider.System);
-        services.AddSingleton<OutboundRateLimiter>();
-        services.AddTransient<IWhatsAppOutboundProvider>(provider => new GuardedWhatsAppOutboundProvider(
-            provider.GetRequiredService<WhatsAppCloudApiOutboundProvider>(),
-            provider.GetRequiredService<OutboundRateLimiter>(),
-            provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GuardedWhatsAppOutboundProvider>>()));
+        services.AddHttpClient<IWhatsAppOutboundProvider, WhatsAppCloudApiOutboundProvider>();
         services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
 
         services.AddScoped<IWhatsAppToCaseMatcher, RuleBasedWhatsAppToCaseMatcher>();
@@ -304,6 +223,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Jobs.IBackgroundJobStore, EfBackgroundJobStore>();
         services.AddScoped<IUserAccountRepository, EfUserAccountRepository>();
         services.AddScoped<IMailboxConnectionRepository, EfMailboxConnectionRepository>();
+        services.AddScoped<InsuranceIntelligence.Domain.ClientPortal.IPortalIdentityRepository, InsuranceIntelligence.Infrastructure.ClientPortal.EfPortalIdentityRepository>();
         services.AddScoped<IInboundEmailRepository, EfInboundEmailRepository>();
         services.AddScoped<ITeamsNotificationRepository, EfTeamsNotificationRepository>();
         services.AddScoped<INotificationRepository, EfNotificationRepository>();
@@ -317,11 +237,7 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Domain.Policies.ICoverageRepository, EfCoverageRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Distribution.IBranchRepository, EfBranchRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Distribution.IProducerRepository, EfProducerRepository>();
-        // Single-tenant deployments never read the organisations table on the sign-in path, so the code can be
-        // deployed before its migration is applied.
-        services.AddScoped<IPermissionReadRepository>(provider => new EfPermissionReadRepository(
-            provider.GetRequiredService<InsuranceIntelligenceDbContext>(),
-            checkOrganisationStatus: provider.GetRequiredService<InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions>().MultiTenant));
+        services.AddScoped<IPermissionReadRepository, EfPermissionReadRepository>();
         services.AddScoped<IAuditEventRepository, EfAuditEventRepository>();
         services.AddScoped<IClaimsReadRepository, EfClaimsReadRepository>();
         // W2.5: read-side adapters backing the Phase 2 query services. Channels and Sales Leads
@@ -343,13 +259,10 @@ public static class InfrastructureRegistration
         services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentReadRepository, EfDocumentReadRepository>();
         services.AddScoped<ICommandCenterConversationRepository, EfCommandCenterConversationRepository>();
         services.AddScoped<IWhatsAppMessageRepository, EfWhatsAppMessageRepository>();
-        services.AddScoped<IChannelMessageRepository, EfChannelMessageRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.Channels.IChannelIdentityLinkRepository, EfChannelIdentityLinkRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerConversationRepository, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfCustomerConversationRepository>();
         services.AddScoped<InsuranceIntelligence.Application.SalesLeads.IConversationActivityReader, InsuranceIntelligence.Infrastructure.CustomerAssistant.EfConversationActivityReader>();
         services.AddScoped<InsuranceIntelligence.Domain.Compliance.IConsentRepository, InsuranceIntelligence.Infrastructure.Compliance.EfConsentRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Translation.ICustomerLanguagePreferenceRepository, InsuranceIntelligence.Infrastructure.Translation.EfCustomerLanguagePreferenceRepository>();
-        services.AddScoped<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerFollowUpRepository, EfCustomerFollowUpRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Retention.IRetentionReminderRepository, InsuranceIntelligence.Infrastructure.Retention.EfRetentionReminderRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Cases.ISatisfactionResponseRepository, InsuranceIntelligence.Infrastructure.Cases.EfSatisfactionResponseRepository>();
         services.AddScoped<InsuranceIntelligence.Domain.Compliance.IRetentionPolicyRepository, InsuranceIntelligence.Infrastructure.Compliance.EfRetentionPolicyRepository>();
@@ -410,11 +323,6 @@ public static class InfrastructureRegistration
             EntraClientId = configuration["INSURANCEINTELLIGENCE_ENTRA_CLIENT_ID"],
             EntraAudience = configuration["INSURANCEINTELLIGENCE_ENTRA_AUDIENCE"],
             EntraIssuer = configuration["INSURANCEINTELLIGENCE_ENTRA_ISSUER"],
-            ExternalIdAuthority = configuration["INSURANCEINTELLIGENCE_EXTERNAL_ID_AUTHORITY"],
-            ExternalIdClientId = configuration["INSURANCEINTELLIGENCE_EXTERNAL_ID_CLIENT_ID"],
-            ExternalIdAudience = configuration["INSURANCEINTELLIGENCE_EXTERNAL_ID_AUDIENCE"],
-            DataProtectionBlobUri = configuration["INSURANCEINTELLIGENCE_DATAPROTECTION_BLOB_URI"],
-            DataProtectionKeyUri = configuration["INSURANCEINTELLIGENCE_DATAPROTECTION_KEY_URI"],
             ClientPortalBaseUrl = configuration["INSURANCEINTELLIGENCE_CLIENT_PORTAL_BASE_URL"],
             SmsWebhookSharedSecret = configuration["INSURANCEINTELLIGENCE_SMS_WEBHOOK_SHARED_SECRET"],
             ApiPublicBaseUrl = configuration["INSURANCEINTELLIGENCE_API_PUBLIC_BASE_URL"],
@@ -519,15 +427,12 @@ public static class InfrastructureRegistration
                 RequestTimeoutSeconds = int.TryParse(configuration["AfricasTalking:RequestTimeoutSeconds"], out var atTimeout) ? atTimeout : 15,
                 AutoSendTransactionalSmsEnabled = bool.TryParse(configuration["AfricasTalking:AutoSendTransactionalSmsEnabled"], out var autoSms) && autoSms,
             },
-            MultiTenant = bool.TryParse(configuration["INSURANCEINTELLIGENCE_MULTI_TENANT"], out var multiTenant) && multiTenant,
             WhatsApp = new WhatsAppOptions
             {
                 PhoneNumberId = configuration["WhatsApp:PhoneNumberId"],
                 AccessToken = configuration["WhatsApp:AccessToken"],
                 AppSecret = configuration["WhatsApp:AppSecret"],
                 VerifyToken = configuration["WhatsApp:VerifyToken"],
-                ManagedAccessToken = configuration["WhatsApp:ManagedAccessToken"],
-                ManagedAppSecret = configuration["WhatsApp:ManagedAppSecret"],
                 TenantId = configuration["WhatsApp:TenantId"] ?? configuration["INSURANCEINTELLIGENCE_TENANT_ID"],
                 WorkspaceId = configuration["WhatsApp:WorkspaceId"] ?? configuration["INSURANCEINTELLIGENCE_WORKSPACE_ID"],
                 IntegrationUserId = configuration["WhatsApp:IntegrationUserId"],

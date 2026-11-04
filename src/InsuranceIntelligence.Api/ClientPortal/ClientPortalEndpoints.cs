@@ -250,8 +250,8 @@ public static class ClientPortalEndpoints
         IImageDerivativeProvider? derivativeProvider = null,
         ISlotPdfService? slotPdfService = null,
         ISlotPdfRepository? slotPdfRepository = null,
-        ILoggerFactory? derivativeLoggerFactory = null,
-        IClaimantStatusPresenter? claimantStatus = null)
+        IClaimantStatusPresenter? claimantStatus = null,
+        ILoggerFactory? derivativeLoggerFactory = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -333,7 +333,8 @@ public static class ClientPortalEndpoints
         ISlotPdfRepository? slotPdfRepository,
         IClaimantStatusPresenter? claimantStatus,
         ILoggerFactory? derivativeLoggerFactory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? reusedFromClaim = null)
     {
         // The customer's own choice of which required document this is (outcome B). Absent for an
         // older client and for the catch-all "something else" slot, in which case the classifier's
@@ -377,7 +378,7 @@ public static class ClientPortalEndpoints
             var documentId = Guid.NewGuid();
             // The original is stored byte for byte; its hash and a separate preview are kept beside it.
             var stored = await DocumentOriginals.StoreAsync(
-                file, documentId, caseId, scope, NormalizeContentType(file), storageProvider, derivativeProvider, cancellationToken, derivativeLoggerFactory);
+                file, documentId, caseId, scope, NormalizeContentType(file), storageProvider, derivativeProvider, cancellationToken);
 
             var uploadedDocument = CreateUploadedDocument(documentId, claimCase, file, stored.Storage, actor, correlationId, documentTypeKey) with
             {
@@ -385,6 +386,9 @@ public static class ClientPortalEndpoints
                 SlotKind = slotKind,
                 PreviewObjectKey = stored.PreviewObjectKey,
                 PageOrder = slotKind == DocumentKind.Document && documentTypeKey is not null ? nextPageOrder++ : null,
+                // Set when the file is first saved, never afterwards: the reading of the file runs in the background and
+                // saves its own copy of the document, which would otherwise overwrite a mark written a moment later.
+                ReusedFromClaim = reusedFromClaim,
             };
             await documentRepository.SaveAsync(uploadedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentUploaded(uploadedDocument, actor, correlationId), cancellationToken);
@@ -828,7 +832,6 @@ public static class ClientPortalEndpoints
                 slot.Description,
                 slot.Required,
                 inSlot.Length > 0,
-                inSlot.Any(document => document.CountsTowardsCompleteness),
                 status,
                 latest?.OriginalFileName,
                 latest?.UploadedAt,
@@ -885,8 +888,6 @@ public static class ClientPortalEndpoints
             claimCase.CreatedAt,
             claimCase.UpdatedAt,
             checklist.CompletenessScore.Percentage,
-            checklist.CompletenessScore.RequiredReceived,
-            checklist.CompletenessScore.RequiredTotal,
             requiredDocuments,
             BuildTimeline(claimCase),
             messages,
@@ -918,7 +919,7 @@ public static class ClientPortalEndpoints
             [
                 "Upload the remaining required documents.",
                 "Our team will review the information received.",
-                "We will message you with the next update."
+                "We will share the next update through your configured contact channel."
             ];
         }
 
@@ -926,7 +927,7 @@ public static class ClientPortalEndpoints
         [
             "No required documents are missing right now.",
             "Our team will complete the claim review.",
-            "We will message you with the decision."
+            "We will share the decision with you through your configured contact channel."
         ];
     }
 
@@ -1147,8 +1148,6 @@ public sealed record ClientPortalClaimResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     decimal CompletenessScore,
-    int RequiredDocumentsReceived,
-    int RequiredDocumentsTotal,
     // Every row from the claim's pinned product version, required and optional alike, each
     // carrying its own Required flag (outcome B); not only the required ones despite the name
     // this field has always had.
@@ -1183,7 +1182,6 @@ public sealed record ClientPortalDocumentRequirement(
     string Description,
     bool Required,
     bool Uploaded,
-    bool Received,
     string Status,
     string? FileName,
     DateTimeOffset? UploadedAt,

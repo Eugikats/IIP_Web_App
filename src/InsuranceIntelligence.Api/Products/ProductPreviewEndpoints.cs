@@ -76,7 +76,6 @@ public static class ProductPreviewEndpoints
                 slot.Description,
                 slot.Required,
                 Uploaded: false,
-                Received: false,
                 Status: "Not uploaded",
                 FileName: null,
                 UploadedAt: null,

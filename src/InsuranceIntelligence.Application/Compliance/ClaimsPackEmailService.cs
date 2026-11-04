@@ -16,6 +16,9 @@ namespace InsuranceIntelligence.Application.Compliance;
 public interface IPortalBaseUrl
 {
     string? BaseUrl { get; }
+
+    /// <summary>The address for this workspace's customers: its own web address when it has a verified one (build-loop item 29).</summary>
+    string? BaseUrlFor(TenantScope scope) => BaseUrl;
 }
 
 public sealed record ClaimsPackSendResult(string Outcome, string Mode, int Recipients, string? Message, DateTimeOffset? LinkExpiresAt);
@@ -76,7 +79,7 @@ public sealed class ClaimsPackEmailService(
         DateTimeOffset? expires = null;
         if (!attach)
         {
-            var baseUrl = portalBaseUrl.BaseUrl;
+            var baseUrl = portalBaseUrl.BaseUrlFor(scope);
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
                 return await RecordAsync(scope, caseId, reasonKey, reason, actorId, recipients, "NotSent", "ConfigurationRequired", pack, null, correlationId, "The pack is too large to attach, and the customer portal address that a download link needs is not configured.", cancellationToken);

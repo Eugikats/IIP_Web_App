@@ -67,24 +67,29 @@ if (!string.IsNullOrWhiteSpace(keyVaultUri))
         new Azure.Identity.DefaultAzureCredential());
 }
 
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
+builder.Services.AddCors();
+// The portal origins are the configured ones plus the verified web address of any workspace that has its own (build-loop item 29),
+// so the policy is built with the portal directory rather than from configuration alone.
+builder.Services.AddOptions<Microsoft.AspNetCore.Cors.Infrastructure.CorsOptions>()
+    .Configure<InsuranceIntelligence.Infrastructure.ClientPortal.IPortalDirectory>((options, portalDirectory) =>
     {
-        var configuredOrigin = builder.Configuration["Portal:CorsOrigin"];
-        var allowedOrigins = string.IsNullOrWhiteSpace(configuredOrigin)
-            ? new[] { "http://localhost:3000", "http://127.0.0.1:3000" }
-            : configuredOrigin.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        options.AddDefaultPolicy(policy =>
+        {
+            var configuredOrigin = builder.Configuration["Portal:CorsOrigin"];
+            var allowedOrigins = string.IsNullOrWhiteSpace(configuredOrigin)
+                ? new[] { "http://localhost:3000", "http://127.0.0.1:3000" }
+                : configuredOrigin.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        policy.AllowAnyHeader()
-            .AllowAnyMethod()
-            // A browser on another origin can only read these response headers if they are exposed: the
-            // name a download was given (claims pack, item 24) and how many files it holds.
-            .WithExposedHeaders("Content-Disposition", "X-Pack-Files")
-            .WithOrigins(allowedOrigins)
-            .AllowCredentials();
+            policy.AllowAnyHeader()
+                .AllowAnyMethod()
+                // A browser on another origin can only read these response headers if they are exposed: the
+                // name a download was given (claims pack, item 24) and how many files it holds.
+                .WithExposedHeaders("Content-Disposition", "X-Pack-Files")
+                .SetIsOriginAllowed(origin =>
+                    allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase) || portalDirectory.IsPortalOrigin(origin))
+                .AllowCredentials();
+        });
     });
-});
 
 var infrastructureOptions = InfrastructureRegistration.BindOptions(builder.Configuration);
 var runtimeProfile = AzureProviderStartupValidator.ResolveRuntimeProfile(
@@ -391,6 +396,8 @@ if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infrastruct
     builder.Services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IImapMailClient, InsuranceIntelligence.Api.Local.Mock.MockImapMailClient>();
 }
 builder.Services.AddSingleton<ISlaCalculator, BasicSlaCalculator>();
+builder.Services.AddSingleton<InsuranceIntelligence.Domain.Integrations.ITelegramWebhookRegistrar,
+    InsuranceIntelligence.Infrastructure.Connections.TelegramWebhookRegistrar>();
 
 if (infrastructureOptions.NotificationProvider.Equals("IncomingWebhook", StringComparison.OrdinalIgnoreCase))
 {
@@ -473,6 +480,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimsP
 builder.Services.AddScoped<InsuranceIntelligence.Application.Customers.ICustomerMemoryService, InsuranceIntelligence.Application.Customers.CustomerMemoryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimsPackEmailService, InsuranceIntelligence.Application.Compliance.ClaimsPackEmailService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimsPackTrigger, InsuranceIntelligence.Application.Compliance.ClaimsPackTrigger>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.ClientPortal.IPortalAddress, InsuranceIntelligence.Api.ClientPortal.PortalAddress>();
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Compliance.IPortalBaseUrl, InsuranceIntelligence.Api.Compliance.ConfiguredPortalBaseUrl>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Jobs.IBackgroundJobHandler, InsuranceIntelligence.Api.Compliance.ClaimsPackJobHandler>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
@@ -1387,6 +1395,16 @@ app.MapGet("/api/v1/integrations/email/messages", EmailIntegrationEndpoints.List
 app.MapGet("/api/v1/integrations/email/messages/{messageId:guid}", EmailIntegrationEndpoints.GetMessage)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/email/graph/webhook", EmailIntegrationEndpoints.GraphWebhook);
+// The customer portal's identity (build-loop item 29): public branding for the claimant pages, and the administrator's controls.
+app.MapGet("/api/v1/client-portal/branding", InsuranceIntelligence.Api.ClientPortal.PortalIdentityEndpoints.GetBranding);
+app.MapGet("/api/v1/admin/portal-identity", InsuranceIntelligence.Api.ClientPortal.PortalIdentityEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPut("/api/v1/admin/portal-identity", InsuranceIntelligence.Api.ClientPortal.PortalIdentityEndpoints.Put)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/admin/portal-identity/verify-hostname", InsuranceIntelligence.Api.ClientPortal.PortalIdentityEndpoints.VerifyHostname)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/admin/portal-identity/sms-webhook", InsuranceIntelligence.Api.ClientPortal.PortalIdentityEndpoints.RotateSmsWebhook)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/integrations/whatsapp/health", WhatsAppIntegrationEndpoints.GetHealth)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.GetStatus)

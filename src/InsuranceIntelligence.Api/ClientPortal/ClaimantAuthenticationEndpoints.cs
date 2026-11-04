@@ -36,15 +36,18 @@ public static class ClaimantAuthenticationEndpoints
         HttpContext httpContext,
         ILogger<ClaimantMagicLinkLogMarker> logger,
         CancellationToken cancellationToken,
-        IHostEnvironment? hostEnvironment = null)
+        IHostEnvironment? hostEnvironment = null,
+        InsuranceIntelligence.Application.ClientPortal.IPortalAddress? portalAddress = null)
     {
         if (!ClientPortalScopeReader.TryGetFromHeaders(httpContext, out var scope, out var validationError))
         {
             return Validation("tenantScope", validationError);
         }
 
-        if (string.IsNullOrWhiteSpace(options.ClientPortalBaseUrl)
-            && !options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+        var noAddress = portalAddress is not null
+            ? portalAddress.BaseUrlFor(scope) is null
+            : string.IsNullOrWhiteSpace(options.ClientPortalBaseUrl) && !options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase);
+        if (noAddress)
         {
             return Results.BadRequest(new
             {
@@ -106,7 +109,7 @@ public static class ClaimantAuthenticationEndpoints
         {
             undeliveredLink = await IssueAndSendAsync(
                 policyNumber, claimCase.CaseId, request.ContactValue, claimCase.CustomerEmail, claimCase.CustomerPhone,
-                scope, communicationProvider, tokenRepository, options, correlationId, logger, cancellationToken);
+                scope, communicationProvider, tokenRepository, options, correlationId, logger, cancellationToken, portalAddress);
         }
         else if (policy is not null)
         {
@@ -115,7 +118,7 @@ public static class ClaimantAuthenticationEndpoints
                 : await customerRepository.GetAsync(policy.CustomerId, scope, cancellationToken);
             undeliveredLink = await IssueAndSendAsync(
                 policyNumber, caseId: null, request.ContactValue, customer?.Email, customer?.Phone,
-                scope, communicationProvider, tokenRepository, options, correlationId, logger, cancellationToken);
+                scope, communicationProvider, tokenRepository, options, correlationId, logger, cancellationToken, portalAddress);
         }
 
         await auditRepository.WriteAsync(
@@ -313,7 +316,8 @@ public static class ClaimantAuthenticationEndpoints
         InfrastructureOptions options,
         string correlationId,
         ILogger<ClaimantMagicLinkLogMarker> logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Application.ClientPortal.IPortalAddress? portalAddress = null)
     {
         var channel = ClaimantContactMatcher.ClassifyChannel(requestedContactValue);
         // Deliver to the value verified on file, not whatever the requester typed, the requester
@@ -342,11 +346,9 @@ public static class ClaimantAuthenticationEndpoints
         };
         await tokenRepository.SaveAsync(token, cancellationToken);
 
-        var baseUrl = string.IsNullOrWhiteSpace(options.ClientPortalBaseUrl)
-            ? "http://localhost:3000"
-            : options.ClientPortalBaseUrl!.TrimEnd('/');
-        // The link names the organisation it is for, so one shared portal knows whose claim this is.
-        var link = $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}&t={Uri.EscapeDataString(scope.TenantId)}&w={Uri.EscapeDataString(scope.WorkspaceId)}";
+        var baseUrl = portalAddress?.BaseUrlFor(scope)
+            ?? (string.IsNullOrWhiteSpace(options.ClientPortalBaseUrl) ? "http://localhost:3000" : options.ClientPortalBaseUrl!.TrimEnd('/'));
+        var link = $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}{portalAddress?.LinkQueryFor(scope)}";
         var messageBody = caseId is null
             ? $"Use this secure link to start your claim on policy {policyNumber}. It expires in 15 minutes and can only be used once: {link}"
             : $"Use this secure link to view your claim. It expires in 15 minutes and can only be used once: {link}";

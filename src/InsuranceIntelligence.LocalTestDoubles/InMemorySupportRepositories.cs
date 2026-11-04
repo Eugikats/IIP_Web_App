@@ -412,3 +412,23 @@ public sealed class InMemoryProducerRepository : InsuranceIntelligence.Domain.Di
         return Task.CompletedTask;
     }
 }
+
+public sealed class InMemoryPortalIdentityRepository : InsuranceIntelligence.Domain.ClientPortal.IPortalIdentityRepository
+{
+    private readonly ConcurrentDictionary<Guid, InsuranceIntelligence.Domain.ClientPortal.PortalIdentity> identities = new();
+
+    public Task<InsuranceIntelligence.Domain.ClientPortal.PortalIdentity?> GetAsync(TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        identities.TryGetValue(InsuranceIntelligence.Domain.ClientPortal.PortalIdentity.StorageKey(scope), out var identity);
+        return Task.FromResult(identity);
+    }
+
+    public Task SaveAsync(InsuranceIntelligence.Domain.ClientPortal.PortalIdentity identity, CancellationToken cancellationToken = default)
+    {
+        identities[InsuranceIntelligence.Domain.ClientPortal.PortalIdentity.StorageKey(identity.Scope)] = identity;
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<InsuranceIntelligence.Domain.ClientPortal.PortalIdentity>> ListAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<InsuranceIntelligence.Domain.ClientPortal.PortalIdentity>>(identities.Values.ToArray());
+}

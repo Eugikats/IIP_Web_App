@@ -1,10 +1,10 @@
 "use client";
 
+import { PortalBrandMark, SupportLine, brandName, brandStyle, usePortalBranding } from "@/components/iip/PortalBrand";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, FileText, Loader2, LogOut, MessageCircleQuestion, ShieldCheck } from "lucide-react";
-import iipLogo from "@/assets/iip-logo";
 import { MarkdownText } from "@/components/iip/MarkdownText";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -47,6 +47,7 @@ const POLICY_SOURCE_LABEL: Record<string, string> = {
 // no billing/payment-status subsystem exists in this codebase to say paid, due, or lapsed, and
 // showing a made-up value would be exactly the fabricated-data failure AGENTS.md forbids.
 export default function ClaimAccessPolicy() {
+  const branding = usePortalBranding();
   const router = useRouter();
   const [session, setSession] = useState<ClientPortalSession | null>(null);
   const [policy, setPolicy] = useState<ClientPortalPolicy | null>(null);
@@ -135,16 +136,14 @@ export default function ClaimAccessPolicy() {
   const standing = policy ? COVER_STATUS_LABEL[policy.coverStatus] ?? COVER_STATUS_LABEL.Unknown : null;
 
   return (
-    <main className="min-h-screen bg-dls-bg-page text-dls-text-primary">
+    <main className="min-h-screen bg-dls-bg-page text-dls-text-primary" style={brandStyle(branding)}>
       <header className="border-b border-dls-border-subtle bg-dls-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-dls-control border border-dls-border-subtle bg-dls-surface">
-              <img src={iipLogo.url} alt="IIP" className="h-7 w-7 object-contain" />
-            </span>
+            <PortalBrandMark branding={branding} />
             <div>
               <div className="text-sm font-semibold">Your policy</div>
-              <div className="text-xs text-dls-text-muted">Insurance Intelligence Platform</div>
+              <div className="text-xs text-dls-text-muted">{brandName(branding)}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">

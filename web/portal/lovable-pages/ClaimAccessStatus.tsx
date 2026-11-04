@@ -1,10 +1,10 @@
 "use client";
 
+import { PortalBrandMark, SupportLine, brandName, brandStyle, usePortalBranding } from "@/components/iip/PortalBrand";
 import { useCallback, useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Circle, Loader2, LogOut, MessageSquare, ShieldCheck } from "lucide-react";
-import iipLogo from "@/assets/iip-logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -67,6 +67,7 @@ function formatDate(value: string | null) {
 // customer-facing wording for a regulated insurer communication isn't a restyling call to make
 // unilaterally; flagged in the ledger for whoever owns claimant-communication copy.
 export default function ClaimAccessStatus() {
+  const branding = usePortalBranding();
   const router = useRouter();
   const [session, setSession] = useState<ClientPortalSession | null>(null);
   const [claim, setClaim] = useState<ClientPortalClaim | null>(null);
@@ -320,16 +321,14 @@ export default function ClaimAccessStatus() {
   const stillNeeded = requiredList.filter((doc) => !doc.received).map((doc) => doc.label);
 
   return (
-    <main className="min-h-screen bg-dls-bg-page text-dls-text-primary">
+    <main className="min-h-screen bg-dls-bg-page text-dls-text-primary" style={brandStyle(branding)}>
       <header className="border-b border-dls-border-subtle bg-dls-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-dls-control border border-dls-border-subtle bg-dls-surface">
-              <img src={iipLogo.url} alt="IIP" className="h-7 w-7 object-contain" />
-            </span>
+            <PortalBrandMark branding={branding} />
             <div>
               <div className="text-sm font-semibold">Your claim</div>
-              <div className="text-xs text-dls-text-muted">Insurance Intelligence Platform</div>
+              <div className="text-xs text-dls-text-muted">{brandName(branding)}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -500,6 +499,7 @@ export default function ClaimAccessStatus() {
           </div>
         )}
       </div>
-    </main>
+      <SupportLine branding={branding} />
+      </main>
   );
 }

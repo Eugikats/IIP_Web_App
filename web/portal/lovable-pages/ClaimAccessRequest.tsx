@@ -1,9 +1,9 @@
 "use client";
 
+import { PortalBrandMark, SupportLine, brandName, brandStyle, usePortalBranding } from "@/components/iip/PortalBrand";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { ArrowRight, Check, Loader2, Mail, ShieldCheck } from "lucide-react";
-import iipLogo from "@/assets/iip-logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { requestMagicLink } from "@/lib/clientPortal";
@@ -13,6 +13,7 @@ import { requestMagicLink } from "@/lib/clientPortal";
 // audit detail, or other-tenant data here). This screen only ever asks for and echoes back the
 // policy number and contact value the claimant themselves typed, nothing staff-only is rendered.
 export default function ClaimAccessRequest() {
+  const branding = usePortalBranding();
   const [policyNumber, setPolicyNumber] = useState("");
   const [contactValue, setContactValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -40,7 +41,7 @@ export default function ClaimAccessRequest() {
   }
 
   return (
-    <main className="grid min-h-screen bg-dls-surface text-dls-text-primary lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
+    <main className="grid min-h-screen bg-dls-surface text-dls-text-primary lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]" style={brandStyle(branding)}>
       {/* Brand panel, design language §4.5 notes brand expression is strongest at sign-in.
           Background reuses --color-text-primary's exact value (a deliberate one-off dark brand
           moment, not dark mode, the portal otherwise ships light-only, §9); the checkmark accent
@@ -49,12 +50,10 @@ export default function ClaimAccessRequest() {
       <section className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-dls-text-primary px-12 py-10 text-dls-text-inverse lg:flex xl:px-16 xl:py-12">
         <div className="absolute inset-y-0 right-0 w-px bg-dls-text-inverse/15" />
         <div className="relative flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-dls-control bg-dls-surface">
-            <img src={iipLogo.url} alt="IIP" className="h-8 w-8 object-contain" />
-          </span>
+          <PortalBrandMark branding={branding} large />
           <div>
             <div className="text-sm font-bold">Claim access</div>
-            <div className="mt-0.5 text-xs text-dls-text-inverse/65">Insurance Intelligence Platform</div>
+            <div className="mt-0.5 text-xs text-dls-text-inverse/65">{brandName(branding)}</div>
           </div>
         </div>
 
@@ -87,12 +86,10 @@ export default function ClaimAccessRequest() {
       <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
         <div className="w-full max-w-md">
           <div className="mb-12 flex items-center gap-3 lg:hidden">
-            <span className="grid h-10 w-10 place-items-center rounded-dls-control border border-dls-border-subtle bg-dls-surface">
-              <img src={iipLogo.url} alt="IIP" className="h-8 w-8 object-contain" />
-            </span>
+            <PortalBrandMark branding={branding} large />
             <div>
               <div className="text-sm font-bold">Claim access</div>
-              <div className="text-xs text-dls-text-muted">Insurance Intelligence Platform</div>
+              <div className="text-xs text-dls-text-muted">{brandName(branding)}</div>
             </div>
           </div>
 

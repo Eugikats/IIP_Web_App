@@ -4,7 +4,6 @@ import { apiBaseUrl, defaultTenantId, defaultWorkspaceId } from "@/lib/config";
 import { SINGLE_REQUEST_LIMIT, sendFileInPieces, sendSmallFile, type UploadHandlers } from "@/lib/resumableUpload";
 
 const SESSION_STORAGE_KEY = "iip.client-portal-session";
-const SCOPE_STORAGE_KEY = "iip.client-portal-scope";
 
 export type ClientPortalSession = {
   sessionToken: string;
@@ -21,7 +20,6 @@ export type ClientPortalDocumentRequirement = {
   description: string;
   required: boolean;
   uploaded: boolean;
-  received: boolean;
   status: string;
   fileName: string | null;
   uploadedAt: string | null;
@@ -74,8 +72,6 @@ export type ClientPortalClaim = {
   createdAt: string;
   updatedAt: string;
   completenessScore: number;
-  requiredDocumentsReceived: number;
-  requiredDocumentsTotal: number;
   requiredDocuments: ClientPortalDocumentRequirement[];
   timeline: ClientPortalTimelineStep[];
   messages: ClientPortalMessage[];
@@ -85,6 +81,27 @@ export type ClientPortalClaim = {
   statusHeadline: string;
   statusDetail: string;
 };
+
+const PORTAL_SLUG_KEY = "iip.portal.slug";
+
+/**
+ * Which insurer's portal this is. On a shared portal the customer's link carries the insurer's short name ("?t=acme"), kept for the
+ * rest of the visit and sent with every call as X-Portal-Slug; the server looks the insurer up from it. On an insurer's own web
+ * address nothing is needed, because the server recognises the address.
+ */
+export function portalSlug(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const fromLink = new URLSearchParams(window.location.search).get("t");
+    if (fromLink && /^[a-z][a-z0-9-]{2,39}$/.test(fromLink)) {
+      window.sessionStorage.setItem(PORTAL_SLUG_KEY, fromLink);
+      return fromLink;
+    }
+    return window.sessionStorage.getItem(PORTAL_SLUG_KEY);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * X-Tenant-Id/X-Workspace-Id are always sent, in every runtime, unlike scopedHeaders (used by
@@ -96,36 +113,12 @@ export type ClientPortalClaim = {
  */
 export function clientPortalHeaders(sessionToken?: string | null): Record<string, string> {
   const headers: Record<string, string> = {};
-  // A single-insurer deployment is configured with its scope. The shared product is not: there the link the
-  // customer opened names the organisation, and it is kept for the rest of the visit.
-  const stored = loadPortalScope();
-  const tenantId = defaultTenantId || stored?.tenantId;
-  const workspaceId = defaultWorkspaceId || stored?.workspaceId;
-  if (tenantId) headers["X-Tenant-Id"] = tenantId;
-  if (workspaceId) headers["X-Workspace-Id"] = workspaceId;
+  const slug = portalSlug();
+  if (slug) headers["X-Portal-Slug"] = slug;
+  if (defaultTenantId) headers["X-Tenant-Id"] = defaultTenantId;
+  if (defaultWorkspaceId) headers["X-Workspace-Id"] = defaultWorkspaceId;
   if (sessionToken) headers["X-Client-Portal-Session"] = sessionToken;
   return headers;
-}
-
-export function storePortalScope(scope: { tenantId: string; workspaceId: string }) {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(SCOPE_STORAGE_KEY, JSON.stringify(scope));
-  } catch {
-    // Without storage the customer opens their link again.
-  }
-}
-
-export function loadPortalScope(): { tenantId: string; workspaceId: string } | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(SCOPE_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { tenantId?: string; workspaceId?: string };
-    return parsed.tenantId && parsed.workspaceId ? { tenantId: parsed.tenantId, workspaceId: parsed.workspaceId } : null;
-  } catch {
-    return null;
-  }
 }
 
 export function loadStoredSession(): ClientPortalSession | null {

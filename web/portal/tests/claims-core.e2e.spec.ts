@@ -1958,3 +1958,55 @@ test.describe("Item 28: mail collected for every workspace, including over IMAP"
     expect((await request.post(`${API}/api/v1/integrations/email/mailboxes`, { headers: { ...officer, "X-Audit-Reason": "Not allowed." }, data: imapBody(host, "other@insurer.test") })).status()).toBe(403);
   });
 });
+
+test.describe("Item 29: each insurer's customers arrive on their own portal", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+
+  test("an administrator sets the customer portal identity, links carry the link name, and the customer's pages show the insurer on a phone", async ({ page, request }) => {
+    const slug = `acme-${Math.random().toString(36).slice(2, 8)}`;
+    await page.goto("/app/admin/settings");
+    await page.getByLabel("Link name").fill(slug);
+    await page.getByLabel("Name customers know you by").fill("Acme Insurance");
+    await page.getByLabel("Button colour").fill("#1F5EFF");
+    await page.getByLabel("Support phone").fill("+256 700 000 111");
+    await page.getByLabel("Support email").fill("help@acme.test");
+    await page.getByRole("button", { name: "Save customer portal" }).click();
+    await expect(page.getByText("Customer portal details saved.")).toBeVisible();
+    await expect(page.getByTestId("portal-example-link")).toContainText(`&t=${slug}`);
+
+    // A link made now carries the link name.
+    const claim = await claimantLinkFor(request);
+    let body = "";
+    for (let attempt = 0; attempt < 10 && !body.includes("token="); attempt++) {
+      const outbox = (await (await request.get(`${API}/api/v1/dev/mock-outbox`, { headers })).json()) as { recipient: string; body: string }[];
+      body = outbox.find((message) => message.recipient === claim.email && /token=/.test(message.body))?.body ?? "";
+      if (!body.includes("token=")) await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+    expect(body).toMatch(new RegExp(`token=[A-Za-z0-9_-]+&t=${slug}`));
+
+    // The customer's pages carry the insurer's name and who to call, and fit a phone.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/access/verify?token=${claim.token}&t=${slug}`);
+    await expect(page.getByText("Your claim", { exact: true })).toBeVisible();
+    await expect(page.getByText("Acme Insurance").first()).toBeVisible();
+    await expect(page.getByTestId("portal-support-line")).toContainText("+256 700 000 111");
+    await expect(page.getByTestId("portal-support-line")).toContainText("help@acme.test");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+
+  test("a link that names no insurer the platform knows is refused plainly", async ({ page, request }) => {
+    const claim = await claimantLinkFor(request);
+    await page.goto(`/access/verify?token=${claim.token}&t=nobody-here`);
+    await expect(page.getByText(/claim link is not valid/i)).toBeVisible();
+  });
+
+  test("an officer cannot change the customer portal and another workspace's link name is its own", async ({ request }) => {
+    const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
+    const body = { slug: "officer-try", displayName: "No", accentColour: null, logoUrl: null, supportPhone: null, supportEmail: null, hostname: null };
+    expect((await request.put(`${API}/api/v1/admin/portal-identity`, { headers: officer, data: body })).status()).toBe(403);
+    const other = scopeHeaders(newTenant());
+    const taken = `shared-${Math.random().toString(36).slice(2, 8)}`;
+    expect((await request.put(`${API}/api/v1/admin/portal-identity`, { headers: other, data: { ...body, slug: taken, displayName: "First" } })).status()).toBe(200);
+    expect((await request.put(`${API}/api/v1/admin/portal-identity`, { headers: scopeHeaders(newTenant()), data: { ...body, slug: taken, displayName: "Second" } })).status()).toBe(409);
+  });
+});

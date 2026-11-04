@@ -5,6 +5,7 @@ import { GlassCard, SectionHeader } from "@/components/iip/Primitives";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
+import { PortalIdentityCard } from "@/components/iip/PortalIdentityCard";
 import { useUI } from "@/context/UIStateContext";
 import { loadTenantSettings, saveTenantSettings, type TenantSettings } from "@/lib/tenantSettings";
 
@@ -209,6 +210,8 @@ export default function OperatingSettings() {
             <Input id="assistant-partners" value={draft.assistantPartnerInsurers} maxLength={600} placeholder="Only if you sell other insurers' covers, separated by commas" disabled={!draft.assistantOrganisation.trim()} onChange={(e) => setDraft({ ...draft, assistantPartnerInsurers: e.target.value })} />
             <p className="mt-1 text-[11.5px] text-dls-text-muted">When you list partners, Kato always says which insurer provides each cover.</p>
           </GlassCard>
+
+          <PortalIdentityCard />
 
           {saveError && <p role="alert" className="text-[12.5px] text-dls-danger-text">{saveError}</p>}
           {saved && !dirty && <p role="status" className="text-[12.5px] text-dls-success-text">Settings saved.</p>}

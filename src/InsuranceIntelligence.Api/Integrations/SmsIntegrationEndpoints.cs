@@ -26,14 +26,34 @@ public static class SmsIntegrationEndpoints
         ICommunicationRepository repository,
         InfrastructureOptions options,
         ILogger<SmsDeliveryStatusLogMarker> logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Infrastructure.ClientPortal.IPortalDirectory? directory = null)
     {
-        if (string.IsNullOrWhiteSpace(options.SmsWebhookSharedSecret)
+        // Each workspace has its own secret address (build-loop item 29), so a gateway's report can only ever reach the
+        // workspace that gave it that address. A deployment dedicated to one insurer may still use its one shared secret.
+        TenantScope scope;
+        var ownSecret = directory is null
+            ? null
+            : await FindWorkspaceBySecretAsync(directory, pathSecret, cancellationToken);
+        if (ownSecret is { } workspace)
+        {
+            scope = workspace;
+        }
+        else if (string.IsNullOrWhiteSpace(options.SmsWebhookSharedSecret)
             || !CryptographicEquals(pathSecret, options.SmsWebhookSharedSecret))
         {
             // Deliberately the same 404 whether the secret is simply unconfigured or the caller
             // guessed wrong, never confirm to an outsider that a webhook endpoint exists here.
             return Results.NotFound();
+        }
+        else if (string.IsNullOrWhiteSpace(options.TenantId) || string.IsNullOrWhiteSpace(options.WorkspaceId))
+        {
+            logger.LogWarning("SMS delivery-status webhook received but INSURANCEINTELLIGENCE_TENANT_ID/WORKSPACE_ID are not configured.");
+            return Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "Not configured");
+        }
+        else
+        {
+            scope = TenantScope.Create(options.TenantId!, options.WorkspaceId!);
         }
 
         if (string.IsNullOrWhiteSpace(payload.MessageId))
@@ -41,25 +61,7 @@ public static class SmsIntegrationEndpoints
             return Results.BadRequest(new { message = "A message id is required." });
         }
 
-        Communication? communication;
-        if (options.MultiTenant)
-        {
-            // Many insurers: the receipt carries no tenant, so the gateway's own message id finds
-            // the one communication it belongs to, in whichever insurer sent it.
-            communication = await repository.FindByProviderMessageIdAcrossTenantsAsync(payload.MessageId, cancellationToken);
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(options.TenantId) || string.IsNullOrWhiteSpace(options.WorkspaceId))
-            {
-                logger.LogWarning("SMS delivery-status webhook received but INSURANCEINTELLIGENCE_TENANT_ID/WORKSPACE_ID are not configured.");
-                return Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "Not configured");
-            }
-
-            var scope = TenantScope.Create(options.TenantId!, options.WorkspaceId!);
-            communication = await repository.FindByProviderMessageIdAsync(scope, payload.MessageId, cancellationToken);
-        }
-
+        var communication = await repository.FindByProviderMessageIdAsync(scope, payload.MessageId, cancellationToken);
         if (communication is null)
         {
             // Not an error from the gateway's point of view, just nothing to update on our side
@@ -75,6 +77,13 @@ public static class SmsIntegrationEndpoints
             updated.CommunicationId, updated.DeliveryStatus);
 
         return Results.Ok(new { status = "Updated" });
+    }
+
+    private static async Task<TenantScope?> FindWorkspaceBySecretAsync(
+        InsuranceIntelligence.Infrastructure.ClientPortal.IPortalDirectory directory, string secret, CancellationToken cancellationToken)
+    {
+        await directory.RefreshIfStaleAsync(cancellationToken);
+        return directory.BySmsSecretHash(InsuranceIntelligence.Domain.ClientPortal.PortalIdentity.HashSecret(secret))?.Scope;
     }
 
     private static string NormalizeStatus(string? raw) =>

@@ -1,10 +1,10 @@
 "use client";
 
+import { PortalBrandMark, SupportLine, brandName, brandStyle, usePortalBranding } from "@/components/iip/PortalBrand";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import iipLogo from "@/assets/iip-logo";
 import {
   type ClientPortalSession,
   type MotorFnolDetails,
@@ -24,6 +24,7 @@ const SUPPORTED_PRODUCT_LINES = ["Motor", "Medical"];
 // Claimant-facing (tier 6, stricter rules). Confirmed: this screen only ever shows the
 // claimant's own policy number and what they themselves type; no staff-only content is in scope.
 export default function ClaimAccessNewClaim() {
+  const branding = usePortalBranding();
   const router = useRouter();
   const [session, setSession] = useState<ClientPortalSession | null>(null);
   const [productLine, setProductLine] = useState<string>("Motor");
@@ -157,13 +158,11 @@ export default function ClaimAccessNewClaim() {
   }
 
   return (
-    <main className="min-h-screen bg-dls-bg-page text-dls-text-primary">
+    <main className="min-h-screen bg-dls-bg-page text-dls-text-primary" style={brandStyle(branding)}>
       <header className="border-b border-dls-border-subtle bg-dls-surface">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-dls-control border border-dls-border-subtle bg-dls-surface">
-              <img src={iipLogo.url} alt="IIP" className="h-7 w-7 object-contain" />
-            </span>
+            <PortalBrandMark branding={branding} />
             <div>
               <div className="text-sm font-semibold">Start your claim</div>
               <div className="text-xs text-dls-text-muted">Policy {session.policyNumber}</div>

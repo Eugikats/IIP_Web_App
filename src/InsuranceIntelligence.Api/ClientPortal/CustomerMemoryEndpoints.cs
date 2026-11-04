@@ -164,20 +164,11 @@ public static class CustomerMemoryEndpoints
         var file = new AssembledFormFile(source.OriginalFileName, string.IsNullOrWhiteSpace(source.ContentType) ? "application/octet-stream" : source.ContentType, content);
         var result = await ClientPortalEndpoints.StoreUploadedFilesAsync(
             caseId, claim.Scope, claim, [file], slotKey, caseRepository, documentRepository, storageProvider, processingProvider, checklistProvider,
-            fieldValidationRuleRepository, communicationRepository, auditRepository, httpContext, derivativeProvider, slotPdfService, slotPdfRepository, claimantStatus, derivativeLoggerFactory, cancellationToken);
+            fieldValidationRuleRepository, communicationRepository, auditRepository, httpContext, derivativeProvider, slotPdfService, slotPdfRepository, claimantStatus, derivativeLoggerFactory, cancellationToken,
+            reusedFromClaim: offer.FromClaimReference); // staff see on the copy that it was reused, and from which claim
         if (result is not Microsoft.AspNetCore.Http.IStatusCodeHttpResult { StatusCode: >= 200 and < 300 })
         {
             return result;
-        }
-
-        // Mark the copy so staff can see it was reused, and where from.
-        var copy = (await documentRepository.ListForCaseAsync(caseId, claim.Scope, cancellationToken))
-            .Where(document => !document.IsSuperseded && document.ReusedFromClaim is null && string.Equals(document.EffectiveKey, slotKey, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(document => document.UploadedAt)
-            .FirstOrDefault();
-        if (copy is not null)
-        {
-            await documentRepository.SaveAsync(copy with { ReusedFromClaim = offer.FromClaimReference }, cancellationToken);
         }
 
         await auditRepository.WriteAsync(AuditEvent.CustomerMemoryUsed(claim.Scope, caseId, actor, "document", 1, httpContext.TraceIdentifier), cancellationToken);

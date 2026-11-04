@@ -46,8 +46,12 @@ public sealed class ClaimsPackJobHandler : IBackgroundJobHandler
 }
 
 /// <summary>Where a shared pack link points: the customer portal's address, or the local portal in development.</summary>
-public sealed class ConfiguredPortalBaseUrl(InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions options) : IPortalBaseUrl
+public sealed class ConfiguredPortalBaseUrl(
+    InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions options,
+    InsuranceIntelligence.Application.ClientPortal.IPortalAddress? portalAddress = null) : IPortalBaseUrl
 {
+    public string? BaseUrlFor(InsuranceIntelligence.Domain.Common.TenantScope scope) => portalAddress?.BaseUrlFor(scope) ?? BaseUrl;
+
     public string? BaseUrl =>
         !string.IsNullOrWhiteSpace(options.ClientPortalBaseUrl) ? options.ClientPortalBaseUrl.TrimEnd('/')
         : options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? "http://localhost:3000"

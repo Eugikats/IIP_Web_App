@@ -32,7 +32,8 @@ public static class StaffClaimLinkEndpoints
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InsuranceIntelligence.Application.ClientPortal.IPortalAddress? portalAddress = null)
     {
         if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out var actor, out var error))
         {
@@ -76,9 +77,11 @@ public static class StaffClaimLinkEndpoints
             return Results.Conflict(new { outcome = refusal.ToString(), message = ClaimLinkPolicy.PlainReason(refusal) });
         }
 
-        var baseUrl = !string.IsNullOrWhiteSpace(options.ClientPortalBaseUrl)
-            ? options.ClientPortalBaseUrl.TrimEnd('/')
-            : options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? "http://localhost:3000" : null;
+        var baseUrl = portalAddress is not null
+            ? portalAddress.BaseUrlFor(scope)
+            : !string.IsNullOrWhiteSpace(options.ClientPortalBaseUrl)
+                ? options.ClientPortalBaseUrl.TrimEnd('/')
+                : options.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? "http://localhost:3000" : null;
         if (baseUrl is null)
         {
             await auditRepository.WriteAsync(AuditEvent.ClaimLinkSent(scope, caseId, actor, route.Channel.ToString(), "ConfigurationRequired", correlationId), cancellationToken);
@@ -103,7 +106,7 @@ public static class StaffClaimLinkEndpoints
         };
         await tokenRepository.SaveAsync(token, cancellationToken);
 
-        var link = $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}";
+        var link = $"{baseUrl}/access/verify?token={Uri.EscapeDataString(rawToken)}{portalAddress?.LinkQueryFor(scope)}";
         var (body, shortBody) = ClaimLinkPolicy.Compose(claim.CustomerName, ClaimReference.For(caseId), link);
         var message = new CustomerUpdateDraft
         {
