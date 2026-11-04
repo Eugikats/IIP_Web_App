@@ -13,6 +13,7 @@ import { LoadingSkeleton, EmptyStateSurface } from "@/components/ui/StateSurface
 import { documentContractLabel, type DocumentItem } from "@/lib/documentContracts";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { useUI } from "@/context/UIStateContext";
+import { DocumentFilingPanel } from "@/components/iip/DocumentFilingPanel";
 import { useDocumentExtraction } from "@/lib/documentExtraction";
 import { isValidWorkReference } from "@/lib/workItemLinks";
 
@@ -211,6 +212,7 @@ export default function DocumentExtraction() {
           <div id="evidence-source-panel" data-testid="evidence-source-panel" role="tabpanel" aria-labelledby="source-document-tab" ref={sourcePanelRef} tabIndex={-1} className={`${compactPanel === "source" ? "block" : "hidden"} min-w-0 max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] focus:outline-none xl:block xl:max-h-none xl:overflow-visible xl:pb-0`}>
           <GlassCard className="overflow-hidden !p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-[13px] font-bold text-dls-text-primary"><FileText className="h-4 w-4 text-dls-info-text" aria-hidden="true" /> {selected.originalFileName}</div><div className="text-[11px] text-dls-text-muted">{selected.contentType} · {(selected.fileSizeBytes / 1024).toFixed(1)} KB</div></div>
+            <DocumentFilingPanel document={selected} role={roleKey} onFiled={() => void load()} />
             {selected.slotPdfUrl && (
               <p className="mb-3 text-[11.5px] leading-4 text-dls-text-secondary" data-testid="slot-pdf-link">
                 Page {selected.slotPdfPage} of {selected.slotPdfPageCount} in one PDF built from the customer&apos;s pictures.{" "}

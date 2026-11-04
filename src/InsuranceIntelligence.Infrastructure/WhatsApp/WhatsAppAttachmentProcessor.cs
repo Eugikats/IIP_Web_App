@@ -15,7 +15,8 @@ public sealed class WhatsAppAttachmentProcessor(
     IWhatsAppRuntimeSettingsProvider settingsProvider,
     IWhatsAppInboundProvider whatsAppProvider,
     IDocumentStorageProvider storageProvider,
-    IDocumentProcessingProvider processingProvider) : IWhatsAppAttachmentProcessor
+    IDocumentProcessingProvider processingProvider,
+    InsuranceIntelligence.Application.Documents.IDocumentRecognitionService? recognition = null) : IWhatsAppAttachmentProcessor
 {
     private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -92,20 +93,24 @@ public sealed class WhatsAppAttachmentProcessor(
         var processingFailed = processingResult.ValidationWarnings.Any(warning =>
             warning.Severity.Equals("error", StringComparison.OrdinalIgnoreCase));
 
-        return
-        [
-            uploadedDocument with
-            {
-                DocumentType = processingResult.Classification.DocumentType,
-                ProcessingStatus = processingFailed
-                    ? DocumentProcessingStatus.Failed
-                    : DocumentProcessingStatus.Processed,
-                Classification = processingResult.Classification,
-                Extraction = processingResult.Extraction,
-                ValidationWarnings = processingResult.ValidationWarnings,
-                ProcessedAt = DateTimeOffset.UtcNow,
-            },
-        ];
+        var processed = uploadedDocument with
+        {
+            DocumentType = processingResult.Classification.DocumentType,
+            ProcessingStatus = processingFailed
+                ? DocumentProcessingStatus.Failed
+                : DocumentProcessingStatus.Processed,
+            Classification = processingResult.Classification,
+            Extraction = processingResult.Extraction,
+            ValidationWarnings = processingResult.ValidationWarnings,
+            ProcessedAt = DateTimeOffset.UtcNow,
+        };
+        if (recognition is not null && !processingFailed)
+        {
+            // Name it, and file it into the claim's matching slot when sure; otherwise a person looks.
+            processed = await recognition.ApplyAsync(processed, claimCase, $"whatsapp-{message.ProviderMessageId}", cancellationToken);
+        }
+
+        return [processed];
     }
 
     private static CaseDocument CreateUploadedDocument(

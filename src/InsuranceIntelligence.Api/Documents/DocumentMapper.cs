@@ -68,7 +68,14 @@ public static class DocumentMapper
             document.DisagreesWithClassifier,
             document.Sha256,
             document.SlotKind?.ToString(),
-            document.PreviewObjectKey is null ? null : $"/api/v1/cases/{document.CaseId}/documents/{document.DocumentId}/image-preview");
+            document.PreviewObjectKey is null ? null : $"/api/v1/cases/{document.CaseId}/documents/{document.DocumentId}/image-preview",
+            DisplayName: document.DisplayName,
+            NeedsReview: document.NeedsReview,
+            ReviewReason: document.ReviewReason,
+            RecognisedTypeKey: document.Recognition?.TypeKey,
+            RecognitionConfidence: document.Recognition?.Confidence,
+            RecognitionReason: document.Recognition?.Reason,
+            FiledByRecognition: document.FiledByRecognition);
 
     private static string? MissingProcessingCapability(CaseDocument document) =>
         document.ProcessingStatus == DocumentProcessingStatus.Uploaded

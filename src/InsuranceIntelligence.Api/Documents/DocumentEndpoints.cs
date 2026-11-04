@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Application.Documents;
 using InsuranceIntelligence.Domain.Products;
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
@@ -112,7 +113,8 @@ public static class DocumentEndpoints
                 documentRepository,
                 auditRepository,
                 correlationId,
-                cancellationToken);
+                cancellationToken,
+                recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService);
             var processedDocument = run.Document;
             if (run.NotConfigured is not null)
             {
@@ -388,7 +390,8 @@ public static class DocumentEndpoints
             documentRepository,
             auditRepository,
             correlationId,
-            cancellationToken);
+            cancellationToken,
+                recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService);
         await UpdateCompletenessAsync(
             claimCase, caseRepository, documentRepository, checklistProvider, auditRepository, scope, correlationId,
             writeWhenUnchanged: true, cancellationToken);
@@ -398,6 +401,93 @@ public static class DocumentEndpoints
         }
 
         return Results.Ok(DocumentMapper.ToResponse(run.Document, await ResolveConfidenceThresholdAsync(tenantConfigurationRepository, scope, cancellationToken)));
+    }
+
+    /// <summary>A person puts a document into one of the claim's slots (build-loop item 14): one the
+    /// recogniser could not place, or one it placed wrongly. The file is not changed; its slot, its
+    /// display name and its review flag are.</summary>
+    public static async Task<IResult> FileDocumentIntoSlot(
+        Guid caseId,
+        Guid documentId,
+        FileIntoSlotRequest request,
+        ICaseRepository caseRepository,
+        ICaseDocumentRepository documentRepository,
+        IDocumentChecklistProvider checklistProvider,
+        IAuditRepository auditRepository,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        ISlotPdfService? slotPdfService = null)
+    {
+        if (!TryResolveScope(httpContext, out var scope, out var userId, out var validationError))
+        {
+            return Validation("tenantScope", validationError);
+        }
+
+        var claimCase = await GetScopedCaseAsync(caseRepository, caseId, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
+        var document = await documentRepository.GetAsync(caseId, documentId, scope, cancellationToken);
+        if (document is null)
+        {
+            return Results.NotFound(new { message = "Document was not found for the requested tenant workspace." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request?.DocumentTypeKey))
+        {
+            return Validation("documentTypeKey", "Choose which document this is.");
+        }
+
+        var others = (await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken))
+            .Where(other => other.DocumentId != documentId && !other.IsSuperseded)
+            .ToArray();
+        var slot = (await checklistProvider.BuildChecklistAsync(claimCase, others, cancellationToken))
+            .Slots.FirstOrDefault(candidate => string.Equals(candidate.Key, request.DocumentTypeKey.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (slot is null)
+        {
+            return Validation("documentTypeKey", "That is not one of the documents asked for on this claim.");
+        }
+
+        if (!slot.Accepts(document.OriginalFileName))
+        {
+            return Validation("documentTypeKey", $"{slot.Label} does not accept this kind of file.");
+        }
+
+        if (!slot.AllowsMultipleFiles && others.Any(other => string.Equals(other.EffectiveKey, slot.Key, StringComparison.OrdinalIgnoreCase)))
+        {
+            return Results.Conflict(new { message = $"{slot.Label} already has a file. Remove that one first." });
+        }
+
+        var previousKey = document.DocumentTypeKey;
+        var updated = document with
+        {
+            DocumentTypeKey = slot.Key,
+            SlotKind = slot.Kind,
+            NeedsReview = false,
+            ReviewReason = null,
+            FiledByRecognition = false,
+            PageOrder = slot.Kind == DocumentKind.Document && slot.AllowsMultipleFiles ? SlotPdfService.PagesInOrder(others, slot.Key).Count + 1 : null,
+            DisplayName = DocumentRecognitionService.NextName(slot.Label, caseId, document.OriginalFileName, others),
+            ValidationWarnings = document.ValidationWarnings.Where(warning => warning.Code != DocumentProcessingRunner.DisagreementWarningCode).ToArray(),
+        };
+        await documentRepository.SaveAsync(updated, cancellationToken);
+        var correlationId = GetCorrelationId(httpContext);
+        await auditRepository.WriteAsync(AuditEvent.DocumentFiledByPerson(updated, GetActor(httpContext, userId), previousKey, correlationId), cancellationToken);
+        if (slotPdfService is not null && slot.Kind == DocumentKind.Document)
+        {
+            await slotPdfService.RebuildAsync(scope, caseId, slot.Key, correlationId, cancellationToken);
+            if (previousKey is not null && !string.Equals(previousKey, slot.Key, StringComparison.OrdinalIgnoreCase))
+            {
+                await slotPdfService.RebuildAsync(scope, caseId, previousKey, correlationId, cancellationToken);
+            }
+        }
+
+        await UpdateCompletenessAsync(
+            claimCase, caseRepository, documentRepository, checklistProvider, auditRepository, scope, correlationId,
+            writeWhenUnchanged: true, cancellationToken);
+        return Results.Ok(DocumentMapper.ToResponse(updated));
     }
 
     public static async Task<IResult> ReclassifyDocument(
@@ -446,6 +536,11 @@ public static class DocumentEndpoints
         var updatedDocument = document with
         {
             DocumentType = documentType,
+            // A person has said what this is, which settles it: the recogniser's view no longer
+            // stands, and it no longer waits for review.
+            Recognition = new DocumentRecognition(documentType.ToString(), 1m, "Set by a person.", "Person", null, DateTimeOffset.UtcNow),
+            NeedsReview = false,
+            ReviewReason = null,
             Classification = document.Classification with
             {
                 DocumentType = documentType,

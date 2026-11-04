@@ -47,7 +47,17 @@ public sealed record DocumentResponse(
     // it this file is, and how many pages it has. Null when the slot has no combined PDF.
     string? SlotPdfUrl = null,
     int SlotPdfPage = 0,
-    int SlotPdfPageCount = 0);
+    int SlotPdfPageCount = 0,
+    // Build-loop item 14: the name the document is shown under (the file as sent keeps its own name
+    // in OriginalFileName), what the recogniser made of it, and whether a person should decide where
+    // it belongs.
+    string? DisplayName = null,
+    bool NeedsReview = false,
+    string? ReviewReason = null,
+    string? RecognisedTypeKey = null,
+    decimal? RecognitionConfidence = null,
+    string? RecognitionReason = null,
+    bool FiledByRecognition = false);
 
 public sealed record BoundingBoxResponse(
     int PageNumber,
@@ -121,6 +131,9 @@ public sealed record ChecklistDocumentResponse(
 public sealed record ReclassifyDocumentRequest(
     string? DocumentType,
     string? UpdatedByUserId);
+
+/// <summary>Which of the claim's documents a file belongs in (build-loop item 14).</summary>
+public sealed record FileIntoSlotRequest(string? DocumentTypeKey);
 
 public sealed record ChecklistDocumentPreview(string DocumentType, string Label);
 

@@ -594,6 +594,23 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaiman
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IImageDerivativeProvider, InsuranceIntelligence.Api.Documents.MagickImageDerivativeProvider>();
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IDocumentPdfBuilder, InsuranceIntelligence.Api.Documents.MagickDocumentPdfBuilder>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.ISlotPdfService, InsuranceIntelligence.Application.Documents.SlotPdfService>();
+// Recognising documents (build-loop item 14): a vision model against the workspace's whole document
+// catalogue. Local runs use the deterministic Mock; where no model is configured every file honestly
+// goes to a person instead of being guessed at.
+if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<InsuranceIntelligence.Domain.Documents.IDocumentRecognizer, InsuranceIntelligence.Api.Azure.AzureOpenAiVisionDocumentRecognizer>();
+}
+else if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infrastructureOptions.AiProvider, runtimeProfile))
+{
+    builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IDocumentRecognizer, InsuranceIntelligence.Api.Local.Mock.MockDocumentRecognizer>();
+}
+else
+{
+    builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IDocumentRecognizer, InsuranceIntelligence.Api.Azure.NotConfiguredDocumentRecognizer>();
+}
+
+builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocumentRecognitionService, InsuranceIntelligence.Application.Documents.DocumentRecognitionService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1074,6 +1091,8 @@ app.MapGet("/api/v1/cases/{caseId:guid}/document-slots/{slotKey}/pdf", DocumentE
 app.MapGet("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/image-preview", DocumentEndpoints.GetDocumentImagePreview)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/reprocess", DocumentEndpoints.ReprocessDocument)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));
+app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/file-into", DocumentEndpoints.FileDocumentIntoSlot)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));
 app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/reclassify", DocumentEndpoints.ReclassifyDocument)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));

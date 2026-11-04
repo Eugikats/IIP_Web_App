@@ -1108,3 +1108,70 @@ test.describe("Item 13: camera document scanner", () => {
     await expect(photos.getByTestId("scan-document")).toHaveCount(0);
   });
 });
+
+test.describe("Item 14: recognise and name every file", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+
+  async function staffUpload(request: APIRequestContext, caseId: string, name: string, content: string) {
+    const upload = await request.post(`${API}/api/v1/cases/${caseId}/documents`, {
+      headers,
+      multipart: { files: { name, mimeType: "application/pdf", buffer: Buffer.from(content) } },
+    });
+    expect(upload.ok(), await upload.text()).toBeTruthy();
+    const documents = (await (await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers })).json()) as Record<string, unknown>[];
+    return documents.find((document) => document.originalFileName === name)!;
+  }
+
+  test("a file the customer sends is named by its type and claim, and the original name is kept", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const police = page.locator("li", { hasText: "Police abstract" }).first();
+    await police.locator('input[data-upload="choose"]').setInputFiles(fixture("police_letter.jpg"));
+    await expect(police.getByText("Received")).toBeVisible();
+
+    const documents = (await (await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers })).json()) as { originalFileName: string; displayName: string; needsReview: boolean }[];
+    expect(documents).toHaveLength(1);
+    expect(documents[0].originalFileName).toBe("police_letter.jpg");
+    expect(documents[0].displayName).toMatch(/^PoliceAbstract_CLM-[0-9A-F]{8}\.jpg$/);
+    expect(documents[0].needsReview).toBe(false);
+  });
+
+  test("a file staff add with no slot is filed into the matching one when the match is clear, and the customer sees it received", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    const document = await staffUpload(request, caseId, "scan_0001.pdf", "IIP-MOCK-DOC:PoliceAbstract");
+    expect(document.filedByRecognition).toBe(true);
+    expect(document.customerDocumentTypeKey).toBe("PoliceAbstract");
+    expect(String(document.displayName)).toMatch(/^PoliceAbstract_CLM-[0-9A-F]{8}\.pdf$/);
+
+    await openClaimantPortal(page, token);
+    await expect(page.locator("li", { hasText: "Police abstract" }).first().getByText("Received")).toBeVisible();
+  });
+
+  test("a file nobody can place goes to staff review, and a person files it into a slot", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    const document = await staffUpload(request, caseId, "mystery.pdf", "nothing readable here");
+    expect(document.needsReview).toBe(true);
+    expect(String(document.displayName)).toMatch(/^Unsorted_CLM-/);
+
+    const filed = await request.post(`${API}/api/v1/cases/${caseId}/documents/${String(document.documentId)}/file-into`, { headers, data: { documentTypeKey: "ClaimForm" } });
+    expect(filed.ok(), await filed.text()).toBeTruthy();
+    const after = (await filed.json()) as { needsReview: boolean; displayName: string; originalFileName: string };
+    expect(after.needsReview).toBe(false);
+    expect(after.displayName).toMatch(/^[A-Za-z]+_CLM-[0-9A-F]{8}\.pdf$/);
+    expect(after.originalFileName).toBe("mystery.pdf");
+
+    await openClaimantPortal(page, token);
+    await expect(page.locator("li", { hasText: "Claim form" }).first().getByText("Received")).toBeVisible();
+  });
+
+  test("another tenant cannot file a document", async ({ request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const document = await staffUpload(request, caseId, "mystery2.pdf", "nothing readable here");
+    const other = await request.post(`${API}/api/v1/cases/${caseId}/documents/${String(document.documentId)}/file-into`, {
+      headers: scopeHeaders(newTenant()),
+      data: { documentTypeKey: "ClaimForm" },
+    });
+    expect(other.status()).toBe(404);
+  });
+});

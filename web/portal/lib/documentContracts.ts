@@ -56,6 +56,16 @@ export type DocumentItem = {
   slotPdfUrl?: string | null;
   slotPdfPage?: number;
   slotPdfPageCount?: number;
+  /** Build-loop item 14: the name it is shown under (the file as sent keeps originalFileName), what the
+   *  recogniser made of it, and whether a person should decide where it belongs. */
+  displayName?: string | null;
+  needsReview?: boolean;
+  reviewReason?: string | null;
+  recognisedTypeKey?: string | null;
+  recognitionConfidence?: number | null;
+  recognitionReason?: string | null;
+  filedByRecognition?: boolean;
+  classifierDisagrees?: boolean;
   allowedActions: DocumentActionState[];
   blockedActions: DocumentActionState[];
 };

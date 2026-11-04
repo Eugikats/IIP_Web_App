@@ -1,4 +1,5 @@
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Application.Documents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Documents;
@@ -32,7 +33,8 @@ public static class DocumentProcessingRunner
         ICaseDocumentRepository documentRepository,
         IAuditRepository auditRepository,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IDocumentRecognitionService? recognition = null)
     {
         var scope = claimCase.Scope;
         try
@@ -65,6 +67,20 @@ public static class DocumentProcessingRunner
                 ProcessedAt = DateTimeOffset.UtcNow
             };
 
+            if (recognition is not null)
+            {
+                // Name the file and decide where it belongs. A failure here never fails processing:
+                // the file is simply left for a person.
+                try
+                {
+                    processed = await recognition.ApplyAsync(processed, claimCase, correlationId, cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    processed = processed with { NeedsReview = true, ReviewReason = "It could not be looked at just now. Please check where it belongs." };
+                }
+            }
+
             if (processed.DisagreesWithClassifier)
             {
                 // A flag for staff, never an error shown to the customer: the customer's own choice
@@ -74,7 +90,7 @@ public static class DocumentProcessingRunner
                     ValidationWarnings = processed.ValidationWarnings
                         .Append(new DocumentValidationWarning(
                             DisagreementWarningCode,
-                            $"The customer filed this under '{processed.DocumentTypeKey}', but it reads as '{processed.Classification.DocumentType}'. Check it is in the right place.",
+                            $"The customer filed this under '{processed.DocumentTypeKey}', but it reads as '{processed.RecognisedKey}'. Check it is in the right place.",
                             "warning"))
                         .ToArray()
                 };

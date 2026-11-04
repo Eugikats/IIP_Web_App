@@ -43,6 +43,31 @@ public sealed record CaseDocument
     /// whenever pages are rearranged.</summary>
     public int? PageOrder { get; init; }
 
+    /// <summary>What the recogniser made of this file (build-loop item 14): which of the workspace's
+    /// document types it looks like, how sure, and why. Null before it has been looked at.</summary>
+    public DocumentRecognition? Recognition { get; init; }
+
+    /// <summary>The name this document is shown under, such as <c>PoliceReport_CLM-1A2B3C4D.jpg</c>.
+    /// <see cref="OriginalFileName"/> is the file exactly as sent and is never changed.</summary>
+    public string? DisplayName { get; init; }
+
+    /// <summary>True when a person should decide where this belongs: the recogniser could not tell
+    /// what it is, or what it recognised is not something the claim has a place for.</summary>
+    public bool NeedsReview { get; init; }
+
+    public string? ReviewReason { get; init; }
+
+    /// <summary>True when the file arrived with no slot and was placed in one because the recogniser
+    /// was confident. A person can still move it.</summary>
+    public bool FiledByRecognition { get; init; }
+
+    /// <summary>The type the file looks like, from the best evidence there is: the recogniser when it
+    /// was confident, else the built-in classifier. Null when neither could tell.</summary>
+    public string? RecognisedKey =>
+        Recognition is { IsConfident: true } recognised
+            ? recognised.TypeKey
+            : Classification.DocumentType != Documents.DocumentType.Unknown ? Classification.DocumentType.ToString() : null;
+
     /// <summary>SHA-256 of the bytes exactly as received (build-loop item 11), as lower-case hex.
     /// Lets anyone show later that the stored original is the file that was sent. Null for a
     /// document stored before this field existed.</summary>
@@ -76,6 +101,6 @@ public sealed record CaseDocument
     /// different built-in type. Never shown to the customer as an error; a flag for staff.</summary>
     public bool DisagreesWithClassifier =>
         DocumentTypeKey is not null
-        && Classification.DocumentType != Documents.DocumentType.Unknown
-        && !string.Equals(DocumentTypeKey, Classification.DocumentType.ToString(), StringComparison.OrdinalIgnoreCase);
+        && RecognisedKey is not null
+        && !string.Equals(DocumentTypeKey, RecognisedKey, StringComparison.OrdinalIgnoreCase);
 }

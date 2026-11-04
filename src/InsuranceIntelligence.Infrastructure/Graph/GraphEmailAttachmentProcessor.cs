@@ -9,7 +9,8 @@ public sealed class GraphEmailAttachmentProcessor(
     InfrastructureOptions options,
     IGraphMailClient graphClient,
     IDocumentStorageProvider storageProvider,
-    IDocumentProcessingProvider processingProvider) : IEmailAttachmentProcessor
+    IDocumentProcessingProvider processingProvider,
+    InsuranceIntelligence.Application.Documents.IDocumentRecognitionService? recognition = null) : IEmailAttachmentProcessor
 {
     public async Task<IReadOnlyCollection<CaseDocument>> ProcessAsync(
         ClaimCase claimCase,
@@ -91,7 +92,7 @@ public sealed class GraphEmailAttachmentProcessor(
                 cancellationToken);
             var processingFailed = processingResult.ValidationWarnings.Any(warning =>
                 warning.Severity.Equals("error", StringComparison.OrdinalIgnoreCase));
-            processedDocuments.Add(uploadedDocument with
+            var processed = uploadedDocument with
             {
                 DocumentType = processingResult.Classification.DocumentType,
                 ProcessingStatus = processingFailed ? DocumentProcessingStatus.Failed : DocumentProcessingStatus.Processed,
@@ -99,7 +100,14 @@ public sealed class GraphEmailAttachmentProcessor(
                 Extraction = processingResult.Extraction,
                 ValidationWarnings = processingResult.ValidationWarnings,
                 ProcessedAt = DateTimeOffset.UtcNow
-            });
+            };
+            if (recognition is not null && !processingFailed)
+            {
+                // Name it, and file it into the claim's matching slot when sure; otherwise a person looks.
+                processed = await recognition.ApplyAsync(processed, claimCase, $"graph-email-{message.MessageId:N}-{attachment.AttachmentId:N}", cancellationToken);
+            }
+
+            processedDocuments.Add(processed);
         }
 
         return processedDocuments;

@@ -323,6 +323,49 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>A document was looked at and named, filed or sent to review (build-loop item 14).
+    /// Records the outcome and the recognised type, never the document.</summary>
+    public static AuditEvent DocumentRecognised(CaseDocument document, string outcome, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            document.Scope,
+            document.CaseId,
+            document.DocumentId.ToString(),
+            "system",
+            ActorType.System,
+            $"document.recognised.{outcome}",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: document.Recognition?.TypeKey ?? "unknown",
+            EvidenceIds: [document.DocumentId.ToString()],
+            ModelProvider: document.Recognition?.ProviderName,
+            Confidence: document.Recognition?.Confidence,
+            ValidationResult: "human_review_required",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    /// <summary>A person put a document in a slot (build-loop item 14).</summary>
+    public static AuditEvent DocumentFiledByPerson(CaseDocument document, string userId, string? previousKey, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            document.Scope,
+            document.CaseId,
+            document.DocumentId.ToString(),
+            userId,
+            ActorType.User,
+            "document.filed",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: previousKey,
+            AfterStatus: document.DocumentTypeKey,
+            EvidenceIds: [document.DocumentId.ToString()],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>A workspace administrator changed operating settings. Records which settings, by
     /// name.</summary>
     public static AuditEvent TenantSettingsUpdated(
