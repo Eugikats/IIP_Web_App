@@ -1,7 +1,8 @@
 "use client";
 
-import type { ChangeEvent } from "react";
-import { Camera, Loader2, Paperclip, RefreshCw, Trash2, UploadCloud } from "lucide-react";
+import { useRef, useState } from "react";
+import type { ChangeEvent, ComponentType } from "react";
+import { Camera, Loader2, Paperclip, RefreshCw, ScanLine, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { ClientPortalClaim } from "@/lib/clientPortal";
 
@@ -20,7 +21,19 @@ function formatDate(value: string | null) {
 
 const IMAGE_FORMATS = ["jpg", "jpeg", "png", "heic", "heif", "webp"];
 
+type ScannerProps = {
+  label: string;
+  onDone: (file: File) => void;
+  onCancel: () => void;
+  onUnavailable: (reason: string) => void;
+};
+
 type SlotPickerProps = {
+  /** Which slot the inputs belong to, so a failed scan can open that slot's camera instead. */
+  slotKey: string;
+  /** Paperwork the camera scanner can be used for (not evidence photos). */
+  scannable: boolean;
+  onScan?: () => void;
   formats: string[];
   multiple: boolean;
   /** Pages of one piece of paperwork (as opposed to a set of evidence photos). */
@@ -39,7 +52,7 @@ type SlotPickerProps = {
  * takes only PDFs offers no camera. The camera takes one picture at a time, so a multi-file slot
  * is filled by taking several, or by choosing several at once.
  */
-function SlotPicker({ formats, multiple, pages = false, uploaded, full, busy, locked, onPick }: SlotPickerProps) {
+function SlotPicker({ slotKey, scannable, onScan, formats, multiple, pages = false, uploaded, full, busy, locked, onPick }: SlotPickerProps) {
   const canCapture = formats.length === 0 || formats.some((format) => IMAGE_FORMATS.includes(format.toLowerCase()));
   const accept = formats.length > 0 ? formats.map((format) => `.${format}`).join(",") : "image/*,application/pdf";
   const chooseText = pages
@@ -49,17 +62,23 @@ function SlotPicker({ formats, multiple, pages = false, uploaded, full, busy, lo
   const buttonClass = `dls-focus-outline focus-within:ring-2 focus-within:ring-dls-primary inline-flex min-h-9 items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-1.5 text-xs font-semibold text-dls-text-secondary ${disabled ? "opacity-60" : "cursor-pointer hover:bg-dls-bg-page"}`;
   return (
     <>
+      {canCapture && scannable && (
+        <button type="button" className={buttonClass} onClick={onScan} disabled={disabled} data-testid="scan-document">
+          <ScanLine className="h-3.5 w-3.5" aria-hidden="true" />
+          Scan document
+        </button>
+      )}
       {canCapture && (
         <label className={buttonClass}>
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Camera className="h-3.5 w-3.5" aria-hidden="true" />}
           Take photo
-          <input type="file" accept="image/*" capture="environment" data-upload="capture" className="sr-only" disabled={disabled} onChange={onPick} />
+          <input type="file" accept="image/*" capture="environment" data-upload="capture" data-slot={slotKey} className="sr-only" disabled={disabled} onChange={onPick} />
         </label>
       )}
       <label className={buttonClass}>
         {uploaded && !multiple ? <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> : <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />}
         {chooseText}
-        <input type="file" accept={accept} multiple={multiple} data-upload="choose" className="sr-only" disabled={disabled} onChange={onPick} />
+        <input type="file" accept={accept} multiple={multiple} data-upload="choose" data-slot={slotKey} className="sr-only" disabled={disabled} onChange={onPick} />
       </label>
     </>
   );
@@ -72,7 +91,7 @@ type ClaimantDocumentsCardProps = {
   noticeFailed?: boolean;
   requiredSummary?: string | null;
   requiredComplete?: boolean;
-  onUpload: (event: ChangeEvent<HTMLInputElement>, documentTypeKey: string, label: string) => void;
+  onUpload: (files: File[], documentTypeKey: string, label: string) => void;
   onRemove: (documentTypeKey: string, label: string) => void;
   onRetry: (documentTypeKey: string, label: string) => void;
   /** Take one page out of a multi-page document. */
@@ -92,8 +111,51 @@ type ClaimantDocumentsCardProps = {
  */
 export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed = false, requiredSummary, requiredComplete = false, onUpload, onRemove, onRetry, onRemovePage, onMovePage, previewOnly = false, uploadsBlockedReason = null }: ClaimantDocumentsCardProps) {
   const locked = previewOnly || busyKey !== null || uploadsBlockedReason !== null;
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  // The scanner is fetched only when someone taps Scan, so a page that never scans never loads it.
+  const [Scanner, setScanner] = useState<ComponentType<ScannerProps> | null>(null);
+  const [scanning, setScanning] = useState<{ key: string; label: string } | null>(null);
+  const [scanNotice, setScanNotice] = useState<string | null>(null);
+
+  /** Whatever goes wrong with the scanner, the customer is handed the plain camera and told so. */
+  function fallBackToCamera(key: string, reason: string) {
+    setScanning(null);
+    setScanNotice(`We could not use the scanner (${reason}). Use "Take photo" instead.`);
+    rootRef.current?.querySelector<HTMLInputElement>(`input[data-upload="capture"][data-slot="${key}"]`)?.click();
+  }
+
+  async function startScan(key: string, label: string) {
+    setScanNotice(null);
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      fallBackToCamera(key, "this device has no camera we can use here");
+      return;
+    }
+
+    try {
+      const loaded = await import("@/components/iip/DocumentScanner");
+      setScanner(() => loaded.default);
+      setScanning({ key, label });
+    } catch {
+      fallBackToCamera(key, "it did not load");
+    }
+  }
+
+  const pick = (key: string, label: string) => (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    event.target.value = "";
+    if (files.length > 0) onUpload(files, key, label);
+  };
+
   return (
-    <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6" data-testid="claimant-documents">
+    <div ref={rootRef} className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6" data-testid="claimant-documents">
+      {Scanner && scanning && (
+        <Scanner
+          label={scanning.label}
+          onDone={(file) => { const target = scanning; setScanning(null); onUpload([file], target.key, target.label); }}
+          onCancel={() => setScanning(null)}
+          onUnavailable={(reason) => fallBackToCamera(scanning.key, reason)}
+        />
+      )}
       <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">Documents</div>
       <p className="mt-1 text-xs leading-5 text-dls-text-muted">Send each document below. You can replace or remove anything you send.</p>
       {requiredSummary && !previewOnly && (
@@ -158,6 +220,9 @@ export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed
 
             <div className="mt-2 ml-5.5 flex flex-wrap items-center gap-2">
               <SlotPicker
+                slotKey={doc.documentTypeKey}
+                scannable={doc.kind !== "Evidence"}
+                onScan={() => void startScan(doc.documentTypeKey, doc.label)}
                 formats={doc.acceptedFormats ?? []}
                 multiple={doc.allowsMultipleFiles === true}
                 pages={doc.kind !== "Evidence" && doc.allowsMultipleFiles === true}
@@ -165,7 +230,7 @@ export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed
                 full={doc.allowsMultipleFiles === true && (doc.fileCount ?? 0) >= (doc.maxFiles ?? 1)}
                 busy={busyKey === doc.documentTypeKey}
                 locked={locked}
-                onPick={(event) => onUpload(event, doc.documentTypeKey, doc.label)}
+                onPick={pick(doc.documentTypeKey, doc.label)}
               />
               {doc.canRetry && (
                 <Button variant="secondary" icon={<RefreshCw aria-hidden="true" />} onClick={() => onRetry(doc.documentTypeKey, doc.label)} disabled={locked}>
@@ -191,13 +256,16 @@ export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed
           <div className="mt-2 ml-5.5">
             <div className="flex flex-wrap items-center gap-2">
               <SlotPicker
+                slotKey={SOMETHING_ELSE_KEY}
+                scannable
+                onScan={() => void startScan(SOMETHING_ELSE_KEY, "Document")}
                 formats={[]}
                 multiple
                 uploaded={false}
                 full={false}
                 busy={busyKey === SOMETHING_ELSE_KEY}
                 locked={locked}
-                onPick={(event) => onUpload(event, SOMETHING_ELSE_KEY, "Document")}
+                onPick={pick(SOMETHING_ELSE_KEY, "Document")}
               />
             </div>
           </div>
@@ -206,6 +274,7 @@ export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed
       {previewOnly && <p className="mt-3 text-xs leading-5 text-dls-text-muted">Preview only. Nothing can be sent from here.</p>}
       {uploadsBlockedReason && !previewOnly && <p role="status" className="mt-3 text-xs leading-5 text-dls-text-muted">{uploadsBlockedReason}</p>}
       {notice && <p role={noticeFailed ? "alert" : "status"} aria-live="polite" className={`mt-3 text-xs leading-5 ${noticeFailed ? "font-semibold text-dls-danger-text" : "text-dls-text-muted"}`}>{notice}</p>}
+      {scanNotice && <p role="status" className="mt-3 text-xs leading-5 text-dls-text-muted" data-testid="scan-notice">{scanNotice}</p>}
     </div>
   );
 }

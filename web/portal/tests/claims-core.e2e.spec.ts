@@ -994,3 +994,117 @@ test.describe("Item 12: document photos to one PDF", () => {
     expect(other.status()).toBe(404);
   });
 });
+
+test.describe("Item 13: camera document scanner", () => {
+  /** A stand-in camera: a canvas showing a page photographed at an angle on a dark table. */
+  async function installFakeCamera(page: Page) {
+    await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = async () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 480;
+        const context = canvas.getContext("2d")!;
+        const draw = () => {
+          context.fillStyle = "#3a3a3a";
+          context.fillRect(0, 0, 640, 480);
+          context.fillStyle = "#f0f0f0";
+          context.beginPath();
+          context.moveTo(150, 70);
+          context.lineTo(520, 100);
+          context.lineTo(560, 410);
+          context.lineTo(110, 380);
+          context.closePath();
+          context.fill();
+          context.fillStyle = "#202020";
+          for (let i = 0; i < 8; i++) context.fillRect(190, 130 + i * 32, 260, 10);
+        };
+        draw();
+        setInterval(draw, 100);
+        return canvas.captureStream(10);
+      };
+    });
+  }
+
+  test("a customer scans a page: the scanner loads only when tapped, finds the page, and the result becomes the next page", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installFakeCamera(page);
+    const scannerRequests: string[] = [];
+    page.on("request", (candidate) => { if (/DocumentScanner/.test(candidate.url())) scannerRequests.push(candidate.url()); });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    expect(scannerRequests).toHaveLength(0);
+
+    const police = page.locator("li", { hasText: "Police abstract" }).first();
+    await police.getByTestId("scan-document").click();
+    const scanner = page.getByTestId("document-scanner");
+    await expect(scanner).toBeVisible();
+    expect(scannerRequests.length).toBeGreaterThan(0);
+
+    await expect(scanner.getByRole("button", { name: "Capture" })).toBeEnabled({ timeout: 15_000 });
+    await scanner.getByRole("button", { name: "Capture" }).click();
+    await expect(scanner.getByText("We found the page.")).toBeVisible();
+
+    // Drag the top-left corner a little: the handles are real, movable controls.
+    const handle = scanner.getByTestId("scanner-corner-0");
+    const before = await handle.boundingBox();
+    await page.mouse.move(before!.x + before!.width / 2, before!.y + before!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(before!.x + before!.width / 2 + 12, before!.y + before!.height / 2 + 12, { steps: 4 });
+    await page.mouse.up();
+    const after = await handle.boundingBox();
+    expect(after!.x).toBeGreaterThan(before!.x + 5);
+
+    await scanner.getByRole("button", { name: "Looks right" }).click();
+    await expect(scanner.getByTestId("scanner-result")).toBeVisible();
+    await scanner.getByRole("button", { name: "Black and white" }).click();
+    await expect(scanner.getByRole("button", { name: "Black and white" })).toHaveAttribute("aria-pressed", "true");
+    await scanner.getByRole("button", { name: "Use this page" }).click();
+
+    await expect(scanner).toHaveCount(0);
+    await expect(police.getByText("Received")).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("when the camera is refused the customer is handed the plain camera and can still send the page", async ({ page, request }) => {
+    await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Permission denied", "NotAllowedError"); };
+    });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const police = page.locator("li", { hasText: "Police abstract" }).first();
+    const chooser = page.waitForEvent("filechooser");
+    await police.getByTestId("scan-document").click();
+
+    await expect(page.getByTestId("scan-notice")).toContainText("We could not use the scanner");
+    await expect(page.getByTestId("document-scanner")).toHaveCount(0);
+    // The plain camera input was opened for the same slot.
+    const picker = await chooser;
+    await picker.setFiles(fixture("police_letter.jpg"));
+    await expect(police.getByText("Received")).toBeVisible();
+  });
+
+  test("on a device with no camera interface the scan button falls back the same way", async ({ page, request }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "mediaDevices", { value: undefined, configurable: true });
+    });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const police = page.locator("li", { hasText: "Police abstract" }).first();
+    await police.getByTestId("scan-document").click();
+
+    await expect(page.getByTestId("scan-notice")).toContainText("no camera we can use");
+    await expect(police.getByText("Take photo")).toBeVisible();
+  });
+
+  test("evidence photos are never scanned: no Scan button on that slot", async ({ page, request }) => {
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+    await expect(photos.getByText("Take photo")).toBeVisible();
+    await expect(photos.getByTestId("scan-document")).toHaveCount(0);
+  });
+});

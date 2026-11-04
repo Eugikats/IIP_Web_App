@@ -138,9 +138,7 @@ export default function ClaimAccessStatus() {
     else setConsentError(result.error);
   }
 
-  async function onUpload(event: ChangeEvent<HTMLInputElement>, documentTypeKey: string, label: string) {
-    const rawFiles = event.target.files ? Array.from(event.target.files) : [];
-    event.target.value = "";
+  async function onUpload(rawFiles: File[], documentTypeKey: string, label: string) {
     if (!session || rawFiles.length === 0) return;
 
     setBusyKey(documentTypeKey);
