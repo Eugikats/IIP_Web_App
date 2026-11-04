@@ -592,6 +592,8 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimType
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IWordingDraftService, InsuranceIntelligence.Application.Products.WordingDraftService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimantConsentService, InsuranceIntelligence.Application.Compliance.ClaimantConsentService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IImageDerivativeProvider, InsuranceIntelligence.Api.Documents.MagickImageDerivativeProvider>();
+builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IDocumentPdfBuilder, InsuranceIntelligence.Api.Documents.MagickDocumentPdfBuilder>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.ISlotPdfService, InsuranceIntelligence.Application.Documents.SlotPdfService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1000,6 +1002,8 @@ app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents", ClientPortal
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents/remove", ClientPortalEndpoints.RemoveDocument)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents/reorder", ClientPortalEndpoints.ReorderPages)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/documents/retry", ClientPortalEndpoints.RetryDocument)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 app.MapPost("/api/v1/client-portal/claims/{caseId:guid}/request-review", ClientPortalEndpoints.RequestReview)
@@ -1064,6 +1068,8 @@ app.MapGet("/api/v1/cases/{caseId:guid}/documents", DocumentEndpoints.ListDocume
 app.MapGet("/api/v1/cases/{caseId:guid}/document-checklist", DocumentEndpoints.GetChecklist)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/content", DocumentEndpoints.GetDocumentContent)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/cases/{caseId:guid}/document-slots/{slotKey}/pdf", DocumentEndpoints.GetSlotPdf)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/image-preview", DocumentEndpoints.GetDocumentImagePreview)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));

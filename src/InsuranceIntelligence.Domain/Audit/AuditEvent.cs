@@ -269,6 +269,60 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>The PDF of a document slot was (re)built from its pictures (build-loop item 12).
+    /// Records the slot and page count, never the content.</summary>
+    public static AuditEvent SlotPdfBuilt(
+        TenantScope scope,
+        Guid caseId,
+        string slotKey,
+        int pageCount,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            slotKey,
+            "system",
+            ActorType.System,
+            "document.slot.pdf.built",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: $"pages:{pageCount}",
+            EvidenceIds: [],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "derived",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
+    /// <summary>A customer moved or removed a page of a multi-page slot (build-loop item 12).</summary>
+    public static AuditEvent SlotPagesChanged(
+        TenantScope scope,
+        Guid caseId,
+        string slotKey,
+        string actionName,
+        string actor,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            slotKey,
+            actor,
+            ActorType.User,
+            actionName,
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: null,
+            EvidenceIds: [],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "recorded",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>A workspace administrator changed operating settings. Records which settings, by
     /// name.</summary>
     public static AuditEvent TenantSettingsUpdated(

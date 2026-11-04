@@ -34,6 +34,8 @@ export type ClientPortalDocumentRequirement = {
   acceptedFormats?: string[];
   fileCount?: number;
   files?: { documentId: string; fileName: string; status: string; uploadedAt: string }[];
+  /** Pages in the one PDF made from this document's pictures; 0 or absent when there is none. */
+  pageCount?: number;
 };
 
 export type ClientPortalTimelineStep = {
@@ -300,7 +302,27 @@ export async function retryClaimDocument(session: ClientPortalSession, documentT
 
 export type RemoveDocumentResult = { ok: true; claim: ClientPortalClaim } | { ok: false; error: string };
 
-export async function removeClaimDocument(session: ClientPortalSession, documentTypeKey: string): Promise<RemoveDocumentResult> {
+/** Puts the pages of a multi-page document in a new order (every page listed once, first page first). */
+export async function reorderClaimPages(session: ClientPortalSession, documentTypeKey: string, documentIds: string[]): Promise<RemoveDocumentResult> {
+  if (!session.caseId) {
+    return { ok: false, error: "No claim has been submitted on this access link yet." };
+  }
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claims/${session.caseId}/documents/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...clientPortalHeaders(session.sessionToken) },
+      body: JSON.stringify({ documentTypeKey, documentIds }),
+    });
+    if (!response.ok) {
+      return { ok: false, error: await safeError(response, "We could not move that page. Try again shortly.") };
+    }
+    return { ok: true, claim: (await response.json()) as ClientPortalClaim };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "We could not move that page.") };
+  }
+}
+
+export async function removeClaimDocument(session: ClientPortalSession, documentTypeKey: string, documentId?: string): Promise<RemoveDocumentResult> {
   if (!session.caseId) {
     return { ok: false, error: "No claim has been submitted on this access link yet." };
   }
@@ -308,7 +330,7 @@ export async function removeClaimDocument(session: ClientPortalSession, document
     const response = await fetch(`${apiBaseUrl}/api/v1/client-portal/claims/${session.caseId}/documents/remove`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...clientPortalHeaders(session.sessionToken) },
-      body: JSON.stringify({ documentTypeKey }),
+      body: JSON.stringify({ documentTypeKey, documentId }),
     });
     if (!response.ok) {
       return { ok: false, error: await safeError(response, "We could not remove that document. Try again shortly.") };

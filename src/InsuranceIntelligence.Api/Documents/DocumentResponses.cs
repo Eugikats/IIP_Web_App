@@ -42,7 +42,12 @@ public sealed record DocumentResponse(
     // was made. The original is never replaced by the preview.
     string? Sha256 = null,
     string? SlotKind = null,
-    string? ImagePreviewUrl = null);
+    string? ImagePreviewUrl = null,
+    // Build-loop item 12: the one PDF built from the pictures in this document's slot, which page of
+    // it this file is, and how many pages it has. Null when the slot has no combined PDF.
+    string? SlotPdfUrl = null,
+    int SlotPdfPage = 0,
+    int SlotPdfPageCount = 0);
 
 public sealed record BoundingBoxResponse(
     int PageNumber,

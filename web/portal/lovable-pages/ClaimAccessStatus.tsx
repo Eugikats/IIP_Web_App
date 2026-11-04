@@ -14,6 +14,7 @@ import {
   getClaim,
   loadStoredSession,
   removeClaimDocument,
+  reorderClaimPages,
   requestClaimReview,
   retryClaimDocument,
   uploadClaimDocuments,
@@ -178,6 +179,39 @@ export default function ClaimAccessStatus() {
     setUploadNotice(`${label} removed.`);
   }
 
+  async function onRemovePage(documentTypeKey: string, documentId: string, label: string) {
+    if (!session) return;
+    setBusyKey(documentTypeKey);
+    setUploadNotice(null);
+    const result = await removeClaimDocument(session, documentTypeKey, documentId);
+    setBusyKey(null);
+    if (!result.ok) {
+      setUploadNotice(result.error);
+      return;
+    }
+    setClaim(result.claim);
+    setUploadNotice(`A page of ${label} was removed.`);
+  }
+
+  async function onMovePage(documentTypeKey: string, documentId: string, delta: -1 | 1) {
+    if (!session || !claim) return;
+    const files = claim.requiredDocuments.find((row) => row.documentTypeKey === documentTypeKey)?.files ?? [];
+    const from = files.findIndex((file) => file.documentId === documentId);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= files.length) return;
+    const ids = files.map((file) => file.documentId);
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    setBusyKey(documentTypeKey);
+    setUploadNotice(null);
+    const result = await reorderClaimPages(session, documentTypeKey, ids);
+    setBusyKey(null);
+    if (!result.ok) {
+      setUploadNotice(result.error);
+      return;
+    }
+    setClaim(result.claim);
+  }
+
   async function onRetry(documentTypeKey: string, label: string) {
     if (!session) return;
     setBusyKey(documentTypeKey);
@@ -336,6 +370,8 @@ export default function ClaimAccessStatus() {
               onUpload={onUpload}
               onRemove={onRemove}
               onRetry={onRetry}
+              onRemovePage={onRemovePage}
+              onMovePage={onMovePage}
             />
 
             {claim.messages.length > 0 && (

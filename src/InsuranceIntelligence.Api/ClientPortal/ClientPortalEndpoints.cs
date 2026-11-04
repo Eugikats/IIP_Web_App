@@ -5,6 +5,7 @@ using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Billing;
+using InsuranceIntelligence.Application.Documents;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Domain.Audit;
@@ -34,7 +35,8 @@ public static class ClientPortalEndpoints
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken,
-        IAuditRepository? auditRepository = null)
+        IAuditRepository? auditRepository = null,
+        ISlotPdfRepository? slotPdfRepository = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -57,7 +59,7 @@ public static class ClientPortalEndpoints
 
         await LogDisclosureAsync(auditRepository, httpContext, scope, caseId, "ClaimStatus", cancellationToken);
 
-        return Results.Ok(ToResponse(claimCase, checklist, documents, communications, reviewRequests));
+        return Results.Ok(await WithPdfsAsync(ToResponse(claimCase, checklist, documents, communications, reviewRequests), slotPdfRepository, scope, caseId, cancellationToken));
     }
 
     /// <summary>Outcome L: "the customer sees their policy" -- cover dates, cover status (computed
@@ -244,6 +246,8 @@ public static class ClientPortalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken,
         IImageDerivativeProvider? derivativeProvider = null,
+        ISlotPdfService? slotPdfService = null,
+        ISlotPdfRepository? slotPdfRepository = null,
         ILoggerFactory? derivativeLoggerFactory = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
@@ -300,6 +304,7 @@ public static class ClientPortalEndpoints
         var documentTypeKey = NormalizeDocumentTypeKey(form["documentTypeKey"]);
         // "Something else" has no slot: it is treated as paperwork, not as evidence.
         DocumentKind? slotKind = documentTypeKey is null ? null : DocumentKind.Document;
+        var nextPageOrder = 1;
 
         var actor = ResolveActor(httpContext);
         var correlationId = httpContext.TraceIdentifier;
@@ -315,6 +320,7 @@ public static class ClientPortalEndpoints
             }
 
             slotKind = slot.Kind;
+            nextPageOrder = SlotPdfService.PagesInOrder(existingDocuments, slot.Key).Count + 1;
             var slotError = SlotUploadError(slot, files, existingDocuments);
             if (slotError is not null)
             {
@@ -341,6 +347,7 @@ public static class ClientPortalEndpoints
                 Sha256 = stored.Sha256,
                 SlotKind = slotKind,
                 PreviewObjectKey = stored.PreviewObjectKey,
+                PageOrder = slotKind == DocumentKind.Document && documentTypeKey is not null ? nextPageOrder++ : null,
             };
             await documentRepository.SaveAsync(uploadedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentUploaded(uploadedDocument, actor, correlationId), cancellationToken);
@@ -360,6 +367,12 @@ public static class ClientPortalEndpoints
                 cancellationToken);
         }
 
+        // Pictures of paperwork become pages of one PDF, rebuilt from what the slot holds now.
+        if (slotPdfService is not null && slotKind == DocumentKind.Document && documentTypeKey is not null)
+        {
+            await slotPdfService.RebuildAsync(scope, caseId, documentTypeKey, correlationId, cancellationToken);
+        }
+
         var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         var checklist = await checklistProvider.BuildChecklistAsync(claimCase, allDocuments, cancellationToken);
         var updatedCase = claimCase with
@@ -377,7 +390,7 @@ public static class ClientPortalEndpoints
             cancellationToken);
 
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
-        return Results.Ok(ToResponse(updatedCase, checklist, allDocuments, communications));
+        return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken));
     }
 
     public static async Task<IResult> RequestReview(
@@ -456,7 +469,8 @@ public static class ClientPortalEndpoints
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ISlotPdfRepository? slotPdfRepository = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -503,7 +517,7 @@ public static class ClientPortalEndpoints
         var updatedCase = claimCase with { CompletenessScore = checklist.CompletenessScore.Percentage, UpdatedAt = DateTimeOffset.UtcNow };
         await caseRepository.SaveAsync(updatedCase, cancellationToken);
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
-        return Results.Ok(ToResponse(updatedCase, checklist, allDocuments, communications));
+        return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken));
     }
 
     public static async Task<IResult> RemoveDocument(
@@ -516,7 +530,9 @@ public static class ClientPortalEndpoints
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ISlotPdfService? slotPdfService = null,
+        ISlotPdfRepository? slotPdfRepository = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -540,10 +556,33 @@ public static class ClientPortalEndpoints
 
         var actor = ResolveActor(httpContext);
         var correlationId = httpContext.TraceIdentifier;
-        var supersededAny = await SupersedeActiveDocumentsAsync(documentRepository, auditRepository, caseId, scope, documentTypeKey, actor, correlationId, cancellationToken);
+        bool supersededAny;
+        if (body?.DocumentId is { } pageId)
+        {
+            // One page of a multi-page slot. The file is kept and marked superseded, like any removal.
+            var pages = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+            var page = pages.FirstOrDefault(candidate => candidate.DocumentId == pageId && !candidate.IsSuperseded
+                && string.Equals(candidate.EffectiveKey, documentTypeKey, StringComparison.OrdinalIgnoreCase));
+            supersededAny = page is not null;
+            if (page is not null)
+            {
+                await documentRepository.SaveAsync(page with { IsSuperseded = true, SupersededAt = DateTimeOffset.UtcNow }, cancellationToken);
+                await auditRepository.WriteAsync(AuditEvent.SlotPagesChanged(scope, caseId, documentTypeKey, "document.page.removed", actor, correlationId), cancellationToken);
+            }
+        }
+        else
+        {
+            supersededAny = await SupersedeActiveDocumentsAsync(documentRepository, auditRepository, caseId, scope, documentTypeKey, actor, correlationId, cancellationToken);
+        }
+
         if (!supersededAny)
         {
             return Results.NotFound(new { message = "Nothing has been sent for that document yet." });
+        }
+
+        if (slotPdfService is not null)
+        {
+            await slotPdfService.RebuildAsync(scope, caseId, documentTypeKey, correlationId, cancellationToken);
         }
 
         var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
@@ -556,7 +595,103 @@ public static class ClientPortalEndpoints
         await caseRepository.SaveAsync(updatedCase, cancellationToken);
 
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
-        return Results.Ok(ToResponse(updatedCase, checklist, allDocuments, communications));
+        return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken));
+    }
+
+    /// <summary>The customer rearranges the pages of a multi-page document. The pages and their files
+    /// are unchanged; only their order is, and the slot's PDF is rebuilt to match.</summary>
+    public static async Task<IResult> ReorderPages(
+        Guid caseId,
+        ClientPortalReorderPagesRequest body,
+        ICaseRepository caseRepository,
+        ICaseDocumentRepository documentRepository,
+        IDocumentChecklistProvider checklistProvider,
+        ICommunicationRepository communicationRepository,
+        IAuditRepository auditRepository,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        ISlotPdfService? slotPdfService = null,
+        ISlotPdfRepository? slotPdfRepository = null)
+    {
+        if (!ResolveScope(httpContext, out var scope, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+
+        var documentTypeKey = NormalizeDocumentTypeKey(body?.DocumentTypeKey);
+        if (documentTypeKey is null || body?.DocumentIds is null)
+        {
+            return Validation("documentIds", "Say which document and the order of its pages.");
+        }
+
+        var claimCase = await caseRepository.GetAsync(caseId, cancellationToken);
+        if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext, options))
+        {
+            return Results.NotFound(new { message = "Claim was not found for the signed-in customer." });
+        }
+
+        var all = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        var pages = SlotPdfService.PagesInOrder(all, documentTypeKey);
+        var wanted = body.DocumentIds.ToArray();
+        if (pages.Count == 0
+            || wanted.Length != pages.Count
+            || wanted.Distinct().Count() != wanted.Length
+            || !pages.Select(page => page.DocumentId).ToHashSet().SetEquals(wanted))
+        {
+            return Validation("documentIds", "The new order must list every page of that document exactly once.");
+        }
+
+        for (var index = 0; index < wanted.Length; index++)
+        {
+            var page = pages.First(candidate => candidate.DocumentId == wanted[index]);
+            if (page.PageOrder != index + 1)
+            {
+                await documentRepository.SaveAsync(page with { PageOrder = index + 1 }, cancellationToken);
+            }
+        }
+
+        var actor = ResolveActor(httpContext);
+        var correlationId = httpContext.TraceIdentifier;
+        await auditRepository.WriteAsync(AuditEvent.SlotPagesChanged(scope, caseId, documentTypeKey, "document.pages.reordered", actor, correlationId), cancellationToken);
+        if (slotPdfService is not null)
+        {
+            await slotPdfService.RebuildAsync(scope, caseId, documentTypeKey, correlationId, cancellationToken);
+        }
+
+        var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        var checklist = await checklistProvider.BuildChecklistAsync(claimCase, allDocuments, cancellationToken);
+        var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
+        return Results.Ok(await WithPdfsAsync(ToResponse(claimCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken));
+    }
+
+    /// <summary>Fills in how many pages the PDF of each document slot has.</summary>
+    private static async Task<ClientPortalClaimResponse> WithPdfsAsync(
+        ClientPortalClaimResponse response,
+        ISlotPdfRepository? slotPdfRepository,
+        InsuranceIntelligence.Domain.Common.TenantScope scope,
+        Guid caseId,
+        CancellationToken cancellationToken)
+    {
+        if (slotPdfRepository is null)
+        {
+            return response;
+        }
+
+        var pdfs = await slotPdfRepository.ListForCaseAsync(scope, caseId, cancellationToken);
+        if (pdfs.Count == 0)
+        {
+            return response;
+        }
+
+        return response with
+        {
+            RequiredDocuments = response.RequiredDocuments
+                .Select(row => pdfs.FirstOrDefault(pdf => string.Equals(pdf.SlotKey, row.DocumentTypeKey, StringComparison.OrdinalIgnoreCase)) is { } pdf
+                    ? row with { PageCount = pdf.PageCount }
+                    : row)
+                .ToArray(),
+        };
     }
 
     /// <summary>Marks every currently-active (not already superseded) document matching this
@@ -641,7 +776,7 @@ public static class ClientPortalEndpoints
                 MaxFiles: slot.MaxFiles,
                 AcceptedFormats: slot.AcceptedFormats,
                 FileCount: inSlot.Length,
-                Files: inSlot
+                Files: SlotPdfService.PagesInOrder(inSlot, slot.Key)
                     .Select(document => new ClientPortalSlotFile(document.DocumentId, document.OriginalFileName, document.ProcessingStatus.ToString(), document.UploadedAt))
                     .ToArray());
         }
@@ -994,11 +1129,19 @@ public sealed record ClientPortalDocumentRequirement(
     int MaxFiles = 1,
     IReadOnlyList<string>? AcceptedFormats = null,
     int FileCount = 0,
-    IReadOnlyList<ClientPortalSlotFile>? Files = null);
+    IReadOnlyList<ClientPortalSlotFile>? Files = null,
+    // Pages in the one PDF made from this slot's pictures (build-loop item 12); 0 when there is none.
+    int PageCount = 0);
 
 public sealed record ClientPortalSlotFile(Guid DocumentId, string FileName, string Status, DateTimeOffset UploadedAt);
 
-public sealed record ClientPortalRemoveDocumentRequest(string? DocumentTypeKey);
+/// <summary>Which document to remove or retry: the slot, and optionally one page of it. Without a
+/// page, the whole slot is meant.</summary>
+public sealed record ClientPortalRemoveDocumentRequest(string? DocumentTypeKey, Guid? DocumentId = null);
+
+/// <summary>The pages of a multi-page slot in the order the customer wants them, first page first.
+/// Must name every page the slot holds, once each.</summary>
+public sealed record ClientPortalReorderPagesRequest(string? DocumentTypeKey, IReadOnlyList<Guid>? DocumentIds);
 
 public sealed record ClientPortalTimelineStep(
     string Label,

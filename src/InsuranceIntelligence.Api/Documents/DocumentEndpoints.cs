@@ -174,7 +174,8 @@ public static class DocumentEndpoints
         ICaseDocumentRepository documentRepository,
         HttpContext httpContext,
         CancellationToken cancellationToken,
-        ITenantConfigurationRepository? tenantConfigurationRepository = null)
+        ITenantConfigurationRepository? tenantConfigurationRepository = null,
+        ISlotPdfRepository? slotPdfRepository = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
@@ -189,7 +190,50 @@ public static class DocumentEndpoints
 
         var confidenceThreshold = await ResolveConfidenceThresholdAsync(tenantConfigurationRepository, scope, cancellationToken);
         var documents = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
-        return Results.Ok(documents.Select(document => DocumentMapper.ToResponse(document, confidenceThreshold)).ToArray());
+        var pdfs = slotPdfRepository is null ? [] : await slotPdfRepository.ListForCaseAsync(scope, caseId, cancellationToken);
+        return Results.Ok(documents.Select(document =>
+        {
+            var response = DocumentMapper.ToResponse(document, confidenceThreshold);
+            var pdf = pdfs.FirstOrDefault(candidate => string.Equals(candidate.SlotKey, document.EffectiveKey, StringComparison.OrdinalIgnoreCase));
+            var page = pdf is null ? 0 : pdf.PageDocumentIds.ToList().IndexOf(document.DocumentId) + 1;
+            return page > 0
+                ? response with { SlotPdfUrl = $"/api/v1/cases/{caseId}/document-slots/{Uri.EscapeDataString(pdf!.SlotKey)}/pdf", SlotPdfPage = page, SlotPdfPageCount = pdf.PageCount }
+                : response;
+        }).ToArray());
+    }
+
+    /// <summary>The single PDF built from the pictures in one document slot. The originals are served
+    /// by the content route and are never replaced by it.</summary>
+    public static async Task<IResult> GetSlotPdf(
+        Guid caseId,
+        string slotKey,
+        ICaseRepository caseRepository,
+        ISlotPdfRepository slotPdfRepository,
+        IDocumentStorageProvider storageProvider,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Validation("tenantScope", validationError);
+        }
+
+        var claimCase = await GetScopedCaseAsync(caseRepository, caseId, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
+        var pdf = await slotPdfRepository.GetAsync(scope, caseId, slotKey, cancellationToken);
+        if (pdf is null)
+        {
+            return Results.NotFound(new { message = "No combined PDF exists for that document." });
+        }
+
+        httpContext.Response.Headers.XContentTypeOptions = "nosniff";
+        httpContext.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'";
+        var stream = await storageProvider.ReadAsync(scope, pdf.ObjectKey, cancellationToken);
+        return Results.File(stream, "application/pdf", $"{slotKey}.pdf");
     }
 
     public static async Task<IResult> GetChecklist(

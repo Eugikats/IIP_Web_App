@@ -60,7 +60,7 @@ export const PORTAL_WORKSPACE = "workspace-operations";
 
 /** Creates a claim in the portal's tenant and returns the access link a customer would be sent
  *  (read from the mock outbox, because the Mock communication provider "delivers" it there). */
-export async function claimantLinkFor(request: APIRequestContext, claimType = "Accident") {
+export async function claimantLinkFor(request: APIRequestContext, claimType = "Accident", productLine = "Motor") {
   const policyNumber = `POL-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   const email = `claimant.${Math.random().toString(36).slice(2, 8)}@example.com`;
   const created = await request.post(`${API}/api/v1/cases`, {
@@ -70,7 +70,7 @@ export async function claimantLinkFor(request: APIRequestContext, claimType = "A
       customerEmail: email,
       customerPhone: "+256700000777",
       policyNumber,
-      productLine: "Motor",
+      productLine,
       claimType,
       channel: "Phone",
       incidentDate: new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10),
@@ -923,6 +923,74 @@ test.describe("Item 11: evidence originals", () => {
     const [document] = await staffDocuments(request, caseId);
 
     const other = await request.get(`${API}${document.imagePreviewUrl}`, { headers: scopeHeaders(newTenant()) });
+    expect(other.status()).toBe(404);
+  });
+});
+
+test.describe("Item 12: document photos to one PDF", () => {
+  /** Publishes a product whose police report is a multi-page document, in the portal's workspace. */
+  async function multiPageProduct(request: APIRequestContext) {
+    const productClass = `Pages${Math.random().toString(36).slice(2, 7)}`;
+    const maker = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "Admin", "pages-maker");
+    const checker = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "Admin", "pages-checker");
+    const created = await request.post(`${API}/api/v1/products`, { headers: maker, data: { name: "Pages Cover", productClass, changeReason: "e2e" } });
+    const { productId } = (await created.json()) as { productId: string };
+    const updated = await request.put(`${API}/api/v1/products/${productId}`, {
+      headers: maker,
+      data: {
+        iraApprovalReference: "E2E-1",
+        iraApprovalEffectiveDate: "2026-01-01",
+        documentMatrix: [{
+          documentKey: "PoliceAbstract", customerLabel: "Police report", reason: "needed", isRequired: true,
+          requiredAtStageKey: "acknowledgement_and_document_request", isRegulatoryOrWordingMandated: false,
+          allowsMultiplePages: true, maxFiles: 5,
+        }],
+        changeReason: "e2e",
+      },
+    });
+    expect(updated.ok(), await updated.text()).toBeTruthy();
+    expect((await request.post(`${API}/api/v1/products/${productId}/submit`, { headers: maker, data: { changeReason: "go" } })).ok()).toBeTruthy();
+    expect((await request.post(`${API}/api/v1/products/${productId}/approve`, { headers: checker, data: { changeReason: "ok" } })).ok()).toBeTruthy();
+    return productClass;
+  }
+
+  test("a customer adds pages, reorders and removes one, and staff get one PDF in that order", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const productClass = await multiPageProduct(request);
+    const { token, caseId } = await claimantLinkFor(request, "Accident", productClass);
+    await openClaimantPortal(page, token);
+
+    const police = page.locator("li", { hasText: "Police report" }).first();
+    await police.locator('input[data-upload="choose"]').setInputFiles(fixture("police_letter.jpg"));
+    await expect(police.getByText("Page 1: police_letter.jpg")).toBeVisible();
+    await police.getByText("Add another page").click({ trial: true });
+    await police.locator('input[data-upload="capture"]').setInputFiles({ ...fixture("damage_photo.jpg"), name: "second_page.jpg" });
+    await expect(police.getByText("Page 2: second_page.jpg")).toBeVisible();
+    await expect(police.getByText("These pages are sent as one PDF of 2 pages, in this order.")).toBeVisible();
+
+    await police.getByRole("button", { name: "Move page 2 of Police report earlier" }).click();
+    await expect(police.getByText("Page 1: second_page.jpg")).toBeVisible();
+    await expect(police.getByText("Page 2: police_letter.jpg")).toBeVisible();
+
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const documents = (await (await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers })).json()) as { slotPdfUrl: string | null; slotPdfPageCount: number }[];
+    expect(documents.every((document) => document.slotPdfPageCount === 2)).toBe(true);
+    const pdf = await request.get(`${API}${documents[0].slotPdfUrl}`, { headers });
+    expect(pdf.status()).toBe(200);
+    expect(pdf.headers()["content-type"]).toContain("application/pdf");
+    expect((await pdf.body()).subarray(0, 5).toString()).toBe("%PDF-");
+
+    await police.getByRole("button", { name: "Remove page 1 of Police report" }).click();
+    await expect(police.getByText("Page 1: police_letter.jpg")).toBeVisible();
+    await expect(police.getByText("Page 2:")).toHaveCount(0);
+    await expect(police.getByText("These pages are sent as one PDF of 1 page, in this order.")).toBeVisible();
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("another tenant cannot read the PDF", async ({ request }) => {
+    const other = await request.get(`${API}/api/v1/cases/00000000-0000-0000-0000-000000000001/document-slots/PoliceAbstract/pdf`, { headers: scopeHeaders(newTenant()) });
     expect(other.status()).toBe(404);
   });
 });

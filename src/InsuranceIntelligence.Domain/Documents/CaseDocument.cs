@@ -38,6 +38,11 @@ public sealed record CaseDocument
     /// this field existed deserializes as not superseded.</summary>
     public bool IsSuperseded { get; init; }
 
+    /// <summary>The page number the customer gave this file within a multi-page slot (build-loop
+    /// item 12); null means "in the order sent". Only the order matters, the numbers are renumbered
+    /// whenever pages are rearranged.</summary>
+    public int? PageOrder { get; init; }
+
     /// <summary>SHA-256 of the bytes exactly as received (build-loop item 11), as lower-case hex.
     /// Lets anyone show later that the stored original is the file that was sent. Null for a
     /// document stored before this field existed.</summary>

@@ -52,6 +52,10 @@ export type DocumentItem = {
   slotKind?: string | null;
   /** A separate JPEG preview made for looking at (HEIC and large photos); the original is unchanged. */
   imagePreviewUrl?: string | null;
+  /** The one PDF built from the pictures in this document's slot, and this file's page in it (item 12). */
+  slotPdfUrl?: string | null;
+  slotPdfPage?: number;
+  slotPdfPageCount?: number;
   allowedActions: DocumentActionState[];
   blockedActions: DocumentActionState[];
 };
