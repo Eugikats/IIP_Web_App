@@ -1,6 +1,6 @@
 "use client";
 import { GlassCard, SectionHeader, Badge } from "@/components/iip/Primitives";
-import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
+import { LoadingSkeleton, ErrorStateSurface, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
 import { useBilling, type UsageMeterView } from "@/lib/lovable-parity/data/billing";
 import { BillingPlans } from "@/components/iip/BillingPlans";
 
@@ -49,7 +49,7 @@ function Meter({ m }: { m: UsageMeterView }) {
 }
 
 export default function Billing() {
-  const { summary, loading, error, reload } = useBilling();
+  const { summary, loading, error, forbidden, reload } = useBilling();
 
   return (
     <>
@@ -61,6 +61,8 @@ export default function Billing() {
 
       {loading ? (
         <GlassCard><LoadingSkeleton rows={4} /></GlassCard>
+      ) : forbidden ? (
+        <GlassCard><NoPermissionStateSurface permission="ViewBilling" /></GlassCard>
       ) : error ? (
         <GlassCard><ErrorStateSurface title="Billing could not be loaded" message={error} /></GlassCard>
       ) : !summary ? (

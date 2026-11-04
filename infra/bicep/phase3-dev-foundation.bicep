@@ -162,6 +162,20 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
     publicNetworkAccess: 'Enabled'
+    // Encryption at rest is always on; stated so it cannot be switched off by a later edit.
+    encryption: {
+      keySource: 'Microsoft.Storage'
+      services: {
+        blob: {
+          enabled: true
+          keyType: 'Account'
+        }
+        file: {
+          enabled: true
+          keyType: 'Account'
+        }
+      }
+    }
   }
 }
 
@@ -253,6 +267,15 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2022-05-01-preview' = {
   sku: {
     name: 'Basic'
     tier: 'Basic'
+  }
+}
+
+// Transparent data encryption protects the database, its backups and its logs at rest. It is on by default; stated so it stays on.
+resource sqlTransparentDataEncryption 'Microsoft.Sql/servers/databases/transparentDataEncryption@2022-05-01-preview' = {
+  parent: sqlDatabase
+  name: 'current'
+  properties: {
+    state: 'Enabled'
   }
 }
 

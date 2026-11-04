@@ -2291,3 +2291,213 @@ test.describe("Item 32: plans and payments", () => {
     expect((await request.get(`${API}/api/v1/admin/billing/payments/${crypto.randomUUID()}`, { headers })).status()).toBe(404);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Item 34: retention periods, legal holds and erasing one person's data, with evidence.
+// ---------------------------------------------------------------------------------------------
+
+/** A claim for a person nobody else in the shared test workspace shares a phone number or email with. */
+async function claimForNewPerson(request: APIRequestContext, tenantId = PORTAL_TENANT, workspaceId = PORTAL_WORKSPACE) {
+  const phone = `+2567${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
+  const email = `person-${letters(10)}@example.test`;
+  const policyNumber = `POL-${letters(6).toUpperCase()}`;
+  const response = await request.post(`${API}/api/v1/cases`, {
+    headers: scopeHeaders(tenantId, workspaceId),
+    data: { customerName: "Erin Erasable", customerEmail: email, customerPhone: phone, policyNumber, productLine: "Motor", claimType: "Accident", channel: "Phone", incidentDate: new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10), incidentDescription: "Collision on the highway." },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const { caseId } = (await response.json()) as { caseId: string };
+  return { caseId, phone, email, policyNumber, reference: `CLM-${caseId.replace(/-/g, "").slice(0, 8).toUpperCase()}` };
+}
+
+test.describe("Item 34: retention, legal holds and erasure", () => {
+  test("an administrator holds a claim, sees the erasure preview leave it alone, releases it and erases the person with a record", async ({ page, request }) => {
+    const person = await claimForNewPerson(request);
+    await page.goto("/app/admin/data-protection");
+
+    await page.getByLabel("Claim reference").fill(person.reference);
+    await page.getByLabel("Why it is held").fill("Court case CS 14 of 2026");
+    await page.getByRole("button", { name: "Place hold" }).click();
+    await expect(page.getByRole("table", { name: "Claims on legal hold" })).toContainText(person.reference);
+
+    const erasure = page.getByTestId("erasure-card");
+    await erasure.getByLabel("Policy number").fill(person.policyNumber);
+    await erasure.getByRole("button", { name: "See what would be erased" }).click();
+    const preview = page.getByTestId("erasure-preview");
+    await expect(preview).toContainText("0 claim(s) will lose");
+    await expect(preview).toContainText("1 on legal hold will be left alone");
+    await expect(preview).toContainText(person.reference);
+
+    await page.getByRole("table", { name: "Claims on legal hold" }).getByRole("button", { name: "Release" }).click();
+    await expect(page.getByTestId("holds-card")).toContainText("No claims are on hold");
+
+    await erasure.getByRole("button", { name: "See what would be erased" }).click();
+    await expect(preview).toContainText("1 claim(s) will lose the person's details");
+    await preview.getByLabel("Why (for the record)").fill("Written request received 3 October");
+    const erase = preview.getByRole("button", { name: "Erase now" });
+    await expect(erase).toBeDisabled();
+    await preview.getByLabel("Type ERASE to confirm").fill("ERASE");
+    await erase.click();
+    await expect(page.getByTestId("erasure-done")).toContainText("Erased:");
+
+    // The evidence names the number of records, never the person; the claim stays without them.
+    const evidence = page.getByTestId("deletion-evidence");
+    await expect(evidence).toContainText("Written request received 3 October");
+    await expect(evidence).not.toContainText(person.phone.slice(-9));
+    await expect(evidence).not.toContainText(person.email);
+    const claim = (await (await request.get(`${API}/api/v1/cases/${person.caseId}`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) })).json()) as { customerName: string; customerPhone: string | null; personalDataErasedAt: string | null };
+    expect(claim.customerName).toBe("Erased");
+    expect(claim.customerPhone).toBeNull();
+    expect(claim.personalDataErasedAt).not.toBeNull();
+  });
+
+  test("retention periods are saved, and running retention with nothing past its period deletes nothing", async ({ page }) => {
+    await page.goto("/app/admin/data-protection");
+    const card = page.getByTestId("retention-card");
+    await card.getByLabel("Claim documents and their stored files: months to keep").fill("36");
+    await card.getByRole("button", { name: "Save periods" }).click();
+    await expect(page.getByText("Retention periods saved.")).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId("retention-card").getByLabel("Claim documents and their stored files: months to keep")).toHaveValue("36");
+
+    await page.getByTestId("retention-card").getByRole("button", { name: "Delete expired records now" }).click();
+    await expect(page.getByTestId("retention-ran")).toContainText("Nothing was past its period.");
+
+    // Back to keeping everything, so later tests are not affected.
+    await page.getByTestId("retention-card").getByLabel("Claim documents and their stored files: months to keep").fill("0");
+    await page.getByTestId("retention-card").getByRole("button", { name: "Save periods" }).click();
+    await expect(page.getByText("Retention periods saved.").first()).toBeVisible();
+  });
+
+  test("another workspace never sees or erases this one's person, and an officer cannot erase", async ({ request }) => {
+    const person = await claimForNewPerson(request);
+    const other = scopeHeaders(newTenant());
+    const preview = await request.post(`${API}/api/v1/admin/data/erasure/preview`, { headers: other, data: { phone: person.phone } });
+    expect(((await preview.json()) as { nothingFound: boolean }).nothingFound).toBe(true);
+    await request.post(`${API}/api/v1/admin/data/erasure`, { headers: other, data: { phone: person.phone, reason: "Another workspace's request", confirm: "ERASE" } });
+    const still = (await (await request.get(`${API}/api/v1/cases/${person.caseId}`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) })).json()) as { customerName: string };
+    expect(still.customerName).toBe("Erin Erasable");
+
+    const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
+    expect((await request.post(`${API}/api/v1/admin/data/erasure`, { headers: officer, data: { phone: person.phone, reason: "An officer asking", confirm: "ERASE" } })).status()).toBe(403);
+  });
+
+  test("the data protection page fits a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/app/admin/data-protection");
+    await expect(page.getByTestId("retention-card")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Item 36: the new screens keep to the page at the widths staff and customers actually use.
+// ---------------------------------------------------------------------------------------------
+
+test.describe("Item 36: design direction on the new screens", () => {
+  const widths = [390, 768, 1280];
+  const publicPaths = ["/signin", "/signup", "/forgot-password", "/terms"];
+  const staffPaths = ["/app/admin/billing", "/app/admin/data-protection", "/app/admin/users"];
+
+  for (const width of widths) {
+    test(`public pages do not overflow at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      for (const path of publicPaths) {
+        await page.goto(path);
+        await expect(page.locator("main")).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${path} overflows at ${width}px`).toBe(true);
+      }
+    });
+
+    test(`staff admin pages do not overflow at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      for (const path of staffPaths) {
+        await page.goto(path);
+        await expect(page.locator("main")).toBeVisible();
+        await page.waitForLoadState("networkidle");
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${path} overflows at ${width}px`).toBe(true);
+      }
+    });
+  }
+
+  test("a person without the permission is told so on the admin pages", async ({ page }) => {
+    // The shared portal runs as the workspace administrator; preview a role that has no admin permissions.
+    await page.route("**/api/v1/admin/**", (route) => route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ message: "Forbidden" }) }));
+    for (const path of ["/app/admin/billing", "/app/admin/data-protection"]) {
+      await page.goto(path);
+      await expect(page.getByText(/permission/i).first(), `${path} shows no permission state`).toBeVisible({ timeout: 30_000 });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Item 37: one journey across two companies that share a customer's phone number and policy number.
+// ---------------------------------------------------------------------------------------------
+
+test.describe("Item 37: two companies, one journey", () => {
+  test("two companies sign up, each files a claim for the same phone and policy, and neither can see, find or erase the other's", async ({ browser, request }) => {
+    const phone = `+2567${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
+    const policyNumber = `POL-${letters(6).toUpperCase()}`;
+    const names = { a: `Alpha${letters(6)} Customer`, b: `Bravo${letters(6)} Customer` };
+
+    const contextA = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const contextB = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const pageA = await contextA.newPage();
+    const pageB = await contextB.newPage();
+    const a = await newCompanySignedIn(pageA, request);
+    const b = await newCompanySignedIn(pageB, request);
+    expect(a.tenantId).not.toBe(b.tenantId);
+
+    async function file(tenant: { tenantId: string; workspaceId: string }, customerName: string) {
+      const created = await request.post(`${API}/api/v1/cases`, {
+        headers: scopeHeaders(tenant.tenantId, tenant.workspaceId),
+        data: { customerName, customerEmail: `${letters(8)}@example.test`, customerPhone: phone, policyNumber, productLine: "Motor", claimType: "Accident", channel: "Phone", incidentDate: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10), incidentDescription: "Collision at a junction." },
+      });
+      expect(created.ok(), await created.text()).toBeTruthy();
+      return ((await created.json()) as { caseId: string }).caseId;
+    }
+    const caseA = await file(a, names.a);
+    const caseB = await file(b, names.b);
+
+    // Each company's own screen shows its claim and not the other's.
+    await pageA.goto("/app/claims");
+    await expect(pageA.getByRole("cell", { name: new RegExp(names.a) })).toBeVisible({ timeout: 30_000 });
+    await expect(pageA.getByText(names.b)).toHaveCount(0);
+    await pageB.goto("/app/claims");
+    await expect(pageB.getByRole("cell", { name: new RegExp(names.b) })).toBeVisible({ timeout: 30_000 });
+    await expect(pageB.getByText(names.a)).toHaveCount(0);
+
+    // The API agrees: lists hold one claim each, and a claim of the other company is not found.
+    const headersA = scopeHeaders(a.tenantId, a.workspaceId);
+    const headersB = scopeHeaders(b.tenantId, b.workspaceId);
+    const listA = (await (await request.get(`${API}/api/v1/cases`, { headers: headersA })).json()) as { caseId: string }[];
+    const listB = (await (await request.get(`${API}/api/v1/cases`, { headers: headersB })).json()) as { caseId: string }[];
+    expect(listA.map((entry) => entry.caseId)).toEqual([caseA]);
+    expect(listB.map((entry) => entry.caseId)).toEqual([caseB]);
+    expect((await request.get(`${API}/api/v1/cases/${caseA}`, { headers: headersB })).status()).toBe(404);
+    expect((await request.get(`${API}/api/v1/cases/${caseB}`, { headers: headersA })).status()).toBe(404);
+
+    // Each company's usage counts only its own claim.
+    for (const headers of [headersA, headersB]) {
+      const billing = (await (await request.get(`${API}/api/v1/admin/billing`, { headers })).json()) as { meters: { key: string; used: number }[] };
+      expect(billing.meters.find((meter) => meter.key === "claims")?.used).toBe(1);
+    }
+
+    // Erasing the shared phone number in company B previews and erases only B's claim.
+    const preview = (await (await request.post(`${API}/api/v1/admin/data/erasure/preview`, { headers: headersB, data: { phone } })).json()) as { claims: { caseId: string }[] };
+    expect(preview.claims.map((entry) => entry.caseId)).toEqual([caseB]);
+    const erased = await request.post(`${API}/api/v1/admin/data/erasure`, { headers: headersB, data: { phone, reason: "Journey: one company's own customer request", confirm: "ERASE" } });
+    expect(erased.ok(), await erased.text()).toBeTruthy();
+    const stillA = (await (await request.get(`${API}/api/v1/cases/${caseA}`, { headers: headersA })).json()) as { customerName: string };
+    expect(stillA.customerName).toBe(names.a);
+
+    // The audit trail of each company holds nothing about the other's claim.
+    const auditA = JSON.stringify(await (await request.get(`${API}/api/v1/compliance/audit-events`, { headers: headersA })).json());
+    expect(auditA).not.toContain(caseB);
+    const auditB = JSON.stringify(await (await request.get(`${API}/api/v1/compliance/audit-events`, { headers: headersB })).json());
+    expect(auditB).not.toContain(caseA);
+
+    await contextA.close();
+    await contextB.close();
+  });
+});

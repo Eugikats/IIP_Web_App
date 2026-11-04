@@ -637,6 +637,11 @@ builder.Services.AddScoped<InsuranceIntelligence.Domain.Billing.IPlanAllowance>(
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IPaymentLinks, InsuranceIntelligence.Api.Admin.Billing.PaymentLinks>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.PaymentService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IPaymentOutcomeHandler, InsuranceIntelligence.Application.Billing.PlanPaymentOutcomeHandler>();
+// Retention, legal holds and erasure (build-loop item 34).
+builder.Services.AddScoped<InsuranceIntelligence.Application.DataLifecycle.DataLifecycleService>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.DataLifecycle.RetentionWorker>();
+builder.Services.AddScoped<InsuranceIntelligence.Infrastructure.Persistence.LookupKeyBackfill>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Admin.LookupBackfillWorker>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.SubscriptionLifecycleService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.PaymentReconciliationService>();
 var paymentProviderSetting = builder.Configuration["INSURANCEINTELLIGENCE_PAYMENT_PROVIDER"] ?? "Disabled";
@@ -1444,6 +1449,21 @@ app.MapGet("/api/v1/admin/billing/invoices/{invoiceId:guid}/receipt", InsuranceI
 app.MapPost("/api/v1/admin/billing/cancel", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.Cancel)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPost("/api/v1/admin/billing/resume", InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.Resume)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+// Retention, legal holds and erasing one person's data (build-loop item 34).
+app.MapGet("/api/v1/admin/data/legal-holds", InsuranceIntelligence.Api.DataLifecycle.DataLifecycleEndpoints.ListHolds)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/admin/data/legal-holds", InsuranceIntelligence.Api.DataLifecycle.DataLifecycleEndpoints.PlaceHold)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapDelete("/api/v1/admin/data/legal-holds/{caseId:guid}", InsuranceIntelligence.Api.DataLifecycle.DataLifecycleEndpoints.ReleaseHold)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/admin/data/erasure/preview", InsuranceIntelligence.Api.DataLifecycle.DataLifecycleEndpoints.PreviewErasure)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/admin/data/erasure", InsuranceIntelligence.Api.DataLifecycle.DataLifecycleEndpoints.Erase)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/admin/data/deletions", InsuranceIntelligence.Api.DataLifecycle.DataLifecycleEndpoints.Deletions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/admin/data/retention/run", InsuranceIntelligence.Api.DataLifecycle.DataLifecycleEndpoints.RunRetention)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 // The payment provider's own call. The secret in the address is its only credential and the body is never read.
 app.MapMethods("/api/v1/payments/callback/{paymentIntentId:guid}/{secret}", ["GET", "POST"], InsuranceIntelligence.Api.Admin.Billing.BillingPlanEndpoints.Callback)

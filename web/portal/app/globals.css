@@ -22,7 +22,7 @@
   /* ---- Neutrals ---- */
   --color-text-primary:       16 24 40;     /* #101828  headings, body, stat numbers */
   --color-text-secondary:     82 92 110;    /* #525C6E  labels, captions, descriptions */
-  --color-text-muted:         107 114 128;  /* #6B7280  ANY meaningful small text */
+  --color-text-muted:         100 108 122;  /* #646C7A  ANY meaningful small text, 4.5:1 or better on the page background too */
   --color-text-faint:         152 162 179;  /* #98A2B3  DECORATIVE ONLY, fails WCAG AA, never for text */
   --color-text-inverse:       255 255 255;  /* #FFFFFF  text on primary fills */
 

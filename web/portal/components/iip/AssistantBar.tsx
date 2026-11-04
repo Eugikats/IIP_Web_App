@@ -35,7 +35,7 @@ export default function AssistantBar() {
             if (event.key === "Enter") submit();
           }}
           placeholder="Ask about your work…"
-          aria-label="Ask the assistant"
+          aria-label="Your question"
           className="min-w-0 flex-1 bg-transparent text-[13px] text-dls-text-primary outline-none placeholder:text-dls-text-muted"
         />
         <button

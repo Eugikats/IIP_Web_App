@@ -9,7 +9,7 @@ export type PlatformUser = { userId: string; name: string; email: string; tenant
 
 export type WorkspaceChoice = { tenantId: string; workspaceId: string; name: string };
 
-export type AuthResult<T> = { ok: true; value: T } | { ok: false; error: string; fields?: Record<string, string> };
+export type AuthResult<T> = { ok: true; value: T } | { ok: false; error: string; fields?: Record<string, string>; forbidden?: boolean };
 
 const SESSION_KEY = platformSessionKey;
 
@@ -151,7 +151,7 @@ export type InvitationView = { invitationId: string; email: string; role: string
 export async function listInvitations(role: string): Promise<AuthResult<InvitationView[]>> {
   try {
     const response = await fetch(`${apiBaseUrl}/api/v1/admin/invitations`, { headers: scopedHeaders(role, ""), cache: "no-store" });
-    if (!response.ok) return { ok: false, ...(await readError(response, "Invitations could not be loaded.")) };
+    if (!response.ok) return { ok: false, ...(await readError(response, "Invitations could not be loaded.")), forbidden: response.status === 403 };
     return { ok: true, value: (await response.json()) as InvitationView[] };
   } catch {
     return { ok: false, error: unreachable };

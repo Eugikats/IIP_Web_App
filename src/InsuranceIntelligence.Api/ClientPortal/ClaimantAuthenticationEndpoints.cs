@@ -75,7 +75,7 @@ public static class ClaimantAuthenticationEndpoints
         // policy number, not IIP's internal case id, so this, not a case id, is the lookup key;
         // a policy can have more than one claim, so this picks the most recently created one, the
         // same tie-break PolicyLookupEndpoints already uses for duplicate detection at intake.
-        var allCases = await caseRepository.ListAsync(scope, cancellationToken);
+        var allCases = await caseRepository.ListByPolicyNumbersAsync(scope, [policyNumber], cancellationToken);
         var claimCase = allCases
             .Where(c => string.Equals(c.PolicyNumber, policyNumber, StringComparison.OrdinalIgnoreCase))
             .Where(c => ClaimantContactMatcher.Matches(request.ContactValue, c.CustomerEmail, c.CustomerPhone))

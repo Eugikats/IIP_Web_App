@@ -11,6 +11,10 @@ public interface IEvidencePackStorageProvider
     /// was write-only: a real single-document export existed, but nothing could ever retrieve it
     /// again after the initial upload.</summary>
     Task<Stream> ReadAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes one stored pack and returns how many objects went (0 when it was already gone). The key must belong to the scope.</summary>
+    Task<int> DeleteObjectAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("The configured evidence storage provider does not support deleting stored packs.");
 }
 
 public sealed record EvidencePackStorageRequest(

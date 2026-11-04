@@ -41,7 +41,7 @@ export type InvoiceView = {
 
 export type Receipt = { customer: string; invoice: InvoiceView };
 
-export type Outcome<T> = { ok: true; value: T } | { ok: false; error: string };
+export type Outcome<T> = { ok: true; value: T } | { ok: false; error: string; forbidden?: boolean };
 
 const unreachable = "The service could not be reached. Check your connection and try again.";
 
@@ -58,7 +58,7 @@ async function failure(response: Response, fallback: string): Promise<string> {
 async function get<T>(role: string, path: string, fallback: string): Promise<Outcome<T>> {
   try {
     const response = await fetch(`${apiBaseUrl}${path}`, { headers: scopedHeaders(role, ""), cache: "no-store" });
-    return response.ok ? { ok: true, value: (await response.json()) as T } : { ok: false, error: await failure(response, fallback) };
+    return response.ok ? { ok: true, value: (await response.json()) as T } : { ok: false, error: await failure(response, fallback), forbidden: response.status === 403 };
   } catch {
     return { ok: false, error: unreachable };
   }

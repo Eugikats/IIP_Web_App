@@ -22,7 +22,11 @@ public sealed class EfCaseRepository(InsuranceIntelligenceDbContext dbContext, I
             claimCase.CaseId,
             claimCase.Scope,
             Serialize(claimCase),
-            record => record.PeriodKey = InsuranceIntelligence.Domain.Billing.UsagePeriod.KeyFor(claimCase.CreatedAt),
+            record =>
+            {
+                record.PeriodKey = InsuranceIntelligence.Domain.Billing.UsagePeriod.KeyFor(claimCase.CreatedAt);
+                CaseLookup.Fill(record, claimCase);
+            },
             cancellationToken);
 
     public async Task<ClaimCase?> GetAsync(Guid caseId, CancellationToken cancellationToken = default)
@@ -49,6 +53,77 @@ public sealed class EfCaseRepository(InsuranceIntelligenceDbContext dbContext, I
         await Scoped(DbContext.Cases.AsNoTracking(), scope)
             .Select(record => Deserialize<ClaimCase>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
+
+    // ---- indexed lookups (build-loop item 35). A row saved before the lookup columns existed (LookupVersion 0) has none, so those few rows
+    // are read and filtered in memory too until the start-up backfill has filled them; once it has, that extra read finds nothing.
+
+    private async Task<List<ClaimCase>> UnindexedAsync(TenantScope scope, CancellationToken cancellationToken) =>
+        (await Scoped(DbContext.Cases.AsNoTracking(), scope).Where(record => record.LookupVersion == 0).Select(record => record.PayloadJson).ToListAsync(cancellationToken))
+        .Select(Deserialize<ClaimCase>).ToList();
+
+    private async Task<IReadOnlyCollection<ClaimCase>> FindAsync(
+        TenantScope scope, IQueryable<PersistedAggregate> indexed, Func<ClaimCase, bool> legacyMatch, CancellationToken cancellationToken)
+    {
+        var found = (await indexed.Select(record => record.PayloadJson).ToListAsync(cancellationToken)).Select(Deserialize<ClaimCase>).ToList();
+        found.AddRange((await UnindexedAsync(scope, cancellationToken)).Where(legacyMatch));
+        return found;
+    }
+
+    public async Task<IReadOnlyCollection<ClaimCase>> ListByPolicyNumbersAsync(TenantScope scope, IReadOnlyCollection<string> policyNumbers, CancellationToken cancellationToken = default)
+    {
+        var keys = policyNumbers.Select(InsuranceIntelligence.Domain.Common.LookupKeys.PolicyKey).Where(key => key is not null).Distinct().ToArray();
+        return keys.Length == 0
+            ? []
+            : await FindAsync(scope, Scoped(DbContext.Cases.AsNoTracking(), scope).Where(record => keys.Contains(record.PolicyKey)),
+                claim => keys.Contains(InsuranceIntelligence.Domain.Common.LookupKeys.PolicyKey(claim.PolicyNumber)), cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<ClaimCase>> ListByContactAsync(TenantScope scope, string? phone, string? email, CancellationToken cancellationToken = default)
+    {
+        var phoneKey = InsuranceIntelligence.Domain.Common.LookupKeys.PhoneKey(phone);
+        var emailKey = InsuranceIntelligence.Domain.Common.LookupKeys.EmailKey(email);
+        if (phoneKey is null && emailKey is null)
+        {
+            return [];
+        }
+
+        return await FindAsync(
+            scope,
+            Scoped(DbContext.Cases.AsNoTracking(), scope).Where(record => (phoneKey != null && record.PhoneKey == phoneKey) || (emailKey != null && record.EmailKey == emailKey)),
+            claim => (phoneKey is not null && InsuranceIntelligence.Domain.Common.LookupKeys.PhoneKey(claim.CustomerPhone) == phoneKey)
+                || (emailKey is not null && InsuranceIntelligence.Domain.Common.LookupKeys.EmailKey(claim.CustomerEmail) == emailKey),
+            cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<ClaimCase>> ListByStatusesAsync(TenantScope scope, IReadOnlyCollection<CaseStatus> statuses, CancellationToken cancellationToken = default)
+    {
+        var names = statuses.Select(status => status.ToString()).ToArray();
+        return await FindAsync(scope, Scoped(DbContext.Cases.AsNoTracking(), scope).Where(record => names.Contains(record.StatusName)), claim => statuses.Contains(claim.Status), cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<ClaimCase>> ListByTeamAsync(TenantScope scope, string team, CancellationToken cancellationToken = default)
+    {
+        var key = InsuranceIntelligence.Domain.Common.LookupKeys.TextKey(team);
+        return key is null
+            ? []
+            : await FindAsync(scope, Scoped(DbContext.Cases.AsNoTracking(), scope).Where(record => record.TeamKey == key), claim => string.Equals(claim.AssignedTeam, team, StringComparison.Ordinal), cancellationToken);
+    }
+}
+
+/// <summary>Fills a claim row's lookup columns from the claim, on every save and in the start-up backfill.</summary>
+public static class CaseLookup
+{
+    public const int Version = 1;
+
+    public static void Fill(PersistedAggregate record, ClaimCase claim)
+    {
+        record.PolicyKey = InsuranceIntelligence.Domain.Common.LookupKeys.PolicyKey(claim.PolicyNumber);
+        record.PhoneKey = InsuranceIntelligence.Domain.Common.LookupKeys.PhoneKey(claim.CustomerPhone);
+        record.EmailKey = InsuranceIntelligence.Domain.Common.LookupKeys.EmailKey(claim.CustomerEmail);
+        record.StatusName = claim.Status.ToString();
+        record.TeamKey = InsuranceIntelligence.Domain.Common.LookupKeys.TextKey(claim.AssignedTeam);
+        record.LookupVersion = Version;
+    }
 }
 
 public sealed class EfCaseDocumentRepository(InsuranceIntelligenceDbContext dbContext)
@@ -550,7 +625,39 @@ public sealed class EfCustomerRepository(InsuranceIntelligenceDbContext dbContex
     : JsonRepositoryBase(dbContext), InsuranceIntelligence.Domain.Customers.ICustomerRepository
 {
     public Task UpsertAsync(InsuranceIntelligence.Domain.Customers.Customer customer, CancellationToken cancellationToken = default) =>
-        UpsertAsync(DbContext.Customers, Guid.Parse(customer.CustomerId), TenantScope.Create(customer.TenantId, customer.WorkspaceId), Serialize(customer), cancellationToken: cancellationToken);
+        UpsertAsync(
+            DbContext.Customers,
+            Guid.Parse(customer.CustomerId),
+            TenantScope.Create(customer.TenantId, customer.WorkspaceId),
+            Serialize(customer),
+            record =>
+            {
+                record.PhoneKey = InsuranceIntelligence.Domain.Common.LookupKeys.PhoneKey(customer.Phone);
+                record.EmailKey = InsuranceIntelligence.Domain.Common.LookupKeys.EmailKey(customer.Email);
+                record.LookupVersion = CaseLookup.Version;
+            },
+            cancellationToken);
+
+    public async Task<IReadOnlyCollection<InsuranceIntelligence.Domain.Customers.Customer>> FindByContactAsync(TenantScope scope, string? phone, string? email, CancellationToken cancellationToken = default)
+    {
+        var phoneKey = InsuranceIntelligence.Domain.Common.LookupKeys.PhoneKey(phone);
+        var emailKey = InsuranceIntelligence.Domain.Common.LookupKeys.EmailKey(email);
+        if (phoneKey is null && emailKey is null)
+        {
+            return [];
+        }
+
+        var found = (await Scoped(DbContext.Customers.AsNoTracking(), scope)
+                .Where(record => (phoneKey != null && record.PhoneKey == phoneKey) || (emailKey != null && record.EmailKey == emailKey))
+                .Select(record => record.PayloadJson).ToListAsync(cancellationToken))
+            .Select(Deserialize<InsuranceIntelligence.Domain.Customers.Customer>).ToList();
+        var legacy = (await Scoped(DbContext.Customers.AsNoTracking(), scope).Where(record => record.LookupVersion == 0).Select(record => record.PayloadJson).ToListAsync(cancellationToken))
+            .Select(Deserialize<InsuranceIntelligence.Domain.Customers.Customer>)
+            .Where(customer => (phoneKey is not null && InsuranceIntelligence.Domain.Common.LookupKeys.PhoneKey(customer.Phone) == phoneKey)
+                || (emailKey is not null && InsuranceIntelligence.Domain.Common.LookupKeys.EmailKey(customer.Email) == emailKey));
+        found.AddRange(legacy);
+        return found;
+    }
 
     public async Task<InsuranceIntelligence.Domain.Customers.Customer?> GetAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default)
     {
@@ -570,7 +677,18 @@ public sealed class EfPolicyRepository(InsuranceIntelligenceDbContext dbContext)
     : JsonRepositoryBase(dbContext), InsuranceIntelligence.Domain.Policies.IPolicyRepository
 {
     public Task UpsertAsync(InsuranceIntelligence.Domain.Policies.Policy policy, CancellationToken cancellationToken = default) =>
-        UpsertAsync(DbContext.Policies, Guid.Parse(policy.PolicyId), TenantScope.Create(policy.TenantId, policy.WorkspaceId), Serialize(policy), cancellationToken: cancellationToken);
+        UpsertAsync(
+            DbContext.Policies,
+            Guid.Parse(policy.PolicyId),
+            TenantScope.Create(policy.TenantId, policy.WorkspaceId),
+            Serialize(policy),
+            record =>
+            {
+                record.PolicyKey = InsuranceIntelligence.Domain.Common.LookupKeys.PolicyKey(policy.PolicyNumber);
+                record.CustomerKey = InsuranceIntelligence.Domain.Common.LookupKeys.TextKey(policy.CustomerId, 80);
+                record.LookupVersion = CaseLookup.Version;
+            },
+            cancellationToken);
 
     public async Task<InsuranceIntelligence.Domain.Policies.Policy?> GetAsync(string policyId, TenantScope scope, CancellationToken cancellationToken = default)
     {
@@ -585,12 +703,37 @@ public sealed class EfPolicyRepository(InsuranceIntelligenceDbContext dbContext)
             .Select(record => Deserialize<InsuranceIntelligence.Domain.Policies.Policy>(record.PayloadJson))
             .ToArrayAsync(cancellationToken);
 
-    public async Task<InsuranceIntelligence.Domain.Policies.Policy?> GetByPolicyNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default) =>
-        (await ListAsync(scope, cancellationToken))
-            .FirstOrDefault(p => string.Equals(p.PolicyNumber, policyNumber, StringComparison.OrdinalIgnoreCase));
+    private async Task<List<InsuranceIntelligence.Domain.Policies.Policy>> LegacyPoliciesAsync(TenantScope scope, CancellationToken cancellationToken) =>
+        (await Scoped(DbContext.Policies.AsNoTracking(), scope).Where(record => record.LookupVersion == 0).Select(record => record.PayloadJson).ToListAsync(cancellationToken))
+        .Select(Deserialize<InsuranceIntelligence.Domain.Policies.Policy>).ToList();
 
-    public async Task<IReadOnlyCollection<InsuranceIntelligence.Domain.Policies.Policy>> ListByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default) =>
-        (await ListAsync(scope, cancellationToken)).Where(p => p.CustomerId == customerId).ToList();
+    public async Task<InsuranceIntelligence.Domain.Policies.Policy?> GetByPolicyNumberAsync(string policyNumber, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var key = InsuranceIntelligence.Domain.Common.LookupKeys.PolicyKey(policyNumber);
+        if (key is null)
+        {
+            return null;
+        }
+
+        var indexed = await Scoped(DbContext.Policies.AsNoTracking(), scope).Where(record => record.PolicyKey == key).Select(record => record.PayloadJson).ToListAsync(cancellationToken);
+        var match = indexed.Select(Deserialize<InsuranceIntelligence.Domain.Policies.Policy>)
+            .FirstOrDefault(p => string.Equals(p.PolicyNumber, policyNumber.Trim(), StringComparison.OrdinalIgnoreCase));
+        return match ?? (await LegacyPoliciesAsync(scope, cancellationToken)).FirstOrDefault(p => string.Equals(p.PolicyNumber, policyNumber.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
+
+    public async Task<IReadOnlyCollection<InsuranceIntelligence.Domain.Policies.Policy>> ListByCustomerAsync(string customerId, TenantScope scope, CancellationToken cancellationToken = default)
+    {
+        var key = InsuranceIntelligence.Domain.Common.LookupKeys.TextKey(customerId, 80);
+        if (key is null)
+        {
+            return [];
+        }
+
+        var found = (await Scoped(DbContext.Policies.AsNoTracking(), scope).Where(record => record.CustomerKey == key).Select(record => record.PayloadJson).ToListAsync(cancellationToken))
+            .Select(Deserialize<InsuranceIntelligence.Domain.Policies.Policy>).Where(p => p.CustomerId == customerId).ToList();
+        found.AddRange((await LegacyPoliciesAsync(scope, cancellationToken)).Where(p => p.CustomerId == customerId));
+        return found;
+    }
 }
 
 public sealed class EfCoverageRepository(InsuranceIntelligenceDbContext dbContext)

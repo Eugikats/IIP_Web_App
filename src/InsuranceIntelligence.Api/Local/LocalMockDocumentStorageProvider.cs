@@ -82,6 +82,52 @@ public sealed partial class LocalMockDocumentStorageProvider(IWebHostEnvironment
         return fullPath;
     }
 
+    private string Root => configuration["INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_STORAGE_PATH"]
+        ?? Path.Combine(environment.ContentRootPath, ".local", "document-storage");
+
+    public Task<int> DeleteCaseObjectsAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, Guid caseId, CancellationToken cancellationToken = default)
+    {
+        // Only ever the one claim's own folder inside this workspace's folder.
+        var directory = Path.Combine(Root, scope.TenantId, scope.WorkspaceId, caseId.ToString());
+        if (!Directory.Exists(directory))
+        {
+            return Task.FromResult(0);
+        }
+
+        var count = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories).Count();
+        Directory.Delete(directory, recursive: true);
+        return Task.FromResult(count);
+    }
+
+    public Task<int> DeleteDocumentObjectsAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, Guid caseId, Guid documentId, string objectKey, CancellationToken cancellationToken = default)
+    {
+        var expectedPrefix = $"{scope.TenantId}/{scope.WorkspaceId}/";
+        if (!objectKey.StartsWith(expectedPrefix, StringComparison.Ordinal) || objectKey.Contains("..", StringComparison.Ordinal))
+        {
+            throw new UnauthorizedAccessException("The stored object does not belong to this tenant workspace.");
+        }
+
+        var count = 0;
+        var original = Path.Combine(Root, objectKey.Replace('/', Path.DirectorySeparatorChar));
+        if (File.Exists(original))
+        {
+            File.Delete(original);
+            count++;
+        }
+
+        var derived = Path.Combine(Root, scope.TenantId, scope.WorkspaceId, caseId.ToString(), "derived");
+        if (Directory.Exists(derived))
+        {
+            foreach (var file in Directory.EnumerateFiles(derived, $"{documentId}_*"))
+            {
+                File.Delete(file);
+                count++;
+            }
+        }
+
+        return Task.FromResult(count);
+    }
+
     [GeneratedRegex("[^a-zA-Z0-9._-]")]
     private static partial Regex SafeFileNamePattern();
 

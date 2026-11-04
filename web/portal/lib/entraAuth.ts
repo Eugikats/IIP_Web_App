@@ -56,6 +56,52 @@ export async function getEntraApiAccessToken(): Promise<string | null> {
   }
 }
 
+/** Gets an already available token without starting a sign-in, for public pages and background refreshes. */
+export async function tryGetEntraApiAccessToken(): Promise<string | null> {
+  const platformToken = platformAccessToken();
+  if (platformToken) {
+    setApiAccessToken(platformToken);
+    return platformToken;
+  }
+  if (!canUseEntraBrowserAuth || typeof window === "undefined") {
+    setApiAccessToken(null);
+    return null;
+  }
+
+  const msal = await getClient();
+  const redirected = await getRedirectResult(msal);
+  const account = redirected?.account ?? msal.getActiveAccount() ?? msal.getAllAccounts()[0] ?? null;
+  if (!account) return null;
+
+  msal.setActiveAccount(account);
+  try {
+    const result = await msal.acquireTokenSilent({ account, scopes: [entraApiScope] });
+    setApiAccessToken(result.accessToken);
+    return result.accessToken;
+  } catch (error) {
+    if (error instanceof InteractionRequiredAuthError) {
+      setApiAccessToken(null);
+      return null;
+    }
+    setApiAccessToken(null);
+    throw error;
+  }
+}
+
+/** Starts Microsoft sign-in and returns to a same-origin page after MSAL completes the callback. */
+export async function startSignIn(provider: "microsoft", returnTo: string): Promise<void> {
+  if (provider !== "microsoft" || !canUseEntraBrowserAuth || typeof window === "undefined") return;
+  if (await tryGetEntraApiAccessToken()) return;
+
+  const target = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
+  const msal = await getClient();
+  await msal.loginRedirect({
+    scopes: [entraApiScope],
+    redirectUri: redirectUri(),
+    redirectStartPage: window.location.origin + target,
+  });
+}
+
 /** A plain reason for a failed sign-in, for the person signing in. Never the raw provider message. */
 export function describeSignInError(error: unknown): string {
   const code = errorCode(error);

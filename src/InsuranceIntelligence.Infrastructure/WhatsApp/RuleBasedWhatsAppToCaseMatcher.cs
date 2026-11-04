@@ -40,7 +40,7 @@ public sealed class RuleBasedWhatsAppToCaseMatcher(
         }
 
         var text = $"{message.Caption} {message.FileName}";
-        var cases = (await caseRepository.ListAsync(scope, cancellationToken))
+        var cases = (await caseRepository.ListRelatedAsync(scope, identifiedSender.PolicyNumbers, message.SenderWaId, null, cancellationToken))
             .Where(claimCase =>
                 identifiedSender.PolicyNumbers.Contains(claimCase.PolicyNumber, StringComparer.OrdinalIgnoreCase)
                 || PhoneNumbers.SameNumber(claimCase.CustomerPhone, message.SenderWaId))
@@ -82,7 +82,7 @@ public sealed class RuleBasedWhatsAppToCaseMatcher(
         TenantScope scope,
         CancellationToken cancellationToken)
     {
-        var customers = (await customerRepository.ListAsync(scope, cancellationToken))
+        var customers = (await customerRepository.FindByContactAsync(scope, senderWaId, null, cancellationToken))
             .Where(c => PhoneNumbers.SameNumber(senderWaId, c.Phone))
             .ToArray();
         if (customers.Length == 0)

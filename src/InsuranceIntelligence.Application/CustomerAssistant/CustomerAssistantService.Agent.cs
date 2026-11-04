@@ -607,7 +607,7 @@ public sealed partial class CustomerAssistantService
             .ToArray();
         var recentClaims = sender is null
             ? []
-            : CasesFor(await caseRepository.ListAsync(run.Scope, cancellationToken), sender, run.WaId)
+            : CasesFor(await caseRepository.ListRelatedAsync(run.Scope, sender.Policies.Select(policy => policy.PolicyNumber).ToArray(), run.WaId, null, cancellationToken), sender, run.WaId)
                 .OrderByDescending(c => c.CreatedAt)
                 .Take(5)
                 .ToArray();
@@ -946,7 +946,7 @@ public sealed partial class CustomerAssistantService
             return Json(new { error = "not_registered", instruction = "Links are only for customers with a claim on this number." });
         }
 
-        var claimCase = CasesFor(await caseRepository.ListAsync(run.Scope, cancellationToken), sender, run.WaId)
+        var claimCase = CasesFor(await caseRepository.ListRelatedAsync(run.Scope, sender.Policies.Select(policy => policy.PolicyNumber).ToArray(), run.WaId, null, cancellationToken), sender, run.WaId)
             .Where(c => ClaimStatusLabels.IsOpen(c.Status))
             .OrderByDescending(c => c.CreatedAt)
             .FirstOrDefault();

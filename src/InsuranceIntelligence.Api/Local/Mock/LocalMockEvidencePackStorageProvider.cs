@@ -37,6 +37,24 @@ public sealed partial class LocalMockEvidencePackStorageProvider(IWebHostEnviron
         return Task.FromResult(stream);
     }
 
+    public Task<int> DeleteObjectAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default)
+    {
+        var expectedPrefix = $"{scope.TenantId}/{scope.WorkspaceId}/";
+        if (!objectKey.StartsWith(expectedPrefix, StringComparison.Ordinal) || objectKey.Contains("..", StringComparison.Ordinal))
+        {
+            throw new UnauthorizedAccessException("The stored object does not belong to this tenant workspace.");
+        }
+
+        var path = ResolvePath(objectKey);
+        if (!File.Exists(path))
+        {
+            return Task.FromResult(0);
+        }
+
+        File.Delete(path);
+        return Task.FromResult(1);
+    }
+
     private string ResolvePath(string objectKey)
     {
         var root = configuration["INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_STORAGE_PATH"]

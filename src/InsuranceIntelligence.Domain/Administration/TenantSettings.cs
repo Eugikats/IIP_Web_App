@@ -87,6 +87,10 @@ public sealed record TenantSettings
     /// organisation sells its own covers only.</summary>
     public string? AssistantPartnerInsurers { get; init; }
 
+    /// <summary>How many months each kind of record is kept before it is deleted (build-loop item 34), by retention class
+    /// (<see cref="DataLifecycle.RetentionClasses"/>). A kind with no entry, or 0, is kept.</summary>
+    public IReadOnlyDictionary<string, int>? RetentionMonths { get; init; }
+
     public string? UpdatedByUserId { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
 
@@ -121,6 +125,7 @@ public sealed record TenantSettings
             errors.Add($"The privacy notice can be at most {Compliance.PrivacyNotices.MaxLength:N0} characters.");
         }
 
+        errors.AddRange(DataLifecycle.RetentionClasses.Validate(RetentionMonths));
         errors.AddRange(Cases.ClaimantStatusWords.Validate(ClaimantStatusWording));
         errors.AddRange(Cases.WhatsAppTemplates.Validate(WhatsAppStatusTemplates));
         errors.AddRange(Compliance.ClaimsPackDeliveryRules.Validate(ClaimsPackRecipients, ClaimsPackTrigger, ClaimsPackTriggerStatus));
@@ -173,6 +178,7 @@ public sealed record TenantSettings
         if (CustomerMemoryEnabled != previous.CustomerMemoryEnabled) changed.Add(nameof(CustomerMemoryEnabled));
         if (!(CustomerMemoryFieldKeys ?? []).SequenceEqual(previous.CustomerMemoryFieldKeys ?? [], StringComparer.Ordinal)) changed.Add(nameof(CustomerMemoryFieldKeys));
         if (!(CustomerMemoryDocumentKeys ?? []).SequenceEqual(previous.CustomerMemoryDocumentKeys ?? [], StringComparer.Ordinal)) changed.Add(nameof(CustomerMemoryDocumentKeys));
+        if (!DataLifecycle.RetentionClasses.SameAs(RetentionMonths, previous.RetentionMonths)) changed.Add(nameof(RetentionMonths));
         return changed;
     }
 }

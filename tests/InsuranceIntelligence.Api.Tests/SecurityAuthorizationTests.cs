@@ -735,6 +735,7 @@ public sealed class SecurityAuthorizationTests
     [InlineData("/api/v1/academy/zenith/ask")]
     [InlineData("/api/v1/academy/me/extra")]
     [InlineData("/api/v1/academy/publicity")]
+    [InlineData("/api/v1/learn")]
     public async Task RuntimeHeaderGuard_StillRequiresSignInForTheRestOfTheAcademyApi(string path)
     {
         var context = new DefaultHttpContext();

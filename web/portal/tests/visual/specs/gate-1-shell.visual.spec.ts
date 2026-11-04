@@ -5,9 +5,23 @@ test.beforeEach(async ({ page }) => {
   await installVisualApiFixtures(page);
 });
 
+// The sidebar opens expanded for a new person (240px) and is a 64px icon rail once they collapse it; the choice is
+// kept in this browser. The rail dimension below is therefore measured with the choice made, as a returning person
+// who collapsed it would see it. (Build-loop item 36: the earlier version of this check assumed the rail was the default.)
+test("Gate 1 sidebar opens expanded by default for a new person", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Shell dimension assertions are desktop-only.");
+
+  await page.goto("/app");
+  await page.waitForLoadState("networkidle");
+
+  const sidebar = page.locator("aside").first();
+  expect(Math.round(await sidebar.evaluate((element) => element.getBoundingClientRect().width))).toBe(240);
+});
+
 test("Gate 1 shell uses the approved light-only MVP foundation", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "Shell dimension assertions are desktop-only.");
 
+  await page.addInitScript(() => window.localStorage.setItem("iip.sidebar.expanded", "false"));
   await page.goto("/app");
   await page.waitForLoadState("networkidle");
 
@@ -47,6 +61,8 @@ test("Gate 1 mobile shell keeps the icon rail present and the workspace navigabl
     if (message.type() === "error") consoleErrors.push(message.text());
   });
 
+  // A new person's sidebar opens expanded (deliberate, D-043); this check is about the collapsed rail.
+  await page.addInitScript(() => window.localStorage.setItem("iip.sidebar.expanded", "false"));
   await page.goto("/app/integrations");
   await page.waitForLoadState("networkidle");
 
@@ -66,7 +82,8 @@ test("Gate 1 mobile shell keeps the icon rail present and the workspace navigabl
   expect(geometry.mainLeft).toBe(sidebarWidth);
 
   await sidebar.getByRole("link", { name: "Claims", exact: true }).click();
-  await expect(page).toHaveURL(/\/app\/claims$/);
+  // The dev server compiles the Claims route on first visit, which can take longer than the default wait.
+  await expect(page).toHaveURL(/\/app\/claims$/, { timeout: 90_000 });
   await expect(sidebar).toBeVisible();
   expect(consoleErrors.filter((message) => message.includes("Hydration failed"))).toEqual([]);
 });

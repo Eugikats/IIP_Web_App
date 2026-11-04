@@ -12,6 +12,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedSubscription> Subscriptions => Set<PersistedSubscription>();
     public DbSet<PersistedInvoice> Invoices => Set<PersistedInvoice>();
     public DbSet<PersistedPaymentIntent> PaymentIntents => Set<PersistedPaymentIntent>();
+    public DbSet<PersistedDeletionRecord> DeletionRecords => Set<PersistedDeletionRecord>();
     public DbSet<PersistedWorkflowTask> WorkflowTasks => Set<PersistedWorkflowTask>();
     public DbSet<PersistedApproval> Approvals => Set<PersistedApproval>();
     public DbSet<PersistedCustomerUpdate> CustomerUpdates => Set<PersistedCustomerUpdate>();
@@ -107,6 +108,17 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedAggregate>(), "Cases", "CaseId");
         modelBuilder.Entity<PersistedAggregate>().Property(entity => entity.PeriodKey).HasMaxLength(7);
         modelBuilder.Entity<PersistedAggregate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PeriodKey });
+        modelBuilder.Entity<PersistedAggregate>().Property(entity => entity.PolicyKey).HasMaxLength(120);
+        modelBuilder.Entity<PersistedAggregate>().Property(entity => entity.PhoneKey).HasMaxLength(7);
+        modelBuilder.Entity<PersistedAggregate>().Property(entity => entity.EmailKey).HasMaxLength(200);
+        modelBuilder.Entity<PersistedAggregate>().Property(entity => entity.StatusName).HasMaxLength(30);
+        modelBuilder.Entity<PersistedAggregate>().Property(entity => entity.TeamKey).HasMaxLength(60);
+        modelBuilder.Entity<PersistedAggregate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PolicyKey });
+        modelBuilder.Entity<PersistedAggregate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PhoneKey });
+        modelBuilder.Entity<PersistedAggregate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.EmailKey });
+        modelBuilder.Entity<PersistedAggregate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.StatusName });
+        modelBuilder.Entity<PersistedAggregate>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.TeamKey });
+        modelBuilder.Entity<PersistedAggregate>().HasIndex(entity => entity.LookupVersion);
         ConfigureScopedJson(modelBuilder.Entity<PersistedSubscription>(), "Subscriptions", "SubscriptionId");
         modelBuilder.Entity<PersistedSubscription>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId }).IsUnique();
         modelBuilder.Entity<PersistedSubscription>().Property(entity => entity.PlanKey).HasMaxLength(60).IsRequired();
@@ -116,6 +128,9 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedInvoice>().Property(entity => entity.Number).HasMaxLength(40).IsRequired();
         modelBuilder.Entity<PersistedInvoice>().Property(entity => entity.Status).HasMaxLength(20).IsRequired();
         modelBuilder.Entity<PersistedInvoice>().HasIndex(entity => entity.Number).IsUnique();
+        ConfigureScopedJson(modelBuilder.Entity<PersistedDeletionRecord>(), "DeletionRecords", "DeletionId");
+        modelBuilder.Entity<PersistedDeletionRecord>().Property(entity => entity.Kind).HasMaxLength(20).IsRequired();
+        modelBuilder.Entity<PersistedDeletionRecord>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.AtUtc });
         ConfigureScopedJson(modelBuilder.Entity<PersistedPaymentIntent>(), "PaymentIntents", "PaymentIntentId");
         modelBuilder.Entity<PersistedPaymentIntent>().Property(entity => entity.Status).HasMaxLength(20).IsRequired();
         modelBuilder.Entity<PersistedPaymentIntent>().HasIndex(entity => new { entity.Status, entity.CreatedAtUtc });
@@ -190,6 +205,11 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureOrganisationModel(modelBuilder);
 
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomer>(), "Customers", "CustomerId");
+        modelBuilder.Entity<PersistedCustomer>().Property(entity => entity.PhoneKey).HasMaxLength(7);
+        modelBuilder.Entity<PersistedCustomer>().Property(entity => entity.EmailKey).HasMaxLength(200);
+        modelBuilder.Entity<PersistedCustomer>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PhoneKey });
+        modelBuilder.Entity<PersistedCustomer>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.EmailKey });
+        modelBuilder.Entity<PersistedCustomer>().HasIndex(entity => entity.LookupVersion);
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentState>(), "AgentStates", "AgentStateId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedAgentWorkflowDefinition>(), "AgentWorkflowDefinitions", "DefinitionId");
         modelBuilder.Entity<PersistedAgentWorkflowDefinition>().Property(entity => entity.WorkflowKey).HasMaxLength(160).IsRequired();
@@ -210,6 +230,11 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedAgentWorkItem>().Property(entity => entity.Status).HasMaxLength(40).IsRequired();
         modelBuilder.Entity<PersistedAgentWorkItem>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.RunId, entity.NodeKey });
         ConfigureScopedJson(modelBuilder.Entity<PersistedPolicy>(), "Policies", "PolicyId");
+        modelBuilder.Entity<PersistedPolicy>().Property(entity => entity.PolicyKey).HasMaxLength(120);
+        modelBuilder.Entity<PersistedPolicy>().Property(entity => entity.CustomerKey).HasMaxLength(80);
+        modelBuilder.Entity<PersistedPolicy>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PolicyKey });
+        modelBuilder.Entity<PersistedPolicy>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CustomerKey });
+        modelBuilder.Entity<PersistedPolicy>().HasIndex(entity => entity.LookupVersion);
         ConfigureScopedJson(modelBuilder.Entity<PersistedCoverage>(), "Coverages", "CoverageId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedBranch>(), "Branches", "BranchId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedProducer>(), "Producers", "ProducerId");
@@ -523,6 +548,15 @@ public abstract class PersistedScopedJson
 
 public sealed class PersistedAggregate : PersistedScopedJson
 {
+    // Lookup columns (build-loop item 35): a claim is found by policy number, phone, email, status or team with an index instead of by
+    // reading every claim in the workspace. LookupVersion is 0 on a row saved before they existed, until the start-up backfill fills them.
+    public string? PolicyKey { get; set; }
+    public string? PhoneKey { get; set; }
+    public string? EmailKey { get; set; }
+    public string? StatusName { get; set; }
+    public string? TeamKey { get; set; }
+    public int LookupVersion { get; set; }
+
     /// <summary>The month a claim was opened ("2026-10"), so a month's claims are an indexed count. Null on claims from before plans.</summary>
     public string? PeriodKey { get; set; }
 }
@@ -534,6 +568,12 @@ public sealed class PersistedSubscription : PersistedScopedJson
 
     /// <summary>The end of the paid period in UTC, kept as a column so the platform's billing timer can find what is due without reading every workspace.</summary>
     public DateTime? PeriodEndUtc { get; set; }
+}
+
+public sealed class PersistedDeletionRecord : PersistedScopedJson
+{
+    public string Kind { get; set; } = string.Empty;
+    public DateTime AtUtc { get; set; }
 }
 
 public sealed class PersistedInvoice : PersistedScopedJson
@@ -609,7 +649,12 @@ public sealed class PersistedBackgroundJob : PersistedScopedJson
     public Guid? CaseId { get; set; }
     public Guid LeaseToken { get; set; }
 }
-public sealed class PersistedCustomer : PersistedScopedJson;
+public sealed class PersistedCustomer : PersistedScopedJson
+{
+    public string? PhoneKey { get; set; }
+    public string? EmailKey { get; set; }
+    public int LookupVersion { get; set; }
+}
 public sealed class PersistedAgentState : PersistedScopedJson;
 public sealed class PersistedAgentWorkflowDefinition : PersistedScopedJson
 {
@@ -791,7 +836,12 @@ public sealed class PersistedDocumentTypeDefinition : PersistedScopedJson
     public int Version { get; set; }
 }
 public sealed class PersistedDocumentLabelledExample : PersistedScopedJson { public Guid CaseId { get; set; } }
-public sealed class PersistedPolicy : PersistedScopedJson;
+public sealed class PersistedPolicy : PersistedScopedJson
+{
+    public string? PolicyKey { get; set; }
+    public string? CustomerKey { get; set; }
+    public int LookupVersion { get; set; }
+}
 public sealed class PersistedCoverage : PersistedScopedJson;
 public sealed class PersistedBranch : PersistedScopedJson;
 public sealed class PersistedProducer : PersistedScopedJson;

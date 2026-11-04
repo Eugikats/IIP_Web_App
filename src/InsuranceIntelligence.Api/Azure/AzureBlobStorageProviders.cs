@@ -49,6 +49,34 @@ public sealed class AzureBlobDocumentStorageProvider(InfrastructureOptions optio
         return objectKey;
     }
 
+    public async Task<int> DeleteCaseObjectsAsync(TenantScope scope, Guid caseId, CancellationToken cancellationToken = default)
+    {
+        var container = AzureProviderSupport.BlobContainer(options.AzureBlob, options.AzureBlob.DocumentContainer);
+        return await DeleteByPrefixAsync(container, AzureProviderSupport.SafeBlobName(scope, "cases", caseId.ToString()) + "/", cancellationToken);
+    }
+
+    public async Task<int> DeleteDocumentObjectsAsync(TenantScope scope, Guid caseId, Guid documentId, string objectKey, CancellationToken cancellationToken = default)
+    {
+        EnsureScopedReference(scope, objectKey);
+        var container = AzureProviderSupport.BlobContainer(options.AzureBlob, options.AzureBlob.DocumentContainer);
+        var count = (await container.GetBlobClient(objectKey).DeleteIfExistsAsync(cancellationToken: cancellationToken)).Value ? 1 : 0;
+        return count + await DeleteByPrefixAsync(container, AzureProviderSupport.SafeBlobName(scope, "cases", caseId.ToString(), "derived") + $"/{documentId}_", cancellationToken);
+    }
+
+    private static async Task<int> DeleteByPrefixAsync(global::Azure.Storage.Blobs.BlobContainerClient container, string prefix, CancellationToken cancellationToken)
+    {
+        var count = 0;
+        await foreach (var item in container.GetBlobsAsync(prefix: prefix, cancellationToken: cancellationToken))
+        {
+            if ((await container.GetBlobClient(item.Name).DeleteIfExistsAsync(cancellationToken: cancellationToken)).Value)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     public async Task<Stream> ReadAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default)
     {
         EnsureScopedReference(scope, objectKey);
@@ -153,6 +181,13 @@ public sealed class AzureBlobEvidencePackStorageProvider(InfrastructureOptions o
             request.Scope.TenantId, request.Scope.WorkspaceId, request.CaseId);
         await blob.UploadAsync(bufferedContent, new BlobHttpHeaders { ContentType = contentType }, cancellationToken: cancellationToken);
         return new EvidencePackStorageResult(objectKey, contentType, contentLength);
+    }
+
+    public async Task<int> DeleteObjectAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default)
+    {
+        EnsureScopedReference(scope, objectKey);
+        var container = AzureProviderSupport.BlobContainer(options.AzureBlob, options.AzureBlob.EvidenceContainer);
+        return (await container.GetBlobClient(objectKey).DeleteIfExistsAsync(cancellationToken: cancellationToken)).Value ? 1 : 0;
     }
 
     public async Task<Stream> ReadAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default)

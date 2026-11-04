@@ -4,6 +4,7 @@ import { apiBaseUrl, defaultTenantId, defaultWorkspaceId } from "@/lib/config";
 import { SINGLE_REQUEST_LIMIT, sendFileInPieces, sendSmallFile, type UploadHandlers } from "@/lib/resumableUpload";
 
 const SESSION_STORAGE_KEY = "iip.client-portal-session";
+const PORTAL_SCOPE_KEY = "iip.client-portal.scope";
 
 export type ClientPortalSession = {
   sessionToken: string;
@@ -72,6 +73,8 @@ export type ClientPortalClaim = {
   createdAt: string;
   updatedAt: string;
   completenessScore: number;
+  requiredDocumentsTotal: number;
+  requiredDocumentsReceived: number;
   requiredDocuments: ClientPortalDocumentRequirement[];
   timeline: ClientPortalTimelineStep[];
   messages: ClientPortalMessage[];
@@ -103,6 +106,16 @@ export function portalSlug(): string | null {
   }
 }
 
+/** Stores a claimant's routing hint for this tab. The signed claimant session remains the authority. */
+export function storePortalScope(scope: { tenantId: string; workspaceId: string }) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(PORTAL_SCOPE_KEY, JSON.stringify(scope));
+  } catch {
+    // The configured insurer scope remains available if session storage is blocked.
+  }
+}
+
 /**
  * X-Tenant-Id/X-Workspace-Id are always sent, in every runtime, unlike scopedHeaders (used by
  * the staff app), which omits them outside Development because staff scope is resolved
@@ -114,9 +127,17 @@ export function portalSlug(): string | null {
 export function clientPortalHeaders(sessionToken?: string | null): Record<string, string> {
   const headers: Record<string, string> = {};
   const slug = portalSlug();
+  let scope: { tenantId?: string; workspaceId?: string } = {};
+  try {
+    scope = JSON.parse(window.sessionStorage.getItem(PORTAL_SCOPE_KEY) ?? "{}") as typeof scope;
+  } catch {
+    // Use the configured insurer scope below if no valid routing hint is stored.
+  }
   if (slug) headers["X-Portal-Slug"] = slug;
-  if (defaultTenantId) headers["X-Tenant-Id"] = defaultTenantId;
-  if (defaultWorkspaceId) headers["X-Workspace-Id"] = defaultWorkspaceId;
+  const tenantId = scope.tenantId || defaultTenantId;
+  const workspaceId = scope.workspaceId || defaultWorkspaceId;
+  if (tenantId) headers["X-Tenant-Id"] = tenantId;
+  if (workspaceId) headers["X-Workspace-Id"] = workspaceId;
   if (sessionToken) headers["X-Client-Portal-Session"] = sessionToken;
   return headers;
 }

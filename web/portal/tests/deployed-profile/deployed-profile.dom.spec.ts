@@ -9,7 +9,7 @@ test.describe("Deployed-profile DOM guardrails", () => {
     await prepareDeployedProfileApi(page, "ClaimsSupervisor");
     await page.goto("/app", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("heading", { name: /Good morning/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/i })).toBeVisible();
     await expect(page.locator("html")).not.toHaveClass(/dark/);
     await expect(page.getByLabel("Role")).toHaveCount(0);
     await expect(page.getByText(prohibitedDeployedTerms)).toHaveCount(0);

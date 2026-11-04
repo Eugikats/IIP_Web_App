@@ -51,7 +51,7 @@ public sealed class CaseFollowThroughService(
             slaWarningLeadTime = TimeSpan.FromHours(settings.SlaWarningLeadHours);
         }
 
-        var allCases = await caseRepository.ListAsync(scope, cancellationToken);
+        var allCases = await caseRepository.ListByStatusesAsync(scope, CaseLookups.OpenStatuses, cancellationToken);
         var openCases = allCases
             .Where(claimCase => claimCase.Status is not (CaseStatus.Settled or CaseStatus.Closed) && !claimCase.RequiresConfirmation)
             .ToArray();

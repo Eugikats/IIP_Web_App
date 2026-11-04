@@ -901,6 +901,12 @@ export async function installVisualApiFixtures(page: Page) {
       }
     }
 
+    // The landing page asks for the person's brief; an honestly empty one keeps the shell under test and not the brief.
+    if (route.request().method() === "GET" && path === "/api/v1/brief") {
+      await fulfillJson(route, { items: [], handledForYou: [], retention: null });
+      return;
+    }
+
     if (route.request().method() === "POST" && path === "/api/v1/assistant/policy-questions") {
       const body = route.request().postDataJSON?.() as { question?: string } | undefined;
       const answer = body?.question?.toLowerCase().includes("no approved source")
@@ -1007,6 +1013,13 @@ export async function installVisualApiFixtures(page: Page) {
         approvals,
         customerUpdates: responses[`${"/api/v1/cases/"}${caseId}/customer-updates`]
       });
+      return;
+    }
+
+    // Case endpoints added after these fixtures were written. They expect an object, not a list, so the
+    // list fallback below would crash them. Answering "not available" lets each card show its error state.
+    if (/^\/api\/v1\/cases\/[^/]+\/(assessment|authenticity|field-proposals|fields|privacy-consent|product-stages|review-requests|status-options)$/.test(path)) {
+      await fulfillJson(route, { message: "Not available in the visual fixtures." }, 404);
       return;
     }
 

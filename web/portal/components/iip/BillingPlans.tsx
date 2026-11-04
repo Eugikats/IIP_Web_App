@@ -8,7 +8,7 @@ import { Badge, GlassCard } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
 import { Input, Field as UIField } from "@/components/ui/Input";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
-import { EmptyStateSurface, ErrorStateSurface, LoadingSkeleton } from "@/components/ui/StateSurfaces";
+import { EmptyStateSurface, ErrorStateSurface, LoadingSkeleton, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
 import {
   cancelPlan, describeAllowance, formatMoney, loadInvoices, loadPayment, loadPlan, loadReceipt, methodLabels, resumePlan, startCheckout,
   type BillingPlan, type InvoiceView, type PaymentView, type PlanView, type Receipt,
@@ -31,6 +31,7 @@ export function BillingPlans({ onChanged, usage }: { onChanged: () => void; usag
   const [plan, setPlan] = useState<BillingPlan | null>(null);
   const [invoices, setInvoices] = useState<InvoiceView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
   const [currency, setCurrency] = useState("UGX");
   const [choice, setChoice] = useState<PlanView | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -42,6 +43,7 @@ export function BillingPlans({ onChanged, usage }: { onChanged: () => void; usag
       setError(null);
       setCurrency((current) => (planResult.value.currencies.includes(current) ? current : planResult.value.currencies[0] ?? "UGX"));
     } else {
+      setForbidden(planResult.forbidden === true);
       setError(planResult.error);
     }
 
@@ -57,6 +59,7 @@ export function BillingPlans({ onChanged, usage }: { onChanged: () => void; usag
     onChanged();
   }
 
+  if (forbidden) return <GlassCard className="mb-4"><NoPermissionStateSurface permission="ViewBilling" /></GlassCard>;
   if (error) return <GlassCard className="mb-4"><ErrorStateSurface title="Plans could not be loaded" message={error} /></GlassCard>;
   if (!plan) return <GlassCard className="mb-4"><LoadingSkeleton rows={3} /></GlassCard>;
 

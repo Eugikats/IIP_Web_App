@@ -36,7 +36,7 @@ public sealed class CaseIntakeService(
         // Name a real owner, not just a team, wherever the routed team's case history has enough
         // information to infer one, see CaseAssignmentPolicy for why this is inferred rather than
         // backed by a staff directory this codebase does not have.
-        var existingCases = await caseRepository.ListAsync(command.Scope, cancellationToken);
+        var existingCases = await caseRepository.ListByTeamAsync(command.Scope, routing.AssignedTeam, cancellationToken);
         var assignee = CaseAssignmentPolicy.SelectAssignee(routing.AssignedTeam, existingCases);
         var status = assignee is not null && routing.InitialStatus == CaseStatus.New
             ? CaseStatus.Assigned

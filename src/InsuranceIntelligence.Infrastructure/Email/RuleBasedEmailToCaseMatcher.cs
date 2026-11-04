@@ -24,24 +24,32 @@ public sealed class RuleBasedEmailToCaseMatcher(
         "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
         RegexOptions.Compiled);
 
+    // A word that could be a policy number: letters, digits and the dashes and slashes numbers are written with.
+    private static readonly Regex PolicyWord = new(@"[A-Za-z0-9][A-Za-z0-9/\-]{3,40}", RegexOptions.Compiled);
+
     public async Task<EmailToCaseMatchResult> MatchAsync(
         InboundEmailMessage message,
         TenantScope scope,
         CancellationToken cancellationToken = default)
     {
         var text = $"{message.Subject} {message.BodyPreview}";
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
         var guid = GuidPattern.Match(text);
-        if (guid.Success
-            && Guid.TryParse(guid.Value, out var caseId)
-            && cases.Any(claimCase => claimCase.CaseId == caseId))
+        if (guid.Success && Guid.TryParse(guid.Value, out var caseId))
         {
-            return new EmailToCaseMatchResult(caseId, "case_id", false);
+            var named = await caseRepository.GetAsync(caseId, cancellationToken);
+            if (named is not null && named.Scope.Matches(scope))
+            {
+                return new EmailToCaseMatchResult(caseId, "case_id", false);
+            }
         }
 
-        var byPolicyNumber = cases.FirstOrDefault(claimCase =>
-            !string.IsNullOrWhiteSpace(claimCase.PolicyNumber)
-            && text.Contains(claimCase.PolicyNumber, StringComparison.OrdinalIgnoreCase));
+        // A policy number named in the email is found by looking up each word that could be one, not by reading every claim in the workspace.
+        var words = PolicyWord.Matches(text).Select(match => match.Value).Distinct(StringComparer.OrdinalIgnoreCase).Take(40).ToArray();
+        var byPolicyNumber = words.Length == 0
+            ? null
+            : (await caseRepository.ListByPolicyNumbersAsync(scope, words, cancellationToken))
+                .FirstOrDefault(claimCase => !string.IsNullOrWhiteSpace(claimCase.PolicyNumber)
+                    && text.Contains(claimCase.PolicyNumber, StringComparison.OrdinalIgnoreCase));
         if (byPolicyNumber is not null)
         {
             return new EmailToCaseMatchResult(byPolicyNumber.CaseId, "claim_or_policy_number", false);
@@ -56,7 +64,7 @@ public sealed class RuleBasedEmailToCaseMatcher(
         TenantScope scope,
         CancellationToken cancellationToken)
     {
-        var customers = await customerRepository.ListAsync(scope, cancellationToken);
+        var customers = await customerRepository.FindByContactAsync(scope, null, senderEmail, cancellationToken);
         var customer = customers.FirstOrDefault(c => ClaimantContactMatcher.Matches(senderEmail, c.Email));
         if (customer is null)
         {

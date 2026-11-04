@@ -382,7 +382,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
           expanded ? "gap-2.5 px-2.5" : "w-10 justify-center",
         )}
       >
-        <span className={cn(!expanded && "sr-only", expanded && "grid h-6 w-6 shrink-0 place-items-center rounded-dls-chip bg-dls-primary/[0.14] text-[11px]")}>
+        <span className={cn(!expanded && "sr-only", expanded && "grid h-6 w-6 shrink-0 place-items-center rounded-dls-chip border border-dls-border-subtle bg-dls-surface text-[11px]")}>
           {workspaceName.slice(0, 2).toUpperCase()}
         </span>
         {expanded && <span className="animate-label-in truncate text-dls-text-primary">{workspaceName}</span>}

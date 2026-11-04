@@ -104,12 +104,12 @@ test("Gate 18 reconciles an unknown query result with the same idempotency key",
   });
 
   await page.goto("/app/assistant");
-  const composer = page.getByRole("textbox", { name: "Ask the Command Center" });
+  const composer = page.getByLabel("Message IIP Operations");
   await composer.fill("Reconcile this interrupted request");
-  await page.getByRole("button", { name: "Send message" }).dblclick();
+  await page.getByRole("button", { name: "Send to IIP Operations" }).dblclick();
   await expect(page.getByText(/could not confirm whether this request was saved/)).toBeVisible();
   expect(attempts).toBe(1);
-  await expect(page.getByRole("paragraph").filter({ hasText: "Reconcile this interrupted request" })).toBeVisible();
+  await expect(composer).toHaveValue("Reconcile this interrupted request");
 
   await page.getByRole("button", { name: "Retry safely" }).click();
   await expect(page.getByText("Request reconciled without a duplicate action.")).toBeVisible();

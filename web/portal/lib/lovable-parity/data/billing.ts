@@ -41,13 +41,20 @@ export function useBilling() {
   const [summary, setSummary] = useState<BillingSummaryView | null>(LOVABLE_VISUAL_PARITY_MODE ? PARITY : null);
   const [loading, setLoading] = useState(!LOVABLE_VISUAL_PARITY_MODE);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
 
   const load = useCallback(async () => {
     if (LOVABLE_VISUAL_PARITY_MODE) return;
     setLoading(true);
     setError(null);
+    setForbidden(false);
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/admin/billing`, { headers: scopedHeaders(role, "") });
+      if (response.status === 403) {
+        setForbidden(true);
+        setSummary(null);
+        return;
+      }
       if (!response.ok) throw new Error(`Billing failed.`);
       setSummary((await response.json()) as BillingSummaryView);
     } catch (err) {
@@ -62,5 +69,5 @@ export function useBilling() {
     void load();
   }, [load]);
 
-  return { summary, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE, reload: load };
+  return { summary, loading, error, forbidden, parityMode: LOVABLE_VISUAL_PARITY_MODE, reload: load };
 }

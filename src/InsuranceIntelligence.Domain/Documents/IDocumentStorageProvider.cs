@@ -21,6 +21,14 @@ public interface IDocumentStorageProvider
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("The configured document storage provider does not support derived copies.");
 
+    /// <summary>Deletes every object stored for a claim (the originals, previews and derived copies) and returns how many. Idempotent.</summary>
+    Task<int> DeleteCaseObjectsAsync(TenantScope scope, Guid caseId, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("The configured document storage provider does not support deleting stored files.");
+
+    /// <summary>Deletes one document's stored file and the copies made from it, and returns how many. Idempotent.</summary>
+    Task<int> DeleteDocumentObjectsAsync(TenantScope scope, Guid caseId, Guid documentId, string objectKey, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("The configured document storage provider does not support deleting stored files.");
+
     Task<string> WriteNormalizedArtifactAsync(
         TenantScope scope,
         string objectKey,

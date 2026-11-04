@@ -1162,7 +1162,7 @@ public sealed partial class CustomerAssistantService(
     private static readonly TimeSpan DuplicateClaimWindow = TimeSpan.FromHours(72);
 
     private async Task<ClaimCase?> RecentOpenClaimAsync(TenantScope scope, string policyNumber, DateTimeOffset now, CancellationToken cancellationToken) =>
-        (await caseRepository.ListAsync(scope, cancellationToken))
+        (await caseRepository.ListByPolicyNumbersAsync(scope, [policyNumber], cancellationToken))
             .Where(c => string.Equals(c.PolicyNumber, policyNumber, StringComparison.OrdinalIgnoreCase))
             .Where(c => ClaimStatusLabels.IsOpen(c.Status) && now - c.CreatedAt <= DuplicateClaimWindow)
             .OrderByDescending(c => c.CreatedAt)
@@ -1319,7 +1319,7 @@ public sealed partial class CustomerAssistantService(
             return AssistantOutcome.Of(KatoReplies.OnlyForThePolicyNumber(), CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.Declined);
         }
 
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
+        var cases = await CandidateCasesAsync(scope, sender, waId, cancellationToken);
         var theirs = CasesFor(cases, sender, waId).OrderByDescending(c => c.CreatedAt).ToArray();
         var open = theirs.Where(c => ClaimStatusLabels.IsOpen(c.Status)).Take(3).ToArray();
         if (open.Length > 0)
@@ -1356,7 +1356,7 @@ public sealed partial class CustomerAssistantService(
             return AssistantOutcome.Of(KatoReplies.OnlyForThePolicyNumber(), CustomerIntent.Unknown, CustomerAssistantOutcome.Declined);
         }
 
-        var cases = await caseRepository.ListAsync(scope, cancellationToken);
+        var cases = await CandidateCasesAsync(scope, sender, waId, cancellationToken);
         var claimCase = CasesFor(cases, sender, waId).Where(c => ClaimStatusLabels.IsOpen(c.Status)).OrderByDescending(c => c.CreatedAt).FirstOrDefault();
         if (claimCase is null)
         {
@@ -1390,14 +1390,17 @@ public sealed partial class CustomerAssistantService(
         var identityRequired = sender is { Policies.Count: > 0 }
             && (claimIdentity is null || !await claimIdentity.IsVerifiedAsync(scope, waId, cancellationToken));
 
-        IReadOnlyCollection<ClaimCase> cases = identityRequired ? [] : await caseRepository.ListAsync(scope, cancellationToken);
+        IReadOnlyCollection<ClaimCase> cases = sender is null || identityRequired
+            ? []
+            : await CandidateCasesAsync(scope, sender, waId, cancellationToken);
         var claimCase = sender is null || identityRequired
             ? null
             : CasesFor(cases, sender, waId).Where(c => ClaimStatusLabels.IsOpen(c.Status)).OrderByDescending(c => c.CreatedAt).FirstOrDefault();
         if (!identityRequired && sender is not null && claimCase is null
             && thread.LastOrDefault(turn => turn.CaseId is not null)?.CaseId is { } threadCaseId)
         {
-            claimCase = cases.FirstOrDefault(c => c.CaseId == threadCaseId && ClaimStatusLabels.IsOpen(c.Status));
+            var threadCase = await caseRepository.GetAsync(threadCaseId, cancellationToken);
+            claimCase = threadCase is not null && threadCase.Scope.Matches(scope) && ClaimStatusLabels.IsOpen(threadCase.Status) ? threadCase : null;
         }
 
         var burst = previousTurn is { Outcome: CustomerAssistantOutcome.DocumentReceived }
@@ -1806,6 +1809,10 @@ public sealed partial class CustomerAssistantService(
         var firstName = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? fullName;
         return new SenderProfile(fullName, firstName, usable);
     }
+
+    /// <summary>The claims that could be this sender's: found by their policies and their number, not by reading the whole workspace.</summary>
+    private async Task<IReadOnlyCollection<ClaimCase>> CandidateCasesAsync(TenantScope scope, SenderProfile sender, string waId, CancellationToken cancellationToken) =>
+        await caseRepository.ListRelatedAsync(scope, sender.Policies.Select(policy => policy.PolicyNumber).ToArray(), waId, null, cancellationToken);
 
     private static IEnumerable<ClaimCase> CasesFor(IEnumerable<ClaimCase> cases, SenderProfile sender, string waId) =>
         cases.Where(claimCase =>

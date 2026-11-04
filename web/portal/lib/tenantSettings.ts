@@ -24,6 +24,9 @@ export type TenantSettings = {
   assistantOrganisation: string | null;
   assistantShortName: string | null;
   assistantPartnerInsurers: string | null;
+  /** Months each kind of record is kept before it is deleted, by retention class. Null or 0 keeps it. */
+  retentionMonths: Record<string, number> | null;
+  retentionClasses: { key: string; label: string }[];
   defaults: {
     requireIraApprovalForPublish: boolean;
     missingDocumentReminderDays: number;
@@ -33,7 +36,7 @@ export type TenantSettings = {
   };
 };
 
-export type TenantSettingsInput = Partial<Omit<TenantSettings, "updatedByUserId" | "updatedAt" | "defaults" | "privacyNoticeVersion" | "defaultPrivacyNoticeText" | "defaultCustomerMemoryFieldKeys" | "defaultCustomerMemoryDocumentKeys">>;
+export type TenantSettingsInput = Partial<Omit<TenantSettings, "updatedByUserId" | "updatedAt" | "defaults" | "privacyNoticeVersion" | "defaultPrivacyNoticeText" | "defaultCustomerMemoryFieldKeys" | "defaultCustomerMemoryDocumentKeys" | "retentionClasses">>;
 
 export type TenantSettingsResult = { ok: true; value: TenantSettings } | { ok: false; error: string };
 

@@ -55,6 +55,8 @@ public static class CaseMapper
             claimCase.OriginalIncidentText,
             claimCase.OriginalIncidentLanguage,
             claimCase.ClaimTypeKey,
-            InsuranceIntelligence.Domain.Products.ClaimFieldValues.For(claimCase));
+            InsuranceIntelligence.Domain.Products.ClaimFieldValues.For(claimCase),
+            claimCase.LegalHoldReason,
+            claimCase.PersonalDataErasedAt);
     }
 }

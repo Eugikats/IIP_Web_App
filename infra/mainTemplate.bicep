@@ -95,6 +95,26 @@ param dataResidencyApprovalReference string = ''
 @description('Storage replication SKU. LRS is the residency-safe default. GRS/GZRS require the paired secondary region to be approved and listed in the residency decision.')
 param storageAccountSkuName string = 'Standard_LRS'
 
+@description('How many days a deleted file stays recoverable inside the storage account (soft delete). Erased or expired customer files remain recoverable by an administrator of the storage account for this long, so keep it short: a data-subject erasure is only complete once this window has passed. 1 to 365.')
+@minValue(1)
+@maxValue(365)
+param blobSoftDeleteDays int = 7
+
+@description('Optional customer-managed encryption key. Vault address, for example https://my-vault.vault.azure.net/. Leave all four customer-managed key settings empty to use Microsoft-managed keys, which still encrypt storage and SQL at rest.')
+param customerManagedKeyVaultUri string = ''
+
+@description('Name of the key in that vault (an RSA key, 2048 bits or more).')
+param customerManagedKeyName string = ''
+
+@description('Resource id of a user-assigned managed identity that has the Key Vault Crypto Service Encryption User role on the vault. Storage and SQL use it to reach the key.')
+param customerManagedKeyIdentityResourceId string = ''
+
+@description('Version of the key, needed for SQL transparent data encryption. Storage follows the latest version by itself.')
+param customerManagedKeyVersion string = ''
+
+@description('Also encrypt storage a second time at the infrastructure layer (a double-encryption option). Can only be chosen when the storage account is first created.')
+param storageInfrastructureEncryption bool = false
+
 @minValue(30)
 @description('Document retention in days.')
 param documentRetentionDays int = 365
@@ -417,6 +437,9 @@ var blobContainerNames = [
   normalizedArtifactsContainerName
   claimPacksContainerName
 ]
+var useCustomerManagedKey = !empty(customerManagedKeyVaultUri) && !empty(customerManagedKeyName) && !empty(customerManagedKeyIdentityResourceId)
+var customerManagedKeyVaultName = useCustomerManagedKey ? split(split(customerManagedKeyVaultUri, '//')[1], '.')[0] : ''
+var customerManagedKeyVaultBase = endsWith(customerManagedKeyVaultUri, '/') ? customerManagedKeyVaultUri : '${customerManagedKeyVaultUri}/'
 var storageBlobEndpoint = 'https://${storageAccountName}.blob.${environment().suffixes.storage}'
 var serviceBusNamespaceEndpoint = '${serviceBusNamespaceName}.servicebus.windows.net'
 var documentIntelligenceEndpoint = provisionDocumentIntelligence ? documentIntelligenceAccount!.properties.endpoint : existingDocumentIntelligenceEndpoint
@@ -735,12 +758,40 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     name: storageSkuName
   }
   kind: 'StorageV2'
+  identity: useCustomerManagedKey ? {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${customerManagedKeyIdentityResourceId}': {}
+    }
+  } : null
   properties: {
     allowBlobPublicAccess: false
     allowSharedKeyAccess: true
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
     publicNetworkAccess: privateAccessEnabled ? 'Disabled' : 'Enabled'
+    // Encryption at rest is always on. It is stated here so it cannot be switched off by a later edit, and so the key can be the customer's.
+    encryption: {
+      keySource: useCustomerManagedKey ? 'Microsoft.Keyvault' : 'Microsoft.Storage'
+      requireInfrastructureEncryption: storageInfrastructureEncryption
+      services: {
+        blob: {
+          enabled: true
+          keyType: 'Account'
+        }
+        file: {
+          enabled: true
+          keyType: 'Account'
+        }
+      }
+      identity: useCustomerManagedKey ? {
+        userAssignedIdentity: customerManagedKeyIdentityResourceId
+      } : null
+      keyvaultproperties: useCustomerManagedKey ? {
+        keyvaulturi: customerManagedKeyVaultBase
+        keyname: customerManagedKeyName
+      } : null
+    }
   }
 }
 
@@ -750,11 +801,11 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01'
   properties: {
     deleteRetentionPolicy: {
       enabled: true
-      days: min(documentRetentionDays, 365)
+      days: blobSoftDeleteDays
     }
     containerDeleteRetentionPolicy: {
       enabled: true
-      days: min(documentRetentionDays, 365)
+      days: blobSoftDeleteDays
     }
   }
 }
@@ -808,7 +859,14 @@ resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (provisionSql
   name: sqlServerName
   location: location
   tags: resourceTags
+  identity: useCustomerManagedKey ? {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${customerManagedKeyIdentityResourceId}': {}
+    }
+  } : null
   properties: {
+    primaryUserAssignedIdentityId: useCustomerManagedKey ? customerManagedKeyIdentityResourceId : null
     administratorLogin: sqlAdministratorLogin
     administratorLoginPassword: sqlAdministratorLoginPassword
     minimalTlsVersion: '1.2'
@@ -825,6 +883,35 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2022-05-01-preview' = if (
   sku: {
     name: sqlSkuName
     tier: sqlSkuTier
+  }
+}
+
+// Transparent data encryption protects the database, its backups and its logs at rest. It is on by default in Azure SQL; stating it keeps it on.
+resource sqlTransparentDataEncryption 'Microsoft.Sql/servers/databases/transparentDataEncryption@2022-05-01-preview' = if (provisionSql) {
+  parent: sqlDatabase
+  name: 'current'
+  properties: {
+    state: 'Enabled'
+  }
+}
+
+// With a customer-managed key the SQL server uses the customer's key as its encryption protector instead of a Microsoft-managed one.
+resource sqlServerKey 'Microsoft.Sql/servers/keys@2022-05-01-preview' = if (provisionSql && useCustomerManagedKey && !empty(customerManagedKeyVersion)) {
+  parent: sqlServer
+  name: '${customerManagedKeyVaultName}_${customerManagedKeyName}_${customerManagedKeyVersion}'
+  properties: {
+    serverKeyType: 'AzureKeyVault'
+    uri: '${customerManagedKeyVaultBase}keys/${customerManagedKeyName}/${customerManagedKeyVersion}'
+  }
+}
+
+resource sqlEncryptionProtector 'Microsoft.Sql/servers/encryptionProtector@2022-05-01-preview' = if (provisionSql && useCustomerManagedKey && !empty(customerManagedKeyVersion)) {
+  parent: sqlServer
+  name: 'current'
+  properties: {
+    serverKeyType: 'AzureKeyVault'
+    serverKeyName: sqlServerKey.name
+    autoRotationEnabled: true
   }
 }
 

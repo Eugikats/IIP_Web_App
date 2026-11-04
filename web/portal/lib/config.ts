@@ -27,6 +27,7 @@ export const isDevelopmentAuth = authMode.toLowerCase() === "development";
 export const isDeployedRuntime = ["staging", "production", "managedapplicationreviewer"].includes(
   runtimeProfile.toLowerCase()
 );
+export const isDemonstrationRuntime = runtimeProfile.toLowerCase() === "demo";
 export const canUseLocalTestDoubles = !isDeployedRuntime && isDevelopmentAuth;
 export const canUseEntraBrowserAuth =
   !isDevelopmentAuth && Boolean(entraTenantId && entraClientId && entraApiScope);
@@ -55,6 +56,7 @@ function currentAccessToken(): string {
 }
 
 const ACTIVE_WORKSPACE_STORAGE_KEY = "iip.active-workspace-id";
+const ACTIVE_ORGANISATION_STORAGE_KEY = "iip.active-organisation-id";
 // The header the backend re-validates against the user's real membership before honoring
 // (see RuntimeClaimTypes.RequestedWorkspaceHeaderName), never trusted client-side.
 export const requestedWorkspaceHeaderName = "X-Requested-Workspace-Id";
@@ -80,6 +82,27 @@ export function setActiveWorkspaceOverride(workspaceId: string | null) {
   } catch {
     // Best effort, falling back to the server's default workspace is safe.
   }
+}
+
+/** A remembered demonstration selection for display and recovery only. It is never request authority. */
+export function getActiveOrganisationOverride(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(ACTIVE_ORGANISATION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveOrganisationOverride(organisationId: string | null, workspaceId: string | null = null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (organisationId) window.localStorage.setItem(ACTIVE_ORGANISATION_STORAGE_KEY, organisationId);
+    else window.localStorage.removeItem(ACTIVE_ORGANISATION_STORAGE_KEY);
+  } catch {
+    // The server remains the authority if browser storage is unavailable.
+  }
+  if (workspaceId !== null || organisationId === null) setActiveWorkspaceOverride(workspaceId);
 }
 
 /**

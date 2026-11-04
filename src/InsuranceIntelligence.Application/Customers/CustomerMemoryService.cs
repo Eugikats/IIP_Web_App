@@ -42,7 +42,7 @@ public sealed class CustomerMemoryService(
             return CustomerMemory.Empty;
         }
 
-        var earlier = (await caseRepository.ListAsync(claim.Scope, cancellationToken))
+        var earlier = (await caseRepository.ListRelatedAsync(claim.Scope, [claim.PolicyNumber], claim.CustomerPhone, claim.CustomerEmail, cancellationToken))
             .Where(other => other.Scope == claim.Scope && CustomerMemoryPolicy.SameCustomer(claim, other))
             .ToArray();
         if (earlier.Length == 0)
@@ -81,7 +81,7 @@ public sealed class CustomerMemoryService(
             return CustomerMemory.Empty;
         }
 
-        var earlier = (await caseRepository.ListAsync(scope, cancellationToken))
+        var earlier = (await caseRepository.ListRelatedAsync(scope, string.IsNullOrWhiteSpace(policyNumber) ? [] : [policyNumber], phone, email, cancellationToken))
             .Where(other => other.Scope == scope && CustomerMemoryPolicy.SameCustomer(policyNumber, phone, email, other))
             .ToArray();
         if (earlier.Length == 0)
@@ -107,7 +107,7 @@ public sealed class CustomerMemoryService(
         }
 
         // The offer names the earlier claim by reference; find the document in this customer's own earlier claims only.
-        foreach (var other in (await caseRepository.ListAsync(claim.Scope, cancellationToken)).Where(other => other.Scope == claim.Scope && CustomerMemoryPolicy.SameCustomer(claim, other)))
+        foreach (var other in (await caseRepository.ListRelatedAsync(claim.Scope, [claim.PolicyNumber], claim.CustomerPhone, claim.CustomerEmail, cancellationToken)).Where(other => other.Scope == claim.Scope && CustomerMemoryPolicy.SameCustomer(claim, other)))
         {
             var source = await documentRepository.GetAsync(other.CaseId, sourceDocumentId, other.Scope, cancellationToken);
             if (source is not null && !source.IsSuperseded)

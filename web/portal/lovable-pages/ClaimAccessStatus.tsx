@@ -318,7 +318,7 @@ export default function ClaimAccessStatus() {
   const requiredList = claim?.requiredDocuments.filter((doc) => doc.required) ?? [];
   const requiredTotal = claim?.requiredDocumentsTotal ?? 0;
   const requiredSent = claim?.requiredDocumentsReceived ?? 0;
-  const stillNeeded = requiredList.filter((doc) => !doc.received).map((doc) => doc.label);
+  const stillNeeded = requiredList.filter((doc) => !doc.uploaded).map((doc) => doc.label);
 
   return (
     <main className="min-h-screen bg-dls-bg-page text-dls-text-primary" style={brandStyle(branding)}>

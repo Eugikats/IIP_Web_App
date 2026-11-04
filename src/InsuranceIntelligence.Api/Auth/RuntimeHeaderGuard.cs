@@ -76,6 +76,7 @@ public static class RuntimeHeaderGuard
         if (httpContext.Request.Path.StartsWithSegments(GraphWebhookPath, StringComparison.OrdinalIgnoreCase)
             || httpContext.Request.Path.StartsWithSegments(WhatsAppWebhookPath, StringComparison.OrdinalIgnoreCase)
             || IsClientPortal(httpContext)
+            || IsAcademyPublicRoute(httpContext)
             || IsPublicIdentityRoute(httpContext))
         {
             return null;
@@ -100,4 +101,9 @@ public static class RuntimeHeaderGuard
 
     private static bool IsClientPortal(HttpContext httpContext) =>
         httpContext.Request.Path.StartsWithSegments(ClientPortalPath, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAcademyPublicRoute(HttpContext httpContext) =>
+        httpContext.Request.Path.StartsWithSegments("/api/v1/academy/public/courses", StringComparison.OrdinalIgnoreCase)
+        || httpContext.Request.Path.StartsWithSegments("/api/v1/academy/public/certificates", StringComparison.OrdinalIgnoreCase)
+        || httpContext.Request.Path.Equals(new PathString("/api/v1/academy/me"));
 }

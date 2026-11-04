@@ -892,6 +892,8 @@ public static class ClientPortalEndpoints
             claimCase.CreatedAt,
             claimCase.UpdatedAt,
             checklist.CompletenessScore.Percentage,
+            checklist.CompletenessScore.RequiredTotal,
+            checklist.CompletenessScore.RequiredReceived,
             requiredDocuments,
             BuildTimeline(claimCase),
             messages,
@@ -1152,6 +1154,8 @@ public sealed record ClientPortalClaimResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     decimal CompletenessScore,
+    int RequiredDocumentsTotal,
+    int RequiredDocumentsReceived,
     // Every row from the claim's pinned product version, required and optional alike, each
     // carrying its own Required flag (outcome B); not only the required ones despite the name
     // this field has always had.

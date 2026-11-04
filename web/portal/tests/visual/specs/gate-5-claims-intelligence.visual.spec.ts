@@ -21,7 +21,7 @@ test("Gate 5 Claims Intelligence queue exposes approved controls and backend act
   const visibleQueue = page.locator('[data-testid="claims-card-list"]:visible, [data-testid="claims-tablet-table"]:visible, [data-testid="claims-desktop-table"]:visible');
   await expect(visibleQueue).toBeVisible();
   await expect(visibleQueue.getByText(/Sarah N\./).first()).toBeVisible();
-  await expect(visibleQueue.locator('a[href="/app/claims/CLM-2026-00491"]:visible').first()).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: /^Review$/ }).first()).toBeVisible();
   const width = page.viewportSize()?.width ?? 1440;
   if (width >= 1280 || width < 768) {
     await expect(visibleQueue.getByRole("button", { name: /Assign/ }).first()).toBeVisible();
@@ -51,7 +51,7 @@ test("Gate 5 Claims Intelligence search, queue tabs and preview drawer are opera
 
   await page.getByRole("button", { name: /^Clear$/ }).click();
   await expect(page.getByText("Showing 3 of 3 claims")).toBeVisible();
-  await expect(visibleQueue.locator('a[href^="/app/claims/CLM-2026-"]:visible').first()).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: /^Review$/ }).first()).toHaveAttribute("href", /\/app\/claims\/CLM-2026-/);
 });
 
 test("Gate 5 Claims Intelligence deployed profile shows no simulation controls @deployed", async ({ page }) => {
@@ -88,8 +88,8 @@ test("Gate 5 Claims Intelligence does not present zero counts for an unavailable
   await page.goto("/app/claims");
   await expect(page.getByText("Claims could not be loaded")).toBeVisible();
   await expect(page.getByText("Reference corr-claims-recovery")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^All -/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^SLA attention -/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "All -" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "SLA attention -" })).toBeVisible();
 
   const search = page.getByRole("textbox", { name: "Search claims" });
   await search.fill("CLM-1048");

@@ -57,7 +57,9 @@ export function useBrief() {
         return;
       }
       if (!response.ok) throw new Error("Your brief could not be loaded.");
-      const dto = (await response.json()) as BriefDto;
+      const dto = (await response.json()) as Partial<BriefDto> | null;
+      // An answer that is not a brief is an error to show, never a crash: the landing page is the first thing everyone sees.
+      if (!dto || !Array.isArray(dto.items) || !Array.isArray(dto.handledForYou)) throw new Error("Your brief could not be loaded.");
       setItems(dto.items);
       setHandledForYou(dto.handledForYou);
       setRetention(dto.retention ?? null);

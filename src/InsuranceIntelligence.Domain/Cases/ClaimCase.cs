@@ -86,6 +86,19 @@ public sealed record ClaimCase
     public required DateTimeOffset UpdatedAt { get; init; }
     public required string CorrelationId { get; init; }
 
+    /// <summary>Why this claim is on legal hold (build-loop item 34), or null when it is not. While it is set nothing deletes the claim
+    /// or its documents, whether by a retention period or a request to erase a person's data.</summary>
+    public string? LegalHoldReason { get; init; }
+
+    public string? LegalHoldPlacedBy { get; init; }
+    public DateTimeOffset? LegalHoldPlacedAt { get; init; }
+
+    public bool IsOnLegalHold => LegalHoldPlacedAt is not null;
+
+    /// <summary>When this person's details were erased from the claim at their request. The claim itself, its status and amounts stay,
+    /// because an insurer must keep a record of the claim.</summary>
+    public DateTimeOffset? PersonalDataErasedAt { get; init; }
+
     public ClaimCaseSnapshot ToAuditSnapshot() =>
         new(CaseId, Scope, Status.ToString());
 }

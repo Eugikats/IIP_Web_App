@@ -6,3 +6,4 @@
 - Academy media behaviour that was live before `76733b6` was committed: verify the authenticated media endpoints on the merged branch.
 - Decide whether the 69 MB of synthetic fixtures and reference images stay in `main` or move to storage.
 - Remove the reachable injected blobs from history only if the owner wants a history rewrite; it needs a force-push and is not authorised.
+- Academy insurer-sponsored one-time access codes: the live Academy already provides learner sign-in, enrollment, course progress, human marking and certificates; item 33's parallel `/learn` learner store was omitted. Add sponsor codes to the existing Academy store and enrollment flow before offering insurer-sponsored access.

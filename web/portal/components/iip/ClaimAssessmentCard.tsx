@@ -78,7 +78,9 @@ export function ClaimAssessmentCard({ caseId, role, canRespond }: ClaimAssessmen
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/cases/${caseId}/assessment`, { headers: scopedHeaders(role, ""), cache: "no-store" });
       if (!response.ok) return setLoadError("The review score could not be loaded.");
-      setAssessment((await response.json()) as Assessment);
+      const payload = (await response.json()) as Partial<Assessment> | null;
+      if (!payload || !Array.isArray(payload.score?.factors)) return setLoadError("The review score could not be loaded.");
+      setAssessment(payload as Assessment);
     } catch {
       setLoadError("The service could not be reached. Check your connection and try again.");
     }

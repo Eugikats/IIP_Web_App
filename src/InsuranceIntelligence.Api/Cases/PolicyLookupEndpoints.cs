@@ -93,7 +93,7 @@ public static class PolicyLookupEndpoints
         var isActive = (policy.EffectiveFrom is null || policy.EffectiveFrom.Value <= today)
             && (policy.EffectiveTo is null || policy.EffectiveTo.Value >= today);
 
-        var allCases = await caseRepository.ListAsync(scope, cancellationToken);
+        var allCases = await caseRepository.ListByPolicyNumbersAsync(scope, [policy.PolicyNumber], cancellationToken);
         var possibleDuplicates = allCases
             .Where(c => string.Equals(c.PolicyNumber, policy.PolicyNumber, StringComparison.OrdinalIgnoreCase)
                 && !TerminalStatuses.Contains(c.Status))

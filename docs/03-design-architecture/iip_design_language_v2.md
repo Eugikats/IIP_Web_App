@@ -102,7 +102,7 @@ Emit these into `web/portal/app/globals.css` as space-separated RGB triplets so 
   /* ---- Neutrals ---- */
   --color-text-primary:       16 24 40;     /* #101828  headings, body, stat numbers */
   --color-text-secondary:     82 92 110;    /* #525C6E  labels, captions, descriptions */
-  --color-text-muted:         107 114 128;  /* #6B7280  ANY meaningful small text (see 4.3) */
+  --color-text-muted:         100 108 122;  /* #646C7A  ANY meaningful small text (see 4.3) */
   --color-text-faint:         152 162 179;  /* #98A2B3  DECORATIVE ONLY (see 4.3) */
   --color-text-inverse:       255 255 255;  /* #FFFFFF  text on primary fills */
 
@@ -155,7 +155,7 @@ The reference uses `#98A2B3` for placeholder text, timestamps, counts, and metad
 Rule:
 
 - `--color-text-faint` (`#98A2B3`, 2.58:1) is permitted **only** for non-text decoration: icon glyphs that sit beside an already-legible text label, divider glyphs, and disabled-control chrome. It may never carry information that is not also present in a compliant colour.
-- `--color-text-muted` (`#6B7280`, **4.83:1**) replaces it for every piece of small meaningful text: placeholders, timestamps, filter counts, table metadata, helper captions, "3 of 7 documents received".
+- `--color-text-muted` (`#646C7A`, **5.3:1 on white, 4.9:1 on the page background**) replaces it for every piece of small meaningful text: placeholders, timestamps, filter counts, table metadata, helper captions, "3 of 7 documents received".
 - The visual weight difference is nearly imperceptible at 12–13px; the compliance difference is total.
 
 ### 4.4 Contrast ledger
@@ -166,7 +166,7 @@ Measured against `#FFFFFF`. Implementations must not introduce a foreground/back
 |---|---:|---|
 | `#101828` text-primary | 17.77:1 | AAA |
 | `#525C6E` text-secondary | 6.74:1 | AA (all sizes) |
-| `#6B7280` text-muted | 4.83:1 | AA (all sizes) |
+| `#646C7A` text-muted | 5.3:1 on white, 4.9:1 on the page background | AA (all sizes) |
 | `#98A2B3` text-faint | 2.58:1 | **Fails** — decoration only |
 | `#5B2AE8` primary | 7.14:1 | AA all sizes; also the ratio of white-on-primary buttons |
 | `#7C57EE` primary-accent | 4.71:1 | AA, thin margin — use at ≥13px weight 600, never for body copy |

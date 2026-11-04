@@ -26,11 +26,11 @@ export function PasswordSignIn({ onSignedIn, allowSignUp }: { onSignedIn: () => 
   }
 
   return (
-    <div className="mt-8 border-t border-line pt-6" data-testid="password-sign-in">
-      <h3 className="text-sm font-semibold text-ink">Sign in with email</h3>
+    <div className="mt-8 border-t border-dls-border-subtle pt-6" data-testid="password-sign-in">
+      <h3 className="text-sm font-semibold text-dls-text-primary">Sign in with email</h3>
       {choices ? (
         <div className="mt-3 space-y-2" role="group" aria-label="Choose a workspace">
-          <p className="text-xs text-muted">Your email belongs to more than one workspace. Choose one.</p>
+          <p className="text-xs text-dls-text-muted">Your email belongs to more than one workspace. Choose one.</p>
           {choices.map((choice) => (
             <Button key={`${choice.tenantId}/${choice.workspaceId}`} variant="secondary" disabled={busy} onClick={() => void submit(choice)}>
               {choice.name}
@@ -59,9 +59,9 @@ export function PasswordSignIn({ onSignedIn, allowSignUp }: { onSignedIn: () => 
         </form>
       )}
       <FormError message={error} />
-      <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-        <Link to="/forgot-password" className="font-semibold text-primary underline">Forgotten your password?</Link>
-        {allowSignUp ? <Link to="/signup" className="font-semibold text-primary underline">Open a workspace for your company</Link> : null}
+      <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-dls-text-muted">
+        <Link to="/forgot-password" className="font-semibold text-dls-primary underline">Forgotten your password?</Link>
+        {allowSignUp ? <Link to="/signup" className="font-semibold text-dls-primary underline">Open a workspace for your company</Link> : null}
       </p>
     </div>
   );

@@ -25,7 +25,11 @@ public sealed record TenantSettingsResponse(
     IReadOnlyList<string>? DefaultCustomerMemoryDocumentKeys = null,
     string? AssistantOrganisation = null,
     string? AssistantShortName = null,
-    string? AssistantPartnerInsurers = null);
+    string? AssistantPartnerInsurers = null,
+    IReadOnlyDictionary<string, int>? RetentionMonths = null,
+    IReadOnlyList<RetentionClassInfo>? RetentionClasses = null);
+
+public sealed record RetentionClassInfo(string Key, string Label);
 
 /// <summary>What each setting is when nobody has changed it, so the screen can offer "reset".</summary>
 public sealed record TenantSettingsDefaults(
@@ -48,7 +52,8 @@ public sealed record SaveTenantSettingsRequest(
     IReadOnlyList<string>? CustomerMemoryDocumentKeys = null,
     string? AssistantOrganisation = null,
     string? AssistantShortName = null,
-    string? AssistantPartnerInsurers = null);
+    string? AssistantPartnerInsurers = null,
+    IReadOnlyDictionary<string, int>? RetentionMonths = null);
 
 /// <summary>
 /// The operating settings a workspace administrator can change (build-loop item 6): the publishing
@@ -126,6 +131,16 @@ public static class TenantSettingsEndpoints
             AssistantPartnerInsurers = request.AssistantPartnerInsurers is null ? current.AssistantPartnerInsurers : NullIfBlank(request.AssistantPartnerInsurers),
         };
 
+        if (request.RetentionMonths is not null)
+        {
+            updated = updated with { RetentionMonths = request.RetentionMonths.Where(pair => pair.Value > 0).ToDictionary(pair => pair.Key, pair => pair.Value) is { Count: > 0 } kept ? kept : null };
+            var retentionProblems = InsuranceIntelligence.Domain.DataLifecycle.RetentionClasses.Validate(request.RetentionMonths);
+            if (retentionProblems.Count > 0)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["settings"] = retentionProblems.ToArray() });
+            }
+        }
+
         var problems = updated.Validate();
         if (problems.Count > 0)
         {
@@ -170,7 +185,9 @@ public static class TenantSettingsEndpoints
             InsuranceIntelligence.Domain.Customers.CustomerMemoryPolicy.DefaultDocumentKeys,
             settings.AssistantOrganisation,
             settings.AssistantShortName,
-            settings.AssistantPartnerInsurers);
+            settings.AssistantPartnerInsurers,
+            settings.RetentionMonths,
+            InsuranceIntelligence.Domain.DataLifecycle.RetentionClasses.All.Select(key => new RetentionClassInfo(key, InsuranceIntelligence.Domain.DataLifecycle.RetentionClasses.Label(key))).ToArray());
 
     private static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

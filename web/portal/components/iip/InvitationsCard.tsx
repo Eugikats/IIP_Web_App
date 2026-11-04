@@ -8,7 +8,7 @@ import { GlassCard, Badge } from "@/components/iip/Primitives";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Field as UIField } from "@/components/ui/Input";
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
-import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface } from "@/components/ui/StateSurfaces";
+import { LoadingSkeleton, ErrorStateSurface, EmptyStateSurface, NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
 import { inviteColleague, listInvitations, revokeInvitation, type InvitationView } from "@/lib/platformAuth";
 
 /** Invite a colleague by email. They choose their own password from the emailed link; nothing is shared with them by hand. */
@@ -19,6 +19,7 @@ export function InvitationsCard({ roles }: { roles: { role: string }[] }) {
   const roleId = useId();
   const [items, setItems] = useState<InvitationView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
   const [busy, setBusy] = useState(false);
@@ -29,6 +30,7 @@ export function InvitationsCard({ roles }: { roles: { role: string }[] }) {
       setItems(result.value);
       setError(null);
     } else {
+      setForbidden(result.forbidden === true);
       setError(result.error);
     }
   }, [actor]);
@@ -53,6 +55,8 @@ export function InvitationsCard({ roles }: { roles: { role: string }[] }) {
     toast.success(`Invitation to ${invitation.email} withdrawn.`);
     await load();
   }
+
+  if (forbidden) return <GlassCard className="mb-4"><NoPermissionStateSurface permission="ManageTenantSettings" /></GlassCard>;
 
   return (
     <GlassCard className="mb-4">
