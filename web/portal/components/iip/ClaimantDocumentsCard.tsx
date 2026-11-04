@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { Loader2, Paperclip, RefreshCw, Trash2, UploadCloud } from "lucide-react";
+import { Camera, Loader2, Paperclip, RefreshCw, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { ClientPortalClaim } from "@/lib/clientPortal";
 
@@ -16,6 +16,49 @@ function formatDate(value: string | null) {
   } catch {
     return value;
   }
+}
+
+const IMAGE_FORMATS = ["jpg", "jpeg", "png", "heic", "heif", "webp"];
+
+type SlotPickerProps = {
+  formats: string[];
+  multiple: boolean;
+  uploaded: boolean;
+  /** A multi-file slot that already holds as many files as it may. */
+  full: boolean;
+  busy: boolean;
+  locked: boolean;
+  onPick: (event: ChangeEvent<HTMLInputElement>) => void;
+};
+
+/**
+ * The two ways to put a file in a slot (build-loop item 10): "Take photo" opens the camera on a
+ * phone (and the normal file chooser on a computer), "Choose file" opens the chooser. A slot that
+ * takes only PDFs offers no camera. The camera takes one picture at a time, so a multi-file slot
+ * is filled by taking several, or by choosing several at once.
+ */
+function SlotPicker({ formats, multiple, uploaded, full, busy, locked, onPick }: SlotPickerProps) {
+  const canCapture = formats.length === 0 || formats.some((format) => IMAGE_FORMATS.includes(format.toLowerCase()));
+  const accept = formats.length > 0 ? formats.map((format) => `.${format}`).join(",") : "image/*,application/pdf";
+  const chooseText = multiple ? (uploaded ? "Add more files" : "Choose files") : uploaded ? "Replace file" : "Choose file";
+  const disabled = locked || full;
+  const buttonClass = `dls-focus-outline focus-within:ring-2 focus-within:ring-dls-primary inline-flex min-h-9 items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-1.5 text-xs font-semibold text-dls-text-secondary ${disabled ? "opacity-60" : "cursor-pointer hover:bg-dls-bg-page"}`;
+  return (
+    <>
+      {canCapture && (
+        <label className={buttonClass}>
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Camera className="h-3.5 w-3.5" aria-hidden="true" />}
+          Take photo
+          <input type="file" accept="image/*" capture="environment" data-upload="capture" className="sr-only" disabled={disabled} onChange={onPick} />
+        </label>
+      )}
+      <label className={buttonClass}>
+        {uploaded && !multiple ? <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> : <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />}
+        {chooseText}
+        <input type="file" accept={accept} multiple={multiple} data-upload="choose" className="sr-only" disabled={disabled} onChange={onPick} />
+      </label>
+    </>
+  );
 }
 
 type ClaimantDocumentsCardProps = {
@@ -85,25 +128,16 @@ export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed
               </div>
             )}
 
-            <div className="mt-2 ml-5.5 flex items-center gap-2">
-              <label className={`dls-focus-outline inline-flex min-h-8 items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary ${previewOnly ? "opacity-60" : "cursor-pointer hover:bg-dls-bg-page"}`}>
-                {busyKey === doc.documentTypeKey ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                ) : doc.uploaded && !doc.allowsMultipleFiles ? (
-                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-                ) : (
-                  <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
-                )}
-                {doc.allowsMultipleFiles ? (doc.uploaded ? "Add more" : "Upload") : doc.uploaded ? "Replace" : "Upload"}
-                <input
-                  type="file"
-                  accept={doc.acceptedFormats?.length ? doc.acceptedFormats.map((format) => `.${format}`).join(",") : "image/*,application/pdf"}
-                  multiple={doc.allowsMultipleFiles === true}
-                  className="hidden"
-                  disabled={locked || (doc.allowsMultipleFiles === true && (doc.fileCount ?? 0) >= (doc.maxFiles ?? 1))}
-                  onChange={(event) => onUpload(event, doc.documentTypeKey, doc.label)}
-                />
-              </label>
+            <div className="mt-2 ml-5.5 flex flex-wrap items-center gap-2">
+              <SlotPicker
+                formats={doc.acceptedFormats ?? []}
+                multiple={doc.allowsMultipleFiles === true}
+                uploaded={doc.uploaded}
+                full={doc.allowsMultipleFiles === true && (doc.fileCount ?? 0) >= (doc.maxFiles ?? 1)}
+                busy={busyKey === doc.documentTypeKey}
+                locked={locked}
+                onPick={(event) => onUpload(event, doc.documentTypeKey, doc.label)}
+              />
               {doc.canRetry && (
                 <Button variant="secondary" icon={<RefreshCw aria-hidden="true" />} onClick={() => onRetry(doc.documentTypeKey, doc.label)} disabled={locked}>
                   Try again
@@ -126,18 +160,17 @@ export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed
             </div>
           </div>
           <div className="mt-2 ml-5.5">
-            <label className={`dls-focus-outline inline-flex min-h-8 items-center gap-1.5 rounded-dls-control border border-dls-border-input bg-dls-surface px-2.5 py-1 text-xs font-semibold text-dls-text-secondary ${previewOnly ? "opacity-60" : "cursor-pointer hover:bg-dls-bg-page"}`}>
-              {busyKey === SOMETHING_ELSE_KEY ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />}
-              Upload
-              <input
-                type="file"
+            <div className="flex flex-wrap items-center gap-2">
+              <SlotPicker
+                formats={[]}
                 multiple
-                accept="image/*,application/pdf"
-                className="hidden"
-                disabled={locked}
-                onChange={(event) => onUpload(event, SOMETHING_ELSE_KEY, "Document")}
+                uploaded={false}
+                full={false}
+                busy={busyKey === SOMETHING_ELSE_KEY}
+                locked={locked}
+                onPick={(event) => onUpload(event, SOMETHING_ELSE_KEY, "Document")}
               />
-            </label>
+            </div>
           </div>
         </li>
       </ul>

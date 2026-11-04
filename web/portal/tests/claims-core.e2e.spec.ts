@@ -182,7 +182,7 @@ test.describe("Item 2: known defects", () => {
     await openClaimantPortal(page, token);
 
     const policeRow = page.locator("li", { hasText: "Police abstract" }).first();
-    await policeRow.locator('input[type="file"]').setInputFiles({
+    await policeRow.locator('input[data-upload="choose"]').setInputFiles({
       name: "police.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract IIP-MOCK-FAIL-ONCE"),
@@ -339,10 +339,10 @@ test.describe("Item 4: documents and evidence per claim type", () => {
     const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
     await expect(photos.getByText("These photos are kept exactly as you take them.")).toBeVisible();
     const damage = fixture("damage_photo.jpg");
-    await photos.locator('input[type="file"]').setInputFiles([damage, { ...damage, name: "damage_photo_2.jpg" }]);
+    await photos.locator('input[data-upload="choose"]').setInputFiles([damage, { ...damage, name: "damage_photo_2.jpg" }]);
     await expect(photos.getByText("2 of 10 sent")).toBeVisible();
     await expect(photos.getByRole("button", { name: /Remove/ })).toBeVisible();
-    await photos.locator('input[type="file"]').setInputFiles([{ ...damage, name: "damage_photo_3.jpg" }]);
+    await photos.locator('input[data-upload="choose"]').setInputFiles([{ ...damage, name: "damage_photo_3.jpg" }]);
     await expect(photos.getByText("3 of 10 sent")).toBeVisible();
   });
 });
@@ -698,7 +698,7 @@ test.describe("Item 9: privacy notice and consent", () => {
     }
 
     const policeRow = page.locator("li", { hasText: "Police abstract" }).first();
-    await expect(policeRow.locator('input[type="file"]')).toBeDisabled();
+    await expect(policeRow.locator('input[data-upload="choose"]')).toBeDisabled();
     await expect(page.getByText("Read and agree to the privacy notice above to send documents.")).toBeVisible();
     expect(await consentState(request, caseId)).toBe("NotGiven");
 
@@ -706,8 +706,8 @@ test.describe("Item 9: privacy notice and consent", () => {
     await expect(consent).toHaveAttribute("data-state", "Given");
     expect(await consentState(request, caseId)).toBe("Given");
 
-    await expect(policeRow.locator('input[type="file"]')).toBeEnabled();
-    await policeRow.locator('input[type="file"]').setInputFiles({ name: "police.pdf", mimeType: "application/pdf", buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract") });
+    await expect(policeRow.locator('input[data-upload="choose"]')).toBeEnabled();
+    await policeRow.locator('input[data-upload="choose"]').setInputFiles({ name: "police.pdf", mimeType: "application/pdf", buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract") });
     await expect(policeRow.getByText("Received")).toBeVisible();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -726,12 +726,12 @@ test.describe("Item 9: privacy notice and consent", () => {
     await expect(consent).toHaveAttribute("data-state", "Withdrawn");
     await expect(consent.getByText("You withdrew your permission.")).toBeVisible();
     const policeRow = page.locator("li", { hasText: "Police abstract" }).first();
-    await expect(policeRow.locator('input[type="file"]')).toBeDisabled();
+    await expect(policeRow.locator('input[data-upload="choose"]')).toBeDisabled();
     expect(await consentState(request, caseId)).toBe("Withdrawn");
 
     await consent.getByRole("button", { name: "I agree" }).click();
     await expect(consent).toHaveAttribute("data-state", "Given");
-    await expect(policeRow.locator('input[type="file"]')).toBeEnabled();
+    await expect(policeRow.locator('input[data-upload="choose"]')).toBeEnabled();
   });
 
   test("changing the notice asks customers who agreed to the old one to agree again", async ({ page, request }) => {
@@ -748,7 +748,7 @@ test.describe("Item 9: privacy notice and consent", () => {
       await expect(consent.getByText("Our privacy notice has changed since you last agreed.")).toBeVisible();
       await expect(consent.getByText("only what we need.")).toBeVisible();
       expect(await consentState(request, caseId)).toBe("NoticeChanged");
-      await expect(page.locator("li", { hasText: "Police abstract" }).first().locator('input[type="file"]')).toBeDisabled();
+      await expect(page.locator("li", { hasText: "Police abstract" }).first().locator('input[data-upload="choose"]')).toBeDisabled();
 
       await consent.getByRole("button", { name: "I agree" }).click();
       await expect(consent).toHaveAttribute("data-state", "Given");
@@ -790,5 +790,74 @@ test.describe("Item 9: privacy notice and consent", () => {
     const { caseId } = await claimantLinkFor(request);
     const other = await request.get(`${API}/api/v1/cases/${caseId}/privacy-consent`, { headers: scopeHeaders(newTenant()) });
     expect(other.status()).toBe(404);
+  });
+});
+
+test.describe("Item 10: photo or file per slot", () => {
+  test("each slot offers Take photo and Choose file, and the camera button asks for the rear camera", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const policeRow = page.locator("li", { hasText: "Police abstract" }).first();
+    await expect(policeRow.getByText("Take photo")).toBeVisible();
+    await expect(policeRow.getByText("Choose file")).toBeVisible();
+    const camera = policeRow.locator('input[data-upload="capture"]');
+    await expect(camera).toHaveAttribute("capture", "environment");
+    await expect(camera).toHaveAttribute("accept", "image/*");
+    await expect(camera).not.toHaveAttribute("multiple", /.*/);
+
+    // A single-file slot is filled by a photo taken on the spot.
+    await camera.setInputFiles(fixture("damage_photo.jpg"));
+    await expect(policeRow.getByText("Received")).toBeVisible();
+    await expect(policeRow.getByText("Replace file")).toBeVisible();
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("a multi-file slot is filled by taking several photos, and choosing several files at once is also offered", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const photos = page.locator("li", { hasText: "Photo" }).filter({ hasText: "kept exactly as you take them" }).first();
+    await expect(photos.locator('input[data-upload="choose"]')).toHaveAttribute("multiple", /.*/);
+    await expect(photos.locator('input[data-upload="capture"]')).not.toHaveAttribute("multiple", /.*/);
+
+    const shot = fixture("damage_photo.jpg");
+    await photos.locator('input[data-upload="capture"]').setInputFiles({ ...shot, name: "camera_1.jpg" });
+    await expect(photos.getByText(/1 of \d+ sent/)).toBeVisible();
+    await photos.locator('input[data-upload="capture"]').setInputFiles({ ...shot, name: "camera_2.jpg" });
+    await expect(photos.getByText(/2 of \d+ sent/)).toBeVisible();
+    await expect(photos.getByText("Add more files")).toBeVisible();
+  });
+
+  test("a slot that takes only PDFs offers no camera", async ({ page, request }) => {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const created = await request.post(`${API}/api/v1/products`, {
+      headers,
+      data: { name: "Pdf Cover", productClass: `Pdf${Math.random().toString(36).slice(2, 6)}`, changeReason: "e2e" },
+    });
+    const { productId } = (await created.json()) as { productId: string };
+    const updated = await request.put(`${API}/api/v1/products/${productId}`, {
+      headers,
+      data: {
+        claimTypes: [{ name: "Loss", description: "Any loss", active: true, sortOrder: 1 }],
+        documentMatrix: [
+          { documentKey: "Invoice", customerLabel: "Signed invoice", reason: "needed", isRequired: true, requiredAtStageKey: "acknowledgement_and_document_request", isRegulatoryOrWordingMandated: false, acceptedFormats: ["pdf"] },
+          { documentKey: "PoliceAbstract", customerLabel: "Police report", reason: "needed", isRequired: true, requiredAtStageKey: "acknowledgement_and_document_request", isRegulatoryOrWordingMandated: false },
+        ],
+        changeReason: "e2e",
+      },
+    });
+    expect(updated.ok(), await updated.text()).toBeTruthy();
+
+    await page.goto(`/app/admin/products/${productId}/preview`);
+    await page.getByRole("button", { name: "2. Send documents" }).click();
+    const invoice = page.locator("li", { hasText: "Signed invoice" });
+    await expect(invoice.getByText("Choose file")).toBeVisible();
+    await expect(invoice.getByText("Take photo")).toHaveCount(0);
+    await expect(page.locator("li", { hasText: "Police report" }).getByText("Take photo")).toBeVisible();
   });
 });
