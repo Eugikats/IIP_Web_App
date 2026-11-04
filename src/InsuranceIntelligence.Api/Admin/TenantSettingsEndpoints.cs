@@ -14,7 +14,10 @@ public sealed record TenantSettingsResponse(
     int ClaimsMeterLimit,
     string? UpdatedByUserId,
     DateTimeOffset? UpdatedAt,
-    TenantSettingsDefaults Defaults);
+    TenantSettingsDefaults Defaults,
+    string? PrivacyNoticeText = null,
+    int PrivacyNoticeVersion = 1,
+    string DefaultPrivacyNoticeText = "");
 
 /// <summary>What each setting is when nobody has changed it, so the screen can offer "reset".</summary>
 public sealed record TenantSettingsDefaults(
@@ -30,7 +33,8 @@ public sealed record SaveTenantSettingsRequest(
     int? MissingDocumentReminderDays,
     int? SlaWarningLeadHours,
     int? SeatLimit,
-    int? ClaimsMeterLimit);
+    int? ClaimsMeterLimit,
+    string? PrivacyNoticeText = null);
 
 /// <summary>
 /// The operating settings a workspace administrator can change (build-loop item 6): the publishing
@@ -82,6 +86,17 @@ public static class TenantSettingsEndpoints
             UpdatedAt = DateTimeOffset.UtcNow,
         };
 
+        if (request.PrivacyNoticeText is not null)
+        {
+            // An empty text goes back to the default. Any change of wording is a new version, so a
+            // consent can name the exact words it agreed to.
+            var text = string.IsNullOrWhiteSpace(request.PrivacyNoticeText) ? null : request.PrivacyNoticeText.Trim();
+            if (text != current.PrivacyNoticeText)
+            {
+                updated = updated with { PrivacyNoticeText = text, PrivacyNoticeVersion = current.PrivacyNoticeVersion + 1 };
+            }
+        }
+
         var problems = updated.Validate();
         if (problems.Count > 0)
         {
@@ -115,7 +130,10 @@ public static class TenantSettingsEndpoints
                 TenantSettings.DefaultMissingDocumentReminderDays,
                 TenantSettings.DefaultSlaWarningLeadHours,
                 TenantSettings.DefaultSeatLimit,
-                TenantSettings.DefaultClaimsMeterLimit));
+                TenantSettings.DefaultClaimsMeterLimit),
+            settings.PrivacyNoticeText,
+            settings.PrivacyNoticeVersion,
+            InsuranceIntelligence.Domain.Compliance.PrivacyNotices.DefaultText);
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });

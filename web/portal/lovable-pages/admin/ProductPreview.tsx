@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { GlassCard, SectionHeader } from "@/components/iip/Primitives";
 import { ClaimantDocumentsCard } from "@/components/iip/ClaimantDocumentsCard";
 import { ClaimantNewClaimForm, type BuiltInMotorAnswers } from "@/components/iip/ClaimantNewClaimForm";
+import { ClaimantConsentCard } from "@/components/iip/ClaimantConsentCard";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Input";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -137,7 +138,24 @@ export default function ProductPreview() {
                   previewOnly
                 />
               ) : preview.documents.length > 0 ? (
-                <ClaimantDocumentsCard documents={preview.documents} busyKey={null} notice={null} onUpload={noop} onRemove={noop} onRetry={noop} previewOnly />
+                <>
+                  <ClaimantConsentCard
+                    consent={{
+                      state: "NotGiven",
+                      noticeVersion: preview.privacyNoticeVersion,
+                      noticeText: preview.privacyNoticeText,
+                      noticeIsDefault: preview.privacyNoticeIsDefault,
+                      recordedAt: null,
+                      consentedVersion: null,
+                    }}
+                    busy={false}
+                    error={null}
+                    onAgree={noop}
+                    onWithdraw={noop}
+                    previewOnly
+                  />
+                  <ClaimantDocumentsCard documents={preview.documents} busyKey={null} notice={null} onUpload={noop} onRemove={noop} onRetry={noop} previewOnly />
+                </>
               ) : (
                 <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6 text-xs leading-5 text-dls-text-muted">
                   No documents are asked for this claim type. The customer is only offered "Something else".

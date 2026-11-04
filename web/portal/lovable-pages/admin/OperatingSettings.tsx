@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { GlassCard, SectionHeader } from "@/components/iip/Primitives";
 import { LoadingSkeleton, ErrorStateSurface } from "@/components/ui/StateSurfaces";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Input, Textarea } from "@/components/ui/Input";
 import { useUI } from "@/context/UIStateContext";
 import { loadTenantSettings, saveTenantSettings, type TenantSettings } from "@/lib/tenantSettings";
 
@@ -14,6 +14,8 @@ type Draft = {
   slaWarningLeadHours: string;
   seatLimit: string;
   claimsMeterLimit: string;
+  /** The notice as shown: the workspace's own, or the default text while it has none. */
+  privacyNoticeText: string;
 };
 
 function toDraft(settings: TenantSettings): Draft {
@@ -23,6 +25,7 @@ function toDraft(settings: TenantSettings): Draft {
     slaWarningLeadHours: String(settings.slaWarningLeadHours),
     seatLimit: String(settings.seatLimit),
     claimsMeterLimit: String(settings.claimsMeterLimit),
+    privacyNoticeText: settings.privacyNoticeText ?? settings.defaultPrivacyNoticeText,
   };
 }
 
@@ -69,6 +72,9 @@ export default function OperatingSettings() {
       slaWarningLeadHours: Number(draft.slaWarningLeadHours) || 0,
       seatLimit: Number(draft.seatLimit) || 0,
       claimsMeterLimit: Number(draft.claimsMeterLimit) || 0,
+      // Text equal to the default is saved as "use the default", so it keeps following any
+      // improvement to the default and does not count as the insurer's own wording.
+      privacyNoticeText: draft.privacyNoticeText.trim() === settings?.defaultPrivacyNoticeText.trim() ? "" : draft.privacyNoticeText,
     });
     setSaving(false);
     if (!result.ok) {
@@ -134,6 +140,21 @@ export default function OperatingSettings() {
                 <Input id="claims-limit" inputMode="numeric" value={draft.claimsMeterLimit} onChange={(e) => setDraft({ ...draft, claimsMeterLimit: digits(e.target.value) })} />
                 <p className="mt-1 text-[11.5px] text-dls-text-muted">Usually {settings.defaults.claimsMeterLimit}. Shown against usage on the billing page.</p>
               </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="text-[14px] font-bold text-dls-text-primary">Privacy notice</div>
+            <p className="mt-1 text-[12px] text-dls-text-secondary">
+              Customers read this before they send documents and must agree to it. Changing the words asks every customer to agree again. Say what you collect, why, who sees it, how long you keep it and how to withdraw.
+            </p>
+            <label htmlFor="privacy-notice" className="mb-1 mt-3 block text-[12.5px] font-semibold text-dls-text-primary">Notice shown to customers (version {settings.privacyNoticeVersion})</label>
+            <Textarea id="privacy-notice" rows={12} value={draft.privacyNoticeText} onChange={(e) => setDraft({ ...draft, privacyNoticeText: e.target.value })} maxLength={4000} className="w-full" />
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <Button variant="ghost" onClick={() => setDraft({ ...draft, privacyNoticeText: settings.defaultPrivacyNoticeText })} disabled={draft.privacyNoticeText === settings.defaultPrivacyNoticeText}>Use the default text</Button>
+              {settings.privacyNoticeText === null && (
+                <span className="text-[11.5px] text-dls-text-muted">This is the default text, a draft. Have your legal team confirm it before you rely on it.</span>
+              )}
             </div>
           </GlassCard>
 

@@ -240,6 +240,7 @@ public static class ClientPortalEndpoints
         ICommunicationRepository communicationRepository,
         IAuditRepository auditRepository,
         InfrastructureOptions options,
+        InsuranceIntelligence.Application.Compliance.IClaimantConsentService consentService,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -255,6 +256,13 @@ public static class ClientPortalEndpoints
         if (claimCase is null || claimCase.Scope != scope || !BelongsToCustomer(claimCase, httpContext, options))
         {
             return Results.NotFound(new { message = "Claim was not found for the signed-in customer." });
+        }
+
+        // Nothing is accepted from the portal until the claimant has agreed to the privacy notice
+        // that is in force (build-loop item 9).
+        if (!await consentService.HasConsentAsync(scope, ResolveActor(httpContext), cancellationToken))
+        {
+            return ClaimantConsentEndpoints.ConsentRequired();
         }
 
         if (!IsMultipartFormData(httpContext.Request.ContentType))

@@ -68,6 +68,9 @@ public sealed record ConsentRecord
     /// portal session id, distinct from CorrelationId (a trace id for this write, not a link back
     /// to the interaction itself). Null for rows recorded before this field existed.</summary>
     public string? InteractionReference { get; init; }
+
+    /// <summary>For claimant data-processing consent, the exact privacy notice version agreed to.</summary>
+    public string? NoticeVersion { get; init; }
 }
 
 public interface IConsentRepository
@@ -107,4 +110,5 @@ public static class ConsentPurposes
     public const string Messenger = "messenger_messaging";
     public const string TikTok = "tiktok_messaging";
     public const string X = "x_messaging";
+    public const string ClaimDataProcessing = "claim_data_processing";
 }

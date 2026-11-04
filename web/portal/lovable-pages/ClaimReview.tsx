@@ -42,6 +42,7 @@ import { usePeople } from "@/lib/people";
 import AssignClaimControl from "@/components/iip/AssignClaimControl";
 import { getFileConnectionStatus, type FileConnectionStatus } from "@/lib/files/fileConnections";
 import { ClaimDetailsCard } from "@/components/iip/ClaimDetailsCard";
+import { PrivacyConsentLine } from "@/components/iip/PrivacyConsentLine";
 
 const POLICY_SOURCE_LABEL: Record<string, string> = {
   Manual: "Entered manually",
@@ -982,6 +983,9 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
 
           <GlassCard>
             <ClaimDetailsCard caseId={claimId} role={roleDef.key} canEdit={canEditClaimDetails} />
+            <div className="mt-4 border-t border-dls-border-subtle pt-3">
+              <PrivacyConsentLine caseId={claimId} role={roleDef.key} />
+            </div>
           </GlassCard>
 
           <GlassCard>

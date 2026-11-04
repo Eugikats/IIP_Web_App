@@ -588,6 +588,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCo
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductWordingExtractionService, InsuranceIntelligence.Application.Products.ProductWordingExtractionService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimTypeService, InsuranceIntelligence.Application.Products.ClaimTypeService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IWordingDraftService, InsuranceIntelligence.Application.Products.WordingDraftService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimantConsentService, InsuranceIntelligence.Application.Compliance.ClaimantConsentService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1433,6 +1434,16 @@ app.MapPost("/api/v1/products/{productId:guid}/wording-drafts/{draftId:guid}/app
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 app.MapPost("/api/v1/products/{productId:guid}/wording-drafts/{draftId:guid}/discard", InsuranceIntelligence.Api.Products.WordingDraftEndpoints.Discard)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+// Privacy notice and consent (build-loop item 9): the claimant reads the notice and agrees before the
+// first upload, and can withdraw from the claim page; staff see whether the claimant has agreed.
+app.MapGet("/api/v1/client-portal/privacy-notice", InsuranceIntelligence.Api.ClientPortal.ClaimantConsentEndpoints.GetNotice)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/consent", InsuranceIntelligence.Api.ClientPortal.ClaimantConsentEndpoints.Grant)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapPost("/api/v1/client-portal/consent/withdraw", InsuranceIntelligence.Api.ClientPortal.ClaimantConsentEndpoints.Withdraw)
+    .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
+app.MapGet("/api/v1/cases/{caseId:guid}/privacy-consent", InsuranceIntelligence.Api.ClientPortal.ClaimantConsentEndpoints.GetForCase)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/client-portal/claim-types", InsuranceIntelligence.Api.Products.ClaimTypeEndpoints.ListForClaimant)
     .AddEndpointFilter(new InsuranceIntelligence.Api.ClientPortal.ClaimantSessionEndpointFilter());
 // Claim fields (build-loop item 5): the questions a product asks about a claim and a claim's answers.

@@ -202,6 +202,7 @@ public sealed class ClientPortalEndpointTests
             communications,
             audit,
             DevelopmentOptions(),
+            new ConsentAlreadyGiven(),
             UploadContext("sarah@example.com"),
             CancellationToken.None);
 
@@ -243,6 +244,7 @@ public sealed class ClientPortalEndpointTests
             communications,
             audit,
             DevelopmentOptions(),
+            new ConsentAlreadyGiven(),
             UploadContext(
                 "sarah@example.com",
                 context => ApplyMembershipScope(context, membershipScope, spoofedScope, "sarah@example.com", "spoofed-user")),
@@ -289,6 +291,7 @@ public sealed class ClientPortalEndpointTests
             new InMemoryCommunicationRepository(),
             new InMemoryAuditRepository(),
             DevelopmentOptions(),
+            new ConsentAlreadyGiven(),
             UploadContext("sarah@example.com", documentTypeKey: "PoliceAbstract"),
             CancellationToken.None);
 
@@ -319,14 +322,14 @@ public sealed class ClientPortalEndpointTests
         await ClientPortalEndpoints.UploadDocuments(
             caseId, cases, documents, new StubDocumentStorageProvider(), new ClaimFormProcessingProvider(),
             new StaticDocumentChecklistProvider(new CompletenessScoringService()), new InMemoryDocumentFieldValidationRuleRepository(),
-            new InMemoryCommunicationRepository(), new InMemoryAuditRepository(), DevelopmentOptions(),
+            new InMemoryCommunicationRepository(), new InMemoryAuditRepository(), DevelopmentOptions(), new ConsentAlreadyGiven(),
             UploadContext("sarah@example.com", documentTypeKey: "ClaimForm", fileName: "first-attempt.pdf"),
             CancellationToken.None);
 
         var second = await ClientPortalEndpoints.UploadDocuments(
             caseId, cases, documents, new StubDocumentStorageProvider(), new ClaimFormProcessingProvider(),
             new StaticDocumentChecklistProvider(new CompletenessScoringService()), new InMemoryDocumentFieldValidationRuleRepository(),
-            new InMemoryCommunicationRepository(), new InMemoryAuditRepository(), DevelopmentOptions(),
+            new InMemoryCommunicationRepository(), new InMemoryAuditRepository(), DevelopmentOptions(), new ConsentAlreadyGiven(),
             UploadContext("sarah@example.com", documentTypeKey: "ClaimForm", fileName: "corrected-copy.pdf"),
             CancellationToken.None);
 
@@ -352,7 +355,7 @@ public sealed class ClientPortalEndpointTests
         await ClientPortalEndpoints.UploadDocuments(
             caseId, cases, documents, new StubDocumentStorageProvider(), new ClaimFormProcessingProvider(),
             new StaticDocumentChecklistProvider(new CompletenessScoringService()), new InMemoryDocumentFieldValidationRuleRepository(),
-            new InMemoryCommunicationRepository(), new InMemoryAuditRepository(), DevelopmentOptions(),
+            new InMemoryCommunicationRepository(), new InMemoryAuditRepository(), DevelopmentOptions(), new ConsentAlreadyGiven(),
             UploadContext("sarah@example.com", documentTypeKey: "ClaimForm"),
             CancellationToken.None);
         var audit = new InMemoryAuditRepository();
@@ -637,4 +640,21 @@ public sealed class ClientPortalEndpointTests
                 Array.Empty<DocumentValidationWarning>()));
         }
     }
+}
+
+/// <summary>These tests call the upload handler directly to check how it treats uploads, not consent
+/// (build-loop item 9 added the consent gate, which has its own tests), so consent is already given.</summary>
+internal sealed class ConsentAlreadyGiven : InsuranceIntelligence.Application.Compliance.IClaimantConsentService
+{
+    private static readonly InsuranceIntelligence.Application.Compliance.ClaimantConsentStatusDto Given = new("Given", 1, string.Empty, true, null, "v1");
+
+    public Task<InsuranceIntelligence.Application.Compliance.ClaimantConsentStatusDto> GetStatusAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string contactValue, CancellationToken cancellationToken = default) => Task.FromResult(Given);
+
+    public Task<InsuranceIntelligence.Application.Compliance.ClaimantConsentStatusDto> GrantAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string contactValue, string noticeVersion, Guid? caseId, string? interactionReference, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(Given);
+
+    public Task<InsuranceIntelligence.Application.Compliance.ClaimantConsentStatusDto> WithdrawAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string contactValue, Guid? caseId, string? interactionReference, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(Given);
+
+    public Task<bool> HasConsentAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string contactValue, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    public Task<InsuranceIntelligence.Application.Compliance.ClaimantConsentStatusDto> GetStatusForCaseAsync(InsuranceIntelligence.Domain.Cases.ClaimCase claimCase, CancellationToken cancellationToken = default) => Task.FromResult(Given);
 }

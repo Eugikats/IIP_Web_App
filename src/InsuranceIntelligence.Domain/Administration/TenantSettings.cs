@@ -34,6 +34,13 @@ public sealed record TenantSettings
     /// <summary>The number of claims the usage meter measures against.</summary>
     public int ClaimsMeterLimit { get; init; } = DefaultClaimsMeterLimit;
 
+    /// <summary>The privacy notice a claimant reads before sending documents. Null means the default
+    /// text (see PrivacyNotices). The server raises the version each time the text changes, so a
+    /// consent can name the exact wording it agreed to.</summary>
+    public string? PrivacyNoticeText { get; init; }
+
+    public int PrivacyNoticeVersion { get; init; } = 1;
+
     public string? UpdatedByUserId { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
 
@@ -63,6 +70,11 @@ public sealed record TenantSettings
             errors.Add("The claims allowance must be between 1 and 1,000,000.");
         }
 
+        if (PrivacyNoticeText is { } notice && notice.Length > Compliance.PrivacyNotices.MaxLength)
+        {
+            errors.Add($"The privacy notice can be at most {Compliance.PrivacyNotices.MaxLength:N0} characters.");
+        }
+
         return errors;
     }
 
@@ -75,6 +87,7 @@ public sealed record TenantSettings
         if (SlaWarningLeadHours != previous.SlaWarningLeadHours) changed.Add(nameof(SlaWarningLeadHours));
         if (SeatLimit != previous.SeatLimit) changed.Add(nameof(SeatLimit));
         if (ClaimsMeterLimit != previous.ClaimsMeterLimit) changed.Add(nameof(ClaimsMeterLimit));
+        if (PrivacyNoticeText != previous.PrivacyNoticeText) changed.Add(nameof(PrivacyNoticeText));
         return changed;
     }
 }

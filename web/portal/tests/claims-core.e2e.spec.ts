@@ -100,9 +100,20 @@ export async function claimantLinkFor(request: APIRequestContext, claimType = "A
   return { caseId, policyNumber, email, token };
 }
 
-export async function openClaimantPortal(page: Page, token: string) {
+/** Opens the claimant's page from their access link. By default the claimant also reads and agrees
+ *  to the privacy notice, the step every upload now needs (item 9); pass `agree: false` to see the
+ *  page as it is before that. */
+export async function openClaimantPortal(page: Page, token: string, options: { agree?: boolean } = {}) {
   await page.goto(`/access/verify?token=${token}`);
   await expect(page.getByText("Your claim", { exact: true })).toBeVisible();
+  if (options.agree ?? true) {
+    const consent = page.getByTestId("claimant-consent");
+    await expect(consent).toBeVisible();
+    if ((await consent.getAttribute("data-state")) !== "Given") {
+      await consent.getByRole("button", { name: "I agree" }).click();
+      await expect(page.getByTestId("claimant-consent")).toHaveAttribute("data-state", "Given");
+    }
+  }
 }
 
 test.describe("Item 1: mock providers", () => {
@@ -629,6 +640,8 @@ test.describe("Item 8: preview as customer", () => {
 
     // Step 2: the documents for Accident, then for Theft.
     await preview.getByRole("button", { name: "2. Send documents" }).click();
+    await expect(frame.getByText("How we use your information")).toBeVisible();
+    await expect(frame.getByText("Preview only. Nothing is recorded.")).toBeVisible();
     await expect(frame.getByText("Photos of the damage")).toBeVisible();
     await expect(frame.getByText("These photos are kept exactly as you take them.")).toBeVisible();
     await expect(frame.getByText("Police report")).toHaveCount(0);
@@ -662,6 +675,120 @@ test.describe("Item 8: preview as customer", () => {
   test("another tenant cannot preview the product", async ({ request }) => {
     const { productId } = await productWithClaimTypes(request);
     const other = await request.get(`${API}/api/v1/products/${productId}/customer-preview`, { headers: scopeHeaders(newTenant()) });
+    expect(other.status()).toBe(404);
+  });
+});
+
+test.describe("Item 9: privacy notice and consent", () => {
+  async function consentState(request: APIRequestContext, caseId: string) {
+    const response = await request.get(`${API}/api/v1/cases/${caseId}/privacy-consent`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    return ((await response.json()) as { state: string; consentedVersion: string | null }).state;
+  }
+
+  test("a customer reads the notice and agrees before the first upload", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token, { agree: false });
+
+    const consent = page.getByTestId("claimant-consent");
+    await expect(consent).toHaveAttribute("data-state", "NotGiven");
+    for (const heading of ["What we collect.", "Why.", "Who sees it.", "How long we keep it.", "Your choices."]) {
+      await expect(consent.getByText(heading)).toBeVisible();
+    }
+
+    const policeRow = page.locator("li", { hasText: "Police abstract" }).first();
+    await expect(policeRow.locator('input[type="file"]')).toBeDisabled();
+    await expect(page.getByText("Read and agree to the privacy notice above to send documents.")).toBeVisible();
+    expect(await consentState(request, caseId)).toBe("NotGiven");
+
+    await consent.getByRole("button", { name: "I agree" }).click();
+    await expect(consent).toHaveAttribute("data-state", "Given");
+    expect(await consentState(request, caseId)).toBe("Given");
+
+    await expect(policeRow.locator('input[type="file"]')).toBeEnabled();
+    await policeRow.locator('input[type="file"]').setInputFiles({ name: "police.pdf", mimeType: "application/pdf", buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract") });
+    await expect(policeRow.getByText("Received")).toBeVisible();
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("a customer withdraws from the claim page and can no longer send documents until they agree again", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const consent = page.getByTestId("claimant-consent");
+    await consent.getByRole("button", { name: "Withdraw permission" }).click();
+    await expect(consent.getByText("What you already sent stays with your claim.")).toBeVisible();
+    await consent.getByRole("button", { name: "Withdraw my permission" }).click();
+
+    await expect(consent).toHaveAttribute("data-state", "Withdrawn");
+    await expect(consent.getByText("You withdrew your permission.")).toBeVisible();
+    const policeRow = page.locator("li", { hasText: "Police abstract" }).first();
+    await expect(policeRow.locator('input[type="file"]')).toBeDisabled();
+    expect(await consentState(request, caseId)).toBe("Withdrawn");
+
+    await consent.getByRole("button", { name: "I agree" }).click();
+    await expect(consent).toHaveAttribute("data-state", "Given");
+    await expect(policeRow.locator('input[type="file"]')).toBeEnabled();
+  });
+
+  test("changing the notice asks customers who agreed to the old one to agree again", async ({ page, request }) => {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    try {
+      const changed = await request.put(`${API}/api/v1/admin/tenant-settings`, { headers, data: { privacyNoticeText: "What we collect: only what we need.\n\nWhy: to handle your claim." } });
+      expect(changed.ok(), await changed.text()).toBeTruthy();
+
+      await page.reload();
+      const consent = page.getByTestId("claimant-consent");
+      await expect(consent).toHaveAttribute("data-state", "NoticeChanged");
+      await expect(consent.getByText("Our privacy notice has changed since you last agreed.")).toBeVisible();
+      await expect(consent.getByText("only what we need.")).toBeVisible();
+      expect(await consentState(request, caseId)).toBe("NoticeChanged");
+      await expect(page.locator("li", { hasText: "Police abstract" }).first().locator('input[type="file"]')).toBeDisabled();
+
+      await consent.getByRole("button", { name: "I agree" }).click();
+      await expect(consent).toHaveAttribute("data-state", "Given");
+    } finally {
+      await request.put(`${API}/api/v1/admin/tenant-settings`, { headers, data: { privacyNoticeText: "" } });
+    }
+  });
+
+  test("staff see the consent on the claim and an admin writes the notice in settings", async ({ page, request }) => {
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const { caseId } = await claimantLinkFor(request);
+
+    await page.goto(`/app/claims/${caseId}`);
+    const line = page.getByTestId("privacy-consent-line");
+    await expect(line.getByText("Not yet agreed")).toBeVisible();
+
+    try {
+      await page.goto("/app/admin/settings");
+      const box = page.getByLabel(/Notice shown to customers/);
+      await expect(box).toHaveValue(/What we collect/);
+      await box.fill("What we collect: your claim details.\n\nHow long we keep it: seven years.");
+      await page.getByRole("button", { name: "Save settings" }).click();
+      await expect(page.getByText("Settings saved.")).toBeVisible();
+      const saved = (await (await request.get(`${API}/api/v1/admin/tenant-settings`, { headers })).json()) as { privacyNoticeText: string | null; privacyNoticeVersion: number };
+      expect(saved.privacyNoticeText).toContain("seven years");
+
+      await page.getByRole("button", { name: "Use the default text" }).click();
+      await page.getByRole("button", { name: "Save settings" }).click();
+      await expect(page.getByText("Settings saved.")).toBeVisible();
+      const reset = (await (await request.get(`${API}/api/v1/admin/tenant-settings`, { headers })).json()) as { privacyNoticeText: string | null; privacyNoticeVersion: number };
+      expect(reset.privacyNoticeText).toBeNull();
+      expect(reset.privacyNoticeVersion).toBeGreaterThan(saved.privacyNoticeVersion);
+    } finally {
+      await request.put(`${API}/api/v1/admin/tenant-settings`, { headers, data: { privacyNoticeText: "" } });
+    }
+  });
+
+  test("another tenant cannot read a consent", async ({ request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const other = await request.get(`${API}/api/v1/cases/${caseId}/privacy-consent`, { headers: scopeHeaders(newTenant()) });
     expect(other.status()).toBe(404);
   });
 });

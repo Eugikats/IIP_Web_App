@@ -30,6 +30,8 @@ type ClaimantDocumentsCardProps = {
   onRetry: (documentTypeKey: string, label: string) => void;
   /** Used by "Preview as customer": the card looks the same but nothing can be sent. */
   previewOnly?: boolean;
+  /** Why sending is not possible yet (for example the privacy notice is not agreed). */
+  uploadsBlockedReason?: string | null;
 };
 
 /**
@@ -37,8 +39,8 @@ type ClaimantDocumentsCardProps = {
  * "Preview as customer", so what an administrator previews is the same component the customer
  * sees, not a copy that can drift.
  */
-export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed = false, requiredSummary, requiredComplete = false, onUpload, onRemove, onRetry, previewOnly = false }: ClaimantDocumentsCardProps) {
-  const locked = previewOnly || busyKey !== null;
+export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed = false, requiredSummary, requiredComplete = false, onUpload, onRemove, onRetry, previewOnly = false, uploadsBlockedReason = null }: ClaimantDocumentsCardProps) {
+  const locked = previewOnly || busyKey !== null || uploadsBlockedReason !== null;
   return (
     <div className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-6" data-testid="claimant-documents">
       <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">Documents</div>
@@ -140,6 +142,7 @@ export function ClaimantDocumentsCard({ documents, busyKey, notice, noticeFailed
         </li>
       </ul>
       {previewOnly && <p className="mt-3 text-xs leading-5 text-dls-text-muted">Preview only. Nothing can be sent from here.</p>}
+      {uploadsBlockedReason && !previewOnly && <p role="status" className="mt-3 text-xs leading-5 text-dls-text-muted">{uploadsBlockedReason}</p>}
       {notice && <p role={noticeFailed ? "alert" : "status"} aria-live="polite" className={`mt-3 text-xs leading-5 ${noticeFailed ? "font-semibold text-dls-danger-text" : "text-dls-text-muted"}`}>{notice}</p>}
     </div>
   );

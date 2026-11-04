@@ -1,6 +1,8 @@
 using InsuranceIntelligence.Api.ClientPortal;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Application.Products;
+using InsuranceIntelligence.Domain.Administration;
+using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Products;
 
@@ -22,7 +24,10 @@ public sealed record CustomerPreviewResponse(
     string ClaimTypeName,
     ClaimFieldFormDto Form,
     IReadOnlyList<ClientPortalDocumentRequirement> Documents,
-    string SamplePolicyNumber);
+    string SamplePolicyNumber,
+    int PrivacyNoticeVersion,
+    string PrivacyNoticeText,
+    bool PrivacyNoticeIsDefault);
 
 /// <summary>
 /// "Preview as customer" (build-loop item 8). Read only: it resolves the questions and documents for
@@ -38,6 +43,7 @@ public static class ProductPreviewEndpoints
         Guid productId,
         string? claimType,
         IProductRepository productRepository,
+        ITenantSettingsRepository settingsRepository,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -59,6 +65,7 @@ public static class ProductPreviewEndpoints
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["claimType"] = [$"This product has no claim type called '{claimType}'."] });
         }
 
+        var notice = PrivacyNotices.For(await settingsRepository.GetAsync(scope, cancellationToken));
         var claimTypeName = chosen?.Name ?? string.Empty;
         var ruleSet = DocumentChecklistRules.ForProduct(product, chosen?.Key)
             ?? DocumentChecklistRules.Resolve(product.ProductClass, claimTypeName, null);
@@ -91,6 +98,9 @@ public static class ProductPreviewEndpoints
             claimTypeName,
             ClaimFieldService.FormFor(product, chosen?.Key),
             documents,
-            SamplePolicyNumber));
+            SamplePolicyNumber,
+            notice.Version,
+            notice.Text,
+            notice.IsDefault));
     }
 }

@@ -88,8 +88,11 @@ public static class TestData
 
     /// <summary>Signs a claimant in the way a customer does: asks for a magic link by policy number
     /// and email, reads the link from the mock outbox, redeems it. Returns a client carrying the
-    /// session and the tenant headers a claimant's browser would send (and nothing staff-like).</summary>
-    public static async Task<HttpClient> ClaimantClientAsync(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory, HttpClient staff, CaseInfo claim)
+    /// session and the tenant headers a claimant's browser would send (and nothing staff-like).
+    /// The claimant has already read and agreed to the privacy notice (build-loop item 9), through
+    /// the real endpoint, because most tests are about what happens after that; pass
+    /// <c>agreeToPrivacyNotice: false</c> to test the consent step itself.</summary>
+    public static async Task<HttpClient> ClaimantClientAsync(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory, HttpClient staff, CaseInfo claim, bool agreeToPrivacyNotice = true)
     {
         var anonymous = factory.CreateClient();
         anonymous.DefaultRequestHeaders.Add("X-Tenant-Id", claim.TenantId);
@@ -114,6 +117,13 @@ public static class TestData
         client.DefaultRequestHeaders.Add("X-Tenant-Id", claim.TenantId);
         client.DefaultRequestHeaders.Add("X-Workspace-Id", claim.WorkspaceId);
         client.DefaultRequestHeaders.Add("X-Client-Portal-Session", session);
+        if (agreeToPrivacyNotice)
+        {
+            var notice = await MockedApiFactory.ReadJsonAsync(await client.GetAsync("/api/v1/client-portal/privacy-notice"));
+            var agreed = await client.PostAsJsonAsync("/api/v1/client-portal/consent", new { noticeVersion = $"v{notice.GetProperty("noticeVersion").GetInt32()}" });
+            Assert.True(agreed.IsSuccessStatusCode, await agreed.Content.ReadAsStringAsync());
+        }
+
         return client;
     }
 }

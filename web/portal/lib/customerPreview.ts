@@ -16,6 +16,9 @@ export type CustomerPreview = {
   form: ClaimFieldForm;
   documents: ClaimantDocumentRow[];
   samplePolicyNumber: string;
+  privacyNoticeVersion: number;
+  privacyNoticeText: string;
+  privacyNoticeIsDefault: boolean;
 };
 
 export type CustomerPreviewResult = { ok: true; value: CustomerPreview } | { ok: false; error: string };

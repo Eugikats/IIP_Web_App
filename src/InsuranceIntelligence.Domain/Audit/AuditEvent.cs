@@ -242,6 +242,33 @@ public sealed record AuditEvent(
             AuditReason: auditReason,
             CorrelationId: correlationId);
 
+    /// <summary>A claimant agreed to the privacy notice or withdrew that agreement (build-loop item
+    /// 9). Records the notice version, never the notice text or the claimant's contact.</summary>
+    public static AuditEvent ClaimantConsentChanged(
+        TenantScope scope,
+        Guid? caseId,
+        string actionName,
+        string noticeVersion,
+        string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            null,
+            "claimant",
+            ActorType.User,
+            actionName,
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: noticeVersion,
+            EvidenceIds: [],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "recorded",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>A workspace administrator changed operating settings. Records which settings, by
     /// name.</summary>
     public static AuditEvent TenantSettingsUpdated(

@@ -20,6 +20,8 @@ import {
 } from "@/lib/clientPortal";
 import { downscalePhotoIfNeeded } from "@/lib/photoDownscale";
 import { ClaimantDocumentsCard, SOMETHING_ELSE_KEY } from "@/components/iip/ClaimantDocumentsCard";
+import { ClaimantConsentCard } from "@/components/iip/ClaimantConsentCard";
+import { agreeToPrivacyNotice, fetchPrivacyConsent, withdrawPrivacyConsent, type PrivacyConsent } from "@/lib/privacyConsent";
 
 // "LastExpenseClaim" is a stored name; a person reads "Last expense claim".
 function plainClaimType(value: string): string {
@@ -72,6 +74,9 @@ export default function ClaimAccessStatus() {
   const [reviewReason, setReviewReason] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  const [consent, setConsent] = useState<PrivacyConsent | null>(null);
+  const [consentBusy, setConsentBusy] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   const load = useCallback(async (activeSession: ClientPortalSession) => {
     setLoading(true);
@@ -100,7 +105,37 @@ export default function ClaimAccessStatus() {
     }
     setSession(stored);
     void load(stored);
+    void fetchPrivacyConsent(stored).then((result) => {
+      if (result.ok) setConsent(result.consent);
+      else setConsentError(result.error);
+    });
   }, [load, router]);
+
+  async function onAgree() {
+    if (!session || !consent) return;
+    setConsentBusy(true);
+    setConsentError(null);
+    const result = await agreeToPrivacyNotice(session, consent.noticeVersion);
+    setConsentBusy(false);
+    if (result.ok) {
+      setConsent(result.consent);
+      return;
+    }
+    setConsentError(result.error);
+    // The notice may have changed while it was open: show the current one.
+    const fresh = await fetchPrivacyConsent(session);
+    if (fresh.ok) setConsent(fresh.consent);
+  }
+
+  async function onWithdrawConsent() {
+    if (!session) return;
+    setConsentBusy(true);
+    setConsentError(null);
+    const result = await withdrawPrivacyConsent(session);
+    setConsentBusy(false);
+    if (result.ok) setConsent(result.consent);
+    else setConsentError(result.error);
+  }
 
   async function onUpload(event: ChangeEvent<HTMLInputElement>, documentTypeKey: string, label: string) {
     const rawFiles = event.target.files ? Array.from(event.target.files) : [];
@@ -286,7 +321,10 @@ export default function ClaimAccessStatus() {
               </div>
             </div>
 
+            <ClaimantConsentCard consent={consent} busy={consentBusy} error={consentError} onAgree={() => void onAgree()} onWithdraw={() => void onWithdrawConsent()} />
+
             <ClaimantDocumentsCard
+              uploadsBlockedReason={consent && consent.state !== "Given" ? "Read and agree to the privacy notice above to send documents." : null}
               documents={claim.requiredDocuments}
               busyKey={busyKey}
               notice={uploadNotice}

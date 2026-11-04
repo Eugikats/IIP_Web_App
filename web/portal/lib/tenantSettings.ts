@@ -10,6 +10,10 @@ export type TenantSettings = {
   claimsMeterLimit: number;
   updatedByUserId: string | null;
   updatedAt: string | null;
+  /** The workspace's own privacy notice, or null while the default text is in use. */
+  privacyNoticeText: string | null;
+  privacyNoticeVersion: number;
+  defaultPrivacyNoticeText: string;
   defaults: {
     requireIraApprovalForPublish: boolean;
     missingDocumentReminderDays: number;
@@ -19,7 +23,7 @@ export type TenantSettings = {
   };
 };
 
-export type TenantSettingsInput = Partial<Omit<TenantSettings, "updatedByUserId" | "updatedAt" | "defaults">>;
+export type TenantSettingsInput = Partial<Omit<TenantSettings, "updatedByUserId" | "updatedAt" | "defaults" | "privacyNoticeVersion" | "defaultPrivacyNoticeText">>;
 
 export type TenantSettingsResult = { ok: true; value: TenantSettings } | { ok: false; error: string };
 
