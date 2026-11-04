@@ -355,7 +355,8 @@ public static class ClientPortalEndpoints
             // A failure here (provider missing or unreadable file) leaves the document marked
             // Failed with a retry, never stuck at "Being checked"; the customer is not shown a
             // server error for something they cannot fix.
-            await DocumentProcessingRunner.RunAsync(
+            await DocumentPipelineHost.SubmitOrRunAsync(
+                httpContext,
                 uploadedDocument,
                 claimCase,
                 storageProvider,
@@ -364,10 +365,7 @@ public static class ClientPortalEndpoints
                 documentRepository,
                 auditRepository,
                 correlationId,
-                cancellationToken,
-                recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService,
-                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService,
-                authenticity: httpContext.RequestServices?.GetService(typeof(IAuthenticityService)) as IAuthenticityService);
+                cancellationToken);
         }
 
         // Pictures of paperwork become pages of one PDF, rebuilt from what the slot holds now.
@@ -504,19 +502,17 @@ public static class ClientPortalEndpoints
         }
 
         var correlationId = httpContext.TraceIdentifier;
-        await DocumentProcessingRunner.RunAsync(
-            failed with { ProcessingStatus = DocumentProcessingStatus.Uploaded },
-            claimCase,
-            storageProvider,
-            processingProvider,
-            fieldValidationRuleRepository,
-            documentRepository,
-            auditRepository,
-            correlationId,
-            cancellationToken,
-                recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService,
-                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService,
-                authenticity: httpContext.RequestServices?.GetService(typeof(IAuthenticityService)) as IAuthenticityService);
+        await DocumentPipelineHost.SubmitOrRunAsync(
+                httpContext,
+                failed with { ProcessingStatus = DocumentProcessingStatus.Uploaded },
+                claimCase,
+                storageProvider,
+                processingProvider,
+                fieldValidationRuleRepository,
+                documentRepository,
+                auditRepository,
+                correlationId,
+                cancellationToken);
 
         var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         var checklist = await checklistProvider.BuildChecklistAsync(claimCase, allDocuments, cancellationToken);

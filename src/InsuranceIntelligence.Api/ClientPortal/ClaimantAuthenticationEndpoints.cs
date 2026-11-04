@@ -285,7 +285,10 @@ public static class ClaimantAuthenticationEndpoints
         }
 
         // A claim a customer files themselves gets the same immediate agent review as one entered by staff.
-        triageQueue?.Enqueue(claimCase.Scope, claimCase.CaseId, correlationId, "claimant_portal");
+        if (triageQueue is not null)
+        {
+            await triageQueue.EnqueueAsync(claimCase.Scope, claimCase.CaseId, correlationId, "claimant_portal");
+        }
 
         // Upgrade the session in place so the claimant lands straight on their new claim's status
         // page with the same link, no second magic link needed for the thing they just did.

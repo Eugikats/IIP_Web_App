@@ -42,6 +42,7 @@ public sealed class AzureOpenAiVisionDocumentRecognizer(
 
         if (picture is null)
         {
+            logger.LogInformation("A file that is not a picture was left for a person to look at instead of being sent to the vision model.");
             return new DocumentRecognition(null, 0m, "Only pictures can be read automatically for now, so a person will look at this file.", ProviderName, null, DateTimeOffset.UtcNow);
         }
 

@@ -94,6 +94,24 @@ export default function ClaimAccessStatus() {
     setClaim(result.claim);
   }, []);
 
+  // Documents are read in the background after they are sent. While any is "Being checked", look
+  // again every couple of seconds (quietly, without replacing the page), for up to three minutes.
+  const stillBeingChecked = claim?.requiredDocuments.some((row) => row.status === "Being checked") ?? false;
+  useEffect(() => {
+    if (!session || !stillBeingChecked) return;
+    let attempts = 0;
+    const timer = window.setInterval(async () => {
+      attempts += 1;
+      if (attempts > 90) {
+        window.clearInterval(timer);
+        return;
+      }
+      const result = await getClaim(session);
+      if (result.ok) setClaim(result.claim);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [session, stillBeingChecked]);
+
   useEffect(() => {
     const stored = loadStoredSession();
     if (!stored) {

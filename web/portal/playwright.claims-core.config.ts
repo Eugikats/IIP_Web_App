@@ -41,6 +41,10 @@ export default defineConfig({
         INSURANCEINTELLIGENCE_NOTIFICATION_PROVIDER: "Mock",
         INSURANCEINTELLIGENCE_SMS_PROVIDER: "Mock",
         INSURANCEINTELLIGENCE_SEED_DEMO_DATA: "true",
+        // Documents are read in the background; failures are retried quickly so a test can see them.
+        INSURANCEINTELLIGENCE_PIPELINE_BACKOFF_SECONDS: "1,1,1",
+        INSURANCEINTELLIGENCE_PIPELINE_MAX_ATTEMPTS: "3",
+        INSURANCEINTELLIGENCE_PIPELINE_POLL_MS: "200",
         INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_STORAGE_PATH: "./test-results/claims-core-storage",
       },
     },

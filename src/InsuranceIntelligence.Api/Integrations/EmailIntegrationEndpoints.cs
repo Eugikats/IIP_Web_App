@@ -446,7 +446,10 @@ public static class EmailIntegrationEndpoints
                 logger.LogError(ex, "FNOL acknowledgement failed for email-derived case {CaseId}", claimCase.CaseId);
             }
 
-            triageQueue?.Enqueue(scope, claimCase.CaseId, httpContext.TraceIdentifier, "email_intake");
+            if (triageQueue is not null)
+            {
+                await triageQueue.EnqueueAsync(scope, claimCase.CaseId, httpContext.TraceIdentifier, "email_intake");
+            }
         }
 
         foreach (var document in processedAttachments)

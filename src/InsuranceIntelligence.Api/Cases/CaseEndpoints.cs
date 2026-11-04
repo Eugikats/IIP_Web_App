@@ -100,7 +100,10 @@ public static class CaseEndpoints
 
             // The claims agent reviews every new claim straight away, in the background, so the
             // review is waiting when the handler opens the claim. Never blocks the response.
-            triageQueue?.Enqueue(claimCase.Scope, claimCase.CaseId, correlationId, "staff_intake");
+            if (triageQueue is not null)
+            {
+                await triageQueue.EnqueueAsync(claimCase.Scope, claimCase.CaseId, correlationId, "staff_intake", cancellationToken);
+            }
 
             var auditEvents = await auditRepository.ListForCaseAsync(claimCase.CaseId, cancellationToken);
 

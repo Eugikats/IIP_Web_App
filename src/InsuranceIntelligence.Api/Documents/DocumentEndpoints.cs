@@ -104,7 +104,8 @@ public static class DocumentEndpoints
             await documentRepository.SaveAsync(uploadedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentUploaded(uploadedDocument, uploadedBy, correlationId), cancellationToken);
 
-            var run = await DocumentProcessingRunner.RunAsync(
+            var run = await DocumentPipelineHost.SubmitOrRunAsync(
+                httpContext,
                 uploadedDocument,
                 claimCase,
                 storageProvider,
@@ -113,14 +114,18 @@ public static class DocumentEndpoints
                 documentRepository,
                 auditRepository,
                 correlationId,
-                cancellationToken,
-                recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService,
-                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService,
-                authenticity: httpContext.RequestServices?.GetService(typeof(IAuthenticityService)) as IAuthenticityService);
+                cancellationToken);
             var processedDocument = run.Document;
             if (run.NotConfigured is not null)
             {
                 notConfiguredFailure ??= run.NotConfigured;
+            }
+
+            if (run.Queued)
+            {
+                // Waiting for a worker: nothing to judge yet.
+                documents.Add(processedDocument);
+                continue;
             }
 
             if (run.Failed)
@@ -383,19 +388,17 @@ public static class DocumentEndpoints
         }
 
         var correlationId = GetCorrelationId(httpContext);
-        var run = await DocumentProcessingRunner.RunAsync(
-            document with { ProcessingStatus = DocumentProcessingStatus.Uploaded },
-            claimCase,
-            storageProvider,
-            processingProvider,
-            fieldValidationRuleRepository,
-            documentRepository,
-            auditRepository,
-            correlationId,
-            cancellationToken,
-                recognition: httpContext.RequestServices?.GetService(typeof(IDocumentRecognitionService)) as IDocumentRecognitionService,
-                proposals: httpContext.RequestServices?.GetService(typeof(IFieldProposalService)) as IFieldProposalService,
-                authenticity: httpContext.RequestServices?.GetService(typeof(IAuthenticityService)) as IAuthenticityService);
+        var run = await DocumentPipelineHost.SubmitOrRunAsync(
+                httpContext,
+                document with { ProcessingStatus = DocumentProcessingStatus.Uploaded },
+                claimCase,
+                storageProvider,
+                processingProvider,
+                fieldValidationRuleRepository,
+                documentRepository,
+                auditRepository,
+                correlationId,
+                cancellationToken);
         await UpdateCompletenessAsync(
             claimCase, caseRepository, documentRepository, checklistProvider, auditRepository, scope, correlationId,
             writeWhenUnchanged: true, cancellationToken);

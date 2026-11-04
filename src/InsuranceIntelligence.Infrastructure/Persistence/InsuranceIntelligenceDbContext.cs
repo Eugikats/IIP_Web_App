@@ -26,6 +26,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedSlotPdf> SlotPdfs => Set<PersistedSlotPdf>();
     public DbSet<PersistedFieldProposal> FieldProposals => Set<PersistedFieldProposal>();
     public DbSet<PersistedAuthenticityReport> AuthenticityReports => Set<PersistedAuthenticityReport>();
+    public DbSet<PersistedBackgroundJob> BackgroundJobs => Set<PersistedBackgroundJob>();
     public DbSet<UserTenantMembershipEntity> UserTenantMemberships => Set<UserTenantMembershipEntity>();
     public DbSet<OrganisationEntity> Organisations => Set<OrganisationEntity>();
     public DbSet<OrganisationInvitationEntity> OrganisationInvitations => Set<OrganisationInvitationEntity>();
@@ -117,6 +118,15 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         ConfigureScopedJson(modelBuilder.Entity<PersistedInboundEmail>(), "InboundEmails", "MessageId");
         ConfigureScopedJson(modelBuilder.Entity<PersistedTeamsNotification>(), "TeamsNotifications", "NotificationId");
         modelBuilder.Entity<PersistedTeamsNotification>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedBackgroundJob>(), "BackgroundJobs", "JobId");
+        modelBuilder.Entity<PersistedBackgroundJob>().Property(entity => entity.Queue).HasMaxLength(60).IsRequired();
+        modelBuilder.Entity<PersistedBackgroundJob>().Property(entity => entity.Type).HasMaxLength(60).IsRequired();
+        modelBuilder.Entity<PersistedBackgroundJob>().Property(entity => entity.Key).HasMaxLength(120).IsRequired();
+        modelBuilder.Entity<PersistedBackgroundJob>().Property(entity => entity.Status).HasMaxLength(20).IsRequired();
+        modelBuilder.Entity<PersistedBackgroundJob>().Property(entity => entity.LeaseToken).IsConcurrencyToken();
+        modelBuilder.Entity<PersistedBackgroundJob>().HasIndex(entity => new { entity.Queue, entity.Status, entity.NotBefore });
+        modelBuilder.Entity<PersistedBackgroundJob>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Queue, entity.Type, entity.Key });
+        modelBuilder.Entity<PersistedBackgroundJob>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedAuthenticityReport>(), "AuthenticityReports", "DocumentId");
         modelBuilder.Entity<PersistedAuthenticityReport>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         modelBuilder.Entity<PersistedAuthenticityReport>().Property(entity => entity.PerceptualHash).HasMaxLength(16);
@@ -484,6 +494,17 @@ public sealed class PersistedWordingDraft : PersistedScopedJson { public Guid Pr
 public sealed class PersistedSlotPdf : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedFieldProposal : PersistedScopedJson { public Guid CaseId { get; set; } }
 public sealed class PersistedAuthenticityReport : PersistedScopedJson { public Guid CaseId { get; set; } public string? PerceptualHash { get; set; } }
+public sealed class PersistedBackgroundJob : PersistedScopedJson
+{
+    public string Queue { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTimeOffset NotBefore { get; set; }
+    public DateTimeOffset? LeasedUntil { get; set; }
+    public Guid? CaseId { get; set; }
+    public Guid LeaseToken { get; set; }
+}
 public sealed class PersistedCustomer : PersistedScopedJson;
 public sealed class PersistedAgentState : PersistedScopedJson;
 public sealed class PersistedAgentWorkflowDefinition : PersistedScopedJson

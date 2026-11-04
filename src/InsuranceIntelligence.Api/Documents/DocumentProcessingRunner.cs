@@ -7,7 +7,7 @@ using InsuranceIntelligence.Domain.Documents;
 namespace InsuranceIntelligence.Api.Documents;
 
 /// <summary>What happened when a stored document was run through processing.</summary>
-public sealed record DocumentProcessingRun(CaseDocument Document, ProviderNotConfiguredException? NotConfigured)
+public sealed record DocumentProcessingRun(CaseDocument Document, ProviderNotConfiguredException? NotConfigured, bool Queued = false)
 {
     public bool Failed => Document.ProcessingStatus == DocumentProcessingStatus.Failed;
 }

@@ -187,6 +187,10 @@ public sealed class WhatsAppAssistantQueueTests
     {
         public List<(Guid CaseId, string Trigger)> Enqueued { get; } = [];
 
-        public void Enqueue(TenantScope scope, Guid caseId, string correlationId, string trigger) => Enqueued.Add((caseId, trigger));
+        public Task EnqueueAsync(TenantScope scope, Guid caseId, string correlationId, string trigger, CancellationToken cancellationToken = default)
+        {
+            Enqueued.Add((caseId, trigger));
+            return Task.CompletedTask;
+        }
     }
 }

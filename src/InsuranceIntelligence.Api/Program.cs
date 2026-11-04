@@ -675,9 +675,16 @@ builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompre
 builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerSummary.ICustomerSummaryService, InsuranceIntelligence.Application.CustomerSummary.CustomerSummaryService>();
 builder.Services.AddScoped<ICommandCenterActionService, CommandCenterActionService>();
-builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>();
-builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.IClaimTriageQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>());
-builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ClaimTriageWorker>();
+// Durable background work (build-loop item 17): document processing and claim review are jobs in the
+// database, run by a worker, retried with a back-off and dead-lettered where a person can see them.
+builder.Services.AddSingleton(InsuranceIntelligence.Api.Jobs.BackgroundPipelineOptions.From(builder.Configuration));
+builder.Services.AddScoped<InsuranceIntelligence.Api.Agents.IClaimTriageQueue, InsuranceIntelligence.Api.Agents.DurableClaimTriageQueue>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Documents.DocumentProcessor>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Documents.IDocumentPipeline, InsuranceIntelligence.Api.Documents.DocumentPipeline>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Jobs.IBackgroundJobHandler, InsuranceIntelligence.Api.Documents.DocumentProcessJobHandler>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Jobs.IBackgroundJobHandler, InsuranceIntelligence.Api.Agents.ClaimReviewJobHandler>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Jobs.IBackgroundJobProcessor, InsuranceIntelligence.Api.Jobs.BackgroundJobProcessor>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Jobs.BackgroundJobWorker>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>();
 builder.Services.AddSingleton<IConversationInsightsQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>());
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ConversationInsightsWorker>();
@@ -1484,6 +1491,13 @@ app.MapGet("/api/v1/claim-fields", InsuranceIntelligence.Api.Cases.ClaimFieldEnd
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim, Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ManageProducts));
 // Extracted data into the claim (build-loop item 15): suggestions read from documents, decided by an officer.
 // Authenticity checks (build-loop item 16): advice on pictures, with a person's disposition.
+// Background work (build-loop item 17): what is waiting, running, done and stuck.
+app.MapGet("/api/v1/admin/background-jobs", InsuranceIntelligence.Api.Jobs.BackgroundJobEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/admin/background-jobs/{jobId:guid}/retry", InsuranceIntelligence.Api.Jobs.BackgroundJobEndpoints.Retry)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/cases/{caseId:guid}/background-work", InsuranceIntelligence.Api.Jobs.BackgroundJobEndpoints.ListForCase)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}/authenticity", InsuranceIntelligence.Api.Documents.AuthenticityEndpoints.List)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/authenticity/disposition", InsuranceIntelligence.Api.Documents.AuthenticityEndpoints.SetDisposition)

@@ -30,6 +30,11 @@ public sealed class MockedApiFactory : WebApplicationFactory<Program>
             Set($"INSURANCEINTELLIGENCE_{name}_PROVIDER", "Mock");
         }
 
+        // Most tests want an upload to be fully processed before the response and no background
+        // worker racing them; the pipeline's own tests switch to Background mode and drive the
+        // processor by hand (see BackgroundPipelineApiTests).
+        Set("INSURANCEINTELLIGENCE_DOCUMENT_PIPELINE", "Inline");
+        Set("INSURANCEINTELLIGENCE_PIPELINE_WORKER", "Off");
         Set("INSURANCEINTELLIGENCE_SEED_DEMO_DATA", "false");
         Set("INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_STORAGE_PATH", StorageRoot);
     }

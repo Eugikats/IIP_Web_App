@@ -12,7 +12,7 @@ namespace InsuranceIntelligence.Api.Agents;
 /// current when an officer opens them, without the customer's reply ever waiting on it.
 ///
 /// Requests for the same conversation coalesce: a customer who sends five messages in a minute gets
-/// one read, 20 seconds after the last one. In-process like <see cref="ClaimTriageQueue"/>, for the
+/// one read, 20 seconds after the last one. In-process like the claim review queue once was, for the
 /// same reasons; a request lost to a restart only means the officer presses Refresh.
 /// </summary>
 public sealed class ConversationInsightsQueue : IConversationInsightsQueue

@@ -24,7 +24,7 @@ public sealed record WhatsAppAssistantRequest(
 ///
 /// The message is saved before it reaches this queue, and only messages seen for the first time are
 /// enqueued, so a redelivery is neither answered twice nor lost. In-process rather than Service Bus
-/// for the same reason as <see cref="ClaimTriageQueue"/>. The cost is the same: a message queued in
+/// for the same reason as the claim review queue once was. The cost is the same: a message queued in
 /// the seconds before an API restart is not answered, and stays visible in the Inbox for a person.
 /// </summary>
 public interface IWhatsAppAssistantQueue
@@ -143,7 +143,10 @@ public sealed class WhatsAppAssistantWorker(
             var triageQueue = scope.ServiceProvider.GetService<IClaimTriageQueue>();
             foreach (var caseId in openedCaseIds)
             {
-                triageQueue?.Enqueue(request.Scope, caseId, request.CorrelationId, "whatsapp_assistant");
+                if (triageQueue is not null)
+                {
+                    await triageQueue.EnqueueAsync(request.Scope, caseId, request.CorrelationId, "whatsapp_assistant", stoppingToken);
+                }
             }
         }
         catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)

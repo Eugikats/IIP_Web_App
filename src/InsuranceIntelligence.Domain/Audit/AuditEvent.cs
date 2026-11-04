@@ -439,6 +439,28 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>An administrator sent a background job that had given up back to the queue
+    /// (build-loop item 17).</summary>
+    public static AuditEvent BackgroundJobRequeued(TenantScope scope, string userId, Guid jobId, string jobType, Guid? caseId, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            jobId.ToString(),
+            userId,
+            ActorType.User,
+            "background.job.requeued",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: "DeadLettered",
+            AfterStatus: "Pending",
+            EvidenceIds: [jobId.ToString(), jobType],
+            ModelProvider: null,
+            Confidence: null,
+            ValidationResult: "accepted",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>A workspace administrator changed operating settings. Records which settings, by
     /// name.</summary>
     public static AuditEvent TenantSettingsUpdated(

@@ -18,6 +18,16 @@ export function scopeHeaders(tenantId: string, workspaceId = "workspace-main", r
   };
 }
 
+/** Documents are read in the background after they are sent (item 17). Waits until none of a claim's
+ *  documents is still waiting, so a test can look at what the reading produced. */
+export async function waitForDocumentsRead(request: APIRequestContext, caseId: string, tenantId = PORTAL_TENANT, workspaceId = PORTAL_WORKSPACE) {
+  await expect.poll(async () => {
+    const response = await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers: scopeHeaders(tenantId, workspaceId) });
+    const documents = (await response.json()) as { processingStatus: string }[];
+    return documents.filter((document) => document.processingStatus === "Uploaded").length;
+  }, { timeout: 30_000, message: "the documents were not read in time" }).toBe(0);
+}
+
 export function newTenant(prefix = "e2e") {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -143,6 +153,8 @@ test.describe("Item 1: mock providers", () => {
       multipart: { files: fixture("police_letter.jpg") },
     });
     expect(upload.ok(), await upload.text()).toBeTruthy();
+    // The upload returns as soon as the file is stored; a worker reads it a moment later.
+    await waitForDocumentsRead(request, caseId, tenant, "workspace-main");
 
     const documents = (await (await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers: scopeHeaders(tenant) })).json()) as {
       documentType: string;
@@ -176,7 +188,7 @@ test.describe("Item 1: mock providers", () => {
 });
 
 test.describe("Item 2: known defects", () => {
-  test("a file that fails to read is marked Could not be read, can be retried, then counts", async ({ page, request }) => {
+  test("a file that fails once is read again automatically while the customer still sees Being checked", async ({ page, request }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const { token } = await claimantLinkFor(request);
     await openClaimantPortal(page, token);
@@ -187,14 +199,32 @@ test.describe("Item 2: known defects", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract IIP-MOCK-FAIL-ONCE"),
     });
-    await expect(policeRow.getByText("Could not be read")).toBeVisible();
     const documentProgress = page.getByText("Documents we asked for").locator("..");
-    await expect(documentProgress).toContainText("0 of 3 sent");
-
-    await policeRow.getByRole("button", { name: "Try again" }).click();
-    await expect(policeRow.getByText("Received")).toBeVisible();
+    // The first attempt fails; the customer is never shown that, only that it is being checked.
+    await expect(policeRow.getByText("Could not be read")).toHaveCount(0);
+    await expect(policeRow.getByText("Received")).toBeVisible({ timeout: 30_000 });
     await expect(policeRow.getByRole("button", { name: "Try again" })).toHaveCount(0);
     await expect(documentProgress).toContainText("1 of 3 sent");
+  });
+
+  test("a file that keeps failing ends as Could not be read, with a Try again for the customer", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const policeRow = page.locator("li", { hasText: "Police abstract" }).first();
+    await policeRow.locator('input[data-upload="choose"]').setInputFiles({
+      name: "police.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract IIP-MOCK-FAIL-ALWAYS"),
+    });
+    await expect(policeRow.getByText("Could not be read")).toBeVisible({ timeout: 30_000 });
+    await expect(policeRow.getByRole("button", { name: "Try again" })).toBeVisible();
+    await expect(page.getByText("Completeness").locator("..").getByText("0%")).toBeVisible();
+
+    // Trying again queues it again: it goes back to being checked before it fails again.
+    await policeRow.getByRole("button", { name: "Try again" }).click();
+    await expect(policeRow.getByText("Could not be read")).toBeVisible({ timeout: 30_000 });
   });
 
   test("a slot the customer filled counts even when the file name tells nothing", async ({ request }) => {
@@ -1118,6 +1148,7 @@ test.describe("Item 14: recognise and name every file", () => {
       multipart: { files: { name, mimeType: "application/pdf", buffer: Buffer.from(content) } },
     });
     expect(upload.ok(), await upload.text()).toBeTruthy();
+    await waitForDocumentsRead(request, caseId);
     const documents = (await (await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers })).json()) as Record<string, unknown>[];
     return documents.find((document) => document.originalFileName === name)!;
   }
@@ -1217,6 +1248,7 @@ test.describe("Item 15: extracted data into the claim", () => {
       multipart: { files: { name: "scan.pdf", mimeType: "application/pdf", buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract") } },
     });
     expect(upload.ok(), await upload.text()).toBeTruthy();
+    await waitForDocumentsRead(request, caseId);
 
     await page.goto(`/app/claims/${caseId}`);
     const card = page.getByTestId("field-proposals");
@@ -1258,6 +1290,7 @@ test.describe("Item 16: picture checks", () => {
     const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
     await photos.locator('input[data-upload="choose"]').setInputFiles(fixture("damage_photo.jpg"));
     await expect(photos.getByText("1 of 10 sent")).toBeVisible();
+    await waitForDocumentsRead(request, caseId);
 
     await page.goto(`/app/claims/${caseId}`);
     const card = page.getByTestId("authenticity-card");
@@ -1284,5 +1317,56 @@ test.describe("Item 16: picture checks", () => {
     const { caseId } = await claimantLinkFor(request);
     const other = await request.get(`${API}/api/v1/cases/${caseId}/authenticity`, { headers: scopeHeaders(newTenant()) });
     expect(other.status()).toBe(404);
+  });
+});
+
+test.describe("Item 17: background pipeline", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+
+  test("an upload returns at once; the customer sees Being checked, then Received without doing anything", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    const police = page.locator("li", { hasText: "Police abstract" }).first();
+    // The first attempt fails and the next waits a second, so "Being checked" is on screen long enough to see.
+    await police.locator('input[data-upload="choose"]').setInputFiles({ name: "police.pdf", mimeType: "application/pdf", buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract IIP-MOCK-FAIL-ONCE") });
+    await expect(police.getByText("Being checked")).toBeVisible();
+    await expect(police.getByText("Received")).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("an administrator sees what could not be done, with the reason, and sends it back", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    const police = page.locator("li", { hasText: "Police abstract" }).first();
+    await police.locator('input[data-upload="choose"]').setInputFiles({ name: "police.pdf", mimeType: "application/pdf", buffer: Buffer.from("IIP-MOCK-DOC:PoliceAbstract IIP-MOCK-FAIL-ALWAYS") });
+    await expect(police.getByText("Could not be read")).toBeVisible({ timeout: 30_000 });
+    const reference = `CLM-${caseId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+
+    await page.goto("/app/admin/background-work");
+    const view = page.getByTestId("background-work");
+    await expect(view).toBeVisible();
+    await page.getByLabel("Show").selectOption("DeadLettered");
+    const job = view.getByTestId("background-job").filter({ hasText: reference });
+    await expect(job).toHaveCount(1);
+    await expect(job.getByText("Reading an uploaded document")).toBeVisible();
+    await expect(job.getByText("Gave up")).toBeVisible();
+    await expect(job.getByText(/could not be read by the document service/)).toBeVisible();
+    await expect(job.getByText(/attempt 3 of 3/)).toBeVisible();
+
+    await job.getByRole("button", { name: /Send back/ }).click();
+    await expect(view.getByRole("status")).toContainText("was sent back to the queue");
+  });
+
+  test("another tenant cannot see or send back this workspace's work", async ({ request }) => {
+    const { caseId } = await claimantLinkFor(request);
+    const mine = (await (await request.get(`${API}/api/v1/admin/background-jobs?caseId=${caseId}`, { headers })).json()) as { jobs: { jobId: string }[] };
+    const other = scopeHeaders(newTenant());
+    const theirs = (await (await request.get(`${API}/api/v1/admin/background-jobs`, { headers: other })).json()) as { jobs: unknown[] };
+    expect(theirs.jobs).toHaveLength(0);
+    if (mine.jobs.length > 0) {
+      const retry = await request.post(`${API}/api/v1/admin/background-jobs/${mine.jobs[0].jobId}/retry`, { headers: other });
+      expect(retry.status()).toBe(404);
+    }
   });
 });
