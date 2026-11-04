@@ -62,7 +62,8 @@ public sealed class OutreachService(
     ICustomerRepository? customerRepository = null,
     IPolicyRepository? policyRepository = null,
     IAgentRunRecorder? agentRunRecorder = null,
-    InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null) : IOutreachService
+    // Optional: which covers this workspace sells (build-loop item 27). Without it the deployment's own catalogue is used.
+    IAssistantBrandProvider? brandProvider = null) : IOutreachService
 {
     public const string AgentKey = "outreach";
     public static readonly TimeSpan QuietAfter = TimeSpan.FromDays(3);
@@ -80,7 +81,7 @@ public sealed class OutreachService(
     {
         await permissionService.RequirePermissionAsync(Permission.ManageSalesLeads, cancellationToken);
         var context = tenantContextAccessor.Current;
-        using var workspaceBrand = KatoBrand.Use(brand ?? (brands is null ? KatoBrand.Current : await brands.ResolveAsync(context.Scope, cancellationToken)));
+        using var brandBinding = KatoBrand.Use(await AssistantBrands.ForAsync(brandProvider, context.Scope, cancellationToken));
         var now = DateTimeOffset.UtcNow;
         var author = await NameOfAsync(context.UserId, cancellationToken) ?? "A colleague";
         var wanted = leadIds is { Count: > 0 } ? leadIds.ToHashSet(StringComparer.OrdinalIgnoreCase) : null;
@@ -133,7 +134,7 @@ public sealed class OutreachService(
     {
         await permissionService.RequirePermissionAsync(Permission.ManageSalesLeads, cancellationToken);
         var context = tenantContextAccessor.Current;
-        using var workspaceBrand = KatoBrand.Use(brand ?? (brands is null ? KatoBrand.Current : await brands.ResolveAsync(context.Scope, cancellationToken)));
+        using var brandBinding = KatoBrand.Use(await AssistantBrands.ForAsync(brandProvider, context.Scope, cancellationToken));
         var now = DateTimeOffset.UtcNow;
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var customers = customerRepository is null ? [] : (await customerRepository.ListAsync(context.Scope, cancellationToken)).ToArray();

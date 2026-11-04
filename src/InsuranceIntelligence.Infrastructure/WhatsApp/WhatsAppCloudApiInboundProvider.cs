@@ -19,25 +19,18 @@ public sealed class WhatsAppCloudApiInboundProvider(
 {
     private readonly HttpClient httpClient = httpClient ?? new HttpClient();
 
-    public bool IsConfigured => settingsProvider.AnyConfigured;
+    public bool IsConfigured => settingsProvider.HasAny;
 
     public bool TryVerifySubscription(string mode, string verifyToken, string challenge, out string? challengeResponse)
     {
         challengeResponse = null;
-        if (!settingsProvider.AnyConfigured)
-        {
-            return false;
-        }
-
         if (!string.Equals(mode, "subscribe", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        // Each insurer registers the webhook with its own verify token; the one URL accepts a
-        // subscription confirmation that carries any live connection's token.
-        var known = settingsProvider.All.Any(settings => TokensEqual(verifyToken, settings.VerifyToken));
-        if (!known)
+        // Meta's check names no phone number, only the token this platform generated for the workspace.
+        if (settingsProvider.ForVerifyToken(verifyToken) is null)
         {
             return false;
         }
@@ -46,15 +39,11 @@ public sealed class WhatsAppCloudApiInboundProvider(
         return !string.IsNullOrWhiteSpace(challenge);
     }
 
-    private static bool TokensEqual(string provided, string expected) =>
-        provided is not null
-        && CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(provided), Encoding.UTF8.GetBytes(expected));
-
     public bool IsValidSignature(ReadOnlySpan<byte> payload, string? signatureHeader) =>
         IsValidSignature(settingsProvider.Current, payload, signatureHeader);
 
-    public bool IsValidSignatureFor(string businessPhoneNumberId, ReadOnlySpan<byte> payload, string? signatureHeader) =>
-        IsValidSignature(settingsProvider.ForPhoneNumberId(businessPhoneNumberId), payload, signatureHeader);
+    public bool IsValidSignature(ReadOnlySpan<byte> payload, string? signatureHeader, string businessPhoneNumberId) =>
+        IsValidSignature(settingsProvider.ForPhoneNumber(businessPhoneNumberId), payload, signatureHeader);
 
     private static bool IsValidSignature(WhatsAppEffectiveSettings? settings, ReadOnlySpan<byte> payload, string? signatureHeader)
     {
@@ -88,12 +77,12 @@ public sealed class WhatsAppCloudApiInboundProvider(
         WhatsAppWebhookParser.ParseMediaMessages(jsonPayload);
 
     public Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, CancellationToken cancellationToken = default) =>
-        DownloadMediaAsync(settingsProvider.Current, mediaId, cancellationToken);
+        DownloadAsync(settingsProvider.Current, mediaId, cancellationToken);
 
     public Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, string businessPhoneNumberId, CancellationToken cancellationToken = default) =>
-        DownloadMediaAsync(settingsProvider.ForPhoneNumberId(businessPhoneNumberId), mediaId, cancellationToken);
+        DownloadAsync(settingsProvider.ForPhoneNumber(businessPhoneNumberId), mediaId, cancellationToken);
 
-    private async Task<WhatsAppMediaContent> DownloadMediaAsync(
+    private async Task<WhatsAppMediaContent> DownloadAsync(
         WhatsAppEffectiveSettings? settings,
         string mediaId,
         CancellationToken cancellationToken)
@@ -186,10 +175,16 @@ public sealed class DisabledWhatsAppInboundProvider : IWhatsAppInboundProvider
 
     public bool IsValidSignature(ReadOnlySpan<byte> payload, string? signatureHeader) => false;
 
+    public bool IsValidSignature(ReadOnlySpan<byte> payload, string? signatureHeader, string businessPhoneNumberId) => false;
+
     public IReadOnlyList<WhatsAppInboundMediaMessage> ParseInboundMediaMessages(string jsonPayload) =>
         Array.Empty<WhatsAppInboundMediaMessage>();
 
     public Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, CancellationToken cancellationToken = default) =>
+        Task.FromException<WhatsAppMediaContent>(
+            new InvalidOperationException("WhatsApp provider is not configured."));
+
+    public Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, string businessPhoneNumberId, CancellationToken cancellationToken = default) =>
         Task.FromException<WhatsAppMediaContent>(
             new InvalidOperationException("WhatsApp provider is not configured."));
 }
@@ -197,22 +192,15 @@ public sealed class DisabledWhatsAppInboundProvider : IWhatsAppInboundProvider
 /// <summary>Parses Meta Cloud API webhook JSON into provider-neutral media messages.</summary>
 public static class WhatsAppWebhookParser
 {
-    /// <summary>Every WhatsApp business number a webhook payload is about (metadata.phone_number_id),
-    /// so the right insurer's connection can verify and receive it.</summary>
-    public static IReadOnlyList<string> ReadPhoneNumberIds(string jsonPayload)
-    {
-        var ids = new List<string>();
-        foreach (var value in EnumerateValues(jsonPayload))
-        {
-            var id = ReadPhoneNumberId(value);
-            if (!string.IsNullOrWhiteSpace(id) && !ids.Contains(id, StringComparer.Ordinal))
-            {
-                ids.Add(id);
-            }
-        }
-
-        return ids;
-    }
+    /// <summary>Every business phone number a webhook names, once each. The number is what says which
+    /// workspace the webhook is for (build-loop item 27).</summary>
+    public static IReadOnlyList<string> ParsePhoneNumberIds(string jsonPayload) =>
+        EnumerateValues(jsonPayload)
+            .Select(ReadPhoneNumberId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
 
     public static IReadOnlyList<WhatsAppInboundMessage> ParseMessages(string jsonPayload)
     {

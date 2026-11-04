@@ -28,7 +28,7 @@ public sealed record BackgroundJob
     public required Guid JobId { get; init; }
     public required TenantScope Scope { get; init; }
 
-    /// <summary>Which line of work: "document-processing" or "claim-review".</summary>
+    /// <summary>Which line of work: "document-processing", "claim-review" or "customer-assistant".</summary>
     public required string Queue { get; init; }
 
     /// <summary>What to do, for example "document.process" or "claim.review".</summary>
@@ -67,6 +67,10 @@ public static class BackgroundQueues
 {
     public const string DocumentProcessing = "document-processing";
     public const string ClaimReview = "claim-review";
+
+    /// <summary>Answering customers on WhatsApp (build-loop item 27). Its own line so a customer is never
+    /// waiting behind a slow document being read.</summary>
+    public const string CustomerAssistant = "customer-assistant";
 }
 
 public static class BackgroundJobTypes
@@ -74,6 +78,7 @@ public static class BackgroundJobTypes
     public const string DocumentProcess = "document.process";
     public const string ClaimReview = "claim.review";
     public const string ClaimsPackSend = "claims.pack.send";
+    public const string CustomerAssistantRespond = "customer.assistant.respond";
 }
 
 public interface IBackgroundJobStore

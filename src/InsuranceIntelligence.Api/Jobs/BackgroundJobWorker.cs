@@ -25,10 +25,11 @@ public sealed class BackgroundJobWorker(
         for (var index = 0; index < options.Workers; index++)
         {
             var owner = $"{Environment.MachineName}:{Environment.ProcessId}:doc-{index}";
-            loops.Add(Loop([BackgroundQueues.DocumentProcessing, BackgroundQueues.ClaimReview], owner, stoppingToken));
+            loops.Add(Loop([BackgroundQueues.DocumentProcessing, BackgroundQueues.ClaimReview, BackgroundQueues.CustomerAssistant], owner, stoppingToken));
         }
 
         loops.Add(Loop([BackgroundQueues.ClaimReview], $"{Environment.MachineName}:{Environment.ProcessId}:review", stoppingToken));
+        loops.Add(Loop([BackgroundQueues.CustomerAssistant], $"{Environment.MachineName}:{Environment.ProcessId}:assistant", stoppingToken));
         await Task.WhenAll(loops);
     }
 

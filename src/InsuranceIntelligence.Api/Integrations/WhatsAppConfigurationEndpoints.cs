@@ -97,18 +97,16 @@ public static class WhatsAppConfigurationEndpoints
             });
         }
 
-        // One WhatsApp number belongs to one insurer. Without this, a second organisation entering
-        // someone else's number and token could attract that insurer's customers' messages.
-        var phoneNumberId = request.PhoneNumberId.Trim();
+        // A phone number belongs to one workspace. Two workspaces saving the same number would leave Meta's
+        // webhooks with no single owner, so the second is refused and told why (build-loop item 27).
+        var wantedNumber = request.PhoneNumberId.Trim();
         var holders = await repository.ListActiveAsync(cancellationToken);
-        if (holders.Any(existing => string.Equals(existing.PhoneNumberId, phoneNumberId, StringComparison.Ordinal)
-                && !(string.Equals(existing.Scope.TenantId, scope.TenantId, StringComparison.Ordinal)
-                    && string.Equals(existing.Scope.WorkspaceId, scope.WorkspaceId, StringComparison.Ordinal))))
+        if (holders.Any(other => string.Equals(other.PhoneNumberId, wantedNumber, StringComparison.Ordinal) && !other.Scope.Matches(scope)))
         {
             return Results.Conflict(new
             {
-                deliveryStatus = "NumberAlreadyConnected",
-                message = "This WhatsApp number is already connected to another organisation. Contact support if it should be moved."
+                deliveryStatus = "NumberInUse",
+                message = "That WhatsApp number is already connected to another workspace. A number can be connected to one workspace only.",
             });
         }
 
@@ -230,43 +228,6 @@ public static class WhatsAppConfigurationEndpoints
         await repository.SaveAsync(updated, cancellationToken);
 
         return Results.Ok(new { success = validation.Success, message = validation.SafeError, verifiedName = validation.VerifiedName });
-    }
-
-    /// <summary>Asks Meta, read-only, where it sends this number's messages, and says in plain words whether that is IIP.
-    /// The reason it exists: on 12 October 2026 a connection looked healthy while Meta's messages went elsewhere.</summary>
-    public static async Task<IResult> CheckWithMeta(
-        IWhatsAppChannelConfigurationRepository repository,
-        IWhatsAppCredentialProtector protector,
-        IWhatsAppGraphValidationClient validationClient,
-        InfrastructureOptions options,
-        HttpContext httpContext,
-        CancellationToken cancellationToken)
-    {
-        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
-        {
-            return forbidden;
-        }
-
-        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
-        {
-            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
-        }
-
-        var configuration = await repository.GetAsync(scope, cancellationToken);
-        if (configuration is null)
-        {
-            return Results.NotFound(new { message = "No WhatsApp connection is saved for this workspace yet." });
-        }
-
-        var facts = await validationClient.ReadDeliverySetupAsync(
-            options.WhatsApp.GraphBaseUrl,
-            configuration.PhoneNumberId,
-            configuration.WabaId ?? string.Empty,
-            protector.Unprotect(configuration.EncryptedAccessToken),
-            options.WhatsApp.RequestTimeoutSeconds,
-            cancellationToken);
-        var findings = WhatsAppDeliveryAnalysis.Analyse(configuration.WebhookCallbackUrl ?? BuildCallbackUrl(options), facts);
-        return Results.Ok(new { checkedAt = DateTimeOffset.UtcNow, findings });
     }
 
     public static async Task<IResult> DeleteConfiguration(

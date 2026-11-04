@@ -9,14 +9,16 @@ public sealed class WhatsAppCloudApiOutboundProvider(
     IWhatsAppRuntimeSettingsProvider settingsProvider,
     HttpClient httpClient) : IWhatsAppOutboundProvider
 {
-    public bool IsConfigured => settingsProvider.AnyConfigured;
+    public bool IsConfigured => settingsProvider.HasAny;
 
     public async Task<WhatsAppProviderSendResult> SendAsync(
         WhatsAppProviderSendRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!settingsProvider.AnyConfigured) return new(false, null, null, "WhatsApp outbound is not configured.");
-        var settings = settingsProvider.ForPhoneNumberId(request.BusinessPhoneNumberId);
+        // The credentials are those of whichever workspace owns the sending number, so one workspace's
+        // token can never carry another workspace's message (build-loop item 27).
+        if (!settingsProvider.HasAny) return new(false, null, null, "WhatsApp outbound is not configured.");
+        var settings = settingsProvider.ForPhoneNumber(request.BusinessPhoneNumberId);
         if (settings is null)
             return new(false, null, null, "The WhatsApp sender is not configured for this tenant workspace.");
 
@@ -50,7 +52,7 @@ public sealed class WhatsAppCloudApiOutboundProvider(
         string inboundProviderMessageId,
         CancellationToken cancellationToken = default)
     {
-        var settings = settingsProvider.ForPhoneNumberId(businessPhoneNumberId);
+        var settings = settingsProvider.ForPhoneNumber(businessPhoneNumberId);
         if (settings is null || string.IsNullOrWhiteSpace(inboundProviderMessageId))
         {
             return false;
@@ -83,8 +85,8 @@ public sealed class WhatsAppCloudApiOutboundProvider(
         string? replyToProviderMessageId,
         CancellationToken cancellationToken = default)
     {
-        if (!settingsProvider.AnyConfigured) return new(false, null, null, "WhatsApp outbound is not configured.");
-        var settings = settingsProvider.ForPhoneNumberId(businessPhoneNumberId);
+        if (!settingsProvider.HasAny) return new(false, null, null, "WhatsApp outbound is not configured.");
+        var settings = settingsProvider.ForPhoneNumber(businessPhoneNumberId);
         if (settings is null)
             return new(false, null, null, "The WhatsApp sender is not configured for this tenant workspace.");
 
@@ -157,14 +159,12 @@ public sealed class WhatsAppCloudApiOutboundProvider(
     {
         if (!string.IsNullOrWhiteSpace(request.TemplateName))
         {
-            // A template with numbered placeholders ({{1}}, {{2}}) takes its values in order and no parameter name; one
-            // with named placeholders takes each value with its name. The key says which: a number or a name.
-            var ordered = (request.TemplateParameters ?? new Dictionary<string, string>())
-                .OrderBy(pair => int.TryParse(pair.Key, out var position) ? position : int.MaxValue)
-                .ToArray();
-            var parameters = ordered.Select(pair => int.TryParse(pair.Key, out _)
-                ? (object)new { type = "text", text = pair.Value }
-                : new { type = "text", parameter_name = pair.Key, text = pair.Value }).ToArray();
+            var parameters = request.TemplateParameters?.Select(pair => new
+            {
+                type = "text",
+                parameter_name = pair.Key,
+                text = pair.Value
+            }).ToArray() ?? [];
             return new
             {
                 messaging_product = "whatsapp",

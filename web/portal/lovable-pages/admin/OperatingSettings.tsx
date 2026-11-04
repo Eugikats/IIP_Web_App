@@ -20,6 +20,9 @@ type Draft = {
   /** Comma separated; empty means the platform's short default list. */
   customerMemoryFieldKeys: string;
   customerMemoryDocumentKeys: string;
+  assistantOrganisation: string;
+  assistantShortName: string;
+  assistantPartnerInsurers: string;
 };
 
 function toDraft(settings: TenantSettings): Draft {
@@ -33,6 +36,9 @@ function toDraft(settings: TenantSettings): Draft {
     customerMemoryEnabled: settings.customerMemoryEnabled,
     customerMemoryFieldKeys: (settings.customerMemoryFieldKeys ?? []).join(", "),
     customerMemoryDocumentKeys: (settings.customerMemoryDocumentKeys ?? []).join(", "),
+    assistantOrganisation: settings.assistantOrganisation ?? "",
+    assistantShortName: settings.assistantShortName ?? "",
+    assistantPartnerInsurers: settings.assistantPartnerInsurers ?? "",
   };
 }
 
@@ -85,6 +91,9 @@ export default function OperatingSettings() {
       customerMemoryEnabled: draft.customerMemoryEnabled,
       customerMemoryFieldKeys: draft.customerMemoryFieldKeys.split(/[,\n]+/).map((key) => key.trim()).filter(Boolean),
       customerMemoryDocumentKeys: draft.customerMemoryDocumentKeys.split(/[,\n]+/).map((key) => key.trim()).filter(Boolean),
+      assistantOrganisation: draft.assistantOrganisation,
+      assistantShortName: draft.assistantShortName,
+      assistantPartnerInsurers: draft.assistantPartnerInsurers,
     });
     setSaving(false);
     if (!result.ok) {
@@ -185,6 +194,20 @@ export default function OperatingSettings() {
             <label htmlFor="memory-documents" className="mb-1 mt-3 block text-[12.5px] font-semibold text-dls-text-primary">Documents that can be used again</label>
             <Input id="memory-documents" value={draft.customerMemoryDocumentKeys} placeholder={settings.defaultCustomerMemoryDocumentKeys.join(", ")} disabled={!draft.customerMemoryEnabled} onChange={(e) => setDraft({ ...draft, customerMemoryDocumentKeys: e.target.value })} />
             <p className="mt-1 text-[11.5px] text-dls-text-muted">The keys of the documents, separated by commas. Leave empty for proof of identity only ({settings.defaultCustomerMemoryDocumentKeys.join(", ")}).</p>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="text-[14px] font-bold text-dls-text-primary">Kato, the WhatsApp assistant</div>
+            <p className="mt-1 text-[12px] text-dls-text-secondary">
+              Who Kato speaks for when your customers write to you on WhatsApp. Leave these empty to use the platform default. The covers Kato may explain are the published products that have a description for WhatsApp.
+            </p>
+            <label htmlFor="assistant-organisation" className="mb-1 mt-3 block text-[12.5px] font-semibold text-dls-text-primary">Organisation</label>
+            <Input id="assistant-organisation" value={draft.assistantOrganisation} maxLength={120} placeholder="For example, Mavuno Bank" onChange={(e) => setDraft({ ...draft, assistantOrganisation: e.target.value })} />
+            <label htmlFor="assistant-short-name" className="mb-1 mt-3 block text-[12.5px] font-semibold text-dls-text-primary">Short name</label>
+            <Input id="assistant-short-name" value={draft.assistantShortName} maxLength={60} placeholder="What Kato calls you in conversation" disabled={!draft.assistantOrganisation.trim()} onChange={(e) => setDraft({ ...draft, assistantShortName: e.target.value })} />
+            <label htmlFor="assistant-partners" className="mb-1 mt-3 block text-[12.5px] font-semibold text-dls-text-primary">Partner insurers</label>
+            <Input id="assistant-partners" value={draft.assistantPartnerInsurers} maxLength={600} placeholder="Only if you sell other insurers' covers, separated by commas" disabled={!draft.assistantOrganisation.trim()} onChange={(e) => setDraft({ ...draft, assistantPartnerInsurers: e.target.value })} />
+            <p className="mt-1 text-[11.5px] text-dls-text-muted">When you list partners, Kato always says which insurer provides each cover.</p>
           </GlassCard>
 
           {saveError && <p role="alert" className="text-[12.5px] text-dls-danger-text">{saveError}</p>}

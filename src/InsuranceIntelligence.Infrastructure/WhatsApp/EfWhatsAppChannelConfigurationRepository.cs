@@ -29,8 +29,7 @@ public sealed class EfWhatsAppChannelConfigurationRepository(InsuranceIntelligen
         var records = await DbContext.WhatsAppChannelConfigurations.AsNoTracking().ToListAsync(cancellationToken);
         return records
             .Select(record => Deserialize<WhatsAppChannelConfiguration>(record.PayloadJson))
-            .Where(configuration => configuration is { IsActive: true })
-            .Select(configuration => configuration!)
+            .Where(configuration => configuration.IsActive)
             .ToArray();
     }
 

@@ -23,6 +23,17 @@ export type MailboxConnection = {
   productLine: string | null;
   processedFolderName: string | null;
   createdAt: string;
+  /** Where the mail is collected from: a Microsoft 365 mailbox (Graph) or any mail host over IMAP. */
+  source: "Graph" | "Imap";
+  entraTenantId: string | null;
+  imapHost: string | null;
+  imapPort: number;
+  imapUsername: string | null;
+  /** Whether a password is saved. The password itself is never sent to the browser. */
+  imapPasswordSet: boolean;
+  lastCheckedAt: string | null;
+  /** "Collected" or "CouldNotConnect". */
+  lastCheckStatus: string | null;
 };
 
 export type CreateMailboxInput = {
@@ -31,6 +42,12 @@ export type CreateMailboxInput = {
   ingestionEnabled: boolean;
   defaultChannel: string;
   productLine?: string;
+  source?: "Graph" | "Imap";
+  entraTenantId?: string;
+  imapHost?: string;
+  imapPort?: number;
+  imapUsername?: string;
+  imapPassword?: string;
 };
 
 export type InboundEmailMessage = {

@@ -1858,3 +1858,103 @@ test.describe("Item 26: customer memory", () => {
     expect(((await settings.json()) as { customerMemoryEnabled: boolean }).customerMemoryEnabled).toBe(true);
   });
 });
+
+test.describe("Item 27: several workspaces on one WhatsApp channel", () => {
+  const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+
+  test("an administrator names who Kato speaks for, the next workspace is not affected, and an officer cannot change it", async ({ page, request }) => {
+    try {
+      await page.goto("/app/admin/settings");
+      await expect(page.getByLabel("Organisation")).toHaveValue("");
+      await page.getByLabel("Organisation").fill("Mavuno Bank");
+      await page.getByLabel("Short name").fill("Mavuno");
+      await page.getByRole("button", { name: "Save settings" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Settings saved." })).toBeVisible();
+
+      await page.reload();
+      await expect(page.getByLabel("Organisation")).toHaveValue("Mavuno Bank");
+      await expect(page.getByLabel("Short name")).toHaveValue("Mavuno");
+
+      const other = await request.get(`${API}/api/v1/admin/tenant-settings`, { headers: scopeHeaders(newTenant()) });
+      expect(((await other.json()) as { assistantOrganisation: string | null }).assistantOrganisation).toBeNull();
+      const officer = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE, "ClaimsOfficer", "e2e-officer");
+      expect((await request.put(`${API}/api/v1/admin/tenant-settings`, { headers: officer, data: { assistantOrganisation: "Someone Else" } })).status()).toBe(403);
+    } finally {
+      await request.put(`${API}/api/v1/admin/tenant-settings`, { headers, data: { assistantOrganisation: " ", assistantShortName: " " } });
+    }
+  });
+
+  test("a workspace with no WhatsApp number sees the channel as not configured, and a webhook for a number nobody connected is refused", async ({ request }) => {
+    const health = await request.get(`${API}/api/v1/integrations/whatsapp/health`, { headers: scopeHeaders(newTenant()) });
+    const body = (await health.json()) as { configured: boolean; status: string };
+    expect(body.configured).toBe(false);
+    expect(body.status).toBe("Not configured");
+
+    const payload = JSON.stringify({ object: "whatsapp_business_account", entry: [{ id: "WABA", changes: [{ field: "messages", value: { messaging_product: "whatsapp", metadata: { phone_number_id: "nobody-owns-this" }, messages: [] } }] }] });
+    const refused = await request.post(`${API}/api/v1/integrations/whatsapp/webhook`, { headers: { "Content-Type": "application/json", "X-Hub-Signature-256": "sha256=" + "0".repeat(64) }, data: payload });
+    expect([401, 503]).toContain(refused.status());
+    const verify = await request.get(`${API}/api/v1/integrations/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=guess&hub.challenge=1`);
+    expect([401, 503]).toContain(verify.status());
+  });
+});
+
+test.describe("Item 28: mail collected for every workspace, including over IMAP", () => {
+  const imapBody = (host: string, username: string, password = "app-password") => ({
+    displayName: "Claims over IMAP", mailboxAddress: username, ingestionEnabled: true, defaultChannel: "Email", source: "Imap",
+    imapHost: host, imapPort: 993, imapUsername: username, imapPassword: password,
+  });
+
+  test("an administrator connects an IMAP mailbox from the screen, a wrong password is explained, and the password is never shown again", async ({ page }) => {
+    const unique = Math.random().toString(36).slice(2, 8);
+    await page.goto("/app/admin/email");
+    await page.getByRole("button", { name: "Add mailbox" }).click();
+    await page.getByLabel("Display name").fill("Claims over IMAP");
+    await page.getByLabel("Mailbox address").fill(`claims-${unique}@insurer.test`);
+    await page.getByLabel("Where the mail is").selectOption("Imap");
+    await page.getByLabel("Mail host").fill(`imap.${unique}.test`);
+    await page.getByLabel("Username").fill(`claims-${unique}@insurer.test`);
+    await page.getByLabel("Password").fill("wrong-password");
+    await page.getByLabel("Start collecting mail from this address straight away").uncheck();
+    await page.getByLabel("Reason for audit trail").fill("Connecting the claims mailbox over IMAP.");
+    await page.getByRole("button", { name: "Add mailbox" }).last().click();
+    await expect(page.getByText("The mail host refused the username or password.")).toBeVisible();
+
+    await page.getByLabel("Password").fill("app-password");
+    await page.getByRole("button", { name: "Add mailbox" }).last().click();
+    const card = page.locator("div", { hasText: `claims-${unique}@insurer.test` }).filter({ hasText: `IMAP, imap.${unique}.test` }).first();
+    await expect(card).toBeVisible();
+    await expect(page.getByText("app-password")).toHaveCount(0);
+  });
+
+  test("mail sent to an IMAP mailbox is collected, becomes a claim with its file, and another workspace sees none of it", async ({ request }) => {
+    const tenant = newTenant();
+    const headers = scopeHeaders(tenant);
+    const host = `imap.${tenant}.test`;
+    const reason = { ...headers, "X-Audit-Reason": "End to end test of IMAP collection." };
+    const added = await request.post(`${API}/api/v1/integrations/email/mailboxes`, { headers: reason, data: imapBody(host, "claims@insurer.test") });
+    expect(added.status()).toBe(201);
+    expect(JSON.stringify(await added.json())).not.toContain("app-password");
+
+    const delivered = await request.post(`${API}/api/v1/dev/mock-mailbox/deliver`, {
+      headers,
+      data: { host, username: "claims@insurer.test", from: "customer@example.test", subject: "Accident at Kira", body: "A taxi hit my car.", attachments: [{ fileName: "police_report.pdf", contentType: "application/pdf", text: "police letter" }] },
+    });
+    expect(delivered.ok()).toBe(true);
+
+    const collected = (await (await request.post(`${API}/api/v1/integrations/email/ingest`, { headers: reason })).json()) as { messagesIngested: number };
+    expect(collected.messagesIngested).toBe(1);
+    const messages = (await (await request.get(`${API}/api/v1/integrations/email/messages`, { headers })).json()) as { messageId: string; subject: string }[];
+    expect(messages.map((message) => message.subject)).toEqual(["Accident at Kira"]);
+
+    const processed = await request.post(`${API}/api/v1/integrations/email/process-message`, { headers: reason, data: { messageId: messages[0].messageId } });
+    expect(processed.ok()).toBe(true);
+    const { caseId } = (await processed.json()) as { caseId: string };
+    const documents = (await (await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers })).json()) as { originalFileName: string }[];
+    expect(documents.map((document) => document.originalFileName)).toEqual(["police_report.pdf"]);
+
+    const other = (await (await request.get(`${API}/api/v1/integrations/email/messages`, { headers: scopeHeaders(newTenant()) })).json()) as unknown[];
+    expect(other).toEqual([]);
+    const officer = scopeHeaders(tenant, "workspace-main", "ClaimsOfficer", "e2e-officer");
+    expect((await request.post(`${API}/api/v1/integrations/email/mailboxes`, { headers: { ...officer, "X-Audit-Reason": "Not allowed." }, data: imapBody(host, "other@insurer.test") })).status()).toBe(403);
+  });
+});

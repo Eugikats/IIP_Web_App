@@ -9,9 +9,28 @@ using Microsoft.Extensions.Logging;
 namespace InsuranceIntelligence.Infrastructure.WhatsApp;
 
 /// <summary>
-/// Orchestrates inbound WhatsApp media → case match → document storage. Uses the configured
-/// single-instance channel mapping on <see cref="WhatsAppOptions"/> (one insurer per Managed App
-/// instance). Does not create cases from WhatsApp text; unmatched media stays manual-review.
+/// Which workspace a webhook belongs to, decided from the business phone number it names and proved by
+/// the signature of that workspace's own app secret (build-loop item 27). Status is "Routed",
+/// "ConfigurationRequired" (nothing is connected, or the channel is not live) or "InvalidSignature"
+/// (a number nobody has connected is answered the same way as a bad signature, so a stranger cannot
+/// learn which numbers are connected).
+/// </summary>
+public sealed record WhatsAppWebhookRouting(string Status, IReadOnlyList<WhatsAppRoutedBatch> Batches, string? SafeError)
+{
+    public bool IsRouted => Status == "Routed";
+}
+
+/// <summary>One workspace's share of a webhook: its connection and the scope everything in it is stored under.</summary>
+public sealed record WhatsAppRoutedBatch(WhatsAppEffectiveSettings Settings)
+{
+    public TenantScope Scope => TenantScope.Create(Settings.TenantId, Settings.WorkspaceId);
+}
+
+/// <summary>
+/// Orchestrates inbound WhatsApp media → case match → document storage. A webhook is first routed to the
+/// workspace that owns the business phone number it names (see <see cref="RouteAsync"/>); each workspace's
+/// media is then matched only against that workspace's own claims. Does not create cases from WhatsApp
+/// text; unmatched media stays manual-review.
 /// </summary>
 public sealed class WhatsAppInboundDocumentIngestionService(
     InfrastructureOptions options,
@@ -28,50 +47,85 @@ public sealed class WhatsAppInboundDocumentIngestionService(
     // for this exact unauthenticated integration path, reused rather than inventing a second one.
     private const string SystemActorId = "system:whatsapp-webhook";
 
+    /// <summary>Works out which workspace(s) a webhook is for and checks each one's signature with its own
+    /// app secret. A request naming a number nobody has connected, or signed with the wrong secret, is
+    /// refused whole.</summary>
+    public async Task<WhatsAppWebhookRouting> RouteAsync(
+        ReadOnlyMemory<byte> rawBody,
+        string? signatureHeader,
+        CancellationToken cancellationToken = default)
+    {
+        await settingsProvider.RefreshIfStaleAsync(cancellationToken);
+        if (!whatsAppProvider.IsConfigured)
+        {
+            return new WhatsAppWebhookRouting("ConfigurationRequired", [], "WhatsApp inbound is not configured.");
+        }
+
+        var json = System.Text.Encoding.UTF8.GetString(rawBody.Span);
+        var numbers = WhatsAppWebhookParser.ParsePhoneNumberIds(json);
+        if (numbers.Count == 0)
+        {
+            // Nothing names a number, so there is no secret to check it against, except on a deployment
+            // with exactly one connection.
+            var sole = settingsProvider.Current;
+            if (sole is null)
+            {
+                return new WhatsAppWebhookRouting("InvalidSignature", [], "Webhook signature was invalid.");
+            }
+
+            if (!WhatsAppChannelProviderSupport.IsLive(options, sole))
+            {
+                return new WhatsAppWebhookRouting("ConfigurationRequired", [], "WhatsApp inbound is not configured.");
+            }
+
+            return whatsAppProvider.IsValidSignature(rawBody.Span, signatureHeader)
+                ? new WhatsAppWebhookRouting("Routed", [], null)
+                : new WhatsAppWebhookRouting("InvalidSignature", [], "Webhook signature was invalid.");
+        }
+
+        var batches = new List<WhatsAppRoutedBatch>();
+        foreach (var number in numbers)
+        {
+            var settings = await settingsProvider.FindByPhoneNumberAsync(number, cancellationToken);
+            if (settings is null || !whatsAppProvider.IsValidSignature(rawBody.Span, signatureHeader, number))
+            {
+                logger.LogWarning("WhatsApp webhook rejected: no connected workspace could vouch for it (invalid or unknown business number).");
+                return new WhatsAppWebhookRouting("InvalidSignature", [], "Webhook signature was invalid.");
+            }
+
+            if (!WhatsAppChannelProviderSupport.IsLive(options, settings))
+            {
+                return new WhatsAppWebhookRouting("ConfigurationRequired", [], "WhatsApp inbound is not configured.");
+            }
+
+            batches.Add(new WhatsAppRoutedBatch(settings));
+        }
+
+        return new WhatsAppWebhookRouting("Routed", batches, null);
+    }
+
     public async Task<WhatsAppIngestionResult> IngestWebhookPayloadAsync(
         ReadOnlyMemory<byte> rawBody,
         string? signatureHeader,
         CancellationToken cancellationToken = default)
     {
-        if (!whatsAppProvider.IsConfigured || !WhatsAppChannelProviderSupport.IsLive(options, settingsProvider))
+        var routing = await RouteAsync(rawBody, signatureHeader, cancellationToken);
+        if (!routing.IsRouted)
         {
-            return new WhatsAppIngestionResult(
-                "ConfigurationRequired",
-                0,
-                0,
-                0,
-                "WhatsApp inbound is not configured.");
+            return new WhatsAppIngestionResult(routing.Status, 0, 0, 0, routing.SafeError);
         }
 
+        return await IngestRoutedMediaAsync(routing, rawBody, cancellationToken);
+    }
+
+    /// <summary>Stores the media in a routed webhook on the claims of the workspace that owns the number each
+    /// message was sent to.</summary>
+    public async Task<WhatsAppIngestionResult> IngestRoutedMediaAsync(
+        WhatsAppWebhookRouting routing,
+        ReadOnlyMemory<byte> rawBody,
+        CancellationToken cancellationToken = default)
+    {
         var json = System.Text.Encoding.UTF8.GetString(rawBody.Span);
-        IReadOnlyList<string> phoneNumberIds;
-        try
-        {
-            phoneNumberIds = WhatsAppWebhookParser.ReadPhoneNumberIds(json);
-        }
-        catch (System.Text.Json.JsonException)
-        {
-            // Unreadable, so it cannot be attributed to any insurer and cannot be verified.
-            return new WhatsAppIngestionResult("InvalidSignature", 0, 0, 0, "Webhook signature was invalid.");
-        }
-
-        // The payload says which WhatsApp number it is about; that number alone decides which
-        // insurer's app secret must have signed it. Numbers that belong to no insurer here are
-        // ignored without being processed. Every number that does belong to one must verify.
-        var ownedNumbers = phoneNumberIds.Where(id => settingsProvider.ForPhoneNumberId(id) is not null).ToArray();
-        if (ownedNumbers.Length == 0)
-        {
-            return phoneNumberIds.Count == 0
-                ? new WhatsAppIngestionResult("InvalidSignature", 0, 0, 0, "Webhook signature was invalid.")
-                : new WhatsAppIngestionResult("Ignored", 0, 0, 0, null);
-        }
-
-        if (ownedNumbers.Any(id => !whatsAppProvider.IsValidSignatureFor(id, rawBody.Span, signatureHeader)))
-        {
-            logger.LogWarning("WhatsApp webhook rejected: invalid X-Hub-Signature-256.");
-            return new WhatsAppIngestionResult("InvalidSignature", 0, 0, 0, "Webhook signature was invalid.");
-        }
-
         var mediaMessages = whatsAppProvider.ParseInboundMediaMessages(json);
         if (mediaMessages.Count == 0)
         {
@@ -83,18 +137,19 @@ public sealed class WhatsAppInboundDocumentIngestionService(
 
         foreach (var message in mediaMessages)
         {
-            // Which insurer owns the number this arrived on. Routing never falls back to a default.
-            var settings = settingsProvider.ForPhoneNumberId(message.BusinessPhoneNumberId);
-            if (settings is null)
+            var batch = routing.Batches.FirstOrDefault(item =>
+                string.Equals(item.Settings.PhoneNumberId, message.BusinessPhoneNumberId, StringComparison.Ordinal));
+            if (batch is null)
             {
                 logger.LogWarning(
-                    "WhatsApp media ignored: phone_number_id belongs to no connected insurer. Actual={Actual}",
+                    "WhatsApp media ignored: phone_number_id is not one this webhook was routed for. Actual={Actual}",
                     message.BusinessPhoneNumberId);
                 manualReview++;
                 continue;
             }
 
-            var scope = TenantScope.Create(settings.TenantId, settings.WorkspaceId);
+            var settings = batch.Settings;
+            var scope = batch.Scope;
             // IntegrationUserId attributes a document upload to a real staff account for audit; it is
             // an optional deployment-level refinement, not a precondition for the channel to work at
             // all. A tenant that connects WhatsApp from the settings screen has set nothing like it

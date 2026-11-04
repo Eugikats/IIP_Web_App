@@ -14,21 +14,21 @@ public interface IWhatsAppInboundProvider
 
     bool TryVerifySubscription(string mode, string verifyToken, string challenge, out string? challengeResponse);
 
+    /// <summary>Checks the signature against the only connection a one-number deployment has. With several
+    /// workspaces on a deployment this is false; use the overload that names the phone number.</summary>
     bool IsValidSignature(ReadOnlySpan<byte> payload, string? signatureHeader);
 
-    /// <summary>Signature check against the app secret of the insurer that owns the given WhatsApp
-    /// number. With several insurers on one webhook, a payload must verify under the secret of the
-    /// number it is about, never under any secret that happens to match.</summary>
-    bool IsValidSignatureFor(string businessPhoneNumberId, ReadOnlySpan<byte> payload, string? signatureHeader) =>
-        IsValidSignature(payload, signatureHeader);
+    /// <summary>Checks the signature against the app secret of the workspace that owns this business phone
+    /// number (build-loop item 27). A payload signed with another workspace's secret is not valid here.</summary>
+    bool IsValidSignature(ReadOnlySpan<byte> payload, string? signatureHeader, string businessPhoneNumberId);
 
     IReadOnlyList<WhatsAppInboundMediaMessage> ParseInboundMediaMessages(string jsonPayload);
 
+    /// <summary>Downloads with the only connection a one-number deployment has.</summary>
     Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, CancellationToken cancellationToken = default);
 
-    /// <summary>Downloads media with the credentials of the insurer that owns the number it arrived on.</summary>
-    Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, string businessPhoneNumberId, CancellationToken cancellationToken = default) =>
-        DownloadMediaAsync(mediaId, cancellationToken);
+    /// <summary>Downloads with the access token of the workspace that owns this business phone number.</summary>
+    Task<WhatsAppMediaContent> DownloadMediaAsync(string mediaId, string businessPhoneNumberId, CancellationToken cancellationToken = default);
 }
 
 public interface IWhatsAppOutboundProvider
@@ -64,7 +64,7 @@ public interface IWhatsAppMessageRepository
     Task<WhatsAppMessage?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default);
     Task<WhatsAppMessage?> FindByIdempotencyKeyAsync(TenantScope scope, string idempotencyKey, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WhatsAppMessage>> ListThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default);
-    /// <summary>Records that the assistant is finished with an inbound message.</summary>
+
     async Task MarkAssistantHandledAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default)
     {
         var message = await FindByProviderMessageIdAsync(scope, providerMessageId, cancellationToken);
@@ -74,13 +74,12 @@ public interface IWhatsAppMessageRepository
         }
     }
 
-    /// <summary>Messages in the workspace created since the given time, oldest first.</summary>
     Task<IReadOnlyList<WhatsAppMessage>> ListSinceAsync(TenantScope scope, DateTimeOffset since, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<WhatsAppMessage>>([]);
 
     Task<IReadOnlyList<WhatsAppMessage>> ListForRecipientAsync(
-        TenantScope scope, string accountId, string recipientId,
-        CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<WhatsAppMessage>>([]);
+        TenantScope scope, string accountId, string recipientId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<WhatsAppMessage>>([]);
 }
 
 /// <summary>

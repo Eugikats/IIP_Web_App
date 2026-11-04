@@ -1149,6 +1149,13 @@ public sealed class WorkflowEndpointsTests
     private sealed class NullWhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsProvider
     {
         public WhatsAppEffectiveSettings? Current => null;
+
+        public bool HasAny => false;
+        public WhatsAppEffectiveSettings? ForScope(InsuranceIntelligence.Domain.Common.TenantScope scope) => null;
+        public WhatsAppEffectiveSettings? ForPhoneNumber(string phoneNumberId) => null;
+        public WhatsAppEffectiveSettings? ForVerifyToken(string verifyToken) => null;
+        public Task<WhatsAppEffectiveSettings?> FindByPhoneNumberAsync(string phoneNumberId, CancellationToken cancellationToken = default) => Task.FromResult<WhatsAppEffectiveSettings?>(null);
+        public Task RefreshIfStaleAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task RefreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 

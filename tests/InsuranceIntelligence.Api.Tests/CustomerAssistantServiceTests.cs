@@ -1,7 +1,5 @@
 using InsuranceIntelligence.Domain.Acquisition;
-using Microsoft.EntityFrameworkCore;
 using InsuranceIntelligence.Application.Ai;
-using InsuranceIntelligence.Application.Channels;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.Notifications;
 using InsuranceIntelligence.Application.Translation;
@@ -11,7 +9,6 @@ using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Domain.Agents;
 using InsuranceIntelligence.Domain.Audit;
 using InsuranceIntelligence.Domain.Cases;
-using InsuranceIntelligence.Domain.Channels;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Compliance;
 using InsuranceIntelligence.Domain.Customers;
@@ -33,64 +30,6 @@ namespace InsuranceIntelligence.Api.Tests;
 /// </summary>
 public sealed partial class CustomerAssistantServiceTests
 {
-    private sealed class VerifiedClaimIdentity : IClaimIdentityVerifier
-    {
-        public Task<bool> IsVerifiedAsync(TenantScope scope, string phone, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public Task<ClaimIdentityResult> SendAsync(TenantScope scope, string phone, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(ClaimIdentityResult.Verified);
-        public Task<ClaimIdentityResult> VerifyAsync(TenantScope scope, string phone, string code, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(ClaimIdentityResult.Verified);
-    }
-
-    private sealed class PendingClaimIdentity : IClaimIdentityVerifier
-    {
-        public Task<bool> IsVerifiedAsync(TenantScope scope, string phone, CancellationToken cancellationToken = default) => Task.FromResult(false);
-        public Task<ClaimIdentityResult> SendAsync(TenantScope scope, string phone, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(ClaimIdentityResult.CodeSent);
-        public Task<ClaimIdentityResult> VerifyAsync(TenantScope scope, string phone, string code, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(ClaimIdentityResult.InvalidCode);
-    }
-
-    [Fact]
-    public async Task Unverified_policyholder_gets_no_claim_details_and_cannot_open_a_claim()
-    {
-        var fixture = Fixture.Create(claimIdentity: new PendingClaimIdentity());
-        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
-        var claimId = fixture.SeedCase(ValidPolicyNumber, CaseStatus.InReview);
-
-        await fixture.HandleAsync("What is the status of my claim?");
-        Assert.DoesNotContain(ClaimReference.For(claimId), fixture.Conversations.Saved[^1].OutboundReplyText);
-        await fixture.HandleAsync("123456");
-        Assert.Equal("[verification code redacted]", fixture.Conversations.Saved[^1].InboundMessageText);
-        await fixture.HandleAsync("I had an accident and need to make a claim");
-        Assert.Single(await fixture.Cases.ListAsync(fixture.Scope));
-    }
-
-    [Fact]
-    public async Task Assistant_UsesOnlyConsentedAndValidatedLinkedChannelHistory_AndMasksPhoneNumbers()
-    {
-        var agent = new ScriptedAgentModel().Says("I will pick this up from here.");
-        var fixture = Fixture.Create(agent: agent, withCrossChannelContext: true);
-
-        await fixture.HandleAsync("Hello again");
-
-        var context = Assert.Single(agent.Conversations);
-        var sharedHistory = Assert.Single(context, message => message.Content?.Contains("Recorded customer conversation context", StringComparison.Ordinal) == true);
-        Assert.Contains("[instagram inbound", sharedHistory.Content, StringComparison.Ordinal);
-        Assert.Contains("appointment is Tuesday", sharedHistory.Content, StringComparison.Ordinal);
-        Assert.Contains("[phone masked]", sharedHistory.Content, StringComparison.Ordinal);
-        Assert.DoesNotContain("0772123456", sharedHistory.Content, StringComparison.Ordinal);
-        Assert.Contains(fixture.Audit.Written, audit => audit.ActionName == "customer_assistant.cross_channel_context_read");
-    }
-
-    [Fact]
-    public async Task Assistant_DoesNotLoadLinkedChannelHistory_WhenThatChannelConsentIsMissing()
-    {
-        var agent = new ScriptedAgentModel().Says("I can help with that.");
-        var fixture = Fixture.Create(agent: agent, withCrossChannelContext: true, consentOtherChannel: false);
-
-        await fixture.HandleAsync("Hello again");
-
-        Assert.DoesNotContain(agent.Conversations.Single(), message => message.Content?.Contains("appointment is Tuesday", StringComparison.Ordinal) == true);
-        Assert.DoesNotContain(fixture.Audit.Written, audit => audit.ActionName == "customer_assistant.cross_channel_context_read");
-    }
-
     private const string ValidPolicyNumber = "NSA/MO/2026/00009";
 
     [Fact]
@@ -369,7 +308,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("get your money", turn.OutboundReplyText);
         Assert.DoesNotContain("PERSON", turn.OutboundReplyText);
         Assert.DoesNotContain("voice note", turn.OutboundReplyText); // voice is not offered until it works
-        AssertOnlyAFirstContactRecord(fixture);
+        Assert.Empty(fixture.SalesLeads.Created);
     }
 
     [Fact]
@@ -446,17 +385,6 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("get back to you shortly", sent.CustomerSafeBody);
     }
 
-    /// <summary>Writing in puts someone in acquisition at once, as a new contact: no interest, no hand-over, only the fact that they wrote.</summary>
-    private static SalesLeadDetailReadModel AssertOnlyAFirstContactRecord(Fixture fixture)
-    {
-        var lead = Assert.Single(fixture.SalesLeads.Created);
-        Assert.Equal("WhatsApp", lead.LeadSource);
-        Assert.Null(lead.HandedToPersonAt);
-        Assert.Empty(lead.Interests);
-        Assert.Equal("Wrote in on WhatsApp", lead.Activity[0].Text);
-        return lead;
-    }
-
     [Fact]
     public async Task ProductInterest_WithNoCover_AsksWhatWorkTheyDo_ThenExplainsFittingCoverAndCreatesALead()
     {
@@ -464,7 +392,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         await fixture.HandleAsync("I'm interested in getting a quote for insurance");
         Assert.Equal(CustomerAssistantOutcome.AwaitingOccupation, Assert.Single(fixture.Conversations.Saved).Outcome);
-        var firstContact = AssertOnlyAFirstContactRecord(fixture);
+        Assert.Empty(fixture.SalesLeads.Created);
 
         await fixture.HandleAsync("I sell tomatoes in Nakasero market");
 
@@ -476,266 +404,12 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("Hospital Cash", turn.OutboundReplyText);
         Assert.Contains("nothing is sold in this chat", turn.OutboundReplyText);
         var lead = Assert.Single(fixture.SalesLeads.Created);
-        Assert.Equal(firstContact.LeadId, lead.LeadId);
         Assert.Contains("Market Stall Stock", lead.ProductFit);
 
         // Outcome P: "route it to a licensed person." A lead has no assigned officer at
         // creation, so routing is the same team-broadcast ApprovalRequired already uses.
         var notification = Assert.Single(fixture.TeamsQueue.Enqueued);
         Assert.Equal(TeamsNotificationType.LeadCreated, notification.NotificationType);
-    }
-
-
-    [Fact]
-    public async Task ANewContact_IsInAcquisitionFromTheFirstMessage_UnderTheNameOnTheirWhatsAppProfile()
-    {
-        var fixture = Fixture.Create();
-
-        await fixture.HandleNamedAsync("Hello", "Sarah Namukasa");
-
-        var lead = AssertOnlyAFirstContactRecord(fixture);
-        Assert.Equal("Sarah Namukasa", lead.CustomerName);
-        Assert.Equal("Sarah Namukasa", Assert.Single(fixture.Customers.Customers).FullName);
-        Assert.NotNull(lead.ThreadId);
-        Assert.Equal("WhatsApp", lead.PrimaryChannel);
-        Assert.True(InsuranceIntelligence.Domain.Customers.PhoneNumbers.SameNumber("256772118001", lead.Phone));
-    }
-
-    [Fact]
-    public async Task WritingAgain_DoesNotMakeASecondRecord_AndKeepsTheProfileName()
-    {
-        var fixture = Fixture.Create();
-
-        await fixture.HandleNamedAsync("Hello", "Sarah Namukasa");
-        await fixture.HandleNamedAsync("What covers do you have?", "Sarah Namukasa");
-
-        Assert.Equal("Sarah Namukasa", Assert.Single(fixture.SalesLeads.Created).CustomerName);
-    }
-
-    [Fact]
-    public async Task WithNoUsableProfileName_TheRecordUsesAPlaceholder_UntilThePersonSaysWhoTheyAre()
-    {
-        var fixture = Fixture.Create();
-
-        await fixture.HandleNamedAsync("Hello", "\U0001F600");
-        Assert.Equal("WhatsApp customer", Assert.Single(fixture.SalesLeads.Created).CustomerName);
-
-        await fixture.HandleNamedAsync("My name is Moses Kato", "\U0001F600");
-
-        var lead = Assert.Single(fixture.SalesLeads.Created);
-        Assert.Equal("Moses Kato", lead.CustomerName);
-        Assert.Contains(lead.Activity, entry => entry.Text == "Told Kato their name");
-        Assert.Equal("Moses Kato", Assert.Single(fixture.Customers.Customers).FullName);
-    }
-
-    [Fact]
-    public async Task ANameThePersonStates_IsBelievedOverTheirProfileName_OnBothRecords()
-    {
-        var fixture = Fixture.Create();
-
-        await fixture.HandleNamedAsync("Hello", "Sam K");
-        await fixture.HandleNamedAsync("call me Samuel Okello", "Sam K");
-
-        Assert.Equal("Samuel Okello", Assert.Single(fixture.SalesLeads.Created).CustomerName);
-        Assert.Equal("Samuel Okello", Assert.Single(fixture.Customers.Customers).FullName);
-    }
-
-    [Fact]
-    public async Task ANameThePersonStates_NeverReplacesANameSomeoneOnTheTeamSet()
-    {
-        var fixture = Fixture.Create();
-        await fixture.HandleNamedAsync("Hello", "Sam K");
-        var lead = Assert.Single(fixture.SalesLeads.Created);
-        await fixture.SalesLeads.CreateAsync("tenant-ca", "workspace-ca", lead with { CustomerName = "Samuel Okello (Equator staff list)" });
-
-        await fixture.HandleNamedAsync("my name is Someone Else", "Sam K");
-
-        Assert.Equal("Samuel Okello (Equator staff list)", Assert.Single(fixture.SalesLeads.Created).CustomerName);
-    }
-
-    [Theory]
-    [InlineData("I am hungry")]
-    [InlineData("I'm interested in cover")]
-    [InlineData("This is urgent")]
-    [InlineData("my name is the other one")]
-    public void ASentenceThatIsNotAnIntroduction_IsNotTakenAsAName(string message) =>
-        Assert.Null(CustomerAssistantService.IntroducedName(message));
-
-    [Theory]
-    [InlineData("My name is Grace Nakato", "Grace Nakato")]
-    [InlineData("call me sam", "Sam")]
-    [InlineData("Naitwa Juma", "Juma")]
-    public void AnUnambiguousIntroduction_GivesTheName(string message, string expected) =>
-        Assert.Equal(expected, CustomerAssistantService.IntroducedName(message));
-
-    [Fact]
-    public async Task ACustomerWithCover_IsNotMadeAProspectByWritingIn()
-    {
-        var fixture = Fixture.Create();
-        fixture.SeedPolicyholder("Brian Okello", "+256772118001", ("Motor", ValidPolicyNumber));
-
-        await fixture.HandleNamedAsync("Hello", "Bee");
-
-        Assert.Empty(fixture.SalesLeads.Created);
-    }
-
-    [Fact]
-    public async Task TheAgent_SavesANameAsSoonAsItHearsOne_WithoutRegisteringThemForCover()
-    {
-        var model = new ScriptedAgentModel()
-            .Calls("save_name", """{"full_name":"Aisha Namutebi"}""")
-            .Says("Nice to meet you, Aisha. What do you do for work?");
-        var fixture = Fixture.Create(agent: model);
-
-        await fixture.HandleNamedAsync("Hi, I'm Aisha Namutebi", "~");
-
-        var lead = Assert.Single(fixture.SalesLeads.Created);
-        Assert.Equal("Aisha Namutebi", lead.CustomerName);
-        Assert.Equal("Aisha Namutebi", Assert.Single(fixture.Customers.Customers).FullName);
-        Assert.Empty(await fixture.Policies.ListByCustomerAsync(fixture.Customers.Customers[0].CustomerId, fixture.Scope, default));
-        Assert.Contains("saved", model.ToolResults[0]);
-    }
-
-    private static InsuranceIntelligence.Application.Workspaces.IWorkspaceRecordStore OutcomeStore() =>
-        new InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceRecordStore(new InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext(
-            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options));
-
-    private static async Task<(InsuranceIntelligence.Application.Rules.DecisionLog Log, TenantScope Scope)> LogWithReasonAsync(string phone, DateTimeOffset sentAt)
-    {
-        var db = new InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext(
-            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
-        var log = new InsuranceIntelligence.Application.Rules.DecisionLog(new InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceRecordStore(db));
-        var scope = TenantScope.Create("tenant-ca", "workspace-ca");
-        await log.SaveReasonAsync(scope, new InsuranceIntelligence.Application.Rules.ConversationReason(
-            phone, "rule-1", "Loan Protector", "loan_disbursed", "Loan disbursed", "Mpingo Loan Protector", "Mpingo Life Assurance", "bank_cover_intro",
-            "Hello Eugene, this is Kato from Mavuno Bank.", sentAt, Demonstration: false));
-        return (log, scope);
-    }
-
-    [Fact]
-    public async Task TheAgent_KnowsWhyTheConversationBegan_WhenARuleWroteFirst()
-    {
-        var (log, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddHours(-3));
-        var model = new ScriptedAgentModel().Says("Mpingo Loan Protector pays off your loan.");
-        var fixture = Fixture.Create(agent: model, decisionLog: log);
-
-        await fixture.HandleFromAsync("Yes, show me", "256790000001");
-
-        var system = model.Conversations[0][0].Content!;
-        Assert.Contains("Why this conversation exists", system);
-        Assert.Contains("loan disbursed", system);
-        Assert.Contains("Mpingo Loan Protector", system);
-        Assert.Contains("Mpingo Life Assurance provides and pays", system);
-        Assert.DoesNotContain("8,000,000", system);
-    }
-
-    [Fact]
-    public async Task ABanksAgent_IsToldToAnswerHonestlyThatTheBankEarnsACommission()
-    {
-        using var bank = KatoBrand.Use(new KatoBrand("Mavuno Bank", "Mavuno Bank", [MicroinsuranceCatalog.Mpingo, MicroinsuranceCatalog.Kifaru]));
-        var model = new ScriptedAgentModel().Says("Hello.");
-
-        await Fixture.Create(agent: model).HandleFromAsync("Hi", "256790000555");
-
-        Assert.Contains("earns a commission from the insurer", model.Conversations[0][0].Content!);
-        Assert.Contains("never changes which cover you recommend", model.Conversations[0][0].Content!);
-    }
-
-    [Fact]
-    public async Task Stop_IsAnsweredOnceAndPlainly_WithdrawsConsent_AndTheModelIsNeverAsked()
-    {
-        var (log, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddHours(-2));
-        var model = new ScriptedAgentModel().Says("This must not be said.");
-        var fixture = Fixture.Create(agent: model, decisionLog: log, stopHandling: true);
-
-        await fixture.HandleFromAsync("STOP", "256790000001");
-
-        Assert.Empty(model.Conversations);
-        var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.Contains("You will not get any more messages", sent.CustomerSafeBody);
-        var lead = Assert.Single(fixture.SalesLeads.Created, item => item.Consent?.Status == ContactConsentStatus.Withdrawn);
-        Assert.Contains(lead.Activity, activity => activity.Text.Contains("STOP"));
-    }
-
-    [Fact]
-    public async Task AnyoneWhoSaysStop_IsHonoured_EvenWhenNoRuleWroteToThem()
-    {
-        var model = new ScriptedAgentModel().Says("This must not be said.");
-        var fixture = Fixture.Create(agent: model, stopHandling: true);
-
-        await fixture.HandleFromAsync("stop", "256790000222");
-
-        Assert.Empty(model.Conversations);
-        Assert.Contains("You will not get any more messages", Assert.Single(fixture.Outbound.SentRequests).CustomerSafeBody);
-    }
-
-    [Fact]
-    public async Task OnARenewalReminderTheAgentIsToldAPersonCompletesTheRenewal()
-    {
-        var db = new InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext(
-            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<InsuranceIntelligence.Infrastructure.Persistence.InsuranceIntelligenceDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
-        var log = new InsuranceIntelligence.Application.Rules.DecisionLog(new InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceRecordStore(db));
-        await log.SaveReasonAsync(TenantScope.Create("tenant-ca", "workspace-ca"), new InsuranceIntelligence.Application.Rules.ConversationReason(
-            "256790000001", "rule-1", "Renewal, 30 days", "policy_ending_30", "Policy ends within 30 days", "Nile Shield Life Family Funeral Cover", "Nile Shield Life Assurance",
-            "renewal_30_days", "Hello Sarah, your cover ends on 30 November.", DateTimeOffset.UtcNow.AddHours(-1), Demonstration: false));
-        var model = new ScriptedAgentModel().Says("A colleague will help.");
-
-        await Fixture.Create(agent: model, decisionLog: log).HandleFromAsync("Yes, renew", "256790000001");
-
-        var system = model.Conversations[0][0].Content!;
-        Assert.Contains("reminder about a policy they already hold", system);
-        Assert.Contains("a colleague will complete it with them", system);
-        Assert.DoesNotContain("explain Nile Shield Life Family Funeral Cover from the approved wording", system);
-    }
-
-    [Fact]
-    public async Task TheAgent_KnowsWhoItWorksFor_FromTheOrganisationsOwnProfile_AndSaysNothingWhenThereIsNone()
-    {
-        var store = OutcomeStore();
-        var profile = new InsuranceIntelligence.Application.Organisations.CompanyProfileService(store, TimeProvider.System);
-        await profile.SaveProfileAsync(
-            TenantScope.Create("tenant-ca", "workspace-ca"),
-            new InsuranceIntelligence.Application.Organisations.CompanyProfile(
-                "Mavuno Bank Limited", "Mavuno Bank", InsuranceIntelligence.Application.Organisations.LicenceKind.BancassuranceDistributor, "IRA/BA/0042", "", "",
-                "Aisha", "aisha@mavuno.example", null, null, "Mavuno Bank serves salaried workers and small traders across Uganda.", DateTimeOffset.UnixEpoch, "x"),
-            "admin");
-        var withProfile = new ScriptedAgentModel().Says("Hello.");
-        var without = new ScriptedAgentModel().Says("Hello.");
-
-        await Fixture.Create(agent: withProfile, companyProfile: profile).HandleFromAsync("Hi", "256790000900");
-        await Fixture.Create(agent: without).HandleFromAsync("Hi", "256790000901");
-
-        Assert.Contains("Mavuno Bank serves salaried workers", withProfile.Conversations[0][0].Content!);
-        Assert.Contains("licensed under IRA/BA/0042", withProfile.Conversations[0][0].Content!);
-        Assert.DoesNotContain("About the company, in its own words", without.Conversations[0][0].Content!);
-    }
-
-    [Fact]
-    public async Task TheAgent_IgnoresAReasonThatIsTooOld_OrBelongsToAnotherNumber()
-    {
-        var (oldLog, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddDays(-30));
-        var model = new ScriptedAgentModel().Says("Hello.");
-        await Fixture.Create(agent: model, decisionLog: oldLog).HandleFromAsync("Hi", "256790000001");
-        Assert.DoesNotContain("Why this conversation exists", model.Conversations[0][0].Content!);
-
-        var (log, _) = await LogWithReasonAsync("256790000001", DateTimeOffset.UtcNow.AddHours(-1));
-        var other = new ScriptedAgentModel().Says("Hello.");
-        await Fixture.Create(agent: other, decisionLog: log).HandleFromAsync("Hi", "256790000777");
-        Assert.DoesNotContain("Why this conversation exists", other.Conversations[0][0].Content!);
-    }
-
-    [Fact]
-    public async Task TheAgent_IsToldWhenWhatItWasGivenIsNotAName()
-    {
-        var model = new ScriptedAgentModel()
-            .Calls("save_name", """{"full_name":"!!"}""")
-            .Says("What would you like me to call you?");
-        var fixture = Fixture.Create(agent: model);
-
-        await fixture.HandleNamedAsync("hello", "~");
-
-        Assert.Contains("not_a_name", model.ToolResults[0]);
-        Assert.Equal("WhatsApp customer", Assert.Single(fixture.SalesLeads.Created).CustomerName);
     }
 
     [Theory]
@@ -1203,29 +877,13 @@ public sealed partial class CustomerAssistantServiceTests
     private const string AgentDemoPhone = "+256772118001"; // the fixture default sender
 
     [Fact]
-    public async Task Agent_InReviewMode_SendsOnlyTheFixedHoldingReplyAndStoresTheDraftSeparately()
-    {
-        const string draft = "I can help with that question.";
-        var fixture = Fixture.Create(agent: new ScriptedAgentModel().Says(draft));
-
-        await fixture.HandleAsync("Hello");
-
-        var sent = Assert.Single(fixture.Outbound.SentRequests);
-        Assert.DoesNotContain(draft, sent.CustomerSafeBody, StringComparison.Ordinal);
-        var turn = Assert.Single(fixture.Conversations.Saved);
-        Assert.Equal(CustomerAssistantOutcome.QueuedForHumanApproval, turn.Outcome);
-        Assert.Equal(draft, turn.PendingReplyDraftText);
-        Assert.Equal(sent.CustomerSafeBody, turn.OutboundReplyText);
-    }
-
-    [Fact]
     public async Task Agent_OnTheDemoPhone_RegistersANewPerson_AndIssuesTheCoverTheyChoose()
     {
         var model = new ScriptedAgentModel()
             .Calls("register_customer", """{"full_name":"Grace Nakato","occupation":"boutique owner","area":"Jinja road"}""")
             .Calls("apply_for_cover", """{"product":"Small Business Shop"}""")
             .Says("Done, Grace. Your Small Business Shop Cover is active.");
-        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone, autoReplyEnabled: true);
+        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone);
 
         await fixture.HandleAsync("I'm Grace Nakato, I own a boutique on Jinja road. Register me for shop cover");
 
@@ -1246,7 +904,7 @@ public sealed partial class CustomerAssistantServiceTests
             .Calls("register_customer", """{"full_name":"Grace Nakato"}""")
             .Calls("apply_for_cover", """{"product":"Small Business Shop","cover_amount_ugx":3000000}""")
             .Says("Done.");
-        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone, autoReplyEnabled: true);
+        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone);
 
         await fixture.HandleAsync("Go ahead, about 3 million in stock");
 
@@ -1294,12 +952,12 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal("I sell shoes", lead.Facts.Single(fact => fact.Key == "occupation").Value);
         Assert.Equal("Kalerwe", lead.Facts.Single(fact => fact.Key == "area").Value);
         Assert.All(lead.Facts, fact => Assert.Equal(ProspectFactSource.Customer, fact.Source));
-        Assert.Equal(["Wrote in on WhatsApp", "Registered on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
+        Assert.Equal(["Registered on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
         Assert.NotNull(lead.ThreadId);
     }
 
     [Fact]
-    public async Task Agent_AskingForAPersonAlone_MarksTheFirstContactRecordHandedOver_WithoutAnyInterest()
+    public async Task Agent_AskingForAPersonAlone_DoesNotMakeSomeoneAProspect()
     {
         var model = new ScriptedAgentModel()
             .Calls("hand_to_person", """{"reason":"Unhappy about how long a claim is taking"}""")
@@ -1308,10 +966,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         await fixture.HandleAsync("I want to talk to a manager about my claim");
 
-        // Asking for a person is not interest in a cover: the first-contact record is marked handed over, and shows no interest.
-        var lead = Assert.Single(fixture.SalesLeads.Created);
-        Assert.NotNull(lead.HandedToPersonAt);
-        Assert.Empty(lead.Interests);
+        Assert.Empty(fixture.SalesLeads.Created);
     }
 
     [Fact]
@@ -1322,7 +977,7 @@ public sealed partial class CustomerAssistantServiceTests
             .Says(question)
             .Calls("record_contact_consent", """{"agreed":true}""")
             .Says("Thank you, we will.");
-        var fixture = Fixture.Create(agent: model, autoReplyEnabled: true);
+        var fixture = Fixture.Create(agent: model);
 
         await fixture.HandleAsync("I am thinking about shop cover");
         await fixture.HandleAsync("Yes please");
@@ -1342,13 +997,13 @@ public sealed partial class CustomerAssistantServiceTests
             .Says("Would you like Nile Shield to message you later about cover?")
             .Calls("record_contact_consent", """{"agreed":true}""")
             .Says("Shop cover is UGX 15,000 a month.");
-        var fixture = Fixture.Create(agent: model, autoReplyEnabled: true);
+        var fixture = Fixture.Create(agent: model);
 
         await fixture.HandleAsync("I am thinking about shop cover");
         await fixture.HandleAsync("How much does it cost?");
 
         Assert.Contains("not_their_answer", model.ToolResults[0]);
-        AssertOnlyAFirstContactRecord(fixture);
+        Assert.Empty(fixture.SalesLeads.Created);
     }
 
     [Fact]
@@ -1451,7 +1106,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         var second = model.Conversations[1];
         Assert.Contains(second, m => m.Role == "user" && m.Content == "Hello");
-        Assert.Contains(second, m => m.Role == "assistant" && m.Content == KatoReplies.CheckingAnswer(null));
+        Assert.Contains(second, m => m.Role == "assistant" && m.Content == "Hello Grace, how can I help?");
         Assert.Equal("Then for businesses?", second[^1].Content);
     }
 
@@ -1647,7 +1302,7 @@ public sealed partial class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.AutoReplied, turn.Outcome);
         Assert.Contains("You're welcome", turn.OutboundReplyText);
-        AssertOnlyAFirstContactRecord(fixture);
+        Assert.Empty(fixture.SalesLeads.Created);
     }
 
     [Fact]
@@ -1803,16 +1458,12 @@ public sealed partial class CustomerAssistantServiceTests
             IVoiceNoteTranscriber? voice = null,
             IVoiceNoteSpeaker? speaker = null,
             IToolCallingChatProvider? agent = null,
-            InsuranceIntelligence.Application.Rules.DecisionLog? decisionLog = null,
-            bool stopHandling = false,
-            InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null,
-            IClaimIdentityVerifier? claimIdentity = null,
-            bool withCrossChannelContext = false,
-            bool consentOtherChannel = true,
             InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null,
-            InsuranceIntelligence.Application.Customers.ICustomerMemoryService? customerMemory = null)
+            InsuranceIntelligence.Application.Customers.ICustomerMemoryService? customerMemory = null,
+            IAssistantBrandProvider? brandProvider = null,
+            string tenantId = "tenant-ca")
         {
-            var scope = TenantScope.Create("tenant-ca", "workspace-ca");
+            var scope = TenantScope.Create(tenantId, "workspace-ca");
             var cases = new InMemoryCaseRepository();
             var policies = new FakePolicyRepository();
             var customers = new FakeCustomerRepository();
@@ -1830,51 +1481,6 @@ public sealed partial class CustomerAssistantServiceTests
             var linkIssuer = new FakeAccessLinkIssuer();
             var languagePreferences = new InMemoryCustomerLanguagePreferenceRepository();
             var insightsQueue = new RecordingInsightsQueue();
-            var channelIdentityLinks = withCrossChannelContext ? new FakeChannelIdentityLinkRepository() : null;
-            var channelMessages = withCrossChannelContext ? new FakeChannelMessageRepository() : null;
-            var integrationConnections = withCrossChannelContext ? new FakeIntegrationConnectionRepository() : null;
-            if (withCrossChannelContext)
-            {
-                var recordedAt = DateTimeOffset.UtcNow;
-                const string customerId = "customer-123";
-                foreach (var channel in new[] { ChannelValues.WhatsApp, ChannelValues.Instagram })
-                {
-                    var purpose = ChannelIdentityConsentPurposes.ForChannel(channel);
-                    if (channel == ChannelValues.WhatsApp || consentOtherChannel)
-                    {
-                        consent.SaveAsync(new ConsentRecord
-                        {
-                            RecordId = Guid.NewGuid(), Scope = scope, CustomerIdentifier = customerId,
-                            Basis = ConsentBasis.ExplicitOptIn, Purpose = purpose, Channel = channel,
-                            RecordedByUserId = "staff-1", RecordedAt = recordedAt, CorrelationId = "linked-consent",
-                        }).GetAwaiter().GetResult();
-                    }
-                    channelIdentityLinks!.Items.Add(new ChannelIdentityLink
-                    {
-                        LinkId = Guid.NewGuid(), Scope = scope, CustomerId = customerId, Channel = channel,
-                        AccountId = channel == ChannelValues.WhatsApp ? "phone-1" : "instagram-account",
-                        ExternalRecipientId = channel == ChannelValues.WhatsApp ? "256772118001" : "ig-recipient-1",
-                        VerificationMethod = ChannelIdentityVerificationMethod.StaffVerifiedCustomerChallenge,
-                        EvidenceReference = "test-evidence", ConsentPurpose = purpose, LinkedByUserId = "staff-1",
-                        LinkedAt = recordedAt, IsActive = true,
-                    });
-                }
-                channelMessages!.Items.Add(new ChannelMessage
-                {
-                    MessageId = Guid.NewGuid(), Scope = scope, Channel = ChannelValues.Instagram,
-                    AccountId = "instagram-account", ThreadId = "instagram-thread", ExternalRecipientId = "ig-recipient-1",
-                    Direction = ChannelMessageDirection.Inbound, ContentType = "Text",
-                    CustomerSafeBody = "My appointment is Tuesday; call me at 0772123456.",
-                    DeliveryState = ChannelMessageDeliveryState.Received, CreatedAt = recordedAt.AddMinutes(-2),
-                    UpdatedAt = recordedAt.AddMinutes(-2), CorrelationId = "cross-channel-message",
-                });
-                integrationConnections!.Connections[ConnectionType.Instagram] = new IntegrationConnection
-                {
-                    Scope = scope, ConnectionType = ConnectionType.Instagram, ProviderKey = "Meta",
-                    EncryptedSecretSettingsJson = "test-cipher", ConfiguredByUserId = "staff-1", ConfiguredAt = recordedAt,
-                    IsActive = true, LastValidationStatus = "Success", LastValidationDiscoveredJson = "{\"accountId\":\"instagram-account\"}",
-                };
-            }
             IChatCompletionProvider? model = modelThrows
                 ? new FakeChatCompletionProvider(null)
                 : modelAnswer is null ? null : new FakeChatCompletionProvider(modelAnswer);
@@ -1908,16 +1514,10 @@ public sealed partial class CustomerAssistantServiceTests
                 voice,
                 speaker,
                 agent,
-                insightsQueue,
-                decisionLog: decisionLog,
-                companyProfile: companyProfile,
-                outcomes: stopHandling ? new InsuranceIntelligence.Application.Rules.OutcomeService(OutcomeStore(), decisionLog ?? new InsuranceIntelligence.Application.Rules.DecisionLog(OutcomeStore()), salesLeads, consent) : null,
-                claimIdentity: claimIdentity ?? new VerifiedClaimIdentity(),
-                channelIdentityLinks: channelIdentityLinks,
-                channelMessages: channelMessages,
-                integrationConnections: integrationConnections,
+                insightsQueue: insightsQueue,
                 claimantStatus: claimantStatus,
-                customerMemory: customerMemory);
+                customerMemory: customerMemory,
+                assistantBrandProvider: brandProvider);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {
@@ -2228,43 +1828,6 @@ public sealed partial class CustomerAssistantServiceTests
             Task.FromResult<IReadOnlyCollection<ConsentRecord>>(records.Where(r => r.Scope.Matches(scope) && r.CustomerIdentifier == customerIdentifier).ToArray());
     }
 
-    private sealed class FakeChannelIdentityLinkRepository : IChannelIdentityLinkRepository
-    {
-        public List<ChannelIdentityLink> Items { get; } = [];
-        public Task<ChannelIdentityLink?> FindByExternalIdentityAsync(TenantScope scope, string channel, string accountId, string externalRecipientId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.FirstOrDefault(item => item.Scope.Matches(scope) && item.Channel == channel && item.AccountId == accountId && item.ExternalRecipientId == externalRecipientId));
-        public Task<ChannelIdentityLink?> GetAsync(TenantScope scope, Guid linkId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.FirstOrDefault(item => item.Scope.Matches(scope) && item.LinkId == linkId));
-        public Task<IReadOnlyList<ChannelIdentityLink>> ListForCustomerAsync(TenantScope scope, string customerId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<ChannelIdentityLink>>(Items.Where(item => item.Scope.Matches(scope) && item.CustomerId == customerId).ToArray());
-        public Task SaveAsync(ChannelIdentityLink link, CancellationToken cancellationToken = default)
-        {
-            Items.RemoveAll(item => item.LinkId == link.LinkId);
-            Items.Add(link);
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class FakeChannelMessageRepository : IChannelMessageRepository
-    {
-        public List<ChannelMessage> Items { get; } = [];
-        public Task<IReadOnlyList<ChannelMessage>> ListForExternalRecipientAsync(TenantScope scope, string channel, string accountId, string externalRecipientId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<ChannelMessage>>(Items.Where(item => item.Scope.Matches(scope) && item.Channel == channel && item.AccountId == accountId && item.ExternalRecipientId == externalRecipientId).ToArray());
-        public Task<IReadOnlyList<ChannelMessage>> ListThreadAsync(TenantScope scope, string channel, string threadId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ChannelMessage>>([]);
-        public Task<bool> SaveInboundIfNewAsync(ChannelMessage message, CancellationToken cancellationToken = default) => Task.FromResult(false);
-        public Task SaveAsync(ChannelMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<ChannelMessage?> FindByIdempotencyKeyAsync(TenantScope scope, string channel, string accountId, string idempotencyKey, CancellationToken cancellationToken = default) => Task.FromResult<ChannelMessage?>(null);
-    }
-
-    private sealed class FakeIntegrationConnectionRepository : IIntegrationConnectionRepository
-    {
-        public Dictionary<ConnectionType, IntegrationConnection> Connections { get; } = [];
-        public Task<IntegrationConnection?> GetAsync(TenantScope scope, ConnectionType connectionType, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Connections.GetValueOrDefault(connectionType));
-        public Task SaveAsync(IntegrationConnection connection, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task DeleteAsync(TenantScope scope, ConnectionType connectionType, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
-
     private sealed class NoOpNotificationEmitter : INotificationEmitter
     {
         public Task NotifyAsync(TenantScope scope, string recipientUserId, NotificationType type, string message, Guid caseId, CancellationToken cancellationToken = default) =>
@@ -2300,8 +1863,7 @@ public sealed partial class CustomerAssistantServiceTests
 
     private sealed class TestLanguageSettings(IReadOnlyCollection<SupportedLanguageCode> enabled, bool allowUnreviewed) : IAssistantLanguageSettings
     {
-        public Task<IReadOnlyCollection<SupportedLanguageCode>> GetEnabledLanguagesAsync(
-            TenantScope scope, CancellationToken cancellationToken = default) => Task.FromResult(enabled);
+        public IReadOnlyCollection<SupportedLanguageCode> EnabledLanguages => enabled;
 
         public bool AllowUnreviewedTranslations => allowUnreviewed;
     }

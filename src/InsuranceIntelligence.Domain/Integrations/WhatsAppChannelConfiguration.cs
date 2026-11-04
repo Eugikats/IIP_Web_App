@@ -12,8 +12,9 @@ namespace InsuranceIntelligence.Domain.Integrations;
 /// sent back to a browser once saved (see WhatsAppConfigurationEndpoints.GetStatus, which returns
 /// only booleans and non-secret metadata).
 ///
-/// One row per tenant: this edition of IIP deploys one Managed Application per insurer, so a
-/// tenant's WhatsApp Business number is a singleton, not a list.
+/// One row per workspace: a workspace has one WhatsApp Business number. Several workspaces on one
+/// deployment each have their own row, and an inbound webhook is routed to the workspace whose row
+/// holds the phone number it names (build-loop item 27). A phone number can belong to one workspace only.
 /// </summary>
 public sealed record WhatsAppChannelConfiguration
 {
@@ -64,9 +65,10 @@ public interface IWhatsAppChannelConfigurationRepository
 
     Task DeleteAsync(TenantScope scope, CancellationToken cancellationToken = default);
 
-    /// <summary>Every active connection across all tenants. Platform-level on purpose: the one
-    /// webhook URL must find which insurer a WhatsApp number belongs to before any tenant is known.
-    /// Never exposed through an API; only the runtime settings provider calls it.</summary>
+    /// <summary>Every active connection in every workspace. Deliberately not scoped: a webhook from Meta
+    /// names only a phone number, and the number is what says which workspace it belongs to (build-loop
+    /// item 27). Used only by the routing snapshot (WhatsAppRuntimeSettingsProvider) and the check that a
+    /// number is saved by one workspace at most; never returned to a caller or a browser.</summary>
     Task<IReadOnlyList<WhatsAppChannelConfiguration>> ListActiveAsync(CancellationToken cancellationToken = default);
 }
 

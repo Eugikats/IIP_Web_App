@@ -255,6 +255,8 @@ public static class MicroinsuranceCatalog
 
     public static MicroProduct? FindByLineOrName(string? value) => FindAmong(All, value);
 
+    public static MicroProduct? FindIn(IEnumerable<MicroProduct> products, string? value) => FindAmong(products, value);
+
     public static MicroProduct? FindAmong(IEnumerable<MicroProduct> products, string? value)
     {
         if (string.IsNullOrWhiteSpace(value))

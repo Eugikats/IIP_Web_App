@@ -76,6 +76,17 @@ public sealed record TenantSettings
     /// <summary>The document kinds a customer may reuse from an earlier claim. Empty means proof of identity only.</summary>
     public IReadOnlyList<string>? CustomerMemoryDocumentKeys { get; init; }
 
+    /// <summary>Whose assistant Kato is for this workspace (build-loop item 27): the organisation's name. Empty means the
+    /// deployment's default brand.</summary>
+    public string? AssistantOrganisation { get; init; }
+
+    /// <summary>The short name Kato uses in conversation. Empty means the organisation's name.</summary>
+    public string? AssistantShortName { get; init; }
+
+    /// <summary>For a bank or agent selling other insurers' covers: those insurers, comma separated. Empty means the
+    /// organisation sells its own covers only.</summary>
+    public string? AssistantPartnerInsurers { get; init; }
+
     public string? UpdatedByUserId { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
 
@@ -126,6 +137,16 @@ public sealed record TenantSettings
             errors.Add("At most 30 keys can be listed for customer memory.");
         }
 
+        if ((AssistantOrganisation?.Length ?? 0) > 120 || (AssistantShortName?.Length ?? 0) > 60 || (AssistantPartnerInsurers?.Length ?? 0) > 600)
+        {
+            errors.Add("The assistant's organisation can be at most 120 characters, its short name 60, and the partner insurers 600.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(AssistantPartnerInsurers) && string.IsNullOrWhiteSpace(AssistantOrganisation))
+        {
+            errors.Add("Name the organisation the assistant speaks for before listing partner insurers.");
+        }
+
         return errors;
     }
 
@@ -146,6 +167,9 @@ public sealed record TenantSettings
         if (!(ClaimsPackRecipients ?? []).SequenceEqual(previous.ClaimsPackRecipients ?? [], StringComparer.OrdinalIgnoreCase)) changed.Add(nameof(ClaimsPackRecipients));
         if (!string.Equals(ClaimsPackTrigger, previous.ClaimsPackTrigger, StringComparison.Ordinal)) changed.Add(nameof(ClaimsPackTrigger));
         if (!string.Equals(ClaimsPackTriggerStatus, previous.ClaimsPackTriggerStatus, StringComparison.Ordinal)) changed.Add(nameof(ClaimsPackTriggerStatus));
+        if (!string.Equals(AssistantOrganisation, previous.AssistantOrganisation, StringComparison.Ordinal)) changed.Add(nameof(AssistantOrganisation));
+        if (!string.Equals(AssistantShortName, previous.AssistantShortName, StringComparison.Ordinal)) changed.Add(nameof(AssistantShortName));
+        if (!string.Equals(AssistantPartnerInsurers, previous.AssistantPartnerInsurers, StringComparison.Ordinal)) changed.Add(nameof(AssistantPartnerInsurers));
         if (CustomerMemoryEnabled != previous.CustomerMemoryEnabled) changed.Add(nameof(CustomerMemoryEnabled));
         if (!(CustomerMemoryFieldKeys ?? []).SequenceEqual(previous.CustomerMemoryFieldKeys ?? [], StringComparer.Ordinal)) changed.Add(nameof(CustomerMemoryFieldKeys));
         if (!(CustomerMemoryDocumentKeys ?? []).SequenceEqual(previous.CustomerMemoryDocumentKeys ?? [], StringComparer.Ordinal)) changed.Add(nameof(CustomerMemoryDocumentKeys));

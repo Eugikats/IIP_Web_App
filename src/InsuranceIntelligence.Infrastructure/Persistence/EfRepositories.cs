@@ -494,6 +494,17 @@ public sealed class EfMailboxConnectionRepository(InsuranceIntelligenceDbContext
             .FirstOrDefaultAsync(item => item.Id == mailboxConnectionId, cancellationToken);
         return record is null ? null : Deserialize<MailboxConnection>(record.PayloadJson);
     }
+
+    public async Task<IReadOnlyList<TenantScope>> ListScopesWithIngestionAsync(CancellationToken cancellationToken = default)
+    {
+        // Every workspace's mailboxes are read here on purpose and only to learn which workspaces to visit.
+        var records = await DbContext.MailboxConnections.AsNoTracking().ToListAsync(cancellationToken);
+        return records
+            .Where(record => Deserialize<MailboxConnection>(record.PayloadJson).IngestionEnabled)
+            .Select(record => TenantScope.Create(record.TenantId, record.WorkspaceId))
+            .Distinct()
+            .ToArray();
+    }
 }
 
 public sealed class EfInboundEmailRepository(InsuranceIntelligenceDbContext dbContext)

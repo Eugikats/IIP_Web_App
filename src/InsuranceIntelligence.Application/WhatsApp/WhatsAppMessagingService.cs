@@ -170,6 +170,7 @@ public sealed class WhatsAppMessagingService(
                     ? "[verification code redacted]" : inbound.CustomerSafeBody,
                 ProviderMessageId = inbound.ProviderMessageId,
                 ReplyToProviderMessageId = inbound.ReplyToProviderMessageId,
+                MediaId = inbound.MediaId, ProfileName = inbound.ProfileName,
                 DeliveryState = WhatsAppDeliveryState.Received, CreatedAt = inbound.ReceivedAt,
                 UpdatedAt = inbound.ReceivedAt, CorrelationId = Guid.NewGuid().ToString("N")
             };

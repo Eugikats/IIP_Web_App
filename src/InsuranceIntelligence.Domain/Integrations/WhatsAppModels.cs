@@ -78,6 +78,13 @@ public sealed record WhatsAppMessage
     public required string CustomerSafeBody { get; init; }
     public string? ProviderMessageId { get; init; }
     public string? ReplyToProviderMessageId { get; init; }
+
+    /// <summary>For an inbound voice note, the Meta media id to fetch it with. Kept so the assistant's
+    /// background job can be rebuilt from the stored message alone (build-loop item 27).</summary>
+    public string? MediaId { get; init; }
+
+    /// <summary>The name the sender set on their own WhatsApp profile, kept for the same reason.</summary>
+    public string? ProfileName { get; init; }
     public string? TemplateName { get; init; }
     public string? Language { get; init; }
     public string? Purpose { get; init; }

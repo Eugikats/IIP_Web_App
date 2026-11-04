@@ -51,8 +51,12 @@ public sealed class MailboxIngestionService(
     IMailboxConnectionRepository mailboxRepository,
     IInboundEmailRepository emailRepository,
     IGraphMailProvider graphMailProvider,
-    IAuditRepository auditRepository) : IMailboxIngestionService
+    IAuditRepository auditRepository,
+    // Optional: without it an IMAP mailbox is reported as unreachable instead of being read (build-loop item 28).
+    IImapMailProvider? imapMailProvider = null) : IMailboxIngestionService
 {
+    private static readonly TimeSpan StatusRefreshAfter = TimeSpan.FromMinutes(30);
+
     public async Task<MailboxIngestionResult> IngestAsync(
         TenantScope scope,
         string correlationId,
@@ -80,13 +84,18 @@ public sealed class MailboxIngestionService(
             IReadOnlyCollection<InboundEmailMessage> pulled;
             try
             {
-                pulled = await graphMailProvider.PullMessagesAsync(mailbox, cancellationToken);
+                pulled = mailbox.Source == MailboxSource.Imap
+                    ? imapMailProvider is null
+                        ? throw new InvalidOperationException("IMAP mailboxes are not available in this deployment.")
+                        : await imapMailProvider.PullMessagesAsync(mailbox, cancellationToken)
+                    : await graphMailProvider.PullMessagesAsync(mailbox, cancellationToken);
             }
-            catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
+            catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or IOException or System.Security.Authentication.AuthenticationException or TimeoutException)
             {
                 // One misconfigured or unreachable mailbox must not stop the others from being
                 // collected, and must not look like an empty inbox either.
                 unavailable.Add(mailbox.MailboxAddress);
+                await RecordStatusAsync(mailbox, "CouldNotConnect", cancellationToken);
                 continue;
             }
 
@@ -101,6 +110,8 @@ public sealed class MailboxIngestionService(
                 await emailRepository.SaveAsync(message, cancellationToken);
                 ingested++;
             }
+
+            await RecordStatusAsync(mailbox, "Collected", cancellationToken);
         }
 
         if (ingested > 0 || unavailable.Count > 0)
@@ -121,5 +132,65 @@ public sealed class MailboxIngestionService(
         }
 
         return new MailboxIngestionResult(mailboxes.Length, ingested, alreadyPresent, unavailable);
+    }
+
+    /// <summary>Remembers how the last pass went, so an administrator can see a mailbox that has stopped working. Written only when
+    /// the answer changes or the note is old, so a healthy mailbox does not cost a write every few minutes.</summary>
+    private async Task RecordStatusAsync(MailboxConnection mailbox, string status, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (mailbox.LastCheckStatus == status && mailbox.LastCheckedAt is { } last && now - last < StatusRefreshAfter)
+        {
+            return;
+        }
+
+        try
+        {
+            await mailboxRepository.SaveAsync(mailbox with { LastCheckedAt = now, LastCheckStatus = status }, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // The note is a convenience; failing to write it must not undo a collection that worked.
+        }
+    }
+}
+
+public sealed record MailboxRunResult(int WorkspacesVisited, int MessagesIngested, int WorkspacesFailed);
+
+public interface IMailboxIngestionRunner
+{
+    /// <summary>Collects mail for every workspace that has a mailbox switched on.</summary>
+    Task<MailboxRunResult> RunAllAsync(string correlationId, string actorUserId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// The scheduled collection (build-loop item 28). It used to read one workspace, the deployment's own. It now visits every
+/// workspace with a mailbox switched on, one at a time, each in its own scope; a workspace that fails is counted and skipped so
+/// one insurer's broken mailbox never stops another's mail.
+/// </summary>
+public sealed class MailboxIngestionRunner(
+    IMailboxConnectionRepository mailboxRepository,
+    IMailboxIngestionService ingestionService) : IMailboxIngestionRunner
+{
+    public async Task<MailboxRunResult> RunAllAsync(string correlationId, string actorUserId, CancellationToken cancellationToken = default)
+    {
+        var visited = 0;
+        var ingested = 0;
+        var failed = 0;
+        foreach (var scope in await mailboxRepository.ListScopesWithIngestionAsync(cancellationToken))
+        {
+            visited++;
+            try
+            {
+                var result = await ingestionService.IngestAsync(scope, correlationId, actorUserId, cancellationToken);
+                ingested += result.MessagesIngested;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                failed++;
+            }
+        }
+
+        return new MailboxRunResult(visited, ingested, failed);
     }
 }

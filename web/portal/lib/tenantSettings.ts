@@ -20,6 +20,10 @@ export type TenantSettings = {
   customerMemoryDocumentKeys: string[] | null;
   defaultCustomerMemoryFieldKeys: string[];
   defaultCustomerMemoryDocumentKeys: string[];
+  /** Whose assistant Kato is for this workspace. Null while the deployment's own default is in use. */
+  assistantOrganisation: string | null;
+  assistantShortName: string | null;
+  assistantPartnerInsurers: string | null;
   defaults: {
     requireIraApprovalForPublish: boolean;
     missingDocumentReminderDays: number;

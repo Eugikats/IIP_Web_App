@@ -13,6 +13,29 @@ public sealed record MailboxConnection
     public string? ProductLine { get; init; }
     public string? ProcessedFolderName { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>Where this mailbox's mail is collected from (build-loop item 28). Existing mailboxes are Microsoft 365 (Graph).</summary>
+    public MailboxSource Source { get; init; } = MailboxSource.Graph;
+
+    /// <summary>For a Microsoft 365 mailbox: the insurer's own Microsoft Entra directory (tenant) id, which the platform's app
+    /// is consented in. Empty means the deployment's own directory.</summary>
+    public string? EntraTenantId { get; init; }
+
+    /// <summary>For an IMAP mailbox: the mail host, always reached over TLS.</summary>
+    public string? ImapHost { get; init; }
+
+    public int ImapPort { get; init; } = 993;
+
+    public string? ImapUsername { get; init; }
+
+    /// <summary>The IMAP password, encrypted at rest. Never returned to a browser and never logged.</summary>
+    public string? EncryptedImapPassword { get; init; }
+
+    /// <summary>When the last collection pass reached this mailbox, and how it went ("Collected" or "CouldNotConnect"), so a
+    /// mailbox that has quietly stopped working is visible instead of looking like an empty inbox.</summary>
+    public DateTimeOffset? LastCheckedAt { get; init; }
+
+    public string? LastCheckStatus { get; init; }
 }
 
 public sealed record EmailIngestionRule(

@@ -81,6 +81,15 @@ public static class InfrastructureRegistration
 
         services.AddHttpClient<IGraphMailClient, MicrosoftGraphMailClient>();
         services.AddSingleton<IGraphMailProvider, GraphMailProvider>();
+
+        // IMAP mailboxes for insurers without Microsoft 365 (build-loop item 28). Independent of EmailProvider: a workspace
+        // chooses per mailbox. A developer runtime may also reach private addresses so a local test mail server can be used.
+        services.AddSingleton(new InsuranceIntelligence.Infrastructure.Email.ImapEndpointPolicy(IsLocalOnlyRuntime(options, environment)));
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IImapMailClient, InsuranceIntelligence.Infrastructure.Email.MailKitImapMailClient>();
+        services.AddSingleton<InsuranceIntelligence.Domain.Integrations.IImapMailProvider, InsuranceIntelligence.Infrastructure.Email.ImapMailProvider>();
+        services.AddScoped<InsuranceIntelligence.Infrastructure.Email.EmailAttachmentDocumentBuilder>();
+        // An email that arrived over IMAP has its attachments fetched by this processor; ProcessMessage picks it by the mailbox's source.
+        services.AddScoped<InsuranceIntelligence.Infrastructure.Email.ImapEmailAttachmentProcessor>();
         if (options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
         {
             // TestIngestion pulls live mail through IGraphMailProvider in Graph mode, this type is
@@ -349,6 +358,7 @@ public static class InfrastructureRegistration
         // scheduled and manual collection paths are provably the same code rather than two that
         // can drift -- the same rationale RetentionEnforcementService is registered under.
         services.AddScoped<InsuranceIntelligence.Application.Integrations.IMailboxIngestionService, InsuranceIntelligence.Application.Integrations.MailboxIngestionService>();
+        services.AddScoped<InsuranceIntelligence.Application.Integrations.IMailboxIngestionRunner, InsuranceIntelligence.Application.Integrations.MailboxIngestionRunner>();
         services.AddScoped<InsuranceIntelligence.Application.Compliance.IDataSubjectRightsService, InsuranceIntelligence.Application.Compliance.DataSubjectRightsService>();
         services.AddSingleton<InsuranceIntelligence.Domain.CustomerAssistant.ICustomerIntentClassifier, InsuranceIntelligence.Domain.CustomerAssistant.KeywordCustomerIntentClassifier>();
         services.AddScoped<InsuranceIntelligence.Infrastructure.DemoSeeding.IDemoDataPurgeService, InsuranceIntelligence.Infrastructure.DemoSeeding.EfDemoDataPurgeService>();

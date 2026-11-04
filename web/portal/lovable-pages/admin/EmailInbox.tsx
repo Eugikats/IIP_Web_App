@@ -40,8 +40,22 @@ const STATUS_LABEL: Record<number, string> = {
   3: "Processing failed",
 };
 
-type MailboxFormState = { displayName: string; mailboxAddress: string; productLine: string; ingestionEnabled: boolean };
-const EMPTY_MAILBOX_FORM: MailboxFormState = { displayName: "", mailboxAddress: "", productLine: "", ingestionEnabled: true };
+type MailboxFormState = {
+  displayName: string;
+  mailboxAddress: string;
+  productLine: string;
+  ingestionEnabled: boolean;
+  source: "Graph" | "Imap";
+  entraTenantId: string;
+  imapHost: string;
+  imapPort: string;
+  imapUsername: string;
+  imapPassword: string;
+};
+const EMPTY_MAILBOX_FORM: MailboxFormState = {
+  displayName: "", mailboxAddress: "", productLine: "", ingestionEnabled: true,
+  source: "Graph", entraTenantId: "", imapHost: "", imapPort: "993", imapUsername: "", imapPassword: "",
+};
 
 export default function EmailInbox() {
   const { roleDef } = useUI();
@@ -58,6 +72,12 @@ export default function EmailInbox() {
   const [processingMessage, setProcessingMessage] = useState<InboundEmailMessage | null>(null);
   const displayNameId = useId();
   const mailboxAddressId = useId();
+  const sourceId = useId();
+  const entraId = useId();
+  const imapHostId = useId();
+  const imapPortId = useId();
+  const imapUserId = useId();
+  const imapPasswordId = useId();
   const productLineId = useId();
 
   async function load() {
@@ -91,6 +111,15 @@ export default function EmailInbox() {
       ingestionEnabled: mailboxForm.ingestionEnabled,
       defaultChannel: "Email",
       productLine: mailboxForm.productLine.trim() || undefined,
+      source: mailboxForm.source,
+      ...(mailboxForm.source === "Graph"
+        ? { entraTenantId: mailboxForm.entraTenantId.trim() || undefined }
+        : {
+            imapHost: mailboxForm.imapHost.trim(),
+            imapPort: Number(mailboxForm.imapPort) || 993,
+            imapUsername: mailboxForm.imapUsername.trim(),
+            imapPassword: mailboxForm.imapPassword,
+          }),
     };
     const result = await createMailbox(role, input, reason);
     if (!result.ok) {
@@ -192,6 +221,12 @@ export default function EmailInbox() {
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <Badge tone={mailbox.ingestionEnabled ? "success" : "neutral"}>{mailbox.ingestionEnabled ? "Collecting mail" : "Not collecting"}</Badge>
                       {mailbox.productLine ? <Badge tone="info">{mailbox.productLine}</Badge> : null}
+                      <Badge tone="neutral">{mailbox.source === "Imap" ? `IMAP, ${mailbox.imapHost}` : "Microsoft 365"}</Badge>
+                      {mailbox.lastCheckStatus === "CouldNotConnect" ? (
+                        <Badge tone="warning">Could not connect{mailbox.lastCheckedAt ? `, ${new Date(mailbox.lastCheckedAt).toLocaleString()}` : ""}</Badge>
+                      ) : mailbox.lastCheckStatus === "Collected" && mailbox.lastCheckedAt ? (
+                        <Badge tone="success">Last checked {new Date(mailbox.lastCheckedAt).toLocaleString()}</Badge>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -277,6 +312,68 @@ export default function EmailInbox() {
                 placeholder="claims@yourcompany.com"
               />
             </UIField>
+            <UIField label="Where the mail is" htmlFor={sourceId}>
+              <select
+                id={sourceId}
+                value={mailboxForm.source}
+                onChange={(event) => setMailboxForm((current) => ({ ...current, source: event.target.value === "Imap" ? "Imap" : "Graph" }))}
+                className="h-10 w-full rounded-dls-control border border-dls-border-input bg-dls-surface px-3 text-[13px] text-dls-text-primary"
+              >
+                <option value="Graph">Microsoft 365</option>
+                <option value="Imap">Another mail host (IMAP)</option>
+              </select>
+            </UIField>
+            {mailboxForm.source === "Graph" ? (
+              <UIField label="Microsoft Entra directory id (optional)" htmlFor={entraId}>
+                <Input
+                  id={entraId}
+                  value={mailboxForm.entraTenantId}
+                  onChange={(event) => setMailboxForm((current) => ({ ...current, entraTenantId: event.target.value }))}
+                  placeholder="Your company's directory (tenant) id"
+                />
+              </UIField>
+            ) : (
+              <>
+                <UIField label="Mail host" htmlFor={imapHostId}>
+                  <Input
+                    id={imapHostId}
+                    value={mailboxForm.imapHost}
+                    onChange={(event) => setMailboxForm((current) => ({ ...current, imapHost: event.target.value }))}
+                    placeholder="imap.yourcompany.com"
+                  />
+                </UIField>
+                <UIField label="Port" htmlFor={imapPortId}>
+                  <Input
+                    id={imapPortId}
+                    inputMode="numeric"
+                    value={mailboxForm.imapPort}
+                    onChange={(event) => setMailboxForm((current) => ({ ...current, imapPort: event.target.value.replace(/[^0-9]/g, "") }))}
+                  />
+                </UIField>
+                <UIField label="Username" htmlFor={imapUserId}>
+                  <Input
+                    id={imapUserId}
+                    autoComplete="off"
+                    value={mailboxForm.imapUsername}
+                    onChange={(event) => setMailboxForm((current) => ({ ...current, imapUsername: event.target.value }))}
+                    placeholder="Often the full email address"
+                  />
+                </UIField>
+                <UIField label="Password" htmlFor={imapPasswordId}>
+                  <Input
+                    id={imapPasswordId}
+                    type="password"
+                    autoComplete="new-password"
+                    value={mailboxForm.imapPassword}
+                    onChange={(event) => setMailboxForm((current) => ({ ...current, imapPassword: event.target.value }))}
+                    placeholder="An app password if your host offers one"
+                  />
+                </UIField>
+                <p className="text-[11.5px] text-dls-text-muted">
+                  The connection is always encrypted and is tried before anything is saved. The password is stored encrypted and is never shown again.
+                </p>
+              </>
+            )}
             <UIField label="Product line (optional)" htmlFor={productLineId}>
               <Input
                 id={productLineId}

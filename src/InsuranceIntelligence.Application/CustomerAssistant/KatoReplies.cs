@@ -164,6 +164,10 @@ public static class KatoReplies
         $"I can help you find cover that fits your life{Comma(firstName)}. What work do you do? " +
         "For example, do you ride a boda boda, sell in a market or a shop, or something else?";
 
+    /// <summary>The workspace has no cover on offer here yet, so nothing is explained and a person follows up.</summary>
+    public static string NoCoversYet(string? firstName) =>
+        $"Thank you{Comma(firstName)}. We do not have a cover to offer in this chat yet. Someone from {KatoBrand.Current.ShortName} will get back to you shortly.";
+
     public static string CoverSuggestion(string? firstName, string explanation) =>
         $"Thank you{Comma(firstName)}. {explanation} " +
         "These are microinsurance covers we are trying out, so nothing is sold in this chat. " +

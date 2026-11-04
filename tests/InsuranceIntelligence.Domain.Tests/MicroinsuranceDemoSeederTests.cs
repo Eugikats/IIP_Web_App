@@ -49,6 +49,37 @@ public sealed class MicroinsuranceDemoSeederTests
     }
 
     [Fact]
+    public async Task Catalogue_EachCoverCarriesTheOfferTheAssistantExplains_SoAWorkspaceIsServedFromItsOwnProducts()
+    {
+        await Seeder().SeedCatalogueAsync(Scope, CancellationToken.None);
+
+        var published = await products.ListCurrentForAllProductsAsync(Scope, CancellationToken.None);
+        foreach (var cover in MicroinsuranceCatalog.All)
+        {
+            var product = published.Single(item => item.ProductClass == cover.ProductLine);
+            var offer = Assert.IsType<ProductOffer>(product.Offer);
+            Assert.Equal(cover.Insurer, offer.Insurer);
+            Assert.Equal(cover.Explanation, offer.Summary);
+            Assert.Equal(cover.Name, offer.CustomerName);
+            Assert.Equal(cover.ChoosableLevels.Select(level => level.SumInsured), offer.Levels.Select(level => level.SumInsured));
+        }
+    }
+
+    [Fact]
+    public async Task Catalogue_ACoverSeededBeforeOffersExistedIsGivenOneAsANewVersion()
+    {
+        await Seeder().SeedCatalogueAsync(Scope, CancellationToken.None);
+        var current = (await products.ListCurrentForAllProductsAsync(Scope, CancellationToken.None)).First(item => item.ProductClass == MicroinsuranceCatalog.HospitalCashLine);
+        await products.SaveAsync(current with { VersionId = Guid.NewGuid(), Version = current.Version + 1, Offer = null }, CancellationToken.None);
+
+        await Seeder().SeedCatalogueAsync(Scope, CancellationToken.None);
+
+        var after = (await products.ListCurrentForAllProductsAsync(Scope, CancellationToken.None)).Single(item => item.ProductClass == MicroinsuranceCatalog.HospitalCashLine);
+        Assert.NotNull(after.Offer);
+        Assert.Equal(current.Version + 2, after.Version);
+    }
+
+    [Fact]
     public async Task Catalogue_KnowledgeIsFoundForItsOwnProductLine_AndStatesWaitingPeriodExclusionsAndGracePeriod()
     {
         await Seeder().SeedCatalogueAsync(Scope, CancellationToken.None);

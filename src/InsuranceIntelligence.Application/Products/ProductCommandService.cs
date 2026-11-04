@@ -66,10 +66,10 @@ public sealed class ProductCommandService(
             Status = ProductStatus.Draft,
             Stages = request.UseDefaultStageLibrary ? DefaultClaimStageLibrary.Default() : [],
             DocumentMatrix = [],
-            WordingFacts = wordingFacts,
             // A new product starts from the built-in questions for its line (Motor and Medical
             // have them; other lines start empty), which the administrator then edits.
             ClaimFields = BuiltInClaimFields.For(request.ProductClass.Trim()),
+            WordingFacts = wordingFacts,
             UpdatedByUserId = context.UserId,
             UpdatedAt = now,
             ChangeReason = reason,
@@ -117,9 +117,6 @@ public sealed class ProductCommandService(
             // them so a removed claim type cannot be left referenced by a document requirement.
             EnsureMatrixClaimTypesExist(documentMatrix, claimTypes);
         }
-        var wordingFacts = request.WordingFacts is null
-            ? current.WordingFacts
-            : await ValidateWordingFacts(current.Scope, request.WordingFacts, cancellationToken);
 
         var claimFields = request.ClaimFields is null ? current.ClaimFields : ValidateClaimFields(request.ClaimFields, claimTypes);
         if (request.ClaimFields is null && request.ClaimTypes is not null)
@@ -128,6 +125,10 @@ public sealed class ProductCommandService(
         }
 
         var coverageItems = request.CoverageItems is null ? current.CoverageItems : ValidateCoverageItems(request.CoverageItems);
+        var offer = request.RemoveOffer ? null : request.Offer is null ? current.Offer : ValidateOffer(request.Offer);
+        var wordingFacts = request.WordingFacts is null
+            ? current.WordingFacts
+            : await ValidateWordingFacts(current.Scope, request.WordingFacts, cancellationToken);
 
         var context = tenantContextAccessor.Current;
         var updated = current with
@@ -139,6 +140,8 @@ public sealed class ProductCommandService(
             ClaimTypes = claimTypes,
             ClaimFields = claimFields,
             CoverageItems = coverageItems,
+            WordingFacts = wordingFacts,
+            Offer = offer,
             IraApprovalReference = request.IraApprovalReference is null ? current.IraApprovalReference : NormalizeOrNull(request.IraApprovalReference),
             IraApprovalEffectiveDate = request.IraApprovalEffectiveDate ?? current.IraApprovalEffectiveDate,
             ApprovedWordingKnowledgeDocumentId = request.ApprovedWordingKnowledgeDocumentId is null
@@ -146,7 +149,6 @@ public sealed class ProductCommandService(
                 : NormalizeOrNull(request.ApprovedWordingKnowledgeDocumentId),
             Stages = stages,
             DocumentMatrix = documentMatrix,
-            WordingFacts = wordingFacts,
             // Editing a published or pending-publish product returns it to Draft: the edited
             // content has not itself gone through publish approval, and the previous Published
             // version stays intact in history for any claim already filed against it (outcome C).
@@ -652,6 +654,49 @@ public sealed class ProductCommandService(
         return result;
     }
 
+    private const int MaxOfferLevels = 6;
+
+    /// <summary>What the assistant may say about a cover: every part is required (a half-described cover would
+    /// have the assistant guess), bounded, and priced in whole positive amounts.</summary>
+    internal static ProductOffer ValidateOffer(ProductOfferDto offer)
+    {
+        string Required(string? value, string field, int max)
+        {
+            var text = value?.Trim() ?? string.Empty;
+            if (text.Length == 0 || text.Length > max)
+            {
+                throw new ProductValidationException("offer", $"The offer needs {field}, up to {max} characters.");
+            }
+
+            return text;
+        }
+
+        var levels = (offer.Levels ?? []).ToArray();
+        if (levels.Length == 0 || levels.Length > MaxOfferLevels)
+        {
+            throw new ProductValidationException("offer", $"The offer needs between 1 and {MaxOfferLevels} levels of cover.");
+        }
+
+        foreach (var level in levels)
+        {
+            if (level.SumInsured <= 0 || level.MonthlyPremium <= 0)
+            {
+                throw new ProductValidationException("offer", "Every level of cover needs a sum insured and a monthly price above zero.");
+            }
+        }
+
+        return new ProductOffer(
+            Required(offer.Insurer, "the insurer that provides the cover", 120),
+            Required(offer.Summary, "a plain-language summary of what the cover pays", 1500),
+            Required(offer.WhoItIsFor, "who the cover is for", 300),
+            Required(offer.WaitingPeriod, "the waiting period", 300),
+            Required(offer.PapersForAClaim, "the papers a claim needs", 500),
+            levels.OrderBy(level => level.SumInsured).Select(level => new ProductOfferLevel(level.SumInsured, level.MonthlyPremium)).ToArray(),
+            NormalizeOrNull(offer.PolicyPrefix),
+            NormalizeOrNull(offer.Code),
+            NormalizeOrNull(offer.CustomerName) is { Length: > 120 } ? throw new ProductValidationException("offer", "The name the customer hears can be at most 120 characters.") : NormalizeOrNull(offer.CustomerName));
+    }
+
     private async Task<IReadOnlyList<ProductWordingFact>> ValidateWordingFacts(
         TenantScope scope, IReadOnlyList<ProductWordingFactDto> facts, CancellationToken cancellationToken)
     {
@@ -960,5 +1005,11 @@ public sealed class ProductCommandService(
                 .ToArray(),
             product.CoverageItems
                 .Select(item => new CoverageItemDto(item.Key, item.Kind.ToString(), item.Title, item.Description, item.Clause, item.Page, item.Quote))
-                .ToArray());
+                .ToArray(),
+            product.Offer is { } offer
+                ? new ProductOfferDto(
+                    offer.Insurer, offer.Summary, offer.WhoItIsFor, offer.WaitingPeriod, offer.PapersForAClaim,
+                    offer.Levels.Select(level => new ProductOfferLevelDto(level.SumInsured, level.MonthlyPremium)).ToArray(),
+                    offer.PolicyPrefix, offer.Code, offer.CustomerName)
+                : null);
 }

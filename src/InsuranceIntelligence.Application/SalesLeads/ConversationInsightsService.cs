@@ -26,9 +26,9 @@ public interface IConversationInsightsQueue
 
 public interface IConversationInsightsService
 {
-    /// <summary>Reads a WhatsApp conversation and updates the person's prospect record. The record itself is made
-    /// when they first write in (owner decision 2026-10-20, replacing the earlier rule that waited for interest in a
-    /// cover); this adds what they said and which covers interest them. False when there was nothing to do.</summary>
+    /// <summary>Reads a WhatsApp conversation and updates the person's prospect record. Creates the
+    /// record only once the person has asked about, or shown interest in, a cover. False when there was
+    /// nothing to do.</summary>
     Task<bool> RefreshConversationAsync(TenantScope scope, string waId, string threadId, string actorId, string correlationId, CancellationToken cancellationToken);
 
     /// <summary>The same for a lead a person is looking at. False when the lead is not in this
@@ -56,7 +56,8 @@ public sealed class ConversationInsightsService(
     IAuditRepository auditRepository,
     IAgentRunRecorder agentRunRecorder,
     IProspectTriageService? triageService = null,
-    InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver? brands = null) : IConversationInsightsService
+    // Optional: which covers this workspace sells (build-loop item 27). Without it the deployment's own catalogue is used.
+    IAssistantBrandProvider? brandProvider = null) : IConversationInsightsService
 {
     public const string AgentKey = "conversation-insights";
     private const string PromptVersion = "conversation-insights-v1";
@@ -84,7 +85,7 @@ public sealed class ConversationInsightsService(
     private async Task<bool> RefreshAsync(
         TenantScope scope, string waId, string threadId, SalesLeadDetailReadModel? lead, string actorId, string correlationId, CancellationToken cancellationToken)
     {
-        using var workspaceBrand = KatoBrand.Use(brands is null ? KatoBrand.Current : await brands.ResolveAsync(scope, cancellationToken));
+        using var brandBinding = KatoBrand.Use(await AssistantBrands.ForAsync(brandProvider, scope, cancellationToken));
         var turns = (await conversationRepository.ListForThreadAsync(scope, threadId, cancellationToken))
             .OrderBy(turn => turn.OccurredAt)
             .ToArray();
@@ -158,8 +159,8 @@ public sealed class ConversationInsightsService(
 
         if (lead is null)
         {
-            // The record is normally made when the person first writes in (owner decision 2026-10-20). This is
-            // the fallback for a conversation that began before that, where asking about a cover is what makes it. From there the stage follows them to "Ready to apply". A customer only
+            // Writing in does not make someone a prospect; asking about a cover does (owner decision
+            // 2026-10-07). From there the stage follows them to "Ready to apply". A customer only
             // asking about a claim, or someone who said "not now" to everything, is not one.
             if (!IsProspect(parsed.Interests))
             {

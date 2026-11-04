@@ -35,7 +35,7 @@ public static class DataSubjectRightsEndpoints
             return Validation("tenantScope", "Server-resolved tenant context is required.");
         }
 
-        var export = await service.ExportAsync(tenantContext.Scope, customerId, whatsAppSettingsProvider.ForTenant(tenantContext.Scope)?.PhoneNumberId, cancellationToken);
+        var export = await service.ExportAsync(tenantContext.Scope, customerId, whatsAppSettingsProvider.ForScope(tenantContext.Scope)?.PhoneNumberId, cancellationToken);
         return export is null
             ? Results.NotFound(new { message = "Customer was not found for the requested tenant workspace." })
             : Results.Ok(export);

@@ -11,6 +11,11 @@ public interface IMailboxConnectionRepository
     Task<IReadOnlyCollection<MailboxConnection>> ListAsync(TenantScope scope, CancellationToken cancellationToken = default);
 
     Task<MailboxConnection?> GetAsync(Guid mailboxConnectionId, TenantScope scope, CancellationToken cancellationToken = default);
+
+    /// <summary>The workspaces that have at least one mailbox with collection switched on. Deliberately not scoped: the
+    /// scheduled collection visits every workspace that connected a mailbox (build-loop item 28). Returns scopes only, never
+    /// mailbox details.</summary>
+    Task<IReadOnlyList<TenantScope>> ListScopesWithIngestionAsync(CancellationToken cancellationToken = default);
 }
 
 public interface IInboundEmailRepository
@@ -44,7 +49,20 @@ public interface IGraphMailClient
         string externalAttachmentId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Same, against the insurer's own Microsoft Entra directory (build-loop item 28). A client that only knows the
+    /// deployment's directory ignores it.</summary>
+    Task<GraphAttachmentContent> DownloadAttachmentAsync(
+        string mailboxAddress,
+        string externalMessageId,
+        string externalAttachmentId,
+        string? entraTenantId,
+        CancellationToken cancellationToken = default) =>
+        DownloadAttachmentAsync(mailboxAddress, externalMessageId, externalAttachmentId, cancellationToken);
+
     Task MoveMessageAsync(string mailboxAddress, string externalMessageId, string folderName, CancellationToken cancellationToken = default);
+
+    Task MoveMessageAsync(string mailboxAddress, string externalMessageId, string folderName, string? entraTenantId, CancellationToken cancellationToken = default) =>
+        MoveMessageAsync(mailboxAddress, externalMessageId, folderName, cancellationToken);
 
     Task<GraphMailSendResult> SendMailAsync(GraphMailSendRequest request, CancellationToken cancellationToken = default);
 }

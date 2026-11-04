@@ -25,6 +25,7 @@ public sealed class SunbirdVoiceNoteTranscriber(
     IIntegrationConnectionRepository connectionRepository,
     IConnectionSecretProtector protector,
     IWhatsAppInboundProvider whatsAppProvider,
+    InsuranceIntelligence.Infrastructure.WhatsApp.IWhatsAppRuntimeSettingsProvider whatsAppSettings,
     IHttpClientFactory httpClientFactory,
     ILogger<SunbirdVoiceNoteTranscriber> logger) : IVoiceNoteTranscriber, IVoiceNoteSpeaker
 {
@@ -51,9 +52,16 @@ public sealed class SunbirdVoiceNoteTranscriber(
 
         try
         {
-            var media = string.IsNullOrWhiteSpace(businessPhoneNumberId)
-                ? await whatsAppProvider.DownloadMediaAsync(mediaId, cancellationToken)
-                : await whatsAppProvider.DownloadMediaAsync(mediaId, businessPhoneNumberId, cancellationToken);
+            // The voice note is fetched with the workspace's own WhatsApp connection (build-loop item 27).
+            var phoneNumberId = string.IsNullOrWhiteSpace(businessPhoneNumberId)
+                ? whatsAppSettings.ForScope(scope)?.PhoneNumberId
+                : businessPhoneNumberId;
+            if (phoneNumberId is null)
+            {
+                return null;
+            }
+
+            var media = await whatsAppProvider.DownloadMediaAsync(mediaId, phoneNumberId, cancellationToken);
             if (media.ContentBytes.Length == 0 || media.ContentBytes.Length > MaxAudioBytes)
             {
                 return null;

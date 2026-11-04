@@ -198,6 +198,9 @@ public sealed class MailboxIngestionServiceTests
 
         public Task<MailboxConnection?> GetAsync(Guid id, TenantScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult(mailboxes.FirstOrDefault(m => m.MailboxConnectionId == id && m.Scope.Matches(scope)));
+
+        public Task<IReadOnlyList<TenantScope>> ListScopesWithIngestionAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<TenantScope>>(mailboxes.Where(m => m.IngestionEnabled).Select(m => m.Scope).Distinct().ToArray());
     }
 
     private sealed class FakeInboundEmailRepository : IInboundEmailRepository

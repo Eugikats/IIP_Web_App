@@ -18,7 +18,10 @@ public sealed class WhatsAppAttachmentProcessor(
     IDocumentProcessingProvider processingProvider,
     InsuranceIntelligence.Application.Documents.IDocumentRecognitionService? recognition = null,
     InsuranceIntelligence.Application.Documents.IFieldProposalService? proposals = null,
-    InsuranceIntelligence.Application.Documents.IAuthenticityService? authenticity = null) : IWhatsAppAttachmentProcessor
+    InsuranceIntelligence.Application.Documents.IAuthenticityService? authenticity = null,
+    // Optional: with these, a caption that names one of the claim's slots ("police report") puts the file in that slot.
+    IDocumentChecklistProvider? checklistProvider = null,
+    ICaseDocumentRepository? documentRepository = null) : IWhatsAppAttachmentProcessor
 {
     private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -35,7 +38,7 @@ public sealed class WhatsAppAttachmentProcessor(
         string actorUserId,
         CancellationToken cancellationToken = default)
     {
-        if (!WhatsAppChannelProviderSupport.IsLive(options, settingsProvider.ForPhoneNumberId(message.BusinessPhoneNumberId)))
+        if (!WhatsAppChannelProviderSupport.IsLive(options, settingsProvider.ForPhoneNumber(message.BusinessPhoneNumberId)))
         {
             return Array.Empty<CaseDocument>();
         }
@@ -45,6 +48,7 @@ public sealed class WhatsAppAttachmentProcessor(
             throw new InvalidOperationException("WhatsApp provider is not configured.");
         }
 
+        // Fetched with the credentials of the workspace that owns the number the file was sent to.
         var content = await whatsAppProvider.DownloadMediaAsync(message.MediaId, message.BusinessPhoneNumberId, cancellationToken);
         var contentType = string.IsNullOrWhiteSpace(content.ContentType)
             ? message.MimeType ?? "application/octet-stream"
@@ -106,6 +110,20 @@ public sealed class WhatsAppAttachmentProcessor(
             ValidationWarnings = processingResult.ValidationWarnings,
             ProcessedAt = DateTimeOffset.UtcNow,
         };
+        if (checklistProvider is not null && documentRepository is not null && !processingFailed && !string.IsNullOrWhiteSpace(message.Caption))
+        {
+            // The customer said what it is. When the caption names exactly one slot that still has room, that slot wins,
+            // exactly as when a customer picks the slot on the secure page (build-loop item 27).
+            var existing = (await documentRepository.ListForCaseAsync(claimCase.CaseId, claimCase.Scope, cancellationToken))
+                .Where(other => other.DocumentId != processed.DocumentId)
+                .ToArray();
+            var checklist = await checklistProvider.BuildChecklistAsync(claimCase, existing.Where(other => !other.IsSuperseded).ToArray(), cancellationToken);
+            if (SlotCaptionMatcher.Match(message.Caption, checklist.Slots, existing) is { } slot && slot.Accepts(processed.OriginalFileName))
+            {
+                processed = processed with { DocumentTypeKey = slot.Key, SlotKind = slot.Kind };
+            }
+        }
+
         if (recognition is not null && !processingFailed)
         {
             // Name it, and file it into the claim's matching slot when sure; otherwise a person looks.

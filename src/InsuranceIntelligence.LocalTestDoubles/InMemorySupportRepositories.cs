@@ -250,6 +250,9 @@ public sealed class InMemoryMailboxConnectionRepository : IMailboxConnectionRepo
         mailboxes.TryGetValue(mailboxConnectionId, out var mailbox);
         return Task.FromResult(mailbox is not null && mailbox.Scope.Matches(scope) ? mailbox : null);
     }
+
+    public Task<IReadOnlyList<TenantScope>> ListScopesWithIngestionAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<TenantScope>>(mailboxes.Values.Where(item => item.IngestionEnabled).Select(item => item.Scope).Distinct().ToArray());
 }
 
 public sealed class InMemoryInboundEmailRepository : IInboundEmailRepository

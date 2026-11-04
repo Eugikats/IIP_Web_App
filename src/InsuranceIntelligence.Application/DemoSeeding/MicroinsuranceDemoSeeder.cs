@@ -441,10 +441,26 @@ public sealed class MicroinsuranceDemoSeeder(
 
     private async Task<bool> EnsureProductAsync(TenantScope scope, CatalogueProduct entry, DateTimeOffset now, CancellationToken cancellationToken)
     {
+        var offer = OfferFor(entry.ProductClass);
         var existing = (await productRepository.ListCurrentForAllProductsAsync(scope, cancellationToken))
-            .Any(p => string.Equals(p.ProductClass, entry.ProductClass, StringComparison.OrdinalIgnoreCase) && p.Status == ProductStatus.Published);
-        if (existing)
+            .FirstOrDefault(p => string.Equals(p.ProductClass, entry.ProductClass, StringComparison.OrdinalIgnoreCase) && p.Status == ProductStatus.Published);
+        if (existing is not null)
         {
+            if (existing.Offer is null && offer is not null)
+            {
+                // A demonstration workspace seeded before the assistant read its covers from the workspace's own
+                // products: give the existing cover its offer, as a new version so the history stays intact.
+                await productRepository.SaveAsync(existing with
+                {
+                    VersionId = Guid.NewGuid(),
+                    Version = existing.Version + 1,
+                    Offer = offer,
+                    UpdatedByUserId = SeedActor,
+                    UpdatedAt = now,
+                    ChangeReason = "Demonstration cover given the offer the customer assistant explains on WhatsApp.",
+                }, cancellationToken);
+            }
+
             return false;
         }
 
@@ -465,12 +481,26 @@ public sealed class MicroinsuranceDemoSeeder(
             UpdatedByUserId = SeedActor,
             UpdatedAt = now,
             ChangeReason = "Microinsurance demo product for the Kato field test. Not an IRA-approved product.",
+            Offer = offer,
             PublishSubmittedByUserId = SeedActor,
             PublishSubmittedAt = now,
             PublishApprovedByUserId = SeedReviewer,
             PublishApprovedAt = now,
         }, cancellationToken);
         return true;
+    }
+
+    /// <summary>What Kato may say about a demonstration cover, taken from the built-in catalogue: the catalogue is seed data
+    /// for a demonstration workspace, and the assistant reads it back from the workspace's own product like any other.</summary>
+    internal static ProductOffer? OfferFor(string productClass)
+    {
+        var cover = MicroinsuranceCatalog.FindByLineOrName(productClass);
+        return cover is null
+            ? null
+            : new ProductOffer(
+                cover.Insurer, cover.Explanation, cover.WhoItIsFor, cover.WaitingPeriod, cover.PapersForAClaim,
+                cover.ChoosableLevels.Select(level => new ProductOfferLevel(level.SumInsured, level.MonthlyPremium)).ToArray(),
+                cover.PolicyPrefix, cover.Code, cover.Name);
     }
 
     private sealed record CatalogueDocument(string Name, string ProductLine, KnowledgeDocumentType Type, string Text);

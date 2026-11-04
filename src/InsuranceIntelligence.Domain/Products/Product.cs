@@ -54,6 +54,10 @@ public sealed record Product
     /// for the assistant's grounding; it does not decide a claim.</summary>
     public IReadOnlyList<CoverageItem> CoverageItems { get; init; } = [];
 
+    /// <summary>What the customer assistant may say about this cover on WhatsApp (build-loop item 27). Part of the
+    /// version snapshot. Null means the product is not sold on WhatsApp.</summary>
+    public ProductOffer? Offer { get; init; }
+
     public IReadOnlyList<ClaimTypeDefinition> ActiveClaimTypes =>
         ClaimTypes.Where(type => type.Active).OrderBy(type => type.SortOrder).ToArray();
 

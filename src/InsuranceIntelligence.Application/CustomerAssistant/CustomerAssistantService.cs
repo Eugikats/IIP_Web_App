@@ -141,6 +141,7 @@ public sealed partial class CustomerAssistantService(
     IIntegrationConnectionRepository? integrationConnections = null,
     ICustomerFollowUpRepository? customerFollowUps = null,
     ITenantConfigurationRepository? tenantConfigurationRepository = null,
+    IAssistantBrandProvider? assistantBrandProvider = null,
     // Optional: the customer's own wording for a claim's status (build-loop item 19). Without it the
     // staff label is used, as before.
     InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null,
@@ -206,7 +207,9 @@ public sealed partial class CustomerAssistantService(
         var opened = new List<Guid>();
         using var usage = usageContext?.Use("kato", scope);
         // Whose assistant Kato is comes from the workspace, so one deployment can speak as an insurer here and a bank there.
-        using var workspaceBrand = KatoBrand.Use(brands is null ? KatoBrand.Current : await brands.ResolveAsync(scope, cancellationToken));
+        using var workspaceBrand = KatoBrand.Use(assistantBrandProvider is not null
+            ? await AssistantBrands.ForAsync(assistantBrandProvider, scope, cancellationToken)
+            : brands is null ? KatoBrand.Current : await brands.ResolveAsync(scope, cancellationToken));
         try
         {
             voiceNotesAvailable = voiceTranscriber is not null && await voiceTranscriber.IsAvailableAsync(scope, cancellationToken);

@@ -88,7 +88,21 @@ public sealed record ProductDto(
     IReadOnlyList<ProductWordingFactDto> WordingFacts,
     IReadOnlyList<ClaimTypeDto>? ClaimTypes = null,
     IReadOnlyList<ClaimFieldDto>? ClaimFields = null,
-    IReadOnlyList<CoverageItemDto>? CoverageItems = null);
+    IReadOnlyList<CoverageItemDto>? CoverageItems = null,
+    ProductOfferDto? Offer = null);
+
+public sealed record ProductOfferDto(
+    string? Insurer,
+    string? Summary,
+    string? WhoItIsFor,
+    string? WaitingPeriod,
+    string? PapersForAClaim,
+    IReadOnlyList<ProductOfferLevelDto>? Levels,
+    string? PolicyPrefix = null,
+    string? Code = null,
+    string? CustomerName = null);
+
+public sealed record ProductOfferLevelDto(decimal SumInsured, decimal MonthlyPremium);
 
 public sealed record ProductVersionSummaryDto(
     int Version,
@@ -124,7 +138,9 @@ public sealed record UpdateProductRequest(
     IReadOnlyList<ProductWordingFactDto>? WordingFacts = null,
     IReadOnlyList<ClaimTypeDto>? ClaimTypes = null,
     IReadOnlyList<ClaimFieldDto>? ClaimFields = null,
-    IReadOnlyList<CoverageItemDto>? CoverageItems = null);
+    IReadOnlyList<CoverageItemDto>? CoverageItems = null,
+    ProductOfferDto? Offer = null,
+    bool RemoveOffer = false);
 
 public sealed record SubmitProductRequest(string? ChangeReason);
 

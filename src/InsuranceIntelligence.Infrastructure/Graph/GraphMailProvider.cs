@@ -39,7 +39,7 @@ public sealed class GraphMailProvider(InfrastructureOptions options, IGraphMailC
         var folderName = string.IsNullOrWhiteSpace(mailbox.ProcessedFolderName)
             ? options.GraphMail.ProcessedFolderName
             : mailbox.ProcessedFolderName;
-        return client.MoveMessageAsync(mailbox.MailboxAddress, message.ExternalMessageId, folderName, cancellationToken);
+        return client.MoveMessageAsync(mailbox.MailboxAddress, message.ExternalMessageId, folderName, mailbox.EntraTenantId, cancellationToken);
     }
 
     private static InboundEmailMessage ToInbound(MailboxConnection mailbox, GraphMailboxMessage message)
@@ -211,8 +211,8 @@ public sealed class MicrosoftGraphMailClient(HttpClient httpClient, Infrastructu
 
     public async Task<IReadOnlyCollection<GraphMailboxMessage>> ReadMessagesAsync(MailboxConnection mailbox, CancellationToken cancellationToken = default)
     {
-        EnsureClientCredentialConfigured();
-        var token = await GetTokenAsync(cancellationToken);
+        EnsureClientCredentialConfigured(mailbox.EntraTenantId);
+        var token = await GetTokenAsync(mailbox.EntraTenantId, cancellationToken);
         using var request = new HttpRequestMessage(HttpMethod.Get, BuildReadMessagesUri(mailbox.MailboxAddress));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -224,14 +224,22 @@ public sealed class MicrosoftGraphMailClient(HttpClient httpClient, Infrastructu
         return payload.Value.Select(ToGraphMessage).ToArray();
     }
 
+    public Task<GraphAttachmentContent> DownloadAttachmentAsync(
+        string mailboxAddress,
+        string externalMessageId,
+        string externalAttachmentId,
+        CancellationToken cancellationToken = default) =>
+        DownloadAttachmentAsync(mailboxAddress, externalMessageId, externalAttachmentId, null, cancellationToken);
+
     public async Task<GraphAttachmentContent> DownloadAttachmentAsync(
         string mailboxAddress,
         string externalMessageId,
         string externalAttachmentId,
+        string? entraTenantId,
         CancellationToken cancellationToken = default)
     {
-        EnsureClientCredentialConfigured();
-        var token = await GetTokenAsync(cancellationToken);
+        EnsureClientCredentialConfigured(entraTenantId);
+        var token = await GetTokenAsync(entraTenantId, cancellationToken);
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"{graphBaseUrl}/users/{Escape(mailboxAddress)}/messages/{Escape(externalMessageId)}/attachments/{Escape(externalAttachmentId)}");
@@ -263,10 +271,13 @@ public sealed class MicrosoftGraphMailClient(HttpClient httpClient, Infrastructu
             contentBytes);
     }
 
-    public async Task MoveMessageAsync(string mailboxAddress, string externalMessageId, string folderName, CancellationToken cancellationToken = default)
+    public Task MoveMessageAsync(string mailboxAddress, string externalMessageId, string folderName, CancellationToken cancellationToken = default) =>
+        MoveMessageAsync(mailboxAddress, externalMessageId, folderName, null, cancellationToken);
+
+    public async Task MoveMessageAsync(string mailboxAddress, string externalMessageId, string folderName, string? entraTenantId, CancellationToken cancellationToken = default)
     {
-        EnsureClientCredentialConfigured();
-        var token = await GetTokenAsync(cancellationToken);
+        EnsureClientCredentialConfigured(entraTenantId);
+        var token = await GetTokenAsync(entraTenantId, cancellationToken);
         var folderId = await GetOrCreateFolderAsync(mailboxAddress, folderName, token, cancellationToken);
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{graphBaseUrl}/users/{Escape(mailboxAddress)}/messages/{Escape(externalMessageId)}/move")
         {
@@ -280,8 +291,8 @@ public sealed class MicrosoftGraphMailClient(HttpClient httpClient, Infrastructu
 
     public async Task<GraphMailSendResult> SendMailAsync(GraphMailSendRequest sendRequest, CancellationToken cancellationToken = default)
     {
-        EnsureClientCredentialConfigured();
-        var token = await GetTokenAsync(cancellationToken);
+        EnsureClientCredentialConfigured(null);
+        var token = await GetTokenAsync(null, cancellationToken);
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{graphBaseUrl}/users/{Escape(sendRequest.MailboxAddress)}/sendMail")
         {
             Content = JsonContent.Create(new
@@ -355,7 +366,7 @@ public sealed class MicrosoftGraphMailClient(HttpClient httpClient, Infrastructu
         return created?.Id ?? throw new InvalidOperationException("Graph mail processed folder could not be created.");
     }
 
-    private async Task<string> GetTokenAsync(CancellationToken cancellationToken)
+    private async Task<string> GetTokenAsync(string? entraTenantId, CancellationToken cancellationToken)
     {
         var form = new Dictionary<string, string>
         {
@@ -365,7 +376,7 @@ public sealed class MicrosoftGraphMailClient(HttpClient httpClient, Infrastructu
             ["grant_type"] = "client_credentials"
         };
         using var response = await httpClient.PostAsync(
-            $"https://login.microsoftonline.com/{Uri.EscapeDataString(options.GraphMail.TenantId!)}/oauth2/v2.0/token",
+            $"https://login.microsoftonline.com/{Uri.EscapeDataString(DirectoryFor(entraTenantId))}/oauth2/v2.0/token",
             new FormUrlEncodedContent(form),
             cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -373,14 +384,18 @@ public sealed class MicrosoftGraphMailClient(HttpClient httpClient, Infrastructu
         return token?.AccessToken ?? throw new InvalidOperationException("Graph token response did not include an access token.");
     }
 
-    private void EnsureClientCredentialConfigured()
+    /// <summary>A mailbox in the insurer's own directory is read through that directory; one without a directory uses the deployment's.</summary>
+    private string DirectoryFor(string? entraTenantId) =>
+        string.IsNullOrWhiteSpace(entraTenantId) ? options.GraphMail.TenantId! : entraTenantId.Trim();
+
+    private void EnsureClientCredentialConfigured(string? entraTenantId)
     {
         if (options.GraphMail.UseManagedIdentity)
         {
             throw new InvalidOperationException("Graph managed identity authentication is not enabled for this provider. Configure GraphMail client credentials.");
         }
 
-        if (string.IsNullOrWhiteSpace(options.GraphMail.TenantId)
+        if ((string.IsNullOrWhiteSpace(options.GraphMail.TenantId) && string.IsNullOrWhiteSpace(entraTenantId))
             || string.IsNullOrWhiteSpace(options.GraphMail.ClientId)
             || string.IsNullOrWhiteSpace(options.GraphMail.ClientSecret))
         {

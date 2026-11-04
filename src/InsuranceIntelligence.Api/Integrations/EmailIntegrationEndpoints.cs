@@ -11,6 +11,7 @@ using InsuranceIntelligence.Domain.Documents;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Workflow;
 using InsuranceIntelligence.Infrastructure.Configuration;
+using InsuranceIntelligence.Infrastructure.Email;
 using Microsoft.Extensions.Logging;
 using System.Net.Mail;
 
@@ -99,7 +100,7 @@ public static class EmailIntegrationEndpoints
             return Validation("tenantScope", validationError);
         }
 
-        return Results.Ok(await repository.ListAsync(scope, cancellationToken));
+        return Results.Ok((await repository.ListAsync(scope, cancellationToken)).Select(MailboxResponse.From).ToArray());
     }
 
     public static async Task<IResult> CreateMailbox(
@@ -108,7 +109,9 @@ public static class EmailIntegrationEndpoints
         IAuditRepository auditRepository,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IImapMailClient? imapClient = null,
+        IConnectionSecretProtector? protector = null)
     {
         if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
         {
@@ -144,6 +147,12 @@ public static class EmailIntegrationEndpoints
             return Results.Conflict(new { message = "This mailbox is already configured for the tenant workspace." });
         }
 
+        var source = MailboxSource.Graph;
+        if (!string.IsNullOrWhiteSpace(request.Source) && !Enum.TryParse(request.Source.Trim(), ignoreCase: true, out source))
+        {
+            return Validation("source", "Use Graph for a Microsoft 365 mailbox or Imap for any other mail host.");
+        }
+
         var mailbox = new MailboxConnection
         {
             MailboxConnectionId = Guid.NewGuid(),
@@ -154,8 +163,16 @@ public static class EmailIntegrationEndpoints
             DefaultChannel = string.IsNullOrWhiteSpace(request.DefaultChannel) ? "Email" : request.DefaultChannel.Trim(),
             ProductLine = NullIfWhiteSpace(request.ProductLine),
             ProcessedFolderName = NullIfWhiteSpace(request.ProcessedFolderName),
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = DateTimeOffset.UtcNow,
+            Source = source,
         };
+        if (await ApplySourceSettingsAsync(mailbox, request.EntraTenantId, request.ImapHost, request.ImapPort, request.ImapUsername, request.ImapPassword, imapClient, protector, cancellationToken) is var applied
+            && applied.Error is { } sourceError)
+        {
+            return sourceError;
+        }
+
+        mailbox = applied.Mailbox!;
         await repository.SaveAsync(mailbox, cancellationToken);
         await auditRepository.WriteAsync(
             EmailAudit(
@@ -170,7 +187,136 @@ public static class EmailIntegrationEndpoints
                 ActorType.User),
             cancellationToken);
 
-        return Results.Created($"/api/v1/integrations/email/mailboxes/{mailbox.MailboxConnectionId}", mailbox);
+        return Results.Created($"/api/v1/integrations/email/mailboxes/{mailbox.MailboxConnectionId}", MailboxResponse.From(mailbox));
+    }
+
+    public static async Task<IResult> UpdateMailbox(
+        Guid mailboxId,
+        UpdateMailboxRequest request,
+        IMailboxConnectionRepository repository,
+        IAuditRepository auditRepository,
+        InfrastructureOptions options,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        IImapMailClient? imapClient = null,
+        IConnectionSecretProtector? protector = null)
+    {
+        if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        if (!TryResolveScope(httpContext, out var scope, out var validationError))
+        {
+            return Validation("tenantScope", validationError);
+        }
+
+        if (!TryReadMutationAuditContext(httpContext, out var actor, out var auditReason, out var auditError))
+        {
+            return auditError!;
+        }
+
+        var current = await repository.GetAsync(mailboxId, scope, cancellationToken);
+        if (current is null)
+        {
+            return Results.NotFound(new { message = "The mailbox was not found for the requested tenant workspace." });
+        }
+
+        var changed = current with
+        {
+            DisplayName = string.IsNullOrWhiteSpace(request.DisplayName) ? current.DisplayName : request.DisplayName.Trim(),
+            IngestionEnabled = request.IngestionEnabled ?? current.IngestionEnabled,
+            ProductLine = request.ProductLine is null ? current.ProductLine : NullIfWhiteSpace(request.ProductLine),
+            ProcessedFolderName = request.ProcessedFolderName is null ? current.ProcessedFolderName : NullIfWhiteSpace(request.ProcessedFolderName),
+        };
+        var applied = await ApplySourceSettingsAsync(
+            changed, request.EntraTenantId ?? changed.EntraTenantId, request.ImapHost ?? changed.ImapHost, request.ImapPort ?? changed.ImapPort,
+            request.ImapUsername ?? changed.ImapUsername, request.ImapPassword, imapClient, protector, cancellationToken);
+        if (applied.Error is { } error)
+        {
+            return error;
+        }
+
+        await repository.SaveAsync(applied.Mailbox!, cancellationToken);
+        await auditRepository.WriteAsync(
+            EmailAudit(scope, caseId: null, "integration.mailbox.updated", [mailboxId.ToString()], actor, httpContext.TraceIdentifier, options.EmailProvider, auditReason, ActorType.User),
+            cancellationToken);
+        return Results.Ok(MailboxResponse.From(applied.Mailbox!));
+    }
+
+    /// <summary>Checks and fills in the settings that depend on where a mailbox's mail comes from. For Microsoft 365 that is the
+    /// insurer's own directory; for IMAP it is the host, port, username and password, tried against the real host before
+    /// anything is saved so a mailbox that cannot work is never saved as if it did. The password is encrypted and never echoed.</summary>
+    private static async Task<(MailboxConnection? Mailbox, IResult? Error)> ApplySourceSettingsAsync(
+        MailboxConnection mailbox,
+        string? entraTenantId,
+        string? imapHost,
+        int? imapPort,
+        string? imapUsername,
+        string? imapPassword,
+        IImapMailClient? imapClient,
+        IConnectionSecretProtector? protector,
+        CancellationToken cancellationToken)
+    {
+        if (mailbox.Source == MailboxSource.Graph)
+        {
+            var directory = NullIfWhiteSpace(entraTenantId);
+            if (directory is not null && !(Guid.TryParse(directory, out _) || (directory.Contains('.') && directory.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-'))))
+            {
+                return (null, Validation("entraTenantId", "Enter the Microsoft Entra directory (tenant) id, a GUID, or the directory's domain name."));
+            }
+
+            return (mailbox with { EntraTenantId = directory }, null);
+        }
+
+        if (imapClient is null || protector is null)
+        {
+            return (null, Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "Not configured", detail: "IMAP mailboxes are not available in this deployment."));
+        }
+
+        var host = imapHost?.Trim();
+        if (ImapEndpointPolicy.ValidateHostSyntax(host) is { } hostProblem)
+        {
+            return (null, Validation("imapHost", hostProblem));
+        }
+
+        var port = imapPort ?? 993;
+        if (ImapEndpointPolicy.ValidatePort(port) is { } portProblem)
+        {
+            return (null, Validation("imapPort", portProblem));
+        }
+
+        var username = NullIfWhiteSpace(imapUsername);
+        if (username is null)
+        {
+            return (null, Validation("imapUsername", "Enter the username the mail host expects, often the full email address."));
+        }
+
+        string encryptedPassword;
+        string plainPassword;
+        if (string.IsNullOrEmpty(imapPassword))
+        {
+            if (string.IsNullOrEmpty(mailbox.EncryptedImapPassword))
+            {
+                return (null, Validation("imapPassword", "Enter the mailbox password. Many hosts need an app password rather than the normal one."));
+            }
+
+            encryptedPassword = mailbox.EncryptedImapPassword;
+            plainPassword = protector.Unprotect(encryptedPassword);
+        }
+        else
+        {
+            plainPassword = imapPassword;
+            encryptedPassword = protector.Protect(imapPassword);
+        }
+
+        var check = await imapClient.CheckAsync(new ImapSettings(host!, port, username, plainPassword), cancellationToken);
+        if (!check.Success)
+        {
+            return (null, Results.BadRequest(new { deliveryStatus = "ValidationFailed", message = check.SafeError }));
+        }
+
+        return (mailbox with { ImapHost = host, ImapPort = port, ImapUsername = username, EncryptedImapPassword = encryptedPassword }, null);
     }
 
     /// <summary>
@@ -185,7 +331,8 @@ public static class EmailIntegrationEndpoints
         IMailboxIngestionService ingestionService,
         InfrastructureOptions options,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IMailboxConnectionRepository? mailboxRepository = null)
     {
         if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
         {
@@ -202,11 +349,12 @@ public static class EmailIntegrationEndpoints
             return auditError!;
         }
 
-        if (!options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
+        var hasImapMailbox = mailboxRepository is not null && (await mailboxRepository.ListAsync(scope, cancellationToken)).Any(mailbox => mailbox.Source == MailboxSource.Imap && mailbox.IngestionEnabled);
+        if (!hasImapMailbox && !options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
         {
             return Results.BadRequest(new
             {
-                message = "Inbound email collection requires a configured Microsoft Graph mailbox connection.",
+                message = "Inbound email collection requires a Microsoft 365 mailbox connection or an IMAP mailbox.",
                 provider = options.EmailProvider
             });
         }
@@ -348,7 +496,9 @@ public static class EmailIntegrationEndpoints
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken,
-        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null)
+        InsuranceIntelligence.Api.Agents.IClaimTriageQueue? triageQueue = null,
+        IImapMailProvider? imapMailProvider = null,
+        ImapEmailAttachmentProcessor? imapAttachmentProcessor = null)
     {
         if (DemoAuthorization.Require(httpContext, options, Permission.ConfigureIntegrations) is { } forbidden)
         {
@@ -406,7 +556,11 @@ public static class EmailIntegrationEndpoints
         IReadOnlyCollection<CaseDocument> processedAttachments;
         try
         {
-            processedAttachments = await attachmentProcessor.ProcessAsync(claimCase, message, sourceMailbox, actor, cancellationToken);
+            // An email that arrived over IMAP has its files fetched over IMAP; everything else goes the deployment's own way.
+            IEmailAttachmentProcessor processor = sourceMailbox.Source == MailboxSource.Imap && imapAttachmentProcessor is not null
+                ? imapAttachmentProcessor
+                : attachmentProcessor;
+            processedAttachments = await processor.ProcessAsync(claimCase, message, sourceMailbox, actor, cancellationToken);
         }
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or NotSupportedException)
         {
@@ -488,12 +642,22 @@ public static class EmailIntegrationEndpoints
                 ActorType.User),
             cancellationToken);
 
-        if (options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
+        if (sourceMailbox.Source == MailboxSource.Imap)
         {
-            if (sourceMailbox is not null)
+            try
             {
-                await graphMailProvider.CompleteMessageAsync(sourceMailbox, processed, cancellationToken);
+                if (imapMailProvider is not null) await imapMailProvider.CompleteMessageAsync(sourceMailbox, processed, cancellationToken);
             }
+            catch (Exception ex) when (ex is InvalidOperationException or IOException or System.Security.Authentication.AuthenticationException or TimeoutException)
+            {
+                // The claim is already opened and saved. If the host cannot mark the message read right now it is simply
+                // collected again, and the same message id means it is not duplicated.
+                logger.LogWarning("An IMAP message could not be marked processed ({ErrorType}).", ex.GetType().Name);
+            }
+        }
+        else if (options.EmailProvider.Equals("Graph", StringComparison.OrdinalIgnoreCase))
+        {
+            await graphMailProvider.CompleteMessageAsync(sourceMailbox, processed, cancellationToken);
         }
 
         return Results.Ok(new { message = processed, caseId = claimCase.CaseId, match.MatchReason });

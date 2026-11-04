@@ -128,6 +128,65 @@ public sealed class ProductCommandServiceTests
         Assert.Null(version1.IraApprovalReference);
     }
 
+    private static ProductOfferDto Offer(string? insurer = "Zuri General Insurance", IReadOnlyList<ProductOfferLevelDto>? levels = null, string? customerName = "Zuri Shop Cover") =>
+        new(insurer, "Pays for your stock after a fire or a break-in.", "Shop owners", "7 days after you join", "The police report",
+            levels ?? [new ProductOfferLevelDto(4_000_000m, 9_000m), new ProductOfferLevelDto(2_000_000m, 5_000m)], "ZUR", "ZC", customerName);
+
+    [Fact]
+    public async Task UpdateDraftAsync_StoresWhatTheAssistantMaySayAboutTheCover_AsPartOfTheVersion()
+    {
+        var service = BuildService("author-1", out var repository, out _);
+        var created = await service.CreateDraftAsync(new CreateProductRequest("Shop Cover", "Shop", "Initial setup"));
+
+        var updated = await service.UpdateDraftAsync(created.ProductId, new UpdateProductRequest(null, null, null, null, null, null, null, "Say what the cover is.", Offer: Offer()));
+
+        Assert.Equal(2, updated.Version);
+        var offer = updated.Offer!;
+        Assert.Equal("Zuri General Insurance", offer.Insurer);
+        Assert.Equal("Zuri Shop Cover", offer.CustomerName);
+        Assert.Equal([2_000_000m, 4_000_000m], offer.Levels!.Select(level => level.SumInsured)); // smallest first
+        Assert.Null(repository.SavedVersions.Single(version => version.Version == 1).Offer); // the earlier version is untouched
+    }
+
+    [Fact]
+    public async Task UpdateDraftAsync_KeepsTheOfferWhenSomethingElseChanges_AndRemovesItOnRequest()
+    {
+        var service = BuildService("author-1", out _, out _);
+        var created = await service.CreateDraftAsync(new CreateProductRequest("Shop Cover", "Shop", "Initial setup"));
+        await service.UpdateDraftAsync(created.ProductId, new UpdateProductRequest(null, null, null, null, null, null, null, "Add the offer.", Offer: Offer()));
+
+        var renamed = await service.UpdateDraftAsync(created.ProductId, new UpdateProductRequest("Shop Cover Plus", null, null, null, null, null, null, "Rename."));
+        var removed = await service.UpdateDraftAsync(created.ProductId, new UpdateProductRequest(null, null, null, null, null, null, null, "Stop selling on WhatsApp.", RemoveOffer: true));
+
+        Assert.NotNull(renamed.Offer);
+        Assert.Null(removed.Offer);
+    }
+
+    [Theory]
+    [InlineData("insurer")]
+    [InlineData("levels")]
+    [InlineData("price")]
+    [InlineData("manyLevels")]
+    [InlineData("name")]
+    public async Task UpdateDraftAsync_RefusesAHalfDescribedOffer(string problem)
+    {
+        var service = BuildService("author-1", out _, out _);
+        var created = await service.CreateDraftAsync(new CreateProductRequest("Shop Cover", "Shop", "Initial setup"));
+        var offer = problem switch
+        {
+            "insurer" => Offer(insurer: " "),
+            "levels" => Offer(levels: []),
+            "price" => Offer(levels: [new ProductOfferLevelDto(1_000_000m, 0m)]),
+            "manyLevels" => Offer(levels: Enumerable.Range(1, 7).Select(i => new ProductOfferLevelDto(i * 1_000_000m, i * 1_000m)).ToArray()),
+            _ => Offer(customerName: new string('x', 121)),
+        };
+
+        var failure = await Assert.ThrowsAsync<ProductValidationException>(() =>
+            service.UpdateDraftAsync(created.ProductId, new UpdateProductRequest(null, null, null, null, null, null, null, "Add the offer.", Offer: offer)));
+
+        Assert.Equal("offer", failure.Field);
+    }
+
     [Fact]
     public async Task SubmitForPublishApprovalAsync_RejectsAProductWithNoIraApprovalReference()
     {

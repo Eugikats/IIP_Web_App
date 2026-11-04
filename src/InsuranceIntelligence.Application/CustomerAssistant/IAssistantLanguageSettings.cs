@@ -7,9 +7,11 @@ namespace InsuranceIntelligence.Application.CustomerAssistant;
 /// read from configuration because the Application layer does not see Infrastructure.</summary>
 public interface IAssistantLanguageSettings
 {
+    IReadOnlyCollection<SupportedLanguageCode> EnabledLanguages => [];
+
     Task<IReadOnlyCollection<SupportedLanguageCode>> GetEnabledLanguagesAsync(
         InsuranceIntelligence.Domain.Common.TenantScope scope,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default) => Task.FromResult(EnabledLanguages);
 
     bool AllowUnreviewedTranslations { get; }
 }

@@ -22,7 +22,10 @@ public sealed record TenantSettingsResponse(
     IReadOnlyList<string>? CustomerMemoryFieldKeys = null,
     IReadOnlyList<string>? CustomerMemoryDocumentKeys = null,
     IReadOnlyList<string>? DefaultCustomerMemoryFieldKeys = null,
-    IReadOnlyList<string>? DefaultCustomerMemoryDocumentKeys = null);
+    IReadOnlyList<string>? DefaultCustomerMemoryDocumentKeys = null,
+    string? AssistantOrganisation = null,
+    string? AssistantShortName = null,
+    string? AssistantPartnerInsurers = null);
 
 /// <summary>What each setting is when nobody has changed it, so the screen can offer "reset".</summary>
 public sealed record TenantSettingsDefaults(
@@ -42,7 +45,10 @@ public sealed record SaveTenantSettingsRequest(
     string? PrivacyNoticeText = null,
     bool? CustomerMemoryEnabled = null,
     IReadOnlyList<string>? CustomerMemoryFieldKeys = null,
-    IReadOnlyList<string>? CustomerMemoryDocumentKeys = null);
+    IReadOnlyList<string>? CustomerMemoryDocumentKeys = null,
+    string? AssistantOrganisation = null,
+    string? AssistantShortName = null,
+    string? AssistantPartnerInsurers = null);
 
 /// <summary>
 /// The operating settings a workspace administrator can change (build-loop item 6): the publishing
@@ -112,6 +118,14 @@ public static class TenantSettingsEndpoints
             CustomerMemoryDocumentKeys = request.CustomerMemoryDocumentKeys is null ? current.CustomerMemoryDocumentKeys : CleanKeys(request.CustomerMemoryDocumentKeys),
         };
 
+        // An empty text goes back to the deployment's default brand.
+        updated = updated with
+        {
+            AssistantOrganisation = request.AssistantOrganisation is null ? current.AssistantOrganisation : NullIfBlank(request.AssistantOrganisation),
+            AssistantShortName = request.AssistantShortName is null ? current.AssistantShortName : NullIfBlank(request.AssistantShortName),
+            AssistantPartnerInsurers = request.AssistantPartnerInsurers is null ? current.AssistantPartnerInsurers : NullIfBlank(request.AssistantPartnerInsurers),
+        };
+
         var problems = updated.Validate();
         if (problems.Count > 0)
         {
@@ -153,7 +167,12 @@ public static class TenantSettingsEndpoints
             settings.CustomerMemoryFieldKeys,
             settings.CustomerMemoryDocumentKeys,
             InsuranceIntelligence.Domain.Customers.CustomerMemoryPolicy.DefaultFieldKeys,
-            InsuranceIntelligence.Domain.Customers.CustomerMemoryPolicy.DefaultDocumentKeys);
+            InsuranceIntelligence.Domain.Customers.CustomerMemoryPolicy.DefaultDocumentKeys,
+            settings.AssistantOrganisation,
+            settings.AssistantShortName,
+            settings.AssistantPartnerInsurers);
+
+    private static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static IReadOnlyList<string>? CleanKeys(IReadOnlyList<string> keys)
     {

@@ -20,12 +20,12 @@ public sealed class InMemoryWhatsAppChannelConfigurationRepository : IWhatsAppCh
         return Task.CompletedTask;
     }
 
+    public Task<IReadOnlyList<WhatsAppChannelConfiguration>> ListActiveAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<WhatsAppChannelConfiguration>>(configurations.Values.Where(item => item.IsActive).ToArray());
+
     public Task DeleteAsync(TenantScope scope, CancellationToken cancellationToken = default)
     {
         configurations.TryRemove(WhatsAppChannelConfiguration.StorageKey(scope), out _);
         return Task.CompletedTask;
     }
-
-    public Task<IReadOnlyList<WhatsAppChannelConfiguration>> ListActiveAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<WhatsAppChannelConfiguration>>(configurations.Values.Where(c => c.IsActive).ToArray());
 }
