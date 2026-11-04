@@ -615,6 +615,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IFieldPro
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IImageForensicsReader, InsuranceIntelligence.Api.Documents.MagickImageForensicsReader>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IAuthenticityService, InsuranceIntelligence.Application.Documents.AuthenticityService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IClaimAssessmentService, InsuranceIntelligence.Application.Fraud.ClaimAssessmentService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter, InsuranceIntelligence.Application.Cases.ClaimantStatusPresenter>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1503,6 +1504,10 @@ app.MapGet("/api/v1/cases/{caseId:guid}/authenticity", InsuranceIntelligence.Api
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/authenticity/disposition", InsuranceIntelligence.Api.Documents.AuthenticityEndpoints.SetDisposition)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/admin/claim-status-wording", InsuranceIntelligence.Api.Admin.ClaimStatusWordingEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPut("/api/v1/admin/claim-status-wording", InsuranceIntelligence.Api.Admin.ClaimStatusWordingEndpoints.Put)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/cases/{caseId:guid}/assessment", InsuranceIntelligence.Api.Fraud.ClaimAssessmentEndpoints.Get)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
 app.MapPost("/api/v1/cases/{caseId:guid}/assessment/refresh", InsuranceIntelligence.Api.Fraud.ClaimAssessmentEndpoints.Refresh)

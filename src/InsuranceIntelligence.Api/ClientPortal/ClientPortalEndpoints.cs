@@ -5,6 +5,7 @@ using InsuranceIntelligence.Api.Documents;
 using InsuranceIntelligence.Api.Workflow;
 using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Billing;
+using InsuranceIntelligence.Application.Cases;
 using InsuranceIntelligence.Application.Documents;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Notifications;
@@ -36,7 +37,8 @@ public static class ClientPortalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken,
         IAuditRepository? auditRepository = null,
-        ISlotPdfRepository? slotPdfRepository = null)
+        ISlotPdfRepository? slotPdfRepository = null,
+        IClaimantStatusPresenter? claimantStatus = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -59,7 +61,7 @@ public static class ClientPortalEndpoints
 
         await LogDisclosureAsync(auditRepository, httpContext, scope, caseId, "ClaimStatus", cancellationToken);
 
-        return Results.Ok(await WithPdfsAsync(ToResponse(claimCase, checklist, documents, communications, reviewRequests), slotPdfRepository, scope, caseId, cancellationToken));
+        return Results.Ok(await WithPdfsAsync(ToResponse(claimCase, checklist, documents, communications, reviewRequests), slotPdfRepository, scope, caseId, cancellationToken, claimantStatus, claimCase));
     }
 
     /// <summary>Outcome L: "the customer sees their policy" -- cover dates, cover status (computed
@@ -248,7 +250,8 @@ public static class ClientPortalEndpoints
         IImageDerivativeProvider? derivativeProvider = null,
         ISlotPdfService? slotPdfService = null,
         ISlotPdfRepository? slotPdfRepository = null,
-        ILoggerFactory? derivativeLoggerFactory = null)
+        ILoggerFactory? derivativeLoggerFactory = null,
+        IClaimantStatusPresenter? claimantStatus = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -391,7 +394,7 @@ public static class ClientPortalEndpoints
             cancellationToken);
 
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
-        return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken));
+        return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken, claimantStatus, updatedCase));
     }
 
     public static async Task<IResult> RequestReview(
@@ -471,7 +474,8 @@ public static class ClientPortalEndpoints
         InfrastructureOptions options,
         HttpContext httpContext,
         CancellationToken cancellationToken,
-        ISlotPdfRepository? slotPdfRepository = null)
+        ISlotPdfRepository? slotPdfRepository = null,
+        IClaimantStatusPresenter? claimantStatus = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -519,7 +523,7 @@ public static class ClientPortalEndpoints
         var updatedCase = claimCase with { CompletenessScore = checklist.CompletenessScore.Percentage, UpdatedAt = DateTimeOffset.UtcNow };
         await caseRepository.SaveAsync(updatedCase, cancellationToken);
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
-        return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken));
+        return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken, claimantStatus, updatedCase));
     }
 
     public static async Task<IResult> RemoveDocument(
@@ -534,7 +538,8 @@ public static class ClientPortalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken,
         ISlotPdfService? slotPdfService = null,
-        ISlotPdfRepository? slotPdfRepository = null)
+        ISlotPdfRepository? slotPdfRepository = null,
+        IClaimantStatusPresenter? claimantStatus = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -597,7 +602,7 @@ public static class ClientPortalEndpoints
         await caseRepository.SaveAsync(updatedCase, cancellationToken);
 
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
-        return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken));
+        return Results.Ok(await WithPdfsAsync(ToResponse(updatedCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken, claimantStatus, updatedCase));
     }
 
     /// <summary>The customer rearranges the pages of a multi-page document. The pages and their files
@@ -614,7 +619,8 @@ public static class ClientPortalEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken,
         ISlotPdfService? slotPdfService = null,
-        ISlotPdfRepository? slotPdfRepository = null)
+        ISlotPdfRepository? slotPdfRepository = null,
+        IClaimantStatusPresenter? claimantStatus = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -664,7 +670,7 @@ public static class ClientPortalEndpoints
         var allDocuments = await documentRepository.ListForCaseAsync(caseId, scope, cancellationToken);
         var checklist = await checklistProvider.BuildChecklistAsync(claimCase, allDocuments, cancellationToken);
         var communications = await communicationRepository.ListForCaseAsync(caseId, scope, cancellationToken);
-        return Results.Ok(await WithPdfsAsync(ToResponse(claimCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken));
+        return Results.Ok(await WithPdfsAsync(ToResponse(claimCase, checklist, allDocuments, communications), slotPdfRepository, scope, caseId, cancellationToken, claimantStatus, claimCase));
     }
 
     /// <summary>Fills in how many pages the PDF of each document slot has.</summary>
@@ -673,8 +679,28 @@ public static class ClientPortalEndpoints
         ISlotPdfRepository? slotPdfRepository,
         InsuranceIntelligence.Domain.Common.TenantScope scope,
         Guid caseId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IClaimantStatusPresenter? claimantStatus = null,
+        ClaimCase? claim = null)
     {
+        // The customer's own wording and the timeline from the product's stages (build-loop item 19).
+        if (claimantStatus is not null && claim is not null)
+        {
+            var view = await claimantStatus.BuildAsync(claim, cancellationToken);
+            response = response with
+            {
+                StatusHeadline = view.Headline,
+                StatusDetail = view.Detail,
+                Timeline = view.Timeline
+                    .Select(step => new ClientPortalTimelineStep(
+                        step.Label,
+                        step.State == TimelineState.Done,
+                        step.State == TimelineState.Done && step.Key == view.Timeline[0].Key ? claim.CreatedAt : step.State == TimelineState.Current ? claim.UpdatedAt : null,
+                        step.State.ToString()))
+                    .ToArray(),
+            };
+        }
+
         if (slotPdfRepository is null)
         {
             return response;
@@ -1095,7 +1121,11 @@ public sealed record ClientPortalClaimResponse(
     IReadOnlyCollection<ClientPortalTimelineStep> Timeline,
     IReadOnlyCollection<ClientPortalMessage> Messages,
     IReadOnlyCollection<string> NextSteps,
-    IReadOnlyCollection<ClientPortalReviewRequestSummary> ReviewRequests);
+    IReadOnlyCollection<ClientPortalReviewRequestSummary> ReviewRequests,
+    // What the customer reads about where the claim stands, in the workspace's own wording or the
+    // default (build-loop item 19). Empty only when the claim is built by code that predates it.
+    string StatusHeadline = "",
+    string StatusDetail = "");
 
 public sealed record ClientPortalReviewRequestBody(string Reason);
 
@@ -1148,7 +1178,9 @@ public sealed record ClientPortalReorderPagesRequest(string? DocumentTypeKey, IR
 public sealed record ClientPortalTimelineStep(
     string Label,
     bool Complete,
-    DateTimeOffset? Date);
+    DateTimeOffset? Date,
+    // Done, Current or Upcoming (build-loop item 19); Complete stays for older readers.
+    string State = "Upcoming");
 
 public sealed record ClientPortalMessage(
     Guid CommunicationId,

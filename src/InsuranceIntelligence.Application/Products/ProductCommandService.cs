@@ -384,6 +384,23 @@ public sealed class ProductCommandService(
                 throw new ProductValidationException("stages", $"Stage '{stage.Name}' cannot have a negative service standard.");
             }
 
+            InsuranceIntelligence.Domain.Cases.CaseStatus? milestone = null;
+            if (!string.IsNullOrWhiteSpace(stage.MilestoneStatus))
+            {
+                if (!Enum.TryParse<InsuranceIntelligence.Domain.Cases.CaseStatus>(stage.MilestoneStatus.Trim(), ignoreCase: true, out var parsed) || !Enum.IsDefined(parsed))
+                {
+                    throw new ProductValidationException("stages", $"Stage '{stage.Name}' names a claim status that does not exist.");
+                }
+
+                milestone = parsed;
+            }
+
+            var customerLabel = string.IsNullOrWhiteSpace(stage.CustomerLabel) ? null : InsuranceIntelligence.Domain.Common.DisplayText.WithoutEmDashes(stage.CustomerLabel.Trim());
+            if (customerLabel is { Length: > 60 })
+            {
+                throw new ProductValidationException("stages", $"The customer wording for stage '{stage.Name}' can be at most 60 characters.");
+            }
+
             result.Add(new ClaimStageDefinition(
                 stage.StageKey.Trim(),
                 stage.Name.Trim(),
@@ -391,7 +408,10 @@ public sealed class ProductCommandService(
                 stage.IsAutomatic,
                 stage.SortOrder,
                 stage.ServiceStandardWorkingDays,
-                stage.ValueTierStandards?.Select(tier => new ValueTierServiceStandard(tier.UpToValueUgx, tier.WorkingDays)).ToArray()));
+                stage.ValueTierStandards?.Select(tier => new ValueTierServiceStandard(tier.UpToValueUgx, tier.WorkingDays)).ToArray(),
+                customerLabel,
+                stage.CustomerVisible,
+                milestone));
         }
 
         return result.OrderBy(stage => stage.SortOrder).ToArray();
@@ -897,7 +917,10 @@ public sealed class ProductCommandService(
                     stage.IsAutomatic,
                     stage.SortOrder,
                     stage.ServiceStandardWorkingDays,
-                    stage.ValueTierStandards?.Select(tier => new ValueTierServiceStandardDto(tier.UpToValueUgx, tier.WorkingDays)).ToArray()))
+                    stage.ValueTierStandards?.Select(tier => new ValueTierServiceStandardDto(tier.UpToValueUgx, tier.WorkingDays)).ToArray(),
+                    stage.CustomerLabel,
+                    stage.CustomerVisible,
+                    stage.MilestoneStatus?.ToString()))
                 .ToArray(),
             product.DocumentMatrix
                 .Select(entry => new DocumentMatrixEntryDto(

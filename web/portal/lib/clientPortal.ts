@@ -42,6 +42,8 @@ export type ClientPortalTimelineStep = {
   label: string;
   complete: boolean;
   date: string | null;
+  /** Done, Current or Upcoming. Absent only from a server that predates it. */
+  state?: "Done" | "Current" | "Upcoming";
 };
 
 export type ClientPortalMessage = {
@@ -78,6 +80,9 @@ export type ClientPortalClaim = {
   messages: ClientPortalMessage[];
   nextSteps: string[];
   reviewRequests: ClientPortalReviewRequestSummary[];
+  /** What the customer reads about where the claim stands, in the insurer's own wording. */
+  statusHeadline: string;
+  statusDetail: string;
 };
 
 /**

@@ -11,6 +11,7 @@ const cards = [
   { to: "/app/admin/setup", icon: ClipboardCheck, title: "Set up your organisation", desc: "Your profile and licence, the terms, and the steps before the assistant speaks to your customers." },
   { to: "/app/admin/products", icon: PackageCheck, title: "Products", desc: "Configure a product's claim process, document matrix and IRA approval. Every change is versioned and audited." },
   { to: "/app/admin/policy-import", icon: UploadCloud, title: "Policy Import", desc: "Load policies from a CSV or Excel export, map columns, review a validation report, then commit. Every record is marked with where it came from." },
+  { to: "/app/admin/status-wording", icon: MessageSquareText, title: "Claim status wording", desc: "What customers read about where their claim stands, status by status." },
   { to: "/app/admin/background-work", icon: Radio, title: "Background work", desc: "Documents being read and claims being reviewed, what is waiting, and what could not be done." },
   { to: "/app/admin/settings", icon: SlidersHorizontal, title: "Operating settings", desc: "Reminder and SLA warning timings, the IRA publishing rule, seat limit and claims allowance." },
   { to: "/app/admin/users", icon: Users, title: "Users & roles", desc: "Add users, resolved from server-side membership and permission data. Role changes are audited." },

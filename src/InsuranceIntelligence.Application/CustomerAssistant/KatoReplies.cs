@@ -120,7 +120,7 @@ public static class KatoReplies
         $"Claim {reference}, for your {productLine} cover, reported on {reportedAt:d MMMM}: {status}.";
 
     public static string NoOpenClaims(string firstName, string reference, string productLine, string status) =>
-        $"Hello {firstName}. You have no open claims right now. Your last claim, {reference}, for your {productLine} cover, is {status}. " +
+        $"Hello {firstName}. You have no open claims right now. Your last claim, {reference}, for your {productLine} cover: {status}. " +
         "If something new has happened, tell me and I'll help you.";
 
     public static string NoClaimsYet(string firstName) =>

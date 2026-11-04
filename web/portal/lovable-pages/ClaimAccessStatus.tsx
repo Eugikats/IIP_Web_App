@@ -325,7 +325,8 @@ export default function ClaimAccessStatus() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-xs font-bold uppercase tracking-[0.12em] text-dls-text-muted">{claim.productLine} · {plainClaimType(claim.claimType)}</div>
-                  <div className="mt-1 text-2xl font-bold text-dls-text-primary">{customerStatus(claim.status)}</div>
+                  <h1 className="mt-1 text-2xl font-bold text-dls-text-primary" data-testid="claim-status-headline">{claim.statusHeadline || claim.status.replace(/([a-z])([A-Z])/g, "$1 $2")}</h1>
+                  {claim.statusDetail && <p className="mt-2 max-w-xl text-sm leading-5 text-dls-text-secondary" data-testid="claim-status-detail">{claim.statusDetail}</p>}
                 </div>
                 <div className="text-right text-xs text-dls-text-muted">
                   <div>Policy {claim.policyNumber}</div>
@@ -355,21 +356,23 @@ export default function ClaimAccessStatus() {
                 ))}
               </ul>
               <div className="mt-5 border-t border-dls-border-subtle pt-5">
-                <div className="mb-3 flex items-center gap-2">
-                  {claim.timeline.map((step, index) => (
-                    <div key={step.label} className="flex flex-1 items-center gap-2">
-                      <div className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${step.complete ? "bg-dls-success-tint text-dls-success-text" : "bg-dls-bg-page text-dls-text-muted"}`}>
-                        {step.complete ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> : index + 1}
-                      </div>
-                      {index < claim.timeline.length - 1 && <div className={`h-px flex-1 ${step.complete ? "bg-dls-success-dot/40" : "bg-dls-border-subtle"}`} />}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-5 gap-1 text-center text-[10.5px] leading-4 text-dls-text-muted">
-                  {claim.timeline.map((step) => (
-                    <div key={step.label}>{step.label}</div>
-                  ))}
-                </div>
+                <ol className="space-y-3" aria-label="Where your claim is" data-testid="claim-timeline">
+                  {claim.timeline.map((step, index) => {
+                    const state = step.state ?? (step.complete ? "Done" : "Upcoming");
+                    return (
+                      <li key={step.label} className="flex items-center gap-3" data-state={state} aria-current={state === "Current" ? "step" : undefined}>
+                        <div className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${state === "Done" ? "bg-dls-success-tint text-dls-success-text" : state === "Current" ? "bg-dls-primary text-white" : "bg-dls-bg-page text-dls-text-muted"}`}>
+                          {state === "Done" ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> : index + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className={`text-sm ${state === "Current" ? "font-semibold text-dls-text-primary" : state === "Done" ? "text-dls-text-secondary" : "text-dls-text-muted"}`}>{step.label}</div>
+                          {step.date && state !== "Upcoming" && <div className="text-[11px] text-dls-text-muted">{formatDate(step.date)}</div>}
+                        </div>
+                        <span className="shrink-0 text-[11px] text-dls-text-muted">{state === "Done" ? "Done" : state === "Current" ? "Now" : "Next"}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
               </div>
             </div>
 

@@ -600,20 +600,25 @@ public sealed partial class CustomerAssistantService
         var covers = (await productRepository.ListCurrentForAllProductsAsync(run.Scope, cancellationToken))
             .Where(product => product.Status == Domain.Products.ProductStatus.Published)
             .ToArray();
-        var claims = sender is null
+        var recentClaims = sender is null
             ? []
             : CasesFor(await caseRepository.ListAsync(run.Scope, cancellationToken), sender, run.WaId)
                 .OrderByDescending(c => c.CreatedAt)
                 .Take(5)
-                .Select(c => new
-                {
-                    reference = ClaimReference.For(c.CaseId),
-                    product = c.ProductLine,
-                    status = ClaimStatusLabels.For(c.Status),
-                    open = ClaimStatusLabels.IsOpen(c.Status),
-                    reported = c.CreatedAt.ToString("d MMMM yyyy"),
-                })
                 .ToArray();
+        var claims = new List<object>();
+        foreach (var c in recentClaims)
+        {
+            claims.Add(new
+            {
+                reference = ClaimReference.For(c.CaseId),
+                product = c.ProductLine,
+                status = await CustomerStatusAsync(run.Scope, c.Status, cancellationToken),
+                open = ClaimStatusLabels.IsOpen(c.Status),
+                reported = c.CreatedAt.ToString("d MMMM yyyy"),
+            });
+        }
+
         return Json(new
         {
             registered = true,

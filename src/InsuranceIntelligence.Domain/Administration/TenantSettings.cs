@@ -41,6 +41,10 @@ public sealed record TenantSettings
 
     public int PrivacyNoticeVersion { get; init; } = 1;
 
+    /// <summary>The workspace's own words for what a customer reads about their claim's status, keyed
+    /// by status name (build-loop item 19). A status with no entry uses the default wording.</summary>
+    public IReadOnlyDictionary<string, Cases.StatusWording>? ClaimantStatusWording { get; init; }
+
     public string? UpdatedByUserId { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
 
@@ -75,6 +79,8 @@ public sealed record TenantSettings
             errors.Add($"The privacy notice can be at most {Compliance.PrivacyNotices.MaxLength:N0} characters.");
         }
 
+        errors.AddRange(Cases.ClaimantStatusWords.Validate(ClaimantStatusWording));
+
         return errors;
     }
 
@@ -88,6 +94,7 @@ public sealed record TenantSettings
         if (SeatLimit != previous.SeatLimit) changed.Add(nameof(SeatLimit));
         if (ClaimsMeterLimit != previous.ClaimsMeterLimit) changed.Add(nameof(ClaimsMeterLimit));
         if (PrivacyNoticeText != previous.PrivacyNoticeText) changed.Add(nameof(PrivacyNoticeText));
+        if (!Cases.ClaimantStatusWords.SameAs(ClaimantStatusWording, previous.ClaimantStatusWording)) changed.Add(nameof(ClaimantStatusWording));
         return changed;
     }
 }

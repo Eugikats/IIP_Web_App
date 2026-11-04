@@ -1424,3 +1424,55 @@ test.describe("Item 18: review score and recommendation", () => {
     expect((await request.get(`${API}/api/v1/cases/${caseId}/assessment`, { headers: scopeHeaders(newTenant()) })).status()).toBe(404);
   });
 });
+
+test.describe("Item 19: customer status wording and timeline", () => {
+  test("a customer on a phone reads where the claim stands, and the insurer's own wording replaces the default", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+
+    await expect(page.getByTestId("claim-status-headline")).toHaveText("We have your claim");
+    await expect(page.getByTestId("claim-status-detail")).toContainText("We have received your claim");
+    const timeline = page.getByTestId("claim-timeline");
+    // The steps come from the claim's product: six customer steps from the default claim process.
+    await expect(timeline.locator("li")).toHaveCount(6);
+    await expect(timeline.locator("li").nth(1)).toContainText("Documents and details");
+    await expect(timeline.locator('li[data-state="Current"]')).toHaveCount(1);
+    await expect(timeline.locator('li[data-state="Current"]')).toContainText("Claim received");
+    // Nothing runs off the side of a 390 pixel screen.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    try {
+      const saved = await request.put(`${API}/api/v1/admin/claim-status-wording`, {
+        headers,
+        data: { wording: { New: { headline: "Thank you, we have your claim", detail: "A claims officer will call you within one working day." } } },
+      });
+      expect(saved.ok()).toBeTruthy();
+      await page.reload();
+      await expect(page.getByTestId("claim-status-headline")).toHaveText("Thank you, we have your claim");
+      await expect(page.getByTestId("claim-status-detail")).toHaveText("A claims officer will call you within one working day.");
+    } finally {
+      await request.put(`${API}/api/v1/admin/claim-status-wording`, { headers, data: { wording: {} } });
+    }
+  });
+
+  test("an administrator edits the wording on its own page and can go back to the default", async ({ page }) => {
+    await page.goto("/app/admin/status-wording");
+    const view = page.getByTestId("status-wording");
+    await expect(view.getByText("The default wording is a starting point to be confirmed")).toBeVisible();
+
+    const headline = view.locator("#headline-Closed");
+    await headline.fill("This claim is finished");
+    await view.getByRole("button", { name: "Save wording" }).click();
+    await expect(view.getByRole("status")).toContainText("Saved");
+    await page.reload();
+    await expect(page.locator("#headline-Closed")).toHaveValue("This claim is finished");
+
+    await page.getByRole("button", { name: /Use the default wording for Closed/ }).click();
+    await page.getByRole("button", { name: "Save wording" }).click();
+    await expect(page.getByTestId("status-wording").getByRole("status")).toContainText("Saved");
+    await page.reload();
+    await expect(page.locator("#headline-Closed")).toHaveValue("Your claim is closed");
+  });
+});

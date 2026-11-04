@@ -928,6 +928,30 @@ public sealed partial class CustomerAssistantServiceTests
     }
 
     [Fact]
+    public async Task ClaimStatusIsToldInTheWorkspacesOwnCustomerWordingNotTheStaffLabel()
+    {
+        var fixture = Fixture.Create(claimantStatus: new FixedStatusPresenter("Our team is on it"));
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+        var theirs = fixture.SeedCase(ValidPolicyNumber, CaseStatus.InReview);
+
+        await fixture.HandleAsync("What is the status of my claim?");
+
+        var reply = Assert.Single(fixture.Conversations.Saved).OutboundReplyText!;
+        Assert.Contains(ClaimReference.For(theirs), reply);
+        Assert.Contains("Our team is on it", reply);
+        Assert.DoesNotContain("under review", reply, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class FixedStatusPresenter(string headline) : InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter
+    {
+        public Task<InsuranceIntelligence.Application.Cases.ClaimantStatusView> BuildAsync(ClaimCase claim, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new InsuranceIntelligence.Application.Cases.ClaimantStatusView(headline, "detail", []));
+
+        public Task<StatusWording> WordingAsync(TenantScope scope, CaseStatus status, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new StatusWording(headline, "detail"));
+    }
+
+    [Fact]
     public async Task SharedNumber_OnFileForTwoDifferentPeople_RecognisesNobody()
     {
         var fixture = Fixture.Create();
@@ -1739,7 +1763,8 @@ public sealed partial class CustomerAssistantServiceTests
             InsuranceIntelligence.Application.Organisations.CompanyProfileService? companyProfile = null,
             IClaimIdentityVerifier? claimIdentity = null,
             bool withCrossChannelContext = false,
-            bool consentOtherChannel = true)
+            bool consentOtherChannel = true,
+            InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null)
         {
             var scope = TenantScope.Create("tenant-ca", "workspace-ca");
             var cases = new InMemoryCaseRepository();
@@ -1844,7 +1869,8 @@ public sealed partial class CustomerAssistantServiceTests
                 claimIdentity: claimIdentity ?? new VerifiedClaimIdentity(),
                 channelIdentityLinks: channelIdentityLinks,
                 channelMessages: channelMessages,
-                integrationConnections: integrationConnections);
+                integrationConnections: integrationConnections,
+                claimantStatus: claimantStatus);
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {

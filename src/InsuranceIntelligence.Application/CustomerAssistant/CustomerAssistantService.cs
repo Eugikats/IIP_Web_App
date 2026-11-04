@@ -140,8 +140,18 @@ public sealed partial class CustomerAssistantService(
     InsuranceIntelligence.Domain.Channels.IChannelMessageRepository? channelMessages = null,
     IIntegrationConnectionRepository? integrationConnections = null,
     ICustomerFollowUpRepository? customerFollowUps = null,
-    ITenantConfigurationRepository? tenantConfigurationRepository = null) : ICustomerAssistantService
+    ITenantConfigurationRepository? tenantConfigurationRepository = null,
+    // Optional: the customer's own wording for a claim's status (build-loop item 19). Without it the
+    // staff label is used, as before.
+    InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null) : ICustomerAssistantService
 {
+    /// <summary>What to call a claim's status when talking to the customer: the workspace's wording, or the
+    /// default, never the staff label.</summary>
+    private async Task<string> CustomerStatusAsync(TenantScope scope, CaseStatus status, CancellationToken cancellationToken) =>
+        claimantStatus is null
+            ? ClaimStatusLabels.For(status).ToLowerInvariant()
+            : (await claimantStatus.WordingAsync(scope, status, cancellationToken)).Headline;
+
     // Per message: the first name the sender put on their WhatsApp profile, for a greeting only.
     private string? contactFirstName;
 
@@ -1272,8 +1282,13 @@ public sealed partial class CustomerAssistantService(
         var open = theirs.Where(c => ClaimStatusLabels.IsOpen(c.Status)).Take(3).ToArray();
         if (open.Length > 0)
         {
-            var sentences = open.Select(c => KatoReplies.ClaimStatusSentence(
-                ClaimReference.For(c.CaseId), c.ProductLine, c.CreatedAt, ClaimStatusLabels.For(c.Status).ToLowerInvariant()));
+            var sentences = new List<string>();
+            foreach (var c in open)
+            {
+                sentences.Add(KatoReplies.ClaimStatusSentence(
+                    ClaimReference.For(c.CaseId), c.ProductLine, c.CreatedAt, await CustomerStatusAsync(scope, c.Status, cancellationToken)));
+            }
+
             return AssistantOutcome.Of(
                 KatoReplies.ClaimStatusList(sender.FirstName, sentences),
                 CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AutoReplied, caseId: open[0].CaseId);
@@ -1283,7 +1298,7 @@ public sealed partial class CustomerAssistantService(
         {
             var latest = theirs[0];
             return AssistantOutcome.Of(
-                KatoReplies.NoOpenClaims(sender.FirstName, ClaimReference.For(latest.CaseId), latest.ProductLine, ClaimStatusLabels.For(latest.Status).ToLowerInvariant()),
+                KatoReplies.NoOpenClaims(sender.FirstName, ClaimReference.For(latest.CaseId), latest.ProductLine, await CustomerStatusAsync(scope, latest.Status, cancellationToken)),
                 CustomerIntent.ExistingClaimStatus, CustomerAssistantOutcome.AutoReplied, caseId: latest.CaseId);
         }
 

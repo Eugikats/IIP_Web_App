@@ -81,7 +81,10 @@ public sealed class ProductQueryService(
                     stage.IsAutomatic,
                     stage.SortOrder,
                     stage.ServiceStandardWorkingDays,
-                    stage.ValueTierStandards?.Select(tier => new ValueTierServiceStandardDto(tier.UpToValueUgx, tier.WorkingDays)).ToArray()))
+                    stage.ValueTierStandards?.Select(tier => new ValueTierServiceStandardDto(tier.UpToValueUgx, tier.WorkingDays)).ToArray(),
+                    stage.CustomerLabel,
+                    stage.CustomerVisible,
+                    stage.MilestoneStatus?.ToString()))
                 .ToArray());
     }
 }

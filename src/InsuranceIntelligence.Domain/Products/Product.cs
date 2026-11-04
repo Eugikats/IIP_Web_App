@@ -252,7 +252,13 @@ public sealed record ClaimStageDefinition(
     bool IsAutomatic,
     int SortOrder,
     int? ServiceStandardWorkingDays,
-    IReadOnlyList<ValueTierServiceStandard>? ValueTierStandards = null)
+    IReadOnlyList<ValueTierServiceStandard>? ValueTierStandards = null,
+    // What the customer's timeline shows for this stage (build-loop item 19). All optional: the default
+    // stages carry their own customer wording and milestone (see ClaimantTimeline), so a product saved
+    // before these existed behaves exactly as the defaults say.
+    string? CustomerLabel = null,
+    bool? CustomerVisible = null,
+    InsuranceIntelligence.Domain.Cases.CaseStatus? MilestoneStatus = null)
 {
     public int? ResolveServiceStandardWorkingDays(decimal? claimValueUgx)
     {

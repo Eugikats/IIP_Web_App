@@ -9,7 +9,10 @@ public sealed record ClaimStageDto(
     bool IsAutomatic,
     int SortOrder,
     int? ServiceStandardWorkingDays,
-    IReadOnlyList<ValueTierServiceStandardDto>? ValueTierStandards);
+    IReadOnlyList<ValueTierServiceStandardDto>? ValueTierStandards,
+    string? CustomerLabel = null,
+    bool? CustomerVisible = null,
+    string? MilestoneStatus = null);
 
 public sealed record DocumentMatrixEntryDto(
     string DocumentKey,
