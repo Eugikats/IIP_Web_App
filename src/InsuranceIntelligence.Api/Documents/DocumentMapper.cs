@@ -65,7 +65,10 @@ public static class DocumentMapper
             document.DocumentTypeKey,
             document.IsSuperseded,
             MissingProcessingCapability(document),
-            document.DisagreesWithClassifier);
+            document.DisagreesWithClassifier,
+            document.Sha256,
+            document.SlotKind?.ToString(),
+            document.PreviewObjectKey is null ? null : $"/api/v1/cases/{document.CaseId}/documents/{document.DocumentId}/image-preview");
 
     private static string? MissingProcessingCapability(CaseDocument document) =>
         document.ProcessingStatus == DocumentProcessingStatus.Uploaded

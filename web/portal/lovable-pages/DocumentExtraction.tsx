@@ -207,6 +207,12 @@ export default function DocumentExtraction() {
           <div id="evidence-source-panel" data-testid="evidence-source-panel" role="tabpanel" aria-labelledby="source-document-tab" ref={sourcePanelRef} tabIndex={-1} className={`${compactPanel === "source" ? "block" : "hidden"} min-w-0 max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] focus:outline-none xl:block xl:max-h-none xl:overflow-visible xl:pb-0`}>
           <GlassCard className="overflow-hidden !p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-[13px] font-bold text-dls-text-primary"><FileText className="h-4 w-4 text-dls-info-text" aria-hidden="true" /> {selected.originalFileName}</div><div className="text-[11px] text-dls-text-muted">{selected.contentType} · {(selected.fileSizeBytes / 1024).toFixed(1)} KB</div></div>
+            {selected.sha256 && (
+              <p className="mb-3 break-all text-[11px] leading-4 text-dls-text-muted" data-testid="original-integrity">
+                {selected.slotKind === "Evidence" ? "Evidence, kept exactly as sent. " : "Original kept as sent. "}
+                SHA-256 <span className="font-mono">{selected.sha256}</span>
+              </p>
+            )}
             <div className="min-h-[560px] overflow-hidden rounded-dls-card border border-dls-border-subtle bg-dls-bg-page">
               {previewState.url && previewState.contentType?.startsWith("image/") ? <img src={previewState.url} alt={`Authorized preview of ${selected.originalFileName}`} className="mx-auto max-h-[760px] w-full object-contain" /> : null}
               {previewState.url && previewState.contentType === "application/pdf" ? <iframe title={`Authorized preview of ${selected.originalFileName}`} src={previewState.url} className="h-[680px] w-full bg-dls-surface" /> : null}

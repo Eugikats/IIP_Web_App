@@ -33,7 +33,9 @@ public static class DocumentEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken,
         ITenantConfigurationRepository? tenantConfigurationRepository = null,
-        IDocumentTypeCatalogRepository? documentTypeCatalogRepository = null)
+        IDocumentTypeCatalogRepository? documentTypeCatalogRepository = null,
+        IImageDerivativeProvider? derivativeProvider = null,
+        ILoggerFactory? derivativeLoggerFactory = null)
     {
         if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
         {
@@ -89,21 +91,15 @@ public static class DocumentEndpoints
 
         foreach (var file in files)
         {
-            await using var stream = file.OpenReadStream();
             var documentId = Guid.NewGuid();
-            var storageResult = await storageProvider.StoreAsync(
-                new DocumentStorageRequest(
-                    documentId,
-                    caseId,
-                    scope,
-                    file.FileName,
-                    NormalizeContentType(file),
-                    file.Length,
-                    stream),
-                cancellationToken);
+            var stored = await DocumentOriginals.StoreAsync(
+                file, documentId, caseId, scope, NormalizeContentType(file), storageProvider, derivativeProvider, cancellationToken, derivativeLoggerFactory);
 
-            var uploadedDocument = CreateUploadedDocument(
-                documentId, claimCase, file, storageResult, uploadedBy, correlationId, selectedDocumentTypeKey.Key);
+            var uploadedDocument = CreateUploadedDocument(documentId, claimCase, file, stored.Storage, uploadedBy, correlationId, selectedDocumentTypeKey.Key) with
+            {
+                Sha256 = stored.Sha256,
+                PreviewObjectKey = stored.PreviewObjectKey,
+            };
             await documentRepository.SaveAsync(uploadedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentUploaded(uploadedDocument, uploadedBy, correlationId), cancellationToken);
 
@@ -219,6 +215,41 @@ public static class DocumentEndpoints
         var checklist = await checklistProvider.BuildChecklistAsync(claimCase, documents, cancellationToken);
 
         return Results.Ok(DocumentMapper.ToResponse(checklist));
+    }
+
+    /// <summary>The separate preview picture of an uploaded image (a JPEG made for looking at, with no
+    /// location or camera details). The original is served by the content route and is never
+    /// replaced by this.</summary>
+    public static async Task<IResult> GetDocumentImagePreview(
+        Guid caseId,
+        Guid documentId,
+        ICaseRepository caseRepository,
+        ICaseDocumentRepository documentRepository,
+        IDocumentStorageProvider storageProvider,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Validation("tenantScope", validationError);
+        }
+
+        var claimCase = await GetScopedCaseAsync(caseRepository, caseId, scope, httpContext, cancellationToken);
+        if (claimCase is null)
+        {
+            return Results.NotFound(new { message = "Case was not found for the requested tenant workspace." });
+        }
+
+        var document = await documentRepository.GetAsync(caseId, documentId, scope, cancellationToken);
+        if (document?.PreviewObjectKey is null)
+        {
+            return Results.NotFound(new { message = "This document has no preview picture." });
+        }
+
+        httpContext.Response.Headers.XContentTypeOptions = "nosniff";
+        httpContext.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'";
+        var stream = await storageProvider.ReadAsync(scope, document.PreviewObjectKey, cancellationToken);
+        return Results.Stream(stream, "image/jpeg");
     }
 
     public static async Task<IResult> GetDocumentContent(

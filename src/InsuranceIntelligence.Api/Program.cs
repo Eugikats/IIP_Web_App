@@ -367,6 +367,8 @@ else
     builder.Services.AddSingleton<IDocumentProcessingProvider, NotConfiguredDocumentProcessingProvider>();
 }
 
+builder.Services.AddSingleton<IImageDerivativeProvider, MagickImageDerivativeProvider>();
+
 // ITranslationProvider is always the tenant-aware resolver now, the same three-step order as
 // ISmsProvider/IEmailSendingProvider: a tenant's own dashboard-configured connection (e.g. Sunbird
 // AI) first, then the deployment's environment-configured engine below, then not configured.
@@ -589,6 +591,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductWo
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimTypeService, InsuranceIntelligence.Application.Products.ClaimTypeService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IWordingDraftService, InsuranceIntelligence.Application.Products.WordingDraftService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimantConsentService, InsuranceIntelligence.Application.Compliance.ClaimantConsentService>();
+builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IImageDerivativeProvider, InsuranceIntelligence.Api.Documents.MagickImageDerivativeProvider>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimFieldService, InsuranceIntelligence.Application.Products.ClaimFieldService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Tenants.IWorkspaceCatalogService, InsuranceIntelligence.Application.Tenants.WorkspaceCatalogService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Onboarding.IOnboardingConfiguration, InsuranceIntelligence.Api.Onboarding.OnboardingConfiguration>();
@@ -1061,6 +1064,8 @@ app.MapGet("/api/v1/cases/{caseId:guid}/documents", DocumentEndpoints.ListDocume
 app.MapGet("/api/v1/cases/{caseId:guid}/document-checklist", DocumentEndpoints.GetChecklist)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/content", DocumentEndpoints.GetDocumentContent)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/image-preview", DocumentEndpoints.GetDocumentImagePreview)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/documents/{documentId:guid}/reprocess", DocumentEndpoints.ReprocessDocument)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));

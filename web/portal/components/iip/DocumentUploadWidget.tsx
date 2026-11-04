@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Input";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
-import { compressImageForUpload, offlineUploadMessage } from "@/lib/compressImageForUpload";
+import { offlineUploadMessage } from "@/lib/photoDownscale";
 import { listDocumentUploadOptions, type DocumentTypeUploadOption } from "@/lib/documentTypes";
 import { extractionHref } from "@/lib/workItemLinks";
 
@@ -93,8 +93,8 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
       const form = new FormData();
       form.append("documentTypeKey", documentTypeKey);
       for (const original of Array.from(fileList)) {
-        const prepared = await compressImageForUpload(original);
-        form.append("files", prepared, prepared.name);
+        form.append("files", original, original.name);
+
       }
 
       await new Promise<void>((resolve, reject) => {
@@ -221,7 +221,7 @@ export function DocumentUploadWidget({ caseId, role, onUploaded }: DocumentUploa
         {uploading ? "Uploading…" : "Upload photo or document"}
       </Button>
       <div className="text-[11.5px] text-dls-text-muted">
-        Photos are compressed on-device for slow networks. PDF and text files upload as-is. Max 25 MB per file.
+        Files are preserved byte-for-byte as uploaded. Max 25 MB per file.
       </div>
       {progress !== null ? (
         <div className="h-1.5 overflow-hidden rounded-dls-pill bg-dls-border-subtle">

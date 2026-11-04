@@ -38,6 +38,20 @@ public sealed record CaseDocument
     /// this field existed deserializes as not superseded.</summary>
     public bool IsSuperseded { get; init; }
 
+    /// <summary>SHA-256 of the bytes exactly as received (build-loop item 11), as lower-case hex.
+    /// Lets anyone show later that the stored original is the file that was sent. Null for a
+    /// document stored before this field existed.</summary>
+    public string? Sha256 { get; init; }
+
+    /// <summary>What kind of slot this was filed in, when the customer filed it in one. Evidence is
+    /// kept exactly as taken: never recompressed, resized or stripped.</summary>
+    public DocumentKind? SlotKind { get; init; }
+
+    /// <summary>Where the separate preview of a picture is stored (a JPEG made for looking at,
+    /// with no location or camera details). Null when there is none (a PDF, an unreadable file).
+    /// The original is never replaced by it.</summary>
+    public string? PreviewObjectKey { get; init; }
+
     public DateTimeOffset? SupersededAt { get; init; }
 
     /// <summary>The catalog key this document is filed under: the customer's own choice when they

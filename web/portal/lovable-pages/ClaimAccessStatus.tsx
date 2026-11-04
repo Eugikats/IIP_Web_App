@@ -18,7 +18,7 @@ import {
   retryClaimDocument,
   uploadClaimDocuments,
 } from "@/lib/clientPortal";
-import { downscalePhotoIfNeeded } from "@/lib/photoDownscale";
+import { prepareFileForSlot } from "@/lib/photoDownscale";
 import { ClaimantDocumentsCard, SOMETHING_ELSE_KEY } from "@/components/iip/ClaimantDocumentsCard";
 import { ClaimantConsentCard } from "@/components/iip/ClaimantConsentCard";
 import { agreeToPrivacyNotice, fetchPrivacyConsent, withdrawPrivacyConsent, type PrivacyConsent } from "@/lib/privacyConsent";
@@ -144,7 +144,9 @@ export default function ClaimAccessStatus() {
 
     setBusyKey(documentTypeKey);
     setUploadNotice(null);
-    const files = await Promise.all(rawFiles.map((file) => downscalePhotoIfNeeded(file)));
+    // Only a document slot may have its pictures scaled down; evidence is sent exactly as taken.
+    const slotKind = claim?.requiredDocuments.find((row) => row.documentTypeKey === documentTypeKey)?.kind === "Evidence" ? "Evidence" : "Document";
+    const files = await Promise.all(rawFiles.map((file) => prepareFileForSlot(file, slotKind)));
     const result = await uploadClaimDocuments(session, files, documentTypeKey === SOMETHING_ELSE_KEY ? undefined : documentTypeKey);
     setBusyKey(null);
     if (!result.ok) {

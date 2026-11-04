@@ -242,7 +242,9 @@ public static class ClientPortalEndpoints
         InfrastructureOptions options,
         InsuranceIntelligence.Application.Compliance.IClaimantConsentService consentService,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IImageDerivativeProvider? derivativeProvider = null,
+        ILoggerFactory? derivativeLoggerFactory = null)
     {
         if (!ResolveScope(httpContext, out var scope, out var validationError))
         {
@@ -296,6 +298,8 @@ public static class ClientPortalEndpoints
         // older client and for the catch-all "something else" slot, in which case the classifier's
         // guess decides, exactly as before.
         var documentTypeKey = NormalizeDocumentTypeKey(form["documentTypeKey"]);
+        // "Something else" has no slot: it is treated as paperwork, not as evidence.
+        DocumentKind? slotKind = documentTypeKey is null ? null : DocumentKind.Document;
 
         var actor = ResolveActor(httpContext);
         var correlationId = httpContext.TraceIdentifier;
@@ -310,6 +314,7 @@ public static class ClientPortalEndpoints
                 return Validation("documentTypeKey", "That is not one of the documents asked for on this claim.");
             }
 
+            slotKind = slot.Kind;
             var slotError = SlotUploadError(slot, files, existingDocuments);
             if (slotError is not null)
             {
@@ -326,20 +331,17 @@ public static class ClientPortalEndpoints
 
         foreach (var file in files)
         {
-            await using var stream = file.OpenReadStream();
             var documentId = Guid.NewGuid();
-            var storageResult = await storageProvider.StoreAsync(
-                new DocumentStorageRequest(
-                    documentId,
-                    caseId,
-                    scope,
-                    file.FileName,
-                    NormalizeContentType(file),
-                    file.Length,
-                    stream),
-                cancellationToken);
+            // The original is stored byte for byte; its hash and a separate preview are kept beside it.
+            var stored = await DocumentOriginals.StoreAsync(
+                file, documentId, caseId, scope, NormalizeContentType(file), storageProvider, derivativeProvider, cancellationToken, derivativeLoggerFactory);
 
-            var uploadedDocument = CreateUploadedDocument(documentId, claimCase, file, storageResult, actor, correlationId, documentTypeKey);
+            var uploadedDocument = CreateUploadedDocument(documentId, claimCase, file, stored.Storage, actor, correlationId, documentTypeKey) with
+            {
+                Sha256 = stored.Sha256,
+                SlotKind = slotKind,
+                PreviewObjectKey = stored.PreviewObjectKey,
+            };
             await documentRepository.SaveAsync(uploadedDocument, cancellationToken);
             await auditRepository.WriteAsync(AuditEvent.DocumentUploaded(uploadedDocument, actor, correlationId), cancellationToken);
 

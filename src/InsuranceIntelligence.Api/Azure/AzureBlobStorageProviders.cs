@@ -30,6 +30,25 @@ public sealed class AzureBlobDocumentStorageProvider(InfrastructureOptions optio
         return new DocumentStorageResult(objectKey, headers.ContentType, request.FileSizeBytes);
     }
 
+    public async Task<string> StoreDerivativeAsync(
+        TenantScope scope,
+        Guid caseId,
+        Guid documentId,
+        string name,
+        string contentType,
+        Stream content,
+        CancellationToken cancellationToken = default)
+    {
+        var container = AzureProviderSupport.BlobContainer(options.AzureBlob, options.AzureBlob.DocumentContainer);
+        await container.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
+        var objectKey = AzureProviderSupport.SafeBlobName(scope, "cases", caseId.ToString(), "derived", $"{documentId}_{name}");
+        await container.GetBlobClient(objectKey).UploadAsync(
+            content,
+            new BlobHttpHeaders { ContentType = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType },
+            cancellationToken: cancellationToken);
+        return objectKey;
+    }
+
     public async Task<Stream> ReadAsync(TenantScope scope, string objectKey, CancellationToken cancellationToken = default)
     {
         EnsureScopedReference(scope, objectKey);

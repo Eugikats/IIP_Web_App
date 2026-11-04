@@ -36,7 +36,13 @@ public sealed record DocumentResponse(
     string? ProcessingCapability = null,
     // True when the customer filed this under one type and the classifier confidently reads a
     // different one. A flag for staff only; never shown to the customer as an error.
-    bool ClassifierDisagrees = false);
+    bool ClassifierDisagrees = false,
+    // Build-loop item 11: the SHA-256 of the original exactly as received, what kind of slot it was
+    // filed in ("Evidence" is kept as taken), and the address of a separate preview picture when one
+    // was made. The original is never replaced by the preview.
+    string? Sha256 = null,
+    string? SlotKind = null,
+    string? ImagePreviewUrl = null);
 
 public sealed record BoundingBoxResponse(
     int PageNumber,

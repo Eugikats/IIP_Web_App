@@ -861,3 +861,68 @@ test.describe("Item 10: photo or file per slot", () => {
     await expect(page.locator("li", { hasText: "Police report" }).getByText("Take photo")).toBeVisible();
   });
 });
+
+test.describe("Item 11: evidence originals", () => {
+  async function staffDocuments(request: APIRequestContext, caseId: string) {
+    const response = await request.get(`${API}/api/v1/cases/${caseId}/documents`, { headers: scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE) });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    return (await response.json()) as { documentId: string; sha256: string | null; slotKind: string | null; imagePreviewUrl: string | null; originalFileName: string }[];
+  }
+
+  test("a photo sent as evidence reaches the server byte for byte, with its hash and a separate preview", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    const photo = fixture("damage_photo.jpg");
+
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+    await photos.locator('input[data-upload="choose"]').setInputFiles(photo);
+    await expect(photos.getByText("1 of 10 sent")).toBeVisible();
+
+    const [document] = await staffDocuments(request, caseId);
+    const { createHash } = await import("node:crypto");
+    // The hash the server computed over what it received equals the hash of the file chosen: the
+    // browser sent it exactly as chosen, nothing recompressed or stripped.
+    expect(document.sha256).toBe(createHash("sha256").update(photo.buffer).digest("hex"));
+    expect(document.slotKind).toBe("Evidence");
+    expect(document.imagePreviewUrl).toBeTruthy();
+
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const original = await request.get(`${API}/api/v1/cases/${caseId}/documents/${document.documentId}/content`, { headers });
+    expect(Buffer.compare(await original.body(), photo.buffer)).toBe(0);
+    const preview = await request.get(`${API}${document.imagePreviewUrl}`, { headers });
+    expect(preview.status()).toBe(200);
+    expect(preview.headers()["content-type"]).toContain("image/jpeg");
+  });
+
+  test("a HEIC photo is accepted as evidence and stays HEIC, with a JPEG preview beside it", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    const heic = fixture("damage_photo.heic");
+
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+    await photos.locator('input[data-upload="capture"]').setInputFiles({ name: "IMG_0042.HEIC", mimeType: "image/heic", buffer: heic.buffer });
+    await expect(photos.getByText("1 of 10 sent")).toBeVisible();
+
+    const [document] = await staffDocuments(request, caseId);
+    const headers = scopeHeaders(PORTAL_TENANT, PORTAL_WORKSPACE);
+    const original = await request.get(`${API}/api/v1/cases/${caseId}/documents/${document.documentId}/content`, { headers });
+    expect(original.status()).toBeLessThan(500);
+    const preview = await request.get(`${API}${document.imagePreviewUrl}`, { headers });
+    expect(preview.status()).toBe(200);
+    expect(preview.headers()["content-type"]).toContain("image/jpeg");
+    expect(document.originalFileName).toBe("IMG_0042.HEIC");
+  });
+
+  test("another tenant cannot read the preview", async ({ page, request }) => {
+    const { token, caseId } = await claimantLinkFor(request);
+    await openClaimantPortal(page, token);
+    const photos = page.locator("li", { hasText: "Photos of the damage" }).first();
+    await photos.locator('input[data-upload="choose"]').setInputFiles(fixture("damage_photo.jpg"));
+    await expect(photos.getByText("1 of 10 sent")).toBeVisible();
+    const [document] = await staffDocuments(request, caseId);
+
+    const other = await request.get(`${API}${document.imagePreviewUrl}`, { headers: scopeHeaders(newTenant()) });
+    expect(other.status()).toBe(404);
+  });
+});

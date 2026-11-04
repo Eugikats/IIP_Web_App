@@ -3,15 +3,26 @@
 const MAX_WIDTH = 1600;
 const JPEG_QUALITY = 0.85;
 
+export type SlotKind = "Document" | "Evidence";
+
 /**
- * A customer on a paid data bundle should not send an 8 MB phone photo (claim intake build
- * prompt outcome B). Downscales an image file wider than MAX_WIDTH to a JPEG at that width before
- * upload; anything that is not an image (a PDF, a HEIC file the browser cannot decode into a
- * canvas) or that is already small enough is returned unchanged. Never throws: canvas support is
- * inconsistent across older phone browsers, and a failed downscale should still let the original
- * file upload rather than block the customer.
+ * The one place a file is changed before it is sent (build-loop item 11), and only for a document
+ * slot. A customer on a paid data bundle should not send an 8 MB phone photo of a letter, so a
+ * picture of paperwork wider than MAX_WIDTH is scaled down to a JPEG. Evidence (photos of the
+ * damage) is NEVER touched: it is sent exactly as taken, with its metadata, because it may be
+ * examined later. Anything that is not an image, a HEIC file the browser cannot decode, or a file
+ * already small enough is also sent unchanged.
  */
-export async function downscalePhotoIfNeeded(file: File): Promise<File> {
+export async function prepareFileForSlot(file: File, kind: SlotKind): Promise<File> {
+  return kind === "Evidence" ? file : downscalePhotoIfNeeded(file);
+}
+
+/**
+ * Downscales an image wider than MAX_WIDTH. Never throws: canvas support is inconsistent across
+ * older phone browsers, and a failed downscale should still let the original file upload rather
+ * than block the customer. Use prepareFileForSlot, which never applies it to evidence.
+ */
+async function downscalePhotoIfNeeded(file: File): Promise<File> {
   if (!file.type.startsWith("image/") || file.type === "image/heic" || file.type === "image/heif") {
     return file;
   }
@@ -43,4 +54,8 @@ export async function downscalePhotoIfNeeded(file: File): Promise<File> {
   } catch {
     return file;
   }
+}
+
+export function offlineUploadMessage(): string {
+  return "You appear to be offline. Connect and try the upload again.";
 }

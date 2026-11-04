@@ -46,6 +46,12 @@ export type DocumentItem = {
   processedAt?: string | null;
   correlationId: string;
   previewUrl: string;
+  /** SHA-256 of the original exactly as received (item 11); absent on documents stored before. */
+  sha256?: string | null;
+  /** "Evidence" is kept exactly as taken; "Document" is paperwork; absent when not filed in a slot. */
+  slotKind?: string | null;
+  /** A separate JPEG preview made for looking at (HEIC and large photos); the original is unchanged. */
+  imagePreviewUrl?: string | null;
   allowedActions: DocumentActionState[];
   blockedActions: DocumentActionState[];
 };

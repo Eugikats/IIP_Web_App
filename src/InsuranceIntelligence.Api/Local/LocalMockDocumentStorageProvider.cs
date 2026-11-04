@@ -28,6 +28,26 @@ public sealed partial class LocalMockDocumentStorageProvider(IWebHostEnvironment
         return new DocumentStorageResult(objectKey, request.ContentType, request.FileSizeBytes);
     }
 
+    public async Task<string> StoreDerivativeAsync(
+        InsuranceIntelligence.Domain.Common.TenantScope scope,
+        Guid caseId,
+        Guid documentId,
+        string name,
+        string contentType,
+        Stream content,
+        CancellationToken cancellationToken = default)
+    {
+        var safeName = SafeFileNamePattern().Replace(Path.GetFileName(name), "_");
+        var objectKey = string.Join('/', scope.TenantId, scope.WorkspaceId, caseId, "derived", $"{documentId}_{safeName}");
+        var storageRoot = configuration["INSURANCEINTELLIGENCE_LOCAL_DOCUMENT_STORAGE_PATH"]
+            ?? Path.Combine(environment.ContentRootPath, ".local", "document-storage");
+        var fullPath = Path.Combine(storageRoot, objectKey.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        await using var output = File.Create(fullPath);
+        await content.CopyToAsync(output, cancellationToken);
+        return objectKey;
+    }
+
     public Task<Stream> ReadAsync(InsuranceIntelligence.Domain.Common.TenantScope scope, string objectKey, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

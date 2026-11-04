@@ -111,7 +111,11 @@ export function useDocumentExtraction(caseId: string) {
 
   const preview = useCallback(async (document: DocumentItem): Promise<PreviewResult> => {
     try {
-      const response = await fetch(`${apiBaseUrl}${document.previewUrl}`, { headers: scopedHeaders(role, "") });
+      // A format a browser cannot show (HEIC, TIFF) is looked at through its separate preview
+      // picture; the original is what is kept and is unchanged.
+      const needsImagePreview = /heic|heif|tiff?/i.test(document.contentType) || /\.(heic|heif|tiff?)$/i.test(document.originalFileName);
+      const address = needsImagePreview && document.imagePreviewUrl ? document.imagePreviewUrl : document.previewUrl;
+      const response = await fetch(`${apiBaseUrl}${address}`, { headers: scopedHeaders(role, "") });
       if (!response.ok) return { ok: false, message: await safeError(response, `Preview failed.`) };
       const blob = await response.blob();
       return { ok: true, url: URL.createObjectURL(blob), contentType: blob.type || document.contentType };
