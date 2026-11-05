@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node init && node scripts/run-next-dev.mjs",
-    "build": "node init && node scripts/run-next-build.mjs",
+    "dev": "node scripts/run-next-dev.mjs",
+    "build": "node scripts/run-next-build.mjs",
     "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:action-permission-parity && pnpm check:ui-release-gates && pnpm test:trust-truth && pnpm test:authority-permissions && pnpm test:scan-math",
     "check:runtime-data": "node scripts/check-runtime-data-hygiene.mjs",
     "check:provider-status": "node scripts/check-provider-status.mjs",
@@ -21,8 +21,8 @@
     "test:claims-core": "playwright test --config playwright.claims-core.config.ts",
     "test:release-gates": "playwright test --config tests/visual/playwright.config.ts --grep \"Gate (13|15|16|17|18)|signed-in authority\"",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "node init && storybook build",
-    "start": "node init && next start",
+    "build-storybook": "storybook build",
+    "start": "next start",
     "lint": "next lint",
     "test:visual": "playwright test -c tests/visual/playwright.config.ts",
     "test:workspace": "playwright test -c playwright.workspace.config.ts"

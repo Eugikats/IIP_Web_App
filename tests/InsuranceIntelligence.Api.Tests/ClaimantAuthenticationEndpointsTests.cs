@@ -46,8 +46,9 @@ public sealed class ClaimantAuthenticationEndpointsTests
         var sent = Assert.Single(communications.EmailsSent);
         Assert.Equal("sarah@example.com", sent.Recipient);
         Assert.Contains("/access/verify?token=", sent.MessageBody);
-        // The link names the organisation it is for, so one shared portal knows whose claim it is opening.
-        Assert.Matches(@"&t=[^&\s]+&w=[^&\s]+", sent.MessageBody);
+        // The tenant and workspace are stored against the single-use token, rather than trusted from query parameters.
+        Assert.DoesNotContain("&t=", sent.MessageBody);
+        Assert.DoesNotContain("&w=", sent.MessageBody);
         Assert.True(sent.Approved);
         Assert.True(sent.LowRisk);
 

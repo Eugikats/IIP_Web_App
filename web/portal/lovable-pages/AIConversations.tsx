@@ -181,6 +181,7 @@ export default function AIConversations({ conversationId: requestedConversationI
           <div className="flex-1" aria-hidden="true" />
           <div className="w-full shrink-0">
             <CcComposer value={input} onChange={setInput} onSend={() => void send()} disabled={loading} />
+            <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-slate-500">AI prepares work. People decide claims.</p>
           </div>
           <section className="mx-auto mt-10 w-full max-w-4xl pb-2" aria-label="Questions to try">
             <div className="mb-5 flex items-center gap-3">
@@ -287,6 +288,7 @@ export default function AIConversations({ conversationId: requestedConversationI
             onSend={() => void send()}
             disabled={loading || historyLoading || !canContinue || Boolean(historyError) || Boolean(pendingRequest)}
           />
+          <p className="mt-2 text-center text-[11px] text-slate-500">AI prepares work. People decide claims.</p>
         </div>
       )}
     </div>

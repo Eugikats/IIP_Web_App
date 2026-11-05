@@ -698,7 +698,9 @@ public sealed partial class CustomerAssistantService(
             await ApplyStatedNameAsync(scope, waId, introduced, cancellationToken);
         }
 
-        if (sender is not { Policies.Count: > 0 })
+        if (sender is not { Policies.Count: > 0 }
+            && !CustomerMessageSignals.IsBareHumanRequest(text)
+            && intentClassifier.Classify(text) is not (CustomerIntent.NewClaim or CustomerIntent.ExistingClaimStatus or CustomerIntent.HumanRequested))
         {
             await EnsureProspectAsync(scope, waId, threadId, introduced ?? ProfileFullName(inbound.ProfileName), text, correlationId, cancellationToken);
         }
@@ -1039,13 +1041,22 @@ public sealed partial class CustomerAssistantService(
         }
 
         var kind = occupation ?? MicroinsuranceCatalog.OccupationKind.Other;
-        var products = MicroinsuranceCatalog.ProductsFor(kind);
+        var brand = KatoBrand.Current;
+        var products = brand.ProductsFor(kind);
+        if (products.Count == 0)
+        {
+            return AssistantOutcome.Of(
+                KatoReplies.NoCoversYet(sender?.FirstName),
+                CustomerIntent.ProductInterest,
+                CustomerAssistantOutcome.LeadCreated);
+        }
+
         var leadId = await CreateLeadAsync(
             scope, original, waId, sender, "WhatsApp - Kato cover suggestion", correlationId, cancellationToken,
             productFit: string.Join(" + ", products.Select(p => p.Name)),
             occupation: original);
         return AssistantOutcome.Of(
-            KatoReplies.CoverSuggestion(sender?.FirstName, MicroinsuranceCatalog.Explain(kind)),
+            KatoReplies.CoverSuggestion(sender?.FirstName, brand.Explain(kind)),
             CustomerIntent.ProductInterest, CustomerAssistantOutcome.LeadCreated, leadId: leadId) with
         {
             Occupation = original,

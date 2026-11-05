@@ -57,7 +57,7 @@ public sealed record KatoBrand(
 
     /// <summary>The covers Kato may explain and take applications for.</summary>
     public IReadOnlyList<MicroinsuranceCatalog.MicroProduct> Products =>
-        (Offered ?? MicroinsuranceCatalog.All
+        (Offered ?? MicroinsuranceCatalog.Offered
             .Where(product => IsBancassurance
                 ? PartnerInsurers.Contains(product.Insurer, StringComparer.OrdinalIgnoreCase)
                 : string.Equals(product.Insurer, Organisation, StringComparison.OrdinalIgnoreCase))

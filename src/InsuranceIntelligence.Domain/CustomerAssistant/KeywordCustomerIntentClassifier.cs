@@ -21,7 +21,7 @@ public sealed class KeywordCustomerIntentClassifier : ICustomerIntentClassifier
         ["interested in", "want to buy", "get a quote", "how much is", "premium for", "pricing for", "sign up for", "want cover", "want insurance", "new policy"];
 
     private static readonly string[] HumanRequestedKeywords =
-        ["speak to a human", "speak to someone", "talk to an agent", "human agent", "real person", "customer service", "call me", "speak to a person"];
+        ["speak to a human", "speak to someone", "talk to someone", "talk to a manager", "speak to a manager", "talk to an agent", "human agent", "real person", "customer service", "call me", "speak to a person"];
 
     public CustomerIntent Classify(string messageText)
     {

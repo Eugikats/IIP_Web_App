@@ -115,13 +115,14 @@ public sealed class MultiTenantFoundationTests
         await repository.SaveAsync(Sms(Acme, "gateway-shared"), CancellationToken.None);
         await repository.SaveAsync(Sms(Baraka, "gateway-shared"), CancellationToken.None);
         var options = new InfrastructureOptions { MultiTenant = true, SmsWebhookSharedSecret = "path-secret" };
+        var barakaPortal = new PortalDirectoryStub(Baraka, "path-secret");
 
         var unique = await SmsIntegrationEndpoints.ReceiveDeliveryStatus(
             "path-secret", new SmsDeliveryStatusPayload("gateway-2", "256700000001", "Delivered"), repository, options,
-            NullLogger<SmsDeliveryStatusLogMarker>.Instance, CancellationToken.None);
+            NullLogger<SmsDeliveryStatusLogMarker>.Instance, CancellationToken.None, barakaPortal);
         var ambiguous = await SmsIntegrationEndpoints.ReceiveDeliveryStatus(
             "path-secret", new SmsDeliveryStatusPayload("gateway-shared", "256700000001", "Delivered"), repository, options,
-            NullLogger<SmsDeliveryStatusLogMarker>.Instance, CancellationToken.None);
+            NullLogger<SmsDeliveryStatusLogMarker>.Instance, CancellationToken.None, new PortalDirectoryStub(null, null));
         var wrongSecret = await SmsIntegrationEndpoints.ReceiveDeliveryStatus(
             "guess", new SmsDeliveryStatusPayload("gateway-1", "256700000001", "Delivered"), repository, options,
             NullLogger<SmsDeliveryStatusLogMarker>.Instance, CancellationToken.None);
@@ -133,6 +134,31 @@ public sealed class MultiTenantFoundationTests
         Assert.IsAssignableFrom<IResult>(unique);
         Assert.IsAssignableFrom<IResult>(ambiguous);
         Assert.IsAssignableFrom<IResult>(wrongSecret);
+    }
+
+    private sealed class PortalDirectoryStub(TenantScope? scope, string? secret) : InsuranceIntelligence.Infrastructure.ClientPortal.IPortalDirectory
+    {
+        private readonly InsuranceIntelligence.Domain.ClientPortal.PortalIdentity? identity = scope is null || secret is null
+            ? null
+            : new InsuranceIntelligence.Domain.ClientPortal.PortalIdentity
+            {
+                Scope = scope,
+                Slug = "baraka",
+                DisplayName = "Baraka Insurance",
+                SmsWebhookSecretHash = InsuranceIntelligence.Domain.ClientPortal.PortalIdentity.HashSecret(secret),
+                UpdatedByUserId = "test",
+                UpdatedAt = DateTimeOffset.UnixEpoch,
+            };
+
+        public InsuranceIntelligence.Domain.ClientPortal.PortalIdentity? BySlug(string slug) => null;
+        public InsuranceIntelligence.Domain.ClientPortal.PortalIdentity? ByHostname(string hostname) => null;
+        public InsuranceIntelligence.Domain.ClientPortal.PortalIdentity? ForScope(TenantScope requested) => identity?.Scope.Matches(requested) == true ? identity : null;
+        public InsuranceIntelligence.Domain.ClientPortal.PortalIdentity? BySmsSecretHash(string secretHash) => identity?.SmsWebhookSecretHash == secretHash ? identity : null;
+        public bool IsPortalOrigin(string origin) => false;
+        public Task RefreshIfStaleAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RefreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<InsuranceIntelligence.Domain.ClientPortal.PortalIdentity?> FindBySlugAsync(string slug, CancellationToken cancellationToken = default) => Task.FromResult<InsuranceIntelligence.Domain.ClientPortal.PortalIdentity?>(null);
+        public Task<InsuranceIntelligence.Domain.ClientPortal.PortalIdentity?> FindByHostnameAsync(string hostname, CancellationToken cancellationToken = default) => Task.FromResult<InsuranceIntelligence.Domain.ClientPortal.PortalIdentity?>(null);
     }
 
     private static Communication Sms(TenantScope scope, string providerMessageId) => new()

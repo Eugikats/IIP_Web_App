@@ -309,7 +309,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Contains("get your money", turn.OutboundReplyText);
         Assert.DoesNotContain("PERSON", turn.OutboundReplyText);
         Assert.DoesNotContain("voice note", turn.OutboundReplyText); // voice is not offered until it works
-        Assert.Empty(fixture.SalesLeads.Created);
+        Assert.Single(fixture.SalesLeads.Created);
     }
 
     [Fact]
@@ -393,7 +393,7 @@ public sealed partial class CustomerAssistantServiceTests
 
         await fixture.HandleAsync("I'm interested in getting a quote for insurance");
         Assert.Equal(CustomerAssistantOutcome.AwaitingOccupation, Assert.Single(fixture.Conversations.Saved).Outcome);
-        Assert.Empty(fixture.SalesLeads.Created);
+        Assert.Single(fixture.SalesLeads.Created);
 
         await fixture.HandleAsync("I sell tomatoes in Nakasero market");
 
@@ -884,7 +884,7 @@ public sealed partial class CustomerAssistantServiceTests
             .Calls("register_customer", """{"full_name":"Grace Nakato","occupation":"boutique owner","area":"Jinja road"}""")
             .Calls("apply_for_cover", """{"product":"Small Business Shop"}""")
             .Says("Done, Grace. Your Small Business Shop Cover is active.");
-        var fixture = Fixture.Create(agent: model, demoPhone: AgentDemoPhone);
+        var fixture = Fixture.Create(autoReplyEnabled: true, agent: model, demoPhone: AgentDemoPhone);
 
         await fixture.HandleAsync("I'm Grace Nakato, I own a boutique on Jinja road. Register me for shop cover");
 
@@ -953,7 +953,7 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal("I sell shoes", lead.Facts.Single(fact => fact.Key == "occupation").Value);
         Assert.Equal("Kalerwe", lead.Facts.Single(fact => fact.Key == "area").Value);
         Assert.All(lead.Facts, fact => Assert.Equal(ProspectFactSource.Customer, fact.Source));
-        Assert.Equal(["Registered on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
+        Assert.Equal(["Wrote in on WhatsApp", "Registered on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
         Assert.NotNull(lead.ThreadId);
     }
 
@@ -978,7 +978,7 @@ public sealed partial class CustomerAssistantServiceTests
             .Says(question)
             .Calls("record_contact_consent", """{"agreed":true}""")
             .Says("Thank you, we will.");
-        var fixture = Fixture.Create(agent: model);
+        var fixture = Fixture.Create(autoReplyEnabled: true, agent: model);
 
         await fixture.HandleAsync("I am thinking about shop cover");
         await fixture.HandleAsync("Yes please");
@@ -998,13 +998,13 @@ public sealed partial class CustomerAssistantServiceTests
             .Says("Would you like Nile Shield to message you later about cover?")
             .Calls("record_contact_consent", """{"agreed":true}""")
             .Says("Shop cover is UGX 15,000 a month.");
-        var fixture = Fixture.Create(agent: model);
+        var fixture = Fixture.Create(autoReplyEnabled: true, agent: model);
 
         await fixture.HandleAsync("I am thinking about shop cover");
         await fixture.HandleAsync("How much does it cost?");
 
         Assert.Contains("not_their_answer", model.ToolResults[0]);
-        Assert.Empty(fixture.SalesLeads.Created);
+        Assert.Single(fixture.SalesLeads.Created);
     }
 
     [Fact]
@@ -1100,7 +1100,7 @@ public sealed partial class CustomerAssistantServiceTests
     public async Task Agent_SeesTheConversationSoFar()
     {
         var model = new ScriptedAgentModel().Says("Hello Grace, how can I help?").Says("For a business, the Small Business Shop Cover fits.");
-        var fixture = Fixture.Create(agent: model);
+        var fixture = Fixture.Create(autoReplyEnabled: true, agent: model);
 
         await fixture.HandleNamedAsync("Hello", "Grace");
         await fixture.HandleNamedAsync("Then for businesses?", "Grace");
@@ -1303,7 +1303,7 @@ public sealed partial class CustomerAssistantServiceTests
         var turn = Assert.Single(fixture.Conversations.Saved);
         Assert.Equal(CustomerAssistantOutcome.AutoReplied, turn.Outcome);
         Assert.Contains("You're welcome", turn.OutboundReplyText);
-        Assert.Empty(fixture.SalesLeads.Created);
+        Assert.Single(fixture.SalesLeads.Created);
     }
 
     [Fact]
@@ -1518,7 +1518,8 @@ public sealed partial class CustomerAssistantServiceTests
                 insightsQueue: insightsQueue,
                 claimantStatus: claimantStatus,
                 customerMemory: customerMemory,
-                assistantBrandProvider: brandProvider);
+                assistantBrandProvider: brandProvider,
+                claimIdentity: new DemoSkippedClaimIdentityVerifier());
 
             return new Fixture(scope, autoReplyEnabled, cases, policies, customers, salesLeads, outbound, whatsAppMessages, conversations, behaviourProfiles, audit, retrieval, assistant, teamsQueue, service)
             {

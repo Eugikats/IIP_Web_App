@@ -221,7 +221,8 @@ test.describe("Item 2: known defects", () => {
     });
     await expect(policeRow.getByText("Could not be read")).toBeVisible({ timeout: 30_000 });
     await expect(policeRow.getByRole("button", { name: "Try again" })).toBeVisible();
-    await expect(page.getByText("Completeness").locator("..").getByText("0%")).toBeVisible();
+    const documentProgress = page.getByText("Documents we asked for").locator("..");
+    await expect(documentProgress).toContainText("0 of 3 sent");
 
     // Trying again queues it again: it goes back to being checked before it fails again.
     await policeRow.getByRole("button", { name: "Try again" }).click();

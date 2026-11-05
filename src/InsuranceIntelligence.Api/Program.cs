@@ -450,6 +450,8 @@ else
 
 builder.Services.AddScoped<ITeamsNotificationQueue, DefaultTeamsNotificationQueue>();
 builder.Services.AddScoped<CaseIntakeService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Knowledge.IKnowledgeIngestionSink,
+    InsuranceIntelligence.Application.Knowledge.KnowledgeIngestionService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Claims.IClaimGovernedPathService, InsuranceIntelligence.Application.Claims.ClaimGovernedPathService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<TenantContextAccessor>();

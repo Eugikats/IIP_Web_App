@@ -166,7 +166,13 @@ public static class InfrastructureRegistration
         // reported). ChannelProvider itself is untouched and still governs the separate
         // AzureProviderStartupValidator fail-closed check for Staging/Production.
         services.AddHttpClient<IWhatsAppInboundProvider, WhatsAppCloudApiInboundProvider>();
-        services.AddHttpClient<IWhatsAppOutboundProvider, WhatsAppCloudApiOutboundProvider>();
+        services.AddHttpClient<WhatsAppCloudApiOutboundProvider>();
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddSingleton<OutboundRateLimiter>();
+        services.AddScoped<IWhatsAppOutboundProvider>(serviceProvider => new GuardedWhatsAppOutboundProvider(
+            serviceProvider.GetRequiredService<WhatsAppCloudApiOutboundProvider>(),
+            serviceProvider.GetRequiredService<OutboundRateLimiter>(),
+            serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GuardedWhatsAppOutboundProvider>>()));
         services.AddScoped<IWhatsAppAttachmentProcessor, WhatsAppAttachmentProcessor>();
 
         services.AddScoped<IWhatsAppToCaseMatcher, RuleBasedWhatsAppToCaseMatcher>();

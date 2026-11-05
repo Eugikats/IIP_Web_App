@@ -31,6 +31,7 @@ public sealed class KeywordCustomerIntentClassifierTests
     [Theory]
     [InlineData("Can I speak to a human please")]
     [InlineData("I want to talk to an agent")]
+    [InlineData("I want to talk to a manager about my claim")]
     [InlineData("Please have customer service call me")]
     public void Classify_EscalationRequests_ReturnsHumanRequested(string message) =>
         Assert.Equal(CustomerIntent.HumanRequested, classifier.Classify(message));

@@ -5,6 +5,7 @@
 # Usage: scripts/guard/check-config-injection.sh [repo-root]   Exit 0 = clean, 1 = suspicious.
 set -u
 cd "${1:-.}" || exit 2
+git rev-parse --show-toplevel >/dev/null || exit 2
 fail=0
 configs='(^|/)(postcss|tailwind|next|eslint|vite|webpack|babel|jest|playwright|prettier)\.config\.(js|cjs|mjs|ts)$|(^|/)\.eslintrc(\.(js|cjs))?$'
 
@@ -17,7 +18,7 @@ done
 
 # 2. Source files: no line over 3000 chars except known data files.
 allow='^web/portal/lovable-pages/OperationalIntelligencePrototype\.tsx$'
-for f in $(git grep --untracked -lE '.{3001,}' -- '*.js' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.jsx' '*.cs' '*.ps1' '*.sh' '*.bat' '*.cmd' '*.yml' '*.yaml' ':!**/node_modules/**' ':!**/.next/**' 2>/dev/null); do
+for f in $(git grep --untracked -lE '.{3001,}' -- '*.js' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.jsx' '*.cs' '*.ps1' '*.sh' '*.bat' '*.cmd' '*.yml' '*.yaml' 'web/portal/init' ':!**/node_modules/**' ':!**/.next/**' 2>/dev/null); do
   echo "$f" | grep -qE "$allow" && continue
   echo "SUSPICIOUS very long line (>3000 chars): $f"; fail=1
 done
