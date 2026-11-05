@@ -111,7 +111,7 @@ export default function ChatThreadPane({
   controlError: string | null;
   onTakeOver: () => Promise<boolean>;
   onHandBack: () => Promise<boolean>;
-  onSend: (input: { body: string; templateName?: string; caseId?: string | null; language: string }) => Promise<void>;
+  onSend: (input: { body: string; templateName?: string; templateButtonPayload?: string; caseId?: string | null; language: string }) => Promise<void>;
   onBack?: () => void;
   onOpenInfo?: () => void;
 }) {
@@ -127,6 +127,7 @@ export default function ChatThreadPane({
   const [sendError, setSendError] = useState<string | null>(null);
   const [needsTemplate, setNeedsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [includeLearnMoreButton, setIncludeLearnMoreButton] = useState(false);
 
   const linkedCaseId = messages.find((message) => message.caseId)?.caseId ?? null;
   const language = "en";
@@ -151,6 +152,7 @@ export default function ChatThreadPane({
     setSendError(null);
     setNeedsTemplate(false);
     setTemplateName("");
+    setIncludeLearnMoreButton(false);
   }, [conversation.id]);
 
   useEffect(() => {
@@ -174,9 +176,16 @@ export default function ChatThreadPane({
     setSending(true);
     setSendError(null);
     try {
-      await onSend({ body, templateName: needsTemplate ? templateName.trim() : undefined, caseId: linkedCaseId, language });
+      await onSend({
+        body,
+        templateName: needsTemplate ? templateName.trim() : undefined,
+        templateButtonPayload: needsTemplate && includeLearnMoreButton ? "IIP_LEARN_MORE" : undefined,
+        caseId: linkedCaseId,
+        language,
+      });
       setText("");
       setNeedsTemplate(false);
+      setIncludeLearnMoreButton(false);
     } catch (failure) {
       const message = failure instanceof Error ? failure.message : "The message was not sent.";
       setSendError(message);
@@ -303,15 +312,26 @@ export default function ChatThreadPane({
             </p>
           ) : null}
           {isWhatsApp && needsTemplate ? (
-            <label className="mb-2 block">
-              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">The 24-hour window has ended: approved template name</span>
-              <input
-                value={templateName}
-                onChange={(event) => setTemplateName(event.target.value)}
-                placeholder="Template name"
-                className="w-full rounded-xl border border-[#E6EAF2] bg-[#F7F9FC] px-3 py-2 text-[12px] text-[#0B1640] outline-none focus:border-[#1769FF]"
-              />
-            </label>
+            <div className="mb-2 space-y-2">
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">The 24-hour window has ended: approved template name</span>
+                <input
+                  value={templateName}
+                  onChange={(event) => setTemplateName(event.target.value)}
+                  placeholder="Template name"
+                  className="w-full rounded-xl border border-[#E6EAF2] bg-[#F7F9FC] px-3 py-2 text-[12px] text-[#0B1640] outline-none focus:border-[#1769FF]"
+                />
+              </label>
+              <label className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={includeLearnMoreButton}
+                  onChange={(event) => setIncludeLearnMoreButton(event.target.checked)}
+                  className="mt-0.5 accent-[#1769FF]"
+                />
+                <span>Include a “Learn more” button. The approved Meta template must contain this quick-reply button.</span>
+              </label>
+            </div>
           ) : null}
           <div className="flex items-end gap-2">
             <span className="mb-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-300" title="Attachments are not supported yet" aria-hidden>

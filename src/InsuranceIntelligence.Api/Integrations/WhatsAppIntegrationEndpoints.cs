@@ -196,7 +196,7 @@ public static class WhatsAppIntegrationEndpoints
                 request.CaseId, threadId, request.RecipientWaId, request.CustomerSafeBody,
                 request.Purpose, request.ConsentBasis, request.Language, request.TemplateName,
                 request.HumanApproved, request.IdempotencyKey, request.ReplyToProviderMessageId,
-                request.TemplateParameters), cancellationToken);
+                request.TemplateParameters, request.TemplateButtonPayload), cancellationToken);
             // A reply sent by a person is what keeps Kato quiet on this conversation.
             if (control is not null && message.DeliveryState != WhatsAppDeliveryState.Failed)
             {
@@ -262,7 +262,8 @@ public sealed record SendWhatsAppMessageRequest(
     bool HumanApproved,
     string IdempotencyKey,
     string? ReplyToProviderMessageId,
-    IReadOnlyDictionary<string, string>? TemplateParameters);
+    IReadOnlyDictionary<string, string>? TemplateParameters,
+    string? TemplateButtonPayload);
 
 /// <summary>Empty marker type purely so ILogger&lt;T&gt; has a stable category name for this
 /// static-class endpoint (ILogger&lt;WhatsAppIntegrationEndpoints&gt; is not usable, the class is

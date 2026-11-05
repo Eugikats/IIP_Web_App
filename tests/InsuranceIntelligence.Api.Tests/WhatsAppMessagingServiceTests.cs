@@ -191,6 +191,19 @@ public sealed class WhatsAppMessagingServiceTests
     }
 
     [Fact]
+    public async Task SendAsync_QuickReplyButton_RequiresATemplate()
+    {
+        var fixture = await Fixture.CreateAsync(new FakeConsentRepository(granted: true));
+        await fixture.Repository.SaveAsync(fixture.InboundMessage(DateTimeOffset.UtcNow.AddHours(-1)));
+        var command = fixture.SendRequest("send-button-without-template") with { TemplateButtonPayload = "IIP_LEARN_MORE" };
+
+        var error = await Assert.ThrowsAsync<WhatsAppPolicyException>(() => fixture.Service.SendAsync(command));
+
+        Assert.Equal("TemplateButtonInvalid", error.Code);
+        Assert.Equal(0, fixture.Provider.Attempts);
+    }
+
+    [Fact]
     public void WebhookParser_ExtractsTextAndDeliveryStatus()
     {
         const string json = """
@@ -204,6 +217,20 @@ public sealed class WhatsAppMessagingServiceTests
 
         Assert.Equal("Hello", Assert.Single(inbound).CustomerSafeBody);
         Assert.Equal(WhatsAppDeliveryState.Delivered, Assert.Single(delivery).DeliveryState);
+    }
+
+    [Fact]
+    public void WebhookParser_ExtractsQuickReplyAsCustomerText()
+    {
+        const string json = """
+            {"entry":[{"changes":[{"value":{"metadata":{"phone_number_id":"phone-1"},
+            "messages":[{"from":"256772118001","id":"wamid.button","timestamp":"1700000000","type":"interactive","interactive":{"type":"button_reply","button_reply":{"id":"IIP_LEARN_MORE","title":"Learn more"}}}]}}]}]}
+            """;
+
+        var inbound = Assert.Single(WhatsAppWebhookParser.ParseMessages(json));
+
+        Assert.Equal(WhatsAppContentType.Text, inbound.ContentType);
+        Assert.Equal("Learn more", inbound.CustomerSafeBody);
     }
 
     [Fact]

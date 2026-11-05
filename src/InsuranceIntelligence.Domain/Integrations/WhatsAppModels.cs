@@ -116,7 +116,8 @@ public sealed record WhatsAppProviderSendRequest(
     string Language,
     string? ReplyToProviderMessageId,
     string IdempotencyKey,
-    IReadOnlyDictionary<string, string>? TemplateParameters = null);
+    IReadOnlyDictionary<string, string>? TemplateParameters = null,
+    string? TemplateButtonPayload = null);
 
 public sealed record WhatsAppProviderSendResult(
     bool Accepted,

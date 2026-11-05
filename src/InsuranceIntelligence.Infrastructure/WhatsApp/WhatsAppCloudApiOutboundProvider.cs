@@ -165,6 +165,18 @@ public sealed class WhatsAppCloudApiOutboundProvider(
                 parameter_name = pair.Key,
                 text = pair.Value
             }).ToArray() ?? [];
+            var components = new List<object>();
+            if (parameters.Length > 0) components.Add(new { type = "body", parameters });
+            if (!string.IsNullOrWhiteSpace(request.TemplateButtonPayload))
+            {
+                components.Add(new
+                {
+                    type = "button",
+                    sub_type = "quick_reply",
+                    index = "0",
+                    parameters = new[] { new { type = "payload", payload = request.TemplateButtonPayload } }
+                });
+            }
             return new
             {
                 messaging_product = "whatsapp",
@@ -174,7 +186,7 @@ public sealed class WhatsAppCloudApiOutboundProvider(
                 {
                     name = request.TemplateName,
                     language = new { code = request.Language },
-                    components = parameters.Length == 0 ? [] : new[] { new { type = "body", parameters } }
+                    components
                 }
             };
         }

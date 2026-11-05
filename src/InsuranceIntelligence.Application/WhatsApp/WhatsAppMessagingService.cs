@@ -122,7 +122,8 @@ public sealed class WhatsAppMessagingService(
         {
             var providerResult = await outboundProvider.SendAsync(new WhatsAppProviderSendRequest(
                 pending.BusinessPhoneNumberId, pending.ContactWaId, pending.CustomerSafeBody, pending.TemplateName,
-                pending.Language!, pending.ReplyToProviderMessageId, pending.IdempotencyKey!, command.TemplateParameters), cancellationToken);
+                pending.Language!, pending.ReplyToProviderMessageId, pending.IdempotencyKey!, command.TemplateParameters,
+                command.TemplateButtonPayload), cancellationToken);
             result = pending with
             {
                 ProviderMessageId = Normalize(providerResult.ProviderMessageId),
@@ -252,6 +253,9 @@ public sealed class WhatsAppMessagingService(
         if (string.IsNullOrWhiteSpace(command.Language)) throw new WhatsAppPolicyException("LanguageRequired", "Select the message language before sending.");
         if (string.IsNullOrWhiteSpace(command.IdempotencyKey) || command.IdempotencyKey.Length > 128)
             throw new WhatsAppPolicyException("IdempotencyKeyRequired", "A valid idempotency key is required.");
+        if (!string.IsNullOrWhiteSpace(command.TemplateButtonPayload)
+            && (string.IsNullOrWhiteSpace(command.TemplateName) || command.TemplateButtonPayload.Length > 256))
+            throw new WhatsAppPolicyException("TemplateButtonInvalid", "A quick-reply button requires a named WhatsApp template and a payload of 256 characters or fewer.");
     }
 
     private Task AuditAsync(TenantContext context, Guid? caseId, string action, string outcome, CancellationToken cancellationToken) =>

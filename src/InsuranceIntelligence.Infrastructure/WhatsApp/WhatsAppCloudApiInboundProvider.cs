@@ -219,6 +219,9 @@ public static class WhatsAppWebhookParser
                 var contentType = type switch
                 {
                     "text" => WhatsAppContentType.Text,
+                    "interactive" when message.TryGetProperty("interactive", out var interactive)
+                        && ReadString(interactive, "type") == "button_reply"
+                        && interactive.TryGetProperty("button_reply", out _) => WhatsAppContentType.Text,
                     "image" => WhatsAppContentType.Image,
                     "document" => WhatsAppContentType.Document,
                     "audio" => WhatsAppContentType.Audio,
@@ -227,6 +230,9 @@ public static class WhatsAppWebhookParser
                 var body = type switch
                 {
                     "text" when message.TryGetProperty("text", out var text) => ReadString(text, "body") ?? string.Empty,
+                    "interactive" when message.TryGetProperty("interactive", out var interactive)
+                        && ReadString(interactive, "type") == "button_reply"
+                        && interactive.TryGetProperty("button_reply", out var buttonReply) => ReadString(buttonReply, "title") ?? string.Empty,
                     "image" when message.TryGetProperty("image", out var image) => ReadString(image, "caption") ?? "[Image received]",
                     "document" when message.TryGetProperty("document", out var document) => ReadString(document, "caption") ?? ReadString(document, "filename") ?? "[Document received]",
                     "audio" => "[Voice note received]",

@@ -53,6 +53,7 @@ export type SendWhatsAppInput = {
   consentBasis: string;
   language: string;
   templateName?: string;
+  templateButtonPayload?: string;
   humanApproved: boolean;
 };
 
@@ -249,6 +250,7 @@ export function useChannelThread(channel?: Channel | null, threadId?: string | n
         idempotencyKey: crypto.randomUUID(),
         replyToProviderMessageId: null,
         templateParameters: null,
+        templateButtonPayload: input.templateButtonPayload ?? null,
       }),
     });
     const payload = await response.json().catch(() => ({}));

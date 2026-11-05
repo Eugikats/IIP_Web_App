@@ -76,3 +76,40 @@ test("WhatsApp review draft is clear, usable, and never sent by the draft action
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath("whatsapp-review-draft.png"), fullPage: true });
 });
+
+test("Learn more quick reply is included only when the operator selects it for an approved template", async ({ page }, testInfo) => {
+  const sends: Record<string, unknown>[] = [];
+  await page.route("**/api/v1/channels/whatsapp/threads/review-draft-thread/messages", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      const body = request.postDataJSON() as Record<string, unknown>;
+      sends.push(body);
+      if (sends.length === 1) {
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ code: "TemplateRequired", message: "The customer-service window has ended. Select an approved WhatsApp template." }),
+        });
+        return;
+      }
+      await route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify({ deliveryState: "Queued" }) });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto(`/app/channels?thread=${threadId}`);
+  const composer = page.getByRole("textbox", { name: "Message to the customer" });
+  await composer.fill("I can explain this cover.");
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(page.getByPlaceholder("Template name")).toBeVisible();
+  await page.getByPlaceholder("Template name").fill("acquisition_learn_more");
+  await page.getByRole("checkbox", { name: /Include a “Learn more” button/ }).check();
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect.poll(() => sends.length).toBe(2);
+  expect(sends[1]).toMatchObject({ templateName: "acquisition_learn_more", templateButtonPayload: "IIP_LEARN_MORE" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath("whatsapp-learn-more-template.png"), fullPage: true });
+});

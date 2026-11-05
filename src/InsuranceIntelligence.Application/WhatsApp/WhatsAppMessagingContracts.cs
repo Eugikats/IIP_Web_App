@@ -15,7 +15,8 @@ public sealed record SendWhatsAppMessageCommand(
     bool HumanApproved,
     string IdempotencyKey,
     string? ReplyToProviderMessageId,
-    IReadOnlyDictionary<string, string>? TemplateParameters = null);
+    IReadOnlyDictionary<string, string>? TemplateParameters = null,
+    string? TemplateButtonPayload = null);
 
 public sealed record WhatsAppMessageDto(
     Guid MessageId,

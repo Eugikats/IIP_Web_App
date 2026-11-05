@@ -39,6 +39,22 @@ public sealed class WhatsAppOutboundProviderTests
     }
 
     [Fact]
+    public async Task SendAsync_TemplateWithQuickReply_IncludesLearnMoreButtonPayload()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK, """{"messages":[{"id":"wamid.template-button"}]}""");
+        var provider = new WhatsAppCloudApiOutboundProvider(new StaticWhatsAppRuntimeSettingsProvider(ConfiguredSettings()), new HttpClient(handler));
+
+        var result = await provider.SendAsync(new WhatsAppProviderSendRequest(
+            "phone-1", "256772118001", "Rendered customer copy", "acquisition_learn_more", "en", null, "send-button",
+            TemplateButtonPayload: "IIP_LEARN_MORE"));
+
+        Assert.True(result.Accepted);
+        Assert.Contains("\"sub_type\":\"quick_reply\"", handler.Body);
+        Assert.Contains("\"index\":\"0\"", handler.Body);
+        Assert.Contains("\"payload\":\"IIP_LEARN_MORE\"", handler.Body);
+    }
+
+    [Fact]
     public async Task ShowTypingAsync_MarksTheCustomersMessageReadWithATypingIndicator()
     {
         var handler = new CapturingHandler(HttpStatusCode.OK, """{"success":true}""");

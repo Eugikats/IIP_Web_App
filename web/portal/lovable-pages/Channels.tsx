@@ -78,7 +78,7 @@ export default function Channels() {
     setMobileView("thread");
   }, []);
 
-  const onSend = useCallback(async (input: { body: string; templateName?: string; caseId?: string | null; language: string }) => {
+  const onSend = useCallback(async (input: { body: string; templateName?: string; templateButtonPayload?: string; caseId?: string | null; language: string }) => {
     const recipient = channelThread.recipientId ?? "";
     const result = await channelThread.send({
       caseId: input.caseId ?? null,
@@ -88,6 +88,7 @@ export default function Channels() {
       consentBasis: "The customer wrote to us first on this conversation",
       language: input.language,
       templateName: input.templateName,
+      templateButtonPayload: input.templateButtonPayload,
       humanApproved: true,
     });
     if (result.deliveryState === "Failed") throw new Error(result.safeError || `${active?.channel ?? "Message"} did not accept the message.`);
