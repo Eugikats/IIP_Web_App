@@ -12,9 +12,10 @@ public sealed record WorkspaceBrandSettings(
     IReadOnlyList<string> PartnerInsurers,
     LineFocus LineFocus,
     string? ScenarioId = null,
-    bool IsDemonstration = false)
+    bool IsDemonstration = false,
+    string? About = null)
 {
-    public KatoBrand ToBrand() => new(Organisation, ShortName, PartnerInsurers, LineFocus);
+    public KatoBrand ToBrand() => new(Organisation, ShortName, PartnerInsurers, LineFocus) { About = About };
 
     public static WorkspaceBrandSettings From(KatoBrand brand) =>
         new(brand.Organisation, brand.ShortName, brand.PartnerInsurers, brand.LineFocus);
@@ -99,6 +100,12 @@ public sealed class WorkspaceBrandService(IWorkspaceRecordStore store) : IWorksp
             throw new WorkspaceBrandException("The line of business must be life, general or both.");
         }
 
-        return settings with { Organisation = organisation, ShortName = shortName, PartnerInsurers = partners };
+        var about = string.IsNullOrWhiteSpace(settings.About) ? null : settings.About.Trim();
+        if (about?.Length > 600)
+        {
+            throw new WorkspaceBrandException("The organisation description can be at most 600 characters.");
+        }
+
+        return settings with { Organisation = organisation, ShortName = shortName, PartnerInsurers = partners, About = about };
     }
 }

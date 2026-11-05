@@ -595,6 +595,17 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.AgentWorkflows.IAge
 builder.Services.AddScoped<InsuranceIntelligence.Application.MyWork.IMyWorkService, InsuranceIntelligence.Application.MyWork.MyWorkService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.IWhatsAppMessagingService, InsuranceIntelligence.Application.WhatsApp.WhatsAppMessagingService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.ICustomerAssistantService, InsuranceIntelligence.Application.CustomerAssistant.CustomerAssistantService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Workspaces.IWorkspaceRecordStore, InsuranceIntelligence.Infrastructure.Persistence.EfWorkspaceRecordStore>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Workspaces.WorkspaceBrandService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Workspaces.IWorkspaceBrandResolver>(services =>
+    services.GetRequiredService<InsuranceIntelligence.Application.Workspaces.WorkspaceBrandService>());
+builder.Services.AddScoped<InsuranceIntelligence.Application.Organisations.CompanyProfileService>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Organisations.IOrganisationRepository, InsuranceIntelligence.Infrastructure.Persistence.EfOrganisationRepository>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Organisations.OrganisationService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoScenarioPolicyholderSeeder>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Rules.RuleService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Templates.TemplateCatalogService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoScenarioService>();
 
 // Whose assistant Kato is, and which covers he sells, per workspace (build-loop item 27): the organisation from the
 // workspace's operating settings and the covers from its published products that carry an offer. Only a developer or
@@ -607,7 +618,8 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.I
     new InsuranceIntelligence.Application.CustomerAssistant.TenantAssistantBrandProvider(
         services.GetRequiredService<InsuranceIntelligence.Domain.Administration.ITenantSettingsRepository>(),
         services.GetRequiredService<InsuranceIntelligence.Domain.Products.IProductRepository>(),
-        builtInAssistantCatalogue));
+        builtInAssistantCatalogue,
+        services.GetRequiredService<InsuranceIntelligence.Application.Workspaces.WorkspaceBrandService>()));
 
 // Hidden field-test commands (#reset, #demo) for one shared phone: Demo runtime profile only, and
 // only for the number in INSURANCEINTELLIGENCE_DEMO_PHONE_NUMBER. Anywhere else they do not exist.

@@ -92,6 +92,7 @@ public static class DemoScenarioEndpoints
         isBank = state.Scenario.IsBank,
         lineFocus = state.Scenario.LineFocus.ToString(),
         partnerInsurers = state.Scenario.PartnerInsurers,
+        about = state.Scenario.About,
         ready = state.Ready,
         organisationId = state.OrganisationId,
         workspaceId = state.WorkspaceId,

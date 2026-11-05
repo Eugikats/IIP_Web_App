@@ -40,6 +40,7 @@ public static class WorkspaceBrandEndpoints
     public static async Task<IResult> Save(
         WorkspaceBrandRequest request,
         WorkspaceBrandService brands,
+        ITenantSettingsRepository tenantSettings,
         Application.Core.IAuditWriter auditWriter,
         InfrastructureOptions options,
         HttpContext httpContext,
@@ -75,16 +76,32 @@ public static class WorkspaceBrandEndpoints
         try
         {
             var existing = await brands.GetAsync(scope, cancellationToken);
-            var saved = await brands.SaveAsync(
-                scope,
-                new WorkspaceBrandSettings(
+            var proposed = WorkspaceBrandService.Validate(new WorkspaceBrandSettings(
                     request.Organisation ?? string.Empty,
                     request.ShortName ?? string.Empty,
                     request.PartnerInsurers ?? [],
                     focus,
                     existing?.ScenarioId,
-                    existing?.IsDemonstration ?? false),
-                cancellationToken);
+                    existing?.IsDemonstration ?? false,
+                    request.About));
+            // The inbound assistant reads these operating settings. Keep them aligned with the
+            // workspace identity changed here, including when a demonstration switches modes.
+            var currentSettings = await tenantSettings.GetAsync(scope, cancellationToken);
+            var updatedSettings = currentSettings with
+            {
+                AssistantOrganisation = proposed.Organisation,
+                AssistantShortName = proposed.ShortName,
+                AssistantPartnerInsurers = string.Join(", ", proposed.PartnerInsurers),
+                UpdatedByUserId = userId,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            };
+            var settingsProblems = updatedSettings.Validate();
+            if (settingsProblems.Count > 0)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["brand"] = settingsProblems.ToArray() });
+            }
+            await tenantSettings.SaveAsync(updatedSettings, cancellationToken);
+            var saved = await brands.SaveAsync(scope, proposed, cancellationToken);
             await auditWriter.WriteAsync(
                 AuditEvent.WorkspaceSettingChanged(scope, userId, "brand", "saved", WorkspaceBrandService.Key, auditReason, httpContext.TraceIdentifier),
                 cancellationToken);
@@ -104,10 +121,11 @@ public static class WorkspaceBrandEndpoints
         settings.PartnerInsurers.Count > 0,
         settings.ScenarioId,
         settings.IsDemonstration,
-        isDefault);
+        isDefault,
+        settings.About);
 }
 
-public sealed record WorkspaceBrandRequest(string? Organisation, string? ShortName, IReadOnlyList<string>? PartnerInsurers, string? LineFocus);
+public sealed record WorkspaceBrandRequest(string? Organisation, string? ShortName, IReadOnlyList<string>? PartnerInsurers, string? LineFocus, string? About = null);
 
 public sealed record WorkspaceBrandResponse(
     string Organisation,
@@ -117,4 +135,5 @@ public sealed record WorkspaceBrandResponse(
     bool IsBancassurance,
     string? ScenarioId,
     bool IsDemonstration,
-    bool IsStartupDefault);
+    bool IsStartupDefault,
+    string? About);

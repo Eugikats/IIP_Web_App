@@ -53,6 +53,9 @@ public sealed record KatoBrand(
     /// the covers. When null the built-in demonstration catalogue is filtered by insurer, as before.</summary>
     public IReadOnlyList<MicroinsuranceCatalog.MicroProduct>? Offered { get; init; }
 
+    /// <summary>Workspace-approved description of the organisation's non-insurance services.</summary>
+    public string? About { get; init; }
+
     public bool IsBancassurance => PartnerInsurers.Count > 0;
 
     /// <summary>The covers Kato may explain and take applications for.</summary>

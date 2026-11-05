@@ -18,7 +18,8 @@ public sealed record DemoScenario(
     string ShortName,
     IReadOnlyList<string> PartnerInsurers,
     LineFocus LineFocus,
-    OrganisationProduct Product)
+    OrganisationProduct Product,
+    string? About = null)
 {
     /// <summary>A bank sells its partners' covers and shows who is worth offering cover to.</summary>
     public bool IsBank => PartnerInsurers.Count > 0;
@@ -39,7 +40,8 @@ public static class DemoScenarioCatalog
             "Mavuno Bank (demonstration)", "Mavuno Bank", "Mavuno Bank",
             [MicroinsuranceCatalog.Mpingo, MicroinsuranceCatalog.Kifaru],
             LineFocus.Both,
-            OrganisationProduct.Bancassurance),
+            OrganisationProduct.Bancassurance,
+            "Mavuno Bank is a fictional demonstration bank. It offers savings, current and salary accounts, personal and business loans, and school fees loans. It also distributes life and general insurance from Mpingo Life Assurance and Kifaru General Insurance. Ask bank staff for current banking terms and eligibility."),
         new(NileLife,
             "Nile Life",
             "A life insurer with policyholders on monthly premiums: funeral, school fees and loan cover.",

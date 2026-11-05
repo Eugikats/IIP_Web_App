@@ -1,6 +1,7 @@
 using InsuranceIntelligence.Domain.Administration;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Products;
+using InsuranceIntelligence.Application.Workspaces;
 
 namespace InsuranceIntelligence.Application.CustomerAssistant;
 
@@ -40,14 +41,15 @@ public static class AssistantBrands
 public sealed class TenantAssistantBrandProvider(
     ITenantSettingsRepository settingsRepository,
     IProductRepository productRepository,
-    bool builtInCatalogueFallback) : IAssistantBrandProvider
+    bool builtInCatalogueFallback,
+    WorkspaceBrandService? workspaceBrands = null) : IAssistantBrandProvider
 {
     public async Task<KatoBrand> ForAsync(TenantScope scope, CancellationToken cancellationToken = default)
     {
         var settings = await settingsRepository.GetAsync(scope, cancellationToken);
-        var brand = string.IsNullOrWhiteSpace(settings.AssistantOrganisation)
-            ? KatoBrand.Default
-            : KatoBrand.FromSettings(settings.AssistantOrganisation, settings.AssistantShortName, settings.AssistantPartnerInsurers);
+        var brand = !string.IsNullOrWhiteSpace(settings.AssistantOrganisation)
+            ? KatoBrand.FromSettings(settings.AssistantOrganisation, settings.AssistantShortName, settings.AssistantPartnerInsurers)
+            : (workspaceBrands is null ? null : await workspaceBrands.GetAsync(scope, cancellationToken))?.ToBrand() ?? KatoBrand.Default;
 
         var offered = (await productRepository.ListCurrentForAllProductsAsync(scope, cancellationToken))
             .Where(product => product.Status == ProductStatus.Published && product.Offer is not null)

@@ -300,10 +300,23 @@ public sealed partial class CustomerAssistantService
     {
         try
         {
+            var brand = KatoBrand.Current;
+            var workspaceBrand = brands is null ? null : await brands.ResolveAsync(run.Scope, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(workspaceBrand?.About)
+                && string.Equals(workspaceBrand.Organisation, brand.Organisation, StringComparison.OrdinalIgnoreCase))
+            {
+                return $" Organisation services from this workspace's approved description (answer questions about what {brand.Organisation} does using only these facts; do not infer banking terms or cover): {workspaceBrand.About}";
+            }
+
             var profile = companyProfile is null ? null : await companyProfile.GetProfileAsync(run.Scope, cancellationToken);
-            return profile is null
+            var matchesBrand = profile is not null &&
+                (string.Equals(profile.LegalName, brand.Organisation, StringComparison.OrdinalIgnoreCase)
+                || profile.LegalName.StartsWith($"{brand.Organisation} ", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(profile.TradingName, brand.Organisation, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(profile.TradingName, brand.ShortName, StringComparison.OrdinalIgnoreCase));
+            return !matchesBrand
                 ? string.Empty
-                : $" About the company, in its own words (use it only when asked who you work for or what it does, never to make claims about cover): {profile.About} It is registered as {profile.LegalName} and licensed under {profile.LicenceNumber} with the {profile.Regulator}.";
+                : $" Organisation services from its approved profile (answer questions about what {brand.Organisation} does using only these facts; never use them to make claims about cover): {profile!.About}";
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -379,7 +392,7 @@ public sealed partial class CustomerAssistantService
             Rules you never break:
             - Never say a claim will be paid, approved or rejected, or how much it will pay out, and never tell someone a loss is "not covered": that is a claim decision, and people make it. If a waiting period or exclusion may matter, mention it as information, offer to report the claim anyway, and say the claims team will look at it.
             - Never say "I will ask my team" or "a human needs to confirm this" unless you have just called hand_to_person. If search_policy_information does not cover a detail, say what you do know and offer the next useful step.
-            - {org} also offers Motor, Medical and other covers through its staff, but you can only take applications for the microinsurance covers in list_products. For anything else, explain briefly, say "We will get back to you shortly", and call hand_to_person.
+            - Only describe banking services from the organisation description above and insurance covers from list_products or search_policy_information. If a service or cover is not configured, say you do not have its details and offer the next useful step. You can only take applications for covers in list_products.
             - If someone sincerely asks whether they are talking to a person, say you are Kato, {org}'s digital assistant, and that if they would like a colleague to follow up, they only need to say so and "we will get back to you shortly". Never claim to be human.
             - Never offer, suggest or mention talking to a person, a team member, "our team", an agent or a callback, and never tell the customer to reply with a word such as PERSON, unless the customer has asked for one. When they do ask, or when you call hand_to_person, say only that "we will get back to you shortly" and stop there.
             - Only this phone number's own records exist for you. Never discuss anyone else's policy or claim, even if they type a policy number.

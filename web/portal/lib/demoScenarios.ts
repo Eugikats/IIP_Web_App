@@ -12,6 +12,7 @@ export type DemoScenario = {
   isBank: boolean;
   lineFocus: "Both" | "Life" | "General";
   partnerInsurers: string[];
+  about: string | null;
   ready: boolean;
   organisationId: string | null;
   workspaceId: string | null;
@@ -82,6 +83,7 @@ export async function applyWorldToWhatsApp(role: string, scenario: DemoScenario)
         organisation: scenario.brandName,
         shortName: scenario.shortName,
         partnerInsurers: scenario.partnerInsurers,
+        about: scenario.about,
         lineFocus: scenario.lineFocus,
       }),
     });

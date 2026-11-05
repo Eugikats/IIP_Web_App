@@ -68,7 +68,7 @@ public sealed class DemoScenarioService(
         }
 
         var brand = new WorkspaceBrandSettings(
-            scenario.BrandName, scenario.ShortName, scenario.PartnerInsurers, scenario.LineFocus, scenario.Id, IsDemonstration: true);
+            scenario.BrandName, scenario.ShortName, scenario.PartnerInsurers, scenario.LineFocus, scenario.Id, IsDemonstration: true, About: scenario.About);
         await brands.SaveAsync(scope, brand, cancellationToken);
 
         await catalogue.SeedCatalogueForAsync(scope, brand.ToBrand().Products, cancellationToken);

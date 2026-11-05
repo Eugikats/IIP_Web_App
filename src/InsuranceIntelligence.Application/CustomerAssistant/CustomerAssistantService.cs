@@ -690,19 +690,18 @@ public sealed partial class CustomerAssistantService(
         }
 
         // A person who says their name ("my name is Sarah") is believed over the name on their WhatsApp profile, and the
-        // name follows them to their contact and prospect records at once. Then anyone who is not yet a customer with
-        // cover is shown in acquisition from their first message, under the best name we have.
+        // name follows them to their contact and prospect records at once. Existing policyholders can also be
+        // prospects for another cover, so a genuine insurance enquiry from either person appears in acquisition.
         var introduced = IntroducedName(inbound.CustomerSafeBody);
         if (introduced is not null)
         {
             await ApplyStatedNameAsync(scope, waId, introduced, cancellationToken);
         }
 
-        if (sender is not { Policies.Count: > 0 }
-            && !CustomerMessageSignals.IsBareHumanRequest(text)
+        if (!CustomerMessageSignals.IsBareHumanRequest(text)
             && intentClassifier.Classify(text) is not (CustomerIntent.NewClaim or CustomerIntent.ExistingClaimStatus or CustomerIntent.HumanRequested))
         {
-            await EnsureProspectAsync(scope, waId, threadId, introduced ?? ProfileFullName(inbound.ProfileName), text, correlationId, cancellationToken);
+            await EnsureProspectAsync(scope, waId, threadId, introduced ?? sender?.FullName ?? ProfileFullName(inbound.ProfileName), text, correlationId, cancellationToken);
         }
 
         // A reply to a message a rule sent is recorded against that offer. STOP is honoured at once, from anyone: one plain
