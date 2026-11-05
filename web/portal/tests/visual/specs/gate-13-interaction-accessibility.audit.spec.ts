@@ -106,7 +106,7 @@ test("Gate 13 records target-size, semantic and automated-rule evidence", async 
       axe: axe.violations.map((violation) => ({
         id: violation.id,
         impact: violation.impact,
-        nodes: violation.nodes.length,
+        nodes: violation.nodes.map((node) => ({ target: node.target, failureSummary: node.failureSummary })),
       })),
     };
   }

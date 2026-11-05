@@ -2,11 +2,14 @@
 
 > Generated from Git-tracked documentation by `scripts/docs/Update-IipDocsCatalog.ps1`. Do not hand-edit.
 
-Total: 258 files.
+Total: 285 files.
 
-## [docs-root] (2)
+## [docs-root] (5)
 
+- [comms-api-reference.md](comms-api-reference.md)
 - [CONTEXT.md](CONTEXT.md)
+- [iip-academy-build-notes.md](iip-academy-build-notes.md)
+- [iip-training-courses-brief.md](iip-training-courses-brief.md)
 - [README.md](README.md)
 
 ## 00-start-here (4)
@@ -16,16 +19,25 @@ Total: 258 files.
 - [reorganization-backlog.md](00-start-here/reorganization-backlog.md)
 - [repository-map.md](00-start-here/repository-map.md)
 
-## 01-strategy-requirements-roadmap (19)
+## 01-strategy-requirements-roadmap (30)
 
+- [IIP_ACQUISITION_GAP_ANALYSIS_VS_CIP.md](01-strategy-requirements-roadmap/IIP_ACQUISITION_GAP_ANALYSIS_VS_CIP.md)
 - [iip_assumptions_constraints_open_questions_register.md](01-strategy-requirements-roadmap/iip_assumptions_constraints_open_questions_register.md)
+- [IIP_BANCASSURANCE_ACQUISITION_BUILD_PROMPT.md](01-strategy-requirements-roadmap/IIP_BANCASSURANCE_ACQUISITION_BUILD_PROMPT.md)
 - [iip_business_product_decision_register.md](01-strategy-requirements-roadmap/iip_business_product_decision_register.md)
+- [IIP_CLAIM_INTAKE_BUILD_PROMPT.md](01-strategy-requirements-roadmap/IIP_CLAIM_INTAKE_BUILD_PROMPT.md)
 - [iip_end_to_end_product_ui_development_checklist.md](01-strategy-requirements-roadmap/iip_end_to_end_product_ui_development_checklist.md)
 - [iip_feature_prioritization_matrix.md](01-strategy-requirements-roadmap/iip_feature_prioritization_matrix.md)
+- [IIP_HACKATHON_READINESS_BLUEPRINT.md](01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md)
 - [iip_implementation_roadmap.md](01-strategy-requirements-roadmap/iip_implementation_roadmap.md)
+- [IIP_KATO_BUILD_PROMPT.md](01-strategy-requirements-roadmap/IIP_KATO_BUILD_PROMPT.md)
+- [IIP_KATO_FIELD_TEST_AUDIT.md](01-strategy-requirements-roadmap/IIP_KATO_FIELD_TEST_AUDIT.md)
+- [IIP_LOCAL_LANGUAGE_BUILD_PLAN.md](01-strategy-requirements-roadmap/IIP_LOCAL_LANGUAGE_BUILD_PLAN.md)
+- [IIP_LOCAL_LANGUAGE_WHATSAPP_LOOP.md](01-strategy-requirements-roadmap/IIP_LOCAL_LANGUAGE_WHATSAPP_LOOP.md)
 - [iip_master_product_context.md](01-strategy-requirements-roadmap/iip_master_product_context.md)
 - [iip_mvp_acceptance_criteria_register.md](01-strategy-requirements-roadmap/iip_mvp_acceptance_criteria_register.md)
 - [iip_mvp_scope_control_register.md](01-strategy-requirements-roadmap/iip_mvp_scope_control_register.md)
+- [IIP_NEXT_BUILD_PROMPT.md](01-strategy-requirements-roadmap/IIP_NEXT_BUILD_PROMPT.md)
 - [iip_product_decision_log.md](01-strategy-requirements-roadmap/iip_product_decision_log.md)
 - [iip_product_definition_and_validation_charter.md](01-strategy-requirements-roadmap/iip_product_definition_and_validation_charter.md)
 - [iip_product_requirements_document.md](01-strategy-requirements-roadmap/iip_product_requirements_document.md)
@@ -37,6 +49,8 @@ Total: 258 files.
 - [iip_roadmap_execution_backlog.md](01-strategy-requirements-roadmap/iip_roadmap_execution_backlog.md)
 - [iip_stakeholder_alignment_brief.md](01-strategy-requirements-roadmap/iip_stakeholder_alignment_brief.md)
 - [iip_strategy_addendum.md](01-strategy-requirements-roadmap/iip_strategy_addendum.md)
+- [IIP_WHATSAPP_VOICE_DESIGN.md](01-strategy-requirements-roadmap/IIP_WHATSAPP_VOICE_DESIGN.md)
+- [SECTION_16_REHEARSAL_SCRIPT.md](01-strategy-requirements-roadmap/SECTION_16_REHEARSAL_SCRIPT.md)
 
 ## 02-development-engineering (42)
 
@@ -83,7 +97,7 @@ Total: 258 files.
 - [iip_ws2_command_center_frontend_vertical_slice_report.md](02-development-engineering/iip_ws2_command_center_frontend_vertical_slice_report.md)
 - [README_UPDATED_FILES.md](02-development-engineering/README_UPDATED_FILES.md)
 
-## 03-design-architecture (44)
+## 03-design-architecture (46)
 
 - [bevaya-competitive-benchmark-2026-07-16.md](03-design-architecture/bevaya-competitive-benchmark-2026-07-16.md)
 - [deep-research-report.md](03-design-architecture/deep-research-report.md)
@@ -98,6 +112,7 @@ Total: 258 files.
 - [iip_design_system_ux_behavior_specification.md](03-design-architecture/iip_design_system_ux_behavior_specification.md)
 - [iip_end_to_end_user_flow_architecture.md](03-design-architecture/iip_end_to_end_user_flow_architecture.md)
 - [iip_enterprise_agentic_operating_design_system.md](03-design-architecture/iip_enterprise_agentic_operating_design_system.md)
+- [iip_first_run_orientation_spec.md](03-design-architecture/iip_first_run_orientation_spec.md)
 - [iip_fnol_six_step_intake_design.md](03-design-architecture/iip_fnol_six_step_intake_design.md)
 - [iip_hybrid_cloud_mirror_resilient_channel_buffer_architecture.md](03-design-architecture/iip_hybrid_cloud_mirror_resilient_channel_buffer_architecture.md)
 - [iip_information_architecture_navigation_and_screen_inventory.md](03-design-architecture/iip_information_architecture_navigation_and_screen_inventory.md)
@@ -129,8 +144,9 @@ Total: 258 files.
 - [iip_workflow_architecture_document.md](03-design-architecture/iip_workflow_architecture_document.md)
 - [iip_workflow_legibility_contract.md](03-design-architecture/iip_workflow_legibility_contract.md)
 - [bevaya-design-language.md](03-design-architecture/reference/bevaya-design-language.md)
+- [ui-migration-ledger.md](03-design-architecture/ui-migration-ledger.md)
 
-## 04-testing-security-quality (19)
+## 04-testing-security-quality (20)
 
 - [iip_ai_output_evaluation_red_team_test_plan.md](04-testing-security-quality/iip_ai_output_evaluation_red_team_test_plan.md)
 - [iip_ai_quality_review_log.md](04-testing-security-quality/iip_ai_quality_review_log.md)
@@ -151,10 +167,13 @@ Total: 258 files.
 - [iip_security_test_checklist_validation_plan.md](04-testing-security-quality/iip_security_test_checklist_validation_plan.md)
 - [iip-customer-tenant-threat-model.md](04-testing-security-quality/iip-customer-tenant-threat-model.md)
 - [intake_and_document_checker_status_report_2026-09-05.md](04-testing-security-quality/intake_and_document_checker_status_report_2026-09-05.md)
+- [local-language-review-sheet.md](04-testing-security-quality/local-language-review-sheet.md)
 
-## 05-deployment-release-enablement (27)
+## 05-deployment-release-enablement (29)
 
+- [AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md](05-deployment-release-enablement/AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md)
 - [iip_azure_managed_application_packaging_guide.md](05-deployment-release-enablement/iip_azure_managed_application_packaging_guide.md)
+- [IIP_B1_PERFORMANCE_PLAN.md](05-deployment-release-enablement/IIP_B1_PERFORMANCE_PLAN.md)
 - [iip_backend_managed_application_implementation_guide.md](05-deployment-release-enablement/iip_backend_managed_application_implementation_guide.md)
 - [iip_canonical_entra_cutover_2026-07-16.md](05-deployment-release-enablement/iip_canonical_entra_cutover_2026-07-16.md)
 - [iip_change_control_process.md](05-deployment-release-enablement/iip_change_control_process.md)
@@ -293,6 +312,16 @@ Total: 258 files.
 - [IIP_API_Contracts_Master.md](api/IIP_API_Contracts_Master.md)
 - [openapi.json](api/openapi.json)
 
+## build-loop (7)
+
+- [BUILD_PLAN.md](build-loop/BUILD_PLAN.md)
+- [CLAIM_DOCUMENT_FRAUD_FLAG_USE_CASES.md](build-loop/CLAIM_DOCUMENT_FRAUD_FLAG_USE_CASES.md)
+- [DECISIONS.md](build-loop/DECISIONS.md)
+- [HOW_TO_TEST.md](build-loop/HOW_TO_TEST.md)
+- [POLICY_WORDING_TEST_PROMPT.md](build-loop/POLICY_WORDING_TEST_PROMPT.md)
+- [PROGRESS.md](build-loop/PROGRESS.md)
+- [SUMMARY.md](build-loop/SUMMARY.md)
+
 ## research (16)
 
 - [bevaya-comparative-analysis.md](research/bevaya-comparative-analysis.md)
@@ -312,6 +341,7 @@ Total: 258 files.
 - [sms-auto-send-policy.md](research/sms-auto-send-policy.md)
 - [uganda-release-1-claims-workflow-desk-research.md](research/uganda-release-1-claims-workflow-desk-research.md)
 
-## superpowers (1)
+## superpowers (2)
 
 - [2026-09-01-iip-r1-responsive-accessibility.md](superpowers/plans/2026-09-01-iip-r1-responsive-accessibility.md)
+- [2026-09-05-case-review-ai-summary.md](superpowers/plans/2026-09-05-case-review-ai-summary.md)

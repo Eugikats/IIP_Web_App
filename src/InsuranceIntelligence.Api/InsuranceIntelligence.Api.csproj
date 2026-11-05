@@ -28,6 +28,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
     <!-- Keep Microsoft's .NET 8 XML security fixes, including the October 2026 advisories. -->
     <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.5" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+    <PackageReference Include="System.IO.Packaging" Version="8.0.1" />
     <ProjectReference Include="..\InsuranceIntelligence.Application\InsuranceIntelligence.Application.csproj" />
     <ProjectReference Include="..\InsuranceIntelligence.Domain\InsuranceIntelligence.Domain.csproj" />
     <ProjectReference Include="..\InsuranceIntelligence.Infrastructure\InsuranceIntelligence.Infrastructure.csproj" />

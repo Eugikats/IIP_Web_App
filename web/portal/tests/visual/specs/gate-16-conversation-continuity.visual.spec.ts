@@ -17,6 +17,7 @@ test("Gate 16 conversations stay findable and distinguish changed evidence", asy
   await page.getByRole("button", { name: "Clear filter" }).click();
   await main.getByText("Review motor claim evidence").click();
 
+  await expect(page).toHaveURL(/\/app\/conversations\/11111111-1111-4111-8111-111111111111$/);
   await expect(page.getByText("Evidence changed since this answer")).toBeVisible();
   await expect(page.getByText(/Historical responses are shown for continuity/)).toBeVisible();
   await expect(page.getByText("The police report was missing when this answer was saved.")).toBeVisible();

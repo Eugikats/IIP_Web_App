@@ -176,7 +176,7 @@ function WorkDetail({ item, onOpenSpecialist }: { item: MyWorkItem; onOpenSpecia
         {item.approvalRequired ? <Badge tone="warning">Human approval required</Badge> : null}
       </div>
       <div className="mt-5 rounded-dls-card border border-dls-primary-border bg-dls-primary-soft-alt p-4">
-        <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-primary-hover">Required action</div>
+        <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-dls-text-primary">Required action</div>
         <p className="mt-2 text-[13px] text-dls-text-primary">{item.requiredAction}</p>
       </div>
       <div className="mt-3 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">

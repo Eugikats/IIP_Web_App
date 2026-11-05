@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ROLES, type Role } from "@/lib/roles";
 
 interface UIState {
@@ -34,14 +34,21 @@ function readStoredRole(): Role {
 export function UIStateProvider({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [copilotOpen, setCopilotOpen] = useState(false);
-  const [role, setRole] = useState<Role>("Admin");
+  const [role, setRoleState] = useState<Role>("Admin");
+  const userSelectedRole = useRef(false);
   const [hydrated, setHydrated] = useState(false);
+
+  const setRole = useCallback((next: Role) => {
+    userSelectedRole.current = true;
+    setRoleState(next);
+    try { localStorage.setItem("iip.role", JSON.stringify(next)); } catch { /* best effort */ }
+  }, []);
 
   useEffect(() => {
     const mobileViewport = window.matchMedia("(max-width: 767px)").matches;
     setSidebarOpen(mobileViewport ? false : readLS("iip.sidebarOpen", true));
     setCopilotOpen(readLS("iip.copilotOpen", false));
-    setRole(readStoredRole());
+    if (!userSelectedRole.current) setRoleState(readStoredRole());
     setHydrated(true);
   }, []);
 
