@@ -6,6 +6,7 @@ Start here for product, architecture, delivery, research, and operational knowle
 
 | Need | Source |
 |---|---|
+| The whole platform in one file for a new developer (both editions, setup, rules, testing, deployment, state) | [`iip-handbook.md`](00-start-here/iip-handbook.md) |
 | Repository rules and authority | [`../AGENTS.md`](../AGENTS.md) |
 | Product intent | [`iip_master_product_context.md`](01-strategy-requirements-roadmap/iip_master_product_context.md) and [`iip_product_requirements_document.md`](01-strategy-requirements-roadmap/iip_product_requirements_document.md) |
 | Current programme order | [`IIP-CONSOLIDATED-ROADMAP.md`](08-program-plan/IIP-CONSOLIDATED-ROADMAP.md) |

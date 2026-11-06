@@ -13,14 +13,14 @@ Read and follow [`AGENTS.md`](AGENTS.md) before acting. Its **Authority and curr
 
 Read [`DESIGN.md`](DESIGN.md) first. It is the UI/UX authority index and links the four owning documents. Do not design from memory, from the current portal's appearance, or from a screenshot in a prompt — the current portal is the thing being replaced.
 
-The direction: a calm, border-led, light-first insurance operations console. One violet accent (`#5B2AE8`) marking only the next action, Inter throughout, hairline borders instead of shadows, colour rationed to 6px status dots and single figures, a 64px icon rail with a contextual panel and a left-aligned content column. The visual reference is `docs/03-design-architecture/reference/bevaya-ui-replica.html` — open it in a browser. Copy its visual grammar; do not copy its product scope or its emoji.
+The direction: a calm, border-led, light-first insurance operations console. One blue accent (`#1769FF`, set 2026-10-07 in `DESIGN.md`) marking only the next action, Inter throughout, hairline borders instead of shadows, colour rationed to 6px status dots and single figures, a 64px icon rail with a contextual panel and a left-aligned content column. The visual reference is `docs/03-design-architecture/reference/bevaya-ui-replica.html` — open it in a browser. Copy its visual grammar; do not copy its product scope or its emoji.
 
 Rules that are never waived when writing UI:
 
 - No emoji anywhere — UI, code, model output rendered to users, commit messages, docs.
 - No em dashes anywhere: UI copy, code, comments, model output shown to users, commit messages and docs. Use a comma, colon, full stop or parentheses instead, and do not substitute a double hyphen. Readers treat the em dash as the plainest sign that text was machine-written. Model completions are cleaned at the provider boundary (`DisplayText.WithoutEmDashes`); everything a person or an agent writes into the repository must follow the rule by hand.
 - No gradients outside the two named uses; no glassmorphism, glow, hover-lift, or decorative motion.
-- One violet primary action per screen region. Status is a neutral pill plus a coloured dot plus a word, never colour alone.
+- One blue primary action per screen region. Status is a neutral pill plus a coloured dot plus a word, never colour alone.
 - Six states or it is not finished: loading, empty, empty-after-filter, error, not configured, no permission.
 - No fabricated data, dead controls, placeholder names, or unshipped features. Absent capability renders `Not configured`.
 - AI preparation and human decision authority live in separate containers; every actionable AI assertion carries a citation that opens its source.
@@ -36,6 +36,17 @@ Clear the 27-point checklist in `docs/03-design-architecture/iip_ui_craft_guardr
 - Update tests and owning documentation with contract changes.
 - Never weaken protected-runtime validation, security, tenant isolation, evidence grounding or human authority to make a check pass.
 - Use current code, CI and owning documents for routes, UI, providers, deployment and release truth; do not rely on catalogs copied into prompts or historical files.
+
+## Documentation before every commit of a major build
+
+Updating the documentation is part of finishing a major build, not a follow-up. Do it before the commit, in the same commit, without being asked. A major build is a new or changed feature, route or API contract, migration, configuration or environment variable, provider, user-visible surface, security or tenant rule, edition boundary, deployment or release, or a consolidation phase.
+
+1. List what the build changed, then find the owning documents (`docs/README.md` map, the `AGENTS.md` authority index, `DESIGN.md` for UI) and read them against the code. If a document disagrees with the code, the code wins: correct the document.
+2. Update the owning documents and ADRs. Mark replaced guidance `Superseded` with a link to its replacement. Set `Last reviewed` only on a document you actually re-checked.
+3. Update `docs/00-start-here/iip-handbook.md` whenever a capability, edition boundary (SaaS or Managed Application), environment, or readiness stage changed.
+4. If any document was added, moved or removed, run `pwsh scripts/docs/Update-IipDocsCatalog.ps1` and commit the regenerated `docs/CATALOG.md`.
+5. If you find stale documentation outside the build's own scope, fix it when the fix is small; otherwise list it in the completion report as documentation drift. Never leave a known mismatch unreported.
+6. Stage the documentation with the code by explicit path. The completion report must carry a `Documentation updated:` line naming the files, or `No documentation impact:` with the reason. A major build committed without one of those two lines is not finished.
 
 ## Validation and completion
 

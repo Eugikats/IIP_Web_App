@@ -439,3 +439,14 @@ is identifiers only. Real secrets live in:
 - [`iip_gate2_staging_deploy_reuse_existing_resources.md`](iip_gate2_staging_deploy_reuse_existing_resources.md) —
   full history of the staging deletion and the quota investigation.
 - `infra/ADR-0001-hosting-model.md` — why App Service over Container Apps/AKS.
+
+## 2026-11-06 deployment lessons
+
+Added after deploying `main` (`0e670b1a`) to dev. They apply to the API and the portal.
+
+- **The database is at 43 migrations**, the last `20261104033637_Consolidate_ClaimsCore`. Any older count in this file is out of date; run `diagnose` and compare.
+- **A successful upload does not mean the new build is running.** Restart the app (`az webapp restart`) and check a route or page that exists only in the new build: `GET /api/v1/auth/capabilities` on the API (200 new, 401 for the 2 November build), `/signin` on the portal (200 new, 404 old).
+- **`WEBSITES_CONTAINER_START_TIME_LIMIT` is `1800` on the API.** On the B1 plan the API needs between 4 and about 24 minutes to listen. At `600` Azure killed it in a loop and even the previous good build would not start. The CLI often reports "Deployment failed" while the server is still starting; trust `az webapp log deployment list`, the marker route, and `az webapp log startup show`.
+- **Keep a zip of the build being replaced.** It restored dev twice in one day.
+- **Probe, do not assume.** After a deploy, call every parameterless GET route with a signed-in token and look for 404 (route missing) and 5xx. Do it sequentially or with at most two at a time; six in parallel made the small server return errors.
+- **The Functions worker was not redeployed** and is still the 14 September build.
