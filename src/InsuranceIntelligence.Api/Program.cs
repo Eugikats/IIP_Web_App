@@ -1560,7 +1560,7 @@ app.MapPost("/api/v1/admin/portal-identity/verify-hostname", InsuranceIntelligen
 app.MapPost("/api/v1/admin/portal-identity/sms-webhook", InsuranceIntelligence.Api.ClientPortal.PortalIdentityEndpoints.RotateSmsWebhook)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/integrations/whatsapp/health", WhatsAppIntegrationEndpoints.GetHealth)
-    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations, Permission.ViewSalesLeads, Permission.ViewChannels));
 app.MapGet("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.GetStatus)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.SaveConfiguration)

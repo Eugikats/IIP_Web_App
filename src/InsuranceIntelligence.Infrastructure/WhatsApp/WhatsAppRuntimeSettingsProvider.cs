@@ -72,6 +72,10 @@ public interface IWhatsAppRuntimeSettingsProvider
     /// <summary>Re-reads the connections when they are older than the allowed age.</summary>
     Task RefreshIfStaleAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    /// <summary>Read the current number ownership before accepting an inbound webhook. A cached owner
+    /// must never receive a message after the number was moved to another workspace.</summary>
+    Task RefreshForInboundAsync(CancellationToken cancellationToken = default) => RefreshAsync(cancellationToken);
+
     Task RefreshAsync(CancellationToken cancellationToken = default);
 }
 
@@ -172,6 +176,22 @@ public sealed class WhatsAppRuntimeSettingsProvider : IWhatsAppRuntimeSettingsPr
         if (snapshot is null || SinceLastLoad() >= MaxAge)
         {
             await RefreshAsync(cancellationToken);
+        }
+    }
+
+    public async Task RefreshForInboundAsync(CancellationToken cancellationToken = default)
+    {
+        await refreshLock.WaitAsync(cancellationToken);
+        try
+        {
+            // Unlike the ordinary cache refresh, inbound routing cannot keep an old owner when
+            // the store is unavailable. Let Meta retry after the ownership check can complete.
+            snapshot = await LoadAsync(cancellationToken);
+            Interlocked.Exchange(ref lastLoadTicks, DateTimeOffset.UtcNow.UtcTicks);
+        }
+        finally
+        {
+            refreshLock.Release();
         }
     }
 

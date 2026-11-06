@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Search, SlidersHorizontal } from "lucide-react";
 import type { ChannelConversation } from "@/lib/lovable-parity/mock";
+import type { WhatsAppHealthStatus } from "@/lib/whatsappHealth";
 
 type ListTab = "all" | "attention" | "person" | "kato";
 
@@ -39,12 +40,14 @@ export default function ConversationListPane({
   selectedId,
   loading,
   error,
+  whatsAppStatus,
   onSelect,
 }: {
   conversations: ChannelConversation[];
   selectedId: string | null;
   loading: boolean;
   error?: string | null;
+  whatsAppStatus: WhatsAppHealthStatus;
   onSelect: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -159,7 +162,9 @@ export default function ConversationListPane({
         ) : error ? (
           <p className="p-4 text-[12px] text-rose-600">{error}</p>
         ) : conversations.length === 0 ? (
-          <p className="p-4 text-[12px] leading-relaxed text-slate-500">Conversations appear here as soon as someone writes to you on a connected channel.</p>
+          <p className="p-4 text-[12px] leading-relaxed text-slate-500">{whatsAppStatus === "not_configured"
+            ? "WhatsApp is not configured for this workspace. Connect its business number in Integrations to receive those messages here."
+            : "Conversations appear here as soon as someone writes to a channel connected to this workspace."}</p>
         ) : filtered.length === 0 ? (
           <p className="p-4 text-[12px] text-slate-500">No conversations match this view.</p>
         ) : (

@@ -159,9 +159,8 @@ public sealed class ConversationInsightsService(
 
         if (lead is null)
         {
-            // Writing in does not make someone a prospect; asking about a cover does (owner decision
-            // 2026-10-07). From there the stage follows them to "Ready to apply". A customer only
-            // asking about a claim, or someone who said "not now" to everything, is not one.
+            // The WhatsApp intake path records every contact, including existing customers. Other
+            // channels enter this insights path only after an insurance interest is identified.
             if (!IsProspect(parsed.Interests))
             {
                 return false;

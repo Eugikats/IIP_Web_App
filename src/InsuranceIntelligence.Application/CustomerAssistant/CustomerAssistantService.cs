@@ -142,6 +142,7 @@ public sealed partial class CustomerAssistantService(
     ICustomerFollowUpRepository? customerFollowUps = null,
     ITenantConfigurationRepository? tenantConfigurationRepository = null,
     IAssistantBrandProvider? assistantBrandProvider = null,
+    IProspectTriageService? prospectTriage = null,
     // Optional: the customer's own wording for a claim's status (build-loop item 19). Without it the
     // staff label is used, as before.
     InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter? claimantStatus = null,
@@ -208,10 +209,45 @@ public sealed partial class CustomerAssistantService(
     {
         var opened = new List<Guid>();
         using var usage = usageContext?.Use("kato", scope);
+        // Acquisition intake does not depend on the assistant brand, reply mode or agent gate.
+        // The webhook has already stored these messages in the owning workspace for the Inbox.
+        foreach (var inbound in messages)
+        {
+            if (inbound.ContentType != WhatsAppContentType.Text || string.IsNullOrWhiteSpace(inbound.CustomerSafeBody))
+            {
+                continue;
+            }
+            var waId = NormalizeWaId(inbound.SenderWaId);
+            if ((demoSession is not null && demoSession.Recognise(waId, inbound.CustomerSafeBody) != DemoCommand.None)
+                || InsuranceIntelligence.Application.Rules.OutcomeService.Classify(inbound.CustomerSafeBody, renewalContext: false)
+                    == InsuranceIntelligence.Application.Rules.OutcomeKind.Stopped)
+            {
+                continue;
+            }
+            await EnsureProspectAsync(scope, waId,
+                WhatsAppMessagingService.BuildThreadId(inbound.BusinessPhoneNumberId, waId),
+                ProfileFullName(inbound.ProfileName), inbound.CustomerSafeBody, correlationId, cancellationToken);
+        }
         // Whose assistant Kato is comes from the workspace, so one deployment can speak as an insurer here and a bank there.
-        using var workspaceBrand = KatoBrand.Use(assistantBrandProvider is not null
-            ? await AssistantBrands.ForAsync(assistantBrandProvider, scope, cancellationToken)
-            : brands is null ? KatoBrand.Current : await brands.ResolveAsync(scope, cancellationToken));
+        KatoBrand brand;
+        try
+        {
+            brand = assistantBrandProvider is not null
+                ? await AssistantBrands.ForAsync(assistantBrandProvider, scope, cancellationToken)
+                : brands is null ? KatoBrand.Current : await brands.ResolveAsync(scope, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A failed brand lookup cannot be replaced with the deployment's identity. Reply
+            // without naming an organisation and leave the conversation for a person.
+            foreach (var inbound in messages)
+            {
+                await EscalateAfterFailureAsync(scope, inbound, correlationId, exception, cancellationToken);
+                await MarkHandledAsync(scope, inbound, cancellationToken);
+            }
+            return opened;
+        }
+        using var workspaceBrand = KatoBrand.Use(brand);
         try
         {
             voiceNotesAvailable = voiceTranscriber is not null && await voiceTranscriber.IsAvailableAsync(scope, cancellationToken);
@@ -276,6 +312,14 @@ public sealed partial class CustomerAssistantService(
 
                     // From here a voice note is handled exactly as if they had typed those words.
                     message = inbound with { ContentType = WhatsAppContentType.Text, CustomerSafeBody = heard };
+                    if (InsuranceIntelligence.Application.Rules.OutcomeService.Classify(heard, renewalContext: false)
+                        != InsuranceIntelligence.Application.Rules.OutcomeKind.Stopped)
+                    {
+                        var waId = NormalizeWaId(inbound.SenderWaId);
+                        await EnsureProspectAsync(scope, waId,
+                            WhatsAppMessagingService.BuildThreadId(inbound.BusinessPhoneNumberId, waId),
+                            ProfileFullName(inbound.ProfileName), heard, correlationId, cancellationToken);
+                    }
                 }
 
                 if (message.ContentType != WhatsAppContentType.Text || string.IsNullOrWhiteSpace(message.CustomerSafeBody))
@@ -696,12 +740,6 @@ public sealed partial class CustomerAssistantService(
         if (introduced is not null)
         {
             await ApplyStatedNameAsync(scope, waId, introduced, cancellationToken);
-        }
-
-        if (!CustomerMessageSignals.IsBareHumanRequest(text)
-            && intentClassifier.Classify(text) is not (CustomerIntent.NewClaim or CustomerIntent.ExistingClaimStatus or CustomerIntent.HumanRequested))
-        {
-            await EnsureProspectAsync(scope, waId, threadId, introduced ?? sender?.FullName ?? ProfileFullName(inbound.ProfileName), text, correlationId, cancellationToken);
         }
 
         // A reply to a message a rule sent is recorded against that offer. STOP is honoured at once, from anyone: one plain
@@ -1459,8 +1497,9 @@ public sealed partial class CustomerAssistantService(
         }, cancellationToken);
     }
 
-    /// <summary>The kill-switch's actual effect: no classification, no grounded answer, no case or
-    /// lead created, every inbound message is escalated to a human while the agent is disabled.
+    /// <summary>The kill-switch's actual effect: no classification, no grounded answer, no case
+    /// created, every inbound message is escalated to a human while the agent is disabled.
+    /// Contact activity is still recorded for the acquisition queue.
     /// The customer sees the same generic escalation message any other Unknown-intent message
     /// gets; the internal reason (who disabled it, when, why) goes to the audit trail only, an
     /// admin's kill-switch note is not something to hand back to a WhatsApp customer.</summary>
@@ -1683,30 +1722,45 @@ public sealed partial class CustomerAssistantService(
         return tidy.Length is > 0 and <= 80 ? tidy : null;
     }
 
-    /// <summary>The prospect record for someone who has written in but is not a customer with cover: made on their
+    /// <summary>The prospect record for a new or existing customer who has written in: made on their
     /// first message so staff see them straight away, and kept up to date after. Never fails the customer's turn.</summary>
     private async Task EnsureProspectAsync(
         TenantScope scope, string waId, string threadId, string? name, string text, string correlationId, CancellationToken cancellationToken)
     {
         try
         {
-            var existing = await salesLeadWriteRepository.FindByPhoneAsync(scope.TenantId, scope.WorkspaceId, NormalizeWaId(waId), cancellationToken);
-            if (existing is null)
+            var knownNames = (await customerRepository.ListAsync(scope, cancellationToken))
+                .Where(customer => PhoneNumbers.SameNumber(customer.Phone, waId))
+                .Select(customer => customer.FullName.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var displayName = IntroducedName(text) ?? (knownNames.Length == 1 ? knownNames[0] : name);
+            // The acquisition record needs the fact of contact, not a copy of claim or health
+            // details from the message. The Inbox retains the actual conversation in its scope.
+            var leadId = await CreateLeadAsync(
+                scope, "Contacted us on WhatsApp", waId, sender: null, "WhatsApp", correlationId, cancellationToken,
+                change: lead => lead with { ThreadId = threadId },
+                displayName: displayName, activityText: "Wrote in on WhatsApp");
+            insightsQueue?.Enqueue(scope, waId, threadId, correlationId);
+            if (leadId is not null && prospectTriage is not null)
             {
-                await CreateLeadAsync(
-                    scope, text, waId, sender: null, "WhatsApp", correlationId, cancellationToken,
-                    change: lead => lead with { ThreadId = threadId },
-                    displayName: name, activityText: "Wrote in on WhatsApp");
-            }
-            else if (name is not null && IsPlaceholderName(existing.CustomerName))
-            {
-                // Their profile name has arrived since the record was made (or the record came from the older rule).
-                await salesLeadWriteRepository.CreateAsync(scope.TenantId, scope.WorkspaceId, existing with { CustomerName = name }, cancellationToken);
+                await prospectTriage.ScoreAsync(scope, leadId, SystemActorId, cancellationToken);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            // The customer is answered either way; the record is made on their next message.
+            // The WhatsApp message is already stored for the Inbox. The customer is answered even
+            // if the acquisition projection or scoring is temporarily unavailable.
+            try
+            {
+                await auditRepository.WriteAsync(new AuditEvent(
+                    Guid.NewGuid(), scope, null, null, SystemActorId, ActorType.Integration,
+                    "sales_lead.whatsapp_refresh_failed", DateTimeOffset.UtcNow,
+                    null, null, [], "SalesLead", null, "failed", null,
+                    $"WhatsApp prospect update or scoring failed ({exception.GetType().Name}); message content and contact omitted.",
+                    correlationId), cancellationToken);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested) { }
         }
     }
 

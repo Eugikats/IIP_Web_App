@@ -21,6 +21,7 @@ import ScoresTab from "@/components/acquisition/tabs/ScoresTab";
 import CountUp from "@/components/cip/CountUp";
 import { dailyCounts, trendDirection } from "@/components/cip/series";
 import { presentationMode } from "@/lib/config";
+import { useWhatsAppHealth, whatsAppHealthLabel } from "@/lib/whatsappHealth";
 import { useLiveProspects } from "@/lib/lovable-parity/useLiveProspects";
 import { useUI } from "@/context/UIStateContext";
 import { useWorkspaceMode } from "@/lib/workspaceMode";
@@ -122,6 +123,7 @@ export default function CustomerAcquisition() {
   const live = useLiveProspects(leads, refresh, true, presentationMode ? 3000 : 15000);
   const { roleDef } = useUI();
   const mode = useWorkspaceMode(roleDef.key);
+  const whatsAppStatus = useWhatsAppHealth(roleDef.key);
   // A bank sees its own customers and bank events; an insurer does not. Unknown shows everything.
   const showBank = mode.isBancassurance !== false;
   const visibleTabs = TABS.filter((item) => item.id !== "events" || showBank);
@@ -219,14 +221,14 @@ export default function CustomerAcquisition() {
     <div className="cip-acq space-y-4">
       <div>
         <h1 className="m-0 text-[20px] font-semibold tracking-tight text-[#0B1640]">Acquisition dashboard</h1>
-        <p className="m-0 mt-0.5 text-[12.5px] text-slate-500">People who might take cover, from WhatsApp conversations, bank lists and your team.</p>
+        <p className="m-0 mt-0.5 text-[12.5px] text-slate-500">People who might take cover, from WhatsApp conversations, bank lists and your team.{mode.organisation ? ` Workspace: ${mode.organisation}.` : ""}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2" aria-live="polite">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-            <span className="iip-live-dot h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-            Live
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+            <span className={`h-1.5 w-1.5 rounded-full ${whatsAppStatus === "ready" ? "bg-emerald-500" : "bg-slate-500"}`} aria-hidden />
+            {whatsAppHealthLabel(whatsAppStatus)}
           </span>
           {live.feed.length === 0 ? (
-            <span className="text-[12px] text-slate-500">Watching for new messages. New people and score changes appear here as they happen.</span>
+            <span className="text-[12px] text-slate-500">{whatsAppStatus === "not_configured" ? "Connect a business number in Integrations to receive messages here." : "Changes in this workspace appear here as they happen. Messages from another workspace do not appear in this queue."}</span>
           ) : null}
         </div>
         {live.feed.length > 0 ? (

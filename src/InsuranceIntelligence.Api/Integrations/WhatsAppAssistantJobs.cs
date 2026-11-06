@@ -7,6 +7,7 @@ using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Jobs;
+using InsuranceIntelligence.Infrastructure.WhatsApp;
 
 namespace InsuranceIntelligence.Api.Integrations;
 
@@ -177,6 +178,26 @@ public static class WhatsAppAssistantRunner
         var budget = timeLimit ?? RunTimeout;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         timeout.CancelAfter(budget);
+
+        // A number can move after the webhook saves a message but before this job runs. Do not
+        // answer through its new owner while speaking as the previous workspace.
+        var routing = services.GetService<IWhatsAppRuntimeSettingsProvider>();
+        if (routing is not null)
+        {
+            await routing.RefreshForInboundAsync(timeout.Token);
+            foreach (var number in request.Messages.Select(message => message.BusinessPhoneNumberId).Distinct(StringComparer.Ordinal))
+            {
+                var owner = routing.ForPhoneNumber(number);
+                if (owner is not null && TenantScope.Create(owner.TenantId, owner.WorkspaceId).Matches(request.Scope))
+                {
+                    continue;
+                }
+
+                logger.LogWarning("WhatsApp assistant skipped a message whose number no longer belongs to the queued workspace. Tenant={TenantId} Workspace={WorkspaceId} CorrelationId={CorrelationId}",
+                    request.Scope.TenantId, request.Scope.WorkspaceId, request.CorrelationId);
+                return;
+            }
+        }
 
         try
         {

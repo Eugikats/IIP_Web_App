@@ -26,15 +26,9 @@ public static class AssistantBrands
             return KatoBrand.Current;
         }
 
-        try
-        {
-            return await provider.ForAsync(scope, cancellationToken);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            // Reading the brand must never stop a customer being answered; the deployment default speaks instead.
-            return KatoBrand.Default;
-        }
+        // A failed workspace lookup cannot become the deployment's default identity: that
+        // would answer a real customer as another organisation.
+        return await provider.ForAsync(scope, cancellationToken);
     }
 }
 

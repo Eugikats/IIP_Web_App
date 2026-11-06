@@ -55,7 +55,7 @@ public sealed class WhatsAppInboundDocumentIngestionService(
         string? signatureHeader,
         CancellationToken cancellationToken = default)
     {
-        await settingsProvider.RefreshIfStaleAsync(cancellationToken);
+        await settingsProvider.RefreshForInboundAsync(cancellationToken);
         if (!whatsAppProvider.IsConfigured)
         {
             return new WhatsAppWebhookRouting("ConfigurationRequired", [], "WhatsApp inbound is not configured.");
@@ -86,7 +86,7 @@ public sealed class WhatsAppInboundDocumentIngestionService(
         var batches = new List<WhatsAppRoutedBatch>();
         foreach (var number in numbers)
         {
-            var settings = await settingsProvider.FindByPhoneNumberAsync(number, cancellationToken);
+            var settings = settingsProvider.ForPhoneNumber(number);
             if (settings is null || !whatsAppProvider.IsValidSignature(rawBody.Span, signatureHeader, number))
             {
                 logger.LogWarning("WhatsApp webhook rejected: no connected workspace could vouch for it (invalid or unknown business number).");

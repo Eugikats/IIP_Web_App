@@ -20,18 +20,22 @@ namespace InsuranceIntelligence.Api.Integrations;
 /// </summary>
 public static class WhatsAppIntegrationEndpoints
 {
-    public static IResult GetHealth(
+    public static async Task<IResult> GetHealth(
         IWhatsAppInboundProvider inboundProvider,
         IWhatsAppOutboundProvider outboundProvider,
         IWhatsAppRuntimeSettingsProvider settingsProvider,
         InfrastructureOptions options,
-        HttpContext httpContext)
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
     {
         // The state of the caller's own workspace (build-loop item 27): with several workspaces on one
         // deployment, "the" WhatsApp connection does not exist, and one workspace must never see another's.
-        var settings = WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out _)
-            ? settingsProvider.ForScope(scope)
-            : settingsProvider.Current;
+        if (!WorkflowEndpoints.TryResolveScope(httpContext, out var scope, out _, out var validationError))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
+        }
+        await settingsProvider.RefreshForInboundAsync(cancellationToken);
+        var settings = settingsProvider.ForScope(scope);
         var mappingConfigured = settings is not null
             && !string.IsNullOrWhiteSpace(settings.TenantId)
             && !string.IsNullOrWhiteSpace(settings.WorkspaceId);

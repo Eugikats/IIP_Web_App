@@ -11,6 +11,8 @@ import ChannelIdentityPanel from "@/components/iip/ChannelIdentityPanel";
 import { SideDrawer } from "@/components/ui/SideDrawer";
 import { useChannelConversations, useChannelThread, useConversationControl } from "@/lib/lovable-parity/data/channels";
 import { useThreadProspect } from "@/lib/lovable-parity/data/salesLeads";
+import { useUI } from "@/context/UIStateContext";
+import { useWhatsAppHealth, whatsAppHealthLabel } from "@/lib/whatsappHealth";
 
 // The chat screen in CIP's three-pane layout: conversations, the thread, and what is known about the
 // customer. Kato answers until a person takes the conversation; the right-hand panel shows the fixed
@@ -19,6 +21,8 @@ import { useThreadProspect } from "@/lib/lovable-parity/data/salesLeads";
 const REFRESH_MS = 10_000;
 
 export default function Channels() {
+  const { roleDef } = useUI();
+  const whatsAppStatus = useWhatsAppHealth(roleDef.key);
   const { conversations, loading, error, reload, parityMode } = useChannelConversations();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
@@ -102,7 +106,11 @@ export default function Channels() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="m-0 text-[20px] font-semibold tracking-tight text-[#0B1640]">Inbox</h1>
-          <p className="m-0 mt-0.5 text-[12.5px] text-slate-500">Everyone who writes to you, with what the assistant has learned about them.</p>
+          <p className="m-0 mt-0.5 text-[12.5px] text-slate-500">Messages sent to channels connected to this workspace, with what the assistant has learned about each person.</p>
+          <span className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600" aria-live="polite">
+            <span className={`h-1.5 w-1.5 rounded-full ${whatsAppStatus === "ready" ? "bg-emerald-500" : "bg-slate-500"}`} aria-hidden />
+            {whatsAppHealthLabel(whatsAppStatus)}
+          </span>
         </div>
         <Link href="/app/acquisition" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50">
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
@@ -116,7 +124,7 @@ export default function Channels() {
         style={{ gridTemplateColumns: layout === "three" ? "20rem minmax(0,1fr) 22rem" : layout === "two" ? "19rem minmax(0,1fr)" : "minmax(0,1fr)" }}
       >
         <div className={`min-h-0 ${layout === "one" && mobileView === "thread" ? "hidden" : ""}`}>
-          <ConversationListPane conversations={conversations} selectedId={activeId} loading={loading} error={error} onSelect={select} />
+          <ConversationListPane conversations={conversations} selectedId={activeId} loading={loading} error={error} whatsAppStatus={whatsAppStatus} onSelect={select} />
         </div>
 
         <div className={`min-h-0 min-w-0 ${layout === "one" && mobileView === "list" ? "hidden" : ""}`}>
