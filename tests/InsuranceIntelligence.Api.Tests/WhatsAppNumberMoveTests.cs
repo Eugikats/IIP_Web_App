@@ -107,7 +107,7 @@ public sealed class WhatsAppNumberMoveTests(MockedApiFactory factory) : IClassFi
         Assert.NotNull(moved);
         Assert.Equal(world.Phone, moved!.PhoneNumberId);
         Assert.Equal("token-secret", protector.Unprotect(moved.EncryptedAccessToken));
-        Assert.Single((await repository.ListActiveAsync()).Where(item => item.PhoneNumberId == world.Phone));
+        Assert.Single(await repository.ListActiveAsync(), item => item.PhoneNumberId == world.Phone);
     }
 
     [Fact]
