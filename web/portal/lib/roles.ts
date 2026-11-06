@@ -122,6 +122,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/documents", requiredAny: ["ViewAllClaims"] },
   { path: "/app/communications", requiredAny: ["ViewAssignedClaims", "ViewAllClaims"] },
   { path: "/app/acquisition", requiredAny: ["ViewSalesLeads"] },
+  { path: "/app/workspace", requiredAny: ["ViewSalesLeads"] },
   { path: "/app/policy", requiredAny: ["ViewAiOutputs", "ManageKnowledgeBase"] },
   { path: "/app/retention", requiredAny: ["ViewCustomers"] },
   { path: "/app/fraud", requiredAny: ["ViewFraudSignals"] },

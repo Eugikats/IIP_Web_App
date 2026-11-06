@@ -7,7 +7,7 @@ import {
   MessageSquare, ListChecks, FileSearch, Inbox, GraduationCap, FileText, GitBranch, LineChart,
   Users, Building2, Mail, BookOpen, ShieldAlert, Gavel, ScrollText,
   Search, LogOut, ShieldCheck, Plug, LifeBuoy, Settings,
-  ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw, MonitorDot,
+  ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw, MonitorDot, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
@@ -41,6 +41,7 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
       { to: "/app", label: "Brief", icon: Home },
       { to: "/app/claims", label: "Claims", icon: FileSearch },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
+      { to: "/app/workspace", label: "Kato workspace", icon: Sparkles },
       { to: "/app/channels", label: "Inbox", icon: Inbox },
       { to: "/academy", label: "IIP Academy", icon: GraduationCap },
     ],

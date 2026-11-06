@@ -478,6 +478,7 @@ builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IConversationControlService, InsuranceIntelligence.Application.CustomerAssistant.ConversationControlService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
 builder.Services.AddScoped<IProspectTriageService, ProspectTriageService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Workspace.IWorkspaceService, InsuranceIntelligence.Application.Workspace.WorkspaceService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
 // A message that cannot reach a real phone may be recorded as a clearly labelled demonstration send, but
 // only where the runtime profile is not protected. In Staging and Production it is blocked, never faked.
@@ -1366,6 +1367,15 @@ app.MapPost("/api/v1/policy-import/parse", InsuranceIntelligence.Api.Policies.Po
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 app.MapPost("/api/v1/policy-import/commit", InsuranceIntelligence.Api.Policies.PolicyImportEndpoints.Commit)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+
+// Kato workspace: analyse a customer workbook, export the analysis, draw a chart from real records.
+// None of these sends a message; sending stays behind the named-approval outreach path.
+app.MapPost("/api/v1/workspace/prospects/analyse", InsuranceIntelligence.Api.Workspace.WorkspaceEndpoints.AnalyseProspects)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/workspace/prospects/export", InsuranceIntelligence.Api.Workspace.WorkspaceEndpoints.ExportAnalysis)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/workspace/charts", InsuranceIntelligence.Api.Workspace.WorkspaceEndpoints.Chart)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 
 // Outcome O: retention watch, a screen of its own for policies nearing cover end.
 app.MapGet("/api/v1/retention/watch", InsuranceIntelligence.Api.Retention.RetentionEndpoints.GetWatch)
