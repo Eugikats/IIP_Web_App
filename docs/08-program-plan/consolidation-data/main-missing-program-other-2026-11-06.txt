@@ -1,0 +1,102 @@
+"No single active membership for user {UserId} (tenant hint {TenantHint}, workspace hint {WorkspaceHint}, organisation header {OrganisationHeader}).",
+&& !context.Request.Path.StartsWithSegments("/api/v1/me/organisations", StringComparison.OrdinalIgnoreCase))
+&& !infrastructureOptions.MultiTenant)
+&& infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+&& infrastructureOptions.SeedDemoData
+&& string.Equals(builder.Configuration["INSURANCEINTELLIGENCE_DEMO_SKIP_CLAIM_IDENTITY"], "true", StringComparison.OrdinalIgnoreCase);
+(builder.Configuration["Security:WebAuthnOrigins"]
+.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+.AddAuthentication(options =>
+.AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations)).RequireRateLimiting("mfa");
+.AddJwtBearer(InsuranceIntelligence.Api.Auth.TokenIssuer.ExternalIdScheme, jwt =>
+.AddJwtBearer(jwt =>
+.AddPolicyScheme("IipAuth", "Bearer token or API key", options =>
+.AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler>(
+.PersistKeysToAzureBlobStorage(new Uri(infrastructureOptions.DataProtectionBlobUri), keyRingCredential)
+.ProtectKeysWithAzureKeyVault(new Uri(infrastructureOptions.DataProtectionKeyUri), keyRingCredential);
+.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
+.WithOrigins(allowedOrigins)
+: JwtBearerDefaults.AuthenticationScheme;
+: RuntimeClaimTypes.TenantScope
+: infrastructureOptions.AcceptsExternalIdAlongsideEntra && InsuranceIntelligence.Api.Auth.TokenIssuer.IsExternalId(context)
+: infrastructureOptions.MultiTenant
+? InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.Scheme
+? InsuranceIntelligence.Api.Auth.TokenIssuer.ExternalIdScheme
+? null // the token's tenant claim is a sign-in directory, never an insurer
+? requestedOrganisation.Trim()
+? requestedOrganisationValue.ToString()
+?? "https://app.insuranceintelligenceplatform.com,https://app-portal-dev-h5girbnzrayqe.azurewebsites.net,http://localhost:3000,http://127.0.0.1:3000")
+InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.Scheme, _ => { });
+InsuranceIntelligence.Api.Rules.RuleEndpoints.Save(null, request, rules, audit, options, context, token))
+InsuranceIntelligence.Api.Rules.RuleEndpoints.Save(ruleId, request, rules, audit, options, context, token))
+RuntimeClaimTypes.RequestedOrganisationHeaderName, out var requestedOrganisationValue)
+app.UseMiddleware<InsuranceIntelligence.Api.Security.PlatformMfaEnforcementMiddleware>();
+app.UseResponseCompression();
+await context.Response.WriteAsJsonAsync(new { code = "credits_exhausted", message = "AI credits for this month are used up. Ask your administrator to add credits." });
+catch (InsuranceIntelligence.Application.Billing.AiCreditsExhaustedException) when (!context.Response.HasStarted)
+context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 2000 : 30, TimeSpan.FromMinutes(5)));
+context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 20, TimeSpan.FromMinutes(1)));
+context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 20, TimeSpan.FromMinutes(10)));
+context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 240, TimeSpan.FromMinutes(1)));
+context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 30, TimeSpan.FromHours(1)));
+context.Request.Headers.ContainsKey(InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.HeaderName)
+context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("MembershipLookup").LogWarning(
+context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
+dataProtection
+else if (infrastructureOptions.AuthMode.Equals("EntraExternalId", StringComparison.OrdinalIgnoreCase))
+if (!string.IsNullOrWhiteSpace(infrastructureOptions.DataProtectionBlobUri) && !string.IsNullOrWhiteSpace(infrastructureOptions.DataProtectionKeyUri))
+if (context.Items[InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.OrganisationItemKey] is string keyOrganisation)
+if (infrastructureOptions.AcceptsExternalIdAlongsideEntra)
+if (infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+if (infrastructureOptions.AuthMode.Equals("Entra", StringComparison.OrdinalIgnoreCase))
+if (infrastructureOptions.MultiTenant && !infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+if (membership is null && context.Request.Path.StartsWithSegments("/api/v1/me", StringComparison.OrdinalIgnoreCase)
+if (multiTenantProblems.Count > 0)
+if (skipClaimIdentityForDemo)
+if (string.Equals(configuration["Academy:Payments:Provider"], "Fake", StringComparison.OrdinalIgnoreCase)
+jwt.Audience = externalAudience;
+jwt.Audience = externalIdAudience;
+jwt.Authority = authority;
+jwt.Authority = infrastructureOptions.ExternalIdAuthority;
+jwt.TokenValidationParameters.ValidAudiences = new[] { externalIdAudience, externalIdClientId }.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+limits.AddPolicy("academy-learner", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+limits.AddPolicy("academy-pay", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+limits.AddPolicy("academy-post", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+limits.AddPolicy("academy-public", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 120, TimeSpan.FromMinutes(1)));
+limits.AddPolicy("academy-zenith", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+limits.AddPolicy("join", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 20, TimeSpan.FromMinutes(10)));
+limits.AddPolicy("marketplace", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
+limits.AddPolicy("mfa", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+limits.AddPolicy("signup", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 10, TimeSpan.FromHours(1)));
+limits.AddPolicy("webhook", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 3000, TimeSpan.FromMinutes(1)));
+limits.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+new InsuranceIntelligence.Api.Local.ConfiguredAssistantLanguageSettings(infrastructureOptions.Translation));
+options.DefaultChallengeScheme = "IipAuth";
+options.DefaultScheme = "IipAuth";
+options.EnableForHttps = true;
+options.ForwardDefaultSelector = context =>
+options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+requestedOrganisation = keyOrganisation;
+return flutterwave.Configured ? flutterwave : new InsuranceIntelligence.Api.Academy.Payments.NotConfiguredPaymentGateway();
+return new InsuranceIntelligence.Api.Academy.Payments.FakePaymentGateway(configuration);
+sp.GetRequiredService<AzureOpenAiAssistantProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
+sp.GetRequiredService<AzureOpenAiChatCompletionProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
+sp.GetRequiredService<AzureOpenAiToolCallingChatProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
+throw new InvalidOperationException("Multi-tenant configuration is unsafe: " + string.Join(" ", multiTenantProblems));
+try
+userId, tenantHint ?? "(none)", workspaceHint ?? "(none)", requestedOrganisation ?? "(none)");
+using InsuranceIntelligence.Api.Security;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+var authority = RequireSetting(infrastructureOptions.ExternalIdAuthority, "INSURANCEINTELLIGENCE_EXTERNAL_ID_AUTHORITY");
+var configuration = sp.GetRequiredService<IConfiguration>();
+var externalAudience = string.IsNullOrWhiteSpace(infrastructureOptions.EntraAudience) ? externalClientId : infrastructureOptions.EntraAudience;
+var externalClientId = RequireSetting(infrastructureOptions.EntraClientId, "INSURANCEINTELLIGENCE_ENTRA_CLIENT_ID");
+var externalIdAudience = string.IsNullOrWhiteSpace(infrastructureOptions.ExternalIdAudience) ? externalIdClientId : infrastructureOptions.ExternalIdAudience;
+var externalIdClientId = infrastructureOptions.ExternalIdClientId!;
+var flutterwave = sp.GetRequiredService<InsuranceIntelligence.Api.Academy.Payments.FlutterwaveGateway>();
+var keyRingCredential = new Azure.Identity.DefaultAzureCredential();
+var multiTenantProblems = InsuranceIntelligence.Infrastructure.Configuration.MultiTenantStartupGuard.Problems(infrastructureOptions);
+var requestedOrganisation = context.Request.Headers.TryGetValue(
+var skipClaimIdentityForDemo = demoRuntime
+var tenantHint = !string.IsNullOrWhiteSpace(requestedOrganisation)

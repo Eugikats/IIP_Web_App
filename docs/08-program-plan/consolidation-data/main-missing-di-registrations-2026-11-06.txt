@@ -1,0 +1,56 @@
+builder.Services.AddAuthentication();
+builder.Services.AddCors(options =>
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Academy.Payments.PaymentReconcileWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ClaimTriageWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Connectors.ConnectorSyncWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantRecoveryWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Rules.RuleRunWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Webhooks.OutboundWebhookWorker>();
+builder.Services.AddHttpClient(InsuranceIntelligence.Infrastructure.Connections.UserFileService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient<InsuranceIntelligence.Api.Academy.Payments.FlutterwaveGateway>();
+builder.Services.AddRateLimiter(limits =>
+builder.Services.AddResponseCompression(options =>
+builder.Services.AddScoped<AzureOpenAiAssistantProvider>();
+builder.Services.AddScoped<AzureOpenAiChatCompletionProvider>();
+builder.Services.AddScoped<AzureOpenAiToolCallingChatProvider>();
+builder.Services.AddScoped<IAiAssistantProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedAiAssistantProvider(
+builder.Services.AddScoped<IChatCompletionProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedChatCompletionProvider(
+builder.Services.AddScoped<ICommandCenterAnalyst, CommandCenterAnalyst>();
+builder.Services.AddScoped<IToolCallingChatProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedToolCallingChatProvider(
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyCommunityService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyLearnerService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademySettingsService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyZenithService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.IZenithModel, InsuranceIntelligence.Api.Academy.ChatZenithModel>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.Payments.IAcademyPriceSource, InsuranceIntelligence.Api.Academy.Payments.AcademyPriceSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.Payments.IPaymentGateway>(sp =>
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IAiCreditsSummaryService, InsuranceIntelligence.Application.Billing.AiCreditsSummaryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Connectors.IConnectorSyncService, InsuranceIntelligence.Application.Connectors.ConnectorSyncService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IClaimIdentityVerifier, InsuranceIntelligence.Application.CustomerAssistant.ClaimIdentityVerifier>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IClaimIdentityVerifier, InsuranceIntelligence.Application.CustomerAssistant.DemoSkippedClaimIdentityVerifier>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IFileAccessTokenProvider>(provider => provider.GetRequiredService<InsuranceIntelligence.Application.Integrations.IUserFileService>());
+builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IUserFileService, InsuranceIntelligence.Infrastructure.Connections.UserFileService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Knowledge.IKnowledgeIngestionSink, InsuranceIntelligence.Application.Knowledge.KnowledgeIngestionService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductWordingExtractionService, InsuranceIntelligence.Application.Products.ProductWordingExtractionService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPasskeyService, InsuranceIntelligence.Infrastructure.Security.PasskeyService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPlatformMfaService, InsuranceIntelligence.Application.Security.PlatformMfaService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.WhatsApp.WhatsAppAssistantRecoveryService>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorFileSource, InsuranceIntelligence.Infrastructure.Connectors.GoogleDriveFileSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorFileSource, InsuranceIntelligence.Infrastructure.Connectors.MicrosoftGraphFileSource>();
+builder.Services.AddSingleton(InsuranceIntelligence.Infrastructure.Connections.FileProviderOptions.From(builder.Configuration));
+builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PasskeyOptions(
+builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PlatformMfaOptions());
+builder.Services.AddSingleton<ICommunicationProvider, ConfiguredCustomerUpdateCommunicationProvider>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.AcademyOperator>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.IAcademyContentProvider, InsuranceIntelligence.Api.Academy.AcademyContentProvider>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.IClaimTriageQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ClaimTriageQueue>());
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Integrations.IWhatsAppAssistantQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantQueue>());
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Integrations.WhatsAppAssistantQueue>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.CustomerAssistant.IAssistantLanguageSettings>(
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.TryAddSingleton(TimeProvider.System);
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("InsuranceIntelligence");
