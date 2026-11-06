@@ -477,6 +477,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Retention.IRetentio
 builder.Services.AddScoped<ISalesLeadQueryService, SalesLeadQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IConversationControlService, InsuranceIntelligence.Application.CustomerAssistant.ConversationControlService>();
 builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
+builder.Services.AddScoped<IProspectListImportService, ProspectListImportService>();
 builder.Services.AddScoped<IProspectTriageService, ProspectTriageService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Workspace.IWorkspaceService, InsuranceIntelligence.Application.Workspace.WorkspaceService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
@@ -1207,6 +1208,8 @@ app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
 app.MapGet("/api/v1/sales-leads/{leadId}", SalesLeadEndpoints.GetLeadDetail)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
 app.MapPost("/api/v1/sales-leads", SalesLeadEndpoints.CreateLead)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/sales-leads/import", SalesLeadEndpoints.ImportList)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapPost("/api/v1/sales-leads/{leadId}/notes", SalesLeadEndpoints.AddNote)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
