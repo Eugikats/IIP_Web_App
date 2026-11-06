@@ -14,6 +14,9 @@ import {
   getWhatsAppConfigurationStatus,
   type WhatsAppMessagingMode,
   getWhatsAppMessagingMode,
+  listWhatsAppNumbersElsewhere,
+  moveWhatsAppNumberHere,
+  type WhatsAppNumberElsewhere,
   saveWhatsAppConfiguration,
   testWhatsAppConfiguration,
   updateWhatsAppMessagingMode,
@@ -54,6 +57,8 @@ export default function WhatsAppSettings() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [elsewhere, setElsewhere] = useState<WhatsAppNumberElsewhere[]>([]);
+  const [moveFrom, setMoveFrom] = useState<WhatsAppNumberElsewhere | null>(null);
   const displayNameId = useId();
 
   async function load() {
@@ -70,6 +75,9 @@ export default function WhatsAppSettings() {
     }
     setStatus(result.value);
     setModeStatus(modeResult.value);
+    // Only offered when this workspace has no number. A person without access to another workspace simply sees none.
+    const others = result.value.connected ? null : await listWhatsAppNumbersElsewhere(role);
+    setElsewhere(others && others.ok ? others.value.elsewhere : []);
   }
 
   useEffect(() => { void load(); }, [role]);
@@ -101,6 +109,16 @@ export default function WhatsAppSettings() {
     }
     setDisconnectDialogOpen(false);
     setTestResult(null);
+    void load();
+  }
+
+  async function onMove(reason: string) {
+    if (!moveFrom) return;
+    const result = await moveWhatsAppNumberHere(role, moveFrom, reason);
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+    setMoveFrom(null);
     void load();
   }
 
@@ -278,6 +296,31 @@ export default function WhatsAppSettings() {
             )}
           </GlassCard>
 
+          {!status.connected && elsewhere.length > 0 && (
+            <GlassCard>
+              <div className="mb-1 flex items-center gap-2">
+                <RefreshCcw className="h-4 w-4 text-dls-info-text" aria-hidden="true" />
+                <div className="text-[14px] font-bold text-dls-text-primary">A number is connected in another workspace of yours</div>
+              </div>
+              <p className="mb-4 text-[12px] leading-5 text-dls-text-secondary">
+                A WhatsApp number belongs to one workspace at a time. Bring it here and new messages arrive in this workspace&apos;s Inbox. Its credentials stay on the server, and messages already received stay where they arrived.
+              </p>
+              <ul className="space-y-2">
+                {elsewhere.map((item) => (
+                  <li key={`${item.fromTenantId}/${item.fromWorkspaceId}`} className="flex flex-wrap items-center justify-between gap-3 rounded-dls-control border border-dls-border p-3">
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-semibold text-dls-text-primary">{item.businessDisplayName || "WhatsApp Business"}</div>
+                      <div className="text-[12px] text-dls-text-secondary">Connected in {item.organisationName}</div>
+                    </div>
+                    <Button variant="primary" onClick={() => setMoveFrom(item)} icon={<PlugZap aria-hidden="true" />}>
+                      Use this number here
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </GlassCard>
+          )}
+
           {!status.connected && (
             <GlassCard>
               <div className="mb-1 flex items-center gap-2">
@@ -328,6 +371,17 @@ export default function WhatsAppSettings() {
           )}
         </div>
       )}
+
+      <GovernedActionDialog
+        open={moveFrom !== null}
+        title="Use this WhatsApp number in this workspace"
+        target={moveFrom ? `${moveFrom.businessDisplayName || "WhatsApp Business"} from ${moveFrom.organisationName}` : "WhatsApp number"}
+        impact="New messages to this number arrive in this workspace and stop arriving in the workspace it leaves. The assistant then speaks as this workspace. Earlier messages stay where they arrived."
+        auditNotice="Moving a number is recorded in the audit trail of both workspaces. Provide the reason for this change."
+        confirmLabel="Move the number here"
+        onClose={() => setMoveFrom(null)}
+        onConfirm={onMove}
+      />
 
       <GovernedActionDialog
         open={requestedMode !== null}

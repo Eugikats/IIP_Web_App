@@ -148,6 +148,44 @@ export async function deleteWhatsAppConfiguration(role: string, auditReason: str
   }
 }
 
+export type WhatsAppNumberElsewhere = {
+  fromTenantId: string;
+  fromWorkspaceId: string;
+  organisationName: string;
+  phoneNumberId: string;
+  businessDisplayName: string | null;
+};
+
+/** Numbers held by other workspaces that this person administers and could bring to the workspace being viewed. */
+export async function listWhatsAppNumbersElsewhere(role: string): Promise<WhatsAppResult<{ heldHere: boolean; elsewhere: WhatsAppNumberElsewhere[] }>> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/integrations/whatsapp/configuration/elsewhere`, { headers: scopedHeaders(role, ""), cache: "no-store" });
+    if (!response.ok) return { ok: false, error: await safeError(response, "Numbers in your other workspaces could not be loaded.") };
+    return { ok: true, value: await response.json() };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "Numbers in your other workspaces could not be loaded.") };
+  }
+}
+
+/** Moves a connected number here from another workspace the person administers. The credentials stay on the server. */
+export async function moveWhatsAppNumberHere(
+  role: string,
+  from: Pick<WhatsAppNumberElsewhere, "fromTenantId" | "fromWorkspaceId">,
+  auditReason: string,
+): Promise<WhatsAppResult<null>> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/integrations/whatsapp/configuration/move-here`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Audit-Reason": auditReason, ...scopedHeaders(role, "") },
+      body: JSON.stringify(from),
+    });
+    if (!response.ok) return { ok: false, error: await safeError(response, "The number could not be moved.") };
+    return { ok: true, value: null };
+  } catch (reason) {
+    return { ok: false, error: safeNetworkFailure(reason, "The number could not be moved.") };
+  }
+}
+
 export type WhatsAppReceipt = {
   receivedAt: string;
   phoneNumberId: string;
