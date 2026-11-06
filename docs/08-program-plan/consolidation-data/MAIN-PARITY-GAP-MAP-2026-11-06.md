@@ -84,3 +84,18 @@ Not every one is a lost route: `channels`, `customer-follow-ups`, `cases`, `cust
 - The portal has every live page and 15 more.
 - The database migration `Consolidate_ClaimsCore` is additive and applied cleanly on dev; the live database is now at 43 migrations and works with both builds.
 - Claims-core, the Kato workspace, list import fixes and the WhatsApp number-ownership fixes are in `main` and tested.
+
+## 7. Resolution (2026-11-06)
+
+Repaired in commit `8ebedc64` (branch `fix/restore-program-wiring`, then `main`). Cause: the item 27 and 28 port (`5c01494f`) rewrote `Program.cs` and removed about 540 lines, and the item 29 port (`454b7644`) removed 104 lines from `InfrastructureRegistration.cs`.
+
+| Measure | Before | After |
+|---|---|---|
+| Live routes missing from `main` | 172 | 0 (557 registered, 128 of them only in `main`) |
+| Live `Program.cs` statements missing | 332 | 16, all deliberate (in-memory queues replaced by durable jobs, organisation invitation accept moved) |
+| Portal calls to routes the same build does not serve | 77 | 23, of which 18 are the baseline limits of the matching script and 5 are false alarms (routes exist, the call builds its path from a variable) |
+| Endpoints asking for a service nothing registers | not measured | 0 |
+| Backend build | | 0 warnings, 0 errors |
+| Backend tests | 1,266 Domain and 2,419 Api | 1,266 Domain and 2,423 Api, 0 failed (the four new tests are the parity tests) |
+
+Decisions are in `DECISIONS.md` D-040. Not yet done: a rehearsal on a deployed dev environment (switch to Mavuno Bank, open every Acquisition tab, open the Academy, send a WhatsApp message through to the Inbox), and the portal suites of plan section 8, since this change touches no portal file. Section 5 still applies before the next deploy.
