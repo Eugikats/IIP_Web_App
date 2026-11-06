@@ -6,6 +6,7 @@ import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { getEntraApiAccessToken } from "@/lib/entraAuth";
 import { useUI } from "@/context/UIStateContext";
 import { readListFile } from "@/lib/acquisition/readSpreadsheet";
+import { guessMapping, IMPORT_FIELDS, LAST_NAME_KEY, nameOf, type ColumnMapping } from "@/lib/acquisition/guessMapping";
 import { downloadFile, FileConnectionError, getFileConnectionStatus, startFileConnection, type FileConnectionStatus, type FileProviderKey } from "@/lib/files/fileConnections";
 import { OneDrivePicker, pickFromGoogleDrive } from "@/components/files/FilePicker";
 import Link from "next/link";
@@ -26,15 +27,7 @@ type ImportResult = {
   problems: { row: number; reason: string }[];
 };
 
-const FIELDS = [
-  { key: "name", label: "Full name", required: true, hints: ["name", "customer", "full"] },
-  { key: "phone", label: "Phone number", required: true, hints: ["phone", "mobile", "msisdn", "contact", "tel"] },
-  { key: "occupation", label: "Work", required: false, hints: ["occupation", "work", "job", "profession"] },
-  { key: "area", label: "Area", required: false, hints: ["area", "town", "location", "district"] },
-  { key: "branch", label: "Bank branch", required: false, hints: ["branch"] },
-  { key: "bank_products", label: "Products held at the bank", required: false, hints: ["product", "account", "loan"] },
-  { key: "consent", label: "Agreed to be contacted", required: false, hints: ["consent", "opt", "agree", "marketing"] },
-] as const;
+const FIELDS = IMPORT_FIELDS;
 
 const SOURCES = [
   { id: "file", label: "Upload a CSV file", note: "From your computer", icon: Upload, available: true, reason: "" },
@@ -48,7 +41,7 @@ export default function ImportList() {
   const input = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<string[][]>([]);
-  const [mapping, setMapping] = useState<Record<string, number>>({});
+  const [mapping, setMapping] = useState<ColumnMapping>({});
   const [problem, setProblem] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { roleDef } = useUI();
@@ -129,14 +122,9 @@ export default function ImportList() {
       setProblem("The file has no rows under its headings.");
       return;
     }
-    const guess: Record<string, number> = {};
-    FIELDS.forEach((field) => {
-      const at = parsed[0].findIndex((heading) => field.hints.some((hint) => heading.toLowerCase().includes(hint)));
-      if (at >= 0) guess[field.key] = at;
-    });
     setRows(parsed);
     setFileName(file.name);
-    setMapping(guess);
+    setMapping(guessMapping(parsed[0]));
   };
 
   const missingRequired = FIELDS.filter((field) => field.required && mapping[field.key] === undefined);
@@ -148,7 +136,11 @@ export default function ImportList() {
     setProblem(null);
     try {
       const token = await getEntraApiAccessToken();
-      const cell = (row: string[], key: string) => (mapping[key] === undefined ? undefined : row[mapping[key]]?.trim() || undefined);
+      const cell = (row: string[], key: string) => {
+        if (key === "name") return nameOf(row, mapping) || undefined;
+        const at = mapping[key as keyof ColumnMapping];
+        return at === undefined ? undefined : row[at]?.trim() || undefined;
+      };
       const response = await fetch(`${apiBaseUrl}/api/v1/sales-leads/import`, {
         method: "POST",
         headers: { ...scopedHeaders(roleDef.key, ""), "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -253,6 +245,8 @@ export default function ImportList() {
                     const next = { ...current };
                     if (event.target.value === "") delete next[field.key];
                     else next[field.key] = Number(event.target.value);
+                    // A person who picks the name column by hand has decided; stop joining a last-name column.
+                    if (field.key === "name") delete next[LAST_NAME_KEY];
                     return next;
                   })}
                   className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[13px] text-[#0B1640] outline-none focus:border-[#1769FF]/40"
@@ -260,6 +254,9 @@ export default function ImportList() {
                   <option value="">Not in this file</option>
                   {headers.map((heading, index) => <option key={`${heading}-${index}`} value={index}>{heading || `Column ${index + 1}`}</option>)}
                 </select>
+                {field.key === "name" && mapping[LAST_NAME_KEY] !== undefined ? (
+                  <span className="mt-1 block text-[11px] text-slate-500">Joined with {headers[mapping[LAST_NAME_KEY]!] || `Column ${mapping[LAST_NAME_KEY]! + 1}`} as the last name.</span>
+                ) : null}
               </label>
             ))}
           </div>
@@ -275,7 +272,11 @@ export default function ImportList() {
               <tbody className="divide-y divide-slate-50">
                 {preview.map((row, i) => (
                   <tr key={i}>
-                    {mapped.map((field) => <td key={field.key} className="px-3 py-2 text-slate-700">{row[mapping[field.key]] ?? ""}</td>)}
+                    {mapped.map((field) => (
+                      <td key={field.key} className="px-3 py-2 text-slate-700">
+                        {field.key === "name" ? nameOf(row, mapping) : row[mapping[field.key]!] ?? ""}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>

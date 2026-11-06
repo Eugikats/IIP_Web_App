@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node scripts/run-next-dev.mjs",
     "build": "node scripts/run-next-build.mjs",
-    "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:action-permission-parity && pnpm check:ui-release-gates && pnpm test:trust-truth && pnpm test:authority-permissions && pnpm test:scan-math",
+    "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:action-permission-parity && pnpm check:ui-release-gates && pnpm test:trust-truth && pnpm test:authority-permissions && pnpm test:scan-math && pnpm test:import-mapping",
     "check:runtime-data": "node scripts/check-runtime-data-hygiene.mjs",
     "check:provider-status": "node scripts/check-provider-status.mjs",
     "check:role-routes": "node scripts/check-role-route-config.mjs",
@@ -18,6 +18,7 @@
     "test:trust-truth": "playwright test --config tests/trust-truth/playwright.config.ts",
     "test:authority-permissions": "playwright test --config tests/authority-permissions/playwright.config.ts",
     "test:scan-math": "playwright test --config tests/scan-math/playwright.config.ts",
+    "test:import-mapping": "playwright test --config tests/import-mapping/playwright.config.ts",
     "test:claims-core": "playwright test --config playwright.claims-core.config.ts",
     "test:release-gates": "playwright test --config tests/visual/playwright.config.ts --grep \"Gate (13|15|16|17|18)|signed-in authority\"",
     "storybook": "storybook dev -p 6006",
