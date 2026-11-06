@@ -4,6 +4,8 @@ using System.Text.Json;
 using InsuranceIntelligence.Api.Agents;
 using InsuranceIntelligence.Api.Jobs;
 using InsuranceIntelligence.Application.CustomerAssistant;
+using InsuranceIntelligence.Domain.Audit;
+using InsuranceIntelligence.Domain.Cases;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Jobs;
@@ -195,6 +197,22 @@ public static class WhatsAppAssistantRunner
 
                 logger.LogWarning("WhatsApp assistant skipped a message whose number no longer belongs to the queued workspace. Tenant={TenantId} Workspace={WorkspaceId} CorrelationId={CorrelationId}",
                     request.Scope.TenantId, request.Scope.WorkspaceId, request.CorrelationId);
+                if (services.GetService<IAuditRepository>() is { } audit)
+                {
+                    try
+                    {
+                        await audit.WriteAsync(new AuditEvent(
+                            Guid.NewGuid(), request.Scope, null, null, "system:customer-assistant", ActorType.Integration,
+                            "whatsapp.assistant_skipped_number_moved", DateTimeOffset.UtcNow,
+                            null, null, [], "WhatsApp", null, "skipped", null,
+                            "The business number no longer belongs to this workspace, so its queued messages were not answered from it. The messages stay in the Inbox.",
+                            request.CorrelationId), timeout.Token);
+                    }
+                    catch (Exception) when (!stoppingToken.IsCancellationRequested)
+                    {
+                        // The skip is already logged; failing to audit it must not retry the job into a wrong answer.
+                    }
+                }
                 return;
             }
         }

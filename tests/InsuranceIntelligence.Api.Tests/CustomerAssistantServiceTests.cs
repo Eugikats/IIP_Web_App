@@ -953,12 +953,13 @@ public sealed partial class CustomerAssistantServiceTests
         Assert.Equal("I sell shoes", lead.Facts.Single(fact => fact.Key == "occupation").Value);
         Assert.Equal("Kalerwe", lead.Facts.Single(fact => fact.Key == "area").Value);
         Assert.All(lead.Facts, fact => Assert.Equal(ProspectFactSource.Customer, fact.Source));
-        Assert.Equal(["Wrote in on WhatsApp", "Registered on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
+        // Every message from the number updates the same record, so each one adds a line to its activity.
+        Assert.Equal(["Wrote in on WhatsApp", "Registered on WhatsApp", "Wrote in on WhatsApp", "Asked to speak to a person"], lead.Activity.Select(entry => entry.Text));
         Assert.NotNull(lead.ThreadId);
     }
 
     [Fact]
-    public async Task Agent_AskingForAPersonAlone_DoesNotMakeSomeoneAProspect()
+    public async Task Agent_AskingForAPersonAlone_IsRecordedAsAContact_ButShowsNoInterestInACover()
     {
         var model = new ScriptedAgentModel()
             .Calls("hand_to_person", """{"reason":"Unhappy about how long a claim is taking"}""")
@@ -966,6 +967,34 @@ public sealed partial class CustomerAssistantServiceTests
         var fixture = Fixture.Create(agent: model);
 
         await fixture.HandleAsync("I want to talk to a manager about my claim");
+
+        // Every WhatsApp contact is recorded in the workspace that owns the number, so staff can see who wrote in.
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.Empty(lead.Interests);
+        // The record holds the fact of contact, not the words about the claim.
+        Assert.DoesNotContain("manager", lead.CustomerNeed, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Agent_AnExistingPolicyholderWhoWritesIn_IsRecordedAsAContactUnderTheirOwnName()
+    {
+        var model = new ScriptedAgentModel().Says("Hello Eugene.");
+        var fixture = Fixture.Create(agent: model);
+        fixture.SeedPolicyholder("Eugene Katusiime", "+256772118001", ("Motor", ValidPolicyNumber));
+
+        await fixture.HandleAsync("Hello");
+
+        var lead = Assert.Single(fixture.SalesLeads.Created);
+        Assert.Equal("Eugene Katusiime", lead.CustomerName);
+    }
+
+    [Fact]
+    public async Task Agent_Stop_IsNotRecordedAsAContact()
+    {
+        var model = new ScriptedAgentModel().Says("You will not hear from us again.");
+        var fixture = Fixture.Create(agent: model);
+
+        await fixture.HandleAsync("STOP");
 
         Assert.Empty(fixture.SalesLeads.Created);
     }
@@ -1725,7 +1754,14 @@ public sealed partial class CustomerAssistantServiceTests
     {
         public SafeList<(string WaId, string ThreadId)> Requests { get; } = [];
 
-        public void Enqueue(TenantScope scope, string waId, string threadId, string correlationId) => Requests.Add((waId, threadId));
+        // Like the production queue, one pending reading per conversation however often it is asked for.
+        public void Enqueue(TenantScope scope, string waId, string threadId, string correlationId)
+        {
+            if (!Requests.Contains((waId, threadId)))
+            {
+                Requests.Add((waId, threadId));
+            }
+        }
     }
 
     private sealed class FakeWhatsAppOutboundProvider : IWhatsAppOutboundProvider

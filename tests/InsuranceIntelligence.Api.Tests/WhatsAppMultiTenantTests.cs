@@ -411,7 +411,7 @@ public sealed class WhatsAppMultiTenantTests
         context.Request.Headers["x-demo-role"] = "ITAdmin";
         context.Request.Headers["x-demo-user-id"] = "admin-1";
         context.RequestServices = new ServiceCollection().AddLogging().BuildServiceProvider();
-        var result = WhatsAppIntegrationEndpoints.GetHealth(inbound, outbound, settings, options, context);
+        var result = await WhatsAppIntegrationEndpoints.GetHealth(inbound, outbound, settings, options, context, CancellationToken.None);
         var response = new DefaultHttpContext { RequestServices = context.RequestServices };
         response.Response.Body = new MemoryStream();
         await result.ExecuteAsync(response);

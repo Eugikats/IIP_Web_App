@@ -25,6 +25,10 @@ The product’s policy wording and approved product record remain the source of 
 
 **Inbound visibility:** A first message creates a contact prospect in the number owner's workspace, including when the sender already holds a policy. Later messages update the same record's last interaction and activity, and request a fresh score. The acquisition record stores a generic contact reason; claim and health details remain in the scoped conversation. The Inbox shows the durable inbound message even while the assistant is disabled or its analysis is pending. An opt-out must not create a new sales prospect.
 
+**Scoring:** A first contact is scored from what is recorded about the person (name, phone, any bank record). It shows little or "Not scored" until the conversation reading adds facts and interests, which needs the conversation insights agent and a configured model. A workspace that switches the Prospect Triage agent off in Admin, Agents is not scored by it, whether the request comes from a message or from the Score prospects button.
+
+**Number ownership:** A message is answered only while its business number still belongs to the workspace that queued it. If the number was moved or disconnected between the message arriving and the answer being prepared, the message stays in the Inbox, is not answered from the old workspace, and the skip is written to the audit trail (`whatsapp.assistant_skipped_number_moved`). The connection status shown in the portal is read from a cache at most 30 seconds old; routing a message always reads ownership fresh.
+
 The Acquisition dashboard and Inbox show whether WhatsApp is configured in the workspace being viewed. This does not certify that Meta delivered a recent webhook. An empty Inbox in a demonstration workspace does not mean that no messages reached another workspace. A number can have one workspace owner; historical messages remain in the workspace where they were received unless a separately approved, audited migration moves them.
 
 ## Consent and customer-data boundaries

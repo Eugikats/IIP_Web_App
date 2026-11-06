@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using InsuranceIntelligence.Api.Agents;
 using InsuranceIntelligence.Api.Integrations;
@@ -8,6 +9,7 @@ using InsuranceIntelligence.Application.WhatsApp;
 using InsuranceIntelligence.Domain.Common;
 using InsuranceIntelligence.Domain.Integrations;
 using InsuranceIntelligence.Domain.Jobs;
+using InsuranceIntelligence.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -43,6 +45,7 @@ public sealed class WhatsAppAssistantJobTests(MockedApiFactory factory) : IClass
                 ReviewSettleSeconds = 0,
             }));
             services.Replace(ServiceDescriptor.Scoped<ICustomerAssistantService>(_ => assistant));
+            services.Replace(ServiceDescriptor.Singleton<IWhatsAppRuntimeSettingsProvider>(new NumberOwners()));
             services.Replace(ServiceDescriptor.Singleton<IClaimTriageQueue>(triage));
         }));
         return (host, assistant, triage);
@@ -77,8 +80,13 @@ public sealed class WhatsAppAssistantJobTests(MockedApiFactory factory) : IClass
             CorrelationId = "corr",
         };
         await repository.SaveAsync(stored);
+        // The number belongs to this workspace, as it does once a workspace has connected it.
+        Owners(host).Connect(Phone, scope);
         return (inbound, stored.MessageId);
     }
+
+    private static NumberOwners Owners(WebApplicationFactory<Program> host) =>
+        (NumberOwners)host.Services.GetRequiredService<IWhatsAppRuntimeSettingsProvider>();
 
     private static async Task<bool> EnqueueAsync(WebApplicationFactory<Program> host, TenantScope scope, params WhatsAppInboundMessage[] messages)
     {
@@ -281,6 +289,72 @@ public sealed class WhatsAppAssistantJobTests(MockedApiFactory factory) : IClass
     }
 
     private sealed record Handled(TenantScope Scope, IReadOnlyList<WhatsAppInboundMessage> Messages, bool AutoReply);
+
+    [Fact]
+    public async Task ANumberThatMovedToAnotherWorkspace_IsNotAnsweredFromTheWorkspaceItLeft()
+    {
+        var (host, assistant, _) = Start();
+        using var _h = host;
+        var scope = TenantScope.Create(MockedApiFactory.NewTenant(), "workspace-main");
+        var newOwner = TenantScope.Create(MockedApiFactory.NewTenant(), "workspace-main");
+        var (inbound, _) = await StoreInboundAsync(host, scope, "hello");
+        await EnqueueAsync(host, scope, inbound);
+
+        // The number is moved between the webhook saving the message and the job running.
+        Owners(host).Connect(Phone, newOwner);
+        await StepAsync(host, scope);
+
+        Assert.Empty(assistant.Handled);
+    }
+
+    [Fact]
+    public async Task ANumberThatNoWorkspaceHoldsAnyMore_IsNotAnswered()
+    {
+        var (host, assistant, _) = Start();
+        using var _h = host;
+        var scope = TenantScope.Create(MockedApiFactory.NewTenant(), "workspace-main");
+        var (inbound, _) = await StoreInboundAsync(host, scope, "hello");
+        await EnqueueAsync(host, scope, inbound);
+
+        Owners(host).Disconnect(Phone);
+        await StepAsync(host, scope);
+
+        Assert.Empty(assistant.Handled);
+    }
+
+    [Fact]
+    public async Task ANumberTheWorkspaceStillHolds_IsAnswered()
+    {
+        var (host, assistant, _) = Start();
+        using var _h = host;
+        var scope = TenantScope.Create(MockedApiFactory.NewTenant(), "workspace-main");
+        var (inbound, _) = await StoreInboundAsync(host, scope, "hello");
+        await EnqueueAsync(host, scope, inbound);
+
+        await StepAsync(host, scope);
+
+        Assert.Single(assistant.Handled);
+    }
+
+    /// <summary>Which workspace holds which business number, as the saved connections would say.</summary>
+    private sealed class NumberOwners : IWhatsAppRuntimeSettingsProvider
+    {
+        private readonly ConcurrentDictionary<string, WhatsAppEffectiveSettings> owners = new(StringComparer.Ordinal);
+
+        public void Connect(string phone, TenantScope scope) => owners[phone] = new WhatsAppEffectiveSettings(
+            phone, "token", "secret", "verify", "https://graph.example", 10, scope.TenantId, scope.WorkspaceId, null, "TenantConfigured");
+
+        public void Disconnect(string phone) => owners.TryRemove(phone, out _);
+
+        public IReadOnlyList<WhatsAppEffectiveSettings> All => owners.Values.ToArray();
+        public WhatsAppEffectiveSettings? Current => null;
+        public bool HasAny => !owners.IsEmpty;
+        public WhatsAppEffectiveSettings? ForScope(TenantScope scope) =>
+            All.FirstOrDefault(item => item.TenantId == scope.TenantId && item.WorkspaceId == scope.WorkspaceId);
+        public WhatsAppEffectiveSettings? ForPhoneNumber(string phoneNumberId) =>
+            owners.GetValueOrDefault(phoneNumberId ?? string.Empty);
+        public Task RefreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
 
     private sealed class RecordingAssistant : ICustomerAssistantService
     {

@@ -34,7 +34,9 @@ public static class WhatsAppIntegrationEndpoints
         {
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["tenantScope"] = [validationError] });
         }
-        await settingsProvider.RefreshForInboundAsync(cancellationToken);
+        // Display only, polled by every open Inbox and Acquisition tab: the cached snapshot (at most
+        // 30 seconds old) is enough. Routing a message is the path that must read ownership fresh.
+        await settingsProvider.RefreshIfStaleAsync(cancellationToken);
         var settings = settingsProvider.ForScope(scope);
         var mappingConfigured = settings is not null
             && !string.IsNullOrWhiteSpace(settings.TenantId)

@@ -29,7 +29,9 @@ public sealed class ProspectTriageService(
     IAgentRunRecorder? agentRunRecorder = null,
     IKnowledgeDocumentRepository? knowledgeRepository = null,
     // Optional: which covers this workspace sells (build-loop item 27). Without it the deployment's own catalogue is used.
-    IAssistantBrandProvider? brandProvider = null) : IProspectTriageService
+    IAssistantBrandProvider? brandProvider = null,
+    // Optional: the kill switch. A workspace that has switched the triage agent off is not scored by it.
+    IAgentGate? agentGate = null) : IProspectTriageService
 {
     public const string AgentKey = "prospect-triage";
 
@@ -56,6 +58,11 @@ public sealed class ProspectTriageService(
     public async Task<TriageRunResult> ScoreAsync(TenantScope scope, string? leadId, string actorId, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
+        if (agentGate is not null && !(await agentGate.CheckAsync(scope, AgentKey, cancellationToken)).Enabled)
+        {
+            return new TriageRunResult(0, 0, now);
+        }
+
         using var brandBinding = KatoBrand.Use(await AssistantBrands.ForAsync(brandProvider, scope, cancellationToken));
 
         var leads = await readRepository.ListLeadsAsync(scope.TenantId, scope.WorkspaceId, cancellationToken);

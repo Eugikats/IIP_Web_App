@@ -1,3 +1,4 @@
+using InsuranceIntelligence.Application.Agents;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.SalesLeads;
@@ -42,6 +43,39 @@ public sealed class ProspectTriageServiceTests
 
         await Assert.ThrowsAsync<PermissionDeniedException>(() => service.RunAsync(null));
         Assert.Null(store.Lead.Triage);
+    }
+
+    [Fact]
+    public async Task A_workspace_that_switched_the_triage_agent_off_is_not_scored()
+    {
+        var store = new Store(Boda());
+        var service = new ProspectTriageService(new NoContext(), new DenyPermissions(), store, store, new NullAudit(), agentGate: new FixedGate(false));
+
+        var result = await service.ScoreAsync(Scope, "L1", "system:customer-assistant");
+
+        Assert.Equal(0, result.Scored);
+        Assert.Null(store.Lead.Triage);
+    }
+
+    [Fact]
+    public async Task A_workspace_that_left_the_triage_agent_on_is_scored()
+    {
+        var store = new Store(Boda());
+        var service = new ProspectTriageService(new NoContext(), new DenyPermissions(), store, store, new NullAudit(), agentGate: new FixedGate(true));
+
+        var result = await service.ScoreAsync(Scope, "L1", "system:customer-assistant");
+
+        Assert.Equal(1, result.Scored);
+        Assert.NotNull(store.Lead.Triage);
+    }
+
+    private sealed class FixedGate(bool enabled) : IAgentGate
+    {
+        public Task<AgentGateResult> CheckAsync(string agentKey, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AgentGateResult(enabled, agentKey, agentKey, null, null, null));
+
+        public Task<AgentGateResult> CheckAsync(TenantScope scope, string agentKey, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AgentGateResult(enabled, agentKey, agentKey, null, null, null));
     }
 
     private sealed class NoContext : ITenantContextAccessor
